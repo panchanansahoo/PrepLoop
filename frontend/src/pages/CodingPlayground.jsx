@@ -283,13 +283,14 @@ export default function CodingPlayground() {
     const [showShortcuts, setShowShortcuts] = useState(false);
     const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
     const [shareCopied, setShareCopied] = useState(false);
-    const [showSidebar, setShowSidebar] = useState(false);
+    const [showSidebar, setShowSidebar] = useState(true);
     const [sidebarTab, setSidebarTab] = useState('input');
 
     // Console resize ref
     const draggingRef = useRef(null);
     const monacoRef = useRef(null);
     const rootRef = useRef(null);
+    const consoleEndRef = useRef(null);
 
     // ─── Load saved code or default ───
     useEffect(() => {
@@ -312,6 +313,11 @@ export default function CodingPlayground() {
         const id = setInterval(() => setTimer(t => t + 1), 1000);
         return () => clearInterval(id);
     }, [timerActive]);
+
+    // ─── Auto-scroll console ───
+    useEffect(() => {
+        consoleEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [consoleOutput]);
 
     // ─── Language change ───
     const handleLanguageChange = (lang) => {
@@ -591,7 +597,6 @@ export default function CodingPlayground() {
                             <Terminal size={16} />
                         </div>
                         <h1 className="pg-title">Coding Playground</h1>
-                        <span className="pg-title-badge">Free Mode</span>
                     </div>
                 </div>
 
@@ -697,6 +702,15 @@ export default function CodingPlayground() {
                     </div>
                 </div>
 
+                {/* Centered Run Button */}
+                <div className="pg-topbar-center">
+                    <button className="pg-run-btn" onClick={handleRun} disabled={running} style={{ padding: '8px 24px', fontSize: '13px', borderRadius: '10px' }}>
+                        <Play size={16} style={{ fill: 'currentColor' }} />
+                        <span>{running ? 'Running...' : 'Run Code'}</span>
+                        <kbd style={{ marginLeft: '8px' }}>Ctrl+&#x21b5;</kbd>
+                    </button>
+                </div>
+
                 <div className="pg-topbar-right">
                     {/* Timer */}
                     <button
@@ -714,16 +728,9 @@ export default function CodingPlayground() {
 
                     {/* Actions */}
                     <div className="pg-toolbar-divider" />
-                    <button className="pg-toolbar-btn-icon" onClick={() => handleFontSize(-1)} title="Zoom out (Ctrl-)"><ZoomOut size={14} /></button>
-                    <span className="pg-font-label">{fontSize}px</span>
-                    <button className="pg-toolbar-btn-icon" onClick={() => handleFontSize(1)} title="Zoom in (Ctrl+)"><ZoomIn size={14} /></button>
-                    <div className="pg-toolbar-divider" />
-                    <button className="pg-toolbar-btn-icon" onClick={handleFullscreen} title="Fullscreen (F11)">{isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}</button>
-                    <button className="pg-toolbar-btn-icon" onClick={handleReset} title="Reset"><Trash2 size={14} /></button>
                     <button className={`pg-toolbar-btn-icon ${showSidebar ? 'pg-active' : ''}`} onClick={() => setShowSidebar(s => !s)} title="Toggle sidebar">
                         {showSidebar ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
                     </button>
-                    <button className="pg-run-btn" onClick={handleRun} disabled={running}><Play size={14} /><span>{running ? 'Running...' : 'Run'}</span><kbd>Ctrl+&#x21b5;</kbd></button>
                 </div>
             </div>
 
@@ -800,17 +807,17 @@ export default function CodingPlayground() {
                                     </div>
                                 ))
                             )}
+                            <div ref={consoleEndRef} />
                         </div>
                     </div>
                 </div>
 
                 {/* Right Sidebar */}
-                {showSidebar && (
-                    <div className="pg-sidebar">
-                        <div className="pg-sidebar-tabs">
+                <div className={`pg-sidebar ${!showSidebar ? 'pg-sidebar-collapsed' : ''}`}>
+                    <div className="pg-sidebar-tabs" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingBottom: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                             {[
                                 { id: 'input', icon: <TextCursorInput size={16} />, label: 'Input' },
-                                { id: 'actions', icon: <Share2 size={16} />, label: 'Actions' },
                                 { id: 'history', icon: <History size={16} />, label: 'History' },
                                 { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Keys' },
                                 { id: 'info', icon: <Info size={16} />, label: 'Info' },
@@ -825,143 +832,135 @@ export default function CodingPlayground() {
                                 </button>
                             ))}
                         </div>
-
-                        <div className="pg-sidebar-content">
-                            {sidebarTab === 'input' && (
-                                <div className="pg-sidebar-section">
-                                    <div className="pg-sidebar-section-header">
-                                        <TextCursorInput size={14} />
-                                        <span>Input (stdin)</span>
-                                    </div>
-                                    <textarea
-                                        className="pg-stdin-input pg-sidebar-textarea"
-                                        value={stdinInput}
-                                        onChange={e => setStdinInput(e.target.value)}
-                                        placeholder={"Enter input for your program...\nEach line = one input\n\nPython: input()\nC++: cin >> x\nJava: Scanner"}
-                                        spellCheck={false}
-                                    />
-                                </div>
-                            )}
-
-                            {sidebarTab === 'actions' && (
-                                <div className="pg-sidebar-section">
-                                    <div className="pg-sidebar-section-header">
-                                        <Share2 size={14} />
-                                        <span>Actions</span>
-                                    </div>
-                                    <div className="pg-sidebar-scroll">
-                                        <div className="pg-sidebar-actions">
-                                            <button className="pg-sidebar-action-btn" onClick={handleShare}>
-                                                {shareCopied ? <Check size={16} /> : <Share2 size={16} />}
-                                                <span>{shareCopied ? 'Link Copied!' : 'Share Code'}</span>
-                                                <span className="pg-sidebar-action-hint">Copy shareable URL</span>
-                                            </button>
-                                            <button className="pg-sidebar-action-btn" onClick={handleCopy}>
-                                                {copied ? <Check size={16} /> : <Copy size={16} />}
-                                                <span>{copied ? 'Copied!' : 'Copy Code'}</span>
-                                                <span className="pg-sidebar-action-hint">Copy to clipboard</span>
-                                            </button>
-                                            <button className="pg-sidebar-action-btn" onClick={handleDownload}>
-                                                <Download size={16} />
-                                                <span>Download</span>
-                                                <span className="pg-sidebar-action-hint">.{({ python: 'py', javascript: 'js', cpp: 'cpp', java: 'java', go: 'go' })[language] || 'txt'} file</span>
-                                            </button>
-                                            <button className="pg-sidebar-action-btn" onClick={handleReset}>
-                                                <RotateCcw size={16} />
-                                                <span>Reset Code</span>
-                                                <span className="pg-sidebar-action-hint">Restore default</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {sidebarTab === 'history' && (
-                                <div className="pg-sidebar-section">
-                                    <div className="pg-sidebar-section-header">
-                                        <History size={14} />
-                                        <span>History</span>
-                                        <span className="pg-sidebar-badge">{execHistory.length}</span>
-                                    </div>
-                                    <div className="pg-sidebar-scroll">
-                                        {execHistory.length === 0 ? (
-                                            <div className="pg-sidebar-empty">
-                                                <History size={28} strokeWidth={1} />
-                                                <p>No runs yet</p>
-                                                <span>Click Run to start!</span>
-                                            </div>
-                                        ) : execHistory.map(entry => (
-                                            <div key={entry.id} className={`pg-history-entry ${entry.success ? '' : 'pg-history-error'}`}>
-                                                <div className="pg-history-meta">
-                                                    <span>{entry.timestamp}</span>
-                                                    <span className="pg-history-lang">{entry.language}</span>
-                                                    {entry.success ? <span style={{ color: '#4ade80' }}>✓</span> : <span style={{ color: '#f87171' }}>✗</span>}
-                                                </div>
-                                                <div className="pg-history-preview">{entry.outputPreview}</div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {sidebarTab === 'shortcuts' && (
-                                <div className="pg-sidebar-section">
-                                    <div className="pg-sidebar-section-header">
-                                        <Keyboard size={14} />
-                                        <span>Shortcuts</span>
-                                    </div>
-                                    <div className="pg-sidebar-scroll">
-                                        {[
-                                            ['Ctrl+Enter', 'Run code'],
-                                            ['Ctrl + =', 'Zoom in'],
-                                            ['Ctrl + -', 'Zoom out'],
-                                            ['Ctrl + /', 'Shortcuts'],
-                                            ['Ctrl + I', 'Input panel'],
-                                            ['F11', 'Fullscreen'],
-                                            ['Ctrl + D', 'Duplicate line'],
-                                            ['Ctrl+Shift+K', 'Delete line'],
-                                            ['Alt + ↑/↓', 'Move line'],
-                                            ['Ctrl + [/]', 'Indent'],
-                                        ].map(([key, action], i) => (
-                                            <div key={i} className="pg-shortcut-row">
-                                                <kbd>{key}</kbd>
-                                                <span>{action}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {sidebarTab === 'info' && (
-                                <div className="pg-sidebar-section">
-                                    <div className="pg-sidebar-section-header">
-                                        <Info size={14} />
-                                        <span>Code Info</span>
-                                    </div>
-                                    <div className="pg-sidebar-scroll">
-                                        <div className="pg-info-grid">
-                                            {[
-                                                ['Language', `${langInfo.icon} ${langInfo.label}`],
-                                                ['Cursor', `Ln ${cursorPos.line}, Col ${cursorPos.col}`],
-                                                ['Lines', code.split('\n').length],
-                                                ['Characters', code.length],
-                                                ['Font Size', `${fontSize}px`],
-                                                ['Encoding', 'UTF-8'],
-                                                ['Theme', editorTheme],
-                                                ['Total Runs', execHistory.length],
-                                            ].map(([label, value], i) => (
-                                                <div key={i} className="pg-info-item">
-                                                    <span className="pg-info-label">{label}</span>
-                                                    <span className="pg-info-value">{value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
+                            <div style={{ width: '20px', height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
+                            <button className="pg-sidebar-tab" onClick={handleShare} title="Share Code">
+                                {shareCopied ? <Check size={16} /> : <Share2 size={16} />}
+                            </button>
+                            <button className="pg-sidebar-tab" onClick={handleCopy} title="Copy Code">
+                                {copied ? <Check size={16} /> : <Copy size={16} />}
+                            </button>
+                            <button className="pg-sidebar-tab" onClick={handleDownload} title="Download">
+                                <Download size={16} />
+                            </button>
+                            <button className="pg-sidebar-tab" onClick={handleReset} title="Reset Code">
+                                <RotateCcw size={16} />
+                            </button>
+                            <div style={{ width: '20px', height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
+                            <button className="pg-sidebar-tab" onClick={() => handleFontSize(1)} title="Zoom In (Ctrl+)">
+                                <ZoomIn size={16} />
+                            </button>
+                            <button className="pg-sidebar-tab" onClick={() => handleFontSize(-1)} title="Zoom Out (Ctrl-)">
+                                <ZoomOut size={16} />
+                            </button>
+                            <button className="pg-sidebar-tab" onClick={handleFullscreen} title={`Fullscreen (F11) - ${isFullscreen ? 'Exit' : 'Enter'}`}>
+                                {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                            </button>
                         </div>
                     </div>
-                )}
+
+                    <div className="pg-sidebar-content">
+                        {sidebarTab === 'input' && (
+                            <div className="pg-sidebar-section">
+                                <div className="pg-sidebar-section-header">
+                                    <TextCursorInput size={14} />
+                                    <span>Input (stdin)</span>
+                                </div>
+                                <textarea
+                                    className="pg-stdin-input pg-sidebar-textarea"
+                                    value={stdinInput}
+                                    onChange={e => setStdinInput(e.target.value)}
+                                    placeholder={"Enter input for your program...\nEach line = one input\n\nPython: input()\nC++: cin >> x\nJava: Scanner"}
+                                    spellCheck={false}
+                                />
+                            </div>
+                        )}
+
+                        {sidebarTab === 'history' && (
+                            <div className="pg-sidebar-section">
+                                <div className="pg-sidebar-section-header">
+                                    <History size={14} />
+                                    <span>History</span>
+                                    <span className="pg-sidebar-badge">{execHistory.length}</span>
+                                </div>
+                                <div className="pg-sidebar-scroll">
+                                    {execHistory.length === 0 ? (
+                                        <div className="pg-sidebar-empty">
+                                            <History size={28} strokeWidth={1} />
+                                            <p>No runs yet</p>
+                                            <span>Click Run to start!</span>
+                                        </div>
+                                    ) : execHistory.map(entry => (
+                                        <div key={entry.id} className={`pg-history-entry ${entry.success ? '' : 'pg-history-error'}`}>
+                                            <div className="pg-history-meta">
+                                                <span>{entry.timestamp}</span>
+                                                <span className="pg-history-lang">{entry.language}</span>
+                                                {entry.success ? <span style={{ color: '#4ade80' }}>✓</span> : <span style={{ color: '#f87171' }}>✗</span>}
+                                            </div>
+                                            <div className="pg-history-preview">{entry.outputPreview}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {sidebarTab === 'shortcuts' && (
+                            <div className="pg-sidebar-section">
+                                <div className="pg-sidebar-section-header">
+                                    <Keyboard size={14} />
+                                    <span>Shortcuts</span>
+                                </div>
+                                <div className="pg-sidebar-scroll">
+                                    {[
+                                        ['Ctrl+Enter', 'Run code'],
+                                        ['Ctrl + =', 'Zoom in'],
+                                        ['Ctrl + -', 'Zoom out'],
+                                        ['Ctrl + /', 'Shortcuts'],
+                                        ['Ctrl + I', 'Input panel'],
+                                        ['F11', 'Fullscreen'],
+                                        ['Ctrl + D', 'Duplicate line'],
+                                        ['Ctrl+Shift+K', 'Delete line'],
+                                        ['Alt + ↑/↓', 'Move line'],
+                                        ['Ctrl + [/]', 'Indent'],
+                                    ].map(([key, action], i) => (
+                                        <div key={i} className="pg-shortcut-row">
+                                            <kbd>{key}</kbd>
+                                            <span>{action}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {sidebarTab === 'info' && (
+                            <div className="pg-sidebar-section">
+                                <div className="pg-sidebar-section-header">
+                                    <Info size={14} />
+                                    <span>Code Info</span>
+                                </div>
+                                <div className="pg-sidebar-scroll">
+                                    <div className="pg-info-grid">
+                                        {[
+                                            ['Language', `${langInfo.icon} ${langInfo.label}`],
+                                            ['Cursor', `Ln ${cursorPos.line}, Col ${cursorPos.col}`],
+                                            ['Lines', code.split('\n').length],
+                                            ['Characters', code.length],
+                                            ['Font Size', `${fontSize}px`],
+                                            ['Encoding', 'UTF-8'],
+                                            ['Theme', editorTheme],
+                                            ['Total Runs', execHistory.length],
+                                        ].map(([label, value], i) => (
+                                            <div key={i} className="pg-info-item">
+                                                <span className="pg-info-label">{label}</span>
+                                                <span className="pg-info-value">{value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Status Bar */}

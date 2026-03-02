@@ -19,6 +19,7 @@ import ProblemSolver from './pages/ProblemSolver';
 
 
 import Pricing from './pages/Pricing';
+import Payment from './pages/Payment';
 import BlogList from './pages/BlogList';
 import BlogPost from './pages/BlogPost';
 import CreateBlog from './pages/CreateBlog';
@@ -53,6 +54,8 @@ import TechnicalLearningPath from './pages/TechnicalLearningPath';
 import TechnicalTopicLearning from './pages/TechnicalTopicLearning';
 import HRLearningPath from './pages/HRLearningPath';
 import HRTopicLearning from './pages/HRTopicLearning';
+import SystemDesignPath from './pages/SystemDesignPath';
+import SystemDesignTopicLearning from './pages/SystemDesignTopicLearning';
 import AITutorHub from './pages/AITutorHub';
 import CompanyPrep from './pages/CompanyPrep';
 import CompanyInterview from './pages/CompanyInterview';
@@ -112,14 +115,15 @@ function AppContent() {
   }, [location.pathname]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/privacy', '/terms', '/library'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/privacy', '/terms', '/library', '/payment'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
-  const isFullScreenRoute = isCodeEditorRoute || isPlaygroundRoute;
+  const isPaymentRoute = location.pathname.startsWith('/payment');
+  const isFullScreenRoute = isCodeEditorRoute || isPlaygroundRoute || isPaymentRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
   const showSidebar = user && !isPublicPage;
-  const hideNavbar = false;
+  const hideNavbar = isPaymentRoute;
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute;
 
   return (
@@ -188,6 +192,8 @@ function AppContent() {
             <Route path="/technical-path/:topicId" element={<TechnicalTopicLearning />} />
             <Route path="/hr-path" element={<HRLearningPath />} />
             <Route path="/hr-path/:topicId" element={<HRTopicLearning />} />
+            <Route path="/system-design" element={<SystemDesignPath />} />
+            <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
             <Route path="/ai-tutor" element={<AITutorHub />} />
             <Route path="/company-prep" element={<CompanyPrep />} />
             <Route path="/company-interview" element={<CompanyInterview />} />
@@ -197,6 +203,7 @@ function AppContent() {
             <Route path="/playground" element={<CodingPlayground />} />
 
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/payment" element={<Payment />} />
             <Route path="/library" element={<Library />} />
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/new" element={<PrivateRoute><CreateBlog /></PrivateRoute>} />
@@ -217,7 +224,7 @@ function AppContent() {
           </Routes>
         </div>
 
-        {!showSidebar && !isCodeEditorRoute && <Footer />}
+        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && <Footer />}
       </div>
     </div>
   );

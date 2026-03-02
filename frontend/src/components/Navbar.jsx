@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import logo from '../assets/logo.svg';
+import { useNotifications } from '../hooks/useNotifications';
 
 // Page title mapping for breadcrumb
 const PAGE_TITLES = {
@@ -41,6 +42,7 @@ function getPageTitle(pathname) {
 
 export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const { user, logout } = useAuth();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user);
   const navigate = useNavigate();
   const location = useLocation();
   const [scrolled, setScrolled] = useState(false);
@@ -219,7 +221,6 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
   // ─── Premium Dashboard Navbar ───
   const pageTitle = getPageTitle(location.pathname);
-  const notifCount = 3; // Demo count
   const userTier = 'Free'; // or 'Pro'
 
   return (
@@ -292,8 +293,8 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               onClick={() => { setIsNotifOpen(!isNotifOpen); setIsDropdownOpen(false); }}
             >
               <Bell size={19} />
-              {notifCount > 0 && (
-                <span className="notif-badge">{notifCount > 9 ? '9+' : notifCount}</span>
+              {unreadCount > 0 && (
+                <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
               )}
             </button>
 
@@ -301,29 +302,39 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               <div className="premium-dropdown notif-dropdown">
                 <div className="premium-dropdown-header">
                   <span>Notifications</span>
-                  <button className="premium-dropdown-action">Mark all read</button>
+                  <button className="premium-dropdown-action" onClick={markAllAsRead}>Mark all read</button>
                 </div>
                 <div className="notif-list">
-                  <div className="notif-item unread">
-                    <div className="notif-dot" />
-                    <div>
-                      <p className="notif-text">🎯 New daily challenge available!</p>
-                      <span className="notif-time">2 min ago</span>
+                  {notifications.length > 0 ? (
+                    notifications.map(notif => (
+                      <div
+                        key={notif.id}
+                        className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
+                        onClick={() => {
+                          markAsRead(notif.id);
+                          if (notif.external) {
+                            window.open(notif.link, '_blank');
+                          } else {
+                            navigate(notif.link);
+                            setIsNotifOpen(false);
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        {!notif.isRead && <div className="notif-dot" />}
+                        <div>
+                          <p className="notif-text">{notif.title}</p>
+                          <span className="notif-time">{notif.timeText}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="notif-item">
+                      <div>
+                        <p className="notif-text" style={{ color: 'var(--zinc-500)' }}>No new notifications</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="notif-item unread">
-                    <div className="notif-dot" />
-                    <div>
-                      <p className="notif-text">🔥 You're on a 12-day streak!</p>
-                      <span className="notif-time">1 hour ago</span>
-                    </div>
-                  </div>
-                  <div className="notif-item">
-                    <div>
-                      <p className="notif-text">⭐ New problems added to Arrays topic</p>
-                      <span className="notif-time">Yesterday</span>
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

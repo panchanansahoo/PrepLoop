@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { CheckCircle, ChevronDown, ArrowRight, Zap, BookOpen, Star, Sparkles } from 'lucide-react';
 
 const plans = [
@@ -18,11 +19,12 @@ const plans = [
         ],
         btnText: 'Get Started',
         btnClass: 'btn-outline',
-        popular: false
+        popular: false,
+        btnLink: '/signup'
     },
     {
         name: 'Pro',
-        price: '$19',
+        price: '₹99',
         pricePer: '/mo',
         priceSub: 'Billed monthly · Save 20% annually',
         features: [
@@ -37,11 +39,12 @@ const plans = [
         ],
         btnText: 'Get Pro',
         btnClass: 'btn-primary',
-        popular: true
+        popular: true,
+        btnLink: '/payment?plan=pro'
     },
     {
         name: 'Elite',
-        price: '$39',
+        price: '₹299',
         pricePer: '/mo',
         priceSub: 'Billed monthly · Save 20% annually',
         features: [
@@ -56,7 +59,8 @@ const plans = [
         ],
         btnText: 'Get Elite',
         btnClass: 'btn-primary',
-        popular: false
+        popular: false,
+        btnLink: '/payment?plan=elite'
     }
 ];
 
@@ -72,6 +76,7 @@ const faqs = [
 ];
 
 export default function Pricing() {
+    const { user } = useAuth();
     const [openFaq, setOpenFaq] = useState(null);
 
     return (
@@ -121,7 +126,7 @@ export default function Pricing() {
                                     <li key={j}><CheckCircle size={16} /> {f}</li>
                                 ))}
                             </ul>
-                            <Link to="/signup" className={`btn ${plan.btnClass}`} style={{ width: '100%' }}>
+                            <Link to={(plan.name === 'Pro' || plan.name === 'Elite') && (!user || user.isGuest) ? '/login' : plan.btnLink} className={`btn ${plan.btnClass}`} style={{ width: '100%' }}>
                                 {plan.btnText}
                             </Link>
                         </div>

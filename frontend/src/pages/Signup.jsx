@@ -110,7 +110,7 @@ export default function Signup() {
             <div style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
               background: 'rgba(255,71,87,0.1)', border: '1px solid rgba(255,71,87,0.2)',
-              borderRadius: 10, color: 'var(--red)', fontSize: 14, marginBottom: 20
+              borderRadius: 10, color: '#ff4757', fontSize: 14, marginBottom: 20
             }}>
               <AlertCircle size={18} /> {error}
             </div>

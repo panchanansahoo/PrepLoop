@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import {
   Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
   CheckCircle, ChevronDown, ArrowRight, Users, Star, Shield,
@@ -165,11 +166,12 @@ const pricingPlans = [
     ],
     btnText: 'Get Started',
     btnClass: 'btn-outline',
-    popular: false
+    popular: false,
+    btnLink: '/signup'
   },
   {
     name: 'Pro',
-    price: '$19',
+    price: '₹99',
     pricePer: '/mo',
     priceSub: 'Billed monthly · Save 20% annually',
     features: [
@@ -181,11 +183,12 @@ const pricingPlans = [
     ],
     btnText: 'Get Pro',
     btnClass: 'btn-primary',
-    popular: true
+    popular: true,
+    btnLink: '/payment?plan=pro'
   },
   {
     name: 'Premium',
-    price: '$39',
+    price: '₹299',
     pricePer: '/mo',
     priceSub: 'Billed monthly · Save 20% annually',
     features: [
@@ -199,7 +202,8 @@ const pricingPlans = [
     ],
     btnText: 'Get Premium',
     btnClass: 'btn-primary',
-    popular: false
+    popular: false,
+    btnLink: '/payment?plan=premium'
   }
 ];
 
@@ -334,6 +338,7 @@ function ActivityTicker() {
 /* ═══════════════════════════════════════════════ */
 
 export default function Home() {
+  const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
 
@@ -731,7 +736,7 @@ export default function Home() {
                 ))}
               </ul>
               <Button asChild variant={plan.btnClass === 'btn-primary' ? 'default' : 'outline'} className="w-[calc(100%-3rem)] mx-auto mb-2">
-                <Link to="/signup">{plan.btnText}</Link>
+                <Link to={(plan.name === 'Pro' || plan.name === 'Premium') && (!user || user.isGuest) ? '/login' : plan.btnLink}>{plan.btnText}</Link>
               </Button>
             </div>
           ))}

@@ -7,7 +7,7 @@ import {
     CalendarDays, BarChart3, Clock, Settings, User,
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal
+    Building2, Mic, Terminal, Network
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -38,6 +38,7 @@ const navSections = [
             { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
             { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
             { path: '/ai-tutor', label: 'AI Tutor', subtitle: 'Guided DSA, SQL & aptitude', icon: Sparkles },
+            { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
         ]
     },
     {

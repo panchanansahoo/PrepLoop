@@ -2,17 +2,17 @@
 
 export const SD_THEORY = {
 
-'scalability-basics': {
-  sections: [
-    {
-      title: '📖 Vertical vs Horizontal Scaling',
-      steps: [
-        'Vertical Scaling (Scale Up): add more power (CPU, RAM, SSD) to your existing server.',
-        'Horizontal Scaling (Scale Out): add more servers and distribute the load.',
-        'Vertical: simpler, no code changes, but there\'s a physical ceiling (biggest AWS instance: 24TB RAM).',
-        'Horizontal: theoretically unlimited, but requires stateless design and a load balancer.',
-      ],
-      visual: `VERTICAL SCALING (Scale Up)
+  'scalability-basics': {
+    sections: [
+      {
+        title: '📖 Vertical vs Horizontal Scaling',
+        steps: [
+          'Vertical Scaling (Scale Up): add more power (CPU, RAM, SSD) to your existing server.',
+          'Horizontal Scaling (Scale Out): add more servers and distribute the load.',
+          'Vertical: simpler, no code changes, but there\'s a physical ceiling (biggest AWS instance: 24TB RAM).',
+          'Horizontal: theoretically unlimited, but requires stateless design and a load balancer.',
+        ],
+        visual: `VERTICAL SCALING (Scale Up)
 ┌──────────────────────────────┐
 │  Server v1    →    Server v2 │
 │  4 CPU              32 CPU   │
@@ -35,16 +35,16 @@ HORIZONTAL SCALING (Scale Out)
                 └─────────┘
   Add more servers as needed
   ✓ No ceiling  ✗ More complex`,
-    },
-    {
-      title: '📖 Latency Numbers Every Engineer Should Know',
-      steps: [
-        'Understanding latency hierarchy helps you make informed design decisions.',
-        'Rule of thumb: each layer adds 10-100x more latency.',
-        'Always measure P99 latency, not just average — tail latency affects user experience.',
-        'SLA example: 99.9% uptime = 8.7 hours downtime/year, 99.99% = 52 minutes/year.',
-      ],
-      visual: `LATENCY REFERENCE (approximate):
+      },
+      {
+        title: '📖 Latency Numbers Every Engineer Should Know',
+        steps: [
+          'Understanding latency hierarchy helps you make informed design decisions.',
+          'Rule of thumb: each layer adds 10-100x more latency.',
+          'Always measure P99 latency, not just average — tail latency affects user experience.',
+          'SLA example: 99.9% uptime = 8.7 hours downtime/year, 99.99% = 52 minutes/year.',
+        ],
+        visual: `LATENCY REFERENCE (approximate):
 ┌──────────────────────────────────────────────┐
 │ Operation                │ Latency           │
 ├──────────────────────────┼───────────────────┤
@@ -70,21 +70,21 @@ AVAILABILITY TABLE:
 │ 99.99% │ 52.6 minutes            │
 │ 99.999%│ 5.26 minutes            │
 └────────┴─────────────────────────┘`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'cap-consistency': {
-  sections: [
-    {
-      title: '📖 CAP Theorem — Visual Guide',
-      steps: [
-        'CAP says: during a network partition, a distributed system must choose between Consistency and Availability.',
-        'CP system: rejects writes/reads on the partitioned node — data stays consistent.',
-        'AP system: continues serving reads/writes, even if data is stale — stays available.',
-        'In practice, partitions are rare. Most of the time, you have all three.',
-      ],
-      visual: `THE CAP TRIANGLE:
+  'cap-consistency': {
+    sections: [
+      {
+        title: '📖 CAP Theorem — Visual Guide',
+        steps: [
+          'CAP says: during a network partition, a distributed system must choose between Consistency and Availability.',
+          'CP system: rejects writes/reads on the partitioned node — data stays consistent.',
+          'AP system: continues serving reads/writes, even if data is stale — stays available.',
+          'In practice, partitions are rare. Most of the time, you have all three.',
+        ],
+        visual: `THE CAP TRIANGLE:
 
               Consistency (C)
                   ╱╲
@@ -114,17 +114,17 @@ REAL-WORLD EXAMPLES:
 │ Google Spanner   │ CP     │ Uses TrueTime for global  │
 │                  │        │ consistency               │
 └──────────────────┴────────┴──────────────────────────┘`,
-    },
-    {
-      title: '📖 Consistency Models Spectrum',
-      steps: [
-        'Strong (Linearizable): every read returns the most recent write. Most expensive.',
-        'Sequential: all operations appear in some total order consistent with per-process ordering.',
-        'Causal: if A causes B, everyone sees A before B. Concurrent writes may be in any order.',
-        'Eventual: if no new writes, all replicas will EVENTUALLY converge. Cheapest and fastest.',
-        'Read-your-writes: you always see your own writes (but others might not immediately).',
-      ],
-      visual: `CONSISTENCY SPECTRUM:
+      },
+      {
+        title: '📖 Consistency Models Spectrum',
+        steps: [
+          'Strong (Linearizable): every read returns the most recent write. Most expensive.',
+          'Sequential: all operations appear in some total order consistent with per-process ordering.',
+          'Causal: if A causes B, everyone sees A before B. Concurrent writes may be in any order.',
+          'Eventual: if no new writes, all replicas will EVENTUALLY converge. Cheapest and fastest.',
+          'Read-your-writes: you always see your own writes (but others might not immediately).',
+        ],
+        visual: `CONSISTENCY SPECTRUM:
 
 Strong ◄──────────────────────────────────► Eventual
 (Strict)                                    (Relaxed)
@@ -146,21 +146,21 @@ Strong ◄───────────────────────�
   │   You write x=5 → You read x=5  ✓ always    │
   │   Other user reads x → might still see 3     │
   └──────────────────────────────────────────────┘`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'load-balancing': {
-  sections: [
-    {
-      title: '📖 Load Balancer Architecture',
-      steps: [
-        'A load balancer sits between clients and backend servers.',
-        'It distributes incoming requests across multiple healthy servers.',
-        'L4 (transport layer): routes based on IP/port. Fast, but can\'t inspect HTTP content.',
-        'L7 (application layer): can route based on URL, headers, cookies. Smarter but slightly slower.',
-      ],
-      visual: `REQUEST FLOW WITH LOAD BALANCER:
+  'load-balancing': {
+    sections: [
+      {
+        title: '📖 Load Balancer Architecture',
+        steps: [
+          'A load balancer sits between clients and backend servers.',
+          'It distributes incoming requests across multiple healthy servers.',
+          'L4 (transport layer): routes based on IP/port. Fast, but can\'t inspect HTTP content.',
+          'L7 (application layer): can route based on URL, headers, cookies. Smarter but slightly slower.',
+        ],
+        visual: `REQUEST FLOW WITH LOAD BALANCER:
 
   Client A ──┐
   Client B ──┤    ┌──────────┐    ┌──────────┐
@@ -184,16 +184,16 @@ L4 vs L7:
 │          │                     │ request rewriting   │
 │ Example  │ AWS NLB             │ AWS ALB, Nginx      │
 └──────────┴─────────────────────┴─────────────────────┘`,
-    },
-    {
-      title: '📖 Consistent Hashing',
-      steps: [
-        'Problem: hash(key) % N breaks when N (server count) changes — almost all keys get remapped!',
-        'Solution: Map both servers and keys onto a ring (0 to 2^32). Each key goes to the next server clockwise.',
-        'Adding a server: only keys between the new server and its predecessor move. ~K/N keys instead of all.',
-        'Virtual nodes: each physical server maps to 100+ points on the ring for even distribution.',
-      ],
-      visual: `CONSISTENT HASHING RING:
+      },
+      {
+        title: '📖 Consistent Hashing',
+        steps: [
+          'Problem: hash(key) % N breaks when N (server count) changes — almost all keys get remapped!',
+          'Solution: Map both servers and keys onto a ring (0 to 2^32). Each key goes to the next server clockwise.',
+          'Adding a server: only keys between the new server and its predecessor move. ~K/N keys instead of all.',
+          'Virtual nodes: each physical server maps to 100+ points on the ring for even distribution.',
+        ],
+        visual: `CONSISTENT HASHING RING:
 
            0°
            │
@@ -225,21 +225,21 @@ ADDING SERVER S4:
           180°
 
 Only K4 moved! (instead of rehashing everything)`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'caching-strategies': {
-  sections: [
-    {
-      title: '📖 Caching Patterns Compared',
-      steps: [
-        'Cache-Aside: app controls cache. Read: check cache → miss → read DB → store in cache. Write: write DB → invalidate cache.',
-        'Write-Through: write to both cache and DB synchronously. Consistent but adds write latency.',
-        'Write-Back: write to cache only, flush to DB asynchronously. Fast writes but risk of data loss.',
-        'Read-Through: cache itself fetches from DB on miss (transparent to app).',
-      ],
-      visual: `CACHE-ASIDE PATTERN (Most Common):
+  'caching-strategies': {
+    sections: [
+      {
+        title: '📖 Caching Patterns Compared',
+        steps: [
+          'Cache-Aside: app controls cache. Read: check cache → miss → read DB → store in cache. Write: write DB → invalidate cache.',
+          'Write-Through: write to both cache and DB synchronously. Consistent but adds write latency.',
+          'Write-Back: write to cache only, flush to DB asynchronously. Fast writes but risk of data loss.',
+          'Read-Through: cache itself fetches from DB on miss (transparent to app).',
+        ],
+        visual: `CACHE-ASIDE PATTERN (Most Common):
 
   Read Flow:
   ┌────────┐  1. GET    ┌───────┐
@@ -268,16 +268,16 @@ WRITE-BACK:
   │ Client │────────→│ Cache │ ─ ─ ─ ─ ─ →│ DB │
   └────────┘         └───────┘   (batched)  └────┘
   ✓ Fast writes  ✗ Data loss risk if cache crashes`,
-    },
-    {
-      title: '📖 Cache Eviction Policies',
-      steps: [
-        'LRU (Least Recently Used): evict the entry not accessed for the longest time. Most popular.',
-        'LFU (Least Frequently Used): evict the entry accessed fewest times. Good for hot data.',
-        'FIFO: evict oldest entry. Simple but not always optimal.',
-        'TTL (Time to Live): entries expire after a set duration. Provides eventual consistency.',
-      ],
-      visual: `LRU CACHE EXAMPLE (capacity = 3):
+      },
+      {
+        title: '📖 Cache Eviction Policies',
+        steps: [
+          'LRU (Least Recently Used): evict the entry not accessed for the longest time. Most popular.',
+          'LFU (Least Frequently Used): evict the entry accessed fewest times. Good for hot data.',
+          'FIFO: evict oldest entry. Simple but not always optimal.',
+          'TTL (Time to Live): entries expire after a set duration. Provides eventual consistency.',
+        ],
+        visual: `LRU CACHE EXAMPLE (capacity = 3):
 
 Action      │ Cache State     │ Evicted
 ────────────┼─────────────────┼─────────
@@ -302,21 +302,21 @@ CACHE STAMPEDE PREVENTION:
   (thundering herd!)           99 requests wait for cache fill
                                ↓
                                Cache filled, all get cached data`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'database-fundamentals': {
-  sections: [
-    {
-      title: '📖 SQL vs NoSQL Decision Framework',
-      steps: [
-        'SQL: choose when you need ACID transactions, complex joins, or well-defined schema.',
-        'NoSQL Document: choose for flexible schema, nested data, rapid iteration.',
-        'NoSQL Key-Value: choose for ultra-low latency simple lookups (caching, sessions).',
-        'NoSQL Column-Family: choose for high write throughput, time-series, IoT data.',
-      ],
-      visual: `DATABASE SELECTION GUIDE:
+  'database-fundamentals': {
+    sections: [
+      {
+        title: '📖 SQL vs NoSQL Decision Framework',
+        steps: [
+          'SQL: choose when you need ACID transactions, complex joins, or well-defined schema.',
+          'NoSQL Document: choose for flexible schema, nested data, rapid iteration.',
+          'NoSQL Key-Value: choose for ultra-low latency simple lookups (caching, sessions).',
+          'NoSQL Column-Family: choose for high write throughput, time-series, IoT data.',
+        ],
+        visual: `DATABASE SELECTION GUIDE:
 
   Need complex       YES → PostgreSQL / MySQL
   joins/transactions? │    (Relational)
@@ -350,16 +350,16 @@ ACID vs BASE:
 │ Order processing │ Page view counters       │
 │ Inventory        │ User activity logs       │
 └──────────────────┴──────────────────────────┘`,
-    },
-    {
-      title: '📖 Indexing — How B-Trees Work',
-      steps: [
-        'Without index: database scans ALL rows to find matching ones → O(n).',
-        'B-Tree index: balanced tree where each node holds multiple keys. Lookup = O(log n).',
-        'Composite index (a, b): sorts by a first, then b. Query on just a uses index; query on just b doesn\'t.',
-        'Trade-off: indexes speed up reads but slow down writes (index must be updated on insert/update).',
-      ],
-      visual: `B-TREE INDEX ON user_id:
+      },
+      {
+        title: '📖 Indexing — How B-Trees Work',
+        steps: [
+          'Without index: database scans ALL rows to find matching ones → O(n).',
+          'B-Tree index: balanced tree where each node holds multiple keys. Lookup = O(log n).',
+          'Composite index (a, b): sorts by a first, then b. Query on just a uses index; query on just b doesn\'t.',
+          'Trade-off: indexes speed up reads but slow down writes (index must be updated on insert/update).',
+        ],
+        visual: `B-TREE INDEX ON user_id:
 
                     ┌──────────────┐
                     │  [50, 100]   │      ← Root
@@ -385,10 +385,10 @@ COMPOSITE INDEX ON (status, created_at):
   ✗ WHERE created_at > '2024-01-01'  (can't skip status!)
   
   Index order matters: put EQUALITY first, RANGE last`,
-      code: {
-        language: 'sql',
-        title: 'Understanding Query Plans',
-        code: `-- Check if your query uses an index:
+        code: {
+          language: 'sql',
+          title: 'Understanding Query Plans',
+          code: `-- Check if your query uses an index:
 EXPLAIN ANALYZE
 SELECT * FROM orders
 WHERE user_id = 12345
@@ -409,22 +409,22 @@ ON orders (user_id, created_at);
 -- GOOD: Use JOIN or IN
 SELECT * FROM orders
 WHERE user_id IN (1, 2, 3, 4, 5);`
-      }
-    },
-  ]
-},
+        }
+      },
+    ]
+  },
 
-'api-design': {
-  sections: [
-    {
-      title: '📖 RESTful API Design',
-      steps: [
-        'Resources are nouns (users, posts, comments), not verbs.',
-        'Use HTTP methods for actions: GET (read), POST (create), PUT (replace), PATCH (update), DELETE.',
-        'Use proper status codes: 2xx success, 4xx client error, 5xx server error.',
-        'Pagination, filtering, and versioning are essential for production APIs.',
-      ],
-      visual: `REST API DESIGN:
+  'api-design': {
+    sections: [
+      {
+        title: '📖 RESTful API Design',
+        steps: [
+          'Resources are nouns (users, posts, comments), not verbs.',
+          'Use HTTP methods for actions: GET (read), POST (create), PUT (replace), PATCH (update), DELETE.',
+          'Use proper status codes: 2xx success, 4xx client error, 5xx server error.',
+          'Pagination, filtering, and versioning are essential for production APIs.',
+        ],
+        visual: `REST API DESIGN:
 
   Resource: /api/v1/users
   ┌────────┬──────────────────┬──────┬──────────────┐
@@ -452,10 +452,10 @@ WHERE user_id IN (1, 2, 3, 4, 5);`
   Versioning:
   /api/v1/users  → Version 1
   /api/v2/users  → Version 2 (breaking changes)`,
-      code: {
-        language: 'javascript',
-        title: 'Express.js REST API Example',
-        code: `// Good REST API structure
+        code: {
+          language: 'javascript',
+          title: 'Express.js REST API Example',
+          code: `// Good REST API structure
 app.get('/api/v1/users', async (req, res) => {
   const { limit = 20, after } = req.query;
   const users = await db.users
@@ -483,22 +483,22 @@ app.post('/api/v1/payments', async (req, res) => {
     JSON.stringify(result), 'EX', 86400);
   res.status(201).json(result);
 });`
-      }
-    },
-  ]
-},
+        }
+      },
+    ]
+  },
 
-'db-sharding': {
-  sections: [
-    {
-      title: '📖 Sharding Strategies Visualized',
-      steps: [
-        'Sharding = splitting one large database into smaller pieces (shards), each on a different server.',
-        'Range-based: shard by value ranges. Easy for range queries, but can create hotspots.',
-        'Hash-based: shard by hash(key) % N. Uniform distribution, but no range queries.',
-        'Directory-based: a lookup service maps keys to shards. Most flexible, adds a hop.',
-      ],
-      visual: `BEFORE SHARDING (single DB, hitting limits):
+  'db-sharding': {
+    sections: [
+      {
+        title: '📖 Sharding Strategies Visualized',
+        steps: [
+          'Sharding = splitting one large database into smaller pieces (shards), each on a different server.',
+          'Range-based: shard by value ranges. Easy for range queries, but can create hotspots.',
+          'Hash-based: shard by hash(key) % N. Uniform distribution, but no range queries.',
+          'Directory-based: a lookup service maps keys to shards. Most flexible, adds a hop.',
+        ],
+        visual: `BEFORE SHARDING (single DB, hitting limits):
 ┌─────────────────────┐
 │    Users Table       │
 │  100M rows, 500GB   │
@@ -528,21 +528,21 @@ CROSS-SHARD QUERY PROBLEM:
   Query: "JOIN users with orders"
   If users and orders are on different shards → expensive!
   Solution: shard both by user_id → co-located`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'db-replication': {
-  sections: [
-    {
-      title: '📖 Leader-Follower Replication',
-      steps: [
-        'One leader (primary) handles all writes. Multiple followers (replicas) handle reads.',
-        'Write → leader → WAL/binlog → sent to followers → followers apply changes.',
-        'Synchronous: leader waits for follower confirmation. Consistent but slower.',
-        'Asynchronous: leader doesn\'t wait. Faster but follower may have stale data.',
-      ],
-      visual: `LEADER-FOLLOWER (Master-Replica):
+  'db-replication': {
+    sections: [
+      {
+        title: '📖 Leader-Follower Replication',
+        steps: [
+          'One leader (primary) handles all writes. Multiple followers (replicas) handle reads.',
+          'Write → leader → WAL/binlog → sent to followers → followers apply changes.',
+          'Synchronous: leader waits for follower confirmation. Consistent but slower.',
+          'Asynchronous: leader doesn\'t wait. Faster but follower may have stale data.',
+        ],
+        visual: `LEADER-FOLLOWER (Master-Replica):
 
   Writes                    Reads (distributed)
     │                      ╱       │       ╲
@@ -573,21 +573,21 @@ FAILOVER:
   └────────┘              │leader)│
                           └──────┘
   Risk: split-brain if old leader comes back online`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'cdn-edge': {
-  sections: [
-    {
-      title: '📖 CDN Request Flow',
-      steps: [
-        'User requests image → DNS resolves to nearest CDN edge server (PoP).',
-        'Edge server checks cache → HIT: serve immediately (< 20ms). MISS: fetch from origin.',
-        'On miss, edge fetches from origin, caches it, serves to user, and serves future requests from cache.',
-        'TTL (Time to Live) controls how long edge caches the content before re-fetching.',
-      ],
-      visual: `CDN REQUEST FLOW:
+  'cdn-edge': {
+    sections: [
+      {
+        title: '📖 CDN Request Flow',
+        steps: [
+          'User requests image → DNS resolves to nearest CDN edge server (PoP).',
+          'Edge server checks cache → HIT: serve immediately (< 20ms). MISS: fetch from origin.',
+          'On miss, edge fetches from origin, caches it, serves to user, and serves future requests from cache.',
+          'TTL (Time to Live) controls how long edge caches the content before re-fetching.',
+        ],
+        visual: `CDN REQUEST FLOW:
 
   User (Mumbai)            User (New York)
        │                        │
@@ -614,21 +614,21 @@ WITHOUT CDN:             WITH CDN:
   All users → Oregon      Users → nearest edge
   Latency: 50-300ms       Latency: 5-30ms
   Origin load: 100%       Origin load: 5-10%`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'rate-limiting': {
-  sections: [
-    {
-      title: '📖 Token Bucket Algorithm',
-      steps: [
-        'Imagine a bucket that holds tokens. Tokens are added at a fixed rate (e.g., 10/second).',
-        'Each request consumes one token. If bucket is empty → reject (429 Too Many Requests).',
-        'Bucket has a max capacity → allows short bursts up to that capacity.',
-        'Leaky bucket is different: requests processed at fixed rate, excess queued/dropped.',
-      ],
-      visual: `TOKEN BUCKET (rate=10/s, capacity=20):
+  'rate-limiting': {
+    sections: [
+      {
+        title: '📖 Token Bucket Algorithm',
+        steps: [
+          'Imagine a bucket that holds tokens. Tokens are added at a fixed rate (e.g., 10/second).',
+          'Each request consumes one token. If bucket is empty → reject (429 Too Many Requests).',
+          'Bucket has a max capacity → allows short bursts up to that capacity.',
+          'Leaky bucket is different: requests processed at fixed rate, excess queued/dropped.',
+        ],
+        visual: `TOKEN BUCKET (rate=10/s, capacity=20):
 
   Tokens added at 10/sec
        │ │ │ │ │
@@ -662,10 +662,10 @@ SLIDING WINDOW COUNTER:
   │    80 requests      │  30 req  ← we are   │
   │                     │         here (40%)   │
   └─────────────────────┴──────────────────────┘`,
-      code: {
-        language: 'javascript',
-        title: 'Redis Rate Limiter (Sliding Window)',
-        code: `// Distributed rate limiter using Redis
+        code: {
+          language: 'javascript',
+          title: 'Redis Rate Limiter (Sliding Window)',
+          code: `// Distributed rate limiter using Redis
 async function isAllowed(userId, limit, windowSec) {
   const key = \`rate:\${userId}\`;
   const now = Date.now();
@@ -683,22 +683,22 @@ async function isAllowed(userId, limit, windowSec) {
   
   return count <= limit; // true = allowed
 }`
-      }
-    },
-  ]
-},
+        }
+      },
+    ]
+  },
 
-'message-queues': {
-  sections: [
-    {
-      title: '📖 Message Queue Architecture',
-      steps: [
-        'Producer sends message to queue. Consumer reads from queue and processes it.',
-        'Queue acts as a buffer — producer and consumer don\'t need to be online simultaneously.',
-        'At-least-once delivery: message may be delivered multiple times → make consumer idempotent.',
-        'Dead Letter Queue (DLQ): messages that fail after max retries go here for manual investigation.',
-      ],
-      visual: `ASYNC PROCESSING WITH QUEUE:
+  'message-queues': {
+    sections: [
+      {
+        title: '📖 Message Queue Architecture',
+        steps: [
+          'Producer sends message to queue. Consumer reads from queue and processes it.',
+          'Queue acts as a buffer — producer and consumer don\'t need to be online simultaneously.',
+          'At-least-once delivery: message may be delivered multiple times → make consumer idempotent.',
+          'Dead Letter Queue (DLQ): messages that fail after max retries go here for manual investigation.',
+        ],
+        visual: `ASYNC PROCESSING WITH QUEUE:
 
   ┌────────┐   POST /order   ┌───────────┐
   │ Client │────────────────→│ API Server│
@@ -737,21 +737,21 @@ DEAD LETTER QUEUE (DLQ):
   │ (poison  │    or alert + auto-fix
   │ messages)│
   └──────────┘`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'microservices': {
-  sections: [
-    {
-      title: '📖 Monolith → Microservices Evolution',
-      steps: [
-        'Monolith: single deployable unit. Simple to develop, test, deploy. Hard to scale parts independently.',
-        'Microservices: each service independently deployable, owns its own database, communicates via APIs.',
-        'Start monolith → extract services when teams/components need independent scaling or release cycles.',
-        'API Gateway: single entry point that routes requests to appropriate services.',
-      ],
-      visual: `MONOLITH:
+  'microservices': {
+    sections: [
+      {
+        title: '📖 Monolith → Microservices Evolution',
+        steps: [
+          'Monolith: single deployable unit. Simple to develop, test, deploy. Hard to scale parts independently.',
+          'Microservices: each service independently deployable, owns its own database, communicates via APIs.',
+          'Start monolith → extract services when teams/components need independent scaling or release cycles.',
+          'API Gateway: single entry point that routes requests to appropriate services.',
+        ],
+        visual: `MONOLITH:
   ┌──────────────────────────────────────┐
   │            Single App                │
   │  ┌──────┐ ┌──────┐ ┌──────────────┐ │
@@ -784,21 +784,21 @@ MICROSERVICES:
   ✓ Team autonomy (each team owns a service)
   ✗ Network complexity (service-to-service calls)
   ✗ Distributed transactions are hard`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'distributed-transactions': {
-  sections: [
-    {
-      title: '📖 Saga Pattern — Orchestration',
-      steps: [
-        'Problem: booking a trip involves flight + hotel + car rental across 3 services. How to handle partial failure?',
-        'Saga: execute a chain of local transactions. If one fails, execute compensating transactions in reverse.',
-        'Orchestration: a central Saga Orchestrator directs the flow, easier to understand and debug.',
-        'Each step must have a compensating action defined upfront (book → cancel, charge → refund).',
-      ],
-      visual: `SAGA ORCHESTRATION — Trip Booking:
+  'distributed-transactions': {
+    sections: [
+      {
+        title: '📖 Saga Pattern — Orchestration',
+        steps: [
+          'Problem: booking a trip involves flight + hotel + car rental across 3 services. How to handle partial failure?',
+          'Saga: execute a chain of local transactions. If one fails, execute compensating transactions in reverse.',
+          'Orchestration: a central Saga Orchestrator directs the flow, easier to understand and debug.',
+          'Each step must have a compensating action defined upfront (book → cancel, charge → refund).',
+        ],
+        visual: `SAGA ORCHESTRATION — Trip Booking:
 
   ┌──────────────┐
   │    Saga      │ (state machine)
@@ -834,21 +834,21 @@ MICROSERVICES:
                               CAR_FAILED
                                    │
                          COMPENSATING_HOTEL → COMPENSATING_FLIGHT → FAILED`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'service-resilience': {
-  sections: [
-    {
-      title: '📖 Circuit Breaker Pattern',
-      steps: [
-        'CLOSED: normal operation, requests flow through. Count failures.',
-        'OPEN: failure threshold exceeded → all requests fail immediately (no call to downstream). Cooldown timer starts.',
-        'HALF-OPEN: after cooldown, allow ONE test request. Success → CLOSED. Failure → OPEN again.',
-        'This prevents sending requests to a service that\'s clearly down, avoiding cascading failures.',
-      ],
-      visual: `CIRCUIT BREAKER STATE MACHINE:
+  'service-resilience': {
+    sections: [
+      {
+        title: '📖 Circuit Breaker Pattern',
+        steps: [
+          'CLOSED: normal operation, requests flow through. Count failures.',
+          'OPEN: failure threshold exceeded → all requests fail immediately (no call to downstream). Cooldown timer starts.',
+          'HALF-OPEN: after cooldown, allow ONE test request. Success → CLOSED. Failure → OPEN again.',
+          'This prevents sending requests to a service that\'s clearly down, avoiding cascading failures.',
+        ],
+        visual: `CIRCUIT BREAKER STATE MACHINE:
 
   ┌──────────┐  failure count    ┌──────────┐
   │  CLOSED  │  > threshold     │   OPEN   │
@@ -880,21 +880,21 @@ MICROSERVICES:
   T=33  │ →HALF-OPEN│ 30s cooldown elapsed
   T=33  │ HALF-OPEN│ Test req: OK ✓
   T=33  │ → CLOSED │ Back to normal!`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'event-driven': {
-  sections: [
-    {
-      title: '📖 Kafka Architecture',
-      steps: [
-        'Topics are named channels for events (e.g., "order-events", "user-signups").',
-        'Partitions split a topic for parallelism. Each partition is an ordered, append-only log.',
-        'Consumer Groups enable parallel processing. Each partition is read by exactly one consumer in the group.',
-        'Offset tracks position — consumers resume from their last offset after restart.',
-      ],
-      visual: `KAFKA ARCHITECTURE:
+  'event-driven': {
+    sections: [
+      {
+        title: '📖 Kafka Architecture',
+        steps: [
+          'Topics are named channels for events (e.g., "order-events", "user-signups").',
+          'Partitions split a topic for parallelism. Each partition is an ordered, append-only log.',
+          'Consumer Groups enable parallel processing. Each partition is read by exactly one consumer in the group.',
+          'Offset tracks position — consumers resume from their last offset after restart.',
+        ],
+        visual: `KAFKA ARCHITECTURE:
 
   Producers           Topic: "orders"              Consumers
   ┌──────┐         ┌────────────────────┐         ┌──────┐
@@ -921,21 +921,21 @@ MICROSERVICES:
   Kept for retention period (e.g., 7 days)
   → Multiple consumer groups can read same topic
   → Replay events by resetting offset`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'containers-orchestration': {
-  sections: [
-    {
-      title: '📖 Kubernetes Architecture',
-      steps: [
-        'Control Plane: API server, scheduler, controller manager — manages the cluster.',
-        'Worker Nodes: run your application pods. Each node runs kubelet + container runtime.',
-        'Pod: smallest deployable unit. Usually one container per pod. Shares network namespace.',
-        'Deployment: manages replica count, rolling updates, rollbacks.',
-      ],
-      visual: `KUBERNETES CLUSTER:
+  'containers-orchestration': {
+    sections: [
+      {
+        title: '📖 Kubernetes Architecture',
+        steps: [
+          'Control Plane: API server, scheduler, controller manager — manages the cluster.',
+          'Worker Nodes: run your application pods. Each node runs kubelet + container runtime.',
+          'Pod: smallest deployable unit. Usually one container per pod. Shares network namespace.',
+          'Deployment: manages replica count, rolling updates, rollbacks.',
+        ],
+        visual: `KUBERNETES CLUSTER:
 
   ┌─────────────────────────────────────────────────┐
   │                  CONTROL PLANE                   │
@@ -976,21 +976,21 @@ MICROSERVICES:
   │v2 ✓ │ │v2 ✓ │ │v2 ✓ │  Step 3: done!
   └─────┘ └─────┘ └─────┘
   Zero downtime! ✓`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'observability': {
-  sections: [
-    {
-      title: '📖 Three Pillars of Observability',
-      steps: [
-        'Logs: discrete events. "Request X failed with error Y at time T." Use structured JSON.',
-        'Metrics: numeric measurements. "Request count: 1500/s, P99 latency: 200ms, Error rate: 0.5%".',
-        'Traces: follow a request across services. "Request spent 50ms in API, 120ms in DB, 30ms in cache."',
-        'Together: metrics ALERT you, traces LOCATE the problem, logs EXPLAIN the root cause.',
-      ],
-      visual: `THE THREE PILLARS:
+  'observability': {
+    sections: [
+      {
+        title: '📖 Three Pillars of Observability',
+        steps: [
+          'Logs: discrete events. "Request X failed with error Y at time T." Use structured JSON.',
+          'Metrics: numeric measurements. "Request count: 1500/s, P99 latency: 200ms, Error rate: 0.5%".',
+          'Traces: follow a request across services. "Request spent 50ms in API, 120ms in DB, 30ms in cache."',
+          'Together: metrics ALERT you, traces LOCATE the problem, logs EXPLAIN the root cause.',
+        ],
+        visual: `THE THREE PILLARS:
 
   ┌─────────────────────────────────────────────┐
   │                OBSERVABILITY                 │
@@ -1024,21 +1024,21 @@ MICROSERVICES:
   Rate    → requests per second
   Errors  → error rate (% of 5xx)
   Duration → latency (P50, P95, P99)`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'ai-native': {
-  sections: [
-    {
-      title: '📖 LLM in the Request Path',
-      steps: [
-        'Traditional API: request → compute → respond in 5-50ms.',
-        'LLM API: request → tokenize → forward pass → generate tokens → 500ms-5s total.',
-        'Streaming is essential: send tokens as generated (SSE) so user sees output immediately.',
-        'Cost = (input_tokens + output_tokens) × price_per_token. A single request can cost $0.001-$0.10.',
-      ],
-      visual: `LLM REQUEST ARCHITECTURE:
+  'ai-native': {
+    sections: [
+      {
+        title: '📖 LLM in the Request Path',
+        steps: [
+          'Traditional API: request → compute → respond in 5-50ms.',
+          'LLM API: request → tokenize → forward pass → generate tokens → 500ms-5s total.',
+          'Streaming is essential: send tokens as generated (SSE) so user sees output immediately.',
+          'Cost = (input_tokens + output_tokens) × price_per_token. A single request can cost $0.001-$0.10.',
+        ],
+        visual: `LLM REQUEST ARCHITECTURE:
 
   ┌────────┐  query   ┌──────────┐  context   ┌────────┐
   │  User  │────────→│ API + RAG │──────────→│  LLM   │
@@ -1072,21 +1072,21 @@ MICROSERVICES:
   Output → [Hallucination check]
          → [Harmful content filter]
          → [Format validation]`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'rag-vectors': {
-  sections: [
-    {
-      title: '📖 RAG Pipeline Architecture',
-      steps: [
-        'INGEST: Split documents into chunks → generate embedding for each chunk → store in vector DB.',
-        'RETRIEVE: Embed user query → search vector DB for top-K similar chunks.',
-        'AUGMENT: Inject retrieved chunks into the LLM prompt as context.',
-        'GENERATE: LLM generates a grounded answer using your data (reduces hallucination).',
-      ],
-      visual: `RAG PIPELINE:
+  'rag-vectors': {
+    sections: [
+      {
+        title: '📖 RAG Pipeline Architecture',
+        steps: [
+          'INGEST: Split documents into chunks → generate embedding for each chunk → store in vector DB.',
+          'RETRIEVE: Embed user query → search vector DB for top-K similar chunks.',
+          'AUGMENT: Inject retrieved chunks into the LLM prompt as context.',
+          'GENERATE: LLM generates a grounded answer using your data (reduces hallucination).',
+        ],
+        visual: `RAG PIPELINE:
 
   INGESTION (offline):
   ┌──────┐   chunk    ┌────────┐   embed    ┌──────────┐
@@ -1135,21 +1135,21 @@ MICROSERVICES:
   │ Recursive (split until small enough):        │
   │ Split by: \\n\\n → \\n → sentence → char       │
   └──────────────────────────────────────────────┘`,
-    },
-  ]
-},
+      },
+    ]
+  },
 
-'sd-interview-framework': {
-  sections: [
-    {
-      title: '📖 The 4-Step Interview Framework',
-      steps: [
-        'Step 1 (3-5 min): REQUIREMENTS — Ask: Who are the users? What are the core features? What scale? What SLA?',
-        'Step 2 (3-5 min): ESTIMATION — Calculate: DAU, QPS (read/write), storage needs, bandwidth.',
-        'Step 3 (15-20 min): HIGH-LEVEL DESIGN — Draw the architecture. Start simple, add components.',
-        'Step 4 (10-15 min): DEEP DIVE — Pick the most interesting bottleneck and go deep.',
-      ],
-      visual: `THE 4-STEP FRAMEWORK:
+  'sd-interview-framework': {
+    sections: [
+      {
+        title: '📖 The 4-Step Interview Framework',
+        steps: [
+          'Step 1 (3-5 min): REQUIREMENTS — Ask: Who are the users? What are the core features? What scale? What SLA?',
+          'Step 2 (3-5 min): ESTIMATION — Calculate: DAU, QPS (read/write), storage needs, bandwidth.',
+          'Step 3 (15-20 min): HIGH-LEVEL DESIGN — Draw the architecture. Start simple, add components.',
+          'Step 4 (10-15 min): DEEP DIVE — Pick the most interesting bottleneck and go deep.',
+        ],
+        visual: `THE 4-STEP FRAMEWORK:
 
   ┌─────────────────────────────────────────────────┐
   │ Step 1: REQUIREMENTS (3-5 min)                  │
@@ -1193,8 +1193,866 @@ MICROSERVICES:
   │ 1 KB × 1M = 1 GB                             │
   │ 1 MB × 1M = 1 TB                             │
   └──────────────────────────────────────────────┘`,
-    },
-  ]
-},
+      },
+    ]
+  },
+
+  'auth-systems': {
+    sections: [
+      {
+        title: '📖 Authentication Flow — JWT vs Session',
+        steps: [
+          'Session-based: user logs in → server creates session in Redis → sends session_id cookie.',
+          'JWT-based: user logs in → server issues signed token → client sends in Authorization header.',
+          'JWT is stateless — no server-side storage needed. But no way to revoke until expiry.',
+          'Best practice: short-lived access token (15 min) + long-lived refresh token (7 days).',
+        ],
+        visual: `SESSION-BASED AUTH:
+  ┌────────┐  POST /login   ┌───────────┐  Store session  ┌───────┐
+  │ Client │───────────────→│   Server  │────────────────→│ Redis │
+  └────────┘  (user/pass)   └───────────┘                 │session│
+       ↑                         │                        │ store │
+       │    Set-Cookie:          │                        └───────┘
+       │    session_id=abc123    │
+       └─────────────────────────┘
+
+  Subsequent requests:
+  Cookie: session_id=abc123 → Server looks up in Redis → user found ✓
+
+JWT-BASED AUTH:
+  ┌────────┐  POST /login   ┌───────────┐
+  │ Client │───────────────→│   Server  │
+  └────────┘  (user/pass)   └───────────┘
+       ↑                         │
+       │    { access_token:      │  Sign with private key
+       │      "eyJhbG...",       │
+       │      refresh_token:     │
+       │      "dGhpcz..." }     │
+       └─────────────────────────┘
+
+  Subsequent requests:
+  Authorization: Bearer eyJhbG... → Server verifies signature → valid ✓
+  (No server-side lookup needed!)
+
+TOKEN REFRESH FLOW:
+  Access token expired (15 min)
+  ┌────────┐  POST /refresh  ┌───────────┐
+  │ Client │────────────────→│   Server  │
+  └────────┘ refresh_token   └───────────┘
+       ↑                         │ Verify refresh token
+       │  New access_token +     │ Issue new pair
+       │  New refresh_token      │ Invalidate old refresh
+       └─────────────────────────┘
+  (Old refresh token can't be reused — detect theft)`,
+      },
+    ]
+  },
+
+  'api-security': {
+    sections: [
+      {
+        title: '📖 API Security Layers',
+        steps: [
+          'Layer 1 (Edge): CDN/WAF — absorb DDoS, filter known attack patterns.',
+          'Layer 2 (Gateway): Authentication + Rate Limiting — who are you? How fast can you go?',
+          'Layer 3 (Service): Input Validation + Authorization — is this request well-formed? Are you allowed?',
+          'Layer 4 (Data): Encryption + Access Control — is data encrypted? Row-level security.',
+        ],
+        visual: `DEFENSE IN DEPTH:
+
+  Internet Traffic
+       │
+       ↓
+  ┌──────────────┐  Layer 1: Edge
+  │    CDN/WAF   │  - DDoS absorption
+  │ (Cloudflare) │  - Bot detection
+  │              │  - IP blacklisting
+  └──────────────┘
+       │
+       ↓
+  ┌──────────────┐  Layer 2: Gateway
+  │  API Gateway │  - Authentication (JWT/API key)
+  │  (Kong/AWS)  │  - Rate limiting (per user/IP)
+  │              │  - SSL termination
+  └──────────────┘
+       │
+       ↓
+  ┌──────────────┐  Layer 3: Application
+  │   Service    │  - Input validation (schema)
+  │              │  - Authorization (RBAC/ABAC)
+  │              │  - Business logic checks
+  └──────────────┘
+       │
+       ↓
+  ┌──────────────┐  Layer 4: Data
+  │   Database   │  - Encryption at rest
+  │              │  - Row-level security
+  │              │  - Parameterized queries
+  └──────────────┘
+
+OWASP API TOP 10 CHEAT SHEET:
+┌────┬──────────────────────────┬────────────────────┐
+│ #  │ Vulnerability            │ Prevention         │
+├────┼──────────────────────────┼────────────────────┤
+│ 1  │ Broken Object Auth (IDOR)│ Check ownership    │
+│ 2  │ Broken Authentication    │ MFA, rate-limit    │
+│ 3  │ Excessive Data Exposure  │ Filter responses   │
+│ 4  │ Lack of Resources/Limits │ Rate limiting      │
+│ 5  │ Broken Function Auth     │ RBAC enforcement   │
+│ 6  │ Mass Assignment          │ Whitelist fields   │
+│ 7  │ Security Misconfig       │ Security headers   │
+│ 8  │ Injection                │ Parameterized SQL  │
+│ 9  │ Improper Asset Mgmt      │ API versioning     │
+│ 10 │ Insufficient Logging     │ Audit trail        │
+└────┴──────────────────────────┴────────────────────┘`,
+      },
+    ]
+  },
+
+  'data-protection': {
+    sections: [
+      {
+        title: '📖 Encryption Architecture',
+        steps: [
+          'In Transit: TLS 1.3 encrypts data between client and server (HTTPS).',
+          'At Rest: AES-256 encrypts data stored on disk (database, file storage).',
+          'Envelope Encryption: data encrypted with DEK (Data Encryption Key), DEK encrypted with KEK (Key Encryption Key in KMS).',
+          'E2E Encryption: data encrypted on sender device, decrypted only on receiver device — server never sees plaintext.',
+        ],
+        visual: `ENVELOPE ENCRYPTION (AWS KMS pattern):
+
+  ┌──────────────┐
+  │  Your Data   │  "Hello, World!"
+  └──────────────┘
+         │
+         │ Encrypt with DEK
+         ↓
+  ┌──────────────┐  ┌──────────────┐
+  │  Encrypted   │  │   DEK        │
+  │  Data        │  │ (plaintext)  │
+  │  (ciphertext)│  └──────────────┘
+  └──────────────┘         │
+                           │ Encrypt DEK with KEK (KMS)
+                           ↓
+                    ┌──────────────┐
+                    │ Encrypted DEK│
+                    └──────────────┘
+
+  Store together:
+  ┌──────────────────────────────────┐
+  │  Encrypted Data + Encrypted DEK │
+  │  (DEK can only be decrypted by  │
+  │   KMS using the master key)     │
+  └──────────────────────────────────┘
+
+  Decrypt: KMS decrypts DEK → DEK decrypts data
+  Rotate:  New KEK → re-encrypt DEKs (NOT re-encrypt all data!)
+
+GDPR DATA RIGHTS:
+┌──────────────────────────────────────────────┐
+│ Right              │ What it means            │
+├────────────────────┼──────────────────────────┤
+│ Access             │ Show user their data     │
+│ Rectification      │ Let user correct data    │
+│ Erasure            │ Delete on request        │
+│ Portability        │ Export in machine format │
+│ Object             │ Opt out of processing   │
+│ Not be profiled    │ No automated decisions   │
+└────────────────────┴──────────────────────────┘`,
+      },
+    ]
+  },
+
+  'websocket-realtime': {
+    sections: [
+      {
+        title: '📖 WebSocket Connection Lifecycle',
+        steps: [
+          'HTTP Upgrade: client requests upgrade from HTTP to WebSocket via Upgrade header.',
+          'Connection established: persistent, full-duplex TCP connection.',
+          'Both sides can send messages at any time — no request-response pattern.',
+          'Connection closes: either side sends close frame, or timeout/error.',
+        ],
+        visual: `WEBSOCKET HANDSHAKE:
+
+  Client                          Server
+    │                               │
+    │  GET /chat HTTP/1.1           │
+    │  Upgrade: websocket           │
+    │  Connection: Upgrade          │
+    │  ──────────────────────→      │
+    │                               │
+    │  HTTP/1.1 101 Switching       │
+    │  Upgrade: websocket           │
+    │  ←──────────────────────      │
+    │                               │
+    │ ══════ WebSocket Open ══════  │
+    │                               │
+    │  {"type":"msg","text":"hi"}   │
+    │  ──────────────────────→      │
+    │                               │
+    │  {"type":"msg","text":"hey"}  │
+    │  ←──────────────────────      │
+    │                               │
+    │  PING                         │
+    │  ──────────────────────→      │
+    │  PONG                         │
+    │  ←──────────────────────      │
+    │                               │
+    │  CLOSE                        │
+    │  ──────────────────────→      │
+
+SCALING WEBSOCKETS WITH PUB/SUB:
+
+  ┌────────┐     ┌────────────┐     ┌────────┐
+  │ User A │────→│ WS Server 1│────→│        │
+  └────────┘     └────────────┘     │ Redis  │
+                                    │ Pub/Sub│
+  ┌────────┐     ┌────────────┐     │        │
+  │ User B │────→│ WS Server 2│←───→│        │
+  └────────┘     └────────────┘     └────────┘
+
+  User A sends message to room "general":
+  1. WS Server 1 receives message
+  2. Publishes to Redis channel "room:general"
+  3. WS Server 2 subscribed to "room:general"
+  4. WS Server 2 pushes to User B
+  
+  →  Works regardless of which server users connect to!`,
+      },
+    ]
+  },
+
+  'location-systems': {
+    sections: [
+      {
+        title: '📖 Geospatial Indexing',
+        steps: [
+          'Geohash divides the world into a grid of cells identified by strings.',
+          'Longer string = smaller cell = more precise. "9q8" = city-level, "9q8yyk" = block-level.',
+          'Nearby search: find all points with the same geohash prefix + neighboring cells.',
+          'Common in ride-hailing: drivers report geohash, riders search by geohash prefix.',
+        ],
+        visual: `GEOHASH — Dividing the World:
+
+  ┌───────────────────────────────────────┐
+  │              World Map                │
+  │  ┌───────────┬───────────┐           │
+  │  │     S     │     T     │           │
+  │  │ ┌───┬───┐ │ ┌───┬───┐│           │
+  │  │ │ 9q│ 9r│ │ │...│...││           │
+  │  │ │8yy│   │ │ │   │   ││           │
+  │  │ └───┴───┘ │ └───┴───┘│           │
+  │  │     U     │     V     │           │
+  │  └───────────┴───────────┘           │
+  └───────────────────────────────────────┘
+
+  Precision levels:
+  ┌──────────┬──────────────────┬─────────┐
+  │ Length   │ Cell Size        │ Use     │
+  ├──────────┼──────────────────┼─────────┤
+  │ 1 char   │ ~5,000 km        │ Global  │
+  │ 3 chars  │ ~156 km          │ Region  │
+  │ 4 chars  │ ~39 km           │ City    │
+  │ 5 chars  │ ~4.9 km          │ Area    │
+  │ 6 chars  │ ~1.2 km          │ Street  │
+  │ 7 chars  │ ~153 m           │ Block   │
+  │ 8 chars  │ ~38 m            │ Building│
+  └──────────┴──────────────────┴─────────┘
+
+UBER MATCHING FLOW:
+  ┌──────┐  Request ride   ┌───────────┐
+  │ Rider│────────────────→│  Dispatch │
+  └──────┘  (lat, lng)     │  Service  │
+                           └───────────┘
+                                │
+                  ┌─────────────┤ Look up nearby cells
+                  ↓             ↓
+            ┌──────────┐  ┌──────────┐
+            │ Cell A   │  │ Cell B   │  Redis: geohash → driver_ids
+            │ [D1, D3] │  │ [D5]    │
+            └──────────┘  └──────────┘
+                  │             │
+                  └─────┬───────┘
+                        ↓
+                  Rank by ETA
+                  (not distance!)
+                        ↓
+                  ┌──────────┐
+                  │ Match D3 │ → Notify driver
+                  │ ETA: 3min│
+                  └──────────┘`,
+      },
+    ]
+  },
+
+  'notification-system': {
+    sections: [
+      {
+        title: '📖 Multi-Channel Notification Architecture',
+        steps: [
+          'Event triggers notification (order placed, security alert, marketing campaign).',
+          'Notification service checks user preferences and routes to appropriate channels.',
+          'Each channel has its own delivery worker with retries and error handling.',
+          'Priority system ensures critical notifications (OTP) are never delayed by marketing emails.',
+        ],
+        visual: `NOTIFICATION SYSTEM ARCHITECTURE:
+
+  Trigger Events                    Delivery
+  ┌──────────┐                     ┌──────────┐
+  │ Order Svc│──→                  │ Push FCM │──→ 📱 Mobile
+  └──────────┘   │                 └──────────┘
+  ┌──────────┐   │  ┌──────────┐  ┌──────────┐
+  │ Auth Svc │──→├─→│Notif Svc │─→│ Email SES│──→ 📧 Email
+  └──────────┘   │  │ + Router │  └──────────┘
+  ┌──────────┐   │  └──────────┘  ┌──────────┐
+  │ Promo Svc│──→│       │        │ SMS Twil │──→ 📲 SMS
+  └──────────┘   │       ↓        └──────────┘
+                 │  ┌──────────┐  ┌──────────┐
+                 │  │User Prefs│  │ In-App WS│──→ 🔔 In-App
+                 │  │ + Rules  │  └──────────┘
+                 │  └──────────┘
+                 │
+  PRIORITY QUEUES:
+  ┌────────────────────────────────────────┐
+  │ Critical │ OTP, Security    │ Instant  │
+  │ (P0)     │ alerts            │ delivery │
+  ├──────────┼──────────────────┼──────────┤
+  │ High     │ Order updates,   │ < 1 min  │
+  │ (P1)     │ payment receipts │          │
+  ├──────────┼──────────────────┼──────────┤
+  │ Medium   │ Feature updates, │ < 5 min  │
+  │ (P2)     │ recommendations  │          │
+  ├──────────┼──────────────────┼──────────┤
+  │ Low      │ Marketing,       │ Batched  │
+  │ (P3)     │ newsletters      │ hourly   │
+  └──────────┴──────────────────┴──────────┘`,
+      },
+    ]
+  },
+
+  'data-pipeline-etl': {
+    sections: [
+      {
+        title: '📖 ETL Pipeline Architecture',
+        steps: [
+          'EXTRACT: pull data from multiple sources — databases, APIs, S3 files, Kafka.',
+          'TRANSFORM: clean, validate, enrich, join, aggregate — make data analytics-ready.',
+          'LOAD: write to destination — data warehouse, data lake, search index.',
+          'Modern ELT: load raw data first, then transform inside the warehouse (cheaper compute).',
+        ],
+        visual: `CLASSIC ETL:
+  Sources              Transform           Destination
+  ┌──────┐                                 ┌──────────┐
+  │ MySQL│──→  ┌────────────────────┐  ──→ │Snowflake │
+  └──────┘     │  Transform Layer   │      │(warehouse│
+  ┌──────┐     │ • Clean nulls      │      │)         │
+  │ API  │──→  │ • Join tables      │  ──→ └──────────┘
+  └──────┘     │ • Aggregate        │
+  ┌──────┐     │ • Type conversion  │
+  │ S3   │──→  │ • Deduplication    │
+  └──────┘     └────────────────────┘
+
+MODERN ELT:
+  Sources              Load Raw         Transform in DW
+  ┌──────┐                              ┌────────────┐
+  │ MySQL│──→ ──→ ┌──────────┐  dbt  → │  Gold      │
+  └──────┘        │ Raw Layer│ ──────→  │  Tables    │
+  ┌──────┐        │(Bronze)  │          │(analytics) │
+  │ API  │──→ ──→ └──────────┘          └────────────┘
+  └──────┘
+
+AIRFLOW DAG EXAMPLE:
+  ┌─────────┐   ┌──────────┐   ┌──────────┐
+  │ Extract │──→│Transform │──→│  Load    │
+  │ Users   │   │ Clean +  │   │ to DW    │
+  └─────────┘   │ Validate │   └──────────┘
+                └──────────┘        │
+  ┌─────────┐        │             ↓
+  │ Extract │──→─────┘       ┌──────────┐
+  │ Orders  │                │  Quality │
+  └─────────┘                │  Check   │
+                             └──────────┘
+                                  │
+                             Pass ↓ Fail → Alert!
+                             ┌──────────┐
+                             │ Dashboard │
+                             │ Refresh  │
+                             └──────────┘`,
+      },
+    ]
+  },
+
+  'stream-processing': {
+    sections: [
+      {
+        title: '📖 Stream Processing Windowing',
+        steps: [
+          'Tumbling Window: fixed-size, non-overlapping. Count events every 5 minutes.',
+          'Sliding Window: fixed-size, overlapping. Average over last 5 min, updated every minute.',
+          'Session Window: dynamic size, grouped by user activity. Gap of inactivity closes window.',
+          'Watermarks: "I believe no events with timestamp < W will arrive." Used to close windows.',
+        ],
+        visual: `WINDOW TYPES:
+
+TUMBLING (5 min, no overlap):
+  Time: ──|──────|──────|──────|──────|──→
+          │ W1   │ W2   │ W3   │ W4   │
+  Events: ●●● ●  │ ●●   │●●●●● │ ●    │
+
+SLIDING (5 min window, 1 min slide):
+  Time: ──|────|────|────|────|────|──→
+          │←─── W1 ────→│
+             │←─── W2 ────→│
+                │←─── W3 ────→│
+  Windows overlap! Each event in multiple windows.
+
+SESSION (gap timeout = 3 min):
+  Time: ──●●──●────────────●●●──●──────────→
+          │← Session 1 →│gap│← Session 2→│gap│
+
+  User active → events grouped.
+  3 min inactivity → session closes.
+
+WATERMARK FOR LATE DATA:
+  Event Time:  T=0   T=1   T=2   T=3   T=4   T=5
+  Arrival:     T=0   T=1   T=3   T=2!  T=4   T=5
+                                  ↑ late!
+
+  Watermark = max_event_time - allowed_lateness
+  If W=2, event at T=2 arriving late is still accepted
+  If W=1, event at T=2 arriving at real-time T=3 is dropped
+
+FLINK EXACTLY-ONCE:
+  ┌────────┐  ┌───────────────────────┐  ┌────────┐
+  │ Kafka  │→ │ Flink Job             │→ │ Output │
+  │ Source │  │ ┌────────┐ ┌────────┐ │  │  Sink  │
+  │        │  │ │ Map    │→│ Window │ │  │        │
+  └────────┘  │ └────────┘ └────────┘ │  └────────┘
+              │     ↓ checkpoint      │
+              │ ┌────────────────┐    │
+              │ │ State Snapshot │    │  periodic checkpoint
+              │ │ (RocksDB)     │    │  → rollback on failure
+              │ └────────────────┘    │
+              └───────────────────────┘`,
+      },
+    ]
+  },
+
+  'data-lakes-warehouse': {
+    sections: [
+      {
+        title: '📖 Medallion Architecture',
+        steps: [
+          'Bronze (Raw): ingest everything as-is. Append-only. Source of truth for replay.',
+          'Silver (Cleaned): dedup, validate, type-cast. Join with reference data. Business-ready fields.',
+          'Gold (Aggregated): pre-computed aggregations, KPIs, ML features. Ready for dashboards.',
+          'Each layer is independent — reprocess Silver from Bronze, Gold from Silver anytime.',
+        ],
+        visual: `MEDALLION ARCHITECTURE:
+
+  Sources                          Consumers
+  ┌──────┐                         ┌──────────┐
+  │ Apps │──→  ┌────────┐          │ BI Tools │
+  └──────┘     │ BRONZE │          │(Tableau, │
+  ┌──────┐     │ (Raw)  │          │ Looker)  │
+  │ APIs │──→  │        │          └──────────┘
+  └──────┘     │ S3/    │              ↑
+  ┌──────┐     │ ADLS   │    ┌────────┐│
+  │ Kafka│──→  └────────┘    │  GOLD  ││  ← Optimized
+  └──────┘         │         │(Agg)   ││    for queries
+               Clean │       │ KPIs,  │┘
+               Dedup │       │ metrics│
+                     ↓       └────────┘
+               ┌────────┐        ↑
+               │ SILVER │  Aggregate
+               │(Clean) │  Join,
+               │ Typed, │  Summarize
+               │ Joined │────────┘
+               └────────┘
+
+DATA LAKE vs WAREHOUSE vs LAKEHOUSE:
+┌──────────────┬────────────┬─────────────┬────────────┐
+│              │ Data Lake  │ Warehouse   │ Lakehouse  │
+├──────────────┼────────────┼─────────────┼────────────┤
+│ Storage      │ S3/ADLS    │ Proprietary │ S3/ADLS    │
+│ Format       │ Any (raw)  │ Proprietary │ Parquet    │
+│ Schema       │ On-read    │ On-write    │ On-write   │
+│ ACID         │ No         │ Yes         │ Yes (Delta)│
+│ SQL          │ External   │ Native      │ Native     │
+│ Cost         │ $ (cheap)  │ $$$ (high)  │ $$ (mid)   │
+│ Use case     │ ML, raw    │ BI, reports │ Both       │
+└──────────────┴────────────┴─────────────┴────────────┘`,
+      },
+    ]
+  },
+
+  'proxy-gateway-patterns': {
+    sections: [
+      {
+        title: '📖 API Gateway & BFF Pattern',
+        steps: [
+          'API Gateway: single entry point for all clients. Handles cross-cutting concerns.',
+          'BFF (Backend for Frontend): one gateway per client type — mobile gets slim data, web gets rich data.',
+          'Sidecar: helper container alongside each service — handles logging, auth, networking.',
+          'Service Mesh: sidecar on every service, managed by control plane (Istio).',
+        ],
+        visual: `API GATEWAY PATTERN:
+  
+  ┌──────────┐  ┌──────────┐  ┌──────────┐
+  │ Web App  │  │Mobile App│  │ IoT Dev  │
+  └──────────┘  └──────────┘  └──────────┘
+       │             │             │
+       └─────────────┼─────────────┘
+                     ↓
+              ┌──────────────┐
+              │  API Gateway │  Auth, Rate Limit,
+              │  (Kong/AWS)  │  Routing, SSL, Logging
+              └──────────────┘
+               │     │     │
+               ↓     ↓     ↓
+          ┌─────┐ ┌─────┐ ┌─────┐
+          │User │ │Order│ │Pay  │
+          │ Svc │ │ Svc │ │ Svc │
+          └─────┘ └─────┘ └─────┘
+
+BFF (Backend for Frontend):
+
+  ┌──────────┐        ┌──────────┐
+  │ Web App  │        │Mobile App│
+  └──────────┘        └──────────┘
+       │                    │
+       ↓                    ↓
+  ┌──────────┐        ┌──────────┐
+  │ Web BFF  │        │Mobile BFF│  Different data shapes!
+  │(rich data│        │(slim data│
+  │+ complex)│        │+ images) │
+  └──────────┘        └──────────┘
+       │    │              │
+       ↓    ↓              ↓
+  ┌─────┐ ┌─────┐    ┌─────┐
+  │User │ │Order│    │User │  (Same backend services)
+  │ Svc │ │ Svc │    │ Svc │
+  └─────┘ └─────┘    └─────┘
+
+SERVICE MESH (Istio):
+  ┌─────────────────────────────────────┐
+  │  Control Plane (Istio)              │
+  │  (config, certs, policies)          │
+  └─────────────────────────────────────┘
+       │              │              │
+  ┌────┴────┐    ┌────┴────┐    ┌────┴────┐
+  │┌───────┐│    │┌───────┐│    │┌───────┐│
+  ││Envoy  ││    ││Envoy  ││    ││Envoy  ││ ← Sidecar
+  ││(proxy)││    ││(proxy)││    ││(proxy)││   proxies
+  │└───────┘│    │└───────┘│    │└───────┘│
+  │┌───────┐│    │┌───────┐│    │┌───────┐│
+  ││ Svc A ││    ││ Svc B ││    ││ Svc C ││
+  │└───────┘│    │└───────┘│    │└───────┘│
+  └─────────┘    └─────────┘    └─────────┘
+     mTLS ←──── automatic ────→ mTLS`,
+      },
+    ]
+  },
+
+  'domain-driven-design': {
+    sections: [
+      {
+        title: '📖 DDD Building Blocks',
+        steps: [
+          'Bounded Context: a clear boundary around a domain model. "Order" means different things in Shopping vs Shipping.',
+          'Aggregate: a cluster of objects (entities + value objects) treated as a single unit. Has one root entity.',
+          'Domain Events: something that happened in the domain. "OrderPlaced" → triggers payment, inventory, notification.',
+          'Repository: provides a collection-like interface for accessing aggregates. One repo per aggregate root.',
+        ],
+        visual: `BOUNDED CONTEXTS (E-Commerce):
+
+  ┌──────────────────┐    ┌──────────────────┐
+  │  Shopping Context│    │ Shipping Context  │
+  │                  │    │                   │
+  │  "Order" = cart  │    │ "Order" = package │
+  │  items + prices  │    │ tracking, address │
+  │                  │    │                   │
+  │  "Product" =     │    │ "Product" =       │
+  │  name, price,    │    │ weight, dims,     │
+  │  description     │    │ fragile flag      │
+  └──────────────────┘    └──────────────────┘
+         │                       │
+         │   Domain Events       │
+         │  ──────────────→      │
+         │  "OrderPlaced"        │
+         │                       │
+
+AGGREGATE (Order):
+  ┌──────────────────────────────────┐
+  │  Order (Aggregate Root)          │
+  │  ┌────────────┐                  │
+  │  │ orderId    │  RULES:          │
+  │  │ status     │  • Total > 0     │
+  │  │ createdAt  │  • Max 50 items  │
+  │  └────────────┘  • Status: only  │
+  │       │            valid moves   │
+  │  ┌────┴────────────┐             │
+  │  │ OrderItem (VO)  │             │
+  │  │ productId       │             │
+  │  │ quantity         │  Transaction │
+  │  │ unitPrice        │  boundary!   │
+  │  └─────────────────┘             │
+  └──────────────────────────────────┘
+  
+  Load/Save as a UNIT (not individual items)
+
+EVENT-DRIVEN ACROSS CONTEXTS:
+  Shopping      │ Event Bus  │  Shipping
+  Context       │ (Kafka)    │  Context
+  ──────────────┼────────────┼──────────
+  placeOrder()→ │OrderPlaced │→ createShipment()
+                │────────────│
+  chargeUser()← │PaymentDone │← processPayment()
+                │────────────│`,
+      },
+    ]
+  },
+
+  'twelve-factor-app': {
+    sections: [
+      {
+        title: '📖 The 12 Factors Visualized',
+        steps: [
+          'These 12 principles guide building modern, scalable, cloud-native applications.',
+          'Core idea: apps should be portable, scalable, and deployment-agnostic.',
+          'They emerged from Heroku\'s experience running millions of apps.',
+          'Following these factors makes your app Kubernetes-ready and cloud-native.',
+        ],
+        visual: `THE 12 FACTORS:
+
+  ┌──────────────────────────────────────────────┐
+  │ 1. CODEBASE           One repo → many deploys│
+  │    [Git Repo] → dev, staging, prod           │
+  ├──────────────────────────────────────────────┤
+  │ 2. DEPENDENCIES       Explicitly declared    │
+  │    package.json, go.mod — no global deps     │
+  ├──────────────────────────────────────────────┤
+  │ 3. CONFIG             Environment variables  │
+  │    DB_URL=... API_KEY=... (not in code!)     │
+  ├──────────────────────────────────────────────┤
+  │ 4. BACKING SERVICES   Treat as resources     │
+  │    DB, Redis, S3 → swap via config           │
+  ├──────────────────────────────────────────────┤
+  │ 5. BUILD/RELEASE/RUN  Strict separation      │
+  │    Build → artifact → config = release → run │
+  ├──────────────────────────────────────────────┤
+  │ 6. PROCESSES          Stateless, share-nothing│
+  │    State → Redis/DB (never in process memory)│
+  ├──────────────────────────────────────────────┤
+  │ 7. PORT BINDING       Self-contained HTTP    │
+  │    app.listen(PORT) — no external web server │
+  ├──────────────────────────────────────────────┤
+  │ 8. CONCURRENCY        Scale via processes    │
+  │    More instances, not bigger instances       │
+  ├──────────────────────────────────────────────┤
+  │ 9. DISPOSABILITY      Fast start, graceful   │
+  │    stop. SIGTERM → finish requests → exit    │
+  ├──────────────────────────────────────────────┤
+  │ 10. DEV/PROD PARITY   Same everywhere        │
+  │    Docker → identical dev/staging/prod        │
+  ├──────────────────────────────────────────────┤
+  │ 11. LOGS              stdout only            │
+  │    Write to stdout → platform collects       │
+  ├──────────────────────────────────────────────┤
+  │ 12. ADMIN PROCESSES   One-off commands       │
+  │    Migrations, scripts → same codebase/env   │
+  └──────────────────────────────────────────────┘`,
+      },
+    ]
+  },
+
+  'case-netflix': {
+    sections: [
+      {
+        title: '📖 Netflix System Architecture',
+        steps: [
+          'Client requests content → plays via adaptive bitrate streaming (ABR).',
+          'Open Connect CDN: boxes placed inside ISP networks — content served locally, not from AWS.',
+          'Backend: 700+ microservices on AWS — Zuul (gateway), Eureka (discovery), Hystrix (circuit breaker).',
+          'Recommendation engine: processes 500B+ events/day to personalize content for 200M+ users.',
+        ],
+        visual: `NETFLIX ARCHITECTURE (simplified):
+
+  ┌──────────┐
+  │ Netflix  │  What to watch? → AWS Backend
+  │  Client  │  Video stream → Open Connect
+  └──────────┘
+     │     │
+     │     └───────────────────────┐
+     ↓                             ↓
+  ┌──────────────┐          ┌──────────────┐
+  │  AWS Backend │          │ Open Connect │
+  │  (Control)   │          │ (CDN/Data)   │
+  │              │          │              │
+  │ ┌──────────┐ │          │ ┌──────────┐ │
+  │ │ Zuul     │ │          │ │ OCA Box  │ │
+  │ │(gateway) │ │          │ │(at ISP)  │ │
+  │ └──────────┘ │          │ └──────────┘ │
+  │ ┌──────────┐ │          │              │
+  │ │ Eureka   │ │          │ Video files  │
+  │ │(discover)│ │          │ pre-cached   │
+  │ └──────────┘ │          │ at 1000+ PoPs│
+  │ ┌──────────┐ │          └──────────────┘
+  │ │ Hystrix  │ │
+  │ │(breaker) │ │
+  │ └──────────┘ │
+  │ ┌──────────┐ │
+  │ │ Recs     │ │  Personalization
+  │ │ Engine   │ │  (ML models)
+  │ └──────────┘ │
+  └──────────────┘
+
+  VIDEO ENCODING PIPELINE:
+  ┌──────────┐  ┌───────────────────────────────┐
+  │ Original │→ │ Encode into 1200+ streams:    │
+  │ 4K master│  │ • 4K HDR (25 Mbps)            │
+  └──────────┘  │ • 1080p (5 Mbps)              │
+                │ • 720p (3 Mbps)               │
+                │ • 480p (1.5 Mbps)             │
+                │ • 240p (0.5 Mbps)             │
+                │ × codecs (H.264, VP9, AV1)    │
+                │ × audio (5.1, stereo)         │
+                └───────────────────────────────┘
+                         │
+                    Push to CDN
+                    (before launch!)`,
+      },
+    ]
+  },
+
+  'case-uber': {
+    sections: [
+      {
+        title: '📖 Uber Dispatch System',
+        steps: [
+          'Rider requests ride → Dispatch service searches for available drivers in nearby cells.',
+          'Drivers continuously report location → stored in Redis by geospatial cell.',
+          'Matching: rank available drivers by ETA (not distance!), send offer to best match.',
+          'Trip state machine: REQUESTED → MATCHED → DRIVER_ARRIVING → TRIP_STARTED → COMPLETED.',
+        ],
+        visual: `UBER DISPATCH FLOW:
+
+  ┌──────┐  1. Request ride   ┌───────────┐
+  │ Rider│───────────────────→│  Dispatch │
+  │ App  │  (pickup lat/lng)  │  Service  │
+  └──────┘                    └───────────┘
+                                    │
+                          2. Find nearby drivers
+                                    │
+                    ┌───────────────┼───────────────┐
+                    ↓               ↓               ↓
+              ┌──────────┐   ┌──────────┐   ┌──────────┐
+              │ Cell A   │   │ Cell B   │   │ Cell C   │
+              │ Driver 1 │   │ Driver 3 │   │ (empty)  │
+              │ Driver 2 │   │          │   │          │
+              └──────────┘   └──────────┘   └──────────┘
+                    │               │
+                    └───────┬───────┘
+                            ↓
+                  3. Rank by ETA
+                     D1: 4 min
+                     D3: 2 min ← BEST
+                     D2: 6 min
+                            │
+                            ↓
+                  4. Send offer to D3
+                  ┌──────────┐
+                  │ Driver 3 │  Accept? ✓
+                  │   App    │
+                  └──────────┘
+                            │
+                            ↓
+                  5. Trip State Machine
+  REQUESTED → MATCHED → ARRIVING → IN_PROGRESS → COMPLETED
+                                                      │
+                                                 Payment $$
+
+  SURGE PRICING:
+  ┌─────────────────────────────────────────┐
+  │  Supply (drivers) vs Demand (riders)    │
+  │                                          │
+  │  Normal:  Supply ≥ Demand  → 1.0x       │
+  │  Busy:    Supply < Demand  → 1.5x       │
+  │  Peak:    Supply << Demand → 2.5x+      │
+  │                                          │
+  │  Per zone (each H3 hex cell gets its    │
+  │  own surge multiplier)                   │
+  └─────────────────────────────────────────┘`,
+      },
+    ]
+  },
+
+  'case-whatsapp': {
+    sections: [
+      {
+        title: '📖 WhatsApp Messaging Delivery',
+        steps: [
+          'Sender sends message → encrypted on device → sent to WhatsApp server → queued for recipient.',
+          'If recipient online: deliver immediately via existing WebSocket. If offline: queue in mailbox.',
+          'Delivery receipt: server sends "delivered" ack. Read receipt: recipient sends "read" ack.',
+          'Media: encrypted → uploaded to CDN → URL+key sent in message → recipient downloads and decrypts.',
+        ],
+        visual: `WHATSAPP MESSAGE FLOW:
+
+  Sender (Alice)              Server              Receiver (Bob)
+  ┌──────┐                  ┌──────┐              ┌──────┐
+  │ App  │                  │ WA   │              │ App  │
+  └──────┘                  │Server│              └──────┘
+     │                      └──────┘                 │
+     │ 1. Encrypt msg          │                     │
+     │ (Signal Protocol)       │                     │
+     │                         │                     │
+     │ 2. Send encrypted       │                     │
+     │ ─────────────────────→  │                     │
+     │                         │ 3a. Bob online?     │
+     │                         │ YES → deliver       │
+     │                         │ ─────────────────→  │
+     │ ← ─ ─ ─ ─ ─ ─ ─ ─ ─  │                     │
+     │   "sent" (✓)           │ ← ─ ─ ─ ─ ─ ─ ─  │
+     │                         │   "delivered" (✓✓) │
+     │ ← ─ ─ ─ ─ ─ ─ ─ ─ ─  │                     │
+     │   "delivered" (✓✓)     │                     │
+     │                         │                     │
+     │                         │ (Bob reads msg)     │
+     │                         │ ← ─ ─ ─ ─ ─ ─ ─  │
+     │ ← ─ ─ ─ ─ ─ ─ ─ ─ ─  │   "read"            │
+     │   "read" (✓✓ blue)     │                     │
+
+  IF BOB IS OFFLINE:
+     │ 2. Send encrypted       │
+     │ ─────────────────────→  │                     │
+     │                         │ 3b. Bob offline    │
+     │ ← ─ ─ ─ ─ ─ ─ ─ ─ ─  │ Queue in mailbox   │
+     │   "sent" (✓)           │ ┌────────────┐     │
+     │                         │ │ Bob's inbox│     │
+     │                         │ │ [msg1]     │     │
+     │                         │ │ [msg2]     │     │
+     │                         │ └────────────┘     │
+     │                         │                     │
+     │                         │ Bob comes online!   │
+     │                         │ ─────────────────→  │
+     │                         │ Drain inbox         │
+
+  END-TO-END ENCRYPTION:
+  ┌──────────────────────────────────────────────┐
+  │ Alice                  Server          Bob   │
+  │                                              │
+  │ msg = "Hello"         ??????          msg =  │
+  │      │                 ↑↑↑            "Hello"│
+  │ encrypt(msg, key_AB)  Server           │     │
+  │      │                CANNOT           │     │
+  │      └──→ ciphertext → READ ──→ decrypt│     │
+  │           "x8f2kj..."  this   (key_AB) │     │
+  └──────────────────────────────────────────────┘`,
+      },
+    ]
+  },
 
 };
+

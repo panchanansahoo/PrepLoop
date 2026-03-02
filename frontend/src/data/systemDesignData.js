@@ -6,6 +6,11 @@ export const SD_PHASES = [
   { id: 'distributed', name: 'Phase 4: Distributed Systems', color: '#ef4444', icon: '🌐' },
   { id: 'cloud-native', name: 'Phase 5: Cloud-Native', color: '#06b6d4', icon: '☁️' },
   { id: 'ai-native', name: 'Phase 6: AI-Native Systems', color: '#f472b6', icon: '🤖' },
+  { id: 'security-trust', name: 'Phase 7: Security & Trust', color: '#f59e0b', icon: '🔒' },
+  { id: 'realtime-systems', name: 'Phase 8: Real-Time Systems', color: '#22c55e', icon: '⚡' },
+  { id: 'data-pipelines', name: 'Phase 9: Data Pipelines & Storage', color: '#8b5cf6', icon: '🔄' },
+  { id: 'design-approaches', name: 'Phase 10: Design Patterns & Approaches', color: '#0ea5e9', icon: '🏗️' },
+  { id: 'case-studies', name: 'Phase 11: Case Study Architectures', color: '#e11d48', icon: '📋' },
 ];
 
 export const SD_TOPICS = [
@@ -492,7 +497,372 @@ export const SD_TOPICS = [
       { title: 'Design Google Search', difficulty: 'Hard', focus: 'Web crawler, inverted index, ranking, scale' },
     ]
   },
+  // ═══════════════ PHASE 7: SECURITY & TRUST ═══════════════
+  {
+    id: 'auth-systems', title: 'Authentication & Authorization', stage: 'security-trust',
+    icon: '🔐', color: '#f59e0b', difficulty: 'Medium–Hard', estimatedTime: '3–4 hours',
+    description: 'OAuth2, JWT, session management, RBAC, SSO, multi-factor auth, token refresh, and zero-trust architecture.',
+    concepts: [
+      { title: 'Authentication Methods', points: ['Session-based: server stores session in Redis/DB, client holds session cookie — stateful, simple', 'Token-based (JWT): server issues signed token, client sends in header — stateless, scalable', 'OAuth2: delegate auth to provider (Google, GitHub) — Authorization Code flow for web, PKCE for SPAs', 'API Keys: simple for server-to-server — not for user auth (no expiry management)', 'MFA: something you know (password) + something you have (TOTP/SMS) + something you are (biometric)'] },
+      { title: 'Authorization Patterns', points: ['RBAC (Role-Based): roles = admin, editor, viewer — each role has permissions', 'ABAC (Attribute-Based): policies based on user attributes, resource attributes, environment', 'ACL (Access Control List): explicit list of who can do what on each resource', 'Policy-as-Code: OPA (Open Policy Agent) — define auth rules in Rego, decouple from app', 'Zero Trust: never trust, always verify — authenticate every request even on internal network'] },
+    ],
+    invariants: ['Never store passwords in plaintext — bcrypt/scrypt/argon2 with salt', 'JWT has no revocation mechanism — use short expiry + refresh tokens', 'RBAC is simpler to audit than ABAC — prefer RBAC unless complex policies needed'],
+    thinkingFramework: [
+      { condition: 'Public API for third parties', action: 'OAuth2 with API keys + rate limiting' },
+      { condition: 'SPA/mobile app', action: 'JWT (short-lived access + long-lived refresh token) with PKCE' },
+      { condition: 'Internal microservices', action: 'mTLS + service mesh identity (Istio/SPIFFE)' },
+      { condition: 'Enterprise SSO', action: 'SAML 2.0 or OIDC (OpenID Connect) with IdP (Okta, Auth0)' },
+      { condition: 'Need instant token revocation', action: 'Session-based auth or JWT deny-list in Redis' },
+    ],
+    tricks: [
+      { name: 'Token Rotation', tip: 'Access token: 15 min expiry. Refresh token: 7 days, single-use (rotate on each use). Detect stolen refresh tokens by tracking token families.', when: 'Any JWT-based auth system', avoid: 'N/A' },
+      { name: 'Scoped Tokens', tip: 'Issue tokens with minimal scopes (read:user, write:post). Validate scope on each endpoint. Principle of least privilege.', when: 'API authorization', avoid: 'N/A' },
+    ],
+    pitfalls: ['Storing JWT in localStorage (XSS vulnerable) — use httpOnly cookies', 'Not implementing token refresh → users logged out frequently', 'Using symmetric JWTs (HS256) across multiple services — use asymmetric (RS256)', 'Not rate-limiting login attempts → brute force attacks'],
+    keyDesigns: [
+      { title: 'SSO Platform (Okta/Auth0)', difficulty: 'Hard', focus: 'Multi-tenant auth, federation, token management' },
+      { title: 'API Gateway Auth', difficulty: 'Medium', focus: 'Token validation, rate limiting, scope enforcement' },
+    ]
+  },
+  {
+    id: 'api-security', title: 'API Security & DDoS Protection', stage: 'security-trust',
+    icon: '🛡️', color: '#d97706', difficulty: 'Medium', estimatedTime: '2–3 hours',
+    description: 'OWASP API Top 10, input validation, CORS, CSRF, DDoS mitigation, WAF, bot protection.',
+    concepts: [
+      { title: 'OWASP API Top 10', points: ['Broken Object Level Auth (BOLA/IDOR): can user A access user B\'s data?', 'Broken Authentication: weak password policy, credential stuffing, no brute-force protection', 'Excessive Data Exposure: API returns more data than client needs → filter server-side', 'Rate Limiting absence: no throttling → abuse, scraping, DoS', 'Mass Assignment: API accepts fields it shouldn\'t (e.g., isAdmin in user update)'] },
+      { title: 'Defense Layers', points: ['WAF (Web Application Firewall): filter malicious requests (SQL injection, XSS)', 'DDoS Protection: Cloudflare/AWS Shield — absorb volumetric attacks at the edge', 'Input Validation: whitelist allowed characters, validate format (not just client-side)', 'CORS: restrict which origins can call your API — don\'t use wildcard (*) in production', 'CSRF Tokens: prevent cross-site request forgery for cookie-based auth'] },
+    ],
+    invariants: ['Never trust client-side validation — always validate on the server', 'Defense in depth: multiple security layers, not one silver bullet', 'Principle of least privilege: API should expose minimum data and operations needed'],
+    thinkingFramework: [
+      { condition: 'Public-facing API', action: 'WAF + rate limiting + input validation + auth at gateway' },
+      { condition: 'DDoS risk', action: 'CDN/Cloudflare for L3-L4, WAF for L7 application attacks' },
+      { condition: 'Handling sensitive data (PII)', action: 'Encrypt in transit (TLS) + at rest (AES-256) + mask in logs' },
+      { condition: 'Multi-tenant SaaS', action: 'Tenant isolation — validate tenant_id on every query' },
+    ],
+    tricks: [
+      { name: 'Request Signing', tip: 'Sign API requests with HMAC — prevents tampering. Include timestamp to prevent replay attacks (reject if > 5 min old).', when: 'Webhook receivers, payment callbacks', avoid: 'Simple read-only public APIs' },
+    ],
+    pitfalls: ['Returning stack traces in production error responses', 'Not sanitizing user input before database queries (SQL injection)', 'Using CORS wildcard (*) with credentials', 'Not logging security events for forensic analysis'],
+    keyDesigns: [
+      { title: 'Secure Payment Gateway', difficulty: 'Hard', focus: 'PCI compliance, encryption, tokenization' },
+    ]
+  },
+  {
+    id: 'data-protection', title: 'Data Encryption & Privacy', stage: 'security-trust',
+    icon: '🔏', color: '#ca8a04', difficulty: 'Medium–Hard', estimatedTime: '2–3 hours',
+    description: 'Encryption at rest/transit, key management, data masking, GDPR compliance, backup strategies.',
+    concepts: [
+      { title: 'Encryption', points: ['In Transit: TLS 1.3 for all connections (HTTP, DB, queue) — certificate management', 'At Rest: AES-256 for stored data — full disk encryption, column-level encryption', 'End-to-End (E2E): only sender and receiver can read — used in messaging (Signal protocol)', 'Envelope Encryption: encrypt data with data key, encrypt data key with master key (KMS)', 'Hashing: one-way transformation — bcrypt/argon2 for passwords, SHA-256 for integrity'] },
+      { title: 'Privacy & Compliance', points: ['GDPR: right to access, right to erasure, data minimization, consent management', 'Data Masking: replace sensitive data with realistic but fake data in non-prod environments', 'PII Detection: automated scanning for personally identifiable information in logs/databases', 'Data Residency: store data in the region required by law (EU data stays in EU)', 'Audit Logs: immutable record of who accessed/modified sensitive data'] },
+    ],
+    invariants: ['Never log sensitive data (passwords, credit cards, SSNs)', 'Key rotation must be automated — manual rotation is forgotten', 'Backups must be encrypted and tested (untested backup = no backup)'],
+    thinkingFramework: [
+      { condition: 'Healthcare data (HIPAA)', action: 'Encryption everywhere + access audit log + BAA with cloud provider' },
+      { condition: 'EU users (GDPR)', action: 'Consent management + right to erasure + data minimization' },
+      { condition: 'Credit card processing', action: 'PCI DSS compliance — tokenize cards, never store raw numbers' },
+      { condition: 'Multi-tenant data isolation', action: 'Separate encryption keys per tenant + row-level security' },
+    ],
+    tricks: [
+      { name: 'Crypto Shredding', tip: 'To "delete" encrypted data without touching every record, just delete the encryption key. Data becomes unreadable. Useful for GDPR right to erasure at scale.', when: 'Large-scale data deletion requirements', avoid: 'When you need selective deletion' },
+    ],
+    pitfalls: ['Hardcoding encryption keys in source code', 'Using outdated encryption (MD5, SHA-1, DES)', 'Not rotating keys on a schedule', 'Encrypting data but storing the key next to it'],
+    keyDesigns: [
+      { title: 'End-to-End Encrypted Messaging', difficulty: 'Hard', focus: 'Signal protocol, key exchange, forward secrecy' },
+      { title: 'GDPR-Compliant User Data Platform', difficulty: 'Hard', focus: 'Consent, erasure, portability, audit' },
+    ]
+  },
+  // ═══════════════ PHASE 8: REAL-TIME SYSTEMS ═══════════════
+  {
+    id: 'websocket-realtime', title: 'WebSockets & Real-Time Communication', stage: 'realtime-systems',
+    icon: '🔌', color: '#22c55e', difficulty: 'Medium', estimatedTime: '3 hours',
+    description: 'WebSocket protocol, Server-Sent Events (SSE), long polling, Socket.IO, scaling WebSocket connections.',
+    concepts: [
+      { title: 'Real-Time Protocols', points: ['WebSocket: full-duplex, persistent connection — client and server push messages anytime', 'Server-Sent Events (SSE): server pushes to client only (one-way) — simpler, auto-reconnect', 'Long Polling: client sends request, server holds until data available — fallback, higher overhead', 'HTTP Streaming: server never closes response, sends data chunks — good for streaming logs'] },
+      { title: 'Scaling WebSockets', points: ['Challenge: WebSocket is stateful — client connected to specific server', 'Sticky sessions: LB routes same client to same server (breaks horizontal scaling)', 'Pub/Sub backbone: Redis Pub/Sub or Kafka — server publishes, all servers with connected clients receive', 'Connection gateway: dedicated WebSocket servers separate from API servers', 'Connection limit: one server handles ~50K-100K concurrent WebSocket connections'] },
+    ],
+    invariants: ['WebSocket connections are stateful — need session awareness at LB level', 'Heartbeat/ping-pong required to detect dead connections', 'Reconnection with exponential backoff is essential for reliability'],
+    thinkingFramework: [
+      { condition: 'Two-way real-time (chat, gaming)', action: 'WebSocket with Pub/Sub backend (Redis)' },
+      { condition: 'Server → client only (notifications, feeds)', action: 'SSE — simpler, auto-reconnect, works with HTTP/2' },
+      { condition: 'Scaling to millions of connections', action: 'Dedicated connection gateway + Pub/Sub fanout + horizontal scaling' },
+      { condition: 'Browser compatibility concerns', action: 'Socket.IO — WebSocket with fallback to long polling' },
+    ],
+    tricks: [
+      { name: 'Room-Based Pub/Sub', tip: 'Group users into "rooms" (chat rooms, document editors). Only publish to the room, not broadcast to all connections. Drastically reduces fan-out.', when: 'Chat, collaborative editing, group features', avoid: 'Global broadcasts' },
+      { name: 'Connection Draining', tip: 'During deployment, stop accepting new connections on old server, wait for existing to migrate. Prevents dropping active users.', when: 'Deploying WebSocket servers', avoid: 'N/A' },
+    ],
+    pitfalls: ['Not implementing heartbeat → zombie connections consuming resources', 'Broadcasting to all connections instead of targeted rooms → O(N) fan-out', 'Not handling reconnection gracefully → user sees disconnected state', 'Using WebSocket for everything — REST is simpler for request-response'],
+    keyDesigns: [
+      { title: 'Real-Time Chat System', difficulty: 'Medium', focus: 'WebSocket, rooms, presence, message ordering' },
+      { title: 'Collaborative Document Editor', difficulty: 'Hard', focus: 'OT/CRDT, cursor sync, conflict resolution' },
+    ]
+  },
+  {
+    id: 'location-systems', title: 'Location & Geospatial Systems', stage: 'realtime-systems',
+    icon: '📍', color: '#16a34a', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'Geospatial indexing (Geohash, QuadTree, S2), proximity search, real-time location tracking, ETA calculation.',
+    concepts: [
+      { title: 'Geospatial Indexing', points: ['Geohash: encode lat/lng into string — "9q8yyk" — prefix search for proximity', 'QuadTree: recursive 2D partitioning — split cells when they have too many points', 'S2 Geometry (Google): map Earth to unit sphere, divide into cells — hierarchical, efficient', 'R-tree: balanced tree for spatial data — good for range queries and nearest neighbor', 'PostGIS / MongoDB 2dsphere: built-in geospatial indexes and query support'] },
+      { title: 'Real-Time Location', points: ['Driver/rider location updates: every 3-5 seconds via WebSocket or MQTT', 'Grid-based matching: divide city into cells, only search nearby cells for matches', 'ETA calculation: precomputed graph (road network) + real-time traffic overlay', 'Geofencing: trigger events when user enters/exits a geographic boundary', 'Historical trajectory: time-series of positions for route analysis'] },
+    ],
+    invariants: ['Geohash edge problem: nearby points can have very different geohashes at cell boundaries', 'Location data is high-write, high-read — need write-optimized store + read cache', 'Privacy: location data is extremely sensitive — encrypt, limit retention, anonymize'],
+    thinkingFramework: [
+      { condition: 'Find nearby restaurants/stores', action: 'Geohash in Redis (sorted set by geohash prefix) or PostGIS' },
+      { condition: 'Real-time ride matching (Uber)', action: 'Grid-based matching + WebSocket for live updates + Redis for driver positions' },
+      { condition: 'Delivery ETA', action: 'Pre-built road graph (OSRM/GraphHopper) + live traffic weights' },
+      { condition: 'Large-scale geofencing (millions of fences)', action: 'S2 cells + event-driven fence check on location update' },
+    ],
+    tricks: [
+      { name: 'Multi-Resolution Geohash', tip: 'Use shorter geohash for wide searches (4 chars ≈ 39km), longer for precise (7 chars ≈ 153m). Start wide, filter down.', when: 'Variable-radius proximity search', avoid: 'Fixed-radius queries with PostGIS' },
+    ],
+    pitfalls: ['Geohash boundary issue — always query neighboring cells too', 'Storing raw lat/lng without spatial index → full table scan for proximity', 'Not accounting for Earth being a sphere — Euclidean distance is wrong at scale', 'Sending location updates too frequently → bandwidth and battery drain'],
+    keyDesigns: [
+      { title: 'Uber/Ola Ride Matching', difficulty: 'Hard', focus: 'Real-time location, matching algorithm, ETA' },
+      { title: 'Yelp/Zomato Nearby Search', difficulty: 'Medium', focus: 'Geospatial indexing, search ranking, caching' },
+    ]
+  },
+  {
+    id: 'notification-system', title: 'Notification & Push Systems', stage: 'realtime-systems',
+    icon: '🔔', color: '#15803d', difficulty: 'Medium', estimatedTime: '2–3 hours',
+    description: 'Push notifications (FCM/APNs), email delivery, SMS, in-app notifications, priority queues, user preferences.',
+    concepts: [
+      { title: 'Notification Channels', points: ['Push (Mobile): FCM (Android), APNs (iOS) — fire-and-forget, no guarantee of delivery', 'Email: SMTP via SendGrid/SES — async, trackable (open/click), templates', 'SMS: Twilio/SNS — expensive, use for critical alerts (OTP, account security)', 'In-App: WebSocket/SSE for real-time, API polling for non-critical — always delivered if user is online', 'Webhook: HTTP callback to external systems — retry with exponential backoff'] },
+      { title: 'Architecture', points: ['Event → Notification Service → Channel Router → Delivery Workers', 'Priority Queue: critical (OTP) > high (order update) > low (marketing) — separate queues', 'User Preferences: opt-in/out per channel, quiet hours, frequency capping', 'Deduplication: prevent sending same notification twice (idempotency key)', 'Template Engine: dynamic content injection, i18n, A/B testing'] },
+    ],
+    invariants: ['Push notifications are not guaranteed — FCM/APNs are best-effort', 'Rate limiting per user is essential — notification fatigue drives uninstalls', 'Always have an unsubscribe mechanism — legal requirement (CAN-SPAM, GDPR)'],
+    thinkingFramework: [
+      { condition: 'Time-sensitive (OTP, security alert)', action: 'SMS + Push simultaneously, highest priority queue' },
+      { condition: 'Transactional (order confirmation)', action: 'Email + In-App, medium priority' },
+      { condition: 'Marketing/engagement', action: 'Push + Email with frequency cap, lowest priority, respect preferences' },
+      { condition: 'System alerting', action: 'Webhook + PagerDuty/Slack, with escalation policy' },
+    ],
+    tricks: [
+      { name: 'Fan-Out per Channel', tip: 'One notification event → route to 3+ channels in parallel. Each channel has its own worker pool and retry logic. Failure in one channel doesn\'t block others.', when: 'Multi-channel notification system', avoid: 'Single-channel systems' },
+    ],
+    pitfalls: ['Not implementing user preference management → compliance violations', 'Sending all notifications through one queue → OTP delayed behind marketing batch', 'Not tracking delivery status → no visibility into notification failures', 'Not rate-limiting → sending 50 notifications in 1 minute to same user'],
+    keyDesigns: [
+      { title: 'Notification Platform (like Firebase)', difficulty: 'Hard', focus: 'Multi-channel, priorities, preferences, templates' },
+    ]
+  },
+  // ═══════════════ PHASE 9: DATA PIPELINES & STORAGE ═══════════════
+  {
+    id: 'data-pipeline-etl', title: 'ETL & Batch Processing', stage: 'data-pipelines',
+    icon: '⚙️', color: '#8b5cf6', difficulty: 'Medium', estimatedTime: '3 hours',
+    description: 'Extract-Transform-Load pipelines, Apache Spark, data warehousing, batch vs micro-batch, data quality.',
+    concepts: [
+      { title: 'ETL Pipeline', points: ['Extract: pull data from sources (databases, APIs, files, event streams)', 'Transform: clean, validate, enrich, aggregate, denormalize for analytics', 'Load: write to target (data warehouse, data lake, analytics DB)', 'ELT (modern): load raw data first into warehouse, transform there (Snowflake, BigQuery)', 'Orchestration: Airflow, Prefect, Dagster — DAG-based scheduling and dependency management'] },
+      { title: 'Batch Processing', points: ['Apache Spark: distributed compute — map-reduce style, in-memory processing', 'Batch window: nightly/hourly jobs — process accumulated data in bulk', 'Micro-batch: small batches every few minutes — compromise between batch and streaming', 'Data Quality: schema validation, null checks, deduplication, anomaly detection', 'Idempotent pipelines: re-running should produce same result (handle duplicates)'] },
+    ],
+    invariants: ['ETL should be idempotent — re-running must not create duplicates', 'Data quality checks must run before loading to production tables', 'Backfilling historical data must not impact production pipeline'],
+    thinkingFramework: [
+      { condition: 'Business analytics/reporting', action: 'Nightly ETL to data warehouse (Snowflake/BigQuery)' },
+      { condition: 'Near-real-time dashboards (< 5 min delay)', action: 'Micro-batch with Spark Structured Streaming' },
+      { condition: 'ML model training data', action: 'Feature pipeline: raw data → feature store → training dataset' },
+      { condition: 'Multiple data sources needing consolidation', action: 'Airflow-orchestrated multi-source ETL with data quality gates' },
+    ],
+    tricks: [
+      { name: 'Incremental Processing', tip: 'Don\'t process all data every run. Use watermarks/timestamps to process only new/changed data. Reduces compute by 10-100x.', when: 'Any recurring batch job', avoid: 'When full reprocessing is cheap' },
+    ],
+    pitfalls: ['Non-idempotent pipelines → duplicate data on retry', 'Not monitoring pipeline freshness → stale data in dashboards', 'Giant monolithic pipeline → one step fails, everything fails', 'No data quality checks → garbage in, garbage out'],
+    keyDesigns: [
+      { title: 'Analytics Data Warehouse', difficulty: 'Medium', focus: 'Star schema, ETL, query optimization' },
+      { title: 'ML Feature Pipeline', difficulty: 'Hard', focus: 'Feature store, training/serving consistency' },
+    ]
+  },
+  {
+    id: 'stream-processing', title: 'Stream Processing', stage: 'data-pipelines',
+    icon: '🌊', color: '#7c3aed', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'Apache Kafka Streams, Flink, windowing (tumbling, sliding, session), exactly-once processing, watermarks.',
+    concepts: [
+      { title: 'Stream Processing Engines', points: ['Kafka Streams: library (not cluster) — runs in your app, scales with Kafka partitions', 'Apache Flink: distributed engine — powerful windowing, exactly-once, checkpointing', 'Spark Structured Streaming: micro-batch streaming — good if you already use Spark', 'AWS Kinesis / GCP Dataflow: managed streaming — less operational overhead'] },
+      { title: 'Windowing', points: ['Tumbling Window: fixed, non-overlapping (every 5 min) — simple aggregations', 'Sliding Window: overlapping (5 min window, slides every 1 min) — smoothed aggregations', 'Session Window: grouped by activity — gap of inactivity closes the window', 'Watermarks: track event-time progress — handle late-arriving events', 'Exactly-once: checkpoint + idempotent writes — Kafka transactions + Flink checkpoints'] },
+    ],
+    invariants: ['Event time ≠ processing time — always use event timestamps for windowing', 'Late data is inevitable — watermark defines how long to wait before closing window', 'Exactly-once in streaming is achieved by combining at-least-once delivery + idempotent writes'],
+    thinkingFramework: [
+      { condition: 'Real-time fraud detection', action: 'Stream processing with session windows + ML model inference' },
+      { condition: 'Live dashboard metrics (count, sum)', action: 'Tumbling windows in Kafka Streams or Flink' },
+      { condition: 'Real-time recommendations', action: 'Stream processing enriched with user profile data (stream-table join)' },
+      { condition: 'IoT sensor data aggregation', action: 'Flink with watermarks for late data + tumbling windows' },
+    ],
+    tricks: [
+      { name: 'Stream-Table Join', tip: 'Enrich events with user/product data by joining stream with a compacted topic or database. Example: order_event JOIN user_profile → enriched order.', when: 'Need context for stream events', avoid: 'When enrichment data changes very frequently' },
+    ],
+    pitfalls: ['Using processing time instead of event time → incorrect aggregations', 'Not handling late data → dropped or double-counted events', 'Too many stateful operations → large state, slow checkpoints', 'Not monitoring consumer lag → processing falling behind, data getting stale'],
+    keyDesigns: [
+      { title: 'Real-Time Fraud Detection', difficulty: 'Hard', focus: 'Stream processing, ML, low-latency alerting' },
+      { title: 'Live Dashboard Analytics', difficulty: 'Medium', focus: 'Windowed aggregations, materialized views' },
+    ]
+  },
+  {
+    id: 'data-lakes-warehouse', title: 'Data Lakes & Data Warehouses', stage: 'data-pipelines',
+    icon: '🏗️', color: '#6d28d9', difficulty: 'Medium', estimatedTime: '2–3 hours',
+    description: 'Data lake (S3/ADLS), data warehouse (Snowflake/BigQuery), lakehouse (Delta Lake/Iceberg), schema-on-read vs write.',
+    concepts: [
+      { title: 'Data Lake vs Warehouse', points: ['Data Lake: store everything raw in cheap storage (S3). Schema-on-read. Flexible but chaotic.', 'Data Warehouse: structured, optimized for SQL analytics. Schema-on-write. Fast queries.', 'Lakehouse (modern): combines both — open format (Parquet) + warehouse features (Delta Lake, Iceberg)', 'Medallion Architecture: Bronze (raw) → Silver (cleaned) → Gold (business-ready) layers', 'Data Catalog: metadata management — what data exists, schema, ownership, lineage'] },
+      { title: 'Storage Formats', points: ['Parquet: columnar, compressed — best for analytics (100x faster than CSV for scans)', 'Avro: row-based, schema evolution — good for Kafka messages', 'ORC: columnar, Hive optimized — similar to Parquet', 'Delta Lake / Iceberg: table format on top of Parquet — ACID transactions, time travel, upserts', 'Partitioning: organize by date/region for faster queries — avoid small file problem'] },
+    ],
+    invariants: ['Data lake without governance = data swamp — catalog, lineage, and quality are essential', 'Columnar formats (Parquet) are 10-100x faster for analytics than row formats (CSV/JSON)', 'Schema evolution must be backward compatible — don\'t break downstream consumers'],
+    thinkingFramework: [
+      { condition: 'Ad-hoc analytics, uncertain queries', action: 'Data lake (S3 + Parquet) with Athena/Presto' },
+      { condition: 'Business intelligence, dashboards', action: 'Data warehouse (Snowflake/BigQuery) with star/snowflake schema' },
+      { condition: 'Need both flexibility and performance', action: 'Lakehouse (Delta Lake on S3 + Spark SQL)' },
+      { condition: 'ML training data at scale', action: 'Data lake with feature store overlay' },
+    ],
+    tricks: [
+      { name: 'Medallion Architecture', tip: 'Bronze = raw ingestion (append-only). Silver = cleaned, deduplicated, typed. Gold = aggregated, business-ready tables. Each layer is independent and reprocessable.', when: 'Any production data platform', avoid: 'N/A' },
+    ],
+    pitfalls: ['Data lake without catalog → nobody knows what data exists', 'Too many small files → slow queries, high metadata overhead', 'Not partitioning correctly → full scans on every query', 'Schema changes breaking downstream consumers (use schema registry)'],
+    keyDesigns: [
+      { title: 'Enterprise Data Platform', difficulty: 'Hard', focus: 'Lakehouse, governance, self-service analytics' },
+    ]
+  },
+  // ═══════════════ PHASE 10: DESIGN PATTERNS & APPROACHES ═══════════════
+  {
+    id: 'proxy-gateway-patterns', title: 'Proxy, Gateway & Sidecar Patterns', stage: 'design-approaches',
+    icon: '🚪', color: '#0ea5e9', difficulty: 'Medium', estimatedTime: '2–3 hours',
+    description: 'API Gateway pattern, BFF (Backend for Frontend), Sidecar/Service Mesh, Ambassador, reverse proxy.',
+    concepts: [
+      { title: 'API Gateway Pattern', points: ['Single entry point for all clients — handles auth, rate limiting, routing, SSL termination', 'Request routing: path-based routing to appropriate microservice', 'Protocol translation: REST from client → gRPC to internal services', 'Aggregation: combine responses from multiple services into one for the client', 'Examples: Kong, AWS API Gateway, Nginx, Envoy, Apigee'] },
+      { title: 'Advanced Patterns', points: ['BFF (Backend for Frontend): separate gateway per client type (mobile, web, IoT)', 'Sidecar Pattern: deploy helper container alongside main app (logging, auth proxy)', 'Service Mesh: sidecar proxies on every service handle networking (Istio/Linkerd)', 'Ambassador Pattern: sidecar specifically for outbound connections (circuit breaker, retries)', 'Strangler Fig: route traffic gradually from monolith to microservices via gateway'] },
+    ],
+    invariants: ['API Gateway is a single point of failure — deploy redundantly', 'BFF prevents one API serving all client needs poorly — separate concerns per client', 'Service mesh adds latency (1-3ms per hop) — worth it for large microservices, overhead for small systems'],
+    thinkingFramework: [
+      { condition: 'Multiple clients (web, mobile, IoT)', action: 'BFF pattern — one gateway per client type' },
+      { condition: 'Microservices needing consistent auth/logging', action: 'API Gateway with middleware for cross-cutting concerns' },
+      { condition: '10+ microservices needing resilience', action: 'Service mesh (Istio) for automatic retries, circuit breakers, mTLS' },
+      { condition: 'Migrating from monolith', action: 'Strangler fig — route new features to new services via gateway' },
+    ],
+    tricks: [
+      { name: 'Gateway as Rate Limiter', tip: 'Apply rate limits at the gateway before requests reach services. Different limits per API key/user tier. Protects all downstream services.', when: 'Public-facing APIs', avoid: 'Internal-only services' },
+    ],
+    pitfalls: ['Too much logic in gateway → becomes a performance bottleneck', 'Gateway as monolith — keep it thin, delegate to services', 'Not monitoring gateway latency → silent degradation', 'Over-engineering with service mesh for 3-4 services'],
+    keyDesigns: [
+      { title: 'API Gateway Platform', difficulty: 'Medium', focus: 'Routing, auth, rate limiting, aggregation' },
+      { title: 'Service Mesh Implementation', difficulty: 'Hard', focus: 'Sidecar, mTLS, traffic management' },
+    ]
+  },
+  {
+    id: 'domain-driven-design', title: 'Domain-Driven Design (DDD)', stage: 'design-approaches',
+    icon: '🎯', color: '#0284c7', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'Bounded contexts, aggregates, entities, value objects, domain events, ubiquitous language, context mapping.',
+    concepts: [
+      { title: 'Strategic DDD', points: ['Bounded Context: a boundary within which a specific domain model is defined and applicable', 'Ubiquitous Language: shared vocabulary between developers and domain experts', 'Context Map: visual representation of relationships between bounded contexts', 'Subdomain Types: Core (competitive advantage), Supporting (necessary), Generic (commodity)', 'Anti-Corruption Layer (ACL): adapter between your model and external/legacy system'] },
+      { title: 'Tactical DDD', points: ['Entity: has identity, lifecycle (e.g., User, Order) — identity persists even if attributes change', 'Value Object: defined by attributes, immutable, no identity (e.g., Money, Address)', 'Aggregate: cluster of entities/VOs with a root entity — transaction boundary', 'Domain Event: something that happened (OrderPlaced, PaymentCompleted) — drives decoupling', 'Repository: abstraction for data access — one repository per aggregate root'] },
+    ],
+    invariants: ['One aggregate = one transaction boundary — never modify two aggregates in one transaction', 'Aggregates communicate via domain events, not direct calls', 'Bounded context should align with team boundaries (Conway\'s Law)'],
+    thinkingFramework: [
+      { condition: 'Complex business domain with many rules', action: 'Apply DDD — model the domain first, then build' },
+      { condition: 'Multiple teams working on overlapping domains', action: 'Define bounded contexts aligned with team ownership' },
+      { condition: 'Legacy system integration', action: 'Anti-corruption layer to translate between models' },
+      { condition: 'Need cross-aggregate consistency', action: 'Domain events + eventual consistency (saga if needed)' },
+    ],
+    tricks: [
+      { name: 'Event Storming', tip: 'Workshop technique: put domain events on sticky notes, group by aggregate, discover bounded contexts. Best way to start DDD in a new domain.', when: 'Starting a new project or restructuring', avoid: 'N/A' },
+    ],
+    pitfalls: ['Applying DDD to simple CRUD applications (over-engineering)', 'Making aggregates too large → performance and locking issues', 'Ignoring ubiquitous language → developers and business speak different languages', 'Not aligning bounded contexts with team boundaries → coordination overhead'],
+    keyDesigns: [
+      { title: 'E-Commerce Domain Model', difficulty: 'Hard', focus: 'Order, Inventory, Payment aggregates, domain events' },
+      { title: 'Banking System', difficulty: 'Hard', focus: 'Account aggregate, transaction events, regulatory compliance' },
+    ]
+  },
+  {
+    id: 'twelve-factor-app', title: '12-Factor App & Cloud Principles', stage: 'design-approaches',
+    icon: '📐', color: '#0369a1', difficulty: 'Medium', estimatedTime: '2 hours',
+    description: 'The twelve-factor methodology, cloud-native principles, immutable infrastructure, config management.',
+    concepts: [
+      { title: 'The 12 Factors', points: ['1. Codebase: one repo per service, many deploys (dev, staging, prod)', '2. Dependencies: explicitly declare (package.json, requirements.txt), never rely on system packages', '3. Config: store in environment variables, not in code (no hardcoded URLs/keys)', '4. Backing Services: treat DB, cache, queue as attached resources — swap without code changes', '5. Build, Release, Run: strict separation — build once, configure per environment, run immutably', '6. Processes: stateless, share-nothing — store state in external services (DB, Redis)'] },
+      { title: '12 Factors (continued)', points: ['7. Port Binding: app self-contains its web server — exports HTTP on a port', '8. Concurrency: scale by running more processes (horizontal), not bigger processes (vertical)', '9. Disposability: fast startup, graceful shutdown — can be killed and restarted anytime', '10. Dev/Prod Parity: keep environments as similar as possible — use containers', '11. Logs: treat as event streams — write to stdout, let platform collect and aggregate', '12. Admin Processes: run one-off tasks (migrations, scripts) as the same codebase, same environment'] },
+    ],
+    invariants: ['Stateless processes = horizontal scaling. State belongs in backing services.', 'Config ≠ code — anything that varies between deploys is config', 'Dev/prod parity reduces "works on my machine" bugs — containers help'],
+    thinkingFramework: [
+      { condition: 'Deploying to cloud / Kubernetes', action: 'Follow all 12 factors — they are designed for this' },
+      { condition: 'Config management', action: 'Environment variables for secrets, config files for structure (not secrets!)' },
+      { condition: 'Application logging', action: 'Log to stdout, use Fluentd/Logstash/CloudWatch for collection' },
+      { condition: 'Database migrations', action: 'Run as admin process with same codebase, not manual SQL scripts' },
+    ],
+    tricks: [
+      { name: 'Feature Flags over Config', tip: 'Use feature flags (LaunchDarkly, Unleash) for runtime config changes instead of redeploying. Separate deployment from release.', when: 'Gradual rollouts, A/B testing', avoid: 'Simple on/off config' },
+    ],
+    pitfalls: ['Storing secrets in code or config files committed to git', 'Stateful processes that lose data on restart', 'Different tools/versions between dev and prod environments', 'Not implementing graceful shutdown → dropped requests during deploy'],
+    keyDesigns: [
+      { title: 'Cloud-Native Microservice Template', difficulty: 'Medium', focus: '12-factor compliance, containerization, CI/CD' },
+    ]
+  },
+  // ═══════════════ PHASE 11: CASE STUDY ARCHITECTURES ═══════════════
+  {
+    id: 'case-netflix', title: 'Case Study: Netflix Architecture', stage: 'case-studies',
+    icon: '🎬', color: '#e11d48', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'Netflix\'s microservices, content delivery, recommendation engine, chaos engineering, and global failover.',
+    concepts: [
+      { title: 'Core Architecture', points: ['700+ microservices on AWS — Zuul (API gateway), Eureka (service discovery), Ribbon (LB)', 'Open Connect CDN: Netflix\'s own CDN — caches content on ISP networks for ultra-low latency', 'Personalization: ML-powered recommendations — 80% of watched content is recommended', 'Encoding pipeline: one movie encoded into 1,200+ streams (resolutions, devices, codecs)', 'Global failover: active-active across 3 AWS regions — redirect traffic in minutes'] },
+      { title: 'Key Innovations', points: ['Chaos Engineering: Chaos Monkey (kill instances), Chaos Kong (kill regions) — test resilience in production', 'Eventually consistent: user profile synced across regions with eventual consistency — accept stale reads', 'Adaptive streaming: ABR (Adaptive Bitrate) — client switches quality based on bandwidth', 'Data pipeline: Keystone (real-time event processing) — 500B events/day for analytics and recommendations', 'Cache warming: pre-populate CDN caches before new content launches (Friday night surge)'] },
+    ],
+    invariants: ['Single region failure must not take down Netflix — design for multi-region active-active', 'Content must start playing in < 3 seconds — CDN + edge caching critical', 'Personalization drives 80% of engagement — recommendation system is core business'],
+    thinkingFramework: [
+      { condition: 'Design a video streaming platform', action: 'Focus on: encode pipeline → CDN → adaptive streaming → recommendation' },
+      { condition: 'How to handle 200M+ concurrent users', action: 'Microservices + regional deployment + CDN at ISP level' },
+      { condition: 'Ensuring reliability at scale', action: 'Chaos engineering + circuit breakers + multi-region failover' },
+      { condition: 'Content recommendation', action: 'Collaborative filtering + content-based + real-time signals (what you watched today)' },
+    ],
+    tricks: [
+      { name: 'Predictive CDN Caching', tip: 'Predict which shows will be popular on Friday night, pre-cache at edge PoPs. ML models predict demand per region. Prevents origin overload on launch night.', when: 'Content platforms with predictable demand spikes', avoid: 'Uniform access patterns' },
+    ],
+    pitfalls: ['Not encoding in multiple resolutions → poor experience on slow networks', 'Single-region architecture → one outage takes down everything', 'Not investing in recommendations → user churn (can\'t find content to watch)', 'Over-trusting CDN → not having origin fallback for cache misses'],
+    keyDesigns: [
+      { title: 'Design Netflix', difficulty: 'Hard', focus: 'Video pipeline, CDN, recommendations, adaptive streaming' },
+      { title: 'Design Disney+/Hotstar', difficulty: 'Hard', focus: 'Live streaming + on-demand, spike handling (IPL/Super Bowl)' },
+    ]
+  },
+  {
+    id: 'case-uber', title: 'Case Study: Uber Architecture', stage: 'case-studies',
+    icon: '🚗', color: '#be123c', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'Uber\'s real-time dispatch, geospatial matching, surge pricing, ETA prediction, and global architecture.',
+    concepts: [
+      { title: 'Core Components', points: ['Dispatch System: match riders to nearest available drivers in real-time (< 10 sec)', 'Geospatial Index: city divided into cells (Google S2) — only search nearby cells for drivers', 'Driver Location Service: 4M drivers updating positions every 4 seconds = 1M location updates/sec', 'Surge Pricing: dynamic pricing based on supply-demand in each zone — ML-driven', 'ETA Engine: graph-based routing on road network + real-time traffic data'] },
+      { title: 'Architecture Decisions', points: ['Schemaless: Uber\'s custom storage layer on top of MySQL — append-only, versioned', 'Ringpop: consistent hashing-based routing for stateful services', 'Kafka: backbone for event streaming (trip events, driver locations, payments)', 'H3: Uber\'s hexagonal geospatial indexing system — each hex cell is ~0.7 km²', 'Multi-tenancy: same platform serves UberX, UberPool, Uber Eats — shared infra, different business logic'] },
+    ],
+    invariants: ['Driver location must be updated in near real-time (< 5 sec) — stale location = bad matching', 'Trip state machine (REQUESTED → MATCHED → STARTED → COMPLETED) must be consistent', 'Payment processing must be exactly-once — double-charging or lost payments are critical bugs'],
+    thinkingFramework: [
+      { condition: 'Design a ride-hailing app', action: 'Focus on: location tracking → matching algorithm → trip lifecycle → payment' },
+      { condition: 'Matching riders to drivers', action: 'Geospatial index (S2/H3) + nearest-available search + ETA-based ranking' },
+      { condition: 'Handling peak demand', action: 'Surge pricing to balance supply-demand + queue for requests when no drivers' },
+      { condition: 'Scaling globally', action: 'City-specific deployments + shared platform services + data sovereignty' },
+    ],
+    tricks: [
+      { name: 'ETA as Ranking', tip: 'Don\'t just find the nearest driver by distance — find the driver with the shortest ETA (considers traffic, road network). A driver 2 km away on a highway may arrive faster than one 500m away in traffic.', when: 'Any routing/matching system', avoid: 'Simple proximity (Euclidean distance)' },
+    ],
+    pitfalls: ['Using Euclidean distance instead of road network distance for matching', 'Not handling driver going offline/unavailable during matching', 'Surge pricing without transparency → user trust issues', 'Not considering multi-stop trips or shared rides (UberPool complexity)'],
+    keyDesigns: [
+      { title: 'Design Uber/Ola', difficulty: 'Hard', focus: 'Real-time matching, geospatial, surge pricing, trip lifecycle' },
+      { title: 'Design Uber Eats/Swiggy', difficulty: 'Hard', focus: 'Three-sided marketplace (user, restaurant, delivery)' },
+    ]
+  },
+  {
+    id: 'case-whatsapp', title: 'Case Study: WhatsApp Architecture', stage: 'case-studies',
+    icon: '💬', color: '#9f1239', difficulty: 'Hard', estimatedTime: '3–4 hours',
+    description: 'WhatsApp\'s messaging, end-to-end encryption, media handling, group chat, presence, and 2B user scale.',
+    concepts: [
+      { title: 'Messaging Architecture', points: ['Erlang/BEAM VM: WhatsApp\'s core — 2.5M connections per server, excellent for concurrency', 'Message storage: messages stored only until delivered (not permanently on server)', 'Delivery receipt: sent → delivered (two checks) → read (blue ticks) — state machine per message', 'Group messaging: server fans out to each group member — each gets individual delivery', 'Media: separate upload/download flow — upload to CDN, send URL+key in message'] },
+      { title: 'End-to-End Encryption', points: ['Signal Protocol: Double Ratchet algorithm — new key for every message (forward secrecy)', 'Key exchange: pre-keys uploaded to server during registration — async key exchange', 'Server never sees plaintext — only encrypted blobs pass through', 'Group encryption: Sender Keys protocol — one shared key per sender in the group', 'Media encryption: AES-256 encrypted before upload, key sent in the message'] },
+    ],
+    invariants: ['Messages must be delivered exactly once and in order per conversation', 'End-to-end encryption means server cannot read messages — zero knowledge', 'Message ordering uses vector clocks / logical timestamps — not server wall clock'],
+    thinkingFramework: [
+      { condition: 'Design a chat application', action: 'Focus on: connection (WebSocket) → message routing → delivery guarantees → storage' },
+      { condition: 'Ensuring message ordering', action: 'Sequence numbers per conversation + server-side ordering + client-side reordering' },
+      { condition: 'Group messaging at scale', action: 'Fan-out on send: sender → server → each group member. Limit group size for performance.' },
+      { condition: 'End-to-end encryption', action: 'Signal protocol — key exchange, double ratchet, per-message keys, forward secrecy' },
+    ],
+    tricks: [
+      { name: 'Message Queue per User', tip: 'Each user has a personal message queue. When user is offline, messages queue up. On reconnect, drain queue. If queue is full or outdated, messages expire.', when: 'Messaging with offline delivery', avoid: 'Systems where all users are always online' },
+    ],
+    pitfalls: ['Not handling out-of-order message delivery → confusing conversations', 'Storing messages permanently on server → privacy and storage issues', 'Not implementing read receipts atomically → inconsistent blue ticks', 'Group fan-out without limits → 10K group = 10K messages per message sent'],
+    keyDesigns: [
+      { title: 'Design WhatsApp/Telegram', difficulty: 'Hard', focus: 'Messaging, E2E encryption, delivery guarantees, presence' },
+      { title: 'Design Slack', difficulty: 'Hard', focus: 'Workspaces, channels, threads, search, integrations' },
+    ]
+  },
 ];
 
 export const getSDTopicIds = () => SD_TOPICS.map(t => t.id);
 export const getSDTopicsByStage = (stageId) => SD_TOPICS.filter(t => t.stage === stageId);
+
