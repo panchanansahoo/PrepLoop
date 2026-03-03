@@ -599,3 +599,327 @@
     color: rgba(255, 255, 255, 0.7);
     line-height: 1.5;
 }
+
+/* ═══════════════════════════════════════
+   TRANSCRIPT TAB — Conversation History
+   ═══════════════════════════════════════ */
+.dr-transcript h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 16px;
+}
+
+.dr-transcript-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dr-msg {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    animation: drFadeIn 0.2s ease;
+}
+
+.dr-msg-interviewer {
+    background: rgba(99, 102, 241, 0.04);
+    border-left: 3px solid rgba(99, 102, 241, 0.25);
+}
+
+.dr-msg-candidate {
+    background: rgba(34, 197, 94, 0.04);
+    border-left: 3px solid rgba(34, 197, 94, 0.25);
+}
+
+.dr-msg-feedback {
+    background: rgba(245, 158, 11, 0.04);
+    border-left: 3px solid rgba(245, 158, 11, 0.25);
+}
+
+.dr-msg-avatar {
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.dr-msg-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.dr-msg-icon-ai {
+    background: #6366f1;
+}
+
+.dr-msg-icon-user {
+    background: rgba(34, 197, 94, 0.7);
+}
+
+.dr-msg-icon-feedback {
+    background: rgba(245, 158, 11, 0.6);
+}
+
+.dr-msg-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dr-msg-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.dr-msg-role {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.dr-msg-time {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.dr-msg-score {
+    font-size: 12px;
+    font-weight: 800;
+    margin-left: auto;
+}
+
+.dr-msg-content {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.65;
+    word-break: break-word;
+}
+
+.dr-msg-feedback-details {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dr-msg-fb-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.dr-msg-fb-chip {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.dr-msg-fb-chip.good {
+    background: rgba(34, 197, 94, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.dr-msg-fb-chip.improve {
+    background: rgba(245, 158, 11, 0.08);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* ═══════════════════════════════════════
+   AI SUGGESTIONS TAB
+   ═══════════════════════════════════════ */
+.dr-suggestions h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 16px;
+}
+
+.dr-suggest-section {
+    margin-bottom: 24px;
+}
+
+.dr-suggest-section h5 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.55);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Topics Grid */
+.dr-topics-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dr-topic-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.2s;
+}
+
+.dr-topic-card:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dr-topic-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+}
+
+.dr-topic-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.dr-topic-priority {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dr-topic-reason {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.4;
+    margin: 0;
+}
+
+/* Practice Questions */
+.dr-practice-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dr-practice-item {
+    display: flex;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.dr-practice-item:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(99, 102, 241, 0.15);
+}
+
+.dr-practice-num {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: rgba(99, 102, 241, 0.1);
+    color: #818cf8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    flex-shrink: 0;
+}
+
+.dr-practice-text {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+}
+
+/* Study Plan */
+.dr-study-plan {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dr-plan-day {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 12px 14px;
+    position: relative;
+    transition: border-color 0.2s;
+}
+
+.dr-plan-day:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dr-plan-day-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.dr-plan-day-label {
+    font-size: 11px;
+    font-weight: 800;
+    color: #818cf8;
+    background: rgba(99, 102, 241, 0.1);
+    padding: 2px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dr-plan-day-focus {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.dr-plan-tasks {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-left: 4px;
+}
+
+.dr-plan-task {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.5;
+}
+
+.dr-plan-check {
+    color: rgba(99, 102, 241, 0.5);
+    font-size: 10px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}

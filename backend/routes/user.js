@@ -170,15 +170,25 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     // ── 7) Total XP (derived) ──
     const totalXP = solvedCount * 25 + completedInterviews.length * 50;
 
-    // ── 8) Heatmap data (last 365 days, submissions grouped by date) ──
+    // ── 8) Heatmap data (last 365 days, only accepted submissions grouped by date) ──
     const heatmapData = {};
+    let totalSolvedYear = 0;
+    let todaySolved = 0;
+    const todayStr = new Date().toISOString().split("T")[0];
     subs.forEach((s) => {
+      if (s.status !== "accepted") return; // Only count solved problems
       const dateKey = new Date(s.submitted_at).toISOString().split("T")[0];
       if (!heatmapData[dateKey]) {
-        heatmapData[dateKey] = { solved: 0, xp: 0 };
+        heatmapData[dateKey] = { solved: 0, xp: 0, easy: 0, medium: 0, hard: 0 };
       }
       heatmapData[dateKey].solved++;
       heatmapData[dateKey].xp += 25;
+      const diff = s.problems?.difficulty?.toLowerCase();
+      if (diff === "easy") heatmapData[dateKey].easy++;
+      else if (diff === "medium") heatmapData[dateKey].medium++;
+      else if (diff === "hard") heatmapData[dateKey].hard++;
+      totalSolvedYear++;
+      if (dateKey === todayStr) todaySolved++;
     });
 
     // ── 9) Skill breakdown (for radar chart) ──
@@ -319,6 +329,8 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       avgScore,
       totalXP,
       heatmapData,
+      totalSolvedYear,
+      todaySolved,
       skillBreakdown,
       topicProgress,
       recentActivity: recentActivityFinal,

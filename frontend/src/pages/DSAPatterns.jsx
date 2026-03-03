@@ -94,7 +94,7 @@ const PatternCard = ({ pattern, index }) => {
 
                             <div className="flex items-center gap-2 opacity-0 group-hover/problem:opacity-100 transition-opacity">
                                 <Link
-                                    to={`/problem/${problem.id}`}
+                                    to={`/code-editor/${problem.id}`}
                                     className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
                                 >
                                     <Play size={12} fill="currentColor" /> Solve

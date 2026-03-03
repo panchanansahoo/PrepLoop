@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Bell, Moon, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
 
@@ -121,7 +122,7 @@ export default function Settings() {
 
             <Section title="Subscription" icon={<CreditCard size={18} color="var(--accent)" />}>
                 <SettingRow label="Current Plan" desc="Starter (Free)">
-                    <a href="/pricing" style={{ color: 'var(--accent)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade →</a>
+                    <Link to="/pricing" style={{ color: 'var(--accent)', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>Upgrade →</Link>
                 </SettingRow>
             </Section>
 

@@ -1,5 +1,5 @@
 import React, { useState, Component, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Home from './pages/Home';
@@ -62,6 +62,7 @@ import CompanyInterview from './pages/CompanyInterview';
 import MultiRoundInterview from './pages/MultiRoundInterview';
 import InterviewAnalytics from './pages/InterviewAnalytics';
 import InterviewHistory from './pages/InterviewHistory';
+
 import CodingPlayground from './pages/CodingPlayground';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Code2 } from 'lucide-react';
@@ -69,6 +70,11 @@ import { Code2 } from 'lucide-react';
 function PrivateRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
+}
+
+function ProblemRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/code-editor/${id}`} replace />;
 }
 
 class ErrorBoundary extends Component {
@@ -119,11 +125,13 @@ function AppContent() {
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
+
   const isPaymentRoute = location.pathname.startsWith('/payment');
+  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup';
   const isFullScreenRoute = isCodeEditorRoute || isPlaygroundRoute || isPaymentRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
   const showSidebar = user && !isPublicPage;
-  const hideNavbar = isPaymentRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute;
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute;
 
   return (
@@ -164,6 +172,10 @@ function AppContent() {
               path="/problems/:id"
               element={<PrivateRoute><ProblemSolver /></PrivateRoute>}
             />
+            <Route
+              path="/problem/:id"
+              element={<ProblemRedirect />}
+            />
 
 
 
@@ -200,6 +212,7 @@ function AppContent() {
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
             <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
+
             <Route path="/playground" element={<CodingPlayground />} />
 
             <Route path="/pricing" element={<Pricing />} />
@@ -224,7 +237,7 @@ function AppContent() {
           </Routes>
         </div>
 
-        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && <Footer />}
+        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <Footer />}
       </div>
     </div>
   );

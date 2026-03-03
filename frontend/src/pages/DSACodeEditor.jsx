@@ -146,10 +146,15 @@ export default function DSACodeEditor() {
     setLoading(true);
     // Try to find from local data first (supports numeric or string IDs)
     const numId = parseInt(problemId);
+    const slugify = (str) => str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const localProblem = PROBLEMS.find(p =>
-      p.id === numId ||
-      p.id === problemId ||
-      p.title.toLowerCase().replace(/\s+/g, '-') === problemId
+      p && p.id != null && p.title && (
+        p.id === numId ||
+        p.id === problemId ||
+        p.title.toLowerCase().replace(/\s+/g, '-') === problemId ||
+        slugify(p.title) === problemId ||
+        p.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') === problemId
+      )
     );
     if (localProblem) {
       setProblem({
@@ -158,20 +163,24 @@ export default function DSACodeEditor() {
       });
       setLoading(false);
     } else {
-      // Fallback demo problem
+      // Fallback: generate a stub problem from the URL slug
+      const titleFromSlug = (problemId || 'two-sum')
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, l => l.toUpperCase());
       setProblem({
         id: problemId || 'two-sum',
-        title: 'Two Sum',
-        difficulty: 'Easy',
-        pattern_name: 'Arrays & Hashing',
-        description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\nYou can return the answer in any order.',
+        title: titleFromSlug,
+        difficulty: 'Medium',
+        pattern_name: '',
+        topics: [],
+        patterns: [],
+        description: `Solve the "${titleFromSlug}" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
         examples: [
-          { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]', explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].' },
-          { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
-          { input: 'nums = [3,3], target = 6', output: '[0,1]' },
+          { input: 'See problem description', output: 'Expected output' },
         ],
-        constraints: '2 <= nums.length <= 10^4\n-10^9 <= nums[i] <= 10^9\n-10^9 <= target <= 10^9\nOnly one valid answer exists.',
-        companies: ['Google', 'Amazon', 'Apple', 'Meta', 'Bloomberg'],
+        constraints: 'See problem description for constraints.',
+        companies: [],
+        hints: ['Think about the most efficient approach', 'Consider edge cases'],
       });
       setLoading(false);
     }

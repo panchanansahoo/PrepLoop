@@ -148,6 +148,8 @@ export default function Dashboard() {
                     activityHistory: dashboardData.heatmapData,
                     currentStreak: dashboardData.streak,
                     bestStreak: dashboardData.bestStreak,
+                    totalSolvedYear: dashboardData.totalSolvedYear || 0,
+                    todaySolved: dashboardData.todaySolved || 0,
                 };
             case 'readinessScore':
                 return { data: dashboardData.readinessData };

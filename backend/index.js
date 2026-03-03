@@ -18,6 +18,7 @@ import blogRoutes from './routes/blog.js';
 import activityRoutes from './routes/activity.js';
 import companyInterviewRoutes from './routes/companyInterview.js';
 import paymentRoutes from './routes/payment.js';
+import voiceRoutes from './routes/voice.js';
 
 dotenv.config();
 
@@ -64,6 +65,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/company-interview', companyInterviewRoutes);
 app.use('/api/payment', paymentRoutes);
+app.use('/api/voice', voiceRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

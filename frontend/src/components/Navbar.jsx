@@ -342,7 +342,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
           {/* Upgrade to Pro */}
           {userTier === 'Free' && (
-            <Link to="/#pricing" className="upgrade-btn desktop-only">
+            <Link to="/pricing" className="upgrade-btn desktop-only">
               <Crown size={14} />
               <span>Upgrade</span>
             </Link>

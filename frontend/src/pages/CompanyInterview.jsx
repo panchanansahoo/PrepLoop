@@ -20,11 +20,19 @@ import DetailedReport from '../components/interview/DetailedReport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-// ─── AI Avatar Canvas Component ───
+// ─── AI Avatar Canvas Component (Human photo with animated rings) ───
 function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
     const canvasRef = useRef(null);
     const animRef = useRef(null);
     const phaseRef = useRef(0);
+    const imgRef = useRef(null);
+    const imgLoadedRef = useRef(false);
+
+    useEffect(() => {
+        const img = new Image();
+        img.src = '/ai-interviewer.png';
+        img.onload = () => { imgRef.current = img; imgLoadedRef.current = true; };
+    }, []);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -55,7 +63,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
                     : Math.sin(phaseRef.current + i * 0.6) * 3;
                 const r = baseRadius + i * (size === 'large' ? 18 : 10) + pulse;
                 const alpha = speaking
-                    ? 0.12 - i * 0.02
+                    ? 0.15 - i * 0.025
                     : 0.06 - i * 0.015;
 
                 ctx.beginPath();
@@ -65,45 +73,98 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
                 ctx.stroke();
             }
 
-            // Inner glow circle
-            const innerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.3, cx, cy, baseRadius);
-            innerGlow.addColorStop(0, `${companyColor}30`);
-            innerGlow.addColorStop(1, `${companyColor}08`);
-            ctx.beginPath();
-            ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
-            ctx.fillStyle = innerGlow;
-            ctx.fill();
-            ctx.strokeStyle = `${companyColor}40`;
-            ctx.lineWidth = 2;
-            ctx.stroke();
+            // Circular human photo with talking animation
+            if (imgLoadedRef.current && imgRef.current) {
+                ctx.save();
+
+                // Speaking: subtle scale breathing + gentle bounce
+                if (speaking) {
+                    const breathe = 1 + Math.sin(phaseRef.current * 3) * 0.018;
+                    const bounceY = Math.sin(phaseRef.current * 2.5) * (size === 'large' ? 1.5 : 0.8);
+                    ctx.translate(cx, cy + bounceY);
+                    ctx.scale(breathe, breathe);
+                    ctx.translate(-cx, -cy);
+                }
+
+                // Clip to circle and draw photo
+                ctx.beginPath();
+                ctx.arc(cx, cy, baseRadius - 3, 0, Math.PI * 2);
+                ctx.closePath();
+                ctx.clip();
+                const imgSize = (baseRadius - 3) * 2;
+                ctx.drawImage(imgRef.current, cx - baseRadius + 3, cy - baseRadius + 3, imgSize, imgSize);
+
+                // Speaking: jaw/mouth area glow to simulate talking
+                if (speaking) {
+                    const mouthOpen = (Math.sin(phaseRef.current * 6) + 1) * 0.5;
+                    const jawGlow = ctx.createRadialGradient(cx, cy + baseRadius * 0.35, 2, cx, cy + baseRadius * 0.35, baseRadius * 0.5);
+                    jawGlow.addColorStop(0, `rgba(255,255,255,${0.06 + mouthOpen * 0.1})`);
+                    jawGlow.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = jawGlow;
+                    ctx.fillRect(cx - baseRadius, cy, baseRadius * 2, baseRadius);
+                }
+
+                ctx.restore();
+
+                // Animated border ring — pulses brighter when speaking
+                const borderGlow = speaking
+                    ? (Math.sin(phaseRef.current * 3) + 1) * 0.3 + 0.4
+                    : 0.25;
+                ctx.beginPath();
+                ctx.arc(cx, cy, baseRadius - 2, 0, Math.PI * 2);
+                ctx.strokeStyle = `${companyColor}${Math.round(borderGlow * 255).toString(16).padStart(2, '0')}`;
+                ctx.lineWidth = size === 'large' ? 3 : 2;
+                ctx.stroke();
+
+                // Speaking: outer glow halo
+                if (speaking) {
+                    const haloR = size === 'large' ? 8 : 5;
+                    const halo = ctx.createRadialGradient(cx, cy, baseRadius - 2, cx, cy, baseRadius + haloR);
+                    halo.addColorStop(0, `${companyColor}18`);
+                    halo.addColorStop(1, `${companyColor}00`);
+                    ctx.fillStyle = halo;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, baseRadius + haloR, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                // Fallback glow while image loads
+                const innerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.3, cx, cy, baseRadius);
+                innerGlow.addColorStop(0, `${companyColor}30`);
+                innerGlow.addColorStop(1, `${companyColor}08`);
+                ctx.beginPath();
+                ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+                ctx.fillStyle = innerGlow;
+                ctx.fill();
+
+                // Company logo emoji as fallback
+                const fontSize = size === 'large' ? 38 : 22;
+                ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(companyLogo, cx, cy);
+            }
 
             // Speaking wave bars
             if (speaking) {
-                const barCount = 5;
+                const barCount = 7;
                 const barWidth = size === 'large' ? 4 : 2.5;
-                const gap = size === 'large' ? 6 : 4;
+                const gap = size === 'large' ? 5 : 3;
                 const totalW = barCount * barWidth + (barCount - 1) * gap;
                 const startX = cx - totalW / 2;
-                const barY = cy + baseRadius + (size === 'large' ? 24 : 14);
+                const barY = cy + baseRadius + (size === 'large' ? 22 : 12);
 
                 for (let b = 0; b < barCount; b++) {
-                    const barH = (Math.sin(phaseRef.current * 4 + b * 1.2) + 1) * (size === 'large' ? 10 : 6) + 4;
+                    const barH = (Math.sin(phaseRef.current * 5 + b * 0.9) + 1) * (size === 'large' ? 10 : 6) + 3;
                     const x = startX + b * (barWidth + gap);
                     ctx.fillStyle = companyColor;
-                    ctx.globalAlpha = 0.7;
+                    ctx.globalAlpha = 0.6 + Math.sin(phaseRef.current * 3 + b) * 0.2;
                     ctx.beginPath();
                     ctx.roundRect(x, barY - barH / 2, barWidth, barH, 2);
                     ctx.fill();
                 }
                 ctx.globalAlpha = 1;
             }
-
-            // Company logo emoji
-            const fontSize = size === 'large' ? 38 : 22;
-            ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(companyLogo, cx, cy);
 
             animRef.current = requestAnimationFrame(draw);
         };
@@ -429,13 +490,12 @@ export default function CompanyInterview() {
     const speakText = async (text, onComplete) => {
         setAiSpeaking(true);
 
-        // Determine persona for voice selection based on difficulty
-        const personaMap = { 'Easy': 'friendly', 'Medium': 'analytical', 'Hard': 'formal', 'Medium-Hard': 'formal' };
-        const persona = personaMap[config.difficulty] || 'friendly';
+        // Always use friendly persona for warm, approachable voice
+        const persona = 'friendly';
 
         // Try high-quality backend TTS first
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/tts`, {
+            const res = await fetch(`${API_URL}/api/voice/tts`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ text, persona })
@@ -493,8 +553,8 @@ export default function CompanyInterview() {
             if (voice) utterance.voice = voice;
 
             // Natural conversational parameters
-            utterance.rate = 0.92;     // slightly slower than normal — sounds deliberate
-            utterance.pitch = 1.05;    // tiny pitch lift — warmer tone
+            utterance.rate = 0.95;     // natural conversational pace
+            utterance.pitch = 1.08;    // warmer, friendlier tone
             utterance.volume = 0.95;   // not blasting, feels natural
 
             utterance.onstart = () => {
@@ -1529,6 +1589,23 @@ export default function CompanyInterview() {
                         </div>
                     )}
 
+                    {/* Quick AI Suggestions Preview */}
+                    {summaryData.suggestedTopics?.length > 0 && (
+                        <div className="ti-ai-suggestions-preview" style={{ marginTop: 16, padding: 16, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.12)', borderRadius: 14 }}>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8, color: '#818cf8' }}>
+                                🎯 Focus Areas Based on Your Answers
+                            </h3>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {summaryData.suggestedTopics.slice(0, 4).map((t, i) => (
+                                    <div key={i} style={{ padding: '6px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 8, fontSize: 12, color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <strong style={{ color: t.priority === 'high' ? '#ef4444' : t.priority === 'medium' ? '#f59e0b' : '#22c55e' }}>{t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'}</strong> {t.topic}
+                                    </div>
+                                ))}
+                            </div>
+                            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 10 }}>See full study plan & practice questions in the Detailed Analysis below →</p>
+                        </div>
+                    )}
+
                     {speechFeedback && (
                         <div className="ti-speech-card">
                             <h3><Volume2 size={16} /> Voice Analysis</h3>
@@ -1548,10 +1625,16 @@ export default function CompanyInterview() {
                                 <BarChart3 size={16} /> Detailed Analysis
                             </h3>
                             <DetailedReport
-                                data={detailedReportData}
+                                data={{
+                                    ...detailedReportData,
+                                    suggestedTopics: detailedReportData.suggestedTopics || summaryData?.suggestedTopics || [],
+                                    practiceQuestions: detailedReportData.practiceQuestions || summaryData?.practiceQuestions || [],
+                                    studyPlan: detailedReportData.studyPlan || summaryData?.studyPlan || []
+                                }}
                                 companyName={companyName}
                                 companyColor={companyColor}
                                 companyLogo={companyLogo}
+                                conversation={conversation}
                             />
                         </div>
                     ) : loading ? null : (

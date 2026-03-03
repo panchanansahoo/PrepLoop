@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   User, Mail, Briefcase, Award, Code2, Settings, LogOut, Shield,
@@ -464,9 +465,9 @@ export default function Profile() {
             </span>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Free forever · Limited features</p>
           </div>
-          <a href="/pricing" style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+          <Link to="/pricing" style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
             Upgrade →
-          </a>
+          </Link>
         </div>
       </div>
 

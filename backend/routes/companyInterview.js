@@ -103,15 +103,18 @@ The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus p
 ## Engagement Rules - STRICT
 - **BE EXTREMELY CONVERSATIONAL AND HUMAN.** Speak like a friendly senior on a video call, not a corporate robot.
 - **LIMIT RESPONSES TO 1-3 SENTENCES MAX.** Brevity is critical. Do not give long monologues.
+- **SOUND INTELLIGENT AND INSIGHTFUL.** Your questions should demonstrate deep domain expertise. Reference real-world engineering practices, industry trends, and practical scenarios from companies like ${company}.
+- **ASK SMART FOLLOW-UPS.** Don't accept surface-level answers. Probe with incisive questions: "What would happen if the load doubled?", "How would you handle the failure case?", "What's the trade-off between these two approaches?"
+- **SHOW INTELLECTUAL CURIOSITY.** React with genuine interest: "Oh interesting, so you're saying...", "That's a clever approach — have you considered...", "I like that thinking. What about..."
 - Be SUPPORTIVE and ENCOURAGING — treat this like a mentorship conversation, not an interrogation.
-- React naturally, referencing SPECIFIC things the candidate said. Say things like "Got it", "That makes sense", "Cool project!", or "Nice thinking!"
-- If the candidate seems nervous or gives a short answer, gently encourage them: "No worries, take your time" or "That's a great start, can you tell me a bit more?"
+- React naturally, referencing SPECIFIC things the candidate said. Say things like "Smart approach!", "That's a great insight", "Ah, I see where you're going with this", or "Nice, that's exactly how we'd think about it at ${company}."
+- If the candidate seems nervous or gives a short answer, gently encourage them: "No worries, take your time" or "That's a great start — what if I give you a specific scenario to think through?"
 - NEVER use robotic transition phrases like "Moving on to my next question" or "Thank you for that detailed answer."
 - ${persona.followUpStyle}
 - ${persona.challengeMode}
-- When the candidate does well: show genuine, brief enthusiasm ("That's impressive for a student project!").
-- When they struggle: be kind and supportive, nudge them gently. Say things like "No worries, let me give you a hint" or "Think about it step by step."
-- Build on previous answers — create a flowing conversation.
+- When the candidate does well: show genuine, brief enthusiasm that acknowledges their insight ("That's a really mature understanding of the trade-offs!").
+- When they struggle: be kind and supportive, guide them with smart hints. Say things like "Think about what data structure gives you O(1) lookups" or "Consider the CAP theorem here."
+- Build on previous answers — create a flowing, intellectually stimulating conversation.
 
 ## Interview Flow
 ${questionNumber === 1 ? `- OPENING: Greet warmly like a friendly senior. Say something like: "Hey! Welcome, I'm [Name] from ${company}. Don't stress — this is all about learning. Let's have a fun conversation!" Then ask your first question immediately.` : ''}
@@ -683,7 +686,26 @@ router.post('/evaluate', optionalAuth, async (req, res) => {
         recommendation: 'Practice more system design questions for this role.',
         verdictEmoji: '👍',
         verdict: 'Would Advance',
-        detailedBreakdown: { technicalSkills: 75, communication: 82, problemSolving: 78, cultureFit: 80 }
+        detailedBreakdown: { technicalSkills: 75, communication: 82, problemSolving: 78, cultureFit: 80 },
+        suggestedTopics: [
+          { topic: 'Hash Maps & Hash Tables', priority: 'high', reason: 'Strengthen your data structure fundamentals' },
+          { topic: 'System Design Basics', priority: 'medium', reason: 'Practice designing scalable systems' },
+          { topic: 'STAR Method for Behavioral', priority: 'medium', reason: 'Structure your behavioral answers better' }
+        ],
+        practiceQuestions: [
+          'Implement an LRU Cache using a hash map and doubly linked list.',
+          'Design a URL shortening service like bit.ly. Discuss database choices and scaling.',
+          'Tell me about a time you failed and what you learned from it. Use the STAR method.',
+          'Explain the difference between TCP and UDP. When would you use each?',
+          'How would you find the kth largest element in an unsorted array?'
+        ],
+        studyPlan: [
+          { day: 'Day 1-2', focus: 'Data Structures', tasks: ['Arrays & Strings problems', 'Hash Map implementations', 'Linked List operations'] },
+          { day: 'Day 3-4', focus: 'Algorithms', tasks: ['Sorting & Searching', 'Two Pointer technique', 'Sliding Window problems'] },
+          { day: 'Day 5', focus: 'System Design', tasks: ['Read system design primer', 'Practice 1 design question', 'Study CAP theorem'] },
+          { day: 'Day 6', focus: 'Behavioral', tasks: ['Prepare 5 STAR stories', 'Practice mock answers aloud', 'Research company values'] },
+          { day: 'Day 7', focus: 'Mock Interview', tasks: ['Full mock interview practice', 'Review weak areas', 'Refine communication'] }
+        ]
       });
     }
 
@@ -702,16 +724,38 @@ The candidate is most likely a STUDENT or RECENT GRADUATE — evaluate them fair
 Be honest but constructive and encouraging. Reference SPECIFIC things the candidate said.
 Celebrate what they did well, and frame improvements as growth opportunities, not failures.
 
+IMPORTANT: Based on the candidate's ACTUAL answers and weak areas, provide highly specific, actionable improvement suggestions.
+- suggestedTopics: Pick 3-5 specific technical/behavioral topics they should study based on WHERE they struggled
+- practiceQuestions: Generate 5 realistic practice questions targeting their weak spots
+- studyPlan: Create a practical 7-day study plan with daily focus areas and specific tasks
+
 Respond as JSON:
 {
   "overallScore": 0-100,
-  "summary": "2-3 sentence evaluation",
-  "strengths": ["Strength 1", "Strength 2", "Strength 3"],
-  "improvements": ["Area 1", "Area 2", "Area 3"],
+  "summary": "2-3 sentence evaluation referencing specific things they said",
+  "strengths": ["Specific Strength 1", "Specific Strength 2", "Specific Strength 3"],
+  "improvements": ["Specific Area 1", "Specific Area 2", "Specific Area 3"],
   "recommendation": "One practical recommendation",
   "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance",
   "verdictEmoji": "🌟 or 👍 or 🤔 or 👎",
-  "detailedBreakdown": { "technicalSkills": 0-100, "communication": 0-100, "problemSolving": 0-100, "cultureFit": 0-100 }
+  "detailedBreakdown": { "technicalSkills": 0-100, "communication": 0-100, "problemSolving": 0-100, "cultureFit": 0-100 },
+  "suggestedTopics": [
+    { "topic": "Specific Topic Name", "priority": "high|medium|low", "reason": "Why they should study this based on their answers" }
+  ],
+  "practiceQuestions": [
+    "Practice question 1 targeting a weak area",
+    "Practice question 2 targeting another weak area",
+    "Practice question 3",
+    "Practice question 4",
+    "Practice question 5"
+  ],
+  "studyPlan": [
+    { "day": "Day 1-2", "focus": "Focus Area", "tasks": ["Task 1", "Task 2", "Task 3"] },
+    { "day": "Day 3-4", "focus": "Focus Area", "tasks": ["Task 1", "Task 2", "Task 3"] },
+    { "day": "Day 5", "focus": "Focus Area", "tasks": ["Task 1", "Task 2"] },
+    { "day": "Day 6", "focus": "Focus Area", "tasks": ["Task 1", "Task 2"] },
+    { "day": "Day 7", "focus": "Review & Practice", "tasks": ["Task 1", "Task 2"] }
+  ]
 }`
         },
         { role: 'user', content: conversationText }

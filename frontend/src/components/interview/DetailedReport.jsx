@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import {
     BarChart3, CheckCircle, AlertCircle, Target, Brain,
     ChevronDown, ChevronUp, Star, TrendingUp, Zap,
-    Volume2, Award, Sparkles, ExternalLink
+    Volume2, Award, Sparkles, ExternalLink, MessageSquare,
+    BookOpen, Calendar, User, Bot, Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import './DetailedReport.css';
 
-export default function DetailedReport({ data, companyName, companyColor, companyLogo }) {
+export default function DetailedReport({ data, companyName, companyColor, companyLogo, conversation }) {
     const [activeTab, setActiveTab] = useState('overview');
     const [expandedQ, setExpandedQ] = useState(null);
 
@@ -16,6 +17,8 @@ export default function DetailedReport({ data, companyName, companyColor, compan
     const tabs = [
         { id: 'overview', label: 'Overview', icon: <BarChart3 size={14} /> },
         { id: 'questions', label: 'Questions', icon: <Target size={14} /> },
+        { id: 'transcript', label: 'Transcript', icon: <MessageSquare size={14} /> },
+        { id: 'suggestions', label: 'AI Suggestions', icon: <BookOpen size={14} /> },
         { id: 'speech', label: 'Speech', icon: <Volume2 size={14} /> },
         { id: 'recommendations', label: 'Next Steps', icon: <Sparkles size={14} /> },
     ];
@@ -32,6 +35,21 @@ export default function DetailedReport({ data, companyName, companyColor, compan
         if (verdict.includes('Advance')) return 'advance';
         if (verdict.includes('Borderline')) return 'borderline';
         return 'not-advance';
+    };
+
+    const formatTimestamp = (ts) => {
+        if (!ts) return '';
+        try {
+            const d = new Date(ts);
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch { return ''; }
+    };
+
+    // Get priority badge color
+    const getPriorityColor = (priority) => {
+        if (priority === 'high') return '#ef4444';
+        if (priority === 'medium') return '#f59e0b';
+        return '#22c55e';
     };
 
     return (
@@ -188,6 +206,163 @@ export default function DetailedReport({ data, companyName, companyColor, compan
                             )}
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════ */}
+            {/*  TRANSCRIPT TAB — Full Conversation History */}
+            {/* ═══════════════════════════════════════════ */}
+            {activeTab === 'transcript' && (
+                <div className="dr-panel dr-transcript">
+                    <h4><MessageSquare size={14} /> Full Conversation History</h4>
+                    {conversation && conversation.length > 0 ? (
+                        <div className="dr-transcript-list">
+                            {conversation.map((msg, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`dr-msg ${msg.role === 'interviewer' ? 'dr-msg-interviewer' : msg.role === 'candidate' ? 'dr-msg-candidate' : 'dr-msg-feedback'}`}
+                                >
+                                    <div className="dr-msg-avatar">
+                                        {msg.role === 'interviewer' ? (
+                                            <div className="dr-msg-icon dr-msg-icon-ai" style={{ background: companyColor || '#6366f1' }}>
+                                                <Bot size={14} />
+                                            </div>
+                                        ) : msg.role === 'candidate' ? (
+                                            <div className="dr-msg-icon dr-msg-icon-user">
+                                                <User size={14} />
+                                            </div>
+                                        ) : (
+                                            <div className="dr-msg-icon dr-msg-icon-feedback">
+                                                <Star size={14} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="dr-msg-body">
+                                        <div className="dr-msg-header">
+                                            <span className="dr-msg-role">
+                                                {msg.role === 'interviewer' ? `AI Interviewer` : msg.role === 'candidate' ? 'You' : 'Feedback'}
+                                            </span>
+                                            {msg.timestamp && (
+                                                <span className="dr-msg-time">
+                                                    <Clock size={10} /> {formatTimestamp(msg.timestamp)}
+                                                </span>
+                                            )}
+                                            {msg.role === 'feedback' && msg.score && (
+                                                <span className="dr-msg-score" style={{ color: getScoreColor(msg.score) }}>
+                                                    {msg.score}%
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="dr-msg-content">{msg.content}</div>
+                                        {/* Show feedback details */}
+                                        {msg.role === 'feedback' && (
+                                            <div className="dr-msg-feedback-details">
+                                                {msg.strengths?.length > 0 && (
+                                                    <div className="dr-msg-fb-list">
+                                                        {msg.strengths.map((s, i) => (
+                                                            <span key={i} className="dr-msg-fb-chip good">✅ {s}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {msg.improvements?.length > 0 && (
+                                                    <div className="dr-msg-fb-list">
+                                                        {msg.improvements.map((s, i) => (
+                                                            <span key={i} className="dr-msg-fb-chip improve">📝 {s}</span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="dr-empty">
+                            <MessageSquare size={32} />
+                            <p>No conversation history available</p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════ */}
+            {/*  AI SUGGESTIONS TAB — Topics, Practice, Study Plan */}
+            {/* ═══════════════════════════════════════════ */}
+            {activeTab === 'suggestions' && (
+                <div className="dr-panel dr-suggestions">
+                    <h4><BookOpen size={14} /> AI-Powered Improvement Plan</h4>
+
+                    {/* Suggested Topics */}
+                    {data.suggestedTopics?.length > 0 && (
+                        <div className="dr-suggest-section">
+                            <h5><Target size={13} /> Topics to Focus On</h5>
+                            <div className="dr-topics-grid">
+                                {data.suggestedTopics.map((t, i) => (
+                                    <div key={i} className="dr-topic-card">
+                                        <div className="dr-topic-header">
+                                            <span className="dr-topic-name">{t.topic}</span>
+                                            <span
+                                                className="dr-topic-priority"
+                                                style={{ background: `${getPriorityColor(t.priority)}20`, color: getPriorityColor(t.priority), border: `1px solid ${getPriorityColor(t.priority)}40` }}
+                                            >
+                                                {t.priority}
+                                            </span>
+                                        </div>
+                                        <p className="dr-topic-reason">{t.reason}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Practice Questions */}
+                    {data.practiceQuestions?.length > 0 && (
+                        <div className="dr-suggest-section">
+                            <h5><Zap size={13} /> Practice Questions for You</h5>
+                            <div className="dr-practice-list">
+                                {data.practiceQuestions.map((q, i) => (
+                                    <div key={i} className="dr-practice-item">
+                                        <span className="dr-practice-num">{i + 1}</span>
+                                        <span className="dr-practice-text">{q}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 7-Day Study Plan */}
+                    {data.studyPlan?.length > 0 && (
+                        <div className="dr-suggest-section">
+                            <h5><Calendar size={13} /> Your 7-Day Study Plan</h5>
+                            <div className="dr-study-plan">
+                                {data.studyPlan.map((day, i) => (
+                                    <div key={i} className="dr-plan-day">
+                                        <div className="dr-plan-day-header">
+                                            <span className="dr-plan-day-label">{day.day}</span>
+                                            <span className="dr-plan-day-focus">{day.focus}</span>
+                                        </div>
+                                        <div className="dr-plan-tasks">
+                                            {(day.tasks || []).map((task, j) => (
+                                                <div key={j} className="dr-plan-task">
+                                                    <span className="dr-plan-check">○</span>
+                                                    <span>{task}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Fallback if no suggestions */}
+                    {!data.suggestedTopics?.length && !data.practiceQuestions?.length && !data.studyPlan?.length && (
+                        <div className="dr-empty">
+                            <BookOpen size={32} />
+                            <p>AI suggestions will appear here after your interview is evaluated</p>
+                        </div>
+                    )}
                 </div>
             )}
 
