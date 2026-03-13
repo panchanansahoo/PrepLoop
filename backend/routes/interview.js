@@ -193,10 +193,76 @@ router.post('/complete', authenticateToken, async (req, res) => {
   try {
     const { type, difficulty, duration, responses } = req.body;
 
-    const overallScore = Math.random() * 40 + 60;
-    const communicationScore = Math.random() * 40 + 60;
-    const technicalScore = Math.random() * 40 + 60;
-    const problemSolvingScore = Math.random() * 40 + 60;
+    let scores;
+
+    // Try AI-powered evaluation first
+    if (groq && responses && responses.length > 0) {
+      try {
+        const responseSummary = responses.map((r, i) =>
+          `Q${i + 1}: ${r.question?.question || r.question || 'Unknown'}\nA: ${r.answer || r.response || '(no response)'}`
+        ).join('\n\n');
+
+        const completion = await groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert interview evaluator. Score the candidate's interview responses on a scale of 0-100.
+              Interview type: ${type}, Difficulty: ${difficulty}.
+              Provide scores as JSON with fields: overall, communication, technical, problemSolving.
+              Be fair but rigorous. Consider: depth of answer, clarity, technical accuracy, structure (STAR method for behavioral).
+              Short or empty answers should get lower scores. Respond ONLY with valid JSON.`
+            },
+            {
+              role: 'user',
+              content: `Evaluate these interview responses:\n\n${responseSummary}`
+            }
+          ],
+          response_format: { type: 'json_object' }
+        });
+
+        const aiScores = JSON.parse(completion.choices[0].message.content);
+        scores = {
+          overall: Math.max(0, Math.min(100, Math.round(aiScores.overall || 50))),
+          communication: Math.max(0, Math.min(100, Math.round(aiScores.communication || 50))),
+          technical: Math.max(0, Math.min(100, Math.round(aiScores.technical || 50))),
+          problemSolving: Math.max(0, Math.min(100, Math.round(aiScores.problemSolving || 50)))
+        };
+      } catch (aiError) {
+        console.error('AI scoring failed, using heuristic:', aiError.message);
+        scores = null; // Fall through to heuristic
+      }
+    }
+
+    // Deterministic heuristic fallback (never random)
+    if (!scores) {
+      const totalResponses = (responses || []).length;
+      const answeredResponses = (responses || []).filter(r =>
+        (r.answer || r.response || '').trim().length > 20
+      );
+      const avgLength = answeredResponses.length > 0
+        ? answeredResponses.reduce((sum, r) => sum + (r.answer || r.response || '').length, 0) / answeredResponses.length
+        : 0;
+
+      // Base score from completion rate
+      const completionRate = totalResponses > 0 ? answeredResponses.length / totalResponses : 0;
+      const baseScore = Math.round(completionRate * 60 + 20); // 20-80 range
+
+      // Bonus for detailed answers (longer = more detailed, capped)
+      const detailBonus = Math.min(15, Math.round(avgLength / 50));
+
+      // Difficulty modifier
+      const difficultyMod = difficulty === 'hard' ? -5 : difficulty === 'easy' ? 5 : 0;
+
+      const heuristicScore = Math.max(0, Math.min(100, baseScore + detailBonus + difficultyMod));
+
+      scores = {
+        overall: heuristicScore,
+        communication: Math.max(0, Math.min(100, heuristicScore + (avgLength > 100 ? 5 : -5))),
+        technical: Math.max(0, Math.min(100, heuristicScore - 3)),
+        problemSolving: Math.max(0, Math.min(100, heuristicScore - 2))
+      };
+    }
 
     const { data, error } = await supabaseAdmin
       .from('mock_interviews')
@@ -205,12 +271,12 @@ router.post('/complete', authenticateToken, async (req, res) => {
         interview_type: type,
         difficulty,
         duration,
-        questions: responses.map(r => r.question),
+        questions: (responses || []).map(r => r.question),
         responses,
-        overall_score: overallScore,
-        communication_score: communicationScore,
-        technical_score: technicalScore,
-        problem_solving_score: problemSolvingScore,
+        overall_score: scores.overall,
+        communication_score: scores.communication,
+        technical_score: scores.technical,
+        problem_solving_score: scores.problemSolving,
         completed_at: new Date().toISOString()
       })
       .select('id')
@@ -220,12 +286,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
 
     res.json({
       interviewId: data.id,
-      scores: {
-        overall: overallScore,
-        communication: communicationScore,
-        technical: technicalScore,
-        problemSolving: problemSolvingScore
-      }
+      scores
     });
   } catch (error) {
     console.error('Error completing interview:', error);

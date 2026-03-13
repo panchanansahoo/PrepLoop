@@ -4,9 +4,12 @@ import { Link } from 'react-router-dom';
 
 import { dsaPatterns } from '../data/dsaPatternsData';
 import axios from 'axios';
+import { useTheme } from '../context/ThemeContext';
 
 const PatternCard = ({ pattern, index }) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     // Calculate progress
     const problems = pattern.problems || [];
@@ -32,14 +35,14 @@ const PatternCard = ({ pattern, index }) => {
                 onClick={() => setIsExpanded(!isExpanded)}
             >
                 <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center font-bold text-white border border-white/10">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold border ${isLight ? 'bg-white/60 text-slate-700 border-slate-200' : 'bg-white/10 text-white border-white/10'}`}>
                         {index + 1}
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-white group-hover:text-white/90 transition-colors">
+                        <h3 className={`text-lg font-bold transition-colors ${isLight ? 'text-slate-800 group-hover:text-slate-900' : 'text-white group-hover:text-white/90'}`}>
                             {pattern.name || pattern.category}
                         </h3>
-                        <div className="flex items-center gap-2 text-xs text-white/50 mt-1">
+                        <div className={`flex items-center gap-2 text-xs mt-1 ${isLight ? 'text-slate-500' : 'text-white/50'}`}>
                             <Code2 size={12} />
                             <span>{solvedProblems}/{totalProblems} Solved</span>
                             <span className="text-zinc-600">•</span>
@@ -52,21 +55,21 @@ const PatternCard = ({ pattern, index }) => {
 
                 <div className="flex items-center gap-4">
                     {/* Progress Bar Mini */}
-                    <div className="hidden md:block w-32 h-1.5 bg-black/20 rounded-full overflow-hidden">
+                    <div className={`hidden md:block w-32 h-1.5 rounded-full overflow-hidden ${isLight ? 'bg-slate-200' : 'bg-black/20'}`}>
                         <div
-                            className="h-full bg-white transition-all duration-500"
+                            className={`h-full transition-all duration-500 ${isLight ? 'bg-indigo-500' : 'bg-white'}`}
                             style={{ width: `${progress}%` }}
                         ></div>
                     </div>
 
-                    <button className={`p-2 rounded-full bg-white/5 hover:bg-white/10 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`}>
-                        <ChevronDown size={18} className="text-white/70" />
+                    <button className={`p-2 rounded-full transition-transform duration-300 ${isLight ? 'bg-slate-100 hover:bg-slate-200' : 'bg-white/5 hover:bg-white/10'} ${isExpanded ? 'rotate-180' : ''}`}>
+                        <ChevronDown size={18} className={isLight ? 'text-slate-500' : 'text-white/70'} />
                     </button>
                 </div>
             </div>
 
             {/* Expanded Content: Problem List */}
-            <div className={`border-t border-white/5 bg-black/20 transition-all duration-300 ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+            <div className={`border-t transition-all duration-300 ${isLight ? 'border-slate-200 bg-white/40' : 'border-white/5 bg-black/20'} ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                 <div className="p-4 space-y-2">
                     <div className="flex justify-end px-2 pt-2">
                         <Link to={`/patterns/${pattern.id}`} className="text-xs font-medium text-blue-400 hover:text-blue-300 flex items-center gap-1.5 transition-colors">
@@ -74,12 +77,12 @@ const PatternCard = ({ pattern, index }) => {
                         </Link>
                     </div>
                     {problems.map((problem, i) => (
-                        <div key={problem.id || i} className="flex items-center justify-between p-3 rounded-lg hover:bg-white/5 transition-colors group/problem border border-transparent hover:border-white/5">
+                        <div key={problem.id || i} className={`flex items-center justify-between p-3 rounded-lg transition-colors group/problem border border-transparent ${isLight ? 'hover:bg-slate-100 hover:border-slate-200' : 'hover:bg-white/5 hover:border-white/5'}`}>
                             <div className="flex items-center gap-3">
                                 <div className={`w-5 h-5 rounded-full flex items-center justify-center border ${problem.status === 'solved' ? 'bg-emerald-500/20 border-emerald-500 text-emerald-500' : 'border-white/10 text-transparent'}`}>
                                     <Check size={12} />
                                 </div>
-                                <span className={`text-sm font-medium ${problem.status === 'solved' ? 'text-white/40 line-through' : 'text-zinc-300 group-hover/problem:text-white'}`}>
+                                <span className={`text-sm font-medium ${problem.status === 'solved' ? (isLight ? 'text-slate-400 line-through' : 'text-white/40 line-through') : (isLight ? 'text-slate-600 group-hover/problem:text-slate-900' : 'text-zinc-300 group-hover/problem:text-white')}`}>
                                     {problem.title}
                                 </span>
                                 {problem.difficulty && (
@@ -117,6 +120,8 @@ const PatternCard = ({ pattern, index }) => {
 export default function DSAPatterns() {
     const [patterns, setPatterns] = useState([]);
     const [loading, setLoading] = useState(true);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     useEffect(() => {
         // Simulate loading for effect
@@ -128,7 +133,7 @@ export default function DSAPatterns() {
     }, []);
 
     return (
-        <div className="min-h-screen bg-[#020305] text-white font-sans pb-20 relative">
+        <div className={`min-h-screen font-sans pb-20 relative ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#020305] text-white'}`}>
 
 
             {/* Background Effects */}
@@ -137,7 +142,7 @@ export default function DSAPatterns() {
 
             <div className="max-w-4xl mx-auto px-6 py-12 relative z-10">
                 <div className="mb-10 text-center">
-                    <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white via-blue-100 to-white mb-4">
+                    <h1 className={`text-4xl font-bold bg-clip-text text-transparent mb-4 ${isLight ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600' : 'bg-gradient-to-r from-white via-blue-100 to-white'}`}>
                         Master the Patterns
                     </h1>
                     <p className="text-zinc-400 max-w-lg mx-auto">

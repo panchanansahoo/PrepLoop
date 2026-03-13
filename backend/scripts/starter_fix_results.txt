@@ -1,0 +1,219 @@
+=== FIXING STARTER CODE FUNCTION NAMES ===
+
+Loaded 425 problems.
+
+  Γ£à [14] Search in Rotated Sorted Array -> search
+  Γ£à [21] Rotate Array -> rotate
+  Γ£à [23] Jump Game II -> jump
+  Γ£à [25] Pascal's Triangle -> generate
+  Γ£à [28] Majority Element II -> majorityElement
+  Γ£à [34] Find First and Last Position of Element -> searchRange
+  Γ£à [40] Wiggle Sort -> wiggleSort
+  Γ£à [41] Wiggle Sort II -> wiggleSort
+  Γ£à [44] Find All Numbers Disappeared in Array -> findDisappearedNumbers
+  Γ£à [45] Find All Duplicates in Array -> findDuplicates
+  Γ£à [53] Valid Palindrome II -> validPalindrome
+  Γ£à [58] Remove Duplicates from Sorted List II -> deleteDuplicates
+  Γ£à [77] Linked List Cycle -> hasCycle
+  Γ£à [78] Linked List Cycle II -> detectCycle
+  Γ£à [83] Find the Duplicate Number -> findDuplicate
+  Γ£à [84] Remove Nth Node From End of List -> removeNthFromEnd
+  Γ£à [88] Longest Repeating Character Replacement -> characterReplacement
+  Γ£à [94] Minimum Size Subarray Sum -> minSubArrayLen
+  Γ£à [102] Longest Turbulent Subarray -> maxTurbulenceSize
+  Γ£à [103] Get Equal Substrings Within Budget -> equalSubstring
+  Γ£à [105] Diet Plan Performance -> dietPlanPerformance
+  Γ£à [111] Longest Nice Substring -> longestNiceSubstring
+  Γ£à [112] Contains Duplicate II -> containsNearbyDuplicate
+  Γ£à [114] Longest Mountain in Array -> longestMountain
+  Γ£à [117] Find the Middle Node of LinkedList -> middleNode
+  Γ£à [118] Detect Cycle in LinkedList -> hasCycle
+  Γ£à [119] Start of Cycle in LinkedList -> detectCycle
+  Γ£à [120] Find Duplicate Number -> findDuplicate
+  Γ£à [130] Remove Nodes From Linked List -> removeNodes
+  Γ£à [133] Reverse Linked List II -> reverseBetween
+  Γ£à [134] Reverse Nodes in k-Group -> reverseKGroup
+  Γ£à [136] Add Two Numbers -> addTwoNumbers
+  Γ£à [137] Add Two Numbers II -> addTwoNumbers
+  Γ£à [141] Intersection of Two Linked Lists -> getIntersectionNode
+  Γ£à [145] Convert Binary Number in LinkedList -> getDecimalValue
+  Γ£à [148] Swap Adjacent in LR String -> canTransform
+  Γ£à [151] LFU Cache -> __init__
+  Γ£à [152] All O'one Data Structure -> __init__
+  Γ£à [153] Design Skiplist -> __init__
+  Γ£à [158] Longest Valid Parentheses -> longestValidParentheses
+  Γ£à [159] Min Stack -> __init__
+  Γ£à [160] Max Stack -> __init__
+  Γ£à [161] Implement Queue using Stacks -> __init__
+  Γ£à [162] Implement Stack using Queues -> __init__
+  Γ£à [169] Remove All Adjacent Duplicates in String II -> removeDuplicates
+  Γ£à [170] Remove K Digits -> removeKdigits
+  Γ£à [173] Number of Atoms -> countOfAtoms
+  Γ£à [176] Next Greater Element I -> nextGreaterElement
+  Γ£à [177] Next Greater Element II -> nextGreaterElements
+  Γ£à [178] Next Greater Element III -> nextGreaterElement
+  Γ£à [181] Trapping Rain Water -> trap
+  Γ£à [182] Score of Parentheses -> scoreOfParentheses
+  Γ£à [183] Valid Parenthesis String -> checkValidString
+  Γ£à [184] Minimum Add to Make Parentheses Valid -> minAddToMakeValid
+  Γ£à [186] Maximum Nesting Depth of Parentheses -> maxDepth
+  Γ£à [187] Binary Search -> search
+  Γ£à [188] Search Insert Position -> searchInsert
+  Γ£à [189] First Bad Version -> firstBadVersion
+  Γ£à [190] Sqrt(x) -> mySqrt
+  Γ£à [191] Valid Perfect Square -> isPerfectSquare
+  Γ£à [192] Guess Number Higher or Lower -> guessNumber
+  Γ£à [193] Find Smallest Letter Greater Than Target -> nextGreatestLetter
+  Γ£à [196] Search in Rotated Sorted Array -> search
+  Γ£à [198] Find Minimum in Rotated Sorted Array -> findMin
+  Γ£à [199] Find Minimum in Rotated Sorted Array II -> findMin
+  Γ£à [200] Single Element in a Sorted Array -> singleNonDuplicate
+  Γ£à [201] Find K Closest Elements -> findClosestElements
+  Γ£à [202] Kth Smallest Element in a Sorted Matrix -> kthSmallest
+  Γ£à [203] Find K-th Smallest Pair Distance -> smallestDistancePair
+  Γ£à [204] Koko Eating Bananas -> minEatingSpeed
+  Γ£à [205] Minimize Max Distance to Gas Station -> minmaxGasDist
+  Γ£à [206] Split Array Largest Sum -> splitArray
+  Γ£à [207] Capacity To Ship Packages Within D Days -> shipWithinDays
+  Γ£à [208] Divide Chocolate -> maximizeSweetness
+  Γ£à [209] Minimum Number of Days to Make m Bouquets -> minDays
+  Γ£à [210] Magnetic Force Between Two Balls -> maxDistance
+  Γ£à [212] Find Right Interval -> findRightInterval
+  Γ£à [213] Russian Doll Envelopes -> maxEnvelopes
+  Γ£à [214] Longest Increasing Subsequence -> lengthOfLIS
+  Γ£à [216] Count of Range Sum -> countRangeSum
+  Γ£à [217] Median of Two Sorted Arrays -> findMedianSortedArrays
+  Γ£à [219] Count Complete Tree Nodes -> countNodes
+  Γ£à [221] Divide Two Integers -> divide
+  Γ£à [223] Minimum Depth of Binary Tree -> minDepth
+  Γ£à [224] Invert Binary Tree -> invertTree
+  Γ£à [225] Diameter of Binary Tree -> diameterOfBinaryTree
+  Γ£à [226] Balanced Binary Tree -> isBalanced
+  Γ£à [227] Same Tree -> isSameTree
+  Γ£à [228] Symmetric Tree -> isSymmetric
+  Γ£à [229] Subtree of Another Tree -> isSubtree
+  Γ£à [230] Merge Two Binary Trees -> mergeTrees
+  Γ£à [231] Binary Tree Paths -> binaryTreePaths
+  Γ£à [232] Path Sum -> hasPathSum
+  Γ£à [233] Path Sum II -> pathSum
+  Γ£à [236] Sum Root to Leaf Numbers -> sumNumbers
+  Γ£à [237] Lowest Common Ancestor of BST -> lowestCommonAncestor
+  Γ£à [238] Lowest Common Ancestor of Binary Tree -> lowestCommonAncestor
+  Γ£à [239] Binary Tree Level Order Traversal -> levelOrder
+  Γ£à [240] Binary Tree Zigzag Level Order -> zigzagLevelOrder
+  Γ£à [241] Binary Tree Right Side View -> rightSideView
+  Γ£à [242] Binary Tree Level Order Traversal II -> levelOrderBottom
+  Γ£à [243] Average of Levels in Binary Tree -> averageOfLevels
+  Γ£à [245] Populating Next Right Pointers -> connect
+  Γ£à [246] Populating Next Right Pointers II -> connect
+  Γ£à [247] Validate Binary Search Tree -> isValidBST
+  Γ£à [248] Kth Smallest Element in BST -> kthSmallest
+  Γ£à [249] Binary Search Tree Iterator -> __init__
+  Γ£à [250] Convert Sorted Array to BST -> sortedArrayToBST
+  Γ£à [251] Construct Binary Tree from Preorder and Inorder -> buildTree
+  Γ£à [252] Construct Binary Tree from Inorder and Postorder -> buildTree
+  Γ£à [253] Serialize and Deserialize Binary Tree -> serialize
+  Γ£à [254] Serialize and Deserialize BST -> serialize
+  Γ£à [255] Count Complete Tree Nodes -> countNodes
+  Γ£à [256] Count Good Nodes in Binary Tree -> goodNodes
+  Γ£à [257] Delete Node in a BST -> deleteNode
+  Γ£à [263] Max Area of Island -> maxAreaOfIsland
+  Γ£à [264] Number of Distinct Islands -> numDistinctIslands
+  Γ£à [265] Number of Closed Islands -> closedIsland
+  Γ£à [266] Clone Graph -> cloneGraph
+  Γ£à [268] Surrounded Regions -> solve
+  Γ£à [269] Number of Provinces -> findCircleNum
+  Γ£à [271] Number of Connected Components -> countComponents
+  Γ£à [274] Accounts Merge -> accountsMerge
+  Γ£à [276] Course Schedule -> canFinish
+  Γ£à [277] Course Schedule II -> findOrder
+  Γ£à [280] Alien Dictionary -> alienOrder
+  Γ£à [281] Sequence Reconstruction -> sequenceReconstruction
+  Γ£à [284] Path with Maximum Probability -> maxProbability
+  Γ£à [285] Path With Minimum Effort -> minimumEffortPath
+  Γ£à [287] Word Ladder -> ladderLength
+  Γ£à [288] Word Ladder II -> findLadders
+  Γ£à [291] All Paths from Source to Target -> allPathsSourceTarget
+  Γ£à [292] Find if Path Exists in Graph -> validPath
+  Γ£à [293] Evaluate Division -> calcEquation
+  Γ£à [294] Shortest Path in Binary Matrix -> shortestPathBinaryMatrix
+  Γ£à [295] Shortest Bridge -> shortestBridge
+  Γ£à [296] Is Graph Bipartite -> isBipartite
+  Γ£à [298] Min Cost Climbing Stairs -> minCostClimbingStairs
+  Γ£à [300] House Robber II -> rob
+  Γ£à [302] Coin Change -> coinChange
+  Γ£à [303] Coin Change 2 -> change
+  Γ£à [304] Combination Sum IV -> combinationSum4
+  Γ£à [305] Perfect Squares -> numSquares
+  Γ£à [308] Unique Paths -> uniquePaths
+  Γ£à [309] Unique Paths II -> uniquePathsWithObstacles
+  Γ£à [311] Minimum Path Sum -> minPathSum
+  Γ£à [313] Maximal Square -> maximalSquare
+  Γ£à [314] Longest Palindromic Substring -> longestPalindrome
+  Γ£à [315] Longest Palindromic Subsequence -> longestPalindromeSubseq
+  Γ£à [318] Edit Distance -> minDistance
+  Γ£à [319] Distinct Subsequences -> numDistinct
+  Γ£à [320] Interleaving String -> isInterleave
+  Γ£à [326] Best Time to Buy and Sell Stock -> maxProfit
+  Γ£à [327] Best Time to Buy and Sell Stock II -> maxProfit
+  Γ£à [328] Best Time to Buy and Sell Stock III -> maxProfit
+  Γ£à [332] Word Break -> wordBreak
+  Γ£à [334] Partition Equal Subset Sum -> canPartition
+  Γ£à [335] Target Sum -> findTargetSumWays
+  Γ£à [336] Ones and Zeroes -> findMaxForm
+  Γ£à [337] Last Stone Weight II -> lastStoneWeightII
+  Γ£à [338] Partition to K Equal Sum Subsets -> canPartitionKSubsets
+  Γ£à [340] Wildcard Matching -> isMatch
+  Γ£à [345] Burst Balloons -> maxCoins
+  Γ£à [347] Subsets -> subsets
+  Γ£à [348] Subsets II -> subsetsWithDup
+  Γ£à [349] Permutations -> permute
+  Γ£à [354] Combinations -> combine
+  Γ£à [355] Letter Combinations of a Phone Number -> letterCombinations
+  Γ£à [356] Generate Parentheses -> generateParenthesis
+  Γ£à [357] Palindrome Partitioning -> partition
+  Γ£à [358] Palindrome Partitioning II -> minCut
+  Γ£à [361] N-Queens -> solveNQueens
+  Γ£à [363] Sudoku Solver -> solveSudoku
+  Γ£à [364] Valid Sudoku -> isValidSudoku
+  Γ£à [365] Letter Case Permutation -> letterCasePermutation
+  Γ£à [366] Beautiful Arrangement -> countArrangement
+  Γ£à [367] Matchsticks to Square -> makesquare
+  Γ£à [369] Additive Number -> isAdditiveNumber
+  Γ£à [371] Factor Combinations -> getFactors
+  Γ£à [373] Expression Add Operators -> addOperators
+  Γ£à [375] Strobogrammatic Number II -> findStrobogrammatic
+  Γ£à [377] Kth Largest Element in an Array -> findKthLargest
+  Γ£à [378] Kth Smallest Element in a Sorted Matrix -> kthSmallest
+  Γ£à [379] Top K Frequent Elements -> topKFrequent
+  Γ£à [380] Top K Frequent Words -> topKFrequent
+  Γ£à [386] Task Scheduler -> leastInterval
+  Γ£à [393] Meeting Rooms II -> minMeetingRooms
+  Γ£à [394] Meeting Rooms III -> mostBooked
+  Γ£à [396] Find the Kth Smallest Sum -> kthSmallest
+  Γ£à [397] Implement Trie (Prefix Tree) -> __init__
+  Γ£à [398] Design Add and Search Words Data Structure -> __init__
+  Γ£à [400] Replace Words -> replaceWords
+  Γ£à [401] Implement Magic Dictionary -> __init__
+  Γ£à [402] Palindrome Pairs -> palindromePairs
+  Γ£à [404] Design Search Autocomplete System -> __init__
+  Γ£à [405] Stream of Characters -> __init__
+  Γ£à [406] Concatenated Words -> findAllConcatenatedWordsInADict
+  Γ£à [407] Word Squares -> wordSquares
+  Γ£à [408] Maximum XOR of Two Numbers -> findMaximumXOR
+  Γ£à [409] Maximum XOR With Element From Array -> maximizeXor
+  Γ£à [410] Map Sum Pairs -> __init__
+  Γ£à [414] Gas Station -> canCompleteCircuit
+  Γ£à [415] Candy -> candy
+  Γ£à [418] Non-overlapping Intervals -> eraseOverlapIntervals
+  Γ£à [420] Remove Duplicate Letters -> removeDuplicateLetters
+  Γ£à [422] Largest Number -> largestNumber
+  Γ£à [423] Maximum Swap -> maximumSwap
+  Γ£à [424] Task Scheduler -> leastInterval
+  Γ£à [426] Reduce Array Size to The Half -> minSetSize
+
+=== DONE ===
+Updated: 209
+Already correct: 211
+Not in mapping: 5
+Failed: 0

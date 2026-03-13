@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Image as ImageIcon, Loader, Save, FileText, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 // --- EDITOR SWITCH ---
 // Use 'SimpleEditor' if Tiptap dependencies are broken/missing (White Screen fix).
 // Use 'TiptapEditor' for the full Notion-style experience (requires dependencies to be fixed).
 import NotionEditor from '../components/editor/NotionEditor';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function CreateBlog() {
   const [title, setTitle] = useState('');
@@ -16,17 +19,19 @@ export default function CreateBlog() {
   const [saving, setSaving] = useState(false);
 
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const navigate = useNavigate();
 
   useEffect(() => {
     // Check backend connection
-    fetch('http://localhost:3000/api/health')
+    fetch(`${API_URL}/api/health`)
       .then(res => {
         if (!res.ok) console.warn('Backend returned non-OK status');
       })
       .catch(err => {
         console.error('Backend unreachable:', err);
-        alert('Warning: Cannot connect to backend server. Please verify it is running on port 3000.');
+        alert('Warning: Cannot connect to backend server. Please verify it is running.');
       });
 
     if (!user || user.isGuest) {
@@ -40,7 +45,7 @@ export default function CreateBlog() {
 
     setSaving(true);
     try {
-      const response = await fetch('http://localhost:3000/api/blog', {
+      const response = await fetch(`${API_URL}/api/blog`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -85,7 +90,7 @@ export default function CreateBlog() {
     formData.append('pdf', file);
 
     try {
-      const res = await fetch('http://localhost:3000/api/blog/parse-pdf', {
+      const res = await fetch(`${API_URL}/api/blog/parse-pdf`, {
         method: 'POST',
         body: formData,
       });
@@ -171,7 +176,7 @@ export default function CreateBlog() {
     formData.append('eml', file);
 
     try {
-      const res = await fetch('http://localhost:3000/api/blog/parse-eml', {
+      const res = await fetch(`${API_URL}/api/blog/parse-eml`, {
         method: 'POST',
         body: formData,
       });
@@ -293,7 +298,7 @@ export default function CreateBlog() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#030303', color: 'white', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', flexDirection: 'column' }}>
 
       {/* Top Bar - Minimalist */}
       <header style={{
@@ -304,7 +309,7 @@ export default function CreateBlog() {
         padding: '0 16px',
         position: 'sticky',
         top: 0,
-        background: 'rgba(3,3,3,0.8)',
+        background: isLight ? 'rgba(248,249,250,0.8)' : 'rgba(3,3,3,0.8)',
         backdropFilter: 'blur(10px)',
         zIndex: 50
       }}>
@@ -503,7 +508,7 @@ export default function CreateBlog() {
             border: 'none',
             fontSize: '40px',
             fontWeight: 'bold',
-            color: 'white',
+            color: isLight ? '#1a1a2e' : 'white',
             outline: 'none',
             marginBottom: '10px',
             fontFamily: 'inherit',
@@ -540,7 +545,7 @@ export default function CreateBlog() {
                 onMouseLeave={e => e.target.style.background = 'transparent'}
               >
                 {categories.map(c => (
-                  <option key={c.id} value={c.id} style={{ background: '#222', color: 'white' }}>{c.label}</option>
+                  <option key={c.id} value={c.id} style={{ background: isLight ? '#fff' : '#222', color: isLight ? '#1a1a2e' : 'white' }}>{c.label}</option>
                 ))}
               </select>
             </div>

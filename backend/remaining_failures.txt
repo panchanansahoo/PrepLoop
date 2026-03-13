@@ -1,0 +1,60 @@
+25|Pascal's Triangle|no_valid_outputs|fn=generate|params=[]|'list' object cannot be interpreted as an integer;'list' object cannot be interpreted as an integer;'list' object cannot be interpreted as an integer
+58|Remove Duplicates from Sorted List II|no_valid_outputs|fn=deleteDuplicates|params=[]|name '__list_to_linked' is not defined;name '__list_to_linked' is not defined;name '__list_to_linked' is not defined
+77|Linked List Cycle|no_valid_outputs|fn=hasCycle|params=[]|'list' object has no attribute 'next';'list' object has no attribute 'next';'list' object has no attribute 'next'
+78|Linked List Cycle II|no_valid_outputs|fn=detectCycle|params=[]|'list' object has no attribute 'next';'list' object has no attribute 'next';'list' object has no attribute 'next'
+118|Detect Cycle in LinkedList|no_valid_outputs|fn=hasCycle|params=[]|'list' object has no attribute 'next';'list' object has no attribute 'next';'list' object has no attribute 'next'
+119|Start of Cycle in LinkedList|no_valid_outputs|fn=detectCycle|params=[]|'list' object has no attribute 'next';'list' object has no attribute 'next';'list' object has no attribute 'next'
+145|Convert Binary Number in LinkedList|no_valid_outputs|fn=getDecimalValue|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+170|Remove K Digits|no_valid_outputs|fn=removeKdigits|params=[]|sequence item 0: expected str instance, int found;sequence item 0: expected str instance, int found;sequence item 0: expected str instance, int found
+173|Number of Atoms|no_valid_outputs|fn=countOfAtoms|params=[]|'int' object has no attribute 'islower';'int' object has no attribute 'islower';'int' object has no attribute 'islower'
+182|Score of Parentheses|no_valid_outputs|fn=scoreOfParentheses|params=[]|list index out of range;list index out of range;list index out of range
+189|First Bad Version|no_valid_outputs|fn=firstBadVersion|params=[]|name 'isBadVersion' is not defined;name 'isBadVersion' is not defined;name 'isBadVersion' is not defined
+191|Valid Perfect Square|no_valid_outputs|fn=isPerfectSquare|params=[]|'<=' not supported between instances of 'int' and 'list';'<=' not supported between instances of 'int' and 'list';'<=' not supported between instances of 'int' and 'list'
+192|Guess Number Higher or Lower|no_valid_outputs|fn=guessNumber|params=[]|name 'guess' is not defined;name 'guess' is not defined;name 'guess' is not defined
+193|Find Smallest Letter Greater Than Target|no_valid_outputs|fn=nextGreatestLetter|params=[]|'<=' not supported between instances of 'str' and 'int';'<=' not supported between instances of 'str' and 'int';'<=' not supported between instances of 'str' and 'int'
+207|Capacity To Ship Packages Within D Days|no_valid_outputs|fn=shipWithinDays|params=[]|'<=' not supported between instances of 'int' and 'list';'<=' not supported between instances of 'int' and 'list';'<=' not supported between instances of 'int' and 'list'
+212|Find Right Interval|no_valid_outputs|fn=findRightInterval|params=[]|'int' object is not subscriptable;'int' object is not subscriptable;'int' object is not subscriptable
+223|Minimum Depth of Binary Tree|no_valid_outputs|fn=minDepth|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+224|Invert Binary Tree|no_valid_outputs|fn=invertTree|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+225|Diameter of Binary Tree|no_valid_outputs|fn=diameterOfBinaryTree|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+226|Balanced Binary Tree|no_valid_outputs|fn=isBalanced|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+227|Same Tree|no_valid_outputs|fn=isSameTree|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+228|Symmetric Tree|no_valid_outputs|fn=isSymmetric|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+229|Subtree of Another Tree|no_valid_outputs|fn=isSubtree|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+230|Merge Two Binary Trees|no_valid_outputs|fn=mergeTrees|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+231|Binary Tree Paths|no_valid_outputs|fn=binaryTreePaths|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+232|Path Sum|no_valid_outputs|fn=hasPathSum|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+233|Path Sum II|no_valid_outputs|fn=pathSum|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+236|Sum Root to Leaf Numbers|no_valid_outputs|fn=sumNumbers|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+237|Lowest Common Ancestor of BST|no_valid_outputs|fn=lowestCommonAncestor|params=[]|'str' object has no attribute 'val';'str' object has no attribute 'val';'str' object has no attribute 'val'
+239|Binary Tree Level Order Traversal|no_valid_outputs|fn=levelOrder|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+240|Binary Tree Zigzag Level Order|no_valid_outputs|fn=zigzagLevelOrder|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+241|Binary Tree Right Side View|no_valid_outputs|fn=rightSideView|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+242|Binary Tree Level Order Traversal II|no_valid_outputs|fn=levelOrderBottom|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+243|Average of Levels in Binary Tree|no_valid_outputs|fn=averageOfLevels|params=[]|'list' object has no attribute 'val';'list' object has no attribute 'val';'list' object has no attribute 'val'
+247|Validate Binary Search Tree|no_valid_outputs|fn=isValidBST|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+251|Construct Binary Tree from Preorder and Inorder|no_valid_outputs|fn=buildTree|params=[]|name '__tree_to_list' is not defined;name '__tree_to_list' is not defined;name '__tree_to_list' is not defined
+252|Construct Binary Tree from Inorder and Postorder|no_valid_outputs|fn=buildTree|params=[]|name '__tree_to_list' is not defined;name '__tree_to_list' is not defined;name '__tree_to_list' is not defined
+256|Count Good Nodes in Binary Tree|no_valid_outputs|fn=goodNodes|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+257|Delete Node in a BST|no_valid_outputs|fn=deleteNode|params=[]|name '__list_to_tree' is not defined;name '__list_to_tree' is not defined;name '__list_to_tree' is not defined
+274|Accounts Merge|no_valid_outputs|fn=accountsMerge|params=[]|'int' object is not subscriptable;'int' object is not subscriptable;'int' object is not subscriptable
+276|Course Schedule|no_valid_outputs|fn=canFinish|params=[]|cannot unpack non-iterable int object;cannot unpack non-iterable int object;cannot unpack non-iterable int object
+277|Course Schedule II|no_valid_outputs|fn=findOrder|params=[]|cannot unpack non-iterable int object;cannot unpack non-iterable int object;cannot unpack non-iterable int object
+281|Sequence Reconstruction|no_valid_outputs|fn=sequenceReconstruction|params=[]|'int' object is not iterable;'int' object is not iterable;'int' object is not iterable
+284|Path with Maximum Probability|no_valid_outputs|fn=maxProbability|params=[]|list indices must be integers or slices, not list;list indices must be integers or slices, not list;list indices must be integers or slices, not list
+288|Word Ladder II|no_valid_outputs|fn=findLadders|params=[]|cannot use 'list' as a set element (unhashable type: 'list');cannot use 'list' as a set element (unhashable type: 'list');cannot use 'list' as a set element (unhashable type: 'list')
+292|Find if Path Exists in Graph|no_valid_outputs|fn=validPath|params=[]|cannot use 'list' as a set element (unhashable type: 'list');cannot use 'list' as a set element (unhashable type: 'list');cannot use 'list' as a set element (unhashable type: 'list')
+293|Evaluate Division|no_valid_outputs|fn=calcEquation|params=[]|too many values to unpack (expected 2);too many values to unpack (expected 2);not enough values to unpack (expected 2, got 1)
+302|Coin Change|no_valid_outputs|fn=coinChange|params=[]|can only concatenate list (not "int") to list;can only concatenate list (not "int") to list;can only concatenate list (not "int") to list
+303|Coin Change 2|no_valid_outputs|fn=change|params=[]|can only concatenate list (not "int") to list;can only concatenate list (not "int") to list;can only concatenate list (not "int") to list
+355|Letter Combinations of a Phone Number|no_valid_outputs|fn=letterCombinations|params=[]|'a';'h';'t'
+363|Sudoku Solver|no_valid_outputs|fn=solveSudoku|params=[]|list index out of range;list index out of range;list index out of range
+364|Valid Sudoku|no_valid_outputs|fn=isValidSudoku|params=[]|list index out of range;list index out of range;list index out of range
+369|Additive Number|no_valid_outputs|fn=isAdditiveNumber|params=[]|int() argument must be a string, a bytes-like object or a real number, not 'list';int() argument must be a string, a bytes-like object or a real number, not 'list';int() argument must be a string, a b
+373|Expression Add Operators|no_valid_outputs|fn=addOperators|params=[]|int() argument must be a string, a bytes-like object or a real number, not 'list';int() argument must be a string, a bytes-like object or a real number, not 'list';int() argument must be a string, a b
+393|Meeting Rooms II|no_valid_outputs|fn=minMeetingRooms|params=[]|'int' object is not subscriptable;'int' object is not subscriptable;'int' object is not subscriptable
+394|Meeting Rooms III|no_valid_outputs|fn=mostBooked|params=[]|cannot unpack non-iterable int object;cannot unpack non-iterable int object;cannot unpack non-iterable int object
+400|Replace Words|no_valid_outputs|fn=replaceWords|params=[]|'list' object has no attribute 'split';'list' object has no attribute 'split';'list' object has no attribute 'split'
+409|Maximum XOR With Element From Array|no_valid_outputs|fn=maximizeXor|params=[]|'int' object is not subscriptable;'int' object is not subscriptable;'int' object is not subscriptable
+418|Non-overlapping Intervals|no_valid_outputs|fn=eraseOverlapIntervals|params=[]|'int' object is not subscriptable;'int' object is not subscriptable;'int' object is not subscriptable
+423|Maximum Swap|no_valid_outputs|fn=maximumSwap|params=[]|invalid literal for int() with base 10: '[';invalid literal for int() with base 10: '[';invalid literal for int() with base 10: '['

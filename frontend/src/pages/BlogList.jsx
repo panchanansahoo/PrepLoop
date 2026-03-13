@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowRight, Search, Tag, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 
 
 export default function BlogList() {
@@ -9,6 +10,8 @@ export default function BlogList() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const { user } = useAuth();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     useEffect(() => {
         fetchBlogs();
@@ -16,7 +19,7 @@ export default function BlogList() {
 
     const fetchBlogs = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/blog');
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
             if (response.ok) {
                 const data = await response.json();
                 setBlogs(data);
@@ -35,7 +38,7 @@ export default function BlogList() {
         : blogs.filter(blog => blog.category === filter);
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: 'white', position: 'relative' }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', position: 'relative' }}>
 
 
             {/* Header */}
@@ -84,11 +87,11 @@ export default function BlogList() {
                             type="text"
                             placeholder="Search articles..."
                             style={{
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid var(--zinc-800)',
+                                background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)',
+                                border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
                                 padding: '10px 16px 10px 40px',
                                 borderRadius: '8px',
-                                color: 'white',
+                                color: isLight ? '#1a1a2e' : 'white',
                                 outline: 'none',
                                 width: '240px'
                             }}
@@ -133,7 +136,7 @@ export default function BlogList() {
                                         </span>
                                     </div>
 
-                                    <h3 style={{ fontSize: '22px', marginBottom: '12px', color: 'white', lineHeight: 1.4 }}>{blog.title}</h3>
+                                    <h3 style={{ fontSize: '22px', marginBottom: '12px', color: isLight ? '#1a1a2e' : 'white', lineHeight: 1.4 }}>{blog.title}</h3>
                                     <p style={{ color: 'var(--zinc-400)', fontSize: '15px', lineHeight: 1.6, marginBottom: '20px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                                         {/* Plain text preview if content is complex */}
                                         To perform simple preview we would strip HTML tags. For now, assuming title is catchy enough.

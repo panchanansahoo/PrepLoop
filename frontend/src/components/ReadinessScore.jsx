@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Shield } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
-function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--accent)' }) {
+function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--accent)', isLight = false }) {
     const canvasRef = useRef(null);
 
     useEffect(() => {
@@ -22,7 +23,7 @@ function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--acc
         ctx.clearRect(0, 0, size, size);
         ctx.beginPath();
         ctx.arc(cx, cy, r, Math.PI * 0.75, Math.PI * 2.25);
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.strokeStyle = isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.06)';
         ctx.lineWidth = strokeWidth;
         ctx.lineCap = 'round';
         ctx.stroke();
@@ -35,20 +36,22 @@ function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--acc
         ctx.lineCap = 'round';
         ctx.stroke();
 
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = isLight ? '#1e293b' : '#fff';
         ctx.font = `bold ${size * 0.22}px system-ui`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(`${value}%`, cx, cy - 4);
-        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        ctx.fillStyle = isLight ? 'rgba(71, 85, 105, 0.6)' : 'rgba(255,255,255,0.35)';
         ctx.font = `600 ${size * 0.09}px system-ui`;
         ctx.fillText('Ready', cx, cy + size * 0.14);
-    }, [value, size, strokeWidth, color]);
+    }, [value, size, strokeWidth, color, isLight]);
 
     return <canvas ref={canvasRef} />;
 }
 
 export default function ReadinessScore({ data, company = null, compact = false }) {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const rd = data || { practiceCount: 0, mockCount: 0, streak: 0, timedSessions: 0 };
 
     // Calculate sub-scores (0-100 each)
@@ -79,7 +82,7 @@ export default function ReadinessScore({ data, company = null, compact = false }
         return (
             <div className="rs-compact">
                 <div className="rs-compact-gauge">
-                    <AnimatedGauge value={score} size={80} strokeWidth={6} color={getColor(score)} />
+                    <AnimatedGauge value={score} size={80} strokeWidth={6} color={getColor(score)} isLight={isLight} />
                 </div>
                 <div className="rs-compact-info">
                     <span className="rs-compact-label">Interview Readiness</span>
@@ -99,7 +102,7 @@ export default function ReadinessScore({ data, company = null, compact = false }
             </div>
 
             <div className="rs-gauge-row">
-                <AnimatedGauge value={score} size={140} color={getColor(score)} />
+                <AnimatedGauge value={score} size={140} color={getColor(score)} isLight={isLight} />
                 <div className="rs-label" style={{ color: getColor(score) }}>
                     {getLabel(score)}
                 </div>

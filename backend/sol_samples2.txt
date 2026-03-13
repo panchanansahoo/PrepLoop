@@ -1,0 +1,66 @@
+---217:Median of Two Sorted Arrays---
+class Solution:
+    def findMedianSortedArrays(self, nums1: list[int], nums2: list[int]) -> float:
+        merged = sorted(nums1 + nums2)
+        length = len(merged)
+        if length % 2 == 0:
+            return (merged[length // 2 - 1] + merged[length // 2]) / 2
+        else:
+            return merged[length // 2]
+
+---230:Merge Two Binary Trees---
+def mergeTrees(nums, nums2):
+    t1 = __list_to_tree(nums) if isinstance(nums, list) else nums
+    t2 = __list_to_tree(nums2) if isinstance(nums2, list) else nums2
+    def merge(a, b):
+        if not a and not b: return None
+        if not a: return b
+        if not b: return a
+        node = TreeNode(a.val + b.val)
+        node.left = merge(a.left, b.left)
+        node.right = merge(a.right, b.right)
+        return node
+    return __tree_to_list(merge(t1, t2))
+
+---251:Construct Binary Tree from Preorder and Inorder---
+def buildTree(preorder, inorder):
+    if not preorder: return []
+    idx = {v:i for i,v in enumerate(inorder)}
+    def d(pl,pr,il,ir):
+        if pl > pr: return None
+        root = TreeNode(preorder[pl])
+        m = idx[preorder[pl]]
+        root.left = d(pl+1, pl+m-il, il, m-1)
+        root.right = d(pl+m-il+1, pr, m+1, ir)
+        return root
+    return __tree_to_list(d(0, len(preorder)-1, 0, len(inorder)-1))
+
+---252:Construct Binary Tree from Inorder and Postorder---
+def buildTree(preorder, inorder):
+    if not preorder: return []
+    idx = {v:i for i,v in enumerate(inorder)}
+    def d(pl,pr,il,ir):
+        if pl > pr: return None
+        root = TreeNode(preorder[pl])
+        m = idx[preorder[pl]]
+        root.left = d(pl+1, pl+m-il, il, m-1)
+        root.right = d(pl+m-il+1, pr, m+1, ir)
+        return root
+    return __tree_to_list(d(0, len(preorder)-1, 0, len(inorder)-1))
+
+---364:Valid Sudoku---
+def isValidSudoku(board):
+    rows = [set() for _ in range(9)]
+    cols = [set() for _ in range(9)]
+    boxes = [set() for _ in range(9)]
+    for i in range(9):
+        for j in range(9):
+            if board[i][j] != '.':
+                num = board[i][j]
+                box = (i//3)*3 + j//3
+                if num in rows[i] or num in cols[j] or num in boxes[box]:
+                    return False
+                rows[i].add(num)
+                cols[j].add(num)
+                boxes[box].add(n
+

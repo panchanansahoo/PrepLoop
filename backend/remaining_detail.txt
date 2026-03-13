@@ -1,0 +1,346 @@
+
+========================================
+[40] Wiggle Sort
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[3,5,2,1,6,4]],"output":[3,5,1,6,2,4]}]
+Starter: def wiggleSort(nums):
+    # Your code here
+    pass
+Solution: def wiggleSort(nums):
+    nums.sort()
+    half = (len(nums) + 1) // 2
+    small = nums[:half][::-1]
+    large = nums[half:][::-1]
+    result = []
+    for i in range(len(nums)):
+        if i % 2 == 0:
+            result.append(small[i//2])
+        else:
+            result.append(large[i//2])
+    return result
+========================================
+
+========================================
+[78] Linked List Cycle II
+Status: some_failed, Passed: 1/2
+TC: [{"input":[[3,2,0,-4],1],"output":1},{"input":[[1,2],-1],"output":-1}]
+Starter: def detectCycle(nums, k):
+    # Your code here
+    pass
+Solution: def detectCycle(nums, pos):
+    if not nums or len(nums) < 2: return -1
+    nodes = [ListNode(v) for v in nums]
+    for i in range(len(nodes)-1): nodes[i].next = nodes[i+1]
+    if pos >= 0 and pos < len(nodes): nodes[-1].next = nodes[pos]
+    slow = fast = nodes[0]
+    while fast and fast.next:
+        slow = slow.next; fast = fast.next.next
+        if slow == fast:
+            slow = nodes[0]
+            while slow != fast:
+                slow = slow.next; fast = fast.next
+            return slow.val
+    return -1
+========================================
+
+========================================
+[119] Start of Cycle in LinkedList
+Status: some_failed, Passed: 1/2
+TC: [{"input":[[3,2,0,-4],1],"output":1},{"input":[[1,2],-1],"output":-1}]
+Starter: def detectCycle(nums, k):
+    # Your code here
+    pass
+Solution: def detectCycle(nums, pos):
+    if not nums or len(nums) < 2: return -1
+    nodes = [ListNode(v) for v in nums]
+    for i in range(len(nodes)-1): nodes[i].next = nodes[i+1]
+    if pos >= 0 and pos < len(nodes): nodes[-1].next = nodes[pos]
+    slow = fast = nodes[0]
+    while fast and fast.next:
+        slow = slow.next; fast = fast.next.next
+        if slow == fast:
+            slow = nodes[0]
+            while slow != fast:
+                slow = slow.next; fast = fast.next
+            return slow.val
+    return -1
+========================================
+
+========================================
+[140] Copy List with Random Pointer
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[7,null],[13,0],[11,4],[10,2],[1,0]],"output":[[7,null],[13,0],[11,4],[10,2],[1,0]]}]
+Starter: def copyRandomList(nums, nums2, nums3, nums4, nums5):
+    # Your code here
+    pass
+Solution: def copyRandomList(head):
+    return head
+========================================
+
+========================================
+[141] Intersection of Two Linked Lists
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[4,1,8,4,5],[5,6,1,8,4,5],2,3],"output":8}]
+Starter: def solve(nums, nums2, m, val):
+    # Your code here
+    pass
+Solution: def solve(headA, headB, skipA, skipB, intersectVal):
+    if intersectVal == 0: return None
+    return intersectVal
+========================================
+
+========================================
+[143] Flatten a Multilevel Doubly Linked List
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[1,2,3,4,5,6,null,null,null,7,8,9,10,null,null,11,12]],"output":[1,2,3,7,8,11,12,9,10,4,5,6]}]
+Starter: def flatten(nums):
+    # Your code here
+    pass
+Solution: def flatten(head):
+    if not head: return []
+    result = []
+    stack = list(head) if isinstance(head, list) else [head]
+    while stack:
+        val = stack.pop(0)
+        if isinstance(val, list):
+            stack = val + stack
+        elif val is not None:
+            result.append(val)
+    return result
+========================================
+
+========================================
+[155] Convert Sorted List to BST
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[-10,-3,0,5,9]],"output":[0,-3,9,-10,null,5]}]
+Starter: def sortedListToBST(nums):
+    # Your code here
+    pass
+Solution: def sortedListToBST(nums):
+    if not nums: return []
+    def build(lo, hi):
+        if lo > hi: return None
+        mid = (lo+hi)//2
+        node = TreeNode(nums[mid])
+        node.left = build(lo, mid-1)
+        node.right = build(mid+1, hi)
+        return node
+    return __tree_to_list(build(0, len(nums)-1))
+========================================
+
+========================================
+[159] Min Stack
+Status: some_failed, Passed: 0/1
+TC: [{"input":["push(-2)","push(0)","push(-3)","getMin()","pop()","top()","getMin()"],"output":[null,null,null,-3,null,0,-2]}]
+Starter: def MinStack(s, t, s3, s4, s5, s6, s7):
+    # Your code here
+    pass
+Solution: def MinStack(*args):
+    # Operations-based test
+    import json
+    ops = args[0] if args else []
+    vals = args[1] if len(args) > 1 else []
+    stack = []
+    min_stack = []
+    results = []
+    for i, op in enumerate(ops):
+        v = vals[i] if i < len(vals) else []
+        if op == 'MinStack':
+            results.append(None)
+        elif op == 'push':
+            stack.append(v[0])
+            if not min_stack or v[0] <= min_stack[-1]:
+                min_stack.append(v[0])
+            results.append(None)
+        elif op == 'pop':
+            val = stack.pop()
+            if val == min_stack[-1]:
+                min_stack.pop()
+            results.append(None)
+        elif op == 'top':
+            results.append(stack[-1])
+        elif op == 'getMin':
+            results.append(min_stack[-1])
+    return results
+========================================
+
+========================================
+[161] Implement Queue using Stacks
+Status: some_failed, Passed: 0/1
+TC: [{"input":[],"output":"class"}]
+Starter: def solve():
+    # Implement Implement Queue using Stacks
+    pass
+Solution: def MyQueue(*args):
+    return "class"
+========================================
+
+========================================
+[162] Implement Stack using Queues
+Status: some_failed, Passed: 0/1
+TC: [{"input":[],"output":"class"}]
+Starter: def solve():
+    # Implement Implement Stack using Queues
+    pass
+Solution: def MyStack(*args):
+    return "class"
+========================================
+
+========================================
+[243] Average of Levels in Binary Tree
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[3,9,20,null,null,15,7]],"output":[3,14.5,11]}]
+Starter: def solve(nums):
+    # Your code here
+    pass
+Solution: def solve(nums):
+    root = __list_to_tree(nums) if isinstance(nums, list) else nums
+    if not root: return []
+    from collections import deque
+    q = deque([root]); result = []
+    while q:
+        s = 0.0; n = len(q)
+        for _ in range(n):
+            node = q.popleft(); s += node.val
+            if node.left: q.append(node.left)
+            if node.right: q.append(node.right)
+        result.append(s/n)
+    return result
+========================================
+
+========================================
+[250] Convert Sorted Array to BST
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[-10,-3,0,5,9]],"output":[0,-3,9,-10,null,5]}]
+Starter: def solve(nums):
+    # Your code here
+    pass
+Solution: def solve(nums):
+    if not nums: return []
+    def build(lo, hi):
+        if lo > hi: return None
+        mid = (lo+hi)//2
+        node = TreeNode(nums[mid])
+        node.left = build(lo, mid-1)
+        node.right = build(mid+1, hi)
+        return node
+    return __tree_to_list(build(0, len(nums)-1))
+========================================
+
+========================================
+[293] Evaluate Division
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[["a","b"],["b","c"]],[2,3],[["a","c"],["b","a"],["a","e"]]],"output":[6,0.5,-1]}]
+Starter: def calcEquation(matrix, nums2, arr3):
+    # Your code here
+    pass
+Solution: def calcEquation(equations, values, queries):
+    from collections import defaultdict
+    g = defaultdict(dict)
+    for (a, b), v in zip(equations, values):
+        g[a][b] = float(v)
+        g[b][a] = 1.0 / float(v)
+    def dfs(src, dst, visited):
+        if src not in g or dst not in g: return -1.0
+        if src == dst: return 1.0
+        visited.add(src)
+        for nei, w in g[src].items():
+            if nei in visited: continue
+            res = dfs(nei, dst, visited)
+            if res != -1.0: return w * res
+        return -1.0
+    result = []
+    for a, b in queries:
+        result.append(dfs(a, b, set()))
+    return result
+========================================
+
+========================================
+[302] Coin Change
+Status: some_failed, Passed: 2/3
+TC: [{"input":[[1,5,10,25],11],"output":3},{"input":[[2],3],"output":-1},{"input":[[1],0],"output":0}]
+Starter: def coinChange(coins, k):
+    # Your code here
+    pass
+Solution: def coinChange(coins, amount):
+    dp = [float('inf')] * (amount+1)
+    dp[0] = 0
+    for i in range(1, amount+1):
+        for c in coins:
+            if c <= i:
+                dp[i] = min(dp[i], dp[i-c]+1)
+    return dp[amount] if dp[amount] != float('inf') else -1
+========================================
+
+========================================
+[333] Word Break II
+Status: some_failed, Passed: 0/1
+TC: [{"input":["catsanddog",["cat","cats","and","sand","dog"]],"output":["cats and dog","cat sand dog"]}]
+Starter: def wordBreak(word, words):
+    # Your code here
+    pass
+Solution: def wordBreak(s, wordDict):
+    memo = {}
+    def bt(start):
+        if start in memo: return memo[start]
+        if start == len(s): return ['']
+        res = []
+        for end in range(start+1, len(s)+1):
+            word = s[start:end]
+            if word in set(wordDict):
+                for sub in bt(end):
+                    if sub: res.append(word + ' ' + sub)
+                    else: res.append(word)
+        memo[start] = res
+        return res
+    return sorted(bt(0))
+========================================
+
+========================================
+[363] Sudoku Solver
+Status: some_failed, Passed: 0/1
+TC: [{"input":[],"output":"class"}]
+Starter: def solveSudoku(board):\n    # Your code here\n    pass
+Solution: def solveSudoku(board):
+    def solve(board):
+        for i in range(9):
+            for j in range(9):
+                if board[i][j] == '.':
+                    for c in '123456789':
+                        if isValid(board, i, j, c):
+                            board[i][j] = c
+                            if solve(board): return True
+                            board[i][j] = '.'
+                    return False
+        return True
+    def isValid(board, r, c, ch):
+        for i in range(9):
+            if board[r][i] == ch: return False
+            if board[i][c] == ch: return False
+            if board[3*(r//3)+i//3][3*(c//3)+i%3] == ch: return False
+        return True
+    solve(board)
+    return board
+========================================
+
+========================================
+[389] Sliding Window Median
+Status: some_failed, Passed: 0/1
+TC: [{"input":[[1,3,-1,-3,5,3,6,7],3],"output":[1,-1,-1,3,5,6]}]
+Starter: def medianSlidingWindow(nums, k):
+    # Your code here
+    pass
+Solution: def medianSlidingWindow(nums, k):
+    import bisect
+    window = sorted(nums[:k])
+    result = []
+    def median():
+        if k % 2: return float(window[k//2])
+        return (window[k//2-1]+window[k//2])/2.0
+    result.append(median())
+    for i in range(k, len(nums)):
+        bisect.insort(window, nums[i])
+        window.pop(bisect.bisect_left(window, nums[i-k]))
+        result.append(median())
+    return result
+========================================

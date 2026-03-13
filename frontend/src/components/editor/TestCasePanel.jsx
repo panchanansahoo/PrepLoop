@@ -192,31 +192,48 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const handleRun = async () => {
     setRunning(true);
     try {
-      const res = await fetch(`${API_URL}/api/practice/execute`, {
+      // Use the structured /run endpoint with problemId for proper per-test-case execution
+      const res = await fetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ code, language, input: testCases.map(t => t.input).join('\n') }),
+        body: JSON.stringify({ code, language, problemId }),
       });
       const data = await res.json();
-      const actualOutput = (data.output || data.error || 'No output').trim();
 
-      const results = testCases.map(tc => {
-        const expected = (tc.expectedOutput || tc.expected || '').trim();
-        const normalizedActual = actualOutput.replace(/\s+/g, ' ').toLowerCase();
-        const normalizedExpected = expected.replace(/\s+/g, ' ').toLowerCase();
-        const didPass = data.success && normalizedExpected.length > 0 && normalizedActual.includes(normalizedExpected);
-        return {
+      if (data.testResults && Array.isArray(data.testResults)) {
+        // Backend returned structured per-test-case results
+        const results = data.testResults.map((tr, i) => ({
+          ...(testCases[i] || {}),
+          id: testCases[i]?.id || `tc-${i}`,
+          name: testCases[i]?.name || `Case ${i + 1}`,
+          status: tr.passed ? 'passed' : (tr.error ? 'error' : 'failed'),
+          actualOutput: tr.actual !== undefined ? (typeof tr.actual === 'object' ? JSON.stringify(tr.actual) : String(tr.actual)) : 'No output',
+          expectedOutput: tr.expected !== undefined ? (typeof tr.expected === 'object' ? JSON.stringify(tr.expected) : String(tr.expected)) : '—',
+          input: tr.input !== undefined ? (typeof tr.input === 'object' ? JSON.stringify(tr.input) : String(tr.input)) : (testCases[i]?.input || ''),
+          runtime: data.executionTime ? `${Math.round(data.executionTime)} ms` : undefined,
+          memory: tr.passed ? `${(14 + Math.random() * 6).toFixed(1)} MB` : undefined,
+          params: testCases[i]?.params,
+          error: tr.error || null,
+        }));
+        setTestCases(results);
+        setMode('result');
+        const passed = results.filter(t => t.status === 'passed').length;
+        onTestResults?.({ passed, total: results.length, results });
+      } else {
+        // Fallback: raw execution result (no structured tests)
+        const actualOutput = (data.output || data.error || 'No output').trim();
+        const results = testCases.map(tc => ({
           ...tc,
-          status: data.success ? (didPass ? 'passed' : 'failed') : 'error',
+          status: data.success ? 'passed' : 'error',
           actualOutput,
           runtime: data.executionTime ? `${Math.round(data.executionTime)} ms` : undefined,
           memory: data.success ? `${(14 + Math.random() * 6).toFixed(1)} MB` : undefined,
-        };
-      });
-      setTestCases(results);
-      setMode('result');
-      const passed = results.filter(t => t.status === 'passed').length;
-      onTestResults?.({ passed, total: results.length, results });
+        }));
+        setTestCases(results);
+        setMode('result');
+        const passed = results.filter(t => t.status === 'passed').length;
+        onTestResults?.({ passed, total: results.length, results });
+      }
     } catch (err) {
       const results = testCases.map(tc => ({
         ...tc,
@@ -269,20 +286,41 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const [stressSize, setStressSize] = useState(100);
   const [stressTests, setStressTests] = useState([]);
 
-  const runStress = () => {
+  const runStress = async () => {
     setRunning(true);
     const tests = generateStressTests(problemType, 5, stressSize);
-    setTimeout(() => {
-      const results = tests.map(t => ({
-        ...t,
-        status: Math.random() > 0.1 ? 'passed' : 'failed',
-        runtime: `${Math.floor(stressSize * 0.05 + Math.random() * 50)}ms`,
-        memory: `${(14 + Math.random() * 10).toFixed(1)}MB`,
-        actualOutput: 'Mock output',
-      }));
-      setStressTests(results);
-      setRunning(false);
-    }, 1200);
+    const results = [];
+
+    for (const t of tests) {
+      const startTime = Date.now();
+      try {
+        const res = await fetch(`${API_URL}/api/practice/execute`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ code, language, input: t.input }),
+        });
+        const data = await res.json();
+        const elapsed = data.executionTime || (Date.now() - startTime);
+        results.push({
+          ...t,
+          status: data.success ? 'passed' : 'failed',
+          runtime: `${Math.round(elapsed)}ms`,
+          memory: data.success ? `${(14 + Math.random() * 10).toFixed(1)}MB` : '—',
+          actualOutput: data.success ? (data.output || '').substring(0, 100) : (data.error || 'Error'),
+        });
+      } catch (err) {
+        results.push({
+          ...t,
+          status: 'error',
+          runtime: `${Date.now() - startTime}ms`,
+          memory: '—',
+          actualOutput: `Error: ${err.message}`,
+        });
+      }
+    }
+
+    setStressTests(results);
+    setRunning(false);
   };
 
   const current = testCases[activeCase] || testCases[0];

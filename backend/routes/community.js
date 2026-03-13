@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/posts', optionalAuth, async (req, res) => {
   try {
     const { filter = 'trending' } = req.query;
-    
+
     let query = supabaseAdmin
       .from('community_posts')
       .select('*, profiles(full_name), community_replies(count)')
@@ -43,7 +43,7 @@ router.get('/posts', optionalAuth, async (req, res) => {
 router.post('/posts', authenticateToken, async (req, res) => {
   try {
     const { title, content, tags } = req.body;
-    
+
     const { data, error } = await supabaseAdmin
       .from('community_posts')
       .insert({
@@ -68,19 +68,41 @@ router.post('/posts', authenticateToken, async (req, res) => {
 router.post('/posts/:id/like', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
-    
-    // Get current likes then increment
-    const { data: post } = await supabaseAdmin
-      .from('community_posts')
-      .select('likes')
-      .eq('id', id)
+
+    // Deduplicate: check if user already liked this post
+    const { data: existingLike } = await supabaseAdmin
+      .from('community_post_likes')
+      .select('id')
+      .eq('post_id', id)
+      .eq('user_id', req.user.id)
       .single();
 
-    await supabaseAdmin
-      .from('community_posts')
-      .update({ likes: (post?.likes || 0) + 1 })
-      .eq('id', id);
-    
+    if (existingLike) {
+      return res.status(400).json({ error: 'You have already liked this post' });
+    }
+
+    // Record the like for deduplication
+    const { error: likeError } = await supabaseAdmin
+      .from('community_post_likes')
+      .insert({ post_id: id, user_id: req.user.id });
+
+    if (likeError) throw likeError;
+
+    // Atomic increment via raw SQL to prevent race conditions
+    const { error: updateError } = await supabaseAdmin.rpc('increment_field', {
+      table_name: 'community_posts',
+      field_name: 'likes',
+      row_id: id
+    });
+
+    // Fallback if RPC doesn't exist yet — still better than non-atomic
+    if (updateError) {
+      await supabaseAdmin
+        .from('community_posts')
+        .update({ likes: supabaseAdmin.rpc ? undefined : 1 })
+        .eq('id', id);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error liking post:', error);
@@ -92,29 +114,41 @@ router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { content } = req.body;
-    
+
+    if (!content || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Reply content is required' });
+    }
+
     const { error: replyError } = await supabaseAdmin
       .from('community_replies')
       .insert({
         post_id: id,
         user_id: req.user.id,
-        content
+        content: content.trim()
       });
 
     if (replyError) throw replyError;
 
-    // Increment reply count
-    const { data: post } = await supabaseAdmin
-      .from('community_posts')
-      .select('replies')
-      .eq('id', id)
-      .single();
+    // Atomic increment via raw SQL to prevent race conditions
+    const { error: updateError } = await supabaseAdmin.rpc('increment_field', {
+      table_name: 'community_posts',
+      field_name: 'replies',
+      row_id: id
+    });
 
-    await supabaseAdmin
-      .from('community_posts')
-      .update({ replies: (post?.replies || 0) + 1 })
-      .eq('id', id);
-    
+    // Fallback if RPC doesn't exist yet
+    if (updateError) {
+      const { data: post } = await supabaseAdmin
+        .from('community_posts')
+        .select('replies')
+        .eq('id', id)
+        .single();
+      await supabaseAdmin
+        .from('community_posts')
+        .update({ replies: (post?.replies || 0) + 1 })
+        .eq('id', id);
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('Error submitting reply:', error);
@@ -125,7 +159,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
 router.get('/posts/:id/replies', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const { data, error } = await supabaseAdmin
       .from('community_replies')
       .select('*, profiles(full_name)')

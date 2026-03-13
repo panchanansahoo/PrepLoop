@@ -1,0 +1,248 @@
+=================================================================
+   TEST CASE VALIDATION REPORT
+=================================================================
+
+Total problems:             425
+
+--- SUMMARY ---
+  All Tests Passed:        383
+  Some Tests Failed:       40
+  Runtime Error:           2
+  No Test Cases:           0
+  Placeholder Test Cases:  0
+  No Solution Code:        0
+  Bad Test Format:         0
+  No Test Output:          0
+  Execution Error:         0
+
+Pass Rate (testable): 90.1% (383/425)
+
+
+=================================================================
+   PROBLEMS WITH FAILED TEST CASES (40)
+=================================================================
+  1. Partition List (Medium | 7)
+     Passed: 0/2
+     -> TC 1: expected [1,2,2,4,3,5], got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected [1,2], got "Error: 'ListNode' object is not iterable"
+
+  2. Sort List (Medium | 7)
+     Passed: 0/2
+     -> TC 1: expected [1,2,3,4], got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected [-1,0,3,4,5], got "Error: 'ListNode' object is not iterable"
+
+  3. Palindrome Linked List (Easy | 7)
+     Passed: 1/2
+     -> TC 2: expected false, got true
+
+  4. Reorder List (Medium | 7)
+     Passed: 0/2
+     -> TC 1: expected [1,4,2,3], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [1,5,2,4,3], got "Error: object of type 'ListNode' has no len()"
+
+  5. Remove Nth Node From End of List (Medium | 7)
+     Passed: 0/3
+     -> TC 1: expected [2,11,15], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [3,4,1,5,9], got "Error: object of type 'ListNode' has no len()"
+     -> TC 3: expected [1,2,3,5], got "Error: object of type 'ListNode' has no len()"
+
+  6. Rotate List (Medium | 7)
+     Passed: 0/2
+     -> TC 1: expected [4,5,1,2,3], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,0,1], got "Error: object of type 'ListNode' has no len()"
+
+  7. Substring with Concatenation of All Words (Hard | 2)
+     Passed: 0/1
+     -> TC 1: expected [0,9], got "Error: 'TreeNode' object is not subscriptable"
+
+  8. Palindrome Linked List (Easy | 13)
+     Passed: 0/2
+     -> TC 1: expected true, got "Error: 'ListNode' object is not subscriptable"
+     -> TC 2: expected false, got "Error: 'ListNode' object is not subscriptable"
+
+  9. Reorder Linked List (Medium | 13)
+     Passed: 0/2
+     -> TC 1: expected [1,4,2,3], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [1,5,2,4,3], got "Error: object of type 'ListNode' has no len()"
+
+  10. Rotate List (Medium | 13)
+     Passed: 0/2
+     -> TC 1: expected [4,5,1,2,3], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,0,1], got "Error: object of type 'ListNode' has no len()"
+
+  11. Odd Even Linked List (Medium | 13)
+     Passed: 0/2
+     -> TC 1: expected [1,3,5,2,4], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,3,6,7,1,5,4], got "Error: object of type 'ListNode' has no len()"
+
+  12. Remove Nodes From Linked List (Medium | 13)
+     Passed: 0/3
+     -> TC 1: expected [15], got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected [9], got "Error: 'ListNode' object is not iterable"
+     -> TC 3: expected [5], got "Error: 'ListNode' object is not iterable"
+
+  13. Reverse Linked List (Easy | 17)
+     Passed: 0/3
+     -> TC 1: expected [5,4,3,2,1], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,1], got "Error: object of type 'ListNode' has no len()"
+     -> TC 3: expected [], got "Error: object of type 'NoneType' has no len()"
+
+  14. Reverse Nodes in k-Group (Hard | 17)
+     Passed: 0/3
+     -> TC 1: expected [11,7,2,15], got [2,7,11,15]
+     -> TC 2: expected [5,1,4,1,3,9], got [3,1,4,1,5,9]
+     -> TC 3: expected [2,1,4,3,5], got [1,2,3,4,5]
+
+  15. Swap Nodes in Pairs (Medium | 17)
+     Passed: 1/3
+     -> TC 1: expected [2,1,4,3], got [1,2,3,4]
+     -> TC 2: expected [], got null
+
+  16. Add Two Numbers (Medium | 17)
+     Passed: 0/3
+     -> TC 1: expected [2,4,6,8,0,1], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,4,6], got "Error: object of type 'ListNode' has no len()"
+     -> TC 3: expected [2], got "Error: object of type 'ListNode' has no len()"
+
+  17. Add Two Numbers II (Medium | 17)
+     Passed: 0/3
+     -> TC 1: expected [2,4,6,8,0,1], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [2,4,6], got "Error: object of type 'ListNode' has no len()"
+     -> TC 3: expected [2], got "Error: object of type 'ListNode' has no len()"
+
+  18. Merge Two Sorted Lists (Easy | 17)
+     Passed: 0/3
+     -> TC 1: expected [1,1,2,3,4,4], got "Error: object of type 'ListNode' has no len()"
+     -> TC 2: expected [], got "Error: object of type 'NoneType' has no len()"
+     -> TC 3: expected [0], got "Error: object of type 'NoneType' has no len()"
+
+  19. Flatten a Multilevel Doubly Linked List (Medium | 17)
+     Passed: 0/1
+     -> TC 1: expected [1,2,3,7,8,11,12,9,10,4,5,6], got "Error: Object of type TreeNode is not JSON serializable"
+
+  20. Linked List in Binary Tree (Medium | 17)
+     Passed: 0/1
+     -> TC 1: expected true, got "Error: 'TreeNode' object has no attribute 'next'"
+
+  21. Convert Sorted List to BST (Medium | 17)
+     Passed: 0/1
+     -> TC 1: expected [0,-3,9,-10,null,5], got "Error: object of type 'TreeNode' has no len()"
+
+  22. Sort List (Medium | 17)
+     Passed: 0/2
+     -> TC 1: expected [1,2,3,4], got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected [-1,0,3,4,5], got "Error: 'ListNode' object is not iterable"
+
+  23. Maximum Depth of Binary Tree (Easy | 18)
+     Passed: 0/2
+     -> TC 1: expected 3, got [3,9,20,null,null,15,7]
+     -> TC 2: expected 2, got [1,null,2]
+
+  24. Lowest Common Ancestor of Binary Tree (Medium | 18)
+     Passed: 0/3
+     -> TC 1: expected [1,2,3,4,5], got null
+     -> TC 2: expected [3,9,20,null,null,15,7], got null
+     -> TC 3: expected [1], got null
+
+  25. Average of Levels in Binary Tree (Easy | 18)
+     Passed: 0/3
+     -> TC 1: expected [3,14.5,11], got [3,14.5,11]
+     -> TC 2: expected [3,14.5,11], got [3,14.5,11]
+     -> TC 3: expected [1], got [1]
+
+  26. Kth Smallest Element in BST (Medium | 18)
+     Passed: 0/1
+     -> TC 1: expected 3, got "Error: heapq.merge() argument after * must be an iterable, not TreeNode"
+
+  27. Convert Sorted Array to BST (Easy | 18)
+     Passed: 0/3
+     -> TC 1: expected [11,7,15,2], got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected [1,1,9,3,4,5], got "Error: object of type 'TreeNode' has no len()"
+     -> TC 3: expected [3,2,5,1,null,4], got "Error: object of type 'TreeNode' has no len()"
+
+  28. Graph Valid Tree (Medium | 19)
+     Passed: 0/2
+     -> TC 1: expected true, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected false, got "Error: object of type 'TreeNode' has no len()"
+
+  29. Minimum Height Trees (Medium | 19)
+     Passed: 0/2
+     -> TC 1: expected [1], got "Error: 'TreeNode' object is not iterable"
+     -> TC 2: expected [3,4], got "Error: 'TreeNode' object is not iterable"
+
+  30. Path With Minimum Effort (Medium | 19)
+     Passed: 0/3
+     -> TC 1: expected 3, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected 1, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 3: expected 0, got "Error: object of type 'TreeNode' has no len()"
+
+  31. All Paths from Source to Target (Medium | 19)
+     Passed: 0/1
+     -> TC 1: expected [[0]], got "Error: object of type 'TreeNode' has no len()"
+
+  32. Find if Path Exists in Graph (Easy | 19)
+     Passed: 0/3
+     -> TC 1: expected true, got "Error: 'TreeNode' object is not iterable"
+     -> TC 2: expected false, got "Error: 'TreeNode' object is not iterable"
+     -> TC 3: expected true, got "Error: 'NoneType' object is not iterable"
+
+  33. Shortest Path in Binary Matrix (Medium | 19)
+     Passed: 0/3
+     -> TC 1: expected -1, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected -1, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 3: expected -1, got "Error: object of type 'TreeNode' has no len()"
+
+  34. Unique Paths II (Medium | 4)
+     Passed: 0/3
+     -> TC 1: expected 0, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected 0, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 3: expected 0, got "Error: object of type 'TreeNode' has no len()"
+
+  35. Unique Paths III (Hard | 4)
+     Passed: 0/1
+     -> TC 1: expected 2, got "Error: object of type 'TreeNode' has no len()"
+
+  36. Minimum Path Sum (Medium | 4)
+     Passed: 0/3
+     -> TC 1: expected 21, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected 2, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 3: expected 1, got "Error: object of type 'TreeNode' has no len()"
+
+  37. Longest Increasing Path in a Matrix (Hard | 4)
+     Passed: 0/2
+     -> TC 1: expected 4, got "Error: object of type 'TreeNode' has no len()"
+     -> TC 2: expected 4, got "Error: object of type 'TreeNode' has no len()"
+
+  38. Partition Equal Subset Sum (Medium | 4)
+     Passed: 0/3
+     -> TC 1: expected false, got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected false, got "Error: 'ListNode' object is not iterable"
+     -> TC 3: expected false, got "Error: 'ListNode' object is not iterable"
+
+  39. Partition to K Equal Sum Subsets (Medium | 4)
+     Passed: 0/3
+     -> TC 1: expected false, got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected false, got "Error: 'ListNode' object is not iterable"
+     -> TC 3: expected false, got "Error: 'ListNode' object is not iterable"
+
+  40. Palindrome Partitioning (Medium | 21)
+     Passed: 0/3
+     -> TC 1: expected [2,7,11,15], got "Error: 'ListNode' object is not iterable"
+     -> TC 2: expected [3,1,4,1,5,9], got "Error: 'ListNode' object is not iterable"
+     -> TC 3: expected [1,2,3,4,5], got "Error: 'ListNode' object is not iterable"
+
+
+=================================================================
+   RUNTIME ERRORS (2)
+=================================================================
+  1. First Bad Version (Easy | 3)
+     -> File "C:\Users\panch\AppData\Local\Temp\playground_1772702292375.py", line 157
+    global __bad_version_answer
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: name '__bad_version_answer' is assigned t
+
+  2. Guess Number Higher or Lower (Easy | 3)
+     -> File "C:\Users\panch\AppData\Local\Temp\playground_1772702294102.py", line 163
+    global __guess_answer
+    ^^^^^^^^^^^^^^^^^^^^^
+SyntaxError: name '__guess_answer' is assigned to before global de

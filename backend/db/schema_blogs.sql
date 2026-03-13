@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS blogs (
   title TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
   content JSONB NOT NULL,
-  author_id UUID REFERENCES authed_users(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   category TEXT DEFAULT 'General',

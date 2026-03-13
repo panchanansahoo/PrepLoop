@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark } from 'lucide-react';
 import NotionEditor from '../components/editor/NotionEditor';
+import { useTheme } from '../context/ThemeContext';
 
 
 export default function BlogPost() {
     const { slug } = useParams();
     const [blog, setBlog] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     useEffect(() => {
         fetchBlog();
@@ -15,7 +18,7 @@ export default function BlogPost() {
 
     const fetchBlog = async () => {
         try {
-            const response = await fetch(`http://localhost:3000/api/blog/${slug}`);
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog/${slug}`);
             if (response.ok) {
                 const data = await response.json();
                 setBlog(data);
@@ -29,11 +32,11 @@ export default function BlogPost() {
         }
     };
 
-    if (loading) return <div style={{ minHeight: '100vh', background: '#030303', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
-    if (!blog) return <div style={{ minHeight: '100vh', background: '#030303', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Blog not found.</div>;
+    if (loading) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
+    if (!blog) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Blog not found.</div>;
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: 'white', position: 'relative' }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', position: 'relative' }}>
 
 
             {/* Navbar Placeholder/Spacer since we have a fixed navbar */}
@@ -61,7 +64,7 @@ export default function BlogPost() {
                             </div>
                         )}
                         <div>
-                            <div style={{ fontWeight: 500, color: 'white' }}>{blog.author?.full_name || 'Anonymous'}</div>
+                            <div style={{ fontWeight: 500, color: isLight ? '#1a1a2e' : 'white' }}>{blog.author?.full_name || 'Anonymous'}</div>
                             <div style={{ fontSize: '13px', color: 'var(--zinc-500)', display: 'flex', gap: '12px' }}>
                                 <span>{new Date(blog.created_at).toLocaleDateString()}</span>
                                 <span>•</span>
@@ -87,24 +90,24 @@ export default function BlogPost() {
                 {/* Content Area - Render JSON Blocks or Legacy HTML */}
                 {blog.content && blog.content.trim().startsWith('[') ? (
                     <div className="notion-renderer">
-                        <NotionEditor 
-                            initialContent={JSON.parse(blog.content)} 
-                            editable={false} 
+                        <NotionEditor
+                            initialContent={JSON.parse(blog.content)}
+                            editable={false}
                         />
                     </div>
                 ) : (
                     <div
                         className="blog-content"
-                        style={{ fontSize: '18px', lineHeight: 1.8, color: 'var(--zinc-300)' }}
+                        style={{ fontSize: '18px', lineHeight: 1.8, color: isLight ? '#444' : 'var(--zinc-300)' }}
                         dangerouslySetInnerHTML={{ __html: blog.content }}
                     >
                     </div>
                 )}
 
                 <style>{`
-                    .blog-content h1 { font-size: 2.25em; font-weight: 800; margin-top: 1.5em; margin-bottom: 0.5em; color: white; line-height: 1.2; }
-                    .blog-content h2 { font-size: 1.75em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; color: white; line-height: 1.3; }
-                    .blog-content h3 { font-size: 1.5em; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; color: white; line-height: 1.4; }
+                    .blog-content h1 { font-size: 2.25em; font-weight: 800; margin-top: 1.5em; margin-bottom: 0.5em; color: ${isLight ? '#1a1a2e' : 'white'}; line-height: 1.2; }
+                    .blog-content h2 { font-size: 1.75em; font-weight: 700; margin-top: 1.5em; margin-bottom: 0.5em; color: ${isLight ? '#1a1a2e' : 'white'}; line-height: 1.3; }
+                    .blog-content h3 { font-size: 1.5em; font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; color: ${isLight ? '#1a1a2e' : 'white'}; line-height: 1.4; }
                     
                     .blog-content p { margin-bottom: 1.5em; }
                     
@@ -117,30 +120,30 @@ export default function BlogPost() {
                         border-left: 4px solid #6366f1;
                         padding-left: 1rem;
                         font-style: italic;
-                        color: #a1a1aa;
+                        color: ${isLight ? '#666' : '#a1a1aa'};
                         margin: 2em 0;
-                        background: rgba(99, 102, 241, 0.1);
+                        background: ${isLight ? 'rgba(99, 102, 241, 0.06)' : 'rgba(99, 102, 241, 0.1)'};
                         padding: 1rem;
                         border-radius: 0 8px 8px 0;
                     }
                     
                     .blog-content pre {
-                        background: #18181b;
+                        background: ${isLight ? '#f0f0f5' : '#18181b'};
                         padding: 1.5em;
                         border-radius: 8px;
                         overflow-x: auto;
-                        color: #e4e4e7;
+                        color: ${isLight ? '#333' : '#e4e4e7'};
                         font-family: 'Fira Code', monospace;
                         margin: 2em 0;
-                        border: 1px solid #27272a;
+                        border: 1px solid ${isLight ? '#ddd' : '#27272a'};
                     }
                     
                     .blog-content code {
-                        background: rgba(255,255,255,0.1);
+                        background: ${isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)'};
                         padding: 0.2em 0.4em;
                         border-radius: 4px;
                         font-size: 0.9em;
-                        color: #e4e4e7;
+                        color: ${isLight ? '#333' : '#e4e4e7'};
                         font-family: monospace;
                     }
 
@@ -155,12 +158,12 @@ export default function BlogPost() {
                         max-width: 100%;
                         border-radius: 12px;
                         margin: 2em 0;
-                        border: 1px solid #27272a;
+                        border: 1px solid ${isLight ? '#ddd' : '#27272a'};
                     }
 
                     .blog-content hr {
                         border: 0;
-                        border-top: 1px solid #3f3f46;
+                        border-top: 1px solid ${isLight ? '#ddd' : '#3f3f46'};
                         margin: 3em 0;
                     }
                     

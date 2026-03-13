@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { Mail, MessageSquare, MapPin, Send, Linkedin, Github, Twitter, Loader } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 
 export default function Contact() {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const [formData, setFormData] = useState({
         name: '',
         email: '',
@@ -16,7 +19,7 @@ export default function Contact() {
         e.preventDefault();
         setSending(true);
         try {
-            const response = await fetch('http://localhost:3000/api/contact', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contact`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -43,7 +46,7 @@ export default function Contact() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#020203', color: 'white', position: 'relative' }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#020203', color: isLight ? '#1e293b' : 'white', position: 'relative' }}>
 
 
             <div className="container" style={{ paddingTop: '120px', paddingBottom: '80px', position: 'relative', zIndex: 10 }}>
@@ -60,7 +63,7 @@ export default function Contact() {
 
                     {/* Contact Info Side */}
                     <div>
-                        <div style={{ background: 'rgba(255,255,255,0.03)', padding: '40px', borderRadius: '24px', border: '1px solid var(--zinc-800)' }}>
+                        <div style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', padding: '40px', borderRadius: '24px', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}>
                             <h3 style={{ fontSize: '24px', marginBottom: '32px' }}>Contact Information</h3>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -104,15 +107,15 @@ export default function Contact() {
                             <div style={{ marginTop: '40px', paddingTop: '32px', borderTop: '1px solid var(--zinc-800)' }}>
                                 <p style={{ color: 'var(--zinc-500)', fontSize: '14px', marginBottom: '16px' }}>Follow our journey</p>
                                 <div style={{ display: 'flex', gap: '16px' }}>
-                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '1px solid var(--zinc-800)' }}><Twitter size={18} /></a>
-                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', border: '1px solid var(--zinc-800)' }}><Github size={18} /></a>
+                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Twitter size={18} /></a>
+                                    <a href="#" className="icon-btn" style={{ width: 40, height: 40, borderRadius: '50%', background: isLight ? '#f1f5f9' : 'var(--zinc-900)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#334155' : 'white', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)' }}><Github size={18} /></a>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Form Side */}
-                    <div style={{ background: 'rgba(10,10,10,0.6)', padding: '48px', borderRadius: '24px', border: '1px solid var(--zinc-800)', backdropFilter: 'blur(10px)' }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(10,10,10,0.6)', padding: '48px', borderRadius: '24px', border: isLight ? '1px solid #e2e8f0' : '1px solid var(--zinc-800)', backdropFilter: 'blur(10px)' }}>
                         {submitted ? (
                             <div style={{ textAlign: 'center', padding: '40px 0' }}>
                                 <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: '#34d399' }}>
@@ -136,7 +139,7 @@ export default function Contact() {
                                             name="name"
                                             value={formData.name}
                                             onChange={handleChange}
-                                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--zinc-800)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                                            style={{ width: '100%', padding: '12px 16px', background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.05)', border: isLight ? '1px solid #cbd5e1' : '1px solid var(--zinc-800)', borderRadius: '8px', color: isLight ? '#1e293b' : 'white', outline: 'none' }}
                                             placeholder="John Doe"
                                             required
                                         />
@@ -148,7 +151,7 @@ export default function Contact() {
                                             name="email"
                                             value={formData.email}
                                             onChange={handleChange}
-                                            style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--zinc-800)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                                            style={{ width: '100%', padding: '12px 16px', background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.05)', border: isLight ? '1px solid #cbd5e1' : '1px solid var(--zinc-800)', borderRadius: '8px', color: isLight ? '#1e293b' : 'white', outline: 'none' }}
                                             placeholder="john@example.com"
                                             required
                                         />
@@ -162,7 +165,7 @@ export default function Contact() {
                                         name="subject"
                                         value={formData.subject}
                                         onChange={handleChange}
-                                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--zinc-800)', borderRadius: '8px', color: 'white', outline: 'none' }}
+                                        style={{ width: '100%', padding: '12px 16px', background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.05)', border: isLight ? '1px solid #cbd5e1' : '1px solid var(--zinc-800)', borderRadius: '8px', color: isLight ? '#1e293b' : 'white', outline: 'none' }}
                                         placeholder="Collaboration / Inquiry"
                                         required
                                     />
@@ -174,7 +177,7 @@ export default function Contact() {
                                         name="message"
                                         value={formData.message}
                                         onChange={handleChange}
-                                        style={{ width: '100%', padding: '12px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--zinc-800)', borderRadius: '8px', color: 'white', outline: 'none', minHeight: '150px', resize: 'vertical' }}
+                                        style={{ width: '100%', padding: '12px 16px', background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.05)', border: isLight ? '1px solid #cbd5e1' : '1px solid var(--zinc-800)', borderRadius: '8px', color: isLight ? '#1e293b' : 'white', outline: 'none', minHeight: '150px', resize: 'vertical' }}
                                         placeholder="Tell us more..."
                                         required
                                     />

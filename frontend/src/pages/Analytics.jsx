@@ -6,9 +6,10 @@ import {
 import { useGamification } from '../hooks/useGamification';
 import { TOPICS, PROBLEMS, getDifficultyCounts } from '../data/problemsDatabase';
 import StreakHeatmap from '../components/StreakHeatmap';
+import { useTheme } from '../context/ThemeContext';
 
 // ─── Mini Canvas Chart Components ───
-function DonutChart({ data, size = 160, strokeWidth = 20 }) {
+function DonutChart({ data, size = 160, strokeWidth = 20, isLight = false }) {
     const canvasRef = useRef(null);
     useEffect(() => {
         const c = canvasRef.current;
@@ -33,19 +34,19 @@ function DonutChart({ data, size = 160, strokeWidth = 20 }) {
             angle += sweep + 0.04;
         });
         // Center text
-        ctx.fillStyle = '#fff';
+        ctx.fillStyle = isLight ? '#1e293b' : '#fff';
         ctx.font = 'bold 24px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(total, cx, cy - 8);
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.fillStyle = isLight ? 'rgba(30,41,59,0.5)' : 'rgba(255,255,255,0.4)';
         ctx.font = '11px Inter, sans-serif';
         ctx.fillText('Total', cx, cy + 12);
-    }, [data, size, strokeWidth]);
+    }, [data, size, strokeWidth, isLight]);
     return <canvas ref={canvasRef} />;
 }
 
-function BarChartCanvas({ data, width = 360, height = 160 }) {
+function BarChartCanvas({ data, width = 360, height = 160, isLight = false }) {
     const canvasRef = useRef(null);
     useEffect(() => {
         const c = canvasRef.current;
@@ -70,16 +71,16 @@ function BarChartCanvas({ data, width = 360, height = 160 }) {
             ctx.beginPath();
             ctx.roundRect(x, y, barWidth, barH, [4, 4, 0, 0]);
             ctx.fill();
-            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.fillStyle = isLight ? 'rgba(30,41,59,0.5)' : 'rgba(255,255,255,0.3)';
             ctx.font = '9px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText(d.label.slice(0, 4), x + barWidth / 2, height - 6);
         });
-    }, [data, width, height]);
+    }, [data, width, height, isLight]);
     return <canvas ref={canvasRef} />;
 }
 
-function RadarChart({ data, size = 220 }) {
+function RadarChart({ data, size = 220, isLight = false }) {
     const canvasRef = useRef(null);
     useEffect(() => {
         const c = canvasRef.current;
@@ -103,7 +104,7 @@ function RadarChart({ data, size = 220 }) {
                 i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
             }
             ctx.closePath();
-            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.strokeStyle = isLight ? 'rgba(30,41,59,0.1)' : 'rgba(255,255,255,0.06)';
             ctx.stroke();
         }
         // Spokes
@@ -112,7 +113,7 @@ function RadarChart({ data, size = 220 }) {
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
-            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.strokeStyle = isLight ? 'rgba(30,41,59,0.1)' : 'rgba(255,255,255,0.06)';
             ctx.stroke();
         }
         // Data polygon
@@ -140,13 +141,13 @@ function RadarChart({ data, size = 220 }) {
             ctx.fill();
             // Label
             const lx = cx + (R + 18) * Math.cos(a), ly = cy + (R + 18) * Math.sin(a);
-            ctx.fillStyle = 'rgba(255,255,255,0.5)';
+            ctx.fillStyle = isLight ? 'rgba(30,41,59,0.6)' : 'rgba(255,255,255,0.5)';
             ctx.font = '9px Inter, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(d.label.slice(0, 6), lx, ly);
         });
-    }, [data, size]);
+    }, [data, size, isLight]);
     return <canvas ref={canvasRef} />;
 }
 
@@ -204,6 +205,8 @@ function LineChartCanvas({ data, width = 360, height = 120 }) {
 export default function Analytics() {
     const gam = useGamification();
     const diffCounts = getDifficultyCounts();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     // Generate topic proficiency (simulated from gamification data)
     const topicProficiency = useMemo(() => {
@@ -246,8 +249,8 @@ export default function Analytics() {
     const avgSolveTime = gam.problemsSolved > 0 ? Math.round(15 + Math.random() * 10) : 0;
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-purple-500/30">
-            <div className="fixed inset-0 bg-gradient-to-b from-purple-900/10 via-[#0a0a0a] to-[#0a0a0a] pointer-events-none" />
+        <div className={`min-h-screen selection:bg-purple-500/30 ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0a0a0a] text-white'}`}>
+            {!isLight && <div className="fixed inset-0 bg-gradient-to-b from-purple-900/10 via-[#0a0a0a] to-[#0a0a0a] pointer-events-none" />}
 
             <div className="max-w-6xl mx-auto px-6 py-8 pt-24 relative z-10">
                 {/* Header */}
@@ -255,7 +258,7 @@ export default function Analytics() {
                     <h1 style={{ fontSize: 28, fontWeight: 800, background: 'linear-gradient(135deg, #c084fc, #fbbf24)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: 4 }}>
                         Analytics
                     </h1>
-                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14 }}>Track your progress, identify strengths, and optimize your preparation</p>
+                    <p style={{ color: isLight ? 'rgba(30,41,59,0.5)' : 'rgba(255,255,255,0.4)', fontSize: 14 }}>Track your progress, identify strengths, and optimize your preparation</p>
                 </div>
 
                 {/* Performance Metrics */}
@@ -270,12 +273,12 @@ export default function Analytics() {
                     ].map((s, i) => {
                         const Icon = s.icon;
                         return (
-                            <div key={i} style={{ background: s.bg, borderRadius: 14, padding: '16px 18px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div key={i} style={{ background: isLight ? s.bg.replace('0.08', '0.12') : s.bg, borderRadius: 14, padding: '16px 18px', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.05)' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                                     <Icon size={18} color={s.color} />
                                 </div>
                                 <div style={{ fontSize: 22, fontWeight: 800, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
+                                <div style={{ fontSize: 11, color: isLight ? 'rgba(30,41,59,0.5)' : 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
                             </div>
                         );
                     })}
@@ -284,19 +287,19 @@ export default function Analytics() {
                 {/* Charts Row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
                     {/* Difficulty Distribution */}
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <PieChart size={16} color="#a78bfa" /> Difficulty Distribution
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-                            <DonutChart data={donutData} size={140} strokeWidth={18} />
+                            <DonutChart data={donutData} size={140} strokeWidth={18} isLight={isLight} />
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                                 {diffData.map((d, i) => (
                                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                         <div style={{ width: 10, height: 10, borderRadius: 3, background: d.color }} />
                                         <div>
                                             <div style={{ fontSize: 13, fontWeight: 700, color: d.color }}>{d.value}</div>
-                                            <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>{d.label}</div>
+                                            <div style={{ fontSize: 10, color: isLight ? 'rgba(30,41,59,0.5)' : 'rgba(255,255,255,0.4)' }}>{d.label}</div>
                                         </div>
                                     </div>
                                 ))}
@@ -305,12 +308,12 @@ export default function Analytics() {
                     </div>
 
                     {/* Topic Proficiency Radar */}
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <Brain size={16} color="#c084fc" /> Topic Proficiency
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <RadarChart data={topicProficiency} size={200} />
+                            <RadarChart data={topicProficiency} size={200} isLight={isLight} />
                         </div>
                     </div>
                 </div>
@@ -318,31 +321,31 @@ export default function Analytics() {
                 {/* Second Row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
                     {/* Weekly Progress */}
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <TrendingUp size={16} color="#6ee7b7" /> Weekly Progress
                         </div>
                         <LineChartCanvas data={weeklyProgress} width={340} height={120} />
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, padding: '0 10px' }}>
                             {weeklyProgress.map((d, i) => (
-                                <span key={i} style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>{d.label}</span>
+                                <span key={i} style={{ fontSize: 9, color: isLight ? 'rgba(30,41,59,0.4)' : 'rgba(255,255,255,0.3)' }}>{d.label}</span>
                             ))}
                         </div>
                     </div>
 
                     {/* Difficulty Breakdown Bar Chart */}
-                    <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)' }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <BarChart3 size={16} color="#fbbf24" /> Problem Breakdown
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {diffData.map((d, i) => (
                                 <div key={i}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{d.label}</span>
+                                        <span style={{ fontSize: 12, color: isLight ? 'rgba(30,41,59,0.6)' : 'rgba(255,255,255,0.5)' }}>{d.label}</span>
                                         <span style={{ fontSize: 12, fontWeight: 700, color: d.color }}>{d.value} / {diffCounts[d.label]}</span>
                                     </div>
-                                    <div style={{ height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ height: 8, borderRadius: 4, background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                                         <div style={{
                                             height: '100%', borderRadius: 4, background: `linear-gradient(90deg, ${d.color}, ${d.color}80)`,
                                             width: `${Math.min(100, (d.value / (diffCounts[d.label] || 1)) * 100)}%`,
@@ -365,8 +368,8 @@ export default function Analytics() {
                 </div>
 
                 {/* Topic Progress Grid */}
-                <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Target size={16} color="#f87171" /> Topic-Wise Progress
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
@@ -377,21 +380,21 @@ export default function Analytics() {
                             return (
                                 <div key={i} style={{
                                     padding: '12px 14px', borderRadius: 10,
-                                    background: 'rgba(255,255,255,0.02)',
-                                    border: '1px solid rgba(255,255,255,0.04)',
+                                    background: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.02)',
+                                    border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)',
                                 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>{topic}</span>
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: isLight ? 'rgba(30,41,59,0.7)' : 'rgba(255,255,255,0.6)' }}>{topic}</span>
                                         <span style={{ fontSize: 11, color: '#a78bfa', fontWeight: 700 }}>{pct}%</span>
                                     </div>
-                                    <div style={{ height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ height: 4, borderRadius: 2, background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                                         <div style={{
                                             height: '100%', borderRadius: 2,
                                             background: pct > 70 ? '#6ee7b7' : pct > 40 ? '#fbbf24' : '#a78bfa',
                                             width: `${pct}%`, transition: 'width 0.8s ease',
                                         }} />
                                     </div>
-                                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 4 }}>
+                                    <div style={{ fontSize: 10, color: isLight ? 'rgba(30,41,59,0.4)' : 'rgba(255,255,255,0.3)', marginTop: 4 }}>
                                         {solved}/{topicProblems.length} solved
                                     </div>
                                 </div>

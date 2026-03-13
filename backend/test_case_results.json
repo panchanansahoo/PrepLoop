@@ -1,0 +1,4386 @@
+[
+  {
+    "id": 7,
+    "title": "Two Sum",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 8,
+    "title": "Best Time to Buy and Sell Stock",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 4,
+    "total": 4,
+    "errors": []
+  },
+  {
+    "id": 9,
+    "title": "Contains Duplicate",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 10,
+    "title": "Product of Array Except Self",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 11,
+    "title": "Maximum Subarray",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 12,
+    "title": "Maximum Product Subarray",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 13,
+    "title": "Find Minimum in Rotated Sorted Array",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 14,
+    "title": "Search in Rotated Sorted Array",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 15,
+    "title": "Container With Most Water",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 16,
+    "title": "3Sum",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 17,
+    "title": "4Sum",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 18,
+    "title": "Remove Duplicates from Sorted Array",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 19,
+    "title": "Remove Element",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 20,
+    "title": "Next Permutation",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 21,
+    "title": "Rotate Array",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 22,
+    "title": "Jump Game",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 23,
+    "title": "Jump Game II",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 24,
+    "title": "Merge Sorted Array",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 25,
+    "title": "Pascal's Triangle",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 26,
+    "title": "Pascal's Triangle II",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 27,
+    "title": "Majority Element",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 28,
+    "title": "Majority Element II",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 0,
+    "total": 0,
+    "errors": []
+  },
+  {
+    "id": 29,
+    "title": "Rotate Image",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 30,
+    "title": "Spiral Matrix",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 31,
+    "title": "Spiral Matrix II",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 32,
+    "title": "Set Matrix Zeroes",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 33,
+    "title": "Game of Life",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 34,
+    "title": "Find First and Last Position of Element",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 35,
+    "title": "Search a 2D Matrix",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 36,
+    "title": "Search a 2D Matrix II",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 37,
+    "title": "Kth Largest Element in an Array",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 38,
+    "title": "Top K Frequent Elements",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 39,
+    "title": "Sort Colors",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 40,
+    "title": "Wiggle Sort",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 41,
+    "title": "Wiggle Sort II",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 42,
+    "title": "First Missing Positive",
+    "difficulty": "Hard",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 43,
+    "title": "Missing Number",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 44,
+    "title": "Find All Numbers Disappeared in Array",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 45,
+    "title": "Find All Duplicates in Array",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 46,
+    "title": "Longest Consecutive Sequence",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 47,
+    "title": "Move Zeroes",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 48,
+    "title": "Plus One",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 49,
+    "title": "Merge Intervals",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 50,
+    "title": "Insert Interval",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 51,
+    "title": "Non-overlapping Intervals",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 52,
+    "title": "Valid Palindrome",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 53,
+    "title": "Valid Palindrome II",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 54,
+    "title": "Two Sum II - Input Array Is Sorted",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 55,
+    "title": "3Sum Closest",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 56,
+    "title": "Remove Duplicates from Sorted Array II",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 57,
+    "title": "Remove Duplicates from Sorted List",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 58,
+    "title": "Remove Duplicates from Sorted List II",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 59,
+    "title": "Partition List",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,2,2,4,3,5], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected [1,2], got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 60,
+    "title": "Sort List",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,2,3,4], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected [-1,0,3,4,5], got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 61,
+    "title": "Reverse String",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 62,
+    "title": "Reverse Vowels of a String",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 63,
+    "title": "Reverse Words in a String",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 0,
+    "total": 0,
+    "errors": []
+  },
+  {
+    "id": 64,
+    "title": "Reverse Words in a String III",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 65,
+    "title": "Is Subsequence",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 66,
+    "title": "Number of Subsequences",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 67,
+    "title": "Backspace String Compare",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 68,
+    "title": "Squares of a Sorted Array",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 69,
+    "title": "Sort Transformed Array",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 70,
+    "title": "Trapping Rain Water",
+    "difficulty": "Hard",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 71,
+    "title": "Trapping Rain Water II",
+    "difficulty": "Hard",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 72,
+    "title": "Boats to Save People",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 73,
+    "title": "Minimize Maximum Pair Sum",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 74,
+    "title": "Assign Cookies",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 75,
+    "title": "Intersection of Two Arrays",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 76,
+    "title": "Intersection of Two Arrays II",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 77,
+    "title": "Linked List Cycle",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 78,
+    "title": "Linked List Cycle II",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 79,
+    "title": "Happy Number",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 80,
+    "title": "Middle of the Linked List",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 81,
+    "title": "Palindrome Linked List",
+    "difficulty": "Easy",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 1,
+    "total": 2,
+    "errors": [
+      "TC 2: expected false, got true"
+    ]
+  },
+  {
+    "id": 82,
+    "title": "Reorder List",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,4,2,3], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [1,5,2,4,3], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 83,
+    "title": "Find the Duplicate Number",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 84,
+    "title": "Remove Nth Node From End of List",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [2,11,15], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [3,4,1,5,9], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 3: expected [1,2,3,5], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 85,
+    "title": "Rotate List",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [4,5,1,2,3], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,0,1], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 86,
+    "title": "Partition Labels",
+    "difficulty": "Medium",
+    "pattern": 7,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 87,
+    "title": "Longest Substring Without Repeating Characters",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 4,
+    "total": 4,
+    "errors": []
+  },
+  {
+    "id": 88,
+    "title": "Longest Repeating Character Replacement",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 89,
+    "title": "Minimum Window Substring",
+    "difficulty": "Hard",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 90,
+    "title": "Sliding Window Maximum",
+    "difficulty": "Hard",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 91,
+    "title": "Permutation in String",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 92,
+    "title": "Find All Anagrams in a String",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 93,
+    "title": "Substring with Concatenation of All Words",
+    "difficulty": "Hard",
+    "pattern": 2,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected [0,9], got \"Error: 'TreeNode' object is not subscriptable\""
+    ]
+  },
+  {
+    "id": 94,
+    "title": "Minimum Size Subarray Sum",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 95,
+    "title": "Maximum Sum of Distinct Subarrays",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 96,
+    "title": "Fruit Into Baskets",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 97,
+    "title": "Max Consecutive Ones III",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 98,
+    "title": "Longest Substring with At Most K Distinct Characters",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 99,
+    "title": "Longest Substring with At Most Two Distinct Characters",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 100,
+    "title": "Subarrays with K Different Integers",
+    "difficulty": "Hard",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 101,
+    "title": "Count Number of Nice Subarrays",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 102,
+    "title": "Longest Turbulent Subarray",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 103,
+    "title": "Get Equal Substrings Within Budget",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 104,
+    "title": "Grumpy Bookstore Owner",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 105,
+    "title": "Diet Plan Performance",
+    "difficulty": "Easy",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 106,
+    "title": "Number of Sub-arrays of Size K",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 107,
+    "title": "Binary Subarrays With Sum",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 108,
+    "title": "Subarray Product Less Than K",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 109,
+    "title": "Minimum Operations to Reduce X to Zero",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 110,
+    "title": "Frequency of the Most Frequent Element",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 111,
+    "title": "Longest Nice Substring",
+    "difficulty": "Easy",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 112,
+    "title": "Contains Duplicate II",
+    "difficulty": "Easy",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 113,
+    "title": "Contains Duplicate III",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 114,
+    "title": "Longest Mountain in Array",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 115,
+    "title": "Substring with Largest Variance",
+    "difficulty": "Hard",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 116,
+    "title": "Maximum Points You Can Obtain from Cards",
+    "difficulty": "Medium",
+    "pattern": 2,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 117,
+    "title": "Find the Middle Node of LinkedList",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 118,
+    "title": "Detect Cycle in LinkedList",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 119,
+    "title": "Start of Cycle in LinkedList",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 120,
+    "title": "Find Duplicate Number",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 121,
+    "title": "Happy Number",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 122,
+    "title": "Circular Array Loop",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 123,
+    "title": "Palindrome Linked List",
+    "difficulty": "Easy",
+    "pattern": 13,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected true, got \"Error: 'ListNode' object is not subscriptable\"",
+      "TC 2: expected false, got \"Error: 'ListNode' object is not subscriptable\""
+    ]
+  },
+  {
+    "id": 124,
+    "title": "Reorder Linked List",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,4,2,3], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [1,5,2,4,3], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 125,
+    "title": "Rotate List",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [4,5,1,2,3], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,0,1], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 126,
+    "title": "Delete Middle Node of LinkedList",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 127,
+    "title": "Maximum Twin Sum of LinkedList",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 128,
+    "title": "Linked List Components",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 129,
+    "title": "Odd Even Linked List",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,3,5,2,4], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,3,6,7,1,5,4], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 130,
+    "title": "Remove Nodes From Linked List",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [15], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected [9], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 3: expected [5], got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 131,
+    "title": "Split Linked List in Parts",
+    "difficulty": "Medium",
+    "pattern": 13,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 132,
+    "title": "Reverse Linked List",
+    "difficulty": "Easy",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [5,4,3,2,1], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,1], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 3: expected [], got \"Error: object of type 'NoneType' has no len()\""
+    ]
+  },
+  {
+    "id": 133,
+    "title": "Reverse Linked List II",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 134,
+    "title": "Reverse Nodes in k-Group",
+    "difficulty": "Hard",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [11,7,2,15], got [2,7,11,15]",
+      "TC 2: expected [5,1,4,1,3,9], got [3,1,4,1,5,9]",
+      "TC 3: expected [2,1,4,3,5], got [1,2,3,4,5]"
+    ]
+  },
+  {
+    "id": 135,
+    "title": "Swap Nodes in Pairs",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 1,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [2,1,4,3], got [1,2,3,4]",
+      "TC 2: expected [], got null"
+    ]
+  },
+  {
+    "id": 136,
+    "title": "Add Two Numbers",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [2,4,6,8,0,1], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,4,6], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 3: expected [2], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 137,
+    "title": "Add Two Numbers II",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [2,4,6,8,0,1], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [2,4,6], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 3: expected [2], got \"Error: object of type 'ListNode' has no len()\""
+    ]
+  },
+  {
+    "id": 138,
+    "title": "Merge Two Sorted Lists",
+    "difficulty": "Easy",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [1,1,2,3,4,4], got \"Error: object of type 'ListNode' has no len()\"",
+      "TC 2: expected [], got \"Error: object of type 'NoneType' has no len()\"",
+      "TC 3: expected [0], got \"Error: object of type 'NoneType' has no len()\""
+    ]
+  },
+  {
+    "id": 139,
+    "title": "Merge K Sorted Lists",
+    "difficulty": "Hard",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 140,
+    "title": "Copy List with Random Pointer",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 141,
+    "title": "Intersection of Two Linked Lists",
+    "difficulty": "Easy",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 142,
+    "title": "Design Linked List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 143,
+    "title": "Flatten a Multilevel Doubly Linked List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected [1,2,3,7,8,11,12,9,10,4,5,6], got \"Error: Object of type TreeNode is not JSON serializable\""
+    ]
+  },
+  {
+    "id": 144,
+    "title": "Insert into a Sorted Circular Linked List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 145,
+    "title": "Convert Binary Number in LinkedList",
+    "difficulty": "Easy",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 146,
+    "title": "Next Greater Node In Linked List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 147,
+    "title": "Linked List in Binary Tree",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected true, got \"Error: 'TreeNode' object has no attribute 'next'\""
+    ]
+  },
+  {
+    "id": 148,
+    "title": "Swap Adjacent in LR String",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 149,
+    "title": "Design Browser History",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 150,
+    "title": "LRU Cache",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 151,
+    "title": "LFU Cache",
+    "difficulty": "Hard",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 152,
+    "title": "All O'one Data Structure",
+    "difficulty": "Hard",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 153,
+    "title": "Design Skiplist",
+    "difficulty": "Hard",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 154,
+    "title": "Flatten Binary Tree to Linked List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 155,
+    "title": "Convert Sorted List to BST",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected [0,-3,9,-10,null,5], got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 156,
+    "title": "Sort List",
+    "difficulty": "Medium",
+    "pattern": 17,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1,2,3,4], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected [-1,0,3,4,5], got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 157,
+    "title": "Valid Parentheses",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 5,
+    "total": 5,
+    "errors": []
+  },
+  {
+    "id": 158,
+    "title": "Longest Valid Parentheses",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 159,
+    "title": "Min Stack",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 160,
+    "title": "Max Stack",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 161,
+    "title": "Implement Queue using Stacks",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 162,
+    "title": "Implement Stack using Queues",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 163,
+    "title": "Evaluate Reverse Polish Notation",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 164,
+    "title": "Basic Calculator",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 165,
+    "title": "Basic Calculator II",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 166,
+    "title": "Basic Calculator III",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 167,
+    "title": "Simplify Path",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 168,
+    "title": "Remove All Adjacent Duplicates In String",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 169,
+    "title": "Remove All Adjacent Duplicates in String II",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 170,
+    "title": "Remove K Digits",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 171,
+    "title": "Create Maximum Number",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 172,
+    "title": "Decode String",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 173,
+    "title": "Number of Atoms",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 174,
+    "title": "Asteroid Collision",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 175,
+    "title": "Daily Temperatures",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 176,
+    "title": "Next Greater Element I",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 177,
+    "title": "Next Greater Element II",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 178,
+    "title": "Next Greater Element III",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 179,
+    "title": "Largest Rectangle in Histogram",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 180,
+    "title": "Maximal Rectangle",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 181,
+    "title": "Trapping Rain Water",
+    "difficulty": "Hard",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 182,
+    "title": "Score of Parentheses",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 183,
+    "title": "Valid Parenthesis String",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 184,
+    "title": "Minimum Add to Make Parentheses Valid",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 185,
+    "title": "Minimum Remove to Make Valid Parentheses",
+    "difficulty": "Medium",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 186,
+    "title": "Maximum Nesting Depth of Parentheses",
+    "difficulty": "Easy",
+    "pattern": 16,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 187,
+    "title": "Binary Search",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 188,
+    "title": "Search Insert Position",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 189,
+    "title": "First Bad Version",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "runtime_error",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "File \"C:\\Users\\panch\\AppData\\Local\\Temp\\playground_1772702292375.py\", line 157\r\n    global __bad_version_answer\r\n    ^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\nSyntaxError: name '__bad_version_answer' is assigned to before global declaration"
+    ]
+  },
+  {
+    "id": 190,
+    "title": "Sqrt(x)",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 191,
+    "title": "Valid Perfect Square",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 192,
+    "title": "Guess Number Higher or Lower",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "runtime_error",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "File \"C:\\Users\\panch\\AppData\\Local\\Temp\\playground_1772702294102.py\", line 163\r\n    global __guess_answer\r\n    ^^^^^^^^^^^^^^^^^^^^^\r\nSyntaxError: name '__guess_answer' is assigned to before global declaration"
+    ]
+  },
+  {
+    "id": 193,
+    "title": "Find Smallest Letter Greater Than Target",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 194,
+    "title": "Peak Index in a Mountain Array",
+    "difficulty": "Easy",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 195,
+    "title": "Find Peak Element",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 196,
+    "title": "Search in Rotated Sorted Array",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 197,
+    "title": "Search in Rotated Sorted Array II",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 198,
+    "title": "Find Minimum in Rotated Sorted Array",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 199,
+    "title": "Find Minimum in Rotated Sorted Array II",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 200,
+    "title": "Single Element in a Sorted Array",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 201,
+    "title": "Find K Closest Elements",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 202,
+    "title": "Kth Smallest Element in a Sorted Matrix",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 203,
+    "title": "Find K-th Smallest Pair Distance",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 204,
+    "title": "Koko Eating Bananas",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 205,
+    "title": "Minimize Max Distance to Gas Station",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 206,
+    "title": "Split Array Largest Sum",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 207,
+    "title": "Capacity To Ship Packages Within D Days",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 208,
+    "title": "Divide Chocolate",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 209,
+    "title": "Minimum Number of Days to Make m Bouquets",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 210,
+    "title": "Magnetic Force Between Two Balls",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 211,
+    "title": "Minimize Max Distance to Gas Station",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 212,
+    "title": "Find Right Interval",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 213,
+    "title": "Russian Doll Envelopes",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 214,
+    "title": "Longest Increasing Subsequence",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 215,
+    "title": "Count of Smaller Numbers After Self",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 216,
+    "title": "Count of Range Sum",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 217,
+    "title": "Median of Two Sorted Arrays",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 218,
+    "title": "Find Median from Data Stream",
+    "difficulty": "Hard",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 219,
+    "title": "Count Complete Tree Nodes",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 220,
+    "title": "Powx n",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 221,
+    "title": "Divide Two Integers",
+    "difficulty": "Medium",
+    "pattern": 3,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 222,
+    "title": "Maximum Depth of Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected 3, got [3,9,20,null,null,15,7]",
+      "TC 2: expected 2, got [1,null,2]"
+    ]
+  },
+  {
+    "id": 223,
+    "title": "Minimum Depth of Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 224,
+    "title": "Invert Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 225,
+    "title": "Diameter of Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 226,
+    "title": "Balanced Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 227,
+    "title": "Same Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 228,
+    "title": "Symmetric Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 229,
+    "title": "Subtree of Another Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 230,
+    "title": "Merge Two Binary Trees",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 231,
+    "title": "Binary Tree Paths",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 232,
+    "title": "Path Sum",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 233,
+    "title": "Path Sum II",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 234,
+    "title": "Path Sum III",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 235,
+    "title": "Binary Tree Maximum Path Sum",
+    "difficulty": "Hard",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 236,
+    "title": "Sum Root to Leaf Numbers",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 237,
+    "title": "Lowest Common Ancestor of BST",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 238,
+    "title": "Lowest Common Ancestor of Binary Tree",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [1,2,3,4,5], got null",
+      "TC 2: expected [3,9,20,null,null,15,7], got null",
+      "TC 3: expected [1], got null"
+    ]
+  },
+  {
+    "id": 239,
+    "title": "Binary Tree Level Order Traversal",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 240,
+    "title": "Binary Tree Zigzag Level Order",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 241,
+    "title": "Binary Tree Right Side View",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 242,
+    "title": "Binary Tree Level Order Traversal II",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 243,
+    "title": "Average of Levels in Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [3,14.5,11], got [3,14.5,11]",
+      "TC 2: expected [3,14.5,11], got [3,14.5,11]",
+      "TC 3: expected [1], got [1]"
+    ]
+  },
+  {
+    "id": 244,
+    "title": "Minimum Depth of Binary Tree",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 245,
+    "title": "Populating Next Right Pointers",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 246,
+    "title": "Populating Next Right Pointers II",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 247,
+    "title": "Validate Binary Search Tree",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 248,
+    "title": "Kth Smallest Element in BST",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected 3, got \"Error: heapq.merge() argument after * must be an iterable, not TreeNode\""
+    ]
+  },
+  {
+    "id": 249,
+    "title": "Binary Search Tree Iterator",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 250,
+    "title": "Convert Sorted Array to BST",
+    "difficulty": "Easy",
+    "pattern": 18,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [11,7,15,2], got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected [1,1,9,3,4,5], got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 3: expected [3,2,5,1,null,4], got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 251,
+    "title": "Construct Binary Tree from Preorder and Inorder",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 252,
+    "title": "Construct Binary Tree from Inorder and Postorder",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 253,
+    "title": "Serialize and Deserialize Binary Tree",
+    "difficulty": "Hard",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 254,
+    "title": "Serialize and Deserialize BST",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 255,
+    "title": "Count Complete Tree Nodes",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 256,
+    "title": "Count Good Nodes in Binary Tree",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 257,
+    "title": "Delete Node in a BST",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 258,
+    "title": "Insert into a BST",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 259,
+    "title": "Recover Binary Search Tree",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 260,
+    "title": "Unique Binary Search Trees",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 261,
+    "title": "Unique Binary Search Trees II",
+    "difficulty": "Medium",
+    "pattern": 18,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 262,
+    "title": "Number of Islands",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 263,
+    "title": "Max Area of Island",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 264,
+    "title": "Number of Distinct Islands",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 265,
+    "title": "Number of Closed Islands",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 266,
+    "title": "Clone Graph",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 267,
+    "title": "Pacific Atlantic Water Flow",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 268,
+    "title": "Surrounded Regions",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 269,
+    "title": "Number of Provinces",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 270,
+    "title": "Graph Valid Tree",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected true, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected false, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 271,
+    "title": "Number of Connected Components",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 272,
+    "title": "Redundant Connection",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 273,
+    "title": "Redundant Connection II",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 274,
+    "title": "Accounts Merge",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 275,
+    "title": "Satisfiability of Equality Equations",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 276,
+    "title": "Course Schedule",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 277,
+    "title": "Course Schedule II",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 278,
+    "title": "Course Schedule III",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 279,
+    "title": "Minimum Height Trees",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected [1], got \"Error: 'TreeNode' object is not iterable\"",
+      "TC 2: expected [3,4], got \"Error: 'TreeNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 280,
+    "title": "Alien Dictionary",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 281,
+    "title": "Sequence Reconstruction",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 282,
+    "title": "Network Delay Time",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 283,
+    "title": "Cheapest Flights Within K Stops",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 284,
+    "title": "Path with Maximum Probability",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 285,
+    "title": "Path With Minimum Effort",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected 3, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected 1, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 3: expected 0, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 286,
+    "title": "Swim in Rising Water",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 287,
+    "title": "Word Ladder",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 288,
+    "title": "Word Ladder II",
+    "difficulty": "Hard",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 289,
+    "title": "Minimum Genetic Mutation",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 290,
+    "title": "Reconstruct Itinerary",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 291,
+    "title": "All Paths from Source to Target",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected [[0]], got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 292,
+    "title": "Find if Path Exists in Graph",
+    "difficulty": "Easy",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected true, got \"Error: 'TreeNode' object is not iterable\"",
+      "TC 2: expected false, got \"Error: 'TreeNode' object is not iterable\"",
+      "TC 3: expected true, got \"Error: 'NoneType' object is not iterable\""
+    ]
+  },
+  {
+    "id": 293,
+    "title": "Evaluate Division",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 294,
+    "title": "Shortest Path in Binary Matrix",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected -1, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected -1, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 3: expected -1, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 295,
+    "title": "Shortest Bridge",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 296,
+    "title": "Is Graph Bipartite",
+    "difficulty": "Medium",
+    "pattern": 19,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 297,
+    "title": "Climbing Stairs",
+    "difficulty": "Easy",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 4,
+    "total": 4,
+    "errors": []
+  },
+  {
+    "id": 298,
+    "title": "Min Cost Climbing Stairs",
+    "difficulty": "Easy",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 299,
+    "title": "House Robber",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 300,
+    "title": "House Robber II",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 301,
+    "title": "House Robber III",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 302,
+    "title": "Coin Change",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 303,
+    "title": "Coin Change 2",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 304,
+    "title": "Combination Sum IV",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 305,
+    "title": "Perfect Squares",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 306,
+    "title": "Decode Ways",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 307,
+    "title": "Decode Ways II",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 308,
+    "title": "Unique Paths",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 309,
+    "title": "Unique Paths II",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected 0, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected 0, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 3: expected 0, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 310,
+    "title": "Unique Paths III",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 1,
+    "errors": [
+      "TC 1: expected 2, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 311,
+    "title": "Minimum Path Sum",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected 21, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected 2, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 3: expected 1, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 312,
+    "title": "Triangle",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 313,
+    "title": "Maximal Square",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 314,
+    "title": "Longest Palindromic Substring",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 315,
+    "title": "Longest Palindromic Subsequence",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 316,
+    "title": "Palindromic Substrings",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 317,
+    "title": "Longest Common Subsequence",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 318,
+    "title": "Edit Distance",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 319,
+    "title": "Distinct Subsequences",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 320,
+    "title": "Interleaving String",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 321,
+    "title": "Longest Increasing Subsequence",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 322,
+    "title": "Longest Increasing Path in a Matrix",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 2,
+    "errors": [
+      "TC 1: expected 4, got \"Error: object of type 'TreeNode' has no len()\"",
+      "TC 2: expected 4, got \"Error: object of type 'TreeNode' has no len()\""
+    ]
+  },
+  {
+    "id": 323,
+    "title": "Russian Doll Envelopes",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 324,
+    "title": "Maximum Length of Pair Chain",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 325,
+    "title": "Wiggle Subsequence",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 326,
+    "title": "Best Time to Buy and Sell Stock",
+    "difficulty": "Easy",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 327,
+    "title": "Best Time to Buy and Sell Stock II",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 328,
+    "title": "Best Time to Buy and Sell Stock III",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 329,
+    "title": "Best Time to Buy and Sell Stock IV",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 4,
+    "total": 4,
+    "errors": []
+  },
+  {
+    "id": 330,
+    "title": "Best Time to Buy and Sell Stock with Cooldown",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 331,
+    "title": "Best Time to Buy and Sell Stock with Transaction Fee",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 332,
+    "title": "Word Break",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 333,
+    "title": "Word Break II",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 334,
+    "title": "Partition Equal Subset Sum",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected false, got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected false, got \"Error: 'ListNode' object is not iterable\"",
+      "TC 3: expected false, got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 335,
+    "title": "Target Sum",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 336,
+    "title": "Ones and Zeroes",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 337,
+    "title": "Last Stone Weight II",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 338,
+    "title": "Partition to K Equal Sum Subsets",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected false, got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected false, got \"Error: 'ListNode' object is not iterable\"",
+      "TC 3: expected false, got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 339,
+    "title": "Regular Expression Matching",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 340,
+    "title": "Wildcard Matching",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 341,
+    "title": "Longest Valid Parentheses",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 342,
+    "title": "Arithmetic Slices",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 343,
+    "title": "Arithmetic Slices II",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 344,
+    "title": "Unique Binary Search Trees",
+    "difficulty": "Medium",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 345,
+    "title": "Burst Balloons",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 346,
+    "title": "Super Egg Drop",
+    "difficulty": "Hard",
+    "pattern": 4,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 347,
+    "title": "Subsets",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 348,
+    "title": "Subsets II",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 349,
+    "title": "Permutations",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 350,
+    "title": "Permutations II",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 351,
+    "title": "Combination Sum",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 352,
+    "title": "Combination Sum II",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 353,
+    "title": "Combination Sum III",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 354,
+    "title": "Combinations",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 355,
+    "title": "Letter Combinations of a Phone Number",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 356,
+    "title": "Generate Parentheses",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 357,
+    "title": "Palindrome Partitioning",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "some_failed",
+    "passed": 0,
+    "total": 3,
+    "errors": [
+      "TC 1: expected [2,7,11,15], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 2: expected [3,1,4,1,5,9], got \"Error: 'ListNode' object is not iterable\"",
+      "TC 3: expected [1,2,3,4,5], got \"Error: 'ListNode' object is not iterable\""
+    ]
+  },
+  {
+    "id": 358,
+    "title": "Palindrome Partitioning II",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 359,
+    "title": "Word Search",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 360,
+    "title": "Word Search II",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 361,
+    "title": "N-Queens",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 362,
+    "title": "N-Queens II",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 363,
+    "title": "Sudoku Solver",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 364,
+    "title": "Valid Sudoku",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 365,
+    "title": "Letter Case Permutation",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 366,
+    "title": "Beautiful Arrangement",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 367,
+    "title": "Matchsticks to Square",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 368,
+    "title": "Split Array into Fibonacci Sequence",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 369,
+    "title": "Additive Number",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 370,
+    "title": "Restore IP Addresses",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 371,
+    "title": "Factor Combinations",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 372,
+    "title": "Remove Invalid Parentheses",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 373,
+    "title": "Expression Add Operators",
+    "difficulty": "Hard",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 374,
+    "title": "Android Unlock Patterns",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 375,
+    "title": "Strobogrammatic Number II",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 376,
+    "title": "Generalized Abbreviation",
+    "difficulty": "Medium",
+    "pattern": 21,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 377,
+    "title": "Kth Largest Element in an Array",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 378,
+    "title": "Kth Smallest Element in a Sorted Matrix",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 379,
+    "title": "Top K Frequent Elements",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 380,
+    "title": "Top K Frequent Words",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 381,
+    "title": "K Closest Points to Origin",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 382,
+    "title": "Find K Pairs with Smallest Sums",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 383,
+    "title": "Kth Smallest Prime Fraction",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 384,
+    "title": "Reorganize String",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 385,
+    "title": "Rearrange String k Distance Apart",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 386,
+    "title": "Task Scheduler",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 387,
+    "title": "Merge K Sorted Lists",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 388,
+    "title": "Find Median from Data Stream",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 389,
+    "title": "Sliding Window Median",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 390,
+    "title": "IPO",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 391,
+    "title": "Furthest Building You Can Reach",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 392,
+    "title": "Minimize Deviation in Array",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 393,
+    "title": "Meeting Rooms II",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 394,
+    "title": "Meeting Rooms III",
+    "difficulty": "Hard",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 395,
+    "title": "Process Tasks Using Servers",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 396,
+    "title": "Find the Kth Smallest Sum",
+    "difficulty": "Medium",
+    "pattern": 20,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 397,
+    "title": "Implement Trie (Prefix Tree)",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 398,
+    "title": "Design Add and Search Words Data Structure",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 399,
+    "title": "Search Suggestions System",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 400,
+    "title": "Replace Words",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 401,
+    "title": "Implement Magic Dictionary",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 402,
+    "title": "Palindrome Pairs",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 403,
+    "title": "Word Search II",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 404,
+    "title": "Design Search Autocomplete System",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 405,
+    "title": "Stream of Characters",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 406,
+    "title": "Concatenated Words",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 407,
+    "title": "Word Squares",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 408,
+    "title": "Maximum XOR of Two Numbers",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 409,
+    "title": "Maximum XOR With Element From Array",
+    "difficulty": "Hard",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 410,
+    "title": "Map Sum Pairs",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 411,
+    "title": "Longest Word in Dictionary",
+    "difficulty": "Medium",
+    "pattern": 25,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 412,
+    "title": "Jump Game",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 413,
+    "title": "Jump Game II",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 414,
+    "title": "Gas Station",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 415,
+    "title": "Candy",
+    "difficulty": "Hard",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 416,
+    "title": "Queue Reconstruction by Height",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 417,
+    "title": "Partition Labels",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 418,
+    "title": "Non-overlapping Intervals",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 419,
+    "title": "Minimum Number of Arrows to Burst Balloons",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 420,
+    "title": "Remove Duplicate Letters",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 421,
+    "title": "Create Maximum Number",
+    "difficulty": "Hard",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 422,
+    "title": "Largest Number",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 423,
+    "title": "Maximum Swap",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 424,
+    "title": "Task Scheduler",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 425,
+    "title": "Minimum Deletions to Make Character Frequencies Unique",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 426,
+    "title": "Reduce Array Size to The Half",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 427,
+    "title": "Maximum Units on a Truck",
+    "difficulty": "Easy",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 2,
+    "total": 2,
+    "errors": []
+  },
+  {
+    "id": 428,
+    "title": "Bag of Tokens",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  },
+  {
+    "id": 429,
+    "title": "Boats to Save People",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 430,
+    "title": "Broken Calculator",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 3,
+    "total": 3,
+    "errors": []
+  },
+  {
+    "id": 431,
+    "title": "Advantage Shuffle",
+    "difficulty": "Medium",
+    "pattern": 22,
+    "status": "all_passed",
+    "passed": 1,
+    "total": 1,
+    "errors": []
+  }
+]

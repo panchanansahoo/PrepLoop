@@ -31,7 +31,7 @@ router.get('/patterns', optionalAuth, async (req, res) => {
 router.get('/patterns/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const { data: pattern, error: patternError } = await supabaseAdmin
       .from('patterns')
       .select('*')
@@ -82,7 +82,7 @@ router.get('/patterns/:id', optionalAuth, async (req, res) => {
 router.get('/problems/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
       .select('*, patterns(name, category)')
@@ -119,6 +119,27 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
   } catch (error) {
     console.error('Error fetching problem:', error);
     res.status(500).json({ error: 'Failed to fetch problem' });
+  }
+});
+
+router.get('/problems/:id/solution', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: problem, error } = await supabaseAdmin
+      .from('problems')
+      .select('solution_code')
+      .eq('id', id)
+      .single();
+
+    if (error || !problem) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json({ solution: problem.solution_code });
+  } catch (error) {
+    console.error('Error fetching solution:', error);
+    res.status(500).json({ error: 'Failed to fetch solution' });
   }
 });
 

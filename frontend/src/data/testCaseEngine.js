@@ -1,5 +1,11 @@
 // ─── Test Case Engine ───
-// Edge case templates, random input generator, and stress testing utilities
+// Edge case templates, random input generator, stress testing utilities,
+// and comprehensive test cases for all coding problems
+
+import { PROBLEM_TEST_CASES, getTestCasesForProblem, getTestCaseStats } from './problemTestCases';
+
+// Re-export for convenience
+export { PROBLEM_TEST_CASES, getTestCasesForProblem, getTestCaseStats };
 
 // ─── Edge Case Templates ───
 export const EDGE_CASE_TEMPLATES = {
@@ -151,24 +157,36 @@ export function generateStressTests(problemType = 'array', count = 5, maxSize = 
   return tests;
 }
 
-// ─── Default test cases for common problems ───
-export const DEFAULT_TEST_CASES = {
-  'two-sum': [
-    createTestCase('nums = [2,7,11,15], target = 9', '[0,1]', 'Basic case'),
-    createTestCase('nums = [3,2,4], target = 6', '[1,2]', 'Middle elements'),
-    createTestCase('nums = [3,3], target = 6', '[0,1]', 'Duplicate values'),
-  ],
-  'valid-palindrome': [
-    createTestCase('"A man, a plan, a canal: Panama"', 'true', 'Classic palindrome'),
-    createTestCase('"race a car"', 'false', 'Not palindrome'),
-    createTestCase('" "', 'true', 'Empty/space string'),
-  ],
-  'contains-duplicate': [
-    createTestCase('[1,2,3,1]', 'true', 'Has duplicate'),
-    createTestCase('[1,2,3,4]', 'false', 'All unique'),
-    createTestCase('[1,1,1,3,3,4,3,2,4,2]', 'true', 'Multiple duplicates'),
-  ],
-};
+// ─── Convert PROBLEM_TEST_CASES to display-friendly examples ───
+// Converts { input: [...args], output: value, name: string } to
+// { input: string, output: string, name: string } for TestCasePanel
+export function getExamplesForProblem(slug) {
+  const cases = getTestCasesForProblem(slug);
+  if (!cases || cases.length === 0) return [];
+  return cases.map(tc => ({
+    input: tc.input.map(arg => JSON.stringify(arg)).join(', '),
+    output: JSON.stringify(tc.output),
+    name: tc.name,
+  }));
+}
+
+// ─── Build DEFAULT_TEST_CASES from PROBLEM_TEST_CASES ───
+// Generates createTestCase objects for all problems
+function buildDefaultTestCases() {
+  const defaults = {};
+  for (const [slug, cases] of Object.entries(PROBLEM_TEST_CASES)) {
+    defaults[slug] = cases.map(tc =>
+      createTestCase(
+        tc.input.map(arg => JSON.stringify(arg)).join(', '),
+        JSON.stringify(tc.output),
+        tc.name
+      )
+    );
+  }
+  return defaults;
+}
+
+export const DEFAULT_TEST_CASES = buildDefaultTestCases();
 
 // ─── Problem type detection for edge cases ───
 export function detectProblemType(description = '') {

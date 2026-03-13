@@ -223,12 +223,12 @@ const faqs = [
 function FloatingCard({ children, style, className = '' }) {
   return (
     <div className={`hero-float-card ${className}`} style={{
-      background: 'rgba(10, 10, 10, 0.75)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
       borderRadius: '16px',
       backdropFilter: 'blur(20px)',
       padding: '16px 20px',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
       ...style
     }}>
       {children}
@@ -274,11 +274,11 @@ function StatCard({ value, suffix, label, icon }) {
       padding: '32px 24px',
       flex: '1 1 200px',
     }}>
-      <div style={{ color: '#d4d4d8', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>{icon}</div>
-      <div style={{ fontSize: '42px', fontWeight: '800', color: '#fff', lineHeight: 1, marginBottom: '8px', fontFamily: "'Instrument Sans', sans-serif" }}>
+      <div style={{ color: 'var(--text-secondary)', marginBottom: '12px', display: 'flex', justifyContent: 'center' }}>{icon}</div>
+      <div style={{ fontSize: '42px', fontWeight: '800', color: 'var(--text-primary)', lineHeight: 1, marginBottom: '8px', fontFamily: "'Instrument Sans', sans-serif" }}>
         {count.toLocaleString()}{suffix}
       </div>
-      <div style={{ fontSize: '14px', color: '#71717a', fontWeight: '500' }}>{label}</div>
+      <div style={{ fontSize: '14px', color: 'var(--text-muted)', fontWeight: '500' }}>{label}</div>
     </div>
   );
 }
@@ -288,7 +288,7 @@ function GradientDivider() {
   return (
     <div style={{
       height: '1px',
-      background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.08), transparent)',
+      background: 'linear-gradient(90deg, transparent, var(--border), transparent)',
       margin: '0 auto',
       maxWidth: '800px'
     }} />
@@ -314,11 +314,11 @@ function ActivityTicker() {
       alignItems: 'center',
       gap: '10px',
       padding: '8px 18px',
-      background: 'rgba(255, 255, 255, 0.03)',
-      border: '1px solid rgba(255, 255, 255, 0.1)',
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border)',
       borderRadius: '99px',
       fontSize: '13px',
-      color: '#a1a1aa',
+      color: 'var(--text-secondary)',
       backdropFilter: 'blur(10px)',
       overflow: 'hidden',
       minWidth: '320px',
@@ -328,7 +328,7 @@ function ActivityTicker() {
       <span className="ticker-text" key={currentIndex} style={{ whiteSpace: 'nowrap', animation: 'fadeSlideUp 0.4s ease' }}>
         {activity.icon} {activity.text}
       </span>
-      <span style={{ color: '#52525b', fontSize: '11px', flexShrink: 0 }}>{activity.time}</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>{activity.time}</span>
     </div>
   );
 }
@@ -354,8 +354,8 @@ export default function Home() {
     <div style={{
       position: 'relative',
       overflowX: 'hidden',
-      background: '#030303',
-      color: 'white',
+      background: 'var(--bg-primary)',
+      color: 'var(--text-primary)',
       minHeight: '100vh',
       width: '100vw'
     }}>
@@ -363,7 +363,7 @@ export default function Home() {
       {/* Ambient gradient orbs */}
       <div style={{
         position: 'fixed', top: '20%', left: '-5%', width: '500px', height: '500px',
-        borderRadius: '50%', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.04) 0%, transparent 70%)',
+        borderRadius: '50%', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%)',
         pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 15s ease-in-out infinite reverse'
       }} />
       <div style={{
@@ -416,7 +416,7 @@ export default function Home() {
                   <Shield size={16} /> 95% success rate
                 </span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Star size={16} color="#e4e4e7" /> 4.9/5 rating
+                  <Star size={16} color="var(--text-secondary)" /> 4.9/5 rating
                 </span>
               </div>
             </div>
@@ -446,9 +446,9 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: '72px' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '6px 16px', border: '1px solid rgba(139, 92, 246, 0.2)',
+              padding: '6px 16px', border: '1px solid rgba(139, 92, 246, 0.25)',
               borderRadius: '99px', fontSize: '12px', color: '#a78bfa',
-              background: 'rgba(139, 92, 246, 0.06)', marginBottom: '20px',
+              background: 'rgba(139, 92, 246, 0.08)', marginBottom: '20px',
               textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
             }}>
               <Rocket size={12} /> How It Works
@@ -511,9 +511,9 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: '60px' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '6px 16px', border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '99px', fontSize: '12px', color: '#a1a1aa',
-              background: 'rgba(255, 255, 255, 0.04)', marginBottom: '20px',
+              padding: '6px 16px', border: '1px solid var(--border)',
+              borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+              background: 'var(--accent-glow)', marginBottom: '20px',
               textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
             }}>
               <Layers size={12} /> Platform Features
@@ -529,9 +529,9 @@ export default function Home() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
             {features.map((f, i) => (
               <Link to={f.link} key={i} className="card feature-card-hover" style={{
-                background: 'rgba(18,18,18,0.6)',
+                background: 'var(--bg-card)',
                 backdropFilter: 'blur(10px)',
-                border: '1px solid var(--zinc-800)',
+                border: '1px solid var(--border)',
                 padding: '40px',
                 display: 'block',
                 textDecoration: 'none',
@@ -543,8 +543,8 @@ export default function Home() {
                   <div style={{
                     position: 'absolute', top: '16px', right: '16px',
                     padding: '4px 10px', borderRadius: '99px',
-                    background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)',
-                    fontSize: '11px', fontWeight: '600', color: '#a1a1aa',
+                    background: 'var(--accent-glow)', border: '1px solid var(--border)',
+                    fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)',
                     letterSpacing: '0.02em'
                   }}>{f.tag}</div>
                 )}
@@ -552,7 +552,7 @@ export default function Home() {
                 <div style={{
                   position: 'absolute', bottom: '-40px', right: '-40px',
                   width: '120px', height: '120px', borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(255, 255, 255, 0.03), transparent 70%)',
+                  background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
                   transition: 'opacity 0.3s', opacity: 0.5
                 }} />
                 <div style={{
@@ -562,9 +562,9 @@ export default function Home() {
                 }}>
                   {f.icon}
                 </div>
-                <h3 style={{ fontSize: '20px', marginBottom: '12px', color: '#fff' }}>{f.title}</h3>
-                <p style={{ fontSize: '15px', color: 'var(--zinc-500)', lineHeight: '1.6' }}>{f.desc}</p>
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#d4d4d8', fontWeight: '500' }}>
+                <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--text-primary)' }}>{f.title}</h3>
+                <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{f.desc}</p>
+                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500' }}>
                   Explore <ChevronRight size={14} />
                 </div>
               </Link>
@@ -583,9 +583,9 @@ export default function Home() {
           <div style={{ textAlign: 'center', marginBottom: '60px' }}>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '6px 16px', border: '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '99px', fontSize: '12px', color: '#a1a1aa',
-              background: 'rgba(255, 255, 255, 0.04)', marginBottom: '20px',
+              padding: '6px 16px', border: '1px solid var(--border)',
+              borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+              background: 'var(--accent-glow)', marginBottom: '20px',
               textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
             }}>
               <Star size={12} /> Success Stories
@@ -601,8 +601,8 @@ export default function Home() {
           {/* Testimonial Cards */}
           <div style={{ maxWidth: '800px', margin: '0 auto' }}>
             <div style={{
-              background: 'rgba(18, 18, 18, 0.6)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
               borderRadius: '24px',
               padding: '48px',
               backdropFilter: 'blur(20px)',
@@ -611,31 +611,32 @@ export default function Home() {
               overflow: 'hidden'
             }}>
               {/* Quote mark */}
-              <Quote size={48} style={{ position: 'absolute', top: '24px', right: '32px', color: 'rgba(255, 255, 255, 0.05)' }} />
+              <Quote size={48} style={{ position: 'absolute', top: '24px', right: '32px', color: 'var(--accent-glow)' }} />
 
               <div key={activeTestimonial} className="testimonial-fade">
                 <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
                   {Array(testimonials[activeTestimonial].rating).fill(0).map((_, i) => (
-                    <Star key={i} size={16} fill="#d4d4d8" color="#d4d4d8" />
+                    <Star key={i} size={16} fill="var(--text-secondary)" color="var(--text-secondary)" />
                   ))}
                 </div>
 
-                <p style={{ fontSize: '18px', lineHeight: '1.8', color: '#d4d4d8', marginBottom: '28px', fontStyle: 'italic' }}>
+                <p style={{ fontSize: '18px', lineHeight: '1.8', color: 'var(--text-secondary)', marginBottom: '28px', fontStyle: 'italic' }}>
                   "{testimonials[activeTestimonial].text}"
                 </p>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                   <div style={{
                     width: '48px', height: '48px', borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #3f3f46, #52525b)',
+                    background: 'var(--accent-glow)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '16px', fontWeight: '700', color: '#fff'
+                    fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)',
+                    border: '1px solid var(--border)'
                   }}>
                     {testimonials[activeTestimonial].avatar}
                   </div>
                   <div>
-                    <div style={{ fontWeight: '600', fontSize: '16px', color: '#fff' }}>{testimonials[activeTestimonial].name}</div>
-                    <div style={{ fontSize: '14px', color: '#a1a1aa' }}>{testimonials[activeTestimonial].role}</div>
+                    <div style={{ fontWeight: '600', fontSize: '16px', color: 'var(--text-primary)' }}>{testimonials[activeTestimonial].name}</div>
+                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{testimonials[activeTestimonial].role}</div>
                   </div>
                   <div style={{ marginLeft: 'auto' }}>
                     <BadgeCheck size={20} color="#22c55e" />
@@ -655,7 +656,7 @@ export default function Home() {
                     height: '10px',
                     borderRadius: '99px',
                     border: 'none',
-                    background: activeTestimonial === i ? 'linear-gradient(90deg, #e4e4e7, #ffffff)' : 'rgba(255, 255, 255, 0.12)',
+                    background: activeTestimonial === i ? 'var(--accent-primary)' : 'var(--accent-glow)',
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
                     padding: 0
@@ -670,11 +671,11 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════ */}
       {/*              TRUSTED BY / LOGO STRIP            */}
       {/* ═══════════════════════════════════════════════ */}
-      <section style={{ padding: '40px 0 60px', position: 'relative', zIndex: 10, borderTop: '1px solid rgba(255, 255, 255, 0.06)', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+      <section style={{ padding: '40px 0 60px', position: 'relative', zIndex: 10, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#71717a' }}>
-              <Cpu size={14} color="#a1a1aa" />
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              <Cpu size={14} color="var(--text-secondary)" />
               Engineers from these companies trust PrepLoop
             </div>
           </div>
@@ -697,9 +698,9 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px', border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '99px', fontSize: '12px', color: '#a1a1aa',
-            background: 'rgba(255, 255, 255, 0.04)', marginBottom: '20px',
+            padding: '6px 16px', border: '1px solid var(--border)',
+            borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+            background: 'var(--accent-glow)', marginBottom: '20px',
             textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
           }}>
             <Sparkles size={12} /> Pricing
@@ -719,10 +720,10 @@ export default function Home() {
               {plan.popular && (
                 <div style={{
                   position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                  background: 'linear-gradient(90deg, #e4e4e7, #ffffff)', color: '#000',
+                  background: 'var(--accent-primary)', color: 'var(--text-invert)',
                   padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
-                  letterSpacing: '0.5px', boxShadow: '0 0 20px rgba(255, 255, 255, 0.15)',
-                  zIndex: 10, border: '1px solid rgba(255,255,255,0.3)', whiteSpace: 'nowrap'
+                  letterSpacing: '0.5px', boxShadow: '0 0 20px var(--accent-glow)',
+                  zIndex: 10, border: '1px solid var(--border)', whiteSpace: 'nowrap'
                 }}>MOST POPULAR</div>
               )}
               <h3>{plan.name}</h3>
@@ -750,9 +751,9 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px', border: '1px solid rgba(255, 255, 255, 0.12)',
-            borderRadius: '99px', fontSize: '12px', color: '#a1a1aa',
-            background: 'rgba(255, 255, 255, 0.04)', marginBottom: '20px',
+            padding: '6px 16px', border: '1px solid var(--border)',
+            borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+            background: 'var(--accent-glow)', marginBottom: '20px',
             textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
           }}>
             <MessageSquare size={12} /> FAQ
@@ -784,12 +785,12 @@ export default function Home() {
         {/* Ambient gradient orbs */}
         <div style={{
           position: 'absolute', top: '-50%', left: '20%', width: '400px', height: '400px',
-          borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.04), transparent 70%)',
+          borderRadius: '50%', background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
           pointerEvents: 'none'
         }} />
         <div style={{
           position: 'absolute', bottom: '-50%', right: '20%', width: '400px', height: '400px',
-          borderRadius: '50%', background: 'radial-gradient(circle, rgba(255, 255, 255, 0.03), transparent 70%)',
+          borderRadius: '50%', background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
           pointerEvents: 'none'
         }} />
 
@@ -811,7 +812,7 @@ export default function Home() {
               </Link>
             </Button>
           </div>
-          <p style={{ color: '#52525b', fontSize: '13px', marginTop: '20px' }}>No credit card required · Cancel anytime · 7-day money-back guarantee</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '20px' }}>No credit card required · Cancel anytime · 7-day money-back guarantee</p>
         </div>
       </section>
 

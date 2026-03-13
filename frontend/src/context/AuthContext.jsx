@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
 
     const initializeAuth = async () => {
       try {
-        // 1. Check for Supabase session
+        // 1. Check for Supabase session (primary auth source)
         if (supabase) {
           const { data: { session }, error } = await supabase.auth.getSession();
 
@@ -24,12 +24,7 @@ export function AuthProvider({ children }) {
             localStorage.setItem('refreshToken', session.refresh_token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-            // Try to fetch profile from backend
             try {
-              // Determine if we should fetch profile. 
-              // For now, let's just stick to the session user metadata if we can, 
-              // but existing logic used localStorage 'user' heavily.
-              // We'll trust the session for now.
               const userMetadata = session.user.user_metadata || {};
               const fullUser = {
                 id: session.user.id,
@@ -38,13 +33,16 @@ export function AuthProvider({ children }) {
                 ...userMetadata
               };
               if (mounted) setUser(fullUser);
+              localStorage.setItem('user', JSON.stringify(fullUser));
             } catch (err) {
               console.error("Profile sync error", err);
             }
+            // Supabase session found — skip localStorage fallback to avoid overwriting
+            return;
           }
         }
 
-        // 2. Restore from localStorage (as fallback or primary if Supabase failed/not used)
+        // 2. Restore from localStorage (ONLY if no Supabase session exists)
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
         const isGuest = localStorage.getItem('isGuest');
@@ -143,182 +141,182 @@ export function AuthProvider({ children }) {
       console.error('Supabase client is not initialized. Check your environment variables.');
       throw new Error('Supabase Authentication is not configured. Please check your .env file.');
     }
-  const redirectTo = window.location.origin + '/dashboard';
-  console.log('Attempting Google login with redirect to:', redirectTo);
+    const redirectTo = window.location.origin + '/dashboard';
+    console.log('Attempting Google login with redirect to:', redirectTo);
 
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: {
-      redirectTo: redirectTo
-    }
-  });
-
-  if (error) {
-    console.error('Google login error:', error);
-    throw error;
-  }
-};
-
-const loginWithGithub = async () => {
-  if (!supabase) {
-    console.error('Supabase client is not initialized. Check your environment variables.');
-    return;
-  }
-  const redirectTo = window.location.origin + '/dashboard';
-  console.log('Attempting GitHub login with redirect to:', redirectTo);
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'github',
-    options: {
-      redirectTo: redirectTo
-    }
-  });
-
-  if (error) {
-    console.error('GitHub login error:', error);
-    throw error;
-  }
-};
-
-const loginWithLinkedin = async () => {
-  if (!supabase) {
-    console.error('Supabase client is not initialized. Check your environment variables.');
-    return;
-  }
-  const redirectTo = window.location.origin + '/dashboard';
-  console.log('Attempting LinkedIn login with redirect to:', redirectTo);
-
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'linkedin_oidc', // Using OIDC as it is the current standard
-    options: {
-      redirectTo: redirectTo
-    }
-  });
-
-  if (error) {
-    console.error('LinkedIn login error:', error);
-    throw error;
-  }
-};
-
-const signup = async (email, password, fullName) => {
-  const response = await axios.post('/api/auth/signup', { email, password, fullName });
-  const { token, refreshToken, user } = response.data;
-
-  if (token) {
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(user));
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-  setUser(user);
-
-  return user;
-};
-
-const logout = async () => {
-  if (supabase) {
-    await supabase.auth.signOut();
-  }
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-  localStorage.removeItem('isGuest');
-  delete axios.defaults.headers.common['Authorization'];
-  setUser(null);
-};
-
-const loginAsGuest = () => {
-  const guestUser = {
-    id: 'guest',
-    fullName: 'Guest User',
-    email: 'guest@careerloop.io',
-    isGuest: true
-  };
-  setUser(guestUser);
-  localStorage.setItem('isGuest', 'true');
-  // Clear any potential leftover real auth data to avoid confusion
-  localStorage.removeItem('token');
-  localStorage.removeItem('refreshToken');
-  localStorage.removeItem('user');
-};
-
-const refreshSession = async () => {
-  const refreshToken = localStorage.getItem('refreshToken');
-  if (!refreshToken) return false;
-
-  // First try Supabase refresh if it's a supabase session
-  let data = { session: null };
-  let error = null;
-
-  if (supabase) {
-    const result = await supabase.auth.refreshSession();
-    data = result.data;
-    error = result.error;
-  }
-
-  if (!error && data?.session) {
-    const token = data.session.access_token;
-    const newRefreshToken = data.session.refresh_token;
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', newRefreshToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    return true;
-  }
-
-  // Fallback to custom backend refresh
-  try {
-    const response = await axios.post('/api/auth/refresh', { refreshToken });
-    const { token, refreshToken: newRefreshToken } = response.data;
-
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', newRefreshToken);
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    return true;
-  } catch (error) {
-    logout();
-    return false;
-  }
-};
-
-// Set up axios interceptor for token refresh on 401/403
-useEffect(() => {
-  const interceptor = axios.interceptors.response.use(
-    response => response,
-    async error => {
-      const originalRequest = error.config;
-      if (
-        (error.response?.status === 401 || error.response?.status === 403) &&
-        !originalRequest._retry &&
-        localStorage.getItem('refreshToken')
-      ) {
-        originalRequest._retry = true;
-        const refreshed = await refreshSession();
-        if (refreshed) {
-          originalRequest.headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
-          return axios(originalRequest);
-        }
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectTo
       }
-      return Promise.reject(error);
+    });
+
+    if (error) {
+      console.error('Google login error:', error);
+      throw error;
     }
-  );
+  };
 
-  return () => axios.interceptors.response.eject(interceptor);
-}, []);
+  const loginWithGithub = async () => {
+    if (!supabase) {
+      console.error('Supabase client is not initialized. Check your environment variables.');
+      return;
+    }
+    const redirectTo = window.location.origin + '/dashboard';
+    console.log('Attempting GitHub login with redirect to:', redirectTo);
 
-if (loading) {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'github',
+      options: {
+        redirectTo: redirectTo
+      }
+    });
+
+    if (error) {
+      console.error('GitHub login error:', error);
+      throw error;
+    }
+  };
+
+  const loginWithLinkedin = async () => {
+    if (!supabase) {
+      console.error('Supabase client is not initialized. Check your environment variables.');
+      return;
+    }
+    const redirectTo = window.location.origin + '/dashboard';
+    console.log('Attempting LinkedIn login with redirect to:', redirectTo);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'linkedin_oidc', // Using OIDC as it is the current standard
+      options: {
+        redirectTo: redirectTo
+      }
+    });
+
+    if (error) {
+      console.error('LinkedIn login error:', error);
+      throw error;
+    }
+  };
+
+  const signup = async (email, password, fullName) => {
+    const response = await axios.post('/api/auth/signup', { email, password, fullName });
+    const { token, refreshToken, user } = response.data;
+
+    if (token) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('user', JSON.stringify(user));
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
+    setUser(user);
+
+    return user;
+  };
+
+  const logout = async () => {
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('isGuest');
+    delete axios.defaults.headers.common['Authorization'];
+    setUser(null);
+  };
+
+  const loginAsGuest = () => {
+    const guestUser = {
+      id: 'guest',
+      fullName: 'Guest User',
+      email: 'guest@careerloop.io',
+      isGuest: true
+    };
+    setUser(guestUser);
+    localStorage.setItem('isGuest', 'true');
+    // Clear any potential leftover real auth data to avoid confusion
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
+  };
+
+  const refreshSession = async () => {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return false;
+
+    // First try Supabase refresh if it's a supabase session
+    let data = { session: null };
+    let error = null;
+
+    if (supabase) {
+      const result = await supabase.auth.refreshSession();
+      data = result.data;
+      error = result.error;
+    }
+
+    if (!error && data?.session) {
+      const token = data.session.access_token;
+      const newRefreshToken = data.session.refresh_token;
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      return true;
+    }
+
+    // Fallback to custom backend refresh
+    try {
+      const response = await axios.post('/api/auth/refresh', { refreshToken });
+      const { token, refreshToken: newRefreshToken } = response.data;
+
+      localStorage.setItem('token', token);
+      localStorage.setItem('refreshToken', newRefreshToken);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      return true;
+    } catch (error) {
+      logout();
+      return false;
+    }
+  };
+
+  // Set up axios interceptor for token refresh on 401/403
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      response => response,
+      async error => {
+        const originalRequest = error.config;
+        if (
+          (error.response?.status === 401 || error.response?.status === 403) &&
+          !originalRequest._retry &&
+          localStorage.getItem('refreshToken')
+        ) {
+          originalRequest._retry = true;
+          const refreshed = await refreshSession();
+          if (refreshed) {
+            originalRequest.headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
+            return axios(originalRequest);
+          }
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    return () => axios.interceptors.response.eject(interceptor);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="loading">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="loading">
-      <div className="spinner"></div>
-    </div>
+    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin }}>
+      {children}
+    </AuthContext.Provider>
   );
-}
-
-return (
-  <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin }}>
-    {children}
-  </AuthContext.Provider>
-);
 }
 
 export function useAuth() {

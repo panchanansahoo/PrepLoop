@@ -1,0 +1,68 @@
+---ID:77 Linked List Cycle---
+TC: [{"input":[[3,2,0,-4]],"output":false},{"input":[[1,2]],"output":false},{"input":[[1]],"output":false}]
+SC: {"python":"class Solution:\n    def hasCycle(self, head: ListNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar hasCycle = function(head) {\n    // Write your solution here\n};"}
+
+---ID:189 First Bad Version---
+TC: [{"input":[5],"output":4}]
+SC: {"python":"class Solution:\n    def firstBadVersion(self, n: int):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar firstBadVersion = function(n) {\n    // Write your solution here\n};"}
+
+---ID:231 Binary Tree Paths---
+TC: [{"input":[[1,2,3,null,5]],"output":["1->2->5","1->3"]},{"input":[[1]],"output":["1"]},{"input":[[1,2,3]],"output":["1->2","1->3"]}]
+SC: {"python":"class Solution:\n    def binaryTreePaths(self, root: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar binaryTreePaths = function(root) {\n    // Write your solution here\n};"}
+
+---ID:224 Invert Binary Tree---
+TC: [{"input":[],"output":"class"}]
+SC: {"python":"class Solution:\n    def invertTree(self, root: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar invertTree = function(root) {\n    // Write your solution here\n};"}
+
+---ID:192 Guess Number Higher or Lower---
+TC: [{"input":[5],"output":4}]
+SC: {"python":"class Solution:\n    def guessNumber(self, n: int):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar guessNumber = function(n) {\n    // Write your solution here\n};"}
+
+---ID:363 Sudoku Solver---
+TC: [{"input":[5],"output":4}]
+SC: {"python":"class Solution:\n    def solveSudoku(self, board: list[list[str]]):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar solveSudoku = function(board) {\n    // Write your solution here\n};"}
+
+---ID:205 Minimize Max Distance to Gas Station---
+TC: [{"input":[[2,7,11,15],3],"output":2.5},{"input":[[3,1,4,1,5,9],5],"output":1},{"input":[[1,2,3,4,5],2],"output":1.000001}]
+SC: {"python":"class Solution:\n    def minmaxGasDist(self, stations: list[int], k: int):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar minmaxGasDist = function(stations) {\n    // Write your solution here\n};"}
+
+---ID:252 Construct Binary Tree from Inorder and Postorder---
+TC: [{"input":[[2,1,3]],"output":true},{"input":[[5,1,4,null,null,3,6]],"output":false}]
+SC: {"python":"class Solution:\n    def buildTree(self, inorder: list[int], postorder: list[int]):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar buildTree = function(inorder) {\n    // Write your solution here\n};"}
+
+---ID:251 Construct Binary Tree from Preorder and Inorder---
+TC: [{"input":[[1,2,3,4,5,null,7]],"output":[1,2,3,4,5,null,7]}]
+SC: {"python":"class Solution:\n    def buildTree(self, preorder: list[int], inorder: list[int]):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar buildTree = function(preorder) {\n    // Write your solution here\n};"}
+
+---ID:142 Design Linked List---
+TC: [{"input":[],"output":"class"}]
+SC: {"cpp":"// Implement MyLinkedList","java":"// Implement MyLinkedList","python":"class MyLinkedList:\\n    def __init__(self):\\n        pass\\n    def get(self, index):\\n        pass\\n    def addAtHead(self, val):\\n        pass\\n    def addAtTail(self, val):\\n        pass","javascript":"class M
+
+---ID:150 LRU Cache---
+TC: [{"input":[],"output":"class"}]
+SC: {"cpp":"// Implement LRUCache","java":"// Implement LRUCache","python":"class LRUCache:\\n    def __init__(self, capacity):\\n        pass\\n    def get(self, key):\\n        pass\\n    def put(self, key, value):\\n        pass","javascript":"class LRUCache {\\n    constructor(capacity) {}\\n    get
+
+---ID:230 Merge Two Binary Trees---
+TC: [{"input":[],"output":"class"}]
+SC: {"python":"class Solution:\n    def mergeTrees(self, root1: TreeNode, root2: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar mergeTrees = function(root1) {\n    // Write your solution here\n};"}
+
+---ID:240 Binary Tree Zigzag Level Order---
+TC: [{"input":[[3,9,20,null,null,15,7]],"output":[[3],[20,9],[15,7]]},{"input":[[1]],"output":[[1]]},{"input":[[1,2,3]],"output":[[1],[3,2]]}]
+SC: {"python":"class Solution:\n    def zigzagLevelOrder(self, root: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar zigzagLevelOrder = function(root) {\n    // Write your solution here\n};"}
+
+---ID:217 Median of Two Sorted Arrays---
+TC: [{"input":[[2,7,11,15],[2,7,11,15]],"output":9},{"input":[[3,1,4,1,5,9],[3,1,4,1,5,9]],"output":3.5},{"input":[[1,2,3,4,5],[1,2,3,4,5]],"output":3}]
+SC: {"python":"class Solution:\n    def findMedianSortedArrays(self, nums1: list[int], nums2: list[int]):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar findMedianSortedArrays = function(nums1) {\n    // Write your solution here\n};"}
+
+---ID:237 Lowest Common Ancestor of BST---
+TC: [{"input":[[6,2,8,0,4,7,9,null,null,3,5],2,8],"output":6},{"input":[[6,2,8,0,4,7,9,null,null,3,5],2,4],"output":2},{"input":[[2,1],2,1],"output":2}]
+SC: {"python":"class Solution:\n    def lowestCommonAncestor(self, root: TreeNode, p: TreeNode, q: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar lowestCommonAncestor = function(root) {\n    // Write your solution here\n};"}
+
+---ID:159 Min Stack---
+TC: [{"input":["class"],"output":"class"}]
+SC: {"python":"class Solution:\n    def __init__(self, ):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar __init__ = function() {\n    // Write your solution here\n};"}
+
+---ID:253 Serialize and Deserialize Binary Tree---
+TC: [{"input":["class"],"output":"class"}]
+SC: {"python":"class Solution:\n    def serialize(self, root: TreeNode):\n        # Write your solution here\n        pass","javascript":"/**\n * @param {*} input\n * @return {*}\n */\nvar serialize = function(root) {\n    // Write your solution here\n};"}
+

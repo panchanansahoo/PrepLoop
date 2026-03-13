@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   ChevronDown, ChevronRight, Tag, Building2, Target,
   BarChart3, Lightbulb, BookOpen, ExternalLink, Link2,
@@ -6,8 +6,17 @@ import {
   ChevronUp, AlertCircle, Code2, History, ArrowRight
 } from 'lucide-react';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const getAuthHeaders = () => {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = localStorage.getItem('token');
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
+};
+
 export default function ProblemDescriptionPanel({
-  problem, onShowHints, showHints = false, allProblems = [], navigate
+  problem, problemId, onShowHints, showHints = false, allProblems = [], navigate
 }) {
   const [activeTopTab, setActiveTopTab] = useState('problem');
   const [activeSubTab, setActiveSubTab] = useState('description');
@@ -15,6 +24,13 @@ export default function ProblemDescriptionPanel({
   const [showExamples, setShowExamples] = useState(true);
   const [revealedHints, setRevealedHints] = useState(0);
   const [showAllTopics, setShowAllTopics] = useState(false);
+
+  // Solution & History state
+  const [solutionCode, setSolutionCode] = useState(null);
+  const [loadingSolution, setLoadingSolution] = useState(false);
+  const [solutionError, setSolutionError] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   if (!problem) {
     return (
@@ -61,12 +77,44 @@ export default function ProblemDescriptionPanel({
     return scored;
   }, [problem, allProblems]);
 
-  // Mock submission history
-  const submissionHistory = [
-    { id: 1, status: 'Accepted', language: 'Python', runtime: '42ms', memory: '14.2MB', time: '2 hours ago' },
-    { id: 2, status: 'Wrong Answer', language: 'Python', runtime: '—', memory: '—', time: '3 hours ago' },
-    { id: 3, status: 'Time Limit Exceeded', language: 'JavaScript', runtime: '—', memory: '—', time: '1 day ago' },
-  ];
+  // Resolve numeric problem ID for API calls
+  const resolvedId = problemId || problem?.id;
+
+  // Fetch solution when Solution tab is activated
+  useEffect(() => {
+    if (activeTopTab !== 'solution' || !resolvedId || solutionCode !== null) return;
+    setLoadingSolution(true);
+    setSolutionError(null);
+    fetch(`${API_URL}/api/dsa/problems/${resolvedId}/solution`, { headers: getAuthHeaders() })
+      .then(r => r.json())
+      .then(data => {
+        setSolutionCode(data.solution || '');
+      })
+      .catch(err => {
+        console.error('Error fetching solution:', err);
+        setSolutionError('Could not load solution');
+      })
+      .finally(() => setLoadingSolution(false));
+  }, [activeTopTab, resolvedId]);
+
+  // Fetch submission history when History tab is activated
+  useEffect(() => {
+    if (activeTopTab !== 'history' || !resolvedId) return;
+    setLoadingHistory(true);
+    fetch(`${API_URL}/api/practice/submissions?problemId=${resolvedId}`, { headers: getAuthHeaders() })
+      .then(r => {
+        if (r.status === 401) return { submissions: [] };
+        return r.json();
+      })
+      .then(data => {
+        setSubmissions(data.submissions || []);
+      })
+      .catch(err => {
+        console.error('Error fetching submissions:', err);
+        setSubmissions([]);
+      })
+      .finally(() => setLoadingHistory(false));
+  }, [activeTopTab, resolvedId]);
 
   // ─── Top-level tabs ───
   const topTabs = [
@@ -510,36 +558,46 @@ export default function ProblemDescriptionPanel({
 
       {/* ═══ SOLUTION TAB ═══ */}
       {activeTopTab === 'solution' && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{
-            textAlign: 'center', padding: '40px 30px',
-            color: 'rgba(255,255,255,0.3)',
-          }}>
-            <div style={{
-              width: 56, height: 56, borderRadius: 16,
-              background: 'rgba(139,92,246,0.08)',
-              border: '1px solid rgba(139,92,246,0.15)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              margin: '0 auto 16px',
-            }}>
-              <Code2 size={24} color="#8b5cf6" />
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+          {loadingSolution ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{
+                width: 32, height: 32, border: '3px solid rgba(139,92,246,0.2)',
+                borderTopColor: '#8b5cf6', borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite', margin: '0 auto 12px',
+              }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>Loading solution...</p>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 6 }}>
-              Solution Locked
-            </p>
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6 }}>
-              Submit an accepted solution to unlock the editorial and optimal approach.
-            </p>
-            <div style={{
-              marginTop: 20, padding: '10px 20px', borderRadius: 10,
-              background: 'rgba(139,92,246,0.06)',
-              border: '1px solid rgba(139,92,246,0.12)',
-              color: '#a78bfa', fontSize: 11, fontWeight: 600,
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-            }}>
-              <CheckCircle2 size={13} /> Submit your solution first
+          ) : solutionError ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <AlertCircle size={28} style={{ marginBottom: 10, opacity: 0.4 }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>{solutionError}</p>
             </div>
-          </div>
+          ) : solutionCode ? (
+            <>
+              <div style={{
+                fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12,
+              }}>Editorial Solution</div>
+              <div style={{
+                padding: 16, borderRadius: 10,
+                background: 'rgba(0,0,0,0.3)',
+                border: '1px solid rgba(139,92,246,0.12)',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 12, lineHeight: 1.7,
+                color: '#e2e8f0', overflowX: 'auto',
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+              }}>
+                {solutionCode}
+              </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <Code2 size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>No solution available yet</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -550,58 +608,84 @@ export default function ProblemDescriptionPanel({
             fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
             textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12,
           }}>Submission History</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {submissionHistory.map((sub) => {
-              const isAccepted = sub.status === 'Accepted';
-              const statusColor = isAccepted
-                ? '#4ade80'
-                : sub.status === 'Wrong Answer' ? '#f87171' : '#fbbf24';
-              return (
-                <div key={sub.id} style={{
-                  padding: '12px 14px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                  cursor: 'pointer', transition: 'all 0.2s ease',
-                }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+          {loadingHistory ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <div style={{
+                width: 28, height: 28, border: '3px solid rgba(139,92,246,0.2)',
+                borderTopColor: '#8b5cf6', borderRadius: '50%',
+                animation: 'spin 0.8s linear infinite', margin: '0 auto 10px',
+              }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>Loading submissions...</p>
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>
+          ) : submissions.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <History size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>No submissions yet</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', marginTop: 6 }}>
+                Submit a solution to see your history here
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {submissions.map((sub) => {
+                const isAccepted = sub.status === 'accepted';
+                const statusLabel = sub.status === 'accepted' ? 'Accepted' : sub.status === 'wrong_answer' ? 'Wrong Answer' : sub.status;
+                const statusColor = isAccepted
+                  ? '#4ade80'
+                  : sub.status === 'wrong_answer' ? '#f87171' : '#fbbf24';
+
+                const timeAgo = sub.submitted_at ? (() => {
+                  const diff = Date.now() - new Date(sub.submitted_at).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 1) return 'Just now';
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  const days = Math.floor(hrs / 24);
+                  return `${days}d ago`;
+                })() : '';
+
+                return (
+                  <div key={sub.id} style={{
+                    padding: '12px 14px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    transition: 'all 0.2s ease',
                   }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
-                  }}
-                >
-                  <div style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: 6,
-                  }}>
-                    <span style={{
-                      fontSize: 12, fontWeight: 700, color: statusColor,
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                      e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                    }}
+                  >
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      marginBottom: 6,
                     }}>
-                      {sub.status}
-                    </span>
-                    <span style={{
-                      fontSize: 10, color: 'rgba(255,255,255,0.25)',
+                      <span style={{ fontSize: 12, fontWeight: 700, color: statusColor }}>
+                        {statusLabel}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)' }}>
+                        {timeAgo}
+                      </span>
+                    </div>
+                    <div style={{
+                      display: 'flex', gap: 12, fontSize: 10, color: 'rgba(255,255,255,0.4)',
                     }}>
-                      {sub.time}
-                    </span>
+                      <span style={{ textTransform: 'capitalize' }}>{sub.language}</span>
+                      {sub.test_cases_passed != null && sub.total_test_cases != null && (
+                        <span>✅ {sub.test_cases_passed}/{sub.total_test_cases} passed</span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{
-                    display: 'flex', gap: 12, fontSize: 10, color: 'rgba(255,255,255,0.4)',
-                  }}>
-                    <span>{sub.language}</span>
-                    {isAccepted && (
-                      <>
-                        <span>⚡ {sub.runtime}</span>
-                        <span>💾 {sub.memory}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -34,6 +34,8 @@ import Profile from './pages/Profile';
 import History from './pages/History';
 import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 
 import DSACodeEditor from './pages/DSACodeEditor';
@@ -56,6 +58,7 @@ import HRLearningPath from './pages/HRLearningPath';
 import HRTopicLearning from './pages/HRTopicLearning';
 import SystemDesignPath from './pages/SystemDesignPath';
 import SystemDesignTopicLearning from './pages/SystemDesignTopicLearning';
+import SystemDesignSimulator from './pages/SystemDesignSimulator';
 import AITutorHub from './pages/AITutorHub';
 import CompanyPrep from './pages/CompanyPrep';
 import CompanyInterview from './pages/CompanyInterview';
@@ -64,7 +67,9 @@ import InterviewAnalytics from './pages/InterviewAnalytics';
 import InterviewHistory from './pages/InterviewHistory';
 
 import CodingPlayground from './pages/CodingPlayground';
+import DailyChallengesPage from './pages/DailyChallengesPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Code2 } from 'lucide-react';
 
 function PrivateRoute({ children }) {
@@ -115,24 +120,25 @@ function AppContent() {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
-    if (location.pathname === '/visualizer') {
+    if (location.pathname === '/visualizer' || location.pathname === '/system-design-sim') {
       setSidebarCollapsed(true);
     }
   }, [location.pathname]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/privacy', '/terms', '/library', '/payment'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
+  const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
-  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup';
+  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
   const isFullScreenRoute = isCodeEditorRoute || isPlaygroundRoute || isPaymentRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
   const showSidebar = user && !isPublicPage;
-  const hideNavbar = isPaymentRoute || isAuthRoute;
-  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute;
+  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute;
 
   return (
     <div className="app-layout">
@@ -158,6 +164,8 @@ function AppContent() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route
               path="/dashboard"
               element={<PrivateRoute><Dashboard /></PrivateRoute>}
@@ -206,6 +214,7 @@ function AppContent() {
             <Route path="/hr-path/:topicId" element={<HRTopicLearning />} />
             <Route path="/system-design" element={<SystemDesignPath />} />
             <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
+            <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
             <Route path="/ai-tutor" element={<AITutorHub />} />
             <Route path="/company-prep" element={<CompanyPrep />} />
             <Route path="/company-interview" element={<CompanyInterview />} />
@@ -214,6 +223,7 @@ function AppContent() {
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
 
             <Route path="/playground" element={<CodingPlayground />} />
+            <Route path="/daily-challenges" element={<DailyChallengesPage />} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />
@@ -298,11 +308,13 @@ function Footer() {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <AppContent />
-        </Router>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Router>
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

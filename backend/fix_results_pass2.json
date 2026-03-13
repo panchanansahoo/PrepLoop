@@ -1,0 +1,458 @@
+[
+  {
+    "id": 25,
+    "title": "Pascal's Triangle",
+    "status": "fixed",
+    "count": 3,
+    "fn": "generate"
+  },
+  {
+    "id": 58,
+    "title": "Remove Duplicates from Sorted List II",
+    "status": "no_valid",
+    "fn": "deleteDuplicates",
+    "errors": [
+      "name '__linked_to_list' is not defined",
+      "name '__linked_to_list' is not defined",
+      "name '__linked_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 77,
+    "title": "Linked List Cycle",
+    "status": "fixed",
+    "count": 3,
+    "fn": "hasCycle"
+  },
+  {
+    "id": 78,
+    "title": "Linked List Cycle II",
+    "status": "fixed",
+    "count": 3,
+    "fn": "detectCycle"
+  },
+  {
+    "id": 118,
+    "title": "Detect Cycle in LinkedList",
+    "status": "fixed",
+    "count": 3,
+    "fn": "hasCycle"
+  },
+  {
+    "id": 119,
+    "title": "Start of Cycle in LinkedList",
+    "status": "fixed",
+    "count": 3,
+    "fn": "detectCycle"
+  },
+  {
+    "id": 145,
+    "title": "Convert Binary Number in LinkedList",
+    "status": "fixed",
+    "count": 3,
+    "fn": "getDecimalValue"
+  },
+  {
+    "id": 170,
+    "title": "Remove K Digits",
+    "status": "fixed",
+    "count": 3,
+    "fn": "removeKdigits"
+  },
+  {
+    "id": 173,
+    "title": "Number of Atoms",
+    "status": "fixed",
+    "count": 3,
+    "fn": "countOfAtoms"
+  },
+  {
+    "id": 182,
+    "title": "Score of Parentheses",
+    "status": "no_valid",
+    "fn": "scoreOfParentheses",
+    "errors": [
+      "list index out of range",
+      "list index out of range",
+      "list index out of range"
+    ]
+  },
+  {
+    "id": 189,
+    "title": "First Bad Version",
+    "status": "skipped_special"
+  },
+  {
+    "id": 191,
+    "title": "Valid Perfect Square",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isPerfectSquare"
+  },
+  {
+    "id": 192,
+    "title": "Guess Number Higher or Lower",
+    "status": "skipped_special"
+  },
+  {
+    "id": 193,
+    "title": "Find Smallest Letter Greater Than Target",
+    "status": "fixed",
+    "count": 3,
+    "fn": "nextGreatestLetter"
+  },
+  {
+    "id": 207,
+    "title": "Capacity To Ship Packages Within D Days",
+    "status": "fixed",
+    "count": 3,
+    "fn": "shipWithinDays"
+  },
+  {
+    "id": 212,
+    "title": "Find Right Interval",
+    "status": "fixed",
+    "count": 3,
+    "fn": "findRightInterval"
+  },
+  {
+    "id": 223,
+    "title": "Minimum Depth of Binary Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "minDepth"
+  },
+  {
+    "id": 224,
+    "title": "Invert Binary Tree",
+    "status": "no_valid",
+    "fn": "invertTree",
+    "errors": [
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 225,
+    "title": "Diameter of Binary Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "diameterOfBinaryTree"
+  },
+  {
+    "id": 226,
+    "title": "Balanced Binary Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isBalanced"
+  },
+  {
+    "id": 227,
+    "title": "Same Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isSameTree"
+  },
+  {
+    "id": 228,
+    "title": "Symmetric Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isSymmetric"
+  },
+  {
+    "id": 229,
+    "title": "Subtree of Another Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isSubtree"
+  },
+  {
+    "id": 230,
+    "title": "Merge Two Binary Trees",
+    "status": "no_valid",
+    "fn": "mergeTrees",
+    "errors": [
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 231,
+    "title": "Binary Tree Paths",
+    "status": "fixed",
+    "count": 3,
+    "fn": "binaryTreePaths"
+  },
+  {
+    "id": 232,
+    "title": "Path Sum",
+    "status": "fixed",
+    "count": 3,
+    "fn": "hasPathSum"
+  },
+  {
+    "id": 233,
+    "title": "Path Sum II",
+    "status": "fixed",
+    "count": 3,
+    "fn": "pathSum"
+  },
+  {
+    "id": 236,
+    "title": "Sum Root to Leaf Numbers",
+    "status": "fixed",
+    "count": 3,
+    "fn": "sumNumbers"
+  },
+  {
+    "id": 237,
+    "title": "Lowest Common Ancestor of BST",
+    "status": "no_valid",
+    "fn": "lowestCommonAncestor",
+    "errors": [
+      "'int' object has no attribute 'val'",
+      "'int' object has no attribute 'val'",
+      "'int' object has no attribute 'val'"
+    ]
+  },
+  {
+    "id": 239,
+    "title": "Binary Tree Level Order Traversal",
+    "status": "fixed",
+    "count": 3,
+    "fn": "levelOrder"
+  },
+  {
+    "id": 240,
+    "title": "Binary Tree Zigzag Level Order",
+    "status": "fixed",
+    "count": 3,
+    "fn": "zigzagLevelOrder"
+  },
+  {
+    "id": 241,
+    "title": "Binary Tree Right Side View",
+    "status": "fixed",
+    "count": 3,
+    "fn": "rightSideView"
+  },
+  {
+    "id": 242,
+    "title": "Binary Tree Level Order Traversal II",
+    "status": "fixed",
+    "count": 3,
+    "fn": "levelOrderBottom"
+  },
+  {
+    "id": 243,
+    "title": "Average of Levels in Binary Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "averageOfLevels"
+  },
+  {
+    "id": 247,
+    "title": "Validate Binary Search Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "isValidBST"
+  },
+  {
+    "id": 251,
+    "title": "Construct Binary Tree from Preorder and Inorder",
+    "status": "no_valid",
+    "fn": "buildTree",
+    "errors": [
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 252,
+    "title": "Construct Binary Tree from Inorder and Postorder",
+    "status": "no_valid",
+    "fn": "buildTree",
+    "errors": [
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 256,
+    "title": "Count Good Nodes in Binary Tree",
+    "status": "fixed",
+    "count": 3,
+    "fn": "goodNodes"
+  },
+  {
+    "id": 257,
+    "title": "Delete Node in a BST",
+    "status": "no_valid",
+    "fn": "deleteNode",
+    "errors": [
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined",
+      "name '__tree_to_list' is not defined"
+    ]
+  },
+  {
+    "id": 274,
+    "title": "Accounts Merge",
+    "status": "fixed",
+    "count": 3,
+    "fn": "accountsMerge"
+  },
+  {
+    "id": 276,
+    "title": "Course Schedule",
+    "status": "fixed",
+    "count": 3,
+    "fn": "canFinish"
+  },
+  {
+    "id": 277,
+    "title": "Course Schedule II",
+    "status": "fixed",
+    "count": 3,
+    "fn": "findOrder"
+  },
+  {
+    "id": 281,
+    "title": "Sequence Reconstruction",
+    "status": "fixed",
+    "count": 3,
+    "fn": "sequenceReconstruction"
+  },
+  {
+    "id": 284,
+    "title": "Path with Maximum Probability",
+    "status": "fixed",
+    "count": 2,
+    "fn": "maxProbability"
+  },
+  {
+    "id": 288,
+    "title": "Word Ladder II",
+    "status": "fixed",
+    "count": 2,
+    "fn": "findLadders"
+  },
+  {
+    "id": 292,
+    "title": "Find if Path Exists in Graph",
+    "status": "fixed",
+    "count": 3,
+    "fn": "validPath"
+  },
+  {
+    "id": 293,
+    "title": "Evaluate Division",
+    "status": "fixed",
+    "count": 1,
+    "fn": "calcEquation"
+  },
+  {
+    "id": 302,
+    "title": "Coin Change",
+    "status": "fixed",
+    "count": 3,
+    "fn": "coinChange"
+  },
+  {
+    "id": 303,
+    "title": "Coin Change 2",
+    "status": "fixed",
+    "count": 3,
+    "fn": "change"
+  },
+  {
+    "id": 355,
+    "title": "Letter Combinations of a Phone Number",
+    "status": "no_valid",
+    "fn": "letterCombinations",
+    "errors": [
+      "'\"'",
+      "'\"'",
+      "'\"'"
+    ]
+  },
+  {
+    "id": 363,
+    "title": "Sudoku Solver",
+    "status": "skipped_special"
+  },
+  {
+    "id": 364,
+    "title": "Valid Sudoku",
+    "status": "skipped_special"
+  },
+  {
+    "id": 369,
+    "title": "Additive Number",
+    "status": "no_valid",
+    "fn": "isAdditiveNumber",
+    "errors": [
+      "invalid literal for int() with base 10: '\"'",
+      "invalid literal for int() with base 10: '\"'",
+      "invalid literal for int() with base 10: '\"'"
+    ]
+  },
+  {
+    "id": 373,
+    "title": "Expression Add Operators",
+    "status": "no_valid",
+    "fn": "addOperators",
+    "errors": [
+      "invalid literal for int() with base 10: '\"'",
+      "invalid literal for int() with base 10: '\"'",
+      "invalid literal for int() with base 10: '\"'"
+    ]
+  },
+  {
+    "id": 393,
+    "title": "Meeting Rooms II",
+    "status": "fixed",
+    "count": 3,
+    "fn": "minMeetingRooms"
+  },
+  {
+    "id": 394,
+    "title": "Meeting Rooms III",
+    "status": "fixed",
+    "count": 3,
+    "fn": "mostBooked"
+  },
+  {
+    "id": 400,
+    "title": "Replace Words",
+    "status": "fixed",
+    "count": 2,
+    "fn": "replaceWords"
+  },
+  {
+    "id": 409,
+    "title": "Maximum XOR With Element From Array",
+    "status": "fixed",
+    "count": 1,
+    "fn": "maximizeXor"
+  },
+  {
+    "id": 418,
+    "title": "Non-overlapping Intervals",
+    "status": "fixed",
+    "count": 3,
+    "fn": "eraseOverlapIntervals"
+  },
+  {
+    "id": 423,
+    "title": "Maximum Swap",
+    "status": "fixed",
+    "count": 3,
+    "fn": "maximumSwap"
+  }
+]

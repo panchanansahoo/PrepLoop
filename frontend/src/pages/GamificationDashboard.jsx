@@ -7,9 +7,12 @@ import { useGamification } from '../hooks/useGamification';
 import { BADGES, BADGE_TIERS, MOCK_LEADERBOARD, getLevel, getLevelProgress, LEVELS } from '../data/gamificationData';
 import StreakHeatmap from '../components/StreakHeatmap';
 import XPNotification from '../components/XPNotification';
+import { useTheme } from '../context/ThemeContext';
 
 export default function GamificationDashboard() {
   const gam = useGamification();
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [activeTab, setActiveTab] = useState('overview');
   const [leaderboardPeriod, setLeaderboardPeriod] = useState('weekly');
 
@@ -29,9 +32,9 @@ export default function GamificationDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-purple-500/30">
+    <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0a0a0a] text-white'} selection:bg-purple-500/30`}>
       {/* Subtle Background */}
-      <div className="fixed inset-0 bg-gradient-to-b from-purple-900/10 via-[#0a0a0a] to-[#0a0a0a] pointer-events-none" />
+      <div className={`fixed inset-0 pointer-events-none ${isLight ? 'bg-gradient-to-b from-indigo-50/50 via-slate-50 to-slate-50' : 'bg-gradient-to-b from-purple-900/10 via-[#0a0a0a] to-[#0a0a0a]'}`} />
 
       <XPNotification notification={gam.notification} onDismiss={gam.dismissNotification} />
 

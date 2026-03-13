@@ -1,0 +1,1303 @@
+=== COMPREHENSIVE PROBLEM AUDIT ===
+
+Fetching all problems from database...
+
+Found 425 problems in database.
+
+=== AUDIT RESULTS ===
+
+Total problems: 425
+Placeholder descriptions: 0
+Placeholder examples: 15
+Function name mismatches: 188
+Description mismatches: 35
+
+
+=== 211 PROBLEMS WITH MISMATCHES ===
+
+[ID 14] Search in Rotated Sorted Array
+  Issues: FN_MISMATCH (trap)
+  Starter fn: trap
+  Desc: "Given an array of integers nums which is sorted in ascending order, and an integer target, write a f..."
+
+[ID 15] Container With Most Water
+  Issues: FN_MISMATCH (maxArea)
+  Starter fn: maxArea
+  Desc: "Given n non-negative integers a1, a2, ..., an where each represents a point at coordinate (i, ai). F..."
+
+[ID 16] 3Sum
+  Issues: FN_MISMATCH (threeSum)
+  Starter fn: threeSum
+  Desc: "Given an integer array nums, return all the triplets [nums[i], nums[j], nums[k]] such that i != j, i..."
+
+[ID 17] 4Sum
+  Issues: FN_MISMATCH (fourSum)
+  Starter fn: fourSum
+  Desc: "Given an array nums of n integers, return an array of all the unique quadruplets [nums[a], nums[b], ..."
+
+[ID 21] Rotate Array
+  Issues: FN_MISMATCH (search)
+  Starter fn: search
+  Desc: "Given a rotated sorted array nums and a target, return the index of target or -1...."
+
+[ID 23] Jump Game II
+  Issues: FN_MISMATCH (subsets)
+  Starter fn: subsets
+  Desc: "Given an array of non-negative integers nums, you are initially positioned at the first index of the..."
+
+[ID 25] Pascal's Triangle
+  Issues: FN_MISMATCH (numDecodings)
+  Starter fn: numDecodings
+  Desc: "Given a triangle array, return the minimum path sum from top to bottom. For each step, you may move ..."
+
+[ID 26] Pascal's Triangle II
+  Issues: FN_MISMATCH (getRow)
+  Starter fn: getRow
+  Desc: "Given an integer rowIndex, return the rowIndex-th (0-indexed) row of Pascal's triangle.
+
+In Pascal's..."
+
+[ID 28] Majority Element II
+  Issues: FN_MISMATCH (leastInterval)
+  Starter fn: leastInterval
+  Desc: "Given an array nums of size n, return the majority element. The majority element is the element that..."
+
+[ID 40] Wiggle Sort
+  Issues: FN_MISMATCH (searchRange)
+  Starter fn: searchRange
+  Desc: "Given an array of integers nums sorted in non-decreasing order, find the starting and ending positio..."
+
+[ID 41] Wiggle Sort II
+  Issues: FN_MISMATCH (firstMissingPositive)
+  Starter fn: firstMissingPositive
+  Desc: "Given an unsorted integer array nums, return the smallest positive integer that is not present in nu..."
+
+[ID 44] Find All Numbers Disappeared in Array
+  Issues: FN_MISMATCH (twoSum)
+  Starter fn: twoSum
+  Desc: "Given a 1-indexed array of integers numbers that is already sorted in non-decreasing order, find two..."
+
+[ID 45] Find All Duplicates in Array
+  Issues: FN_MISMATCH (majorityElement)
+  Starter fn: majorityElement
+  Desc: "Given an integer array of size n, find all elements that appear more than Γîèn/3Γîï times.
+
+Follow up: C..."
+
+[ID 57] Remove Duplicates from Sorted List
+  Issues: DESC_MISMATCH
+  Starter fn: deleteDuplicates
+  Desc: "Given the head of a sorted linked list, delete all nodes that have duplicate numbers, leaving only d..."
+
+[ID 58] Remove Duplicates from Sorted List II
+  Issues: DESC_MISMATCH
+  Starter fn: removeNthFromEnd
+  Desc: "Given the head of a linked list, remove the nth node from the end of the list and return its head...."
+
+[ID 59] Partition List
+  Issues: DESC_MISMATCH
+  Starter fn: partition
+  Desc: "Given the head of a linked list and a value x, partition it such that all nodes less than x come bef..."
+
+[ID 60] Sort List
+  Issues: DESC_MISMATCH
+  Starter fn: sortList
+  Desc: "Given the head of a linked list, return the list after sorting it in ascending order.
+
+Follow up: Ca..."
+
+[ID 66] Number of Subsequences
+  Issues: FN_MISMATCH (numSubseq)
+  Starter fn: numSubseq
+  Desc: "You are given an array of integers nums and an integer target.
+
+Return the number of non-empty subse..."
+
+[ID 74] Assign Cookies
+  Issues: FN_MISMATCH (findContentChildren)
+  Starter fn: findContentChildren
+  Desc: "Assume you are an awesome parent and want to give your children some cookies. But, you should give e..."
+
+[ID 83] Find the Duplicate Number
+  Issues: FN_MISMATCH (checkValidString)
+  Starter fn: checkValidString
+  Desc: "You are a product manager and currently leading a team to develop a new product. Unfortunately, the ..."
+
+[ID 84] Remove Nth Node From End of List
+  Issues: DESC_MISMATCH
+  Starter fn: removeNodes
+  Desc: "You are given the head of a linked list. Remove every node which has a node with a greater value any..."
+
+[ID 85] Rotate List
+  Issues: DESC_MISMATCH
+  Starter fn: rotateRight
+  Desc: "Given the head of a linked list, rotate the list to the right by k places...."
+
+[ID 88] Longest Repeating Character Replacement
+  Issues: FN_MISMATCH (suggestedProducts)
+  Starter fn: suggestedProducts
+  Desc: "Given a string s, find the length of the longest substring without repeating characters...."
+
+[ID 91] Permutation in String
+  Issues: FN_MISMATCH (checkInclusion)
+  Starter fn: checkInclusion
+  Desc: "Given two strings s1 and s2, return true if s2 contains a permutation of s1, or false otherwise. In ..."
+
+[ID 103] Get Equal Substrings Within Budget
+  Issues: FN_MISMATCH (combinationSum4)
+  Starter fn: combinationSum4
+  Desc: "Given a string s, return the number of palindromic substrings in it. A string is a palindrome when i..."
+
+[ID 104] Grumpy Bookstore Owner
+  Issues: FN_MISMATCH (maxSatisfied)
+  Starter fn: maxSatisfied
+  Desc: "There is a bookstore owner that has a store open for n minutes. Every minute, some number of custome..."
+
+[ID 114] Longest Mountain in Array
+  Issues: FN_MISMATCH (searchInsert)
+  Starter fn: searchInsert
+  Desc: "An array arr is a mountain array if and only if arr.length >= 3 and there exists some i with 0 < i <..."
+
+[ID 116] Maximum Points You Can Obtain from Cards
+  Issues: FN_MISMATCH (maxScore)
+  Starter fn: maxScore
+  Desc: "There are several cards arranged in a row, and each card has an associated number of points. The poi..."
+
+[ID 118] Detect Cycle in LinkedList
+  Issues: DESC_MISMATCH
+  Starter fn: solve
+  Desc: "Given head, the head of a linked list, determine if the linked list has a cycle in it. Return true i..."
+
+[ID 125] Rotate List
+  Issues: DESC_MISMATCH
+  Starter fn: rotateRight
+  Desc: "Given the head of a linked list, rotate the list to the right by k places...."
+
+[ID 126] Delete Middle Node of LinkedList
+  Issues: DESC_MISMATCH
+  Starter fn: deleteMiddle
+  Desc: "You are given the head of a linked list. Delete the middle node, and return the head of the modified..."
+
+[ID 130] Remove Nodes From Linked List
+  Issues: FN_MISMATCH (reverseBetween)
+  Starter fn: reverseBetween
+  Desc: "Given the head of a singly linked list and two integers left and right where left <= right, reverse ..."
+
+[ID 134] Reverse Nodes in k-Group
+  Issues: FN_MISMATCH (addTwoNumbers)
+  Starter fn: addTwoNumbers
+  Desc: "You are given two non-empty linked lists representing two non-negative integers. The digits are stor..."
+
+[ID 136] Add Two Numbers
+  Issues: FN_MISMATCH (generate)
+  Starter fn: generate
+  Desc: "Given an integer numRows, return the first numRows of Pascal's triangle.
+
+In Pascal's triangle, each..."
+
+[ID 137] Add Two Numbers II
+  Issues: FN_MISMATCH (getRow)
+  Starter fn: getRow
+  Desc: "Given an integer rowIndex, return the rowIndex-th (0-indexed) row of Pascal's triangle.
+
+In Pascal's..."
+
+[ID 147] Linked List in Binary Tree
+  Issues: FN_MISMATCH (isSubPath)
+  Starter fn: isSubPath
+  Desc: "Given a binary tree root and a linked list with head as the first node. Return True if all the eleme..."
+
+[ID 148] Swap Adjacent in LR String
+  Issues: FN_MISMATCH (removeDuplicates)
+  Starter fn: removeDuplicates
+  Desc: "You are given a string s consisting of lowercase English letters. A duplicate removal consists of ch..."
+
+[ID 156] Sort List
+  Issues: DESC_MISMATCH
+  Starter fn: sortList
+  Desc: "Given the head of a linked list, return the list after sorting it in ascending order.
+
+Follow up: Ca..."
+
+[ID 158] Longest Valid Parentheses
+  Issues: FN_MISMATCH (largestNumber)
+  Starter fn: largestNumber
+  Desc: "Given a string s containing just the characters (, ), {, }, [ and ], determine if the input string i..."
+
+[ID 163] Evaluate Reverse Polish Notation
+  Issues: FN_MISMATCH (evalRPN)
+  Starter fn: evalRPN
+  Desc: "You are given an array of string tokens that represents an arithmetic expression in Reverse Polish N..."
+
+[ID 164] Basic Calculator
+  Issues: FN_MISMATCH (calculate)
+  Starter fn: calculate
+  Desc: "Given a string s representing a valid expression, implement a basic calculator to evaluate it, and r..."
+
+[ID 165] Basic Calculator II
+  Issues: FN_MISMATCH (calculate)
+  Starter fn: calculate
+  Desc: "Implement a basic calculator to evaluate a simple expression string. The expression string contains ..."
+
+[ID 166] Basic Calculator III
+  Issues: FN_MISMATCH (calculate)
+  Starter fn: calculate
+  Desc: "Implement a basic calculator to evaluate a simple expression string. The expression string contains ..."
+
+[ID 169] Remove All Adjacent Duplicates in String II
+  Issues: FN_MISMATCH (equationsPossible)
+  Starter fn: equationsPossible
+  Desc: "Given an m x n grid of characters board and a string word, return true if word exists in the grid. T..."
+
+[ID 170] Remove K Digits
+  Issues: FN_MISMATCH (plusOne)
+  Starter fn: plusOne
+  Desc: "You are given a large integer represented as an integer array digits, where each digits[i] is the it..."
+
+[ID 173] Number of Atoms
+  Issues: FN_MISMATCH (jump)
+  Starter fn: jump
+  Desc: "You are given a 0-indexed array of integers nums of length n. You are initially positioned at nums[0..."
+
+[ID 177] Next Greater Element II
+  Issues: FN_MISMATCH (wiggleSort)
+  Starter fn: wiggleSort
+  Desc: "Given an integer array nums, reorder it such that nums[0] <= nums[1] >= nums[2] <= nums[3]....
+
+In o..."
+
+[ID 181] Trapping Rain Water
+  Issues: FN_MISMATCH (combine)
+  Starter fn: combine
+  Desc: "Given n non-negative integers representing an elevation map where the width of each bar is 1, comput..."
+
+[ID 183] Valid Parenthesis String
+  Issues: DESC_MISMATCH, FN_MISMATCH (calculate)
+  Starter fn: calculate
+  Desc: "Given a string s which represents an expression, evaluate this expression and return its value.
+
+The..."
+
+[ID 184] Minimum Add to Make Parentheses Valid
+  Issues: DESC_MISMATCH, FN_MISMATCH (smallestDistancePair)
+  Starter fn: smallestDistancePair
+  Desc: "You are given an integer array bloomDay, an integer m and an integer k. You want to make m bouquets...."
+
+[ID 185] Minimum Remove to Make Valid Parentheses
+  Issues: DESC_MISMATCH
+  Starter fn: minRemoveToMakeValid
+  Desc: "Given a positive integer num, return true if num is a perfect square or false otherwise.
+
+A perfect ..."
+
+[ID 186] Maximum Nesting Depth of Parentheses
+  Issues: DESC_MISMATCH, FN_MISMATCH (countRangeSum)
+  Starter fn: countRangeSum
+  Desc: "Given the root of a binary tree, return its maximum depth. A binary tree maximum depth is the number..."
+
+[ID 187] Binary Search
+  Issues: FN_MISMATCH (mySqrt)
+  Starter fn: mySqrt
+  Desc: "There is an integer array nums sorted in ascending order (with distinct values). Prior to being pass..."
+
+[ID 188] Search Insert Position
+  Issues: FN_MISMATCH (scoreOfParentheses)
+  Starter fn: scoreOfParentheses
+  Desc: "Given a sorted array of distinct integers and a target value, return the index if the target is foun..."
+
+[ID 190] Sqrt(x)
+  Issues: FN_MISMATCH (minAddToMakeValid)
+  Starter fn: minAddToMakeValid
+  Desc: "Given a non-negative integer x, return the square root of x rounded down to the nearest integer. The..."
+
+[ID 192] Guess Number Higher or Lower
+  Issues: FN_MISMATCH (maxDepth)
+  Starter fn: maxDepth
+  Desc: "We are playing the Guess Game. I pick a number from 1 to n. You have to guess which number I picked...."
+
+[ID 193] Find Smallest Letter Greater Than Target
+  Issues: FN_MISMATCH (search)
+  Starter fn: search
+  Desc: "You are given an array of characters letters that is sorted in non-decreasing order, and a character..."
+
+[ID 196] Search in Rotated Sorted Array
+  Issues: FN_MISMATCH (minMeetingRooms)
+  Starter fn: minMeetingRooms
+  Desc: "Given a string s, find the first non-repeating character in it and return its index. If it does not ..."
+
+[ID 201] Find K Closest Elements
+  Issues: FN_MISMATCH (numDecodings)
+  Starter fn: numDecodings
+  Desc: "Given a string s, find the longest palindromic subsequence length in s. A subsequence is a sequence ..."
+
+[ID 202] Kth Smallest Element in a Sorted Matrix
+  Issues: FN_MISMATCH (calcEquation)
+  Starter fn: calcEquation
+  Desc: "Given an n x n matrix where each of the rows and columns is sorted in ascending order, return the kt..."
+
+[ID 203] Find K-th Smallest Pair Distance
+  Issues: FN_MISMATCH (search)
+  Starter fn: search
+  Desc: "Given the integer n, return the smallest pair distance among all pairs. The pair distance is defined..."
+
+[ID 204] Koko Eating Bananas
+  Issues: FN_MISMATCH (findMin)
+  Starter fn: findMin
+  Desc: "Koko loves to eat bananas. There are n piles of bananas, the ith pile has piles[i] bananas. The guar..."
+
+[ID 205] Minimize Max Distance to Gas Station
+  Issues: FN_MISMATCH (findMin)
+  Starter fn: findMin
+  Desc: "You are given n gas stations along a circular route. You need to add k more gas stations. Minimize t..."
+
+[ID 206] Split Array Largest Sum
+  Issues: FN_MISMATCH (singleNonDuplicate)
+  Starter fn: singleNonDuplicate
+  Desc: "Given an integer array nums and an integer k, split nums into k non-empty subarrays such that the la..."
+
+[ID 207] Capacity To Ship Packages Within D Days
+  Issues: FN_MISMATCH (findClosestElements)
+  Starter fn: findClosestElements
+  Desc: "A conveyor belt has packages that must be shipped from one port to another within days days. The ith..."
+
+[ID 208] Divide Chocolate
+  Issues: FN_MISMATCH (kthSmallest)
+  Starter fn: kthSmallest
+  Desc: "You have one chocolate bar that consists of some chunks. Each chunk has its own sweetness given by t..."
+
+[ID 209] Minimum Number of Days to Make m Bouquets
+  Issues: FN_MISMATCH (minDeletions)
+  Starter fn: minDeletions
+  Desc: "Given a string s, return the minimum number of characters you need to delete to make s good. A strin..."
+
+[ID 210] Magnetic Force Between Two Balls
+  Issues: FN_MISMATCH (minEatingSpeed)
+  Starter fn: minEatingSpeed
+  Desc: "In the universe Earth C-137, Rick discovered a special form of magnetic force between two balls. Pla..."
+
+[ID 212] Find Right Interval
+  Issues: FN_MISMATCH (splitArray)
+  Starter fn: splitArray
+  Desc: "You are given an array of intervals, where intervals[i] = [starti, endi] and each starti is unique. ..."
+
+[ID 213] Russian Doll Envelopes
+  Issues: FN_MISMATCH (shipWithinDays)
+  Starter fn: shipWithinDays
+  Desc: "You are given a 2D array of integers envelopes where envelopes[i] = [wi, hi] represents the width an..."
+
+[ID 214] Longest Increasing Subsequence
+  Issues: FN_MISMATCH (maximizeSweetness)
+  Starter fn: maximizeSweetness
+  Desc: "Given an integer array nums, return the length of the longest strictly increasing subsequence...."
+
+[ID 216] Count of Range Sum
+  Issues: FN_MISMATCH (findDisappearedNumbers)
+  Starter fn: findDisappearedNumbers
+  Desc: "Given an array nums of n integers where nums[i] is in the range [1, n], return an array of all the i..."
+
+[ID 217] Median of Two Sorted Arrays
+  Issues: FN_MISMATCH (minmaxGasDist)
+  Starter fn: minmaxGasDist
+  Desc: "Given two sorted arrays nums1 and nums2 of size m and n respectively, return the median of the two s..."
+
+[ID 218] Find Median from Data Stream
+  Issues: DESC_MISMATCH, PLACEHOLDER_EXAMPLES
+  Starter fn: __init__
+  Desc: "Given the root of a binary tree, invert the tree, and return its root. Inverting a binary tree means..."
+
+[ID 219] Count Complete Tree Nodes
+  Issues: FN_MISMATCH (maxEnvelopes)
+  Starter fn: maxEnvelopes
+  Desc: "Given the root of a complete binary tree, return the number of the nodes in the tree.
+
+Design an alg..."
+
+[ID 220] Powx n
+  Issues: DESC_MISMATCH, FN_MISMATCH (myPow)
+  Starter fn: myPow
+  Desc: "Given the root of a binary tree, determine if it is a valid binary search tree (BST). A valid BST ha..."
+
+[ID 221] Divide Two Integers
+  Issues: FN_MISMATCH (countSmaller)
+  Starter fn: countSmaller
+  Desc: "Given two integers dividend and divisor, divide two integers without using multiplication, division,..."
+
+[ID 223] Minimum Depth of Binary Tree
+  Issues: FN_MISMATCH (hasPathSum)
+  Starter fn: hasPathSum
+  Desc: "Given a binary tree, find its minimum depth. The minimum depth is the number of nodes along the shor..."
+
+[ID 225] Diameter of Binary Tree
+  Issues: FN_MISMATCH (kthSmallest)
+  Starter fn: kthSmallest
+  Desc: "Given the root of a binary tree, return the length of the diameter of the tree. The diameter of a bi..."
+
+[ID 226] Balanced Binary Tree
+  Issues: FN_MISMATCH (connect)
+  Starter fn: connect
+  Desc: "Given an integer array nums where the elements are sorted in ascending order, convert it to a height..."
+
+[ID 227] Same Tree
+  Issues: FN_MISMATCH (countNodes)
+  Starter fn: countNodes
+  Desc: "Given the roots of two binary trees p and q, write a function to check if they are the same or not. ..."
+
+[ID 228] Symmetric Tree
+  Issues: FN_MISMATCH (findMedianSortedArrays)
+  Starter fn: findMedianSortedArrays
+  Desc: "Given the root of a binary tree, check whether it is a mirror of itself (i.e., symmetric around its ..."
+
+[ID 229] Subtree of Another Tree
+  Issues: FN_MISMATCH (myPow)
+  Starter fn: myPow
+  Desc: "Given the root of a binary tree, determine if it is a valid binary search tree (BST). A valid BST ha..."
+
+[ID 232] Path Sum
+  Issues: DESC_MISMATCH, FN_MISMATCH (minDepth)
+  Starter fn: minDepth
+  Desc: "Given the root of a binary tree and an integer targetSum, return true if the tree has a root-to-leaf..."
+
+[ID 233] Path Sum II
+  Issues: DESC_MISMATCH, FN_MISMATCH (deleteNode)
+  Starter fn: deleteNode
+  Desc: "Given the root of a binary tree, return all root-to-leaf paths in any order. A leaf is a node with n..."
+
+[ID 236] Sum Root to Leaf Numbers
+  Issues: DESC_MISMATCH, FN_MISMATCH (isSubtree)
+  Starter fn: isSubtree
+  Desc: "Given the root of a binary tree, return the bottom-up level order traversal of its nodes values (i.e..."
+
+[ID 237] Lowest Common Ancestor of BST
+  Issues: FN_MISMATCH (diameterOfBinaryTree)
+  Starter fn: diameterOfBinaryTree
+  Desc: "Given a binary tree, find the lowest common ancestor (LCA) of two given nodes in the tree. The lowes..."
+
+[ID 238] Lowest Common Ancestor of Binary Tree
+  Issues: FN_MISMATCH (isBalanced)
+  Starter fn: isBalanced
+  Desc: "Given a binary search tree (BST), find the lowest common ancestor (LCA) node of two given nodes in t..."
+
+[ID 239] Binary Tree Level Order Traversal
+  Issues: FN_MISMATCH (divide)
+  Starter fn: divide
+  Desc: "Given the root of a binary tree, return the level order traversal of its nodes values (i.e., from le..."
+
+[ID 240] Binary Tree Zigzag Level Order
+  Issues: FN_MISMATCH (isSymmetric)
+  Starter fn: isSymmetric
+  Desc: "Given the root of a binary tree, return the zigzag level order traversal of its nodes values (i.e., ..."
+
+[ID 242] Binary Tree Level Order Traversal II
+  Issues: FN_MISMATCH (canJump)
+  Starter fn: canJump
+  Desc: "Given the root of a binary tree, return the level order traversal of its nodes values. (i.e., from l..."
+
+[ID 245] Populating Next Right Pointers
+  Issues: FN_MISMATCH (pathSum)
+  Starter fn: pathSum
+  Desc: "Given a perfect binary tree where all leaves are on the same level, and every parent has two childre..."
+
+[ID 246] Populating Next Right Pointers II
+  Issues: FN_MISMATCH (pathSum)
+  Starter fn: pathSum
+  Desc: "Given a binary tree, populate each next pointer to point to its next right node. If there is no next..."
+
+[ID 247] Validate Binary Search Tree
+  Issues: DESC_MISMATCH, FN_MISMATCH (findPeakElement)
+  Starter fn: findPeakElement
+  Desc: "Given a sorted integer array arr, two integers k and x, return the k closest integers to x in the ar..."
+
+[ID 248] Kth Smallest Element in BST
+  Issues: FN_MISMATCH (levelOrder)
+  Starter fn: levelOrder
+  Desc: "Given the root of a binary search tree, and an integer k, return the kth smallest value (1-indexed) ..."
+
+[ID 249] Binary Search Tree Iterator
+  Issues: DESC_MISMATCH
+  Starter fn: solve
+  Desc: "You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge..."
+
+[ID 250] Convert Sorted Array to BST
+  Issues: FN_MISMATCH (isPerfectSquare)
+  Starter fn: isPerfectSquare
+  Desc: "There is an integer array nums sorted in non-decreasing order (not necessarily with distinct values)..."
+
+[ID 251] Construct Binary Tree from Preorder and Inorder
+  Issues: FN_MISMATCH (connect)
+  Starter fn: connect
+  Desc: "Given two integer arrays preorder and inorder where preorder is the preorder traversal of a binary t..."
+
+[ID 252] Construct Binary Tree from Inorder and Postorder
+  Issues: FN_MISMATCH (isValidBST)
+  Starter fn: isValidBST
+  Desc: "Given two integer arrays inorder and postorder where inorder is the inorder traversal of a binary tr..."
+
+[ID 254] Serialize and Deserialize BST
+  Issues: DESC_MISMATCH, PLACEHOLDER_EXAMPLES, FN_MISMATCH (Codec)
+  Starter fn: Codec
+  Desc: "Given the root of a binary tree, return the length of the longest consecutive sequence path. A conse..."
+
+[ID 256] Count Good Nodes in Binary Tree
+  Issues: FN_MISMATCH (insertIntoBST)
+  Starter fn: insertIntoBST
+  Desc: "Given a binary tree, count the number of uni-value subtrees. A uni-value subtree means all nodes of ..."
+
+[ID 257] Delete Node in a BST
+  Issues: FN_MISMATCH (minDepth)
+  Starter fn: minDepth
+  Desc: "Given a root node reference of a BST and a key, delete the node with the given key in the BST. Retur..."
+
+[ID 259] Recover Binary Search Tree
+  Issues: DESC_MISMATCH
+  Starter fn: recoverTree
+  Desc: "Given the root of a complete binary tree, return the number of the nodes in the tree. Design a solut..."
+
+[ID 260] Unique Binary Search Trees
+  Issues: DESC_MISMATCH
+  Starter fn: numTrees
+  Desc: "Given a root of an N-ary tree, return a deep copy (clone) of the tree. Each node in the N-ary tree c..."
+
+[ID 261] Unique Binary Search Trees II
+  Issues: DESC_MISMATCH
+  Starter fn: generateTrees
+  Desc: "There are a total of numCourses courses you have to take, labeled from 0 to numCourses - 1. You are ..."
+
+[ID 264] Number of Distinct Islands
+  Issues: FN_MISMATCH (findRedundantConnection)
+  Starter fn: findRedundantConnection
+  Desc: "You are given an n x n binary matrix grid where 1 represents land and 0 represents water. An island ..."
+
+[ID 265] Number of Closed Islands
+  Issues: FN_MISMATCH (longestWord)
+  Starter fn: longestWord
+  Desc: "Given an m x n 2D binary grid grid which represents a map of 1s (land) and 0s (water), return the nu..."
+
+[ID 266] Clone Graph
+  Issues: FN_MISMATCH (findCircleNum)
+  Starter fn: findCircleNum
+  Desc: "Given a reference of a node in a connected undirected graph, return a deep copy (clone) of the graph..."
+
+[ID 268] Surrounded Regions
+  Issues: FN_MISMATCH (closedIsland)
+  Starter fn: closedIsland
+  Desc: "Given an m x n matrix board containing X and O, capture all regions that are 4-directionally surroun..."
+
+[ID 269] Number of Provinces
+  Issues: FN_MISMATCH (countComponents)
+  Starter fn: countComponents
+  Desc: "There are n cities. Some of them are connected, while some are not. If city a is connected directly ..."
+
+[ID 270] Graph Valid Tree
+  Issues: DESC_MISMATCH
+  Starter fn: validTree
+  Desc: "You are given an m x n grid where each cell can have one of three values: 0 representing an empty ce..."
+
+[ID 271] Number of Connected Components
+  Issues: FN_MISMATCH (pacificAtlantic)
+  Starter fn: pacificAtlantic
+  Desc: "You have a graph of n nodes. You are given an integer n and an array edges where edges[i] = [ai, bi]..."
+
+[ID 274] Accounts Merge
+  Issues: FN_MISMATCH (permuteUnique)
+  Starter fn: permuteUnique
+  Desc: "Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals, an..."
+
+[ID 276] Course Schedule
+  Issues: FN_MISMATCH (generateTrees)
+  Starter fn: generateTrees
+  Desc: "There are a total of numCourses courses you have to take, labeled from 0 to numCourses - 1. You are ..."
+
+[ID 277] Course Schedule II
+  Issues: FN_MISMATCH (maxAreaOfIsland)
+  Starter fn: maxAreaOfIsland
+  Desc: "There are a total of numCourses courses you have to take. You are given an array prerequisites where..."
+
+[ID 279] Minimum Height Trees
+  Issues: DESC_MISMATCH
+  Starter fn: findMinHeightTrees
+  Desc: "Given an integer array nums that may contain duplicates, return all possible subsets (the power set)..."
+
+[ID 280] Alien Dictionary
+  Issues: FN_MISMATCH (rob)
+  Starter fn: rob
+  Desc: "There is a new alien language that uses the English alphabet. However, the order of the letters is u..."
+
+[ID 284] Path with Maximum Probability
+  Issues: FN_MISMATCH (equalSubstring)
+  Starter fn: equalSubstring
+  Desc: "You are given two strings s and t of the same length and an integer maxCost. You want to change s to..."
+
+[ID 285] Path With Minimum Effort
+  Issues: FN_MISMATCH (cloneGraph)
+  Starter fn: cloneGraph
+  Desc: "There is a bi-directional graph with n vertices, where each vertex is labeled from 0 to n - 1. The e..."
+
+[ID 288] Word Ladder II
+  Issues: FN_MISMATCH (swimInWater)
+  Starter fn: swimInWater
+  Desc: "An m x n board of characters is given. Find all words on the board. Each word must be constructed fr..."
+
+[ID 291] All Paths from Source to Target
+  Issues: FN_MISMATCH (isBipartite)
+  Starter fn: isBipartite
+  Desc: "You are given a network of n nodes, labeled from 1 to n. You are also given times, a list of travel ..."
+
+[ID 292] Find if Path Exists in Graph
+  Issues: DESC_MISMATCH, FN_MISMATCH (containsNearbyAlmostDuplicate)
+  Starter fn: containsNearbyAlmostDuplicate
+  Desc: "You are given an integer array nums and two integers indexDiff and valueDiff. Find a pair of indices..."
+
+[ID 293] Evaluate Division
+  Issues: FN_MISMATCH (productExceptSelf)
+  Starter fn: productExceptSelf
+  Desc: "Given an integer array nums, return an array answer such that answer[i] is equal to the product of a..."
+
+[ID 294] Shortest Path in Binary Matrix
+  Issues: DESC_MISMATCH, FN_MISMATCH (buildTree)
+  Starter fn: buildTree
+  Desc: "Given a binary tree where node values are digits from 1 to 9. A path in the binary tree is said to b..."
+
+[ID 295] Shortest Bridge
+  Issues: FN_MISMATCH (addOperators)
+  Starter fn: addOperators
+  Desc: "In English, we have a concept called root, which can be followed by some other word to form another ..."
+
+[ID 296] Is Graph Bipartite
+  Issues: FN_MISMATCH (minCostClimbingStairs)
+  Starter fn: minCostClimbingStairs
+  Desc: "Given n nodes labeled from 0 to n-1 and a list of undirected edges, write a function to check whethe..."
+
+[ID 298] Min Cost Climbing Stairs
+  Issues: FN_MISMATCH (longestPalindromeSubseq)
+  Starter fn: longestPalindromeSubseq
+  Desc: "You are climbing a staircase. It takes n steps to reach the top. Each time you can either climb 1 or..."
+
+[ID 300] House Robber II
+  Issues: FN_MISMATCH (countSubstrings)
+  Starter fn: countSubstrings
+  Desc: "You are a professional robber planning to rob houses along a street. Each house has a certain amount..."
+
+[ID 302] Coin Change
+  Issues: FN_MISMATCH (rob)
+  Starter fn: rob
+  Desc: "You are given an integer array coins representing coins of different denominations and an integer am..."
+
+[ID 303] Coin Change 2
+  Issues: FN_MISMATCH (minDistance)
+  Starter fn: minDistance
+  Desc: "You are given an integer array coins representing coins of different denominations and an integer am..."
+
+[ID 304] Combination Sum IV
+  Issues: FN_MISMATCH (canFinish)
+  Starter fn: canFinish
+  Desc: "Given a set of distinct positive integers candidates and a target integer target, return a list of a..."
+
+[ID 305] Perfect Squares
+  Issues: FN_MISMATCH (numTrees)
+  Starter fn: numTrees
+  Desc: "Given an integer n, return the least number of perfect square numbers that sum to n. A perfect squar..."
+
+[ID 306] Decode Ways
+  Issues: FN_MISMATCH (numDecodings)
+  Starter fn: numDecodings
+  Desc: "Given a string s, find the longest palindromic subsequence length in s. A subsequence is a sequence ..."
+
+[ID 307] Decode Ways II
+  Issues: FN_MISMATCH (numDecodings)
+  Starter fn: numDecodings
+  Desc: "Given a triangle array, return the minimum path sum from top to bottom. For each step, you may move ..."
+
+[ID 308] Unique Paths
+  Issues: FN_MISMATCH (maxEnvelopes)
+  Starter fn: maxEnvelopes
+  Desc: "Given a rows x cols grid, you start at the top-left corner of the grid, and you want to reach the bo..."
+
+[ID 309] Unique Paths II
+  Issues: FN_MISMATCH (findLongestChain)
+  Starter fn: findLongestChain
+  Desc: "You are given an m x n integer array grid. There is a robot initially located at the top-left corner..."
+
+[ID 311] Minimum Path Sum
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "Given a m x n grid filled with non-negative numbers, find a path from top left to bottom right, whic..."
+
+[ID 312] Triangle
+  Issues: FN_MISMATCH (minimumTotal)
+  Starter fn: minimumTotal
+  Desc: "Given two strings word1 and word2, return the minimum number of operations required to convert word1..."
+
+[ID 313] Maximal Square
+  Issues: FN_MISMATCH (lengthOfLIS)
+  Starter fn: lengthOfLIS
+  Desc: "Given an m x n binary matrix filled with 0s and 1s, find the largest square containing only 1s and r..."
+
+[ID 314] Longest Palindromic Substring
+  Issues: FN_MISMATCH (numSquares)
+  Starter fn: numSquares
+  Desc: "Given a string s, return the longest palindromic substring in s...."
+
+[ID 315] Longest Palindromic Subsequence
+  Issues: FN_MISMATCH (minPathSum)
+  Starter fn: minPathSum
+  Desc: "Given two strings text1 and text2, return the length of their longest common subsequence. If there i..."
+
+[ID 316] Palindromic Substrings
+  Issues: DESC_MISMATCH
+  Starter fn: countSubstrings
+  Desc: "You are a professional robber planning to rob houses along a street. Each house has a certain amount..."
+
+[ID 318] Edit Distance
+  Issues: FN_MISMATCH (minimumTotal)
+  Starter fn: minimumTotal
+  Desc: "Given two strings word1 and word2, return the minimum number of operations required to convert word1..."
+
+[ID 319] Distinct Subsequences
+  Issues: FN_MISMATCH (lastStoneWeightII)
+  Starter fn: lastStoneWeightII
+  Desc: "Given two strings s and t, return the number of distinct subsequences of s which equals t.
+
+The answ..."
+
+[ID 320] Interleaving String
+  Issues: FN_MISMATCH (canPartitionKSubsets)
+  Starter fn: canPartitionKSubsets
+  Desc: "Given strings s1, s2, and s3, find whether s3 is formed by an interleaving of s1 and s2.
+
+An interle..."
+
+[ID 321] Longest Increasing Subsequence
+  Issues: FN_MISMATCH (lengthOfLIS)
+  Starter fn: lengthOfLIS
+  Desc: "Given an m x n binary matrix filled with 0s and 1s, find the largest square containing only 1s and r..."
+
+[ID 326] Best Time to Buy and Sell Stock
+  Issues: FN_MISMATCH (uniquePaths)
+  Starter fn: uniquePaths
+  Desc: "You are given an integer array prices where prices[i] is the price of a given stock on the ith day, ..."
+
+[ID 327] Best Time to Buy and Sell Stock II
+  Issues: FN_MISMATCH (uniquePathsWithObstacles)
+  Starter fn: uniquePathsWithObstacles
+  Desc: "You are given an integer array prices where prices[i] is the price of a given stock on the ith day. ..."
+
+[ID 329] Best Time to Buy and Sell Stock IV
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "You are given an array prices where prices[i] is the price of a given stock on the ith day. Maximize..."
+
+[ID 330] Best Time to Buy and Sell Stock with Cooldown
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "Given a set of distinct positive integers nums, return the largest subset answer such that every pai..."
+
+[ID 331] Best Time to Buy and Sell Stock with Transaction Fee
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "Given a m x n grid filled with non-negative numbers, find a path from top left to bottom right, whic..."
+
+[ID 332] Word Break
+  Issues: FN_MISMATCH (maximalSquare)
+  Starter fn: maximalSquare
+  Desc: "Given a string s and a dictionary of strings wordDict, return true if s can be segmented into a spac..."
+
+[ID 334] Partition Equal Subset Sum
+  Issues: FN_MISMATCH (longestCommonSubsequence)
+  Starter fn: longestCommonSubsequence
+  Desc: "Given an integer array nums, return true if you can partition the array into two subsets such that t..."
+
+[ID 335] Target Sum
+  Issues: FN_MISMATCH (findMaxForm)
+  Starter fn: findMaxForm
+  Desc: "You are given an integer array nums and an integer target. You want to build an expression out of nu..."
+
+[ID 336] Ones and Zeroes
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "Given a set of distinct positive integers nums, return the largest subset answer such that every pai..."
+
+[ID 337] Last Stone Weight II
+  Issues: FN_MISMATCH (ladderLength)
+  Starter fn: ladderLength
+  Desc: "You are given an array of integers stones where stones[i] is the weight of the ith stone. On each tu..."
+
+[ID 338] Partition to K Equal Sum Subsets
+  Issues: FN_MISMATCH (scheduleCourse)
+  Starter fn: scheduleCourse
+  Desc: "Given an integer array nums of unique elements, return all possible subsets (the power set). The sol..."
+
+[ID 339] Regular Expression Matching
+  Issues: FN_MISMATCH (isMatch)
+  Starter fn: isMatch
+  Desc: "Given an input string s and a pattern p, implement regular expression matching with support for . an..."
+
+[ID 340] Wildcard Matching
+  Issues: FN_MISMATCH (longestValidParentheses)
+  Starter fn: longestValidParentheses
+  Desc: "Given an input string s and a pattern p, implement wildcard pattern matching with support for ? and ..."
+
+[ID 344] Unique Binary Search Trees
+  Issues: DESC_MISMATCH
+  Starter fn: numTrees
+  Desc: "Given an integer n, return the least number of perfect square numbers that sum to n. A perfect squar..."
+
+[ID 345] Burst Balloons
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "Given n balloons, indexed from 0 to n - 1. Each balloon is painted with a number on it represented b..."
+
+[ID 347] Subsets
+  Issues: FN_MISMATCH (findMinHeightTrees)
+  Starter fn: findMinHeightTrees
+  Desc: "Given an integer array nums that may contain duplicates, return all possible subsets (the power set)..."
+
+[ID 348] Subsets II
+  Issues: FN_MISMATCH (rotate)
+  Starter fn: rotate
+  Desc: "Given an integer array nums, rotate the array to the right by k steps, where k is non-negative.
+
+You..."
+
+[ID 349] Permutations
+  Issues: FN_MISMATCH (candy)
+  Starter fn: candy
+  Desc: "Given an array of distinct integers candidates and a target integer target, return a list of all uni..."
+
+[ID 350] Permutations II
+  Issues: FN_MISMATCH (permuteUnique)
+  Starter fn: permuteUnique
+  Desc: "Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals, an..."
+
+[ID 354] Combinations
+  Issues: FN_MISMATCH (findOrder)
+  Starter fn: findOrder
+  Desc: "Given a collection of candidate numbers (candidates) and a target number (target), find all unique c..."
+
+[ID 355] Letter Combinations of a Phone Number
+  Issues: FN_MISMATCH (findCheapestPrice)
+  Starter fn: findCheapestPrice
+  Desc: "Given a string containing digits from 2-9 inclusive, return all possible letter combinations that th..."
+
+[ID 356] Generate Parentheses
+  Issues: FN_MISMATCH (sequenceReconstruction)
+  Starter fn: sequenceReconstruction
+  Desc: "Given n pairs of parentheses, write a function to generate all combinations of well-formed parenthes..."
+
+[ID 357] Palindrome Partitioning
+  Issues: FN_MISMATCH (networkDelayTime)
+  Starter fn: networkDelayTime
+  Desc: "Given a string s, partition s such that every substring of the partition is a palindrome. Return all..."
+
+[ID 358] Palindrome Partitioning II
+  Issues: FN_MISMATCH (isMatch)
+  Starter fn: isMatch
+  Desc: "Given a string s, partition s such that every substring of the partition is a palindrome.
+
+Return th..."
+
+[ID 359] Word Search
+  Issues: FN_MISMATCH (exist)
+  Starter fn: exist
+  Desc: "Given a non-negative integer num, repeatedly add all its digits until the result has only one digit...."
+
+[ID 361] N-Queens
+  Issues: FN_MISMATCH (maxProbability)
+  Starter fn: maxProbability
+  Desc: "The n-queens puzzle is the problem of placing n queens on an n x n chessboard such that no two queen..."
+
+[ID 363] Sudoku Solver
+  Issues: FN_MISMATCH (minimumEffortPath)
+  Starter fn: minimumEffortPath
+  Desc: "Write a program to solve a Sudoku puzzle by filling the empty cells. A sudoku solution must satisfy ..."
+
+[ID 364] Valid Sudoku
+  Issues: FN_MISMATCH (solveNQueens)
+  Starter fn: solveNQueens
+  Desc: "Determine if a 9 x 9 Sudoku board is valid. Only the filled cells need to be validated according to ..."
+
+[ID 365] Letter Case Permutation
+  Issues: FN_MISMATCH (characterReplacement)
+  Starter fn: characterReplacement
+  Desc: "You are given a string s and an integer k. You can choose any character of the string and change it ..."
+
+[ID 366] Beautiful Arrangement
+  Issues: FN_MISMATCH (combinationSum2)
+  Starter fn: combinationSum2
+  Desc: "Given a string s, rearrange the characters of s so that any two adjacent characters are not the same..."
+
+[ID 367] Matchsticks to Square
+  Issues: FN_MISMATCH (eraseOverlapIntervals)
+  Starter fn: eraseOverlapIntervals
+  Desc: "Given an encoded string, return its decoded string. The encoding rule is: k[encoded_string], where t..."
+
+[ID 369] Additive Number
+  Issues: FN_MISMATCH (findDuplicate)
+  Starter fn: findDuplicate
+  Desc: "Given an array of integers nums containing n + 1 integers where each integer is in the range [1, n] ..."
+
+[ID 371] Factor Combinations
+  Issues: FN_MISMATCH (wordBreak)
+  Starter fn: wordBreak
+  Desc: "An ugly number is a positive integer whose prime factors are limited to 2, 3, and 5. Given an intege..."
+
+[ID 373] Expression Add Operators
+  Issues: FN_MISMATCH (letterCombinations)
+  Starter fn: letterCombinations
+  Desc: "Given a string s which represents an expression, evaluate this expression and return its value. The ..."
+
+[ID 375] Strobogrammatic Number II
+  Issues: FN_MISMATCH (findDuplicate)
+  Starter fn: findDuplicate
+  Desc: "Given an array of integers nums containing n + 1 integers where each integer is in the range [1, n] ..."
+
+[ID 377] Kth Largest Element in an Array
+  Issues: FN_MISMATCH (findLadders)
+  Starter fn: findLadders
+  Desc: "Given an integer array nums and an integer k, return the kth largest element in the array. Note that..."
+
+[ID 378] Kth Smallest Element in a Sorted Matrix
+  Issues: DESC_MISMATCH, FN_MISMATCH (allPathsSourceTarget)
+  Starter fn: allPathsSourceTarget
+  Desc: "Design a class to find the kth largest element in a stream. Note that it is the kth largest element ..."
+
+[ID 379] Top K Frequent Elements
+  Issues: FN_MISMATCH (minMutation)
+  Starter fn: minMutation
+  Desc: "Given an integer array nums and an integer k, return the k most frequent elements. You may return th..."
+
+[ID 380] Top K Frequent Words
+  Issues: FN_MISMATCH (maxProfit)
+  Starter fn: maxProfit
+  Desc: "You are given an array of words where each word consists of lowercase English letters. wordA is a pr..."
+
+[ID 384] Reorganize String
+  Issues: DESC_MISMATCH
+  Starter fn: reorganizeString
+  Desc: "Given an integer n, return true if it is a power of two. Otherwise, return false.
+
+An integer n is a..."
+
+[ID 385] Rearrange String k Distance Apart
+  Issues: DESC_MISMATCH
+  Starter fn: rearrangeString
+  Desc: "Given an integer n, return true if it is a power of four. Otherwise, return false.
+
+An integer n is ..."
+
+[ID 386] Task Scheduler
+  Issues: FN_MISMATCH (findItinerary)
+  Starter fn: findItinerary
+  Desc: "Given a characters array tasks, representing the tasks a CPU needs to do, where each letter represen..."
+
+[ID 390] IPO
+  Issues: FN_MISMATCH (findMaximizedCapital)
+  Starter fn: findMaximizedCapital
+  Desc: "Given an integer array nums, find the subarray with the largest sum, and return its sum. The subarra..."
+
+[ID 393] Meeting Rooms II
+  Issues: FN_MISMATCH (shortestBridge)
+  Starter fn: shortestBridge
+  Desc: "Given an array of meeting time intervals where intervals[i] = [starti, endi], determine the minimum ..."
+
+[ID 394] Meeting Rooms III
+  Issues: FN_MISMATCH (combinationSum)
+  Starter fn: combinationSum
+  Desc: "Given an array of meeting time intervals intervals where intervals[i] = [starti, endi], determine if..."
+
+[ID 396] Find the Kth Smallest Sum
+  Issues: FN_MISMATCH (removeKdigits)
+  Starter fn: removeKdigits
+  Desc: "Given string num representing a non-negative integer num, and an integer k, return the smallest poss..."
+
+[ID 397] Implement Trie (Prefix Tree)
+  Issues: FN_MISMATCH (kthSmallest)
+  Starter fn: kthSmallest
+  Desc: "Implement a trie with insert, search, and startsWith methods.
+
+A trie (prefix tree) is a tree data s..."
+
+[ID 398] Design Add and Search Words Data Structure
+  Issues: FN_MISMATCH (splitIntoFibonacci)
+  Starter fn: splitIntoFibonacci
+  Desc: "Design a data structure that supports adding new words and finding if a string matches any previousl..."
+
+[ID 399] Search Suggestions System
+  Issues: FN_MISMATCH (suggestedProducts)
+  Starter fn: suggestedProducts
+  Desc: "Given a string s, find the length of the longest substring without repeating characters...."
+
+[ID 401] Implement Magic Dictionary
+  Issues: FN_MISMATCH (getFactors)
+  Starter fn: getFactors
+  Desc: "Design a special dictionary that searches the words in it by a prefix and a suffix. Implement the Wo..."
+
+[ID 402] Palindrome Pairs
+  Issues: FN_MISMATCH (restoreIpAddresses)
+  Starter fn: restoreIpAddresses
+  Desc: "Given a list of unique words, return all the pairs of the distinct indices (i, j) in the given list,..."
+
+[ID 405] Stream of Characters
+  Issues: FN_MISMATCH (reverseString)
+  Starter fn: reverseString
+  Desc: "Write a function that reverses a string. The input string is given as an array of characters s.
+
+You..."
+
+[ID 406] Concatenated Words
+  Issues: FN_MISMATCH (numberOfPatterns)
+  Starter fn: numberOfPatterns
+  Desc: "A concatenated word is defined as a string that is comprised entirely of at least two shorter words ..."
+
+[ID 407] Word Squares
+  Issues: FN_MISMATCH (longestPalindrome)
+  Starter fn: longestPalindrome
+  Desc: "Given a string s and a dictionary of strings wordDict, add spaces in s to construct a sentence where..."
+
+[ID 409] Maximum XOR With Element From Array
+  Issues: FN_MISMATCH (numDistinct)
+  Starter fn: numDistinct
+  Desc: "You are given an integer array nums. You want to maximize the number of points you get by performing..."
+
+[ID 410] Map Sum Pairs
+  Issues: FN_MISMATCH (wordSquares)
+  Starter fn: wordSquares
+  Desc: "Given a 0-indexed n x n integer matrix grid, return the number of pairs (ri, cj) such that row ri an..."
+
+[ID 412] Jump Game
+  Issues: DESC_MISMATCH
+  Starter fn: canJump
+  Desc: "Given the root of a binary tree, return the level order traversal of its nodes values. (i.e., from l..."
+
+[ID 414] Gas Station
+  Issues: FN_MISMATCH (permute)
+  Starter fn: permute
+  Desc: "There are n gas stations along a circular route, where the amount of gas at the ith station is gas[i..."
+
+[ID 415] Candy
+  Issues: FN_MISMATCH (subsetsWithDup)
+  Starter fn: subsetsWithDup
+  Desc: "There are n children standing in a line. Each child is assigned a rating value given in the integer ..."
+
+[ID 418] Non-overlapping Intervals
+  Issues: FN_MISMATCH (maximumUnits)
+  Starter fn: maximumUnits
+  Desc: "Given an array of intervals where intervals[i] = [starti, endi], merge all overlapping intervals, an..."
+
+[ID 420] Remove Duplicate Letters
+  Issues: FN_MISMATCH (maximizeXor)
+  Starter fn: maximizeXor
+  Desc: "Given an integer array nums sorted in non-decreasing order, remove the duplicates in-place such that..."
+
+[ID 422] Largest Number
+  Issues: FN_MISMATCH (minCut)
+  Starter fn: minCut
+  Desc: "You are given a string num representing a large integer. Return the largest-valued odd number (as a ..."
+
+[ID 423] Maximum Swap
+  Issues: FN_MISMATCH (goodNodes)
+  Starter fn: goodNodes
+  Desc: "Given a binary tree, find the maximum path sum. A path is defined as any node sequence from some sta..."
+
+[ID 424] Task Scheduler
+  Issues: FN_MISMATCH (combinationSum3)
+  Starter fn: combinationSum3
+  Desc: "Given a char array representing tasks CPU needs to do with a cooldown period n between two same task..."
+
+[ID 426] Reduce Array Size to The Half
+  Issues: FN_MISMATCH (findMinArrowShots)
+  Starter fn: findMinArrowShots
+  Desc: "We are given an array asteroids of integers representing asteroids in a row. For each asteroid, the ..."
+
+
+=== ALL FUNCTION NAME MISMATCHES ===
+
+[ID 14] "Search in Rotated Sorted Array" -> fn: trap
+[ID 15] "Container With Most Water" -> fn: maxArea
+[ID 16] "3Sum" -> fn: threeSum
+[ID 17] "4Sum" -> fn: fourSum
+[ID 21] "Rotate Array" -> fn: search
+[ID 23] "Jump Game II" -> fn: subsets
+[ID 25] "Pascal's Triangle" -> fn: numDecodings
+[ID 26] "Pascal's Triangle II" -> fn: getRow
+[ID 28] "Majority Element II" -> fn: leastInterval
+[ID 40] "Wiggle Sort" -> fn: searchRange
+[ID 41] "Wiggle Sort II" -> fn: firstMissingPositive
+[ID 44] "Find All Numbers Disappeared in Array" -> fn: twoSum
+[ID 45] "Find All Duplicates in Array" -> fn: majorityElement
+[ID 66] "Number of Subsequences" -> fn: numSubseq
+[ID 74] "Assign Cookies" -> fn: findContentChildren
+[ID 83] "Find the Duplicate Number" -> fn: checkValidString
+[ID 88] "Longest Repeating Character Replacement" -> fn: suggestedProducts
+[ID 91] "Permutation in String" -> fn: checkInclusion
+[ID 103] "Get Equal Substrings Within Budget" -> fn: combinationSum4
+[ID 104] "Grumpy Bookstore Owner" -> fn: maxSatisfied
+[ID 114] "Longest Mountain in Array" -> fn: searchInsert
+[ID 116] "Maximum Points You Can Obtain from Cards" -> fn: maxScore
+[ID 130] "Remove Nodes From Linked List" -> fn: reverseBetween
+[ID 134] "Reverse Nodes in k-Group" -> fn: addTwoNumbers
+[ID 136] "Add Two Numbers" -> fn: generate
+[ID 137] "Add Two Numbers II" -> fn: getRow
+[ID 147] "Linked List in Binary Tree" -> fn: isSubPath
+[ID 148] "Swap Adjacent in LR String" -> fn: removeDuplicates
+[ID 158] "Longest Valid Parentheses" -> fn: largestNumber
+[ID 163] "Evaluate Reverse Polish Notation" -> fn: evalRPN
+[ID 164] "Basic Calculator" -> fn: calculate
+[ID 165] "Basic Calculator II" -> fn: calculate
+[ID 166] "Basic Calculator III" -> fn: calculate
+[ID 169] "Remove All Adjacent Duplicates in String II" -> fn: equationsPossible
+[ID 170] "Remove K Digits" -> fn: plusOne
+[ID 173] "Number of Atoms" -> fn: jump
+[ID 177] "Next Greater Element II" -> fn: wiggleSort
+[ID 181] "Trapping Rain Water" -> fn: combine
+[ID 183] "Valid Parenthesis String" -> fn: calculate
+[ID 184] "Minimum Add to Make Parentheses Valid" -> fn: smallestDistancePair
+[ID 186] "Maximum Nesting Depth of Parentheses" -> fn: countRangeSum
+[ID 187] "Binary Search" -> fn: mySqrt
+[ID 188] "Search Insert Position" -> fn: scoreOfParentheses
+[ID 190] "Sqrt(x)" -> fn: minAddToMakeValid
+[ID 192] "Guess Number Higher or Lower" -> fn: maxDepth
+[ID 193] "Find Smallest Letter Greater Than Target" -> fn: search
+[ID 196] "Search in Rotated Sorted Array" -> fn: minMeetingRooms
+[ID 201] "Find K Closest Elements" -> fn: numDecodings
+[ID 202] "Kth Smallest Element in a Sorted Matrix" -> fn: calcEquation
+[ID 203] "Find K-th Smallest Pair Distance" -> fn: search
+[ID 204] "Koko Eating Bananas" -> fn: findMin
+[ID 205] "Minimize Max Distance to Gas Station" -> fn: findMin
+[ID 206] "Split Array Largest Sum" -> fn: singleNonDuplicate
+[ID 207] "Capacity To Ship Packages Within D Days" -> fn: findClosestElements
+[ID 208] "Divide Chocolate" -> fn: kthSmallest
+[ID 209] "Minimum Number of Days to Make m Bouquets" -> fn: minDeletions
+[ID 210] "Magnetic Force Between Two Balls" -> fn: minEatingSpeed
+[ID 212] "Find Right Interval" -> fn: splitArray
+[ID 213] "Russian Doll Envelopes" -> fn: shipWithinDays
+[ID 214] "Longest Increasing Subsequence" -> fn: maximizeSweetness
+[ID 216] "Count of Range Sum" -> fn: findDisappearedNumbers
+[ID 217] "Median of Two Sorted Arrays" -> fn: minmaxGasDist
+[ID 219] "Count Complete Tree Nodes" -> fn: maxEnvelopes
+[ID 220] "Powx n" -> fn: myPow
+[ID 221] "Divide Two Integers" -> fn: countSmaller
+[ID 223] "Minimum Depth of Binary Tree" -> fn: hasPathSum
+[ID 225] "Diameter of Binary Tree" -> fn: kthSmallest
+[ID 226] "Balanced Binary Tree" -> fn: connect
+[ID 227] "Same Tree" -> fn: countNodes
+[ID 228] "Symmetric Tree" -> fn: findMedianSortedArrays
+[ID 229] "Subtree of Another Tree" -> fn: myPow
+[ID 232] "Path Sum" -> fn: minDepth
+[ID 233] "Path Sum II" -> fn: deleteNode
+[ID 236] "Sum Root to Leaf Numbers" -> fn: isSubtree
+[ID 237] "Lowest Common Ancestor of BST" -> fn: diameterOfBinaryTree
+[ID 238] "Lowest Common Ancestor of Binary Tree" -> fn: isBalanced
+[ID 239] "Binary Tree Level Order Traversal" -> fn: divide
+[ID 240] "Binary Tree Zigzag Level Order" -> fn: isSymmetric
+[ID 242] "Binary Tree Level Order Traversal II" -> fn: canJump
+[ID 245] "Populating Next Right Pointers" -> fn: pathSum
+[ID 246] "Populating Next Right Pointers II" -> fn: pathSum
+[ID 247] "Validate Binary Search Tree" -> fn: findPeakElement
+[ID 248] "Kth Smallest Element in BST" -> fn: levelOrder
+[ID 250] "Convert Sorted Array to BST" -> fn: isPerfectSquare
+[ID 251] "Construct Binary Tree from Preorder and Inorder" -> fn: connect
+[ID 252] "Construct Binary Tree from Inorder and Postorder" -> fn: isValidBST
+[ID 254] "Serialize and Deserialize BST" -> fn: Codec
+[ID 256] "Count Good Nodes in Binary Tree" -> fn: insertIntoBST
+[ID 257] "Delete Node in a BST" -> fn: minDepth
+[ID 264] "Number of Distinct Islands" -> fn: findRedundantConnection
+[ID 265] "Number of Closed Islands" -> fn: longestWord
+[ID 266] "Clone Graph" -> fn: findCircleNum
+[ID 268] "Surrounded Regions" -> fn: closedIsland
+[ID 269] "Number of Provinces" -> fn: countComponents
+[ID 271] "Number of Connected Components" -> fn: pacificAtlantic
+[ID 274] "Accounts Merge" -> fn: permuteUnique
+[ID 276] "Course Schedule" -> fn: generateTrees
+[ID 277] "Course Schedule II" -> fn: maxAreaOfIsland
+[ID 280] "Alien Dictionary" -> fn: rob
+[ID 284] "Path with Maximum Probability" -> fn: equalSubstring
+[ID 285] "Path With Minimum Effort" -> fn: cloneGraph
+[ID 288] "Word Ladder II" -> fn: swimInWater
+[ID 291] "All Paths from Source to Target" -> fn: isBipartite
+[ID 292] "Find if Path Exists in Graph" -> fn: containsNearbyAlmostDuplicate
+[ID 293] "Evaluate Division" -> fn: productExceptSelf
+[ID 294] "Shortest Path in Binary Matrix" -> fn: buildTree
+[ID 295] "Shortest Bridge" -> fn: addOperators
+[ID 296] "Is Graph Bipartite" -> fn: minCostClimbingStairs
+[ID 298] "Min Cost Climbing Stairs" -> fn: longestPalindromeSubseq
+[ID 300] "House Robber II" -> fn: countSubstrings
+[ID 302] "Coin Change" -> fn: rob
+[ID 303] "Coin Change 2" -> fn: minDistance
+[ID 304] "Combination Sum IV" -> fn: canFinish
+[ID 305] "Perfect Squares" -> fn: numTrees
+[ID 306] "Decode Ways" -> fn: numDecodings
+[ID 307] "Decode Ways II" -> fn: numDecodings
+[ID 308] "Unique Paths" -> fn: maxEnvelopes
+[ID 309] "Unique Paths II" -> fn: findLongestChain
+[ID 311] "Minimum Path Sum" -> fn: maxProfit
+[ID 312] "Triangle" -> fn: minimumTotal
+[ID 313] "Maximal Square" -> fn: lengthOfLIS
+[ID 314] "Longest Palindromic Substring" -> fn: numSquares
+[ID 315] "Longest Palindromic Subsequence" -> fn: minPathSum
+[ID 318] "Edit Distance" -> fn: minimumTotal
+[ID 319] "Distinct Subsequences" -> fn: lastStoneWeightII
+[ID 320] "Interleaving String" -> fn: canPartitionKSubsets
+[ID 321] "Longest Increasing Subsequence" -> fn: lengthOfLIS
+[ID 326] "Best Time to Buy and Sell Stock" -> fn: uniquePaths
+[ID 327] "Best Time to Buy and Sell Stock II" -> fn: uniquePathsWithObstacles
+[ID 329] "Best Time to Buy and Sell Stock IV" -> fn: maxProfit
+[ID 330] "Best Time to Buy and Sell Stock with Cooldown" -> fn: maxProfit
+[ID 331] "Best Time to Buy and Sell Stock with Transaction Fee" -> fn: maxProfit
+[ID 332] "Word Break" -> fn: maximalSquare
+[ID 334] "Partition Equal Subset Sum" -> fn: longestCommonSubsequence
+[ID 335] "Target Sum" -> fn: findMaxForm
+[ID 336] "Ones and Zeroes" -> fn: maxProfit
+[ID 337] "Last Stone Weight II" -> fn: ladderLength
+[ID 338] "Partition to K Equal Sum Subsets" -> fn: scheduleCourse
+[ID 339] "Regular Expression Matching" -> fn: isMatch
+[ID 340] "Wildcard Matching" -> fn: longestValidParentheses
+[ID 345] "Burst Balloons" -> fn: maxProfit
+[ID 347] "Subsets" -> fn: findMinHeightTrees
+[ID 348] "Subsets II" -> fn: rotate
+[ID 349] "Permutations" -> fn: candy
+[ID 350] "Permutations II" -> fn: permuteUnique
+[ID 354] "Combinations" -> fn: findOrder
+[ID 355] "Letter Combinations of a Phone Number" -> fn: findCheapestPrice
+[ID 356] "Generate Parentheses" -> fn: sequenceReconstruction
+[ID 357] "Palindrome Partitioning" -> fn: networkDelayTime
+[ID 358] "Palindrome Partitioning II" -> fn: isMatch
+[ID 359] "Word Search" -> fn: exist
+[ID 361] "N-Queens" -> fn: maxProbability
+[ID 363] "Sudoku Solver" -> fn: minimumEffortPath
+[ID 364] "Valid Sudoku" -> fn: solveNQueens
+[ID 365] "Letter Case Permutation" -> fn: characterReplacement
+[ID 366] "Beautiful Arrangement" -> fn: combinationSum2
+[ID 367] "Matchsticks to Square" -> fn: eraseOverlapIntervals
+[ID 369] "Additive Number" -> fn: findDuplicate
+[ID 371] "Factor Combinations" -> fn: wordBreak
+[ID 373] "Expression Add Operators" -> fn: letterCombinations
+[ID 375] "Strobogrammatic Number II" -> fn: findDuplicate
+[ID 377] "Kth Largest Element in an Array" -> fn: findLadders
+[ID 378] "Kth Smallest Element in a Sorted Matrix" -> fn: allPathsSourceTarget
+[ID 379] "Top K Frequent Elements" -> fn: minMutation
+[ID 380] "Top K Frequent Words" -> fn: maxProfit
+[ID 386] "Task Scheduler" -> fn: findItinerary
+[ID 390] "IPO" -> fn: findMaximizedCapital
+[ID 393] "Meeting Rooms II" -> fn: shortestBridge
+[ID 394] "Meeting Rooms III" -> fn: combinationSum
+[ID 396] "Find the Kth Smallest Sum" -> fn: removeKdigits
+[ID 397] "Implement Trie (Prefix Tree)" -> fn: kthSmallest
+[ID 398] "Design Add and Search Words Data Structure" -> fn: splitIntoFibonacci
+[ID 399] "Search Suggestions System" -> fn: suggestedProducts
+[ID 401] "Implement Magic Dictionary" -> fn: getFactors
+[ID 402] "Palindrome Pairs" -> fn: restoreIpAddresses
+[ID 405] "Stream of Characters" -> fn: reverseString
+[ID 406] "Concatenated Words" -> fn: numberOfPatterns
+[ID 407] "Word Squares" -> fn: longestPalindrome
+[ID 409] "Maximum XOR With Element From Array" -> fn: numDistinct
+[ID 410] "Map Sum Pairs" -> fn: wordSquares
+[ID 414] "Gas Station" -> fn: permute
+[ID 415] "Candy" -> fn: subsetsWithDup
+[ID 418] "Non-overlapping Intervals" -> fn: maximumUnits
+[ID 420] "Remove Duplicate Letters" -> fn: maximizeXor
+[ID 422] "Largest Number" -> fn: minCut
+[ID 423] "Maximum Swap" -> fn: goodNodes
+[ID 424] "Task Scheduler" -> fn: combinationSum3
+[ID 426] "Reduce Array Size to The Half" -> fn: findMinArrowShots
+
+=== AUDIT COMPLETE ===

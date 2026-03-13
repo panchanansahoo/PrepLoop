@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Mic, Settings, X, CheckCircle, AlertCircle, Loader2, Video, Volume2, Shield } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SetupInterviewModal({ isOpen, onClose, onStart, config }) {
   const [permissions, setPermissions] = useState({ camera: false, mic: false });
@@ -7,6 +8,8 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
   const [error, setError] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
 
   useEffect(() => {
     if (isOpen) {
@@ -47,22 +50,22 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-in fade-in duration-300">
-      <div className="relative w-full max-w-2xl bg-[#0a0a0c] border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 ring-1 ring-white/5">
+      <div className={`relative w-full max-w-2xl ${isLight ? 'bg-white' : 'bg-[#0a0a0c]'} border ${isLight ? 'border-gray-200' : 'border-white/10'} rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-500 ${isLight ? '' : 'ring-1 ring-white/5'}`}>
 
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/[0.02]">
+        <div className={`flex items-center justify-between p-6 border-b ${isLight ? 'border-gray-200 bg-gray-50/50' : 'border-white/5 bg-white/[0.02]'}`}>
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-indigo-400 border border-white/10 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center text-indigo-400 border ${isLight ? 'border-indigo-100' : 'border-white/10'} shadow-[0_0_15px_rgba(99,102,241,0.1)]`}>
               <Settings size={22} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">System Check</h2>
-              <p className="text-sm text-gray-400">Configure your environment before starting</p>
+              <h2 className={`text-xl font-bold ${isLight ? 'text-gray-900' : 'text-white'} tracking-tight`}>System Check</h2>
+              <p className={`text-sm ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>Configure your environment before starting</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2.5 text-gray-500 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+            className={`p-2.5 ${isLight ? 'text-gray-400 hover:text-gray-900 hover:bg-gray-100' : 'text-gray-500 hover:text-white hover:bg-white/10'} rounded-full transition-colors`}
           >
             <X size={20} />
           </button>
@@ -73,7 +76,7 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
 
           {/* Video Preview */}
           <div className="space-y-4">
-            <div className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 shadow-inner group ring-1 ring-white/5">
+            <div className={`relative aspect-video rounded-2xl overflow-hidden bg-black border ${isLight ? 'border-gray-200' : 'border-white/10'} shadow-inner group ${isLight ? '' : 'ring-1 ring-white/5'}`}>
               {permissions.camera ? (
                 <video
                   ref={videoRef}
@@ -118,7 +121,7 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
                     }`}>
                     <Video size={18} />
                   </div>
-                  <span className="text-sm font-medium text-gray-200">Camera Access</span>
+                  <span className={`text-sm font-medium ${isLight ? 'text-gray-700' : 'text-gray-200'}`}>Camera Access</span>
                 </div>
                 {checking ? <Loader2 size={18} className="animate-spin text-indigo-400" /> : (
                   permissions.camera ? <CheckCircle size={18} className="text-emerald-400" /> : <AlertCircle size={18} className="text-rose-400" />
@@ -134,7 +137,7 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
                     }`}>
                     <Volume2 size={18} />
                   </div>
-                  <span className="text-sm font-medium text-gray-200">Microphone Input</span>
+                  <span className={`text-sm font-medium ${isLight ? 'text-gray-700' : 'text-gray-200'}`}>Microphone Input</span>
                 </div>
                 {checking ? <Loader2 size={18} className="animate-spin text-indigo-400" /> : (
                   permissions.mic ? <CheckCircle size={18} className="text-emerald-400" /> : <AlertCircle size={18} className="text-rose-400" />
@@ -142,15 +145,15 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
               </div>
             </div>
 
-            <div className="pt-6 border-t border-white/10">
+            <div className={`pt-6 border-t ${isLight ? 'border-gray-200' : 'border-white/10'}`}>
               <h4 className="text-xs font-bold text-gray-500 mb-4 uppercase tracking-widest flex items-center gap-2">
                 <Shield size={12} />
                 Session Configuration
               </h4>
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                <div className={`p-3.5 rounded-xl ${isLight ? 'bg-gray-50 border border-gray-200 hover:bg-gray-100' : 'bg-white/5 border border-white/5 hover:bg-white/10'} transition-colors group`}>
                   <span className="text-xs text-gray-500 block mb-1.5 group-hover:text-gray-400 transition-colors">Interview Type</span>
-                  <span className="text-sm font-bold text-white capitalize flex items-center gap-2">
+                  <span className={`text-sm font-bold ${isLight ? 'text-gray-900' : 'text-white'} capitalize flex items-center gap-2`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${config?.type === 'technical' ? 'bg-blue-500' :
                         config?.type === 'system-design' ? 'bg-purple-500' :
                           'bg-emerald-500'
@@ -158,9 +161,9 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
                     {config?.type || 'Technical'}
                   </span>
                 </div>
-                <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors group">
+                <div className={`p-3.5 rounded-xl ${isLight ? 'bg-gray-50 border border-gray-200 hover:bg-gray-100' : 'bg-white/5 border border-white/5 hover:bg-white/10'} transition-colors group`}>
                   <span className="text-xs text-gray-500 block mb-1.5 group-hover:text-gray-400 transition-colors">Difficulty</span>
-                  <span className="text-sm font-bold text-white capitalize flex items-center gap-2">
+                  <span className={`text-sm font-bold ${isLight ? 'text-gray-900' : 'text-white'} capitalize flex items-center gap-2`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${config?.difficulty === 'easy' ? 'bg-emerald-400' :
                         config?.difficulty === 'medium' ? 'bg-amber-400' :
                           'bg-rose-400'
@@ -174,10 +177,10 @@ export default function SetupInterviewModal({ isOpen, onClose, onStart, config }
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-white/5 bg-white/[0.02] flex justify-end gap-3 rounded-b-3xl">
+        <div className={`p-6 border-t ${isLight ? 'border-gray-200 bg-gray-50/50' : 'border-white/5 bg-white/[0.02]'} flex justify-end gap-3 rounded-b-3xl`}>
           <button
             onClick={onClose}
-            className="px-6 py-3 rounded-xl font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200"
+            className={`px-6 py-3 rounded-xl font-medium ${isLight ? 'text-gray-500 hover:text-gray-900 hover:bg-gray-100' : 'text-gray-400 hover:text-white hover:bg-white/5'} transition-all duration-200`}
           >
             Cancel
           </button>

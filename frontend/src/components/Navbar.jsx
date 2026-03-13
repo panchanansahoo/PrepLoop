@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { PROBLEMS } from '../data/problemsDatabase';
 import {
   Search, Bell, Menu, X, ChevronRight, User, LogOut,
   Settings, Sparkles, Crown, Command, TrendingUp,
-  Award, ChevronDown
+  Award, ChevronDown, Sun, Moon
 } from 'lucide-react';
 
 import logo from '../assets/logo.svg';
@@ -42,6 +43,7 @@ function getPageTitle(pathname) {
 
 export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user);
   const navigate = useNavigate();
   const location = useLocation();
@@ -177,6 +179,14 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           </div>
 
           <div className="nav-actions desktop-only">
+            <button
+              className="icon-btn theme-toggle-btn"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'all 0.2s' }}
+            >
+              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
             {user ? (
               <Link to="/dashboard" className="btn btn-primary glow-effect">
                 Go to Dashboard <ChevronRight size={16} />
@@ -285,6 +295,15 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               </div>
             )}
           </div>
+
+          {/* Theme Toggle */}
+          <button
+            className="icon-btn theme-toggle-btn"
+            onClick={toggleTheme}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
 
           {/* Notification Bell */}
           <div className="relative" ref={notifRef}>

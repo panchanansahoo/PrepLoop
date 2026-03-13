@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Bell, Moon, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
 
 export default function Settings() {
     const { user, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const [settings, setSettings] = useState({
         emailNotifications: true,
         practiceReminders: true,
         weeklyReport: true,
-        darkMode: true,
         language: 'en',
         codeEditor: 'vscode',
         difficulty: 'medium'
@@ -93,8 +94,8 @@ export default function Settings() {
             </Section>
 
             <Section title="Preferences" icon={<Moon size={18} color="var(--accent)" />}>
-                <SettingRow label="Dark Mode" desc="Currently using dark theme">
-                    <Toggle checked={settings.darkMode} onChange={v => setSettings({ ...settings, darkMode: v })} />
+                <SettingRow label="Dark Mode" desc={theme === 'dark' ? 'Currently using dark theme' : 'Currently using light theme'}>
+                    <Toggle checked={theme === 'dark'} onChange={() => toggleTheme()} />
                 </SettingRow>
                 <SettingRow label="Language">
                     <select

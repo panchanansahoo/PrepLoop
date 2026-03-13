@@ -18,7 +18,7 @@ import CodeEditorPanel from '../components/CodeEditorPanel';
 import ProctoringManager from '../components/ProctoringManager';
 import DetailedReport from '../components/interview/DetailedReport';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ─── AI Avatar Canvas Component (Human photo with animated rings) ───
 function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { fetchAllContests } from '../utils/contestUtils';
 
 const PLATFORM_META = {
@@ -81,6 +82,8 @@ export default function UpcomingContests() {
     const [contests, setContests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     const fetchAll = useCallback(async (force = false) => {
         if (!force) {
@@ -98,12 +101,8 @@ export default function UpcomingContests() {
 
         setLoading(true);
         try {
-            // Merge: live Codeforces + scheduled others
             const all = await fetchAllContests();
-
-            // Sort by date, take closest 8
             const sorted = all.slice(0, 8);
-
             setContests(sorted);
             setCachedContests(sorted);
             setLastRefresh(Date.now());
@@ -113,7 +112,6 @@ export default function UpcomingContests() {
 
     useEffect(() => {
         fetchAll();
-        // Auto-refresh every 24 hours
         const interval = setInterval(() => {
             const cache = getCachedContests();
             if (!cache) fetchAll(true);
@@ -126,22 +124,74 @@ export default function UpcomingContests() {
         fetchAll(true);
     };
 
+    // Theme-aware colors
+    const colors = isLight ? {
+        cardBg: 'rgba(255,255,255,0.7)',
+        cardBorder: '1px solid rgba(99,102,241,0.1)',
+        titleColor: '#1a1d2e',
+        subtitleColor: '#8b8fa6',
+        itemBg: 'rgba(255,255,255,0.5)',
+        itemBorder: '1px solid rgba(99,102,241,0.08)',
+        itemHoverBg: 'rgba(99,102,241,0.06)',
+        itemHoverBorder: 'rgba(99,102,241,0.15)',
+        nameColor: '#1a1d2e',
+        metaColor: '#6b7089',
+        dateColor: '#8b8fa6',
+        btnBg: 'rgba(99,102,241,0.06)',
+        btnBorder: '1px solid rgba(99,102,241,0.12)',
+        btnColor: '#5c6078',
+        btnHoverBg: 'rgba(99,102,241,0.1)',
+        btnHoverColor: '#4f46e5',
+        skeletonBg: 'rgba(99,102,241,0.06)',
+        liveBg: 'rgba(34,197,94,0.1)',
+        liveColor: '#059669',
+        apiBg: 'rgba(239,68,68,0.08)',
+        apiColor: '#dc2626',
+        scrollThumb: 'rgba(99,102,241,0.12)',
+        scrollThumbHover: 'rgba(99,102,241,0.2)',
+    } : {
+        cardBg: 'rgba(255,255,255,0.03)',
+        cardBorder: '1px solid rgba(255,255,255,0.06)',
+        titleColor: '#fff',
+        subtitleColor: 'rgba(255,255,255,0.35)',
+        itemBg: 'rgba(255,255,255,0.02)',
+        itemBorder: '1px solid rgba(255,255,255,0.05)',
+        itemHoverBg: 'rgba(255,255,255,0.05)',
+        itemHoverBorder: 'rgba(255,255,255,0.12)',
+        nameColor: '#fff',
+        metaColor: 'rgba(255,255,255,0.35)',
+        dateColor: 'rgba(255,255,255,0.3)',
+        btnBg: 'rgba(255,255,255,0.05)',
+        btnBorder: '1px solid rgba(255,255,255,0.08)',
+        btnColor: 'rgba(255,255,255,0.5)',
+        btnHoverBg: 'rgba(255,255,255,0.1)',
+        btnHoverColor: '#fff',
+        skeletonBg: 'rgba(255,255,255,0.03)',
+        liveBg: 'rgba(34,197,94,0.15)',
+        liveColor: '#22c55e',
+        apiBg: 'rgba(239,68,68,0.15)',
+        apiColor: '#ef4444',
+        scrollThumb: 'rgba(255,255,255,0.1)',
+        scrollThumbHover: 'rgba(255,255,255,0.2)',
+    };
+
     return (
         <div style={{
-            background: 'rgba(255,255,255,0.03)', borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.06)', padding: '20px 24px',
+            background: colors.cardBg, borderRadius: 16,
+            border: colors.cardBorder, padding: '20px 24px',
+            backdropFilter: isLight ? 'blur(12px)' : 'none',
         }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: colors.titleColor, marginBottom: 3, display: 'flex', alignItems: 'center', gap: 8 }}>
                         🏅 Upcoming Contests
                         <span style={{
                             fontSize: 9, fontWeight: 600, padding: '2px 7px', borderRadius: 6,
-                            background: 'rgba(34,197,94,0.15)', color: '#22c55e', letterSpacing: 0.5,
+                            background: colors.liveBg, color: colors.liveColor, letterSpacing: 0.5,
                         }}>LIVE</span>
                     </div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                    <div style={{ fontSize: 11, color: colors.subtitleColor }}>
                         Auto-updates daily · {lastRefresh ? `Refreshed ${getLastRefreshLabel(lastRefresh)}` : 'Loading...'}
                     </div>
                 </div>
@@ -150,13 +200,13 @@ export default function UpcomingContests() {
                     disabled={loading}
                     title="Refresh contests"
                     style={{
-                        background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                        background: colors.btnBg, border: colors.btnBorder,
                         borderRadius: 8, padding: '6px 10px', cursor: loading ? 'not-allowed' : 'pointer',
-                        color: 'rgba(255,255,255,0.5)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 5,
+                        color: colors.btnColor, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5,
                         transition: 'all 0.2s',
                     }}
-                    onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#fff'; } }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.5)'; }}
+                    onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = colors.btnHoverBg; e.currentTarget.style.color = colors.btnHoverColor; } }}
+                    onMouseLeave={e => { e.currentTarget.style.background = colors.btnBg; e.currentTarget.style.color = colors.btnColor; }}
                 >
                     <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
                     {loading ? 'Updating…' : 'Refresh'}
@@ -168,18 +218,18 @@ export default function UpcomingContests() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {[1, 2, 3, 4].map(i => (
                         <div key={i} style={{
-                            height: 56, borderRadius: 12, background: 'rgba(255,255,255,0.03)',
+                            height: 56, borderRadius: 12, background: colors.skeletonBg,
                             animation: 'pulse 1.5s ease-in-out infinite',
                         }} />
                     ))}
                 </div>
             )}
 
-            {/* Contest List — shows 5, rest scrollable */}
+            {/* Contest List */}
             {contests.length > 0 && (
                 <div className="contests-scroll" style={{
                     display: 'flex', flexDirection: 'column', gap: 10,
-                    maxHeight: 5 * 66 + 4 * 10, // 5 items × ~66px height + 4 gaps × 10px
+                    maxHeight: 5 * 66 + 4 * 10,
                     overflowY: 'auto',
                     paddingRight: contests.length > 5 ? 4 : 0,
                 }}>
@@ -188,12 +238,12 @@ export default function UpcomingContests() {
                         return (
                             <a key={i} href={contest.link} target="_blank" rel="noreferrer" style={{
                                 display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px',
-                                borderRadius: 12, background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.05)', textDecoration: 'none',
+                                borderRadius: 12, background: colors.itemBg,
+                                border: colors.itemBorder, textDecoration: 'none',
                                 transition: 'all 0.2s', cursor: 'pointer', flexShrink: 0,
                             }}
-                                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)'; }}
+                                onMouseEnter={e => { e.currentTarget.style.background = colors.itemHoverBg; e.currentTarget.style.borderColor = colors.itemHoverBorder; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = colors.itemBg; e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); }}
                             >
                                 {/* Platform Icon */}
                                 <div style={{
@@ -205,7 +255,7 @@ export default function UpcomingContests() {
                                 {/* Info */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{
-                                        fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2,
+                                        fontSize: 13, fontWeight: 600, color: colors.nameColor, marginBottom: 2,
                                         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                         display: 'flex', alignItems: 'center', gap: 6,
                                     }}>
@@ -213,11 +263,11 @@ export default function UpcomingContests() {
                                         {contest.live && (
                                             <span style={{
                                                 fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
-                                                background: 'rgba(239,68,68,0.15)', color: '#ef4444', letterSpacing: 0.3,
+                                                background: colors.apiBg, color: colors.apiColor, letterSpacing: 0.3,
                                             }}>API</span>
                                         )}
                                     </div>
-                                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                                    <div style={{ fontSize: 11, color: colors.metaColor }}>
                                         {contest.platform} · {contest.duration} · {formatTime(contest.date)}
                                     </div>
                                 </div>
@@ -225,7 +275,7 @@ export default function UpcomingContests() {
                                 {/* Countdown */}
                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                     <div style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{getDaysUntil(contest.date)}</div>
-                                    <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', marginTop: 1 }}>{formatDate(contest.date)}</div>
+                                    <div style={{ fontSize: 10, color: colors.dateColor, marginTop: 1 }}>{formatDate(contest.date)}</div>
                                 </div>
                             </a>
                         );
@@ -239,8 +289,8 @@ export default function UpcomingContests() {
                 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 .contests-scroll::-webkit-scrollbar { width: 4px; }
                 .contests-scroll::-webkit-scrollbar-track { background: transparent; }
-                .contests-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-                .contests-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+                .contests-scroll::-webkit-scrollbar-thumb { background: ${colors.scrollThumb}; border-radius: 4px; }
+                .contests-scroll::-webkit-scrollbar-thumb:hover { background: ${colors.scrollThumbHover}; }
             `}</style>
         </div>
     );

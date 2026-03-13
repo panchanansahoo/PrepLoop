@@ -1,8 +1,9 @@
 import express from 'express';
-import { supabaseAdmin } from '../db/index.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
 import pdf from 'pdf-parse';
 import { simpleParser } from 'mailparser';
+import { authenticateToken } from '../middleware/auth.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -49,7 +50,7 @@ router.get('/:slug', async (req, res) => {
       .single();
 
     if (error) throw error;
-    
+
     // Increment views
     await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id });
 
@@ -59,27 +60,12 @@ router.get('/:slug', async (req, res) => {
   }
 });
 
-// Middleware to verify auth token
-const requireAuth = async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) throw new Error('No token provided');
-
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    if (error || !user) throw new Error('Unauthorized');
-
-    req.user = user;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Unauthorized' });
-  }
-};
 
 // Create new blog
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { title, content, category, cover_image, start_date } = req.body; // start_date mapped to created_at if needed, or just let DB default
-    
+
     // Generate simple slug (can be improved)
     const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
 
@@ -129,7 +115,7 @@ router.post('/parse-eml', upload.single('eml'), async (req, res) => {
     }
 
     const parsed = await simpleParser(req.file.buffer);
-    
+
     // Prefer HTML, fallback to text, fallback to textAsHtml
     const content = parsed.html || parsed.textAsHtml || parsed.text;
 

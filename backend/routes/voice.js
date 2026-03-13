@@ -6,7 +6,7 @@ import express from 'express';
 import multer from 'multer';
 import os from 'os';
 import fs from 'fs';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import voiceService from '../services/voiceService.js';
 
 const router = express.Router();
@@ -59,7 +59,8 @@ router.post('/tts', optionalAuth, async (req, res) => {
 });
 
 // ─── Get Deepgram token for frontend WebSocket STT ───
-router.get('/deepgram-token', optionalAuth, (req, res) => {
+// SECURITY: Requires auth to prevent unauthenticated token exposure
+router.get('/deepgram-token', authenticateToken, (req, res) => {
     const token = voiceService.getDeepgramToken();
 
     if (!token) {
@@ -69,6 +70,8 @@ router.get('/deepgram-token', optionalAuth, (req, res) => {
         });
     }
 
+    // Note: In production, generate a short-lived scoped Deepgram API key
+    // instead of passing the main API key to the frontend.
     res.json({ available: true, token });
 });
 

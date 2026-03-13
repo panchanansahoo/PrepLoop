@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { PROBLEMS, COMPANIES, TOPICS, PATTERNS, getDifficultyCounts } from '../data/problemsDatabase';
 import { dsaPatterns } from '../data/dsaPatternsData';
+import { useTheme } from '../context/ThemeContext';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
 
@@ -99,6 +100,8 @@ function getWeekSolved() {
 
 export default function ProblemExplorer() {
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const [search, setSearch] = useState('');
     const [selectedDifficulties, setSelectedDifficulties] = useState([]);
     const [selectedTopics, setSelectedTopics] = useState([]);
@@ -303,7 +306,7 @@ export default function ProblemExplorer() {
     }, [recentlyViewed]);
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-purple-500/30" style={{ scrollBehavior: 'smooth' }}>
+        <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0a0a0a] text-white'} selection:bg-purple-500/30`} style={{ scrollBehavior: 'smooth' }}>
             <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.10), transparent 70%)' }} />
             <style>{`
                 @keyframes shimmer-border { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }

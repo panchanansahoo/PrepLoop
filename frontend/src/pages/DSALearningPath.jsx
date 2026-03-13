@@ -6,19 +6,20 @@ import {
 } from 'lucide-react';
 import { DSA_STAGES, DSA_TOPICS, TIME_TRACKS, getDSATopicIds, getDSATopicsByStage } from '../data/dsaLearningPathData';
 import { getDSATopicProgress, getDSAOverallProgress, getDSASkillRadar } from '../data/dsaLearningProgress';
+import { useTheme } from '../context/ThemeContext';
 
 /* ─── Progress Ring ─── */
-function ProgressRing({ percent, size = 60, strokeWidth = 5, color }) {
+function ProgressRing({ percent, size = 60, strokeWidth = 5, color, isLight = false }) {
     const r = (size - strokeWidth) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percent / 100) * circ;
     return (
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth={strokeWidth} />
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
                 strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
                 style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill="#fff"
+            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill={isLight ? '#1e293b' : '#fff'}
                 fontSize={size * 0.22} fontWeight="700" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}>
                 {percent}%
             </text>
@@ -48,11 +49,11 @@ function SkillRadar({ data }) {
             {levels.map(l => {
                 const pts = Array.from({ length: n }, (_, i) => getPoint(i, l));
                 const d = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ') + 'Z';
-                return <path key={l} d={d} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />;
+                return <path key={l} d={d} fill="none" stroke="rgba(100,116,139,0.12)" strokeWidth="1" />;
             })}
             {data.map((_, i) => {
                 const p = getPoint(i, 100);
-                return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />;
+                return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(100,116,139,0.1)" strokeWidth="1" />;
             })}
             <path d={pathD} fill="rgba(129,140,248,0.15)" stroke="#818cf8" strokeWidth="2" />
             {radarPoints.map((p, i) => (
@@ -80,7 +81,7 @@ function getMasteryBadge(p) {
 }
 
 /* ─── Topic Card ─── */
-function TopicCard({ topic, onClick }) {
+function TopicCard({ topic, onClick, isLight = false }) {
     const progress = getDSATopicProgress(topic.id);
     const badge = getMasteryBadge(progress.masteryPercent);
     const steps = [
@@ -92,28 +93,28 @@ function TopicCard({ topic, onClick }) {
 
     return (
         <div onClick={onClick} style={{
-            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
+            background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
             padding: 24, cursor: 'pointer', transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden'
         }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = `${topic.color}40`; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 8px 32px ${topic.color}15`; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
+            onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
             <div style={{ position: 'absolute', top: -40, right: -40, width: 120, height: 120, borderRadius: '50%', background: `${topic.color}08`, filter: 'blur(40px)', pointerEvents: 'none' }} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div>
                     <div style={{ fontSize: 28, marginBottom: 6 }}>{topic.icon}</div>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: '#fff' }}>{topic.title}</h3>
-                    <p style={{ fontSize: 12, color: '#71717a', margin: 0, lineHeight: 1.5, maxWidth: 220 }}>{topic.description}</p>
+                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: isLight ? '#1e293b' : '#fff' }}>{topic.title}</h3>
+                    <p style={{ fontSize: 12, color: isLight ? '#64748b' : '#71717a', margin: 0, lineHeight: 1.5, maxWidth: 220 }}>{topic.description}</p>
                 </div>
-                <ProgressRing percent={progress.masteryPercent} color={topic.color} size={56} strokeWidth={4} />
+                <ProgressRing percent={progress.masteryPercent} color={topic.color} size={56} strokeWidth={4} isLight={isLight} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 14 }}>
                 {steps.map((s, i) => (
                     <div key={i} style={{
                         textAlign: 'center', padding: '6px 4px', borderRadius: 8,
-                        background: s.done ? `${topic.color}12` : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${s.done ? `${topic.color}25` : 'rgba(255,255,255,0.04)'}`
+                        background: s.done ? `${topic.color}12` : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        border: `1px solid ${s.done ? `${topic.color}25` : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'}`
                     }}>
                         <div style={{ fontSize: 10, marginBottom: 2 }}>{s.done ? '✅' : '○'}</div>
                         <div style={{ fontSize: 9, color: s.done ? topic.color : '#525252', fontWeight: 600 }}>{s.label}</div>
@@ -124,7 +125,7 @@ function TopicCard({ topic, onClick }) {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 11, color: badge.color, fontWeight: 600 }}>{badge.emoji} {badge.label}</span>
-                    <span style={{ fontSize: 10, color: '#3f3f46', padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.04)' }}>{topic.difficulty}</span>
+                    <span style={{ fontSize: 10, color: isLight ? '#64748b' : '#3f3f46', padding: '2px 6px', borderRadius: 4, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)' }}>{topic.difficulty}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                     <Clock size={11} style={{ color: '#525252' }} />
@@ -141,6 +142,8 @@ export default function DSALearningPath() {
     const navigate = useNavigate();
     const [expandedStages, setExpandedStages] = useState({ fundamentals: true, core: true, 'trees-graphs': true, optimization: true });
     const [selectedTrack, setSelectedTrack] = useState(60);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     const topicIds = useMemo(() => getDSATopicIds(), []);
     const overall = useMemo(() => getDSAOverallProgress(topicIds), []);
@@ -150,7 +153,7 @@ export default function DSALearningPath() {
     const track = TIME_TRACKS[selectedTrack];
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#030303', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
             {/* ─── Hero ─── */}
             <section style={{ padding: '48px 24px 32px', maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
                 <div style={{
@@ -165,7 +168,7 @@ export default function DSALearningPath() {
                         Learning Path
                     </span>
                 </h1>
-                <p style={{ fontSize: 16, color: '#71717a', maxWidth: 600, margin: '0 auto 32px', lineHeight: 1.6 }}>
+                <p style={{ fontSize: 16, color: isLight ? '#64748b' : '#71717a', maxWidth: 600, margin: '0 auto 32px', lineHeight: 1.6 }}>
                     Master 15 DSA topics with pattern-first learning. Concepts → Thinking Frameworks → Tricks → Practice.
                 </p>
 
@@ -178,12 +181,12 @@ export default function DSALearningPath() {
                         { label: 'Topics Started', value: overall.topicsStarted, icon: <Flame size={16} />, color: '#f472b6' },
                     ].map((s, i) => (
                         <div key={i} style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                            background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
                             borderRadius: 12, padding: '16px 12px', textAlign: 'center'
                         }}>
                             <div style={{ color: s.color, marginBottom: 6 }}>{s.icon}</div>
                             <div style={{ fontSize: 24, fontWeight: 700 }}>{s.value}</div>
-                            <div style={{ fontSize: 11, color: '#71717a', marginTop: 2 }}>{s.label}</div>
+                            <div style={{ fontSize: 11, color: isLight ? '#64748b' : '#71717a', marginTop: 2 }}>{s.label}</div>
                         </div>
                     ))}
                 </div>
@@ -198,13 +201,13 @@ export default function DSALearningPath() {
                     {Object.entries(TIME_TRACKS).map(([days, t]) => (
                         <div key={days} onClick={() => setSelectedTrack(Number(days))} style={{
                             padding: '16px 20px', borderRadius: 14, cursor: 'pointer', transition: 'all 0.3s',
-                            background: selectedTrack === Number(days) ? 'rgba(129,140,248,0.12)' : 'rgba(255,255,255,0.02)',
-                            border: `1px solid ${selectedTrack === Number(days) ? 'rgba(129,140,248,0.4)' : 'rgba(255,255,255,0.06)'}`,
+                            background: selectedTrack === Number(days) ? 'rgba(129,140,248,0.12)' : isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)',
+                            border: `1px solid ${selectedTrack === Number(days) ? 'rgba(129,140,248,0.4)' : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'}`,
                         }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: selectedTrack === Number(days) ? '#a5b4fc' : '#fff', marginBottom: 4 }}>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: selectedTrack === Number(days) ? '#a5b4fc' : isLight ? '#1e293b' : '#fff', marginBottom: 4 }}>
                                 {days} Days
                             </div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: '#a1a1aa', marginBottom: 4 }}>{t.label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? '#64748b' : '#a1a1aa', marginBottom: 4 }}>{t.label}</div>
                             <div style={{ fontSize: 11, color: '#52525b' }}>{t.desc}</div>
                             <div style={{ fontSize: 10, color: '#71717a', marginTop: 6 }}>📝 {t.perDay}</div>
                         </div>
@@ -236,19 +239,19 @@ export default function DSALearningPath() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                     <span style={{ fontSize: 22 }}>{stage.icon}</span>
                                     <div>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>{stage.name}</div>
-                                        <div style={{ fontSize: 11, color: '#71717a' }}>{topics.length} topics · {stageProgress.avgMastery}% avg mastery</div>
+                                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff' }}>{stage.name}</div>
+                                        <div style={{ fontSize: 11, color: isLight ? '#64748b' : '#71717a' }}>{topics.length} topics · {stageProgress.avgMastery}% avg mastery</div>
                                     </div>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    {!isInTrack && <span style={{ fontSize: 10, color: '#525252', padding: '2px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.04)' }}>Not in {selectedTrack}-day track</span>}
+                                    {!isInTrack && <span style={{ fontSize: 10, color: isLight ? '#94a3b8' : '#525252', padding: '2px 8px', borderRadius: 6, background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)' }}>Not in {selectedTrack}-day track</span>}
                                     <ChevronDown size={18} style={{ color: '#71717a', transition: 'transform 0.3s', transform: expanded ? 'rotate(180deg)' : 'rotate(0)' }} />
                                 </div>
                             </div>
 
                             {expanded && (
                                 <div style={{
-                                    padding: 16, background: 'rgba(255,255,255,0.01)', borderRadius: '0 0 14px 14px',
+                                    padding: 16, background: isLight ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.01)', borderRadius: '0 0 14px 14px',
                                     border: `1px solid ${stage.color}15`, borderTop: 'none',
                                     display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16
                                 }}>
@@ -256,7 +259,7 @@ export default function DSALearningPath() {
                                         const inTrack = track.topics === null || track.topics.includes(topic.id);
                                         return (
                                             <div key={topic.id} style={{ opacity: inTrack ? 1 : 0.4, transition: 'opacity 0.3s' }}>
-                                                <TopicCard topic={topic} onClick={() => navigate(`/dsa-path/${topic.id}`)} />
+                                                <TopicCard topic={topic} onClick={() => navigate(`/dsa-path/${topic.id}`)} isLight={isLight} />
                                             </div>
                                         );
                                     })}
@@ -273,7 +276,7 @@ export default function DSALearningPath() {
                     <BarChart3 size={20} style={{ color: '#22d3ee' }} /> Skill Radar
                 </h2>
                 <div style={{
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
                     borderRadius: 16, padding: 32, display: 'flex', justifyContent: 'center'
                 }}>
                     <SkillRadar data={radarData} />
@@ -291,16 +294,16 @@ export default function DSALearningPath() {
                         { step: '4', title: 'Practice', desc: 'Easy → Medium → Hard curated problems', icon: <Target size={18} />, color: '#facc15' },
                     ].map(m => (
                         <div key={m.step} style={{
-                            padding: 20, borderRadius: 14, background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
+                            padding: 20, borderRadius: 14, background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)',
+                            border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
                         }}>
                             <div style={{
                                 width: 40, height: 40, borderRadius: 10, margin: '0 auto 10px',
                                 background: `${m.color}15`, color: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>{m.icon}</div>
                             <div style={{ fontSize: 10, color: m.color, fontWeight: 700, marginBottom: 4 }}>STEP {m.step}</div>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: '#fff' }}>{m.title}</h3>
-                            <p style={{ fontSize: 12, color: '#71717a', margin: 0 }}>{m.desc}</p>
+                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: isLight ? '#1e293b' : '#fff' }}>{m.title}</h3>
+                            <p style={{ fontSize: 12, color: isLight ? '#64748b' : '#71717a', margin: 0 }}>{m.desc}</p>
                         </div>
                     ))}
                 </div>

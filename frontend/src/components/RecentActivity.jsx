@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeContext';
 import {
     CheckCircle2, Mic, Trophy, Flame, Code2,
     Database, Brain, Clock, ChevronRight, Inbox
@@ -26,7 +27,12 @@ function timeAgo(timestamp) {
 }
 
 export default function RecentActivity({ activities }) {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const items = activities || [];
+
+    const emptyIconColor = isLight ? 'rgba(99, 102, 241, 0.2)' : 'rgba(255,255,255,0.15)';
+    const emptyTextColor = isLight ? '#8b8fa6' : 'rgba(255,255,255,0.35)';
 
     if (items.length === 0) {
         return (
@@ -38,8 +44,8 @@ export default function RecentActivity({ activities }) {
                     </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 16px', gap: 8 }}>
-                    <Inbox size={32} style={{ color: 'rgba(255,255,255,0.15)' }} />
-                    <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+                    <Inbox size={32} style={{ color: emptyIconColor }} />
+                    <div style={{ fontSize: 13, color: emptyTextColor, textAlign: 'center' }}>
                         No activity yet. Start solving problems to see your progress here!
                     </div>
                 </div>

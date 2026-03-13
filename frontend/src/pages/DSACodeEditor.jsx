@@ -8,6 +8,7 @@ import VisualizationPanel from '../components/editor/VisualizationPanel';
 import TestCasePanel from '../components/editor/TestCasePanel';
 import HintsPanel from '../components/solver/HintsPanel';
 import { LANGUAGES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES, PATTERN_HINTS } from '../data/dsaTemplates';
+import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
 import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../data/editorThemes';
 
@@ -76,6 +77,7 @@ export default function DSACodeEditor() {
 
   // Problem state
   const [problem, setProblem] = useState(null);
+  const [dbProblem, setDbProblem] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Editor state
@@ -174,7 +176,7 @@ export default function DSACodeEditor() {
         pattern_name: '',
         topics: [],
         patterns: [],
-        description: `Solve the "${titleFromSlug}" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
+        description: `Solve the \"${titleFromSlug}\" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
         examples: [
           { input: 'See problem description', output: 'Expected output' },
         ],
@@ -184,7 +186,42 @@ export default function DSACodeEditor() {
       });
       setLoading(false);
     }
+
+    // Also fetch DB problem for starter code, test cases, and examples
+    if (numId) {
+      fetch(`${API_URL}/api/dsa/problems/${numId}`, { headers: getAuthHeaders() })
+        .then(r => r.json())
+        .then(data => { if (data.problem) setDbProblem(data.problem); })
+        .catch(() => { });
+    }
   }, [problemId]);
+
+  // ─── Merge DB data into problem (examples, description, constraints) ───
+  useEffect(() => {
+    if (!dbProblem || !problem) return;
+    const hasRealExamples = (ex) =>
+      ex && Array.isArray(ex) && ex.length > 0 && ex[0].input &&
+      !String(ex[0].input).toLowerCase().includes('see problem') &&
+      !String(ex[0].input).toLowerCase().includes('see expected');
+
+    const updates = {};
+    if (hasRealExamples(dbProblem.examples)) {
+      updates.examples = dbProblem.examples;
+    } else {
+      // Fallback: try comprehensive test cases from problemTestCases.js
+      const slug = (problemId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const localExamples = getExamplesForProblem(slug);
+      if (localExamples.length > 0) {
+        updates.examples = localExamples;
+      }
+    }
+    if (dbProblem.description && !dbProblem.description.startsWith('Solve the ')) updates.description = dbProblem.description;
+    if (dbProblem.constraints && dbProblem.constraints !== 'See problem description for constraints.' && dbProblem.constraints !== 'See problem constraints') updates.constraints = dbProblem.constraints;
+
+    if (Object.keys(updates).length > 0) {
+      setProblem(prev => ({ ...prev, ...updates }));
+    }
+  }, [dbProblem]);
 
   // ─── Load saved code or starter code ───
   useEffect(() => {
@@ -193,12 +230,18 @@ export default function DSACodeEditor() {
     if (saved) {
       setCode(saved);
     } else {
-      const funcName = problem.title
-        ? problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-        : 'solve';
-      setCode(STARTER_CODE[language]?.(funcName) || '');
+      // Prefer DB starter code (has proper function signatures and params)
+      const dbStarter = dbProblem?.starter_code?.[language];
+      if (dbStarter) {
+        setCode(dbStarter);
+      } else {
+        const funcName = problem.title
+          ? problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+          : 'solve';
+        setCode(STARTER_CODE[language]?.(funcName) || '');
+      }
     }
-  }, [problem, language]);
+  }, [problem, dbProblem, language]);
 
   // ─── Auto-save code ───
   useEffect(() => {
@@ -243,23 +286,40 @@ export default function DSACodeEditor() {
     setFeedback(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/practice/execute`, {
+      // Use /run endpoint with problemId for structured test case execution
+      const res = await fetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ code, language, input: '' }),
+        body: JSON.stringify({ code, language, problemId: problem?.id }),
       });
       const data = await res.json();
-      const actualOutput = (data.output || '').trim();
-      const errorMsg = (data.error || '').trim();
-      setOutput({
-        success: data.success,
-        output: actualOutput || errorMsg || '',
-        message: data.success
-          ? (actualOutput ? 'Executed Successfully' : 'No output produced')
-          : `Error: ${errorMsg || 'Unknown error'}`,
-        executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
-      });
-      // Also trigger test case execution
+
+      if (data.testResults && Array.isArray(data.testResults)) {
+        // Structured test results from backend
+        const passed = data.passed || data.testResults.filter(r => r.passed).length;
+        const total = data.total || data.testResults.length;
+        setOutput({
+          success: passed === total,
+          output: data.testResults.map((r, i) =>
+            `Test ${i + 1}: ${r.passed ? '✅ PASS' : '❌ FAIL'}${!r.passed ? `\n  Expected: ${JSON.stringify(r.expected)}\n  Got: ${JSON.stringify(r.actual)}` : ''}`
+          ).join('\n'),
+          message: passed === total ? `All ${total} test cases passed!` : `${passed}/${total} test cases passed`,
+          executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
+        });
+      } else {
+        // Fallback: raw execution result
+        const actualOutput = (data.output || '').trim();
+        const errorMsg = (data.error || '').trim();
+        setOutput({
+          success: data.success,
+          output: actualOutput || errorMsg || '',
+          message: data.success
+            ? (actualOutput ? 'Executed Successfully' : 'No output produced')
+            : `Error: ${errorMsg || 'Unknown error'}`,
+          executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
+        });
+      }
+      // Also trigger test case panel execution
       testCaseRef.current?.runTests?.();
     } catch (err) {
       setOutput({
@@ -270,7 +330,7 @@ export default function DSACodeEditor() {
     } finally {
       setRunning(false);
     }
-  }, [code, language]);
+  }, [code, language, problem]);
 
   // ─── Submit code ───
   const handleSubmit = useCallback(async () => {
@@ -456,6 +516,7 @@ export default function DSACodeEditor() {
             }}>
               <ProblemDescriptionPanel
                 problem={problem}
+                problemId={problemId}
                 onShowHints={() => setShowHints(s => !s)}
                 showHints={showHints}
                 allProblems={PROBLEMS}
@@ -522,20 +583,7 @@ export default function DSACodeEditor() {
               }}
             />
 
-            {/* Pattern recognition badge */}
-            {detectedPattern && (
-              <div style={{
-                position: 'absolute', top: 12, right: 12,
-                padding: '4px 12px', borderRadius: 8,
-                background: 'rgba(139,92,246,0.1)',
-                border: '1px solid rgba(139,92,246,0.2)',
-                backdropFilter: 'blur(8px)',
-                color: '#c084fc', fontSize: 10, fontWeight: 700,
-                display: 'flex', alignItems: 'center', gap: 5, zIndex: 5,
-              }}>
-                🧩 {detectedPattern}
-              </div>
-            )}
+
           </div>
 
           {/* Bottom: Test Cases */}

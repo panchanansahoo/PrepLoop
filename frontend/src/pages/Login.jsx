@@ -411,7 +411,7 @@ export default function Login() {
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <label style={{ ...styles.label, marginBottom: 0 }}>Password</label>
-                  <a href="#" style={styles.forgotLink}>Forgot password?</a>
+                  <Link to="/forgot-password" style={styles.forgotLink}>Forgot password?</Link>
                 </div>
                 <div style={{ position: 'relative' }}>
                   <Lock size={16} style={styles.inputIcon} />

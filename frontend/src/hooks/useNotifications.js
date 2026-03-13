@@ -95,7 +95,7 @@ export function useNotifications(user) {
 
         // 3. New Blogs (posted in last 7 days)
         try {
-            const res = await fetch('http://localhost:3000/api/blog');
+            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
             if (res.ok) {
                 const blogs = await res.json();
                 const now = new Date();

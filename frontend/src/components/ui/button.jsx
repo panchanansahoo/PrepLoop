@@ -2,18 +2,18 @@ import React from 'react';
 
 const variantStyles = {
     default: {
-        background: '#ffffff',
-        color: '#000000',
+        background: 'var(--accent-primary, #ffffff)',
+        color: 'var(--text-invert, #000000)',
         border: 'none',
     },
     outline: {
         background: 'transparent',
-        color: '#fff',
-        border: '1px solid rgba(255,255,255,0.2)',
+        color: 'var(--text-primary, #fff)',
+        border: '1px solid var(--border, rgba(255,255,255,0.2))',
     },
     ghost: {
         background: 'transparent',
-        color: '#fff',
+        color: 'var(--text-primary, #fff)',
         border: 'none',
     },
     destructive: {
@@ -22,13 +22,13 @@ const variantStyles = {
         border: 'none',
     },
     secondary: {
-        background: 'rgba(255,255,255,0.08)',
-        color: '#fff',
-        border: '1px solid rgba(255,255,255,0.1)',
+        background: 'var(--accent-glow, rgba(255,255,255,0.08))',
+        color: 'var(--text-primary, #fff)',
+        border: '1px solid var(--border, rgba(255,255,255,0.1))',
     },
     link: {
         background: 'transparent',
-        color: '#d4d4d8',
+        color: 'var(--text-secondary, #d4d4d8)',
         border: 'none',
         textDecoration: 'underline',
     },

@@ -2,6 +2,7 @@ import React, { useRef, useMemo, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
+import { useTheme } from '../context/ThemeContext';
 
 /* ═══════════════════════════════════════════════ */
 /*   PREPLOOP 3D HERO — INTERVIEW PREP UNIVERSE   */
@@ -462,6 +463,8 @@ function SceneGroup({ children, mouse }) {
 
 export default function Hero3DScene() {
     const mouse = useRef({ x: 0, y: 0 });
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     const handleMouseMove = (e) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -476,6 +479,14 @@ export default function Hero3DScene() {
                 width: '100%', height: '100%',
                 position: 'absolute', top: 0, left: 0,
                 zIndex: 1, pointerEvents: 'auto',
+                borderRadius: isLight ? '24px' : '0',
+                overflow: 'hidden',
+                background: isLight
+                    ? 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #0d1117 100%)'
+                    : 'transparent',
+                boxShadow: isLight
+                    ? '0 8px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                    : 'none',
             }}
         >
             <Canvas
@@ -489,10 +500,10 @@ export default function Hero3DScene() {
                 dpr={[1, 2]}
             >
                 {/* Subtle lighting — let emissives dominate */}
-                <ambientLight intensity={0.06} />
-                <pointLight position={[3, 4, 4]} intensity={0.4} color="#a78bfa" />
-                <pointLight position={[-3, -2, 3]} intensity={0.25} color="#60a5fa" />
-                <pointLight position={[0, 3, -2]} intensity={0.2} color="#34d399" />
+                <ambientLight intensity={isLight ? 0.12 : 0.06} />
+                <pointLight position={[3, 4, 4]} intensity={isLight ? 0.6 : 0.4} color="#a78bfa" />
+                <pointLight position={[-3, -2, 3]} intensity={isLight ? 0.4 : 0.25} color="#60a5fa" />
+                <pointLight position={[0, 3, -2]} intensity={isLight ? 0.35 : 0.2} color="#34d399" />
 
                 <SceneGroup mouse={mouse}>
                     {/* Central Hub */}

@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Activity, Clock, BarChart3, ChevronDown, Trophy, Zap } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useTheme } from '../context/ThemeContext';
 
 const ActivityTracker = () => {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+
     // Helper to get local date string YYYY-MM-DD
     const getLocalDate = (date = new Date()) => {
         const offset = date.getTimezoneOffset();
@@ -50,7 +54,7 @@ const ActivityTracker = () => {
 
             // Authenticated Logic
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/activity/weekly`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/activity/weekly`, {
                     headers: { 'Authorization': `Bearer ${session.access_token}` }
                 });
 
@@ -167,7 +171,7 @@ const ActivityTracker = () => {
         if (!session) return;
 
         try {
-            await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/activity/update`, {
+            await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/activity/update`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -278,17 +282,17 @@ const ActivityTracker = () => {
             <div className={`relative w-full h-full transition-all duration-700 [transform-style:preserve-3d] ${isHovered ? '[transform:rotateY(180deg)]' : ''}`}>
 
                 {/* --- FRONT FACE --- */}
-                <div className="absolute inset-0 [backface-visibility:hidden] bg-[#0a0a0c]/80 backdrop-blur-2xl border border-white/5 rounded-3xl p-6 flex flex-col justify-between overflow-hidden shadow-2xl ring-1 ring-white/5">
+                <div className={`absolute inset-0 [backface-visibility:hidden] ${isLight ? 'bg-white/60 backdrop-blur-xl border-indigo-200/30 ring-indigo-100/50' : 'bg-[#0a0a0c]/80 backdrop-blur-2xl border-white/5 ring-white/5'} border rounded-3xl p-6 flex flex-col justify-between overflow-hidden shadow-2xl ring-1`}>
                     {/* Ambient Glows */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500/10 rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none"></div>
+                    <div className={`absolute top-0 right-0 w-32 h-32 ${isLight ? 'bg-blue-500/5' : 'bg-blue-500/10'} rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none`}></div>
+                    <div className={`absolute bottom-0 left-0 w-32 h-32 ${isLight ? 'bg-purple-500/5' : 'bg-purple-500/10'} rounded-full blur-3xl -ml-16 -mb-16 pointer-events-none`}></div>
 
                     {/* Header */}
                     <div className="relative z-10 flex flex-col items-center justify-center mb-2 w-full text-center">
-                        <div className="mb-2 p-2.5 rounded-full bg-linear-to-b from-white/10 to-transparent border border-white/10 shadow-inner shadow-white/5">
+                        <div className={`mb-2 p-2.5 rounded-full ${isLight ? 'bg-indigo-50/80 border-indigo-200/30' : 'bg-linear-to-b from-white/10 to-transparent border-white/10 shadow-inner shadow-white/5'} border`}>
                             <Activity size={16} className="text-blue-400" />
                         </div>
-                        <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em] drop-shadow-md leading-none">
+                        <h3 className={`text-xs font-bold ${isLight ? 'text-slate-800' : 'text-white'} uppercase tracking-[0.2em] drop-shadow-md leading-none`}>
                             Digital Wellbeing
                         </h3>
                         <div className="mt-3 h-px w-8 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
@@ -305,7 +309,7 @@ const ActivityTracker = () => {
                                 <circle
                                     cx="80" cy="80" r="74"
                                     fill="transparent"
-                                    stroke="rgba(255,255,255,0.03)"
+                                    stroke={isLight ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)'}
                                     strokeWidth="6"
                                 />
                                 {/* Indicator */}
@@ -328,54 +332,54 @@ const ActivityTracker = () => {
                             </svg>
 
                             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                <div className="flex items-baseline gap-0.5 drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">
-                                    <span className="text-4xl font-bold text-white tracking-tighter">{hours}</span>
-                                    <span className="text-sm text-zinc-400 font-medium mb-1">h</span>
-                                    <span className="text-4xl font-bold text-white tracking-tighter ml-2">{minutes}</span>
-                                    <span className="text-sm text-zinc-400 font-medium mb-1">m</span>
+                                <div className={`flex items-baseline gap-0.5 ${isLight ? '' : 'drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]'}`}>
+                                    <span className={`text-4xl font-bold ${isLight ? 'text-slate-800' : 'text-white'} tracking-tighter`}>{hours}</span>
+                                    <span className={`text-sm ${isLight ? 'text-slate-500' : 'text-zinc-400'} font-medium mb-1`}>h</span>
+                                    <span className={`text-4xl font-bold ${isLight ? 'text-slate-800' : 'text-white'} tracking-tighter ml-2`}>{minutes}</span>
+                                    <span className={`text-sm ${isLight ? 'text-slate-500' : 'text-zinc-400'} font-medium mb-1`}>m</span>
                                 </div>
-                                <div className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mt-2">Active Time</div>
+                                <div className={`text-[10px] uppercase tracking-widest ${isLight ? 'text-slate-600' : 'text-zinc-500'} font-bold mt-2`}>Active Time</div>
                             </div>
                         </div>
                     </div>
 
                     {/* Stats Tiles */}
                     <div className="relative z-10 grid grid-cols-2 gap-3 mt-auto">
-                        <div className="relative group/opt overflow-hidden rounded-xl bg-white/[0.03] border border-white/5 p-3 hover:bg-white/[0.06] transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]">
-                            <div className="flex items-center gap-2 mb-1.5 text-zinc-400">
+                        <div className={`relative group/opt overflow-hidden rounded-xl ${isLight ? 'bg-indigo-50/40 border-indigo-100/30 hover:bg-indigo-50/70' : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]'} border p-3 transition-all duration-300`}>
+                            <div className={`flex items-center gap-2 mb-1.5 ${isLight ? 'text-slate-500' : 'text-zinc-400'}`}>
                                 <Zap size={12} className="text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]" />
                                 <span className="text-[10px] font-bold uppercase tracking-wider">Today</span>
                             </div>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-xl font-bold text-white">{taskStats.today}</span>
-                                <span className="text-xs text-zinc-500">tasks</span>
+                                <span className={`text-xl font-bold ${isLight ? 'text-slate-800' : 'text-white'}`}>{taskStats.today}</span>
+                                <span className={`text-xs ${isLight ? 'text-slate-400' : 'text-zinc-500'}`}>tasks</span>
                             </div>
                         </div>
 
-                        <div className="relative group/opt overflow-hidden rounded-xl bg-white/[0.03] border border-white/5 p-3 hover:bg-white/[0.06] transition-all duration-300 hover:shadow-[0_0_20px_rgba(255,255,255,0.05)]">
-                            <div className="flex items-center gap-2 mb-1.5 text-zinc-400">
+                        <div className={`relative group/opt overflow-hidden rounded-xl ${isLight ? 'bg-indigo-50/40 border-indigo-100/30 hover:bg-indigo-50/70' : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]'} border p-3 transition-all duration-300`}>
+                            <div className={`flex items-center gap-2 mb-1.5 ${isLight ? 'text-slate-500' : 'text-zinc-400'}`}>
                                 <Clock size={12} className="text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.5)]" />
                                 <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
                             </div>
                             <div className="flex items-baseline gap-1">
-                                <span className="text-xl font-bold text-white">{taskStats.pending}</span>
-                                <span className="text-xs text-zinc-500">tasks</span>
+                                <span className={`text-xl font-bold ${isLight ? 'text-slate-800' : 'text-white'}`}>{taskStats.pending}</span>
+                                <span className={`text-xs ${isLight ? 'text-slate-400' : 'text-zinc-500'}`}>tasks</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* --- BACK FACE --- */}
-                <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] bg-[#0a0a0c]/90 backdrop-blur-2xl border border-white/5 rounded-3xl p-6 flex flex-col shadow-2xl ring-1 ring-white/5">
+                <div className={`absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] ${isLight ? 'bg-white/60 backdrop-blur-xl border-indigo-200/30 ring-indigo-100/50' : 'bg-[#0a0a0c]/90 backdrop-blur-2xl border-white/5 ring-white/5'} border rounded-3xl p-6 flex flex-col shadow-2xl ring-1`}>
                     {/* Background Gradient */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-blue-500/5 pointer-events-none"></div>
 
                     {/* Header */}
                     <div className="relative z-10 flex flex-col items-center justify-center mb-6 w-full text-center">
-                        <div className="mb-2 p-2.5 rounded-full bg-linear-to-b from-white/10 to-transparent border border-white/10 shadow-inner shadow-white/5">
+                        <div className={`mb-2 p-2.5 rounded-full ${isLight ? 'bg-indigo-50/80 border-indigo-200/30' : 'bg-linear-to-b from-white/10 to-transparent border-white/10 shadow-inner shadow-white/5'} border`}>
                             <BarChart3 size={16} className="text-purple-400" />
                         </div>
-                        <h3 className="text-xs font-bold text-white uppercase tracking-[0.2em] drop-shadow-md leading-none">
+                        <h3 className={`text-xs font-bold ${isLight ? 'text-slate-800' : 'text-white'} uppercase tracking-[0.2em] drop-shadow-md leading-none`}>
                             Weekly Analysis
                         </h3>
                         <div className="mt-3 h-px w-8 bg-gradient-to-r from-transparent via-purple-500/50 to-transparent"></div>
@@ -383,10 +387,10 @@ const ActivityTracker = () => {
 
                     {/* Main Stats Display */}
                     <div className="relative z-10 mb-6 flex flex-col items-center text-center">
-                        <div className="drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                        <div className={isLight ? '' : 'drop-shadow-[0_0_15px_rgba(255,255,255,0.1)]'}>
                             {formatTimeDetailed(selectedDay.seconds)}
                         </div>
-                        <div className="text-xs text-zinc-500 font-medium mt-2 flex items-center justify-center gap-2 py-1 px-3 rounded-full bg-white/[0.03] border border-white/[0.05]">
+                        <div className={`text-xs ${isLight ? 'text-slate-500' : 'text-zinc-500'} font-medium mt-2 flex items-center justify-center gap-2 py-1 px-3 rounded-full ${isLight ? 'bg-indigo-50/40 border-indigo-100/30' : 'bg-white/[0.03] border-white/[0.05]'} border`}>
                             <span className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] ${selectedDay.isToday ? 'bg-green-400 text-green-400' : 'bg-zinc-500 text-zinc-500'}`}></span>
                             {selectedDay.isToday ? 'Today' : selectedDay.fullDate}
                         </div>
@@ -412,7 +416,7 @@ const ActivityTracker = () => {
                                             <div
                                                 className={`w-full max-w-[12px] rounded-t-[4px] transition-all duration-500 ease-out relative overflow-hidden ${isSelected
                                                     ? 'bg-gradient-to-t from-blue-500 via-indigo-500 to-purple-500 shadow-[0_0_20px_rgba(99,102,241,0.5)]'
-                                                    : 'bg-white/10 group-hover/bar:bg-white/20'
+                                                    : `${isLight ? 'bg-indigo-200/40 group-hover/bar:bg-indigo-300/50' : 'bg-white/10 group-hover/bar:bg-white/20'}`
                                                     }`}
                                                 style={{ height: `${Math.max(heightPercent, 4)}%` }}
                                             >
@@ -421,7 +425,7 @@ const ActivityTracker = () => {
                                                 )}
                                             </div>
                                         </div>
-                                        <span className={`text-[10px] font-medium transition-colors uppercase tracking-wider ${isSelected ? 'text-white' : 'text-zinc-600 group-hover/bar:text-zinc-400'
+                                        <span className={`text-[10px] font-medium transition-colors uppercase tracking-wider ${isSelected ? (isLight ? 'text-slate-800' : 'text-white') : (isLight ? 'text-slate-400 group-hover/bar:text-slate-600' : 'text-zinc-600 group-hover/bar:text-zinc-400')
                                             }`}>
                                             {d.day}
                                         </span>

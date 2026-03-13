@@ -1,0 +1,47 @@
+≡ƒöì Checking all problem solutions...
+
+Total problems in DB: 425
+
+======================================================================
+SOLUTION AUDIT REPORT
+======================================================================
+
+Γ¥î Problems with NO solution_code: 0
+
+ΓÜá∩╕Å  Problems with EMPTY solution_code: 0
+
+≡ƒöº Problems with PLACEHOLDER solutions: 0
+
+≡ƒöÇ Problems with FUNCTION NAME MISMATCH (starter vs solution): 10
+   #142 Design Linked List [python]: starter="__init__" solution="MyLinkedList"
+   #149 Design Browser History [python]: starter="__init__" solution="BrowserHistory"
+   #150 LRU Cache [python]: starter="__init__" solution="LRUCache"
+   #151 LFU Cache [javascript]: starter="__init__" solution="keys"
+   #152 All O'one Data Structure [javascript]: starter="__init__" solution="v"
+   #153 Design Skiplist [javascript]: starter="__init__" solution="i"
+   #162 Implement Stack using Queues [javascript]: starter="__init__" solution="i"
+   #218 Find Median from Data Stream [python]: starter="__init__" solution="MedianFinder"
+   #249 Binary Search Tree Iterator [javascript]: starter="__init__" solution="n"
+   #388 Find Median from Data Stream [python]: starter="__init__" solution="MedianFinder"
+
+≡ƒôï Problems with NO starter_code: 0
+
+≡ƒº¬ Problems with NO test_cases: 0
+
+======================================================================
+SUMMARY
+======================================================================
+Total problems:          425
+With solutions:          425
+Missing solutions:       0
+Empty solutions:         0
+Placeholder solutions:   0
+Fn name mismatches:      10
+Missing starter code:    0
+Missing test cases:      0
+
+Language coverage:
+  Python:     425/425
+  JavaScript: 149/425
+  Java:       149/425
+  C++:        149/425

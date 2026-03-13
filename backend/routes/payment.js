@@ -2,7 +2,8 @@ import express from 'express';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -25,38 +26,11 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Initialize Supabase admin client
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
 // Plan configuration (server-side only — price can never be tampered by client)
 const PLANS = {
     pro: { name: 'Pro', amount: 9900, currency: 'INR' },       // ₹99
     elite: { name: 'Elite', amount: 29900, currency: 'INR' },   // ₹299
 };
-
-// ═══════════════════════════════════════════════
-//  SECURITY: JWT verification via Supabase
-//  Validates token with Supabase Auth instead of just decoding
-// ═══════════════════════════════════════════════
-async function getVerifiedUser(req) {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return null;
-    }
-    const token = authHeader.split(' ')[1];
-
-    try {
-        // Verify the JWT with Supabase Auth server (not just decode it)
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        if (error || !user) return null;
-        return { id: user.id, email: user.email };
-    } catch (e) {
-        return null;
-    }
-}
 
 // ═══════════════════════════════════════════════
 //  SECURITY: Input sanitization helper
@@ -70,12 +44,9 @@ function sanitizeString(str, maxLength = 255) {
 // POST /api/payment/create-order
 // Creates a Razorpay order for the given plan
 // ─────────────────────────────────────────────
-router.post('/create-order', async (req, res) => {
+router.post('/create-order', authenticateToken, async (req, res) => {
     try {
-        const user = await getVerifiedUser(req);
-        if (!user) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        const user = req.user;
 
         const { plan } = req.body;
         const sanitizedPlan = sanitizeString(plan, 20).toLowerCase();
@@ -85,7 +56,7 @@ router.post('/create-order', async (req, res) => {
         }
 
         // SECURITY: Prevent duplicate pending orders (anti-abuse)
-        const { data: existingOrders } = await supabase
+        const { data: existingOrders } = await supabaseAdmin
             .from('payments')
             .select('id')
             .eq('user_id', user.id)
@@ -110,7 +81,7 @@ router.post('/create-order', async (req, res) => {
         });
 
         // Save order to database
-        const { error: dbError } = await supabase.from('payments').insert({
+        const { error: dbError } = await supabaseAdmin.from('payments').insert({
             user_id: user.id,
             razorpay_order_id: order.id,
             plan: sanitizedPlan,
@@ -141,12 +112,9 @@ router.post('/create-order', async (req, res) => {
 // POST /api/payment/verify
 // Verifies Razorpay payment signature and upgrades user
 // ─────────────────────────────────────────────
-router.post('/verify', async (req, res) => {
+router.post('/verify', authenticateToken, async (req, res) => {
     try {
-        const user = await getVerifiedUser(req);
-        if (!user) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        const user = req.user;
 
         const razorpay_order_id = sanitizeString(req.body.razorpay_order_id);
         const razorpay_payment_id = sanitizeString(req.body.razorpay_payment_id);
@@ -157,7 +125,7 @@ router.post('/verify', async (req, res) => {
         }
 
         // SECURITY: Verify the order belongs to this user
-        const { data: paymentRecord, error: fetchError } = await supabase
+        const { data: paymentRecord, error: fetchError } = await supabaseAdmin
             .from('payments')
             .select('plan, user_id, status')
             .eq('razorpay_order_id', razorpay_order_id)
@@ -190,7 +158,7 @@ router.post('/verify', async (req, res) => {
 
         if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
             // Mark payment as failed
-            await supabase
+            await supabaseAdmin
                 .from('payments')
                 .update({ status: 'failed' })
                 .eq('razorpay_order_id', razorpay_order_id);
@@ -200,7 +168,7 @@ router.post('/verify', async (req, res) => {
         }
 
         // Update payment record
-        const { error: updatePaymentError } = await supabase
+        const { error: updatePaymentError } = await supabaseAdmin
             .from('payments')
             .update({
                 razorpay_payment_id,
@@ -215,7 +183,7 @@ router.post('/verify', async (req, res) => {
         }
 
         // Upgrade user subscription tier
-        const { error: updateProfileError } = await supabase
+        const { error: updateProfileError } = await supabaseAdmin
             .from('profiles')
             .update({ subscription_tier: paymentRecord.plan })
             .eq('id', user.id);
@@ -278,7 +246,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             const orderId = payment.order_id;
 
             // Check if already processed
-            const { data: existing } = await supabase
+            const { data: existing } = await supabaseAdmin
                 .from('payments')
                 .select('status, plan, user_id')
                 .eq('razorpay_order_id', orderId)
@@ -286,7 +254,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
             if (existing && existing.status !== 'paid') {
                 // Update payment record
-                await supabase
+                await supabaseAdmin
                     .from('payments')
                     .update({
                         razorpay_payment_id: payment.id,
@@ -296,7 +264,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     .eq('razorpay_order_id', orderId);
 
                 // Upgrade user
-                await supabase
+                await supabaseAdmin
                     .from('profiles')
                     .update({ subscription_tier: existing.plan })
                     .eq('id', existing.user_id);
@@ -307,7 +275,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             const payment = event.payload.payment.entity;
             const orderId = payment.order_id;
 
-            await supabase
+            await supabaseAdmin
                 .from('payments')
                 .update({ status: 'failed' })
                 .eq('razorpay_order_id', orderId);
@@ -328,14 +296,11 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 // GET /api/payment/history
 // Returns payment history for the logged-in user
 // ─────────────────────────────────────────────
-router.get('/history', async (req, res) => {
+router.get('/history', authenticateToken, async (req, res) => {
     try {
-        const user = await getVerifiedUser(req);
-        if (!user) {
-            return res.status(401).json({ error: 'Unauthorized' });
-        }
+        const user = req.user;
 
-        const { data, error } = await supabase
+        const { data, error } = await supabaseAdmin
             .from('payments')
             .select('id, plan, amount, currency, status, created_at, paid_at')
             .eq('user_id', user.id)

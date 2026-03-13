@@ -1,9 +1,12 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Radar } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function SkillRadar({ data }) {
     const canvasRef = useRef(null);
     const [animProgress, setAnimProgress] = useState(0);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     const skillData = data || { dsa: 0, sql: 0, aptitude: 0, systemDesign: 0, behavioral: 0 };
 
@@ -61,7 +64,9 @@ export default function SkillRadar({ data }) {
                 else ctx.lineTo(x, y);
             }
             ctx.closePath();
-            ctx.strokeStyle = `rgba(255,255,255,${ring === 4 ? 0.1 : 0.05})`;
+            ctx.strokeStyle = isLight
+                ? `rgba(99, 102, 241, ${ring === 4 ? 0.2 : 0.1})`
+                : `rgba(255,255,255,${ring === 4 ? 0.1 : 0.05})`;
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -72,7 +77,7 @@ export default function SkillRadar({ data }) {
             ctx.beginPath();
             ctx.moveTo(cx, cy);
             ctx.lineTo(cx + maxR * Math.cos(angle), cy + maxR * Math.sin(angle));
-            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.strokeStyle = isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.06)';
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -124,7 +129,7 @@ export default function SkillRadar({ data }) {
             const x = cx + labelR * Math.cos(angle);
             const y = cy + labelR * Math.sin(angle);
 
-            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.fillStyle = isLight ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255,255,255,0.6)';
             ctx.font = '600 11px system-ui, -apple-system, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -135,7 +140,7 @@ export default function SkillRadar({ data }) {
             ctx.fillText(`${Math.round(skills[i].value * animProgress)}%`, x, y + 14);
         }
 
-    }, [animProgress, skills]);
+    }, [animProgress, skills, isLight]);
 
     return (
         <div className="skill-radar-card">

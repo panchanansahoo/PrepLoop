@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import './AICopilot.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function AICopilot({ isOpen, onToggle, currentQuestion, partialAnswer, stage, company, role, getAuthHeaders, jdContext }) {
     const [copilotData, setCopilotData] = useState(null);

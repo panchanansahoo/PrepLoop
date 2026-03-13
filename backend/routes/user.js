@@ -924,4 +924,86 @@ router.get(
   },
 );
 
+// Get/Update user settings
+router.get("/settings", authenticateToken, async (req, res) => {
+  try {
+    const { data: profile, error } = await supabaseAdmin
+      .from("profiles")
+      .select("*")
+      .eq("id", req.user.id)
+      .single();
+
+    if (error || !profile) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      settings: {
+        full_name: profile.full_name,
+        experience_level: profile.experience_level,
+        subscription_tier: profile.subscription_tier,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching settings:", error);
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+router.put("/settings", authenticateToken, async (req, res) => {
+  try {
+    const { fullName, experienceLevel } = req.body;
+    const updates = {};
+    if (fullName) updates.full_name = fullName;
+    if (experienceLevel) updates.experience_level = experienceLevel;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("profiles")
+      .update(updates)
+      .eq("id", req.user.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      settings: {
+        full_name: data.full_name,
+        experience_level: data.experience_level,
+        subscription_tier: data.subscription_tier,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    res.status(500).json({ error: "Failed to update settings" });
+  }
+});
+
+// Save user preferences (onboarding)
+router.post("/preferences", authenticateToken, async (req, res) => {
+  try {
+    const { experienceLevel, goals, targetCompanies } = req.body;
+    const updates = {};
+    if (experienceLevel) updates.experience_level = experienceLevel;
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update(updates)
+        .eq("id", req.user.id);
+
+      if (error) throw error;
+    }
+
+    res.json({ success: true, message: "Preferences saved" });
+  } catch (error) {
+    console.error("Error saving preferences:", error);
+    res.status(500).json({ error: "Failed to save preferences" });
+  }
+});
+
 export default router;

@@ -26,8 +26,10 @@ const navSections = [
             { path: '/problems', label: 'Problem Explorer', subtitle: 'Browse & filter problems', icon: ListFilter },
             { path: '/playground', label: 'Playground', subtitle: 'Free-form coding sandbox', icon: Terminal },
             { path: '/visualizer', label: 'Algorithm Visualizer', subtitle: 'Watch algorithms in action', icon: Play },
+            { path: '/system-design-sim', label: 'Design Simulator', subtitle: 'Build architectures visually', icon: Network },
             { path: '/sql-problems', label: 'SQL Mastery', subtitle: 'Database & query challenges', icon: Database },
             { path: '/aptitude', label: 'Aptitude', subtitle: 'Quant, reasoning & verbal', icon: Calculator },
+            { path: '/daily-challenges', label: 'Daily Challenges', subtitle: 'Company-wise daily problems', icon: Trophy },
         ]
     },
     {
