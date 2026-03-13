@@ -5,6 +5,47 @@ import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const isDev = import.meta.env.DEV;
+
+function getPaymentErrorMessage(status, errorCode, fallbackMessage) {
+    if (errorCode === 'PAYMENT_PROVIDER_NOT_CONFIGURED') {
+        return 'Payment service is not configured. Please contact support.';
+    }
+
+    if (errorCode === 'PAYMENT_DB_UNAVAILABLE' || errorCode === 'PAYMENT_HEALTH_CHECK_FAILED') {
+        return 'Payment service is temporarily unavailable. Please try again in a moment.';
+    }
+
+    if (errorCode === 'PAYMENT_PROVIDER_AUTH_FAILED') {
+        return 'Payment provider authentication failed. Please contact support.';
+    }
+
+    if (errorCode === 'PAYMENT_ORDER_SAVE_FAILED' || errorCode === 'PAYMENT_PENDING_LOOKUP_FAILED') {
+        return 'Unable to initialize payment right now. Please retry shortly.';
+    }
+
+    if (status === 401 || status === 403 || errorCode === 'AUTH_REQUIRED') {
+        return 'Your session has expired. Please log in again and retry payment.';
+    }
+
+    if (status === 429 || errorCode === 'PAYMENT_PROVIDER_RATE_LIMITED') {
+        return 'Too many payment attempts right now. Please wait a moment and retry.';
+    }
+
+    if (status >= 500) {
+        return fallbackMessage || 'Payment server error. Please try again shortly.';
+    }
+
+    return fallbackMessage || 'Failed to create order';
+}
+
+async function parseJsonSafely(response) {
+    try {
+        return await response.json();
+    } catch {
+        return null;
+    }
+}
 
 // Load Razorpay checkout script dynamically
 function loadRazorpayScript() {
@@ -84,7 +125,34 @@ export default function Payment() {
                 return;
             }
 
-            // 2. Create order on backend
+            // 2. Payment health preflight
+            const healthRes = await fetch(`${API_URL}/api/payment/health`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            const healthData = await parseJsonSafely(healthRes);
+            if (!healthRes.ok || !healthData?.ready) {
+                if (isDev) {
+                    console.error('[PAYMENT_HEALTH_FAILED]', {
+                        status: healthRes.status,
+                        payload: healthData,
+                    });
+                }
+                setError(
+                    getPaymentErrorMessage(
+                        healthRes.status,
+                        healthData?.errorCode || healthData?.code,
+                        healthData?.error || 'Payment service is temporarily unavailable.'
+                    )
+                );
+                setIsProcessing(false);
+                return;
+            }
+
+            // 3. Create order on backend
             const orderRes = await fetch(`${API_URL}/api/payment/create-order`, {
                 method: 'POST',
                 headers: {
@@ -94,14 +162,33 @@ export default function Payment() {
                 body: JSON.stringify({ plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase() }),
             });
 
-            const orderData = await orderRes.json();
+            const orderData = await parseJsonSafely(orderRes);
             if (!orderRes.ok) {
-                setError(orderData.error || 'Failed to create order');
+                if (isDev) {
+                    console.error('[PAYMENT_CREATE_ORDER_FAILED]', {
+                        status: orderRes.status,
+                        payload: orderData,
+                    });
+                }
+
+                setError(
+                    getPaymentErrorMessage(
+                        orderRes.status,
+                        orderData?.errorCode || orderData?.code,
+                        orderData?.error
+                    )
+                );
                 setIsProcessing(false);
                 return;
             }
 
-            // 3. Open Razorpay Checkout
+            if (!orderData?.orderId || !orderData?.keyId) {
+                setError('Payment initialization is incomplete. Please try again.');
+                setIsProcessing(false);
+                return;
+            }
+
+            // 4. Open Razorpay Checkout
             const options = {
                 key: orderData.keyId,
                 amount: orderData.amount,
@@ -118,7 +205,7 @@ export default function Payment() {
                     backdrop_color: 'rgba(0, 0, 0, 0.7)',
                 },
                 handler: async function (response) {
-                    // 4. Verify payment on backend
+                    // 5. Verify payment on backend
                     try {
                         const verifyRes = await fetch(`${API_URL}/api/payment/verify`, {
                             method: 'POST',
@@ -133,7 +220,7 @@ export default function Payment() {
                             }),
                         });
 
-                        const verifyData = await verifyRes.json();
+                        const verifyData = await parseJsonSafely(verifyRes);
                         if (verifyRes.ok && verifyData.success) {
                             setPaymentData({
                                 paymentId: verifyData.paymentId,
@@ -147,10 +234,25 @@ export default function Payment() {
                                 navigate('/dashboard');
                             }, 3000);
                         } else {
-                            setError(verifyData.error || 'Payment verification failed');
+                            if (isDev) {
+                                console.error('[PAYMENT_VERIFY_FAILED]', {
+                                    status: verifyRes.status,
+                                    payload: verifyData,
+                                });
+                            }
+                            setError(
+                                getPaymentErrorMessage(
+                                    verifyRes.status,
+                                    verifyData?.errorCode || verifyData?.code,
+                                    verifyData?.error || 'Payment verification failed'
+                                )
+                            );
                             setIsProcessing(false);
                         }
                     } catch (verifyErr) {
+                        if (isDev) {
+                            console.error('[PAYMENT_VERIFY_ERROR]', verifyErr);
+                        }
                         setError('Payment verification failed. Please contact support.');
                         setIsProcessing(false);
                     }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
-import { ExternalLink, Code2, Database, ChevronRight, Sparkles, Building2, Trophy } from 'lucide-react';
+import { ExternalLink, Code2, Database, ChevronRight, Sparkles, Building2, Trophy, ArrowRight } from 'lucide-react';
 
 const DailyChallenge = () => {
     const [challenge, setChallenge] = useState(null);
@@ -101,17 +101,22 @@ const DailyChallenge = () => {
                             <h3>Data Structures & Algorithms</h3>
                         </div>
                         <div className="space-y-3">
-                            {challenge.dsa.map((q, idx) => (
-                                <a
+                            {challenge.dsa.map((q, idx) => {
+                                const route = q.internalId ? `/code-editor/${q.internalId}` : null;
+                                const Wrapper = route ? Link : 'a';
+                                const wrapperProps = route
+                                    ? { to: route }
+                                    : { href: q.url, target: '_blank', rel: 'noopener noreferrer' };
+                                return (
+                                <Wrapper
                                     key={idx}
-                                    href={q.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    {...wrapperProps}
                                     className={`group/item flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                                         isLight 
                                             ? 'bg-white/80 border-slate-200/60 hover:bg-white hover:border-indigo-200 hover:shadow-md' 
                                             : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
                                     }`}
+                                    style={{ textDecoration: 'none' }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <span className={`text-xs font-mono w-4 ${
@@ -133,12 +138,19 @@ const DailyChallenge = () => {
                                         }`}>
                                             {q.difficulty}
                                         </span>
-                                        <ExternalLink size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
-                                            isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-zinc-500 group-hover/item:text-white'
-                                        }`} />
+                                        {route ? (
+                                            <ArrowRight size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
+                                                isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-violet-500 group-hover/item:text-violet-300'
+                                            }`} />
+                                        ) : (
+                                            <ExternalLink size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
+                                                isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-zinc-500 group-hover/item:text-white'
+                                            }`} />
+                                        )}
                                     </div>
-                                </a>
-                            ))}
+                                </Wrapper>
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -155,17 +167,22 @@ const DailyChallenge = () => {
                             <h3>SQL & Database</h3>
                         </div>
                         <div className="space-y-3">
-                            {challenge.sql.map((q, idx) => (
-                                <a
+                            {challenge.sql.map((q, idx) => {
+                                const route = q.internalId ? `/sql-editor/${q.internalId}` : null;
+                                const Wrapper = route ? Link : 'a';
+                                const wrapperProps = route
+                                    ? { to: route }
+                                    : { href: q.url, target: '_blank', rel: 'noopener noreferrer' };
+                                return (
+                                <Wrapper
                                     key={idx}
-                                    href={q.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    {...wrapperProps}
                                     className={`group/item flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer ${
                                         isLight 
                                             ? 'bg-white/80 border-slate-200/60 hover:bg-white hover:border-indigo-200 hover:shadow-md' 
                                             : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10'
                                     }`}
+                                    style={{ textDecoration: 'none' }}
                                 >
                                     <div className="flex items-center gap-3">
                                         <span className={`text-xs font-mono w-4 ${
@@ -187,12 +204,19 @@ const DailyChallenge = () => {
                                         }`}>
                                             {q.difficulty}
                                         </span>
-                                        <ExternalLink size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
-                                            isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-zinc-500 group-hover/item:text-white'
-                                        }`} />
+                                        {route ? (
+                                            <ArrowRight size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
+                                                isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-violet-500 group-hover/item:text-violet-300'
+                                            }`} />
+                                        ) : (
+                                            <ExternalLink size={14} className={`opacity-0 group-hover/item:opacity-100 transition-all ${
+                                                isLight ? 'text-indigo-400 group-hover/item:text-indigo-600' : 'text-zinc-500 group-hover/item:text-white'
+                                            }`} />
+                                        )}
                                     </div>
-                                </a>
-                            ))}
+                                </Wrapper>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>

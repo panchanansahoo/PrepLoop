@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
 import {
     ExternalLink, Code2, Database, Sparkles, Building2,
-    Trophy, Star, ChevronRight, Filter, Search, X
+    Trophy, Star, ChevronRight, Filter, Search, X, ArrowRight
 } from 'lucide-react';
 
 const DIFFICULTY_COLORS = {
@@ -351,29 +352,32 @@ export default function DailyChallengesPage() {
 function QuestionRow({ q, idx, isLight }) {
     const dc = DIFFICULTY_COLORS[q.difficulty] || DIFFICULTY_COLORS.Easy;
 
-    return (
-        <a
-            href={q.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '10px 14px', borderRadius: 12, textDecoration: 'none',
-                background: isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.02)',
-                border: isLight ? '1px solid rgba(0,0,0,0.04)' : '1px solid rgba(255,255,255,0.04)',
-                transition: 'all 0.2s ease', cursor: 'pointer',
-            }}
-            onMouseEnter={e => {
-                e.currentTarget.style.background = isLight ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.05)';
-                e.currentTarget.style.borderColor = isLight ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.1)';
-                e.currentTarget.style.transform = 'translateX(4px)';
-            }}
-            onMouseLeave={e => {
-                e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.02)';
-                e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)';
-                e.currentTarget.style.transform = 'translateX(0)';
-            }}
-        >
+    // Determine internal route based on type
+    const internalRoute = q.internalId
+        ? (q.type === 'sql' ? `/sql-editor/${q.internalId}` : `/code-editor/${q.internalId}`)
+        : null;
+
+    const sharedStyle = {
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '10px 14px', borderRadius: 12, textDecoration: 'none',
+        background: isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.02)',
+        border: isLight ? '1px solid rgba(0,0,0,0.04)' : '1px solid rgba(255,255,255,0.04)',
+        transition: 'all 0.2s ease', cursor: 'pointer',
+    };
+
+    const handleMouseEnter = e => {
+        e.currentTarget.style.background = isLight ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.05)';
+        e.currentTarget.style.borderColor = isLight ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.1)';
+        e.currentTarget.style.transform = 'translateX(4px)';
+    };
+    const handleMouseLeave = e => {
+        e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.02)';
+        e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)';
+        e.currentTarget.style.transform = 'translateX(0)';
+    };
+
+    const content = (
+        <>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                 <span style={{
                     fontSize: 11, fontFamily: 'monospace', width: 20, textAlign: 'center',
@@ -396,11 +400,44 @@ function QuestionRow({ q, idx, isLight }) {
                 }}>
                     {q.difficulty}
                 </span>
-                <ExternalLink size={13} style={{
-                    opacity: 0.3, transition: 'opacity 0.2s',
-                    color: isLight ? '#334155' : 'rgba(255,255,255,0.5)',
-                }} />
+                {internalRoute ? (
+                    <ArrowRight size={13} style={{
+                        opacity: 0.3, transition: 'opacity 0.2s',
+                        color: isLight ? '#4f46e5' : 'rgba(139,92,246,0.7)',
+                    }} />
+                ) : (
+                    <ExternalLink size={13} style={{
+                        opacity: 0.3, transition: 'opacity 0.2s',
+                        color: isLight ? '#334155' : 'rgba(255,255,255,0.5)',
+                    }} />
+                )}
             </div>
+        </>
+    );
+
+    if (internalRoute) {
+        return (
+            <Link
+                to={internalRoute}
+                style={sharedStyle}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+            >
+                {content}
+            </Link>
+        );
+    }
+
+    return (
+        <a
+            href={q.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={sharedStyle}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+        >
+            {content}
         </a>
     );
 }

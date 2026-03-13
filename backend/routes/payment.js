@@ -2,10 +2,16 @@ import express from 'express';
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+import '../config/env.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+const isDev = process.env.NODE_ENV !== 'production';
 
 // ═══════════════════════════════════════════════
 //  SECURITY: Stricter rate limiter for payment routes
@@ -20,11 +26,86 @@ const paymentLimiter = rateLimit({
 });
 router.use(paymentLimiter);
 
-// Initialize Razorpay
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+function isValidEnvValue(value) {
+    if (!value || typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    const invalidMarkers = ['YOUR_KEY_ID', 'YOUR_KEY_SECRET', 'PLACEHOLDER', 'CHANGEME'];
+    return !invalidMarkers.some((marker) => trimmed.toUpperCase().includes(marker));
+}
+
+let cachedEnvFileValues = null;
+
+function readBackendEnvFileValues() {
+    if (cachedEnvFileValues) return cachedEnvFileValues;
+
+    try {
+        const __filename = fileURLToPath(import.meta.url);
+        const __dirname = path.dirname(__filename);
+        const envPath = path.resolve(__dirname, '..', '.env');
+        const raw = fs.readFileSync(envPath, 'utf8');
+        cachedEnvFileValues = dotenv.parse(raw);
+        return cachedEnvFileValues;
+    } catch {
+        cachedEnvFileValues = {};
+        return cachedEnvFileValues;
+    }
+}
+
+function getRazorpayConfig() {
+    const envFileValues = readBackendEnvFileValues();
+
+    const keyId = process.env.RAZORPAY_KEY_ID || envFileValues.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET || envFileValues.RAZORPAY_KEY_SECRET;
+    const configured = isValidEnvValue(keyId) && isValidEnvValue(keySecret);
+
+    return {
+        keyId,
+        keySecret,
+        configured,
+    };
+}
+
+function createRazorpayClient(config) {
+    return new Razorpay({
+        key_id: config.keyId,
+        key_secret: config.keySecret,
+    });
+}
+
+function mapCreateOrderError(err) {
+    const providerStatus = Number(err?.statusCode || err?.status || 0);
+
+    if (providerStatus === 400) {
+        return {
+            status: 400,
+            error: 'Payment provider rejected the order request. Please retry.',
+            errorCode: 'PAYMENT_PROVIDER_BAD_REQUEST',
+        };
+    }
+
+    if (providerStatus === 401 || providerStatus === 403) {
+        return {
+            status: 502,
+            error: 'Payment provider authentication failed. Please contact support.',
+            errorCode: 'PAYMENT_PROVIDER_AUTH_FAILED',
+        };
+    }
+
+    if (providerStatus === 429) {
+        return {
+            status: 503,
+            error: 'Payment provider is temporarily rate-limited. Please try again shortly.',
+            errorCode: 'PAYMENT_PROVIDER_RATE_LIMITED',
+        };
+    }
+
+    return {
+        status: 500,
+        error: 'Failed to create order',
+        errorCode: 'PAYMENT_CREATE_ORDER_FAILED',
+    };
+}
 
 // Plan configuration (server-side only — price can never be tampered by client)
 const PLANS = {
@@ -41,12 +122,92 @@ function sanitizeString(str, maxLength = 255) {
 }
 
 // ─────────────────────────────────────────────
+// GET /api/payment/health
+// Lightweight readiness check for payment flow
+// ─────────────────────────────────────────────
+router.get('/health', authenticateToken, async (req, res) => {
+    const razorpayConfig = getRazorpayConfig();
+    const response = {
+        ready: false,
+        checks: {
+            providerConfigured: razorpayConfig.configured,
+            databaseReachable: false,
+        },
+    };
+
+    if (!razorpayConfig.configured) {
+        return res.status(503).json({
+            ...response,
+            error: 'Payment service is not configured. Please contact support.',
+            errorCode: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+        });
+    }
+
+    try {
+        const { error } = await supabaseAdmin
+            .from('payments')
+            .select('id')
+            .limit(1);
+
+        if (error) {
+            console.error('[PAYMENT_HEALTH_DB_ERROR]', {
+                code: error.code,
+                message: error.message,
+            });
+            return res.status(503).json({
+                ...response,
+                checks: {
+                    ...response.checks,
+                    databaseReachable: false,
+                },
+                error: 'Payment database is temporarily unavailable. Please retry shortly.',
+                errorCode: 'PAYMENT_DB_UNAVAILABLE',
+            });
+        }
+
+        return res.json({
+            ready: true,
+            checks: {
+                providerConfigured: true,
+                databaseReachable: true,
+            },
+        });
+    } catch (err) {
+        console.error('[PAYMENT_HEALTH_ERROR]', {
+            message: err?.message,
+            stack: isDev ? err?.stack : undefined,
+        });
+        return res.status(503).json({
+            ...response,
+            error: 'Payment health check failed. Please retry.',
+            errorCode: 'PAYMENT_HEALTH_CHECK_FAILED',
+        });
+    }
+});
+
+// ─────────────────────────────────────────────
 // POST /api/payment/create-order
 // Creates a Razorpay order for the given plan
 // ─────────────────────────────────────────────
 router.post('/create-order', authenticateToken, async (req, res) => {
     try {
         const user = req.user;
+        const razorpayConfig = getRazorpayConfig();
+
+        if (!razorpayConfig.configured) {
+            console.error('[PAYMENT_CONFIG_ERROR] Razorpay keys are missing or invalid. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+            return res.status(503).json({
+                error: 'Payment service is not configured. Please contact support.',
+                errorCode: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+            });
+        }
+
+        if (!user?.id) {
+            return res.status(401).json({
+                error: 'Authentication required',
+                errorCode: 'AUTH_REQUIRED',
+            });
+        }
 
         const { plan } = req.body;
         const sanitizedPlan = sanitizeString(plan, 20).toLowerCase();
@@ -56,18 +217,31 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         }
 
         // SECURITY: Prevent duplicate pending orders (anti-abuse)
-        const { data: existingOrders } = await supabaseAdmin
+        const { data: existingOrders, error: existingOrdersError } = await supabaseAdmin
             .from('payments')
             .select('id')
             .eq('user_id', user.id)
             .eq('status', 'created')
             .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // Last 30 min
 
+        if (existingOrdersError) {
+            console.error('[PAYMENT_CREATE_ORDER_DB_LOOKUP_ERROR]', {
+                userId: user.id,
+                code: existingOrdersError.code,
+                message: existingOrdersError.message,
+            });
+            return res.status(500).json({
+                error: 'Failed to validate pending payments',
+                errorCode: 'PAYMENT_PENDING_LOOKUP_FAILED',
+            });
+        }
+
         if (existingOrders && existingOrders.length >= 5) {
             return res.status(429).json({ error: 'Too many pending orders. Please complete or wait before creating new ones.' });
         }
 
         const planConfig = PLANS[sanitizedPlan];
+        const razorpay = createRazorpayClient(razorpayConfig);
 
         // Create Razorpay order
         const order = await razorpay.orders.create({
@@ -91,20 +265,40 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         });
 
         if (dbError) {
-            console.error('DB insert error:', dbError);
-            return res.status(500).json({ error: 'Failed to save order' });
+            console.error('[PAYMENT_CREATE_ORDER_DB_INSERT_ERROR]', {
+                userId: user.id,
+                orderId: order.id,
+                code: dbError.code,
+                message: dbError.message,
+                details: dbError.details,
+            });
+            return res.status(500).json({
+                error: 'Failed to save order',
+                errorCode: 'PAYMENT_ORDER_SAVE_FAILED',
+            });
         }
 
         res.json({
             orderId: order.id,
             amount: planConfig.amount,
             currency: planConfig.currency,
-            keyId: process.env.RAZORPAY_KEY_ID,
+            keyId: razorpayConfig.keyId,
             planName: planConfig.name,
         });
     } catch (err) {
-        console.error('Create order error:', err);
-        res.status(500).json({ error: 'Failed to create order' });
+        const mapped = mapCreateOrderError(err);
+        console.error('[PAYMENT_CREATE_ORDER_ERROR]', {
+            statusCode: err?.statusCode,
+            code: err?.error?.code || err?.code,
+            message: err?.error?.description || err?.message,
+            stack: isDev ? err?.stack : undefined,
+        });
+
+        return res.status(mapped.status).json({
+            error: mapped.error,
+            errorCode: mapped.errorCode,
+            ...(isDev && err?.message ? { debugMessage: err.message } : {}),
+        });
     }
 });
 

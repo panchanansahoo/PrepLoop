@@ -1,8 +1,8 @@
 import express from 'express';
 import cors from 'cors';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import './config/env.js';
 import authRoutes from './routes/auth.js';
 import dsaRoutes from './routes/dsa.js';
 import practiceRoutes from './routes/practice.js';
@@ -20,8 +20,6 @@ import companyInterviewRoutes from './routes/companyInterview.js';
 import paymentRoutes from './routes/payment.js';
 import voiceRoutes from './routes/voice.js';
 import notesRoutes from './routes/notes.js';
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

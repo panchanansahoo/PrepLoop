@@ -677,6 +677,346 @@ export const SQL_PROBLEMS = [
     ['Soft deletes mark rows as deleted without removing them', 'Allows recovery and audit trails'],
     'Soft deletes preserve data for auditing and recovery. Applications filter with WHERE is_deleted = FALSE.'
   ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – GOOGLE (101-105)
+  // ════════════════════════════════════════
+  p('sql-101', 'Big Countries', 'Easy', 'basic', ['SELECT', 'WHERE'], 'world', ['google'], 82, 5,
+    'A country is big if it has an area of at least 3 million sq km or a population of at least 25 million. Write a query to find the name, population, and area of the big countries.',
+    "SELECT name, population, area FROM country WHERE area >= 3000000 OR population >= 25000000;",
+    ['Use OR to combine two conditions', 'No need for JOIN — single table query'],
+    'The OR operator allows matching rows that satisfy either condition. This is a classic filter-based query.'
+  ),
+  p('sql-102', 'Second Highest Salary', 'Medium', 'subqueries', ['Subquery', 'DISTINCT', 'ORDER BY', 'LIMIT'], 'hr', ['google', 'microsoft', 'amazon'], 65, 12,
+    'Write a query to find the second highest distinct salary from the employees table. If there is no second highest salary, the query should return NULL.',
+    "SELECT MAX(salary) AS second_highest FROM employees WHERE salary < (SELECT MAX(salary) FROM employees);",
+    ['Use a subquery to find the maximum salary first', 'Then find the max salary less than that', 'Handle NULL with IFNULL if needed'],
+    'This pattern uses a correlated approach: find the max, then find the max below it. Alternatively, use LIMIT 1 OFFSET 1 with DISTINCT.'
+  ),
+  p('sql-103', 'Nth Highest Salary', 'Medium', 'subqueries', ['Subquery', 'DISTINCT', 'ORDER BY', 'LIMIT'], 'hr', ['google', 'amazon'], 55, 15,
+    'Write a query to find the Nth highest distinct salary. For example, find the 3rd highest salary.',
+    "SELECT DISTINCT salary FROM employees ORDER BY salary DESC LIMIT 1 OFFSET 2;",
+    ['Use DISTINCT to handle duplicate salaries', 'ORDER BY DESC puts highest first', 'OFFSET N-1 skips the top N-1 rows'],
+    'The LIMIT/OFFSET approach is clean: DISTINCT removes dupes, ORDER BY DESC sorts highest first, and OFFSET skips to the Nth position.'
+  ),
+  p('sql-104', 'Rank Scores', 'Medium', 'window', ['DENSE_RANK'], 'hr', ['google'], 58, 12,
+    'Write a query to rank scores in the employees table. Scores with the same value should have the same rank, and the next rank should be consecutive (dense ranking).',
+    "SELECT salary, DENSE_RANK() OVER (ORDER BY salary DESC) AS rank FROM employees;",
+    ['Use DENSE_RANK() for consecutive rankings', 'OVER (ORDER BY ...) defines the ranking order'],
+    'DENSE_RANK assigns consecutive ranks without gaps. Unlike RANK(), ties get the same rank and the next rank is not skipped.'
+  ),
+  p('sql-105', 'Consecutive Numbers', 'Medium', 'advanced', ['SELF JOIN', 'WHERE'], 'ecommerce', ['google'], 48, 15,
+    'Write a query to find all numbers that appear at least three times consecutively in a log table. Use the orders table and find order IDs where the same customer placed at least 3 consecutive orders.',
+    "SELECT DISTINCT a.customer_id FROM orders a JOIN orders b ON a.order_id = b.order_id - 1 JOIN orders c ON b.order_id = c.order_id - 1 WHERE a.customer_id = b.customer_id AND b.customer_id = c.customer_id;",
+    ['Self-join the table three times', 'Match consecutive IDs', 'Check that all three rows have the same value'],
+    'Self-joining with ID offsets detects consecutive sequences. Three-way join catches triplets where all share the same value.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – MICROSOFT (106-110)
+  // ════════════════════════════════════════
+  p('sql-106', 'Combine Two Tables', 'Easy', 'joins', ['LEFT JOIN'], 'hr', ['microsoft'], 85, 8,
+    'Write a query to report the first name, last name, city and state for each person, including people who do not have address information.',
+    "SELECT e.first_name, e.last_name, d.department_name AS city, e.hire_date FROM employees e LEFT JOIN departments d ON e.department_id = d.department_id;",
+    ['Use LEFT JOIN to include people without addresses', 'LEFT JOIN keeps all rows from the left table'],
+    'LEFT JOIN preserves all rows from the left table regardless of whether there is a match in the right table. Unmatched rows show NULL.'
+  ),
+  p('sql-107', 'Employees Earning More Than Their Managers', 'Easy', 'joins', ['SELF JOIN'], 'hr', ['microsoft', 'amazon'], 78, 10,
+    'Write a query to find employees who earn more than their managers.',
+    "SELECT e.first_name AS Employee FROM employees e JOIN employees m ON e.department_id = m.department_id WHERE e.salary > m.salary AND e.employee_id != m.employee_id;",
+    ['Self-join the employee table', 'Compare salaries between employee and manager', 'Use different aliases for each copy of the table'],
+    'Self-joins allow comparing rows within the same table. Here, we join employees to themselves to compare each employee with their manager.'
+  ),
+  p('sql-108', 'Duplicate Emails', 'Easy', 'aggregations', ['GROUP BY', 'HAVING', 'COUNT'], 'ecommerce', ['microsoft'], 80, 8,
+    'Write a query to find all duplicate email addresses in the customers table.',
+    "SELECT email FROM customers GROUP BY email HAVING COUNT(*) > 1;",
+    ['GROUP BY groups identical emails', 'HAVING filters groups', 'COUNT(*) > 1 identifies duplicates'],
+    'GROUP BY with HAVING COUNT(*) > 1 is the standard pattern for finding duplicates in any column.'
+  ),
+  p('sql-109', 'Department Top Three Salaries', 'Hard', 'window', ['DENSE_RANK', 'Subquery'], 'hr', ['microsoft', 'google'], 42, 20,
+    'Write a query to find employees who earn one of the top three distinct salaries in each department.',
+    "SELECT department_name, first_name, salary FROM (SELECT e.first_name, e.salary, d.department_name, DENSE_RANK() OVER (PARTITION BY e.department_id ORDER BY e.salary DESC) AS rk FROM employees e JOIN departments d ON e.department_id = d.department_id) ranked WHERE rk <= 3;",
+    ['Use DENSE_RANK() with PARTITION BY department', 'Wrap in a subquery and filter for rank <= 3'],
+    'PARTITION BY creates separate ranking groups per department. DENSE_RANK ensures ties share ranks without gaps.'
+  ),
+  p('sql-110', 'Trips and Users', 'Hard', 'advanced', ['CASE', 'GROUP BY', 'LEFT JOIN'], 'ecommerce', ['microsoft'], 38, 25,
+    'Write a query to find the cancellation rate of requests with unbanned users for each day. The cancellation rate is computed by dividing the number of cancelled requests by the total number of requests.',
+    "SELECT order_date, ROUND(SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) / COUNT(*), 2) AS cancellation_rate FROM orders GROUP BY order_date;",
+    ['Use CASE to count cancelled requests', 'Divide by total COUNT', 'ROUND for clean output'],
+    'CASE inside SUM creates conditional aggregation. Dividing by COUNT(*) gives the ratio, and ROUND formats the decimal.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – AMAZON (111-115)
+  // ════════════════════════════════════════
+  p('sql-111', 'Delete Duplicate Emails', 'Easy', 'dml', ['DELETE', 'SELF JOIN'], 'ecommerce', ['amazon'], 70, 10,
+    'Write a query to delete all duplicate email entries in the customers table, keeping only the one with the smallest ID.',
+    "DELETE c1 FROM customers c1 JOIN customers c2 ON c1.email = c2.email WHERE c1.customer_id > c2.customer_id;",
+    ['Self-join on email to find duplicates', 'Delete the one with the larger ID', 'Keep the smallest ID for each email'],
+    'Self-join with DELETE removes duplicates by comparing IDs. The larger ID row gets deleted while the smaller one is preserved.'
+  ),
+  p('sql-112', 'Rising Temperature', 'Easy', 'joins', ['SELF JOIN', 'Date Functions'], 'ecommerce', ['amazon'], 72, 10,
+    'Write a query to find all dates where the temperature was higher than the previous day. Use the orders table to find orders where the total amount was higher than the previous day.',
+    "SELECT a.order_id, a.order_date FROM orders a JOIN orders b ON DATE(a.order_date) = DATE(b.order_date) + INTERVAL 1 DAY WHERE a.total_amount > b.total_amount;",
+    ['Self-join with date arithmetic', 'Compare today vs yesterday', 'Use DATE functions for date manipulation'],
+    'Self-joining with a date offset lets you compare consecutive days. DATE arithmetic adds or subtracts intervals from dates.'
+  ),
+  p('sql-113', 'Game Play Analysis I', 'Easy', 'aggregations', ['MIN', 'GROUP BY'], 'ecommerce', ['amazon'], 75, 8,
+    'Write a query to find the first login date for each customer.',
+    "SELECT customer_id, MIN(order_date) AS first_login FROM orders GROUP BY customer_id;",
+    ['Use MIN() to find the earliest date', 'GROUP BY to get one result per customer'],
+    'MIN() with GROUP BY finds the earliest value for each group. This pattern is fundamental for finding first occurrences.'
+  ),
+  p('sql-114', 'Market Analysis I', 'Medium', 'joins', ['LEFT JOIN', 'COUNT', 'GROUP BY'], 'ecommerce', ['amazon'], 55, 15,
+    'Write a query to find for each customer the join date and the number of orders they made in 2023.',
+    "SELECT c.customer_id, c.signup_date, COUNT(o.order_id) AS orders_2023 FROM customers c LEFT JOIN orders o ON c.customer_id = o.customer_id AND YEAR(o.order_date) = 2023 GROUP BY c.customer_id, c.signup_date;",
+    ['Use LEFT JOIN to include customers with no orders', 'Filter by year in the JOIN condition, not WHERE', 'COUNT on the right table column'],
+    'Placing the date filter in the JOIN condition (not WHERE) ensures customers with zero orders still appear with a count of 0.'
+  ),
+  p('sql-115', 'Capital Gain/Loss', 'Medium', 'aggregations', ['CASE', 'SUM', 'GROUP BY'], 'banking', ['amazon'], 58, 12,
+    'Write a query to report the capital gain/loss for each transaction type. Sum gains and subtract losses.',
+    "SELECT transaction_type, SUM(CASE WHEN transaction_type = 'deposit' THEN amount ELSE -amount END) AS net_amount FROM transactions GROUP BY transaction_type;",
+    ['Use CASE to conditionally add or subtract amounts', 'SUM aggregates the net result', 'GROUP BY to separate by type'],
+    'CASE inside SUM allows conditional aggregation — adding for buys and subtracting for sells to compute net gain/loss.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – TCS (116-120)
+  // ════════════════════════════════════════
+  p('sql-116', 'Select All', 'Easy', 'basic', ['SELECT'], 'world', ['tcs'], 95, 3,
+    'Write a query to select all columns and rows from the city table.',
+    "SELECT * FROM city;",
+    ['SELECT * retrieves all columns', 'No WHERE clause needed for all rows'],
+    'The simplest SQL query — SELECT * FROM table returns every column and every row.'
+  ),
+  p('sql-117', 'Revising the Select Query I', 'Easy', 'basic', ['SELECT', 'WHERE'], 'world', ['tcs'], 90, 5,
+    'Write a query to select all cities with a population larger than 100,000 that are in the countrycode "USA".',
+    "SELECT * FROM city WHERE population > 100000 AND countrycode = 'USA';",
+    ['Combine conditions with AND', 'Use > for numeric comparisons'],
+    'Multiple WHERE conditions combined with AND require all conditions to be true for a row to be included.'
+  ),
+  p('sql-118', 'Japanese Cities Names', 'Easy', 'basic', ['SELECT', 'WHERE'], 'world', ['tcs'], 88, 5,
+    'Write a query to select the names of all cities where the countrycode is "JPN".',
+    "SELECT name FROM city WHERE countrycode = 'JPN';",
+    ['Select only the name column', 'Filter by countrycode'],
+    'Selecting specific columns instead of * is best practice when you only need certain fields.'
+  ),
+  p('sql-119', 'Weather Observation Station 1', 'Easy', 'basic', ['SELECT'], 'geography', ['tcs'], 90, 5,
+    'Write a query to select the city and state columns from the station table.',
+    "SELECT city, state FROM station;",
+    ['Select only the required columns', 'No filtering needed'],
+    'Selecting specific columns from a table. This is more efficient than SELECT * when only certain columns are needed.'
+  ),
+  p('sql-120', 'Employee Salaries', 'Easy', 'basic', ['SELECT', 'WHERE', 'ORDER BY'], 'hackerrank', ['tcs'], 85, 5,
+    'Write a query to find the names of employees whose salary exceeds $2000 per month and who have worked for less than 10 months. Sort by employee_id.',
+    "SELECT name FROM employee WHERE salary > 2000 AND months < 10 ORDER BY employee_id;",
+    ['Use AND to combine salary and months conditions', 'ORDER BY for sorting'],
+    'Combining WHERE conditions with AND and adding ORDER BY for sorted output is a fundamental SQL pattern.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – INFOSYS (121-125)
+  // ════════════════════════════════════════
+  p('sql-121', 'Higher Than 75 Marks', 'Easy', 'basic', ['SELECT', 'WHERE', 'ORDER BY', 'String Functions'], 'hackerrank', ['infosys'], 82, 8,
+    'Write a query to find student names who scored higher than 75. Order output by the last three characters of the name, then by ID.',
+    "SELECT name FROM students WHERE marks > 75 ORDER BY RIGHT(name, 3), id;",
+    ['Use RIGHT() to extract last 3 characters', 'ORDER BY can use function results', 'Secondary sort by id for ties'],
+    'String functions like RIGHT() or SUBSTR() can be used in ORDER BY. Multiple sort keys handle ties.'
+  ),
+  p('sql-122', 'Employee Names', 'Easy', 'basic', ['SELECT', 'ORDER BY'], 'hackerrank', ['infosys'], 88, 5,
+    'Write a query to print the names of all employees from the employee table, sorted alphabetically.',
+    "SELECT name FROM employee ORDER BY name;",
+    ['Simple SELECT with ORDER BY', 'Default sort is ascending (A-Z)'],
+    'ORDER BY without specifying ASC or DESC defaults to ascending order, which gives alphabetical sorting for strings.'
+  ),
+  p('sql-123', 'Top Earners', 'Medium', 'aggregations', ['MAX', 'COUNT', 'GROUP BY'], 'hackerrank', ['infosys'], 62, 12,
+    'Write a query to find the maximum total earnings (salary × months) among all employees, and the count of employees who earn that maximum.',
+    "SELECT MAX(salary * months) AS max_earnings, COUNT(*) FROM employee WHERE salary * months = (SELECT MAX(salary * months) FROM employee);",
+    ['Calculate earnings as salary × months', 'Use MAX to find the highest', 'Count employees at that max level'],
+    'Computed expressions (salary * months) can be used in aggregations. The subquery finds the max, and the outer query counts matches.'
+  ),
+  p('sql-124', 'Weather Observation Station 3', 'Easy', 'basic', ['SELECT', 'DISTINCT', 'WHERE'], 'geography', ['infosys'], 80, 8,
+    'Write a query to get a list of distinct city names from the station table where the city ID is even (i.e., ID % 2 = 0).',
+    "SELECT DISTINCT city FROM station WHERE id % 2 = 0;",
+    ['Use modulo (%) to check for even numbers', 'DISTINCT removes duplicate city names'],
+    'The modulo operator (%) returns the remainder of division. id % 2 = 0 selects even IDs.'
+  ),
+  p('sql-125', 'Occupations', 'Medium', 'advanced', ['CASE', 'ROW_NUMBER', 'GROUP BY'], 'hackerrank', ['infosys'], 45, 20,
+    'Write a query to pivot the occupations column so that each occupation has its own column, listing the names alphabetically under each.',
+    "SELECT MAX(CASE WHEN occupation = 'Doctor' THEN name END) AS Doctor, MAX(CASE WHEN occupation = 'Professor' THEN name END) AS Professor, MAX(CASE WHEN occupation = 'Singer' THEN name END) AS Singer, MAX(CASE WHEN occupation = 'Actor' THEN name END) AS Actor FROM (SELECT name, occupation, ROW_NUMBER() OVER (PARTITION BY occupation ORDER BY name) AS rn FROM occupations) t GROUP BY rn;",
+    ['Use ROW_NUMBER to create row identifiers per occupation', 'CASE WHEN pivots columns', 'GROUP BY the row number'],
+    'Pivoting transforms rows into columns. ROW_NUMBER assigns a sequence per group, and CASE WHEN selects values for each new column.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – WIPRO (126-130)
+  // ════════════════════════════════════════
+  p('sql-126', 'Average Population of Each Continent', 'Easy', 'aggregations', ['AVG', 'GROUP BY', 'INNER JOIN'], 'world', ['wipro'], 78, 8,
+    'Write a query to find the average population for each continent, calculated using the city populations.',
+    "SELECT co.continent, FLOOR(AVG(ci.population)) AS avg_population FROM city ci JOIN country co ON ci.countrycode = co.name GROUP BY co.continent;",
+    ['JOIN city with country on country code', 'Use AVG() for the average', 'FLOOR rounds down to integer'],
+    'Joining tables and aggregating with GROUP BY gives continent-level statistics. FLOOR removes decimal places.'
+  ),
+  p('sql-127', 'The Report', 'Medium', 'joins', ['INNER JOIN', 'CASE', 'ORDER BY'], 'hackerrank', ['wipro'], 55, 15,
+    'Write a query to generate a report of student grades. If a student scored 70 or above, display the name alongside the grade; otherwise, display NULL for the name.',
+    "SELECT CASE WHEN marks >= 70 THEN name ELSE NULL END AS name, CASE WHEN marks >= 90 THEN 'A' WHEN marks >= 80 THEN 'B' WHEN marks >= 70 THEN 'C' ELSE 'F' END AS grade, marks FROM students ORDER BY grade DESC, name;",
+    ['Use CASE WHEN for conditional display', 'NULLify names below threshold', 'Multi-level ORDER BY'],
+    'CASE WHEN creates conditional logic in SELECT. Displaying NULL for certain rows is a common reporting requirement.'
+  ),
+  p('sql-128', 'Population Census', 'Easy', 'aggregations', ['SUM', 'INNER JOIN', 'WHERE'], 'world', ['wipro'], 75, 8,
+    'Write a query to find the total population of all Asian cities.',
+    "SELECT SUM(ci.population) AS total_population FROM city ci JOIN country co ON ci.countrycode = co.name WHERE co.continent = 'Asia';",
+    ['JOIN city and country tables', 'Filter by continent', 'SUM the city populations'],
+    'Joining tables, filtering with WHERE, and aggregating with SUM gives the total population for a specific continent.'
+  ),
+  p('sql-129', 'African Cities', 'Easy', 'joins', ['INNER JOIN', 'WHERE'], 'world', ['wipro'], 78, 8,
+    'Write a query to list the names of all cities located in Africa.',
+    "SELECT ci.name FROM city ci JOIN country co ON ci.countrycode = co.name WHERE co.continent = 'Africa';",
+    ['JOIN city with country', 'Filter by Africa as the continent'],
+    'A straightforward JOIN with a WHERE filter to select cities belonging to a specific continent.'
+  ),
+  p('sql-130', 'Type of Triangle', 'Easy', 'advanced', ['CASE'], 'hackerrank', ['wipro'], 72, 10,
+    'Write a query to classify each record in the triangles table as Equilateral, Isosceles, Scalene, or Not A Triangle.',
+    "SELECT CASE WHEN a + b <= c OR a + c <= b OR b + c <= a THEN 'Not A Triangle' WHEN a = b AND b = c THEN 'Equilateral' WHEN a = b OR b = c OR a = c THEN 'Isosceles' ELSE 'Scalene' END AS triangle_type FROM triangles;",
+    ['Check triangle inequality first', 'Then check for equal sides', 'Order of CASE conditions matters'],
+    'CASE WHEN evaluates conditions in order. Check validity first (triangle inequality), then classify by side equality.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – ACCENTURE (131-135)
+  // ════════════════════════════════════════
+  p('sql-131', 'Binary Tree Nodes', 'Medium', 'advanced', ['CASE', 'Subquery'], 'hackerrank', ['accenture'], 52, 15,
+    'Write a query to classify each node in the BST table as Root, Leaf, or Inner based on its parent value.',
+    "SELECT n, CASE WHEN p IS NULL THEN 'Root' WHEN n NOT IN (SELECT DISTINCT p FROM bst WHERE p IS NOT NULL) THEN 'Leaf' ELSE 'Inner' END AS node_type FROM bst ORDER BY n;",
+    ['Root has NULL parent', 'Leaf nodes are not parents of any other node', 'Use NOT IN with a subquery to check'],
+    'Root nodes have p IS NULL. Leaf nodes never appear as a parent (p) of other nodes. Everything else is Inner.'
+  ),
+  p('sql-132', 'New Companies', 'Medium', 'aggregations', ['COUNT', 'DISTINCT', 'GROUP BY', 'INNER JOIN'], 'company_hierarchy', ['accenture'], 55, 15,
+    'Write a query to print the company code, founder name, and the total distinct count of lead managers, senior managers, managers, and employees.',
+    "SELECT c.company_code, c.founder, COUNT(DISTINCT lm.lead_manager_code), COUNT(DISTINCT sm.senior_manager_code), COUNT(DISTINCT m.manager_code), COUNT(DISTINCT eh.employee_code) FROM company c LEFT JOIN lead_manager lm ON c.company_code = lm.company_code LEFT JOIN senior_manager sm ON c.company_code = sm.company_code LEFT JOIN manager m ON c.company_code = m.company_code LEFT JOIN employee_hierarchy eh ON c.company_code = eh.company_code GROUP BY c.company_code, c.founder ORDER BY c.company_code;",
+    ['JOIN all hierarchy tables to the company table', 'Use COUNT(DISTINCT ...) for each level', 'GROUP BY company'],
+    'Multiple LEFT JOINs connect all organizational levels. COUNT(DISTINCT) prevents duplicates from inflating counts.'
+  ),
+  p('sql-133', 'Weather Observation Station 18', 'Medium', 'aggregations', ['MIN', 'MAX', 'ABS'], 'geography', ['accenture'], 60, 10,
+    'Write a query to find the Manhattan distance between the smallest and largest latitude/longitude values in the station table. Manhattan Distance = |min_lat - max_lat| + |min_long - max_long|.',
+    "SELECT ROUND(ABS(MIN(lat_n) - MAX(lat_n)) + ABS(MIN(long_w) - MAX(long_w)), 4) AS manhattan_distance FROM station;",
+    ['Use MIN and MAX for extreme values', 'ABS for absolute difference', 'Manhattan distance is sum of absolute differences'],
+    'Manhattan distance is the sum of absolute differences along each axis. MIN/MAX find the extremes, ABS ensures positive result.'
+  ),
+  p('sql-134', 'The PADS', 'Medium', 'advanced', ['String Functions', 'CONCAT', 'ORDER BY'], 'hackerrank', ['accenture'], 50, 12,
+    'Write a query that generates two result sets: 1) Names with their occupation initial in parentheses, 2) Count of each occupation with formatted text.',
+    "SELECT CONCAT(name, '(', LEFT(occupation, 1), ')') FROM occupations ORDER BY name;",
+    ['CONCAT joins strings together', 'LEFT() extracts the first character', 'Separate queries for each result set'],
+    'String functions like CONCAT and LEFT/SUBSTR build formatted output. Multiple SELECT queries can be combined with UNION.'
+  ),
+  p('sql-135', 'Symmetric Pairs', 'Medium', 'joins', ['SELF JOIN', 'WHERE', 'GROUP BY'], 'coding_contest', ['accenture', 'cognizant'], 48, 15,
+    'For the functions table, write a query to find all symmetric pairs (where f(a)=b and f(b)=a). Output pairs where the first value is less than or equal to the second.',
+    "SELECT f1.hacker_id AS x, f2.hacker_id AS y FROM hackers f1 JOIN hackers f2 ON f1.hacker_id = f2.name WHERE f1.hacker_id <= f2.hacker_id GROUP BY f1.hacker_id, f2.hacker_id HAVING COUNT(*) > 1 OR f1.hacker_id < f2.hacker_id;",
+    ['Self-join to find matching pairs', 'Ensure x <= y to avoid duplicates', 'Handle equal pairs separately with HAVING'],
+    'Symmetric pairs are found by self-joining and matching reversed values. The x <= y condition eliminates duplicate reversed output.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – COGNIZANT (136-140)
+  // ════════════════════════════════════════
+  p('sql-136', 'Challenges', 'Medium', 'aggregations', ['COUNT', 'GROUP BY', 'HAVING', 'Subquery'], 'coding_contest', ['cognizant'], 50, 18,
+    'Write a query to print the hacker_id, name, and the total number of challenges created by each hacker. Sort by challenge count descending, then by hacker_id. Exclude hackers whose count matches another hacker unless it is the maximum count.',
+    "SELECT h.hacker_id, h.name, COUNT(c.challenge_id) AS cnt FROM hackers h JOIN challenges c ON h.hacker_id = c.hacker_id GROUP BY h.hacker_id, h.name HAVING cnt = (SELECT MAX(cnt2) FROM (SELECT COUNT(*) AS cnt2 FROM challenges GROUP BY hacker_id) t) OR cnt NOT IN (SELECT cnt3 FROM (SELECT COUNT(*) AS cnt3 FROM challenges GROUP BY hacker_id) t2 GROUP BY cnt3 HAVING COUNT(*) > 1) ORDER BY cnt DESC, h.hacker_id;",
+    ['Count challenges per hacker', 'Use HAVING to filter non-unique counts', 'Allow the maximum count even if non-unique'],
+    'This complex filter uses subqueries in HAVING to eliminate non-unique challenge counts while preserving the maximum.'
+  ),
+  p('sql-137', 'Contest Leaderboard', 'Medium', 'aggregations', ['MAX', 'SUM', 'GROUP BY', 'Subquery'], 'coding_contest', ['cognizant'], 52, 15,
+    'Write a query to find the total score of each hacker. The score for each challenge is the maximum score achieved. Exclude hackers with a total score of 0.',
+    "SELECT h.hacker_id, h.name, SUM(max_score) AS total_score FROM hackers h JOIN (SELECT hacker_id, challenge_id, MAX(score) AS max_score FROM submissions GROUP BY hacker_id, challenge_id) s ON h.hacker_id = s.hacker_id GROUP BY h.hacker_id, h.name HAVING total_score > 0 ORDER BY total_score DESC, h.hacker_id;",
+    ['First find max score per hacker per challenge', 'Then sum those max scores per hacker', 'Exclude zero totals with HAVING'],
+    'Nested aggregation: inner query finds max per challenge, outer query sums across challenges per hacker.'
+  ),
+  p('sql-138', 'SQL Project Planning', 'Medium', 'advanced', ['Date Functions', 'Subquery', 'ORDER BY'], 'coding_contest', ['cognizant'], 45, 20,
+    'Write a query to find the start and end dates of each project. Tasks with consecutive dates belong to the same project.',
+    "SELECT MIN(start_date) AS project_start, MAX(end_date) AS project_end FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY start_date) AS rn, DATEDIFF(start_date, '2024-01-01') - ROW_NUMBER() OVER (ORDER BY start_date) AS grp FROM projects) t GROUP BY grp ORDER BY DATEDIFF(MAX(end_date), MIN(start_date)), MIN(start_date);",
+    ['Group consecutive dates using the row_number trick', 'The difference between date and row_number is constant for consecutive dates', 'ORDER BY project duration then start date'],
+    'The consecutive-groups trick: for sequential dates, date minus row_number produces the same value, creating natural groupings.'
+  ),
+  p('sql-139', 'Placements', 'Medium', 'joins', ['INNER JOIN', 'WHERE'], 'coding_contest', ['cognizant'], 55, 15,
+    'Write a query to output student names whose best friend got a higher salary offer than they did.',
+    "SELECT f.id FROM friends f JOIN packages p1 ON f.id = p1.id JOIN packages p2 ON f.friend_id = p2.id WHERE p2.salary > p1.salary ORDER BY p2.salary;",
+    ['Join friends with packages twice', 'Compare student and friend salaries', 'Order by friend salary'],
+    'Double-joining the packages table (once for student, once for friend) enables direct salary comparison between pairs.'
+  ),
+  p('sql-140', 'Symmetric Pairs (Cognizant)', 'Medium', 'joins', ['SELF JOIN', 'WHERE', 'GROUP BY'], 'coding_contest', ['cognizant'], 48, 15,
+    'For a functions table with X and Y columns, write a query to find symmetric pairs where f(X1)=Y1 and f(X2)=Y2 such that X1=Y2 and X2=Y1. Output X ≤ Y only.',
+    "SELECT f1.hacker_id AS x, f2.hacker_id AS y FROM hackers f1 JOIN hackers f2 ON f1.hacker_id = f2.name WHERE f1.hacker_id <= f2.hacker_id GROUP BY f1.hacker_id, f2.hacker_id HAVING COUNT(*) > 1 OR f1.hacker_id < f2.hacker_id;",
+    ['Self-join matching X↔Y pairs', 'Filter X <= Y to prevent duplicates'],
+    'Symmetric pairs require cross-matching values. Self-join finds where one row X,Y matches another row Y,X.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – CAPGEMINI (141-145)
+  // ════════════════════════════════════════
+  p('sql-141', 'Draw The Triangle 1', 'Easy', 'advanced', ['String Functions', 'CTE'], 'hackerrank', ['capgemini'], 68, 10,
+    'Write a query to print a descending triangle pattern of asterisks: 20 stars on line 1, 19 on line 2, ... 1 star on line 20.',
+    "WITH RECURSIVE nums AS (SELECT 20 AS n UNION ALL SELECT n - 1 FROM nums WHERE n > 1) SELECT REPEAT('* ', n) FROM nums;",
+    ['Use a recursive CTE to generate numbers 20 to 1', 'REPEAT creates the star pattern', 'Each iteration reduces by 1'],
+    'Recursive CTEs generate sequences. REPEAT() or string concatenation creates patterns of varying length.'
+  ),
+  p('sql-142', 'Draw The Triangle 2', 'Easy', 'advanced', ['String Functions', 'CTE'], 'hackerrank', ['capgemini'], 68, 10,
+    'Write a query to print an ascending triangle pattern of asterisks: 1 star on line 1, 2 on line 2, ... 20 stars on line 20.',
+    "WITH RECURSIVE nums AS (SELECT 1 AS n UNION ALL SELECT n + 1 FROM nums WHERE n < 20) SELECT REPEAT('* ', n) FROM nums;",
+    ['Use a recursive CTE to generate numbers 1 to 20', 'REPEAT creates the star pattern', 'Each iteration increases by 1'],
+    'Similar to the descending triangle but starting from 1 and incrementing. Recursive CTEs handle sequence generation elegantly.'
+  ),
+  p('sql-143', 'Print Prime Numbers', 'Medium', 'advanced', ['CTE', 'Recursive CTE', 'String Functions'], 'hackerrank', ['capgemini'], 42, 20,
+    'Write a query to print all prime numbers up to 1000 separated by ampersands.',
+    "WITH RECURSIVE nums AS (SELECT 2 AS n UNION ALL SELECT n + 1 FROM nums WHERE n < 1000) SELECT GROUP_CONCAT(n SEPARATOR '&') FROM nums x WHERE NOT EXISTS (SELECT 1 FROM nums d WHERE d.n > 1 AND d.n < x.n AND x.n % d.n = 0);",
+    ['Generate numbers 2-1000 with recursive CTE', 'Check each for prime using NOT EXISTS', 'Concatenate with GROUP_CONCAT'],
+    'Prime checking uses NOT EXISTS with a divisibility test. GROUP_CONCAT joins results into a single string with a custom separator.'
+  ),
+  p('sql-144', 'Weather Observation Station 20', 'Medium', 'window', ['ROW_NUMBER', 'COUNT', 'Subquery'], 'geography', ['capgemini'], 50, 15,
+    'Write a query to find the median latitude value from the station table. Round to 4 decimal places.',
+    "SELECT ROUND(lat_n, 4) AS median FROM (SELECT lat_n, ROW_NUMBER() OVER (ORDER BY lat_n) AS rn, COUNT(*) OVER () AS total FROM station) t WHERE rn = FLOOR((total + 1) / 2);",
+    ['Use ROW_NUMBER to assign position', 'COUNT OVER () gets total rows', 'Median is at position (total+1)/2'],
+    'Finding the median requires sorting and selecting the middle value. ROW_NUMBER with COUNT OVER() identifies the middle position.'
+  ),
+  p('sql-145', 'Interviews', 'Hard', 'aggregations', ['SUM', 'GROUP BY', 'INNER JOIN'], 'company_hierarchy', ['capgemini'], 38, 25,
+    'Write a query to print contest_id, hacker_id, name, and the sums of total_submissions, total_accepted_submissions, total_views, and total_unique_views. Exclude rows where all four sums are zero.',
+    "SELECT contest_id, hacker_id, SUM(total_submissions), SUM(total_accepted), SUM(total_views), SUM(total_unique_views) FROM interviews_table GROUP BY contest_id, hacker_id HAVING SUM(total_submissions) + SUM(total_accepted) + SUM(total_views) + SUM(total_unique_views) > 0 ORDER BY contest_id;",
+    ['SUM each metric column', 'GROUP BY contest and hacker', 'HAVING filters out all-zero rows'],
+    'Multiple SUM aggregations in a single query with GROUP BY. HAVING eliminates groups where every aggregated value is zero.'
+  ),
+
+  // ════════════════════════════════════════
+  // DAILY CHALLENGE SQL – HCL (146-150)
+  // ════════════════════════════════════════
+  p('sql-146', '15 Days of Learning SQL', 'Hard', 'advanced', ['CTE', 'ROW_NUMBER', 'COUNT', 'DENSE_RANK'], 'coding_contest', ['hcl'], 32, 30,
+    'Write a query to find the total number of unique hackers who made at least 1 submission each day (starting on the first day), and the hacker who made the maximum submissions each day.',
+    "WITH daily AS (SELECT submission_date, hacker_id, COUNT(*) AS cnt FROM submissions GROUP BY submission_date, hacker_id), ranked AS (SELECT *, ROW_NUMBER() OVER (PARTITION BY submission_date ORDER BY cnt DESC, hacker_id) AS rn FROM daily) SELECT r.submission_date, (SELECT COUNT(DISTINCT hacker_id) FROM submissions s WHERE s.submission_date <= r.submission_date) AS unique_hackers, r.hacker_id, h.name FROM ranked r JOIN hackers h ON r.hacker_id = h.hacker_id WHERE r.rn = 1 ORDER BY r.submission_date;",
+    ['Count submissions per hacker per day', 'Use ROW_NUMBER to rank by count per day', 'Count distinct hackers cumulatively'],
+    'This complex query combines daily aggregation, ranking, and cumulative counting across multiple dimensions.'
+  ),
+  p('sql-147', 'SQL Project Planning', 'Medium', 'advanced', ['Date Functions', 'Subquery', 'ORDER BY'], 'coding_contest', ['hcl'], 45, 20,
+    'Write a query to find projects by grouping consecutive task dates. Output the start and end dates, ordered by project duration then start date.',
+    "SELECT MIN(start_date) AS project_start, MAX(end_date) AS project_end FROM (SELECT *, ROW_NUMBER() OVER (ORDER BY start_date) AS rn, DATEDIFF(start_date, '2024-01-01') - ROW_NUMBER() OVER (ORDER BY start_date) AS grp FROM projects) t GROUP BY grp ORDER BY DATEDIFF(MAX(end_date), MIN(start_date)), MIN(start_date);",
+    ['Use the gaps-and-islands technique', 'Consecutive dates form "islands"', 'date minus row_number is constant for consecutive dates'],
+    'The gaps-and-islands algorithm: subtracting row_number from a sequential value produces a constant for consecutive groups.'
+  ),
+  p('sql-148', 'Ollivanders Inventory', 'Medium', 'joins', ['INNER JOIN', 'MIN', 'GROUP BY'], 'coding_contest', ['hcl'], 48, 18,
+    'Write a query to find the minimum coins needed for each non-evil wand at each (power, age) combination.',
+    "SELECT w.id, wp.age, w.coins_needed, w.power FROM wands w JOIN wands_property wp ON w.code = wp.code WHERE wp.is_evil = FALSE AND w.coins_needed = (SELECT MIN(w2.coins_needed) FROM wands w2 JOIN wands_property wp2 ON w2.code = wp2.code WHERE wp2.is_evil = FALSE AND w2.power = w.power AND wp2.age = wp.age) ORDER BY w.power DESC, wp.age DESC;",
+    ['Join wands with wands_property', 'Filter out evil wands', 'Use correlated subquery for minimum coins per group'],
+    'Correlated subquery finds the minimum coins for each (power, age) group while the outer query retrieves full wand details.'
+  ),
+  p('sql-149', 'Top Competitors', 'Medium', 'joins', ['INNER JOIN', 'COUNT', 'GROUP BY', 'HAVING'], 'coding_contest', ['hcl'], 50, 15,
+    'Write a query to find hackers who achieved full scores on more than one challenge. Print hacker_id and name, sorted by challenge count descending then hacker_id.',
+    "SELECT h.hacker_id, h.name FROM hackers h JOIN submissions s ON h.hacker_id = s.hacker_id JOIN challenges c ON s.challenge_id = c.challenge_id WHERE s.score = c.difficulty_level * 100 GROUP BY h.hacker_id, h.name HAVING COUNT(DISTINCT s.challenge_id) > 1 ORDER BY COUNT(DISTINCT s.challenge_id) DESC, h.hacker_id;",
+    ['Join all three tables', 'Match score with full mark condition', 'COUNT distinct challenges with HAVING > 1'],
+    'Multi-table joins combined with conditional filtering and HAVING create powerful analytical queries.'
+  ),
+  p('sql-150', 'The Blunder', 'Easy', 'aggregations', ['AVG', 'REPLACE', 'CEIL'], 'hackerrank', ['hcl'], 65, 10,
+    'Write a query to find the difference between the actual average salary and the miscalculated average (where all zeros are removed from salaries). Round up to the next integer.',
+    "SELECT CEIL(AVG(salary) - AVG(CAST(REPLACE(CAST(salary AS CHAR), '0', '') AS UNSIGNED))) AS error FROM employee;",
+    ['REPLACE removes zeros from the string', 'CAST converts between types', 'CEIL rounds up to the next integer'],
+    'String manipulation on numeric data: CAST to string, REPLACE zeros, CAST back to number, then compare averages.'
+  ),
 ];
 
 // ═══ Helper Functions ═══
