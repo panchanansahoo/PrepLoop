@@ -78,10 +78,128 @@ const PERSONA_PROFILES = {
   },
 };
 
+const DEFAULT_ADVANCED_OPTIONS = {
+  interviewerIntensity: 'balanced',
+  followUpDepth: 'standard',
+  answerPace: 'balanced',
+  realInterviewerMode: false,
+  resumeInterviewMode: 'balanced',
+  focusTopics: [],
+  questionCount: 8,
+};
+
+function normalizeAdvancedOptions(input = {}) {
+  const intensity = ['supportive', 'balanced', 'challenging'].includes(input?.interviewerIntensity)
+    ? input.interviewerIntensity
+    : DEFAULT_ADVANCED_OPTIONS.interviewerIntensity;
+
+  const depth = ['standard', 'deep'].includes(input?.followUpDepth)
+    ? input.followUpDepth
+    : DEFAULT_ADVANCED_OPTIONS.followUpDepth;
+
+  const pace = ['slow', 'balanced', 'fast'].includes(input?.answerPace)
+    ? input.answerPace
+    : DEFAULT_ADVANCED_OPTIONS.answerPace;
+
+  const realInterviewerMode = Boolean(input?.realInterviewerMode);
+
+  const resumeInterviewMode = ['balanced', 'walkthrough', 'project-deep-dive'].includes(input?.resumeInterviewMode)
+    ? input.resumeInterviewMode
+    : DEFAULT_ADVANCED_OPTIONS.resumeInterviewMode;
+
+  const rawTopics = Array.isArray(input?.focusTopics)
+    ? input.focusTopics
+    : typeof input?.focusTopics === 'string'
+      ? input.focusTopics.split(',')
+      : [];
+
+  const focusTopics = rawTopics
+    .map(t => String(t || '').trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  const count = Number(input?.questionCount);
+  const questionCount = Number.isFinite(count) && count >= 4 && count <= 12
+    ? Math.round(count)
+    : DEFAULT_ADVANCED_OPTIONS.questionCount;
+
+  return {
+    interviewerIntensity: intensity,
+    followUpDepth: depth,
+    answerPace: pace,
+    realInterviewerMode,
+    resumeInterviewMode,
+    focusTopics,
+    questionCount,
+  };
+}
+
+function formatResumeContext(resumeContext) {
+  if (!resumeContext || typeof resumeContext !== 'object') return '';
+
+  const headline = String(resumeContext.candidateHeadline || '').trim();
+  const summary = String(resumeContext.summary || '').trim();
+  const coreSkills = Array.isArray(resumeContext.coreSkills) ? resumeContext.coreSkills.slice(0, 8) : [];
+  const projectHighlights = Array.isArray(resumeContext.projectHighlights) ? resumeContext.projectHighlights.slice(0, 4) : [];
+  const likelyQuestionAreas = Array.isArray(resumeContext.likelyQuestionAreas) ? resumeContext.likelyQuestionAreas.slice(0, 5) : [];
+
+  if (!headline && !summary && coreSkills.length === 0 && projectHighlights.length === 0) {
+    return '';
+  }
+
+  return `
+
+## Candidate Resume Context
+- Headline: ${headline || 'Not provided'}
+- Summary: ${summary || 'Not provided'}
+- Core skills: ${coreSkills.length > 0 ? coreSkills.join(', ') : 'Not provided'}
+- Project highlights: ${projectHighlights.length > 0 ? projectHighlights.join(' | ') : 'Not provided'}
+- Likely question areas: ${likelyQuestionAreas.length > 0 ? likelyQuestionAreas.join(', ') : 'Not provided'}
+
+STRICT resume usage rules:
+- Personalize questions using the candidate's actual projects, skills, and technologies from the resume context.
+- Prefer asking about one specific project, internship, tool, or achievement instead of generic questions.
+- Ask follow-ups that test depth on claims made in the resume.
+- If the resume mentions a project, ask how it was built, trade-offs made, metrics achieved, failures handled, or what they would improve.
+- If the resume context is thin, gracefully fall back to standard interview behavior without mentioning the missing data.
+`;
+}
+
 // ─── Enhanced Interviewer Persona System ───
-const getInterviewerPersona = (company, role, stage, difficulty, questionNumber, totalQuestions) => {
+const getInterviewerPersona = (company, role, stage, difficulty, questionNumber, totalQuestions, advancedOptions = {}, resumeContext = null) => {
   const category = getCompanyCategory(company);
   const persona = PERSONA_PROFILES[category] || PERSONA_PROFILES.general;
+  const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
+  const resumePrompt = formatResumeContext(resumeContext);
+  const resumeModeInstruction = normalizedAdvanced.resumeInterviewMode === 'walkthrough'
+    ? 'If resume context is available, begin by walking through the candidate resume journey chronologically before drilling down.'
+    : normalizedAdvanced.resumeInterviewMode === 'project-deep-dive'
+      ? 'If resume context is available, prioritize deep technical drilling on one standout project before broadening out.'
+      : 'Use a balanced mix of resume walkthrough and project-specific probing when resume context is available.';
+
+  const intensityInstruction = normalizedAdvanced.interviewerIntensity === 'supportive'
+    ? 'Keep pressure low. Encourage frequently, give confidence-building nudges, and avoid overly aggressive challenge prompts.'
+    : normalizedAdvanced.interviewerIntensity === 'challenging'
+      ? 'Increase rigor. Ask sharper follow-ups, challenge vague claims, and require explicit trade-offs or constraints.'
+      : 'Keep a balanced interview tone with challenge + support in equal measure.';
+
+  const followUpDepthInstruction = normalizedAdvanced.followUpDepth === 'deep'
+    ? 'Ask deeper second-order follow-ups: edge cases, scale limits, failure modes, and alternatives before moving on.'
+    : 'Use one direct follow-up per answer, then progress naturally.';
+
+  const paceInstruction = normalizedAdvanced.answerPace === 'slow'
+    ? 'Speak and pace questions more gently. Give room for thinking.'
+    : normalizedAdvanced.answerPace === 'fast'
+      ? 'Keep momentum high with concise prompts and quick transitions.'
+      : 'Maintain a moderate conversational pace.';
+
+  const topicInstruction = normalizedAdvanced.focusTopics.length > 0
+    ? `Prioritize these candidate-selected focus topics whenever relevant: ${normalizedAdvanced.focusTopics.join(', ')}.`
+    : 'No special focus topics selected; use standard stage coverage.';
+
+  const realInterviewerInstruction = normalizedAdvanced.realInterviewerMode
+    ? 'Operate like a real onsite interviewer: ask one focused question at a time, avoid over-helping, and only provide hints when explicitly requested.'
+    : 'You may use a coaching tone when it helps confidence and learning momentum.';
 
   return `
 You are a senior interviewer at ${company} conducting a ${stage} round interview for a ${role} position.
@@ -100,6 +218,21 @@ The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus p
 - **Style**: ${persona.style}
 - **Personality**: ${persona.description}
 
+## Advanced Session Controls
+- Interviewer intensity: ${normalizedAdvanced.interviewerIntensity}
+- Follow-up depth: ${normalizedAdvanced.followUpDepth}
+- Pacing preference: ${normalizedAdvanced.answerPace}
+- Real interviewer mode: ${normalizedAdvanced.realInterviewerMode ? 'enabled' : 'disabled'}
+- Resume interview mode: ${normalizedAdvanced.resumeInterviewMode}
+- Focus topics: ${normalizedAdvanced.focusTopics.length > 0 ? normalizedAdvanced.focusTopics.join(', ') : 'None'}
+- ${intensityInstruction}
+- ${followUpDepthInstruction}
+- ${paceInstruction}
+- ${realInterviewerInstruction}
+- ${resumeModeInstruction}
+- ${topicInstruction}
+${resumePrompt}
+
 ## Engagement Rules - STRICT
 - **BE EXTREMELY CONVERSATIONAL AND HUMAN.** Speak like a friendly senior on a video call, not a corporate robot.
 - **LIMIT RESPONSES TO 1-3 SENTENCES MAX.** Brevity is critical. Do not give long monologues.
@@ -107,6 +240,7 @@ The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus p
 - **ASK SMART FOLLOW-UPS.** Don't accept surface-level answers. Probe with incisive questions: "What would happen if the load doubled?", "How would you handle the failure case?", "What's the trade-off between these two approaches?"
 - **SHOW INTELLECTUAL CURIOSITY.** React with genuine interest: "Oh interesting, so you're saying...", "That's a clever approach — have you considered...", "I like that thinking. What about..."
 - Be SUPPORTIVE and ENCOURAGING — treat this like a mentorship conversation, not an interrogation.
+- If real interviewer mode is enabled, keep encouragement short and professional; do not provide unsolicited coaching or model answers.
 - React naturally, referencing SPECIFIC things the candidate said. Say things like "Smart approach!", "That's a great insight", "Ah, I see where you're going with this", or "Nice, that's exactly how we'd think about it at ${company}."
 - If the candidate seems nervous or gives a short answer, gently encourage them: "No worries, take your time" or "That's a great start — what if I give you a specific scenario to think through?"
 - NEVER use robotic transition phrases like "Moving on to my next question" or "Thank you for that detailed answer."
@@ -169,13 +303,28 @@ ${stage === 'Managerial' ? `- For students: focus on leadership in college activ
 
 // ─── Start Interview ───
 router.post('/start', optionalAuth, async (req, res) => {
-  const { company, role, stage, difficulty, totalQuestions = 8, useRealQuestions = false } = req.body;
+  const {
+    company,
+    role,
+    stage,
+    difficulty,
+    totalQuestions = 8,
+    useRealQuestions = false,
+    advancedOptions,
+    resumeContext,
+  } = req.body;
+  const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
+  const requestedCount = Number(totalQuestions);
+  const resolvedTotalQuestions = Number.isFinite(requestedCount) && requestedCount >= 4 && requestedCount <= 12
+    ? Math.round(requestedCount)
+    : normalizedAdvanced.questionCount;
+  const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
 
   // If useRealQuestions, pre-load a question set from the company bank
   let questionBank = [];
   let questionSource = 'ai';
   if (useRealQuestions) {
-    questionBank = getRandomQuestionSet(company, role, stage, difficulty, totalQuestions);
+    questionBank = getRandomQuestionSet(company, role, stage, difficulty, resolvedTotalQuestions);
     if (questionBank.length > 0) {
       questionSource = 'database';
       console.log(`📋 Loaded ${questionBank.length} real questions for ${company} (${stage}/${role}/${difficulty})`);
@@ -208,7 +357,7 @@ router.post('/start', optionalAuth, async (req, res) => {
           const result = JSON.parse(completion.choices[0].message.content);
           return res.json({
             ...result,
-            context: { company, role, stage, difficulty, totalQuestions },
+            context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
             thinkTime: result.thinkTime || 30,
             interviewerReaction: 'greeting',
             questionSource: 'database',
@@ -222,7 +371,7 @@ router.post('/start', optionalAuth, async (req, res) => {
 
       return res.json({
         question: questionText,
-        context: { company, role, stage, difficulty, totalQuestions },
+        context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
         tips: firstQ.hints?.length > 0 ? firstQ.hints : ['Take a moment to collect your thoughts', 'Structure your answer clearly'],
         interviewerReaction: 'greeting',
         thinkTime: 30,
@@ -245,11 +394,11 @@ router.post('/start', optionalAuth, async (req, res) => {
       };
       return res.json({
         question: fallbackQuestions[stage] || `Hey! Great to have you here for this ${stage} interview at ${company}. Let's start easy — tell me about a project you've worked on that you're proud of!`,
-        context: { company, role, stage, difficulty, totalQuestions },
+        context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
         tips: ['Take a moment to collect your thoughts', 'Structure your answer: context → approach → result'],
         interviewerReaction: 'greeting',
         thinkTime: 30,
-        questionSource: 'ai',
+        questionSource: personalizedQuestionSource,
       });
     }
 
@@ -258,7 +407,7 @@ router.post('/start', optionalAuth, async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: getInterviewerPersona(company, role, stage, difficulty, 1, totalQuestions) + `
+          content: getInterviewerPersona(company, role, stage, difficulty, 1, resolvedTotalQuestions, normalizedAdvanced, resumeContext) + `
 
 Respond as JSON:
 {
@@ -277,10 +426,10 @@ Respond as JSON:
     const result = JSON.parse(completion.choices[0].message.content);
     res.json({
       ...result,
-      context: { company, role, stage, difficulty, totalQuestions },
+      context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
       thinkTime: result.thinkTime || 30,
       interviewerReaction: result.interviewerReaction || 'greeting',
-      questionSource: 'ai',
+      questionSource: personalizedQuestionSource,
     });
   } catch (error) {
     console.error('Interview start error:', error.message?.substring(0, 200));
@@ -296,11 +445,11 @@ Respond as JSON:
     };
     res.json({
       question: fallbackQuestions[stage] || `Hey! Great to have you here for this ${stage} interview at ${company}. Tell me about a project you've worked on that you're proud of!`,
-      context: { company, role, stage, difficulty, totalQuestions },
+      context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
       tips: ['Take a moment to collect your thoughts', 'Structure your answer clearly'],
       interviewerReaction: 'greeting',
       thinkTime: 30,
-      questionSource: 'ai',
+      questionSource: personalizedQuestionSource,
     });
   }
 });
@@ -340,7 +489,9 @@ function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores) 
 
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', optionalAuth, async (req, res) => {
-  const { company, role, stage, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId } = req.body;
+  const { company, role, stage, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext } = req.body;
+  const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
+  const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
 
   // If using real questions, get the next question from the bank
   let nextRealQuestion = null;
@@ -468,7 +619,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         interviewerReaction: ['encouraging', 'impressed', 'probing', 'neutral'][Math.floor(Math.random() * 4)],
         thinkTime: 30 + Math.floor(Math.random() * 30),
         hint: ['Think about time vs space trade-offs', 'Consider the edge cases first', 'Try working through a small example', 'What would happen at scale?'][Math.floor(Math.random() * 4)],
-        questionSource: nextRealQuestion ? 'database' : 'ai',
+        questionSource: nextRealQuestion ? 'database' : personalizedQuestionSource,
         questionMeta: realQuestionMeta || null,
       });
     }
@@ -511,7 +662,7 @@ Do NOT generate a different question. Transitions should be natural.` : '';
     const messages = [
       {
         role: 'system',
-        content: getInterviewerPersona(company, role, stage, difficulty, questionNumber, totalQuestions) + adaptivePrompt + codeContext + referenceContext + realQuestionInstruction + `
+        content: getInterviewerPersona(company, role, stage, difficulty, questionNumber, totalQuestions, normalizedAdvanced, resumeContext) + adaptivePrompt + codeContext + referenceContext + realQuestionInstruction + `
 
 The candidate just answered a question. You must:
 1. React naturally to their answer (say something like "Makes sense", "Got it")
@@ -562,7 +713,7 @@ Respond as JSON:
       difficultyLevel: result.difficultyLevel || 'medium',
       adaptiveNote: result.adaptiveNote || null,
       codeFeedback: result.codeFeedback || null,
-      questionSource: nextRealQuestion ? 'database' : 'ai',
+      questionSource: nextRealQuestion ? 'database' : personalizedQuestionSource,
       questionMeta: realQuestionMeta || null,
       referenceAnswer: referenceAnswer || null,
     });
@@ -673,99 +824,478 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
 });
 
 // ─── Evaluate overall interview session ───
-router.post('/evaluate', optionalAuth, async (req, res) => {
-  const { company, role, stage, conversation } = req.body;
+function clampScore(value, fallback = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
 
-  try {
-    if (!groq) {
-      return res.json({
-        overallScore: 78,
-        summary: 'Solid performance with room for improvement in technical depth.',
-        strengths: ['Good communication', 'Structured responses', 'Clear problem-solving'],
-        improvements: ['Add more technical detail', 'Use specific metrics', 'Consider edge cases'],
-        recommendation: 'Practice more system design questions for this role.',
-        verdictEmoji: '👍',
-        verdict: 'Would Advance',
-        detailedBreakdown: { technicalSkills: 75, communication: 82, problemSolving: 78, cultureFit: 80 },
-        suggestedTopics: [
-          { topic: 'Hash Maps & Hash Tables', priority: 'high', reason: 'Strengthen your data structure fundamentals' },
-          { topic: 'System Design Basics', priority: 'medium', reason: 'Practice designing scalable systems' },
-          { topic: 'STAR Method for Behavioral', priority: 'medium', reason: 'Structure your behavioral answers better' }
-        ],
-        practiceQuestions: [
-          'Implement an LRU Cache using a hash map and doubly linked list.',
-          'Design a URL shortening service like bit.ly. Discuss database choices and scaling.',
-          'Tell me about a time you failed and what you learned from it. Use the STAR method.',
-          'Explain the difference between TCP and UDP. When would you use each?',
-          'How would you find the kth largest element in an unsorted array?'
-        ],
-        studyPlan: [
-          { day: 'Day 1-2', focus: 'Data Structures', tasks: ['Arrays & Strings problems', 'Hash Map implementations', 'Linked List operations'] },
-          { day: 'Day 3-4', focus: 'Algorithms', tasks: ['Sorting & Searching', 'Two Pointer technique', 'Sliding Window problems'] },
-          { day: 'Day 5', focus: 'System Design', tasks: ['Read system design primer', 'Practice 1 design question', 'Study CAP theorem'] },
-          { day: 'Day 6', focus: 'Behavioral', tasks: ['Prepare 5 STAR stories', 'Practice mock answers aloud', 'Research company values'] },
-          { day: 'Day 7', focus: 'Mock Interview', tasks: ['Full mock interview practice', 'Review weak areas', 'Refine communication'] }
-        ]
-      });
+function averageScore(values = []) {
+  const numericValues = values.map(Number).filter(Number.isFinite);
+  if (numericValues.length === 0) return null;
+  return Math.round(numericValues.reduce((sum, value) => sum + value, 0) / numericValues.length);
+}
+
+function buildSpeechAnalysis(speechHistory = []) {
+  if (!Array.isArray(speechHistory) || speechHistory.length === 0) return null;
+
+  return {
+    overallWPM: averageScore(speechHistory.map(sample => sample.wpm || 0)) || 0,
+    totalFillers: speechHistory.reduce((sum, sample) => sum + (sample.totalFillers || 0), 0),
+    clarityTrend: speechHistory.map(sample => clampScore(sample.clarityScore, 80)),
+    confidenceTrend: speechHistory.map(sample => clampScore(sample.confidenceScore, 75)),
+  };
+}
+
+function detectQuestionCategory(questionMeta = {}, stage = '', question = '') {
+  const tags = Array.isArray(questionMeta?.tags) ? questionMeta.tags.join(' ') : '';
+  const normalized = `${stage} ${tags} ${question}`.toLowerCase();
+
+  if (normalized.includes('system design') || normalized.includes('system-design') || normalized.includes('design a ')) {
+    return 'system-design';
+  }
+
+  if (
+    normalized.includes('behavior') ||
+    normalized.includes('behaviour') ||
+    normalized.includes('culture') ||
+    normalized.includes('team') ||
+    normalized.includes('tell me about') ||
+    normalized.includes('conflict')
+  ) {
+    return 'behavioral';
+  }
+
+  if (
+    normalized.includes('coding') ||
+    normalized.includes('code') ||
+    normalized.includes('implement') ||
+    normalized.includes('algorithm') ||
+    normalized.includes('leetcode')
+  ) {
+    return 'coding';
+  }
+
+  if (normalized.includes('hr') || normalized.includes('recruiter')) {
+    return 'hr';
+  }
+
+  return 'technical';
+}
+
+function extractInterviewQaPairs(conversation = []) {
+  const qaPairs = [];
+  let currentQuestion = null;
+
+  for (const message of (conversation || [])) {
+    if (message.role === 'interviewer' && !currentQuestion) {
+      currentQuestion = {
+        question: message.content,
+        questionSource: message.questionSource,
+        questionMeta: message.questionMeta,
+        timestamp: message.timestamp,
+      };
+      continue;
     }
 
-    const conversationText = conversation
-      .filter(c => c.role !== 'feedback')
-      .map(c => `${c.role === 'interviewer' ? 'Interviewer' : 'Candidate'}: ${c.content}`)
-      .join('\n');
+    if (message.role === 'candidate' && currentQuestion) {
+      qaPairs.push({
+        ...currentQuestion,
+        answer: message.content,
+        answerTimestamp: message.timestamp,
+      });
+      currentQuestion = null;
+      continue;
+    }
 
+    if (message.role === 'interviewer' && currentQuestion) {
+      currentQuestion = {
+        question: message.content,
+        questionSource: message.questionSource,
+        questionMeta: message.questionMeta,
+        timestamp: message.timestamp,
+      };
+      continue;
+    }
+
+    if (message.role === 'feedback' && qaPairs.length > 0) {
+      const latestPair = qaPairs[qaPairs.length - 1];
+      latestPair.inlineScore = message.score;
+      latestPair.strengths = Array.isArray(message.strengths) ? message.strengths : [];
+      latestPair.improvements = Array.isArray(message.improvements) ? message.improvements : [];
+      latestPair.feedback = message.content;
+    }
+  }
+
+  return qaPairs;
+}
+
+function collectTopItems(groups = [], limit = 4) {
+  const counts = new Map();
+
+  for (const group of groups) {
+    for (const item of (group || [])) {
+      const key = String(item || '').trim();
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+  }
+
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .slice(0, limit)
+    .map(([item]) => item);
+}
+
+function defaultIdealAnswerPoints(category) {
+  switch (category) {
+    case 'system-design':
+      return ['Clarify scale and constraints', 'Explain architecture trade-offs', 'Discuss reliability and latency'];
+    case 'behavioral':
+      return ['Use a clear STAR structure', 'Describe your specific actions', 'Quantify the result or lesson learned'];
+    case 'coding':
+      return ['State the approach before coding', 'Cover complexity and edge cases', 'Explain how you would test the solution'];
+    case 'hr':
+      return ['Answer directly and authentically', 'Connect the answer to the role', 'Show a mature reason for your decision'];
+    default:
+      return ['Lead with the core idea', 'Support it with a concrete example', 'Mention trade-offs or edge cases'];
+  }
+}
+
+function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
+  const questionBreakdown = qaPairs.map((qa, index) => {
+    const answer = String(qa.answer || '').trim();
+    const category = detectQuestionCategory(qa.questionMeta, stage, qa.question);
+    const answerLength = answer.length;
+    const heuristicsScore = clampScore(
+      qa.inlineScore ?? sessionScores[index] ?? (answerLength === 0 ? 25 : 45 + Math.min(35, Math.round(answerLength / 18))),
+      60
+    );
+
+    const strengths = qa.strengths?.length
+      ? qa.strengths
+      : [
+        answerLength > 160 ? 'Provided enough detail to communicate the main idea' : 'Answered directly without going off track',
+        category === 'behavioral' ? 'Showed self-awareness in the example' : 'Kept the explanation understandable'
+      ].slice(0, answerLength > 80 ? 2 : 1);
+
+    const improvements = qa.improvements?.length
+      ? qa.improvements
+      : [
+        answerLength < 120 ? 'Add more depth and concrete supporting detail' : 'Tighten the answer so the main point lands faster',
+        category === 'coding' ? 'Call out complexity and edge cases explicitly' : 'Use one concrete example or measurable outcome'
+      ].slice(0, 2);
+
+    const feedback = qa.feedback || (
+      heuristicsScore >= 80
+        ? 'This answer was solid and relevant. The next step is making the reasoning even sharper with one concrete example or trade-off.'
+        : heuristicsScore >= 60
+          ? 'The answer covered the basics, but it stayed too general in places. Add more specifics and structure to make the response more convincing.'
+          : 'The answer did not yet demonstrate enough depth for this question. Slow down, structure the response, and cover the core concepts more explicitly.'
+    );
+
+    return {
+      questionNumber: index + 1,
+      question: qa.question?.substring(0, 300),
+      candidateAnswer: answer.substring(0, 600),
+      score: heuristicsScore,
+      category,
+      feedback,
+      strengths,
+      improvements,
+      idealAnswerPoints: defaultIdealAnswerPoints(category),
+      questionSource: qa.questionSource,
+      questionMeta: qa.questionMeta,
+    };
+  });
+
+  const overallScore = averageScore(questionBreakdown.map(item => item.score)) ?? averageScore(sessionScores) ?? 70;
+
+  const categoryBuckets = {
+    technicalSkills: [],
+    communication: questionBreakdown.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 6 : -4))),
+    problemSolving: [],
+    cultureFit: [],
+  };
+
+  for (const question of questionBreakdown) {
+    if (['technical', 'coding', 'system-design'].includes(question.category)) {
+      categoryBuckets.technicalSkills.push(question.score);
+      categoryBuckets.problemSolving.push(Math.min(100, question.score + (question.category === 'coding' ? 4 : 0)));
+    }
+
+    if (['behavioral', 'hr'].includes(question.category)) {
+      categoryBuckets.cultureFit.push(question.score);
+      categoryBuckets.communication.push(Math.min(100, question.score + 4));
+    }
+  }
+
+  const categoryScores = {
+    technicalSkills: averageScore(categoryBuckets.technicalSkills) ?? Math.max(55, overallScore - 3),
+    communication: averageScore(categoryBuckets.communication) ?? overallScore,
+    problemSolving: averageScore(categoryBuckets.problemSolving) ?? Math.max(50, overallScore - 2),
+    cultureFit: averageScore(categoryBuckets.cultureFit) ?? Math.max(55, overallScore + 2),
+  };
+
+  const strengths = collectTopItems(questionBreakdown.map(item => item.strengths), 4);
+  const improvements = collectTopItems(questionBreakdown.map(item => item.improvements), 4);
+
+  const weakestCategory = Object.entries(categoryScores).sort((left, right) => left[1] - right[1])[0]?.[0] || 'technicalSkills';
+  const weakestCategoryLabel = weakestCategory
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/^./, match => match.toUpperCase());
+
+  const verdict = overallScore >= 85
+    ? 'Strong Hire'
+    : overallScore >= 70
+      ? 'Would Advance'
+      : overallScore >= 55
+        ? 'Borderline'
+        : 'Would Not Advance';
+
+  const verdictEmoji = overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎';
+
+  return {
+    overallScore,
+    summary: `You completed ${qaPairs.length} ${stage || 'interview'} questions for the ${role || 'role'} at ${company || 'the company'}. The clearest pattern was ${strengths[0] || 'solid baseline communication'}, while the biggest gap was ${improvements[0] || 'adding more depth to answers'}.`,
+    verdict,
+    verdictEmoji,
+    strengths,
+    improvements,
+    recommendation: `Prioritize ${weakestCategoryLabel.toLowerCase()} practice in your next mock session and make each answer more specific.`,
+    questionBreakdown,
+    categoryScores,
+    detailedBreakdown: categoryScores,
+    recommendations: [
+      {
+        area: weakestCategoryLabel,
+        action: `Spend one focused session improving ${weakestCategoryLabel.toLowerCase()} with question-by-question review.`
+      }
+    ],
+    companyFitScore: clampScore(Math.round((categoryScores.communication + categoryScores.cultureFit) / 2), overallScore),
+    companyFitNotes: `Your fit improves when your answers are concrete and structured; right now the main opportunity is stronger specificity in weaker areas.`,
+    suggestedTopics: [
+      { topic: weakestCategoryLabel, priority: 'high', reason: `This was your lowest scoring area in the interview.` },
+      { topic: 'Answer structure and specificity', priority: 'medium', reason: 'Several answers would benefit from clearer supporting detail.' },
+      { topic: stage || 'Interview fundamentals', priority: 'medium', reason: `Practice more questions in the ${stage || 'current'} format.` }
+    ],
+    practiceQuestions: [
+      `Redo the weakest answer from this ${stage || 'interview'} round and make it 30% more specific.`,
+      `Practice one ${weakestCategoryLabel.toLowerCase()} question and explain your reasoning out loud.`,
+      `Answer a follow-up question that forces you to discuss trade-offs and edge cases.`,
+      `Give the same answer again, but this time include a concrete example or metric.`,
+      `Record one mock answer and critique its structure, clarity, and completeness.`
+    ],
+    studyPlan: [
+      { day: 'Day 1-2', focus: weakestCategoryLabel, tasks: ['Review the weakest answers', 'Rewrite them with more specifics', 'Practice them aloud once'] },
+      { day: 'Day 3-4', focus: 'Question structure', tasks: ['Use a repeatable framework', 'Add trade-offs and edge cases', 'Tighten long explanations'] },
+      { day: 'Day 5', focus: stage || 'Interview practice', tasks: ['Run one timed mock round', 'Compare answers to ideal points'] },
+      { day: 'Day 6', focus: 'Communication', tasks: ['Record 3 answers', 'Remove filler and tighten openings'] },
+      { day: 'Day 7', focus: 'Review & Practice', tasks: ['Redo the full mock', 'Check progress against the weakest category'] }
+    ],
+    speechAnalysis: buildSpeechAnalysis(speechHistory),
+  };
+}
+
+function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
+  const report = rawReport || {};
+  const baseQuestionBreakdown = Array.isArray(report.questionBreakdown) ? report.questionBreakdown : [];
+
+  const questionBreakdown = (baseQuestionBreakdown.length > 0 ? baseQuestionBreakdown : buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory }).questionBreakdown)
+    .map((item, index) => {
+      const qa = qaPairs[index] || {};
+      return {
+        ...item,
+        questionNumber: item.questionNumber || index + 1,
+        question: item.question || qa.question?.substring(0, 300) || `Question ${index + 1}`,
+        score: clampScore(item.score, clampScore(qa.inlineScore ?? sessionScores[index], 70)),
+        category: item.category || detectQuestionCategory(qa.questionMeta, stage, qa.question),
+        feedback: item.feedback || qa.feedback || 'The answer addressed part of the question, but more specificity would strengthen it.',
+        strengths: Array.isArray(item.strengths) && item.strengths.length > 0 ? item.strengths : (qa.strengths || []),
+        improvements: Array.isArray(item.improvements) && item.improvements.length > 0 ? item.improvements : (qa.improvements || []),
+        idealAnswerPoints: Array.isArray(item.idealAnswerPoints) && item.idealAnswerPoints.length > 0 ? item.idealAnswerPoints : defaultIdealAnswerPoints(item.category || detectQuestionCategory(qa.questionMeta, stage, qa.question)),
+        candidateAnswer: item.candidateAnswer || String(qa.answer || '').substring(0, 600),
+        questionSource: item.questionSource || qa.questionSource,
+        questionMeta: item.questionMeta || qa.questionMeta,
+      };
+    });
+
+  const derivedCategoryScores = {
+    technicalSkills: averageScore(questionBreakdown.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 70,
+    communication: averageScore(questionBreakdown.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 5 : -3)))) ?? averageScore(sessionScores) ?? 70,
+    problemSolving: averageScore(questionBreakdown.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => Math.min(100, item.score + 3))) ?? averageScore(sessionScores) ?? 68,
+    cultureFit: averageScore(questionBreakdown.filter(item => ['behavioral', 'hr'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 72,
+  };
+
+  const categoryScores = report.categoryScores || report.detailedBreakdown || derivedCategoryScores;
+  const normalizedCategoryScores = {
+    technicalSkills: clampScore(categoryScores.technicalSkills, derivedCategoryScores.technicalSkills),
+    communication: clampScore(categoryScores.communication, derivedCategoryScores.communication),
+    problemSolving: clampScore(categoryScores.problemSolving, derivedCategoryScores.problemSolving),
+    cultureFit: clampScore(categoryScores.cultureFit, derivedCategoryScores.cultureFit),
+  };
+
+  const overallScore = clampScore(
+    report.overallScore,
+    averageScore(questionBreakdown.map(item => item.score)) ?? averageScore(sessionScores) ?? 70
+  );
+
+  const strengths = Array.isArray(report.strengths) && report.strengths.length > 0
+    ? report.strengths
+    : collectTopItems(questionBreakdown.map(item => item.strengths), 4);
+
+  const improvements = Array.isArray(report.improvements) && report.improvements.length > 0
+    ? report.improvements
+    : collectTopItems(questionBreakdown.map(item => item.improvements), 4);
+
+  const recommendation = report.recommendation || report.recommendations?.[0]?.action || improvements[0] || 'Review the weaker answers and make them more specific.';
+  const verdict = report.verdict || (overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance');
+  const verdictEmoji = report.verdictEmoji || (overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎');
+
+  return {
+    ...report,
+    overallScore,
+    summary: report.summary || `You completed ${questionBreakdown.length} questions for the ${role || 'role'} at ${company || 'the company'}, with the clearest strengths in ${strengths.slice(0, 2).join(' and ') || 'communication and structure'}.`,
+    verdict,
+    verdictEmoji,
+    strengths,
+    improvements,
+    recommendation,
+    questionBreakdown,
+    categoryScores: normalizedCategoryScores,
+    detailedBreakdown: normalizedCategoryScores,
+    recommendations: Array.isArray(report.recommendations) && report.recommendations.length > 0
+      ? report.recommendations
+      : [{ area: 'Next Focus', action: recommendation }],
+    companyFitScore: clampScore(report.companyFitScore, Math.round((normalizedCategoryScores.communication + normalizedCategoryScores.cultureFit) / 2)),
+    companyFitNotes: report.companyFitNotes || `Your fit for ${company || 'this company'} improves when you make strong answers more concrete and consistent.`,
+    suggestedTopics: Array.isArray(report.suggestedTopics) && report.suggestedTopics.length > 0
+      ? report.suggestedTopics
+      : [{ topic: 'Specific answer depth', priority: 'high', reason: 'Several answers need clearer supporting detail.' }],
+    practiceQuestions: Array.isArray(report.practiceQuestions) && report.practiceQuestions.length > 0
+      ? report.practiceQuestions
+      : ['Redo one weak answer and make it more specific.', 'Practice one follow-up question on your weakest topic.'],
+    studyPlan: Array.isArray(report.studyPlan) && report.studyPlan.length > 0
+      ? report.studyPlan
+      : [{ day: 'Day 1', focus: 'Review', tasks: ['Rework the weakest answers from this mock interview'] }],
+    speechAnalysis: report.speechAnalysis || buildSpeechAnalysis(speechHistory),
+  };
+}
+
+async function generateInterviewReport({ company, role, stage, conversation, sessionScores = [], speechHistory = [] }) {
+  const qaPairs = extractInterviewQaPairs(conversation);
+  const fallbackReport = buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory });
+
+  if (!groq || qaPairs.length === 0) {
+    return normalizeInterviewReport(fallbackReport, { company, role, stage, qaPairs, sessionScores, speechHistory });
+  }
+
+  const qaText = qaPairs.map((qa, index) => {
+    const tags = Array.isArray(qa.questionMeta?.tags) ? qa.questionMeta.tags.join(', ') : 'none';
+    return [
+      `Question ${index + 1}`,
+      `Source: ${qa.questionSource || 'ai'}`,
+      `Difficulty: ${qa.questionMeta?.difficulty || 'unknown'}`,
+      `Tags: ${tags}`,
+      `Question: ${qa.question?.substring(0, 400) || 'N/A'}`,
+      `Candidate Answer: ${String(qa.answer || '').substring(0, 900) || 'No answer provided'}`,
+      `Inline Score: ${qa.inlineScore ?? sessionScores[index] ?? 'N/A'}`,
+      `Inline Strengths: ${(qa.strengths || []).join('; ') || 'N/A'}`,
+      `Inline Improvements: ${(qa.improvements || []).join('; ') || 'N/A'}`
+    ].join('\n');
+  }).join('\n\n');
+
+  try {
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
           role: 'system',
-          content: `You are the interview panel at ${company} evaluating a ${stage} interview for ${role}.
-The candidate is most likely a STUDENT or RECENT GRADUATE — evaluate them fairly for their experience level.
-Be honest but constructive and encouraging. Reference SPECIFIC things the candidate said.
-Celebrate what they did well, and frame improvements as growth opportunities, not failures.
+          content: `You are a senior interview panel creating the final report for a ${stage} interview at ${company} for the ${role} role.
+Evaluate the candidate fairly for their experience level. Ground every judgment in the ACTUAL question-answer pairs provided. Do not invent strengths or weaknesses that are not supported by the transcript.
 
-IMPORTANT: Based on the candidate's ACTUAL answers and weak areas, provide highly specific, actionable improvement suggestions.
-- suggestedTopics: Pick 3-5 specific technical/behavioral topics they should study based on WHERE they struggled
-- practiceQuestions: Generate 5 realistic practice questions targeting their weak spots
-- studyPlan: Create a practical 7-day study plan with daily focus areas and specific tasks
-
-Respond as JSON:
+Return valid JSON with this shape:
 {
   "overallScore": 0-100,
-  "summary": "2-3 sentence evaluation referencing specific things they said",
-  "strengths": ["Specific Strength 1", "Specific Strength 2", "Specific Strength 3"],
-  "improvements": ["Specific Area 1", "Specific Area 2", "Specific Area 3"],
-  "recommendation": "One practical recommendation",
+  "summary": "3-4 sentence accurate summary tied to what the candidate actually said",
   "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance",
   "verdictEmoji": "🌟 or 👍 or 🤔 or 👎",
-  "detailedBreakdown": { "technicalSkills": 0-100, "communication": 0-100, "problemSolving": 0-100, "cultureFit": 0-100 },
+  "strengths": ["Specific strength 1", "Specific strength 2", "Specific strength 3"],
+  "improvements": ["Specific improvement 1", "Specific improvement 2", "Specific improvement 3"],
+  "recommendation": "One practical next recommendation",
+  "questionBreakdown": [
+    {
+      "questionNumber": 1,
+      "question": "The original question",
+      "score": 0-100,
+      "category": "technical|behavioral|system-design|hr|coding",
+      "feedback": "2-3 sentence explanation tied to this specific answer",
+      "strengths": ["Specific strength"],
+      "improvements": ["Specific improvement"],
+      "idealAnswerPoints": ["Point they should have covered", "Another point"]
+    }
+  ],
+  "categoryScores": {
+    "technicalSkills": 0-100,
+    "communication": 0-100,
+    "problemSolving": 0-100,
+    "cultureFit": 0-100
+  },
+  "recommendations": [
+    { "area": "Area name", "action": "Specific actionable next step" }
+  ],
+  "companyFitScore": 0-100,
+  "companyFitNotes": "1-2 sentences on fit for this company/role",
   "suggestedTopics": [
-    { "topic": "Specific Topic Name", "priority": "high|medium|low", "reason": "Why they should study this based on their answers" }
+    { "topic": "Topic", "priority": "high|medium|low", "reason": "Why this topic matters based on the transcript" }
   ],
   "practiceQuestions": [
-    "Practice question 1 targeting a weak area",
-    "Practice question 2 targeting another weak area",
-    "Practice question 3",
-    "Practice question 4",
-    "Practice question 5"
+    "Five targeted practice questions based on weak areas"
   ],
   "studyPlan": [
-    { "day": "Day 1-2", "focus": "Focus Area", "tasks": ["Task 1", "Task 2", "Task 3"] },
-    { "day": "Day 3-4", "focus": "Focus Area", "tasks": ["Task 1", "Task 2", "Task 3"] },
-    { "day": "Day 5", "focus": "Focus Area", "tasks": ["Task 1", "Task 2"] },
-    { "day": "Day 6", "focus": "Focus Area", "tasks": ["Task 1", "Task 2"] },
-    { "day": "Day 7", "focus": "Review & Practice", "tasks": ["Task 1", "Task 2"] }
+    { "day": "Day 1-2", "focus": "Focus area", "tasks": ["Task 1", "Task 2"] }
   ]
 }`
         },
-        { role: 'user', content: conversationText }
+        {
+          role: 'user',
+          content: `Analyze this interview using only the evidence below:\n\n${qaText}`
+        }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.6
+      temperature: 0.3
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
-    res.json(result);
+    const parsed = JSON.parse(completion.choices[0].message.content);
+    return normalizeInterviewReport(
+      {
+        ...fallbackReport,
+        ...parsed,
+        questionBreakdown: parsed.questionBreakdown || fallbackReport.questionBreakdown,
+        categoryScores: parsed.categoryScores || parsed.detailedBreakdown || fallbackReport.categoryScores,
+        detailedBreakdown: parsed.detailedBreakdown || parsed.categoryScores || fallbackReport.detailedBreakdown,
+        strengths: parsed.strengths || fallbackReport.strengths,
+        improvements: parsed.improvements || fallbackReport.improvements,
+        recommendation: parsed.recommendation || fallbackReport.recommendation,
+        recommendations: parsed.recommendations || fallbackReport.recommendations,
+        suggestedTopics: parsed.suggestedTopics || fallbackReport.suggestedTopics,
+        practiceQuestions: parsed.practiceQuestions || fallbackReport.practiceQuestions,
+        studyPlan: parsed.studyPlan || fallbackReport.studyPlan,
+      },
+      { company, role, stage, qaPairs, sessionScores, speechHistory }
+    );
+  } catch (error) {
+    console.error('Interview report generation error:', error.message);
+    return normalizeInterviewReport(fallbackReport, { company, role, stage, qaPairs, sessionScores, speechHistory });
+  }
+}
+
+router.post('/evaluate', optionalAuth, async (req, res) => {
+  const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
+
+  try {
+    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory });
+    res.json(report);
   } catch (error) {
     console.error('Evaluation error:', error.message);
     res.status(500).json({ error: 'Failed to evaluate interview' });
@@ -777,131 +1307,8 @@ router.post('/detailed-report', optionalAuth, async (req, res) => {
   const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
 
   try {
-    // Extract Q&A pairs from conversation
-    const qaPairs = [];
-    let currentQ = null;
-    for (const msg of (conversation || [])) {
-      if (msg.role === 'interviewer' && !currentQ) {
-        currentQ = { question: msg.content, questionSource: msg.questionSource, questionMeta: msg.questionMeta };
-      } else if (msg.role === 'candidate' && currentQ) {
-        qaPairs.push({ ...currentQ, answer: msg.content, timestamp: msg.timestamp });
-        currentQ = null;
-      } else if (msg.role === 'interviewer' && currentQ) {
-        // New question without an answer to the previous one
-        currentQ = { question: msg.content, questionSource: msg.questionSource, questionMeta: msg.questionMeta };
-      } else if (msg.role === 'feedback' && qaPairs.length > 0) {
-        // Attach feedback score to the last Q&A pair
-        qaPairs[qaPairs.length - 1].inlineScore = msg.score;
-        qaPairs[qaPairs.length - 1].strengths = msg.strengths;
-        qaPairs[qaPairs.length - 1].improvements = msg.improvements;
-      }
-    }
-
-    if (!groq) {
-      // Fallback: generate a basic report from collected data
-      const questionBreakdown = qaPairs.map((qa, i) => ({
-        questionNumber: i + 1,
-        question: qa.question?.substring(0, 200),
-        candidateAnswer: qa.answer?.substring(0, 300),
-        score: qa.inlineScore || (sessionScores?.[i] || 70),
-        category: stage?.toLowerCase() || 'technical',
-        feedback: 'Good response with room for improvement.',
-        strengths: qa.strengths || ['Clear communication'],
-        improvements: qa.improvements || ['Add more specifics'],
-        idealAnswerPoints: ['Cover key concepts', 'Use specific examples', 'Discuss trade-offs'],
-      }));
-
-      return res.json({
-        overallScore: sessionScores?.length > 0 ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : 72,
-        summary: `Completed ${qaPairs.length} questions in ${stage} round at ${company}.`,
-        verdict: 'Would Advance',
-        verdictEmoji: '👍',
-        questionBreakdown,
-        categoryScores: { technicalSkills: 75, communication: 80, problemSolving: 72, cultureFit: 78 },
-        speechAnalysis: speechHistory?.length > 0 ? {
-          overallWPM: Math.round(speechHistory.reduce((a, s) => a + (s.wpm || 0), 0) / speechHistory.length),
-          totalFillers: speechHistory.reduce((a, s) => a + (s.totalFillers || 0), 0),
-          clarityTrend: speechHistory.map(s => s.clarityScore || 80),
-          confidenceTrend: speechHistory.map(s => s.confidenceScore || 75),
-        } : null,
-        recommendations: [
-          { area: 'Practice', action: `Review ${stage} questions for ${company}`, resources: ['/company-prep'] },
-          { area: 'Communication', action: 'Focus on structuring answers with STAR method', resources: ['/learning-path'] },
-        ],
-        companyFitScore: 76,
-        companyFitNotes: `Shows potential alignment with ${company}'s values.`,
-      });
-    }
-
-    // Build Q&A summary for AI analysis
-    const qaText = qaPairs.map((qa, i) =>
-      `Q${i + 1}: ${qa.question?.substring(0, 300)}\nA${i + 1}: ${qa.answer?.substring(0, 500)}\nInline Score: ${qa.inlineScore || 'N/A'}`
-    ).join('\n\n');
-
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a senior interviewing panel at ${company} creating a DETAILED post-interview report for a ${stage} interview for ${role}.
-Analyze EACH question-answer pair individually. Be specific — reference actual content from answers.
-
-Respond as JSON:
-{
-  "overallScore": 0-100,
-  "summary": "3-4 sentence comprehensive evaluation",
-  "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance",
-  "verdictEmoji": "🌟 or 👍 or 🤔 or 👎",
-  "questionBreakdown": [
-    {
-      "questionNumber": 1,
-      "question": "The question asked",
-      "score": 0-100,
-      "category": "technical|behavioral|system-design|hr|coding",
-      "feedback": "2-3 sentence specific feedback on THIS answer",
-      "strengths": ["Specific strength 1", "Specific strength 2"],
-      "improvements": ["Specific improvement 1"],
-      "idealAnswerPoints": ["Key point they should have covered", "Another key point"]
-    }
-  ],
-  "categoryScores": { "technicalSkills": 0-100, "communication": 0-100, "problemSolving": 0-100, "cultureFit": 0-100 },
-  "recommendations": [
-    { "area": "Area name", "action": "Specific actionable recommendation" }
-  ],
-  "companyFitScore": 0-100,
-  "companyFitNotes": "1-2 sentences on company-specific fit"
-}`
-        },
-        { role: 'user', content: `Analyze this interview:\n\n${qaText}` }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.5
-    });
-
-    const result = JSON.parse(completion.choices[0].message.content);
-
-    // Merge speech analysis data if available
-    if (speechHistory?.length > 0) {
-      result.speechAnalysis = {
-        overallWPM: Math.round(speechHistory.reduce((a, s) => a + (s.wpm || 0), 0) / speechHistory.length),
-        totalFillers: speechHistory.reduce((a, s) => a + (s.totalFillers || 0), 0),
-        clarityTrend: speechHistory.map(s => s.clarityScore || 80),
-        confidenceTrend: speechHistory.map(s => s.confidenceScore || 75),
-      };
-    }
-
-    // Attach candidate answers to the breakdown for display
-    if (result.questionBreakdown) {
-      result.questionBreakdown.forEach((q, i) => {
-        if (qaPairs[i]) {
-          q.candidateAnswer = qaPairs[i].answer?.substring(0, 500);
-          q.questionSource = qaPairs[i].questionSource;
-          q.questionMeta = qaPairs[i].questionMeta;
-        }
-      });
-    }
-
-    res.json(result);
+    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory });
+    res.json(report);
   } catch (error) {
     console.error('Detailed report error:', error.message);
     res.status(500).json({ error: 'Failed to generate detailed report' });

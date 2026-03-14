@@ -114,11 +114,48 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
 
     res.json({
       problem: transformed,
+      exploration: {
+        exploreQuestions: problem.explore_questions || [],
+        extendedTestCases: problem.extended_test_cases || [],
+        metadata: problem.exploration_metadata || {}
+      },
       userProgress
     });
   } catch (error) {
     console.error('Error fetching problem:', error);
     res.status(500).json({ error: 'Failed to fetch problem' });
+  }
+});
+
+router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data: problem, error } = await supabaseAdmin
+      .from('problems')
+      .select('id, title, difficulty, explore_questions, extended_test_cases, exploration_metadata')
+      .eq('id', id)
+      .single();
+
+    if (error || !problem) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    res.json({
+      problemId: problem.id,
+      title: problem.title,
+      difficulty: problem.difficulty,
+      exploreQuestions: problem.explore_questions || [],
+      extendedTestCases: problem.extended_test_cases || [],
+      metadata: problem.exploration_metadata || {},
+      statistics: {
+        questionsCount: (problem.explore_questions || []).length,
+        testCasesCount: (problem.extended_test_cases || []).length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching explore questions:', error);
+    res.status(500).json({ error: 'Failed to fetch explore questions' });
   }
 });
 

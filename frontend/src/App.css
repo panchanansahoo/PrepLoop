@@ -8039,6 +8039,66 @@ h3 {
   padding: 8px;
 }
 
+.ti-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.ti-preset-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 14px 13px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0%, rgba(99, 102, 241, 0.025) 100%);
+  color: rgba(255, 255, 255, 0.78);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+}
+
+.ti-preset-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.2);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(99, 102, 241, 0.05) 100%);
+}
+
+.ti-preset-card.active {
+  border-color: rgba(99, 102, 241, 0.4);
+  background:
+    linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.1) 100%);
+  box-shadow:
+    0 0 24px rgba(99, 102, 241, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.ti-preset-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.2px;
+}
+
+.ti-preset-blurb {
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ti-preset-status {
+  margin: 0 0 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(196, 181, 253, 0.9);
+}
+
 .ti-role-input {
   width: 100%;
   padding: 11px 14px;
@@ -8182,6 +8242,62 @@ h3 {
   color: rgba(129, 140, 248, 0.8);
   padding: 8px 12px;
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.04));
+
+.ti-resume-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ti-resume-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.ti-resume-preview {
+  margin-top: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(52, 211, 153, 0.12);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(99, 102, 241, 0.04) 100%);
+}
+
+.ti-resume-preview-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ecfdf5;
+  margin-bottom: 6px;
+}
+
+.ti-resume-preview-copy {
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.ti-resume-skill-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ti-resume-skill-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #d1fae5;
+  border: 1px solid rgba(52, 211, 153, 0.16);
+  background: rgba(16, 185, 129, 0.08);
+}
   border: 1px solid rgba(99, 102, 241, 0.12);
   border-radius: 10px;
   font-weight: 500;
@@ -8361,6 +8477,12 @@ h3 {
   background: rgba(34, 197, 94, 0.1);
   color: #22c55e;
   border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+@media (max-width: 768px) {
+  .ti-preset-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ti-diff-chip.Medium {
@@ -8611,6 +8733,130 @@ h3 {
 
 .ti-avatar-canvas {
   display: block;
+  position: relative;
+  z-index: 2;
+}
+
+.ti-interviewer-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+  z-index: 1;
+}
+
+.ti-interviewer-camera-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 999px;
+  padding: 5px 10px;
+  backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 3;
+}
+
+.ti-camera-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6b7280;
+}
+
+.ti-camera-led.live {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.15);
+  animation: tiLedPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tiLedPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+
+  50% {
+    transform: scale(0.82);
+    opacity: 0.65;
+  }
+}
+
+.ti-camera-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.ti-interviewer-seat-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+}
+
+.ti-interviewer-backdrop {
+  position: absolute;
+  inset: 8% 6% 22% 6%;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.09), transparent 56%),
+    linear-gradient(180deg, rgba(17, 24, 39, 0.82) 0%, rgba(8, 10, 22, 0.68) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  z-index: 1;
+}
+
+.ti-interviewer-desk {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 7%;
+  height: 46px;
+  border-radius: 14px 14px 24px 24px;
+  background: linear-gradient(180deg, rgba(31, 41, 55, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.45);
+  z-index: 3;
+}
+
+.ti-interviewer-question-card {
+  position: relative;
+  z-index: 4;
+  background: rgba(5, 8, 20, 0.78);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 12px;
+  padding: 10px 12px;
+  max-height: 96px;
+  overflow: hidden;
+}
+
+.ti-interviewer-question-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.45px;
+  text-transform: uppercase;
+  color: rgba(165, 180, 252, 0.95);
+  margin-bottom: 4px;
+}
+
+.ti-interviewer-question-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ti-tile-nameplate {
@@ -8808,6 +9054,41 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
+}
+
+.ti-chat-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ti-chat-source-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.35px;
+  text-transform: uppercase;
+}
+
+.ti-chat-source-badge.ai {
+  color: #c4b5fd;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+.ti-chat-source-badge.database {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.ti-chat-source-badge.resume {
+  color: #d1fae5;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .ti-chat-sender {
@@ -9471,6 +9752,20 @@ h3 {
 
   .ti-video-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ti-interviewer-stage {
+    padding: 10px;
+  }
+
+  .ti-interviewer-question-card {
+    max-height: 86px;
+    padding: 8px 10px;
+  }
+
+  .ti-interviewer-question-text {
+    font-size: 11.5px;
+    -webkit-line-clamp: 2;
   }
 
   .ti-chat-sidebar {

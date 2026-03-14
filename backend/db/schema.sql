@@ -8,6 +8,7 @@ DROP TABLE IF EXISTS community_posts CASCADE;
 DROP TABLE IF EXISTS code_snippets CASCADE;
 DROP TABLE IF EXISTS submissions CASCADE;
 DROP TABLE IF EXISTS user_progress CASCADE;
+DROP TABLE IF EXISTS interview_feedback CASCADE;
 DROP TABLE IF EXISTS mock_interviews CASCADE;
 DROP TABLE IF EXISTS resume_analyses CASCADE;
 DROP TABLE IF EXISTS problems CASCADE;
@@ -117,6 +118,17 @@ CREATE TABLE mock_interviews (
   completed_at TIMESTAMP WITH TIME ZONE
 );
 
+-- Interview Feedback table (for real-time feedback during interviews)
+CREATE TABLE interview_feedback (
+  id SERIAL PRIMARY KEY,
+  interview_id INTEGER REFERENCES mock_interviews(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  question_index INTEGER NOT NULL,
+  answer_text TEXT,
+  feedback_content JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Resume Analyses table
 CREATE TABLE resume_analyses (
   id SERIAL PRIMARY KEY,
@@ -172,6 +184,8 @@ CREATE INDEX idx_user_progress_problem ON user_progress(problem_id);
 CREATE INDEX idx_submissions_user ON submissions(user_id);
 CREATE INDEX idx_submissions_problem ON submissions(problem_id);
 CREATE INDEX idx_mock_interviews_user ON mock_interviews(user_id);
+CREATE INDEX idx_interview_feedback_interview ON interview_feedback(interview_id);
+CREATE INDEX idx_interview_feedback_user ON interview_feedback(user_id);
 CREATE INDEX idx_resume_analyses_user ON resume_analyses(user_id);
 CREATE INDEX idx_community_posts_user ON community_posts(user_id);
 CREATE INDEX idx_community_replies_post ON community_replies(post_id);
@@ -182,6 +196,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE mock_interviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interview_feedback ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resume_analyses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE community_posts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE community_replies ENABLE ROW LEVEL SECURITY;
@@ -198,6 +213,8 @@ CREATE POLICY "Users can insert own submissions" ON submissions FOR INSERT WITH 
 CREATE POLICY "Users can view own interviews" ON mock_interviews FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own interviews" ON mock_interviews FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own interviews" ON mock_interviews FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own feedback" ON interview_feedback FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own feedback" ON interview_feedback FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can view own resumes" ON resume_analyses FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own resumes" ON resume_analyses FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Anyone can view posts" ON community_posts FOR SELECT USING (true);

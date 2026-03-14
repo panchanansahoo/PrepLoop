@@ -42,6 +42,7 @@ import DSACodeEditor from './pages/DSACodeEditor';
 import SQLProblemExplorer from './pages/SQLProblemExplorer';
 import SQLCodeEditor from './pages/SQLCodeEditor';
 
+import InterviewPlatform from './components/InterviewPlatform';
 
 import AptitudeHub from './pages/AptitudeHub';
 import AptitudePractice from './pages/AptitudePractice';
@@ -219,6 +220,7 @@ function AppContent() {
             <Route path="/company-prep" element={<CompanyPrep />} />
             <Route path="/company-interview" element={<CompanyInterview />} />
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
+            <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
             <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
 

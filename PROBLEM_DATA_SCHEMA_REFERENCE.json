@@ -1,0 +1,455 @@
+{
+  "problemsFormat": {
+    "description": "Complete problem data structure for 425 DSA problems on Preploop platform",
+    "totalProblems": 425,
+    "handCraftedProblems": 22,
+    "extendedProblems": 403,
+    "lastUpdated": "2026-03-13",
+    "version": "1.0"
+  },
+  "sampleProblems": [
+    {
+      "id": 1,
+      "title": "Two Sum",
+      "description": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\nYou can return the answer in any order.",
+      "difficulty": "Easy",
+      "pattern": "Array",
+      "constraints": [
+        "2 ≤ nums.length ≤ 10⁴",
+        "-10⁹ ≤ nums[i] ≤ 10⁹",
+        "10⁹ ≤ target ≤ 10⁹",
+        "Only one valid answer exists"
+      ],
+      "companies": [
+        "Google",
+        "Amazon",
+        "Microsoft",
+        "Facebook",
+        "Apple"
+      ],
+      "examples": [
+        {
+          "input": "nums = [2,7,11,15], target = 9",
+          "output": "[0,1]",
+          "explanation": "nums[0] + nums[1] == 9, so we return [0, 1]"
+        },
+        {
+          "input": "nums = [3,2,4], target = 6",
+          "output": "[1,2]",
+          "explanation": "nums[1] + nums[2] == 6, so we return [1, 2]"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": [
+            [
+              2,
+              7,
+              11,
+              15
+            ],
+            9
+          ],
+          "output": [
+            0,
+            1
+          ],
+          "notes": "Basic case"
+        },
+        {
+          "input": [
+            [
+              3,
+              2,
+              4
+            ],
+            6
+          ],
+          "output": [
+            1,
+            2
+          ],
+          "notes": "Different indices"
+        },
+        {
+          "input": [
+            [
+              3,
+              3
+            ],
+            6
+          ],
+          "output": [
+            0,
+            1
+          ],
+          "notes": "Duplicate values"
+        }
+      ],
+      "starter_code": {
+        "python": "def twoSum(nums: List[int], target: int) -> List[int]:\n    \"\"\"\n    Find two numbers that add up to target.\n    \"\"\"\n    # Your code here\n    pass",
+        "javascript": "function twoSum(nums, target) {\n    // Find two numbers that add up to target\n    // Your code here\n}",
+        "cpp": "vector<int> twoSum(vector<int>& nums, int target) {\n    // Find two numbers that add up to target\n    // Your code here\n    return {};\n}",
+        "java": "public class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        // Find two numbers that add up to target\n        // Your code here\n        return new int[]{};\n    }\n}"
+      },
+      "function_name": "twoSum",
+      "tags": [
+        "hash_map",
+        "two_pointers"
+      ],
+      "hints": [
+        "Can you store the numbers in a hash map?",
+        "What would you need to store in the hash map to find complements?"
+      ],
+      "time_complexity": "O(n)",
+      "space_complexity": "O(n)",
+      "similar_problems": [
+        "3Sum",
+        "4Sum",
+        "Two Sum II"
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Best Time to Buy and Sell Stock",
+      "description": "You are given an array prices where prices[i] is the price of a given stock on the ith day.\n\nYou want to maximize your profit by choosing a single day to buy one stock and a different day in the future to sell that stock.\n\nReturn the maximum profit you can achieve from this transaction. If you cannot achieve any profit, return 0.",
+      "difficulty": "Easy",
+      "pattern": "Array",
+      "constraints": [
+        "1 ≤ prices.length ≤ 10⁵",
+        "0 ≤ prices[i] ≤ 10⁴"
+      ],
+      "companies": [
+        "Amazon",
+        "Microsoft",
+        "Facebook",
+        "Bloomberg"
+      ],
+      "examples": [
+        {
+          "input": "prices = [7,1,5,3,6,4]",
+          "output": "5",
+          "explanation": "Buy on day 2 (price=1) and sell on day 5 (price=6), profit = 6-1 = 5"
+        },
+        {
+          "input": "prices = [7,6,4,3,1]",
+          "output": "0",
+          "explanation": "No transaction occurred, best you can do is hold (profit = 0)"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": [
+            [
+              7,
+              1,
+              5,
+              3,
+              6,
+              4
+            ]
+          ],
+          "output": 5,
+          "notes": "Optimal buy/sell"
+        },
+        {
+          "input": [
+            [
+              7,
+              6,
+              4,
+              3,
+              1
+            ]
+          ],
+          "output": 0,
+          "notes": "Decreasing prices"
+        },
+        {
+          "input": [
+            [
+              1,
+              2
+            ]
+          ],
+          "output": 1,
+          "notes": "Minimal case"
+        },
+        {
+          "input": [
+            [
+              2,
+              4,
+              1
+            ]
+          ],
+          "output": 2,
+          "notes": "Multiple peaks"
+        }
+      ],
+      "starter_code": {
+        "python": "def maxProfit(prices: List[int]) -> int:\n    \"\"\"\n    Find the maximum profit from buying and selling stock once.\n    \"\"\"\n    # Your code here\n    pass",
+        "javascript": "function maxProfit(prices) {\n    // Find the maximum profit\n    // Your code here\n}",
+        "cpp": "int maxProfit(vector<int>& prices) {\n    // Your code here\n    return 0;\n}",
+        "java": "public class Solution {\n    public int maxProfit(int[] prices) {\n        // Your code here\n        return 0;\n    }\n}"
+      },
+      "function_name": "maxProfit",
+      "tags": [
+        "dynamic_programming",
+        "array"
+      ],
+      "hints": [
+        "Track the minimum price seen so far",
+        "Calculate profit at each step"
+      ],
+      "time_complexity": "O(n)",
+      "space_complexity": "O(1)",
+      "similar_problems": [
+        "Best Time to Buy and Sell Stock II",
+        "Best Time to Buy and Sell Stock III"
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Contains Duplicate",
+      "description": "Given an integer array nums, return true if any value appears at least twice in the array, and return false if every element is distinct.",
+      "difficulty": "Easy",
+      "pattern": "Hash Set",
+      "constraints": [
+        "1 ≤ nums.length ≤ 10⁵",
+        "-10⁹ ≤ nums[i] ≤ 10⁹"
+      ],
+      "companies": [
+        "Google",
+        "Amazon",
+        "Apple"
+      ],
+      "examples": [
+        {
+          "input": "nums = [1,2,3,1]",
+          "output": "true",
+          "explanation": "1 appears twice"
+        },
+        {
+          "input": "nums = [1,2,3,4]",
+          "output": "false",
+          "explanation": "All elements are distinct"
+        }
+      ],
+      "test_cases": [
+        {
+          "input": [
+            [
+              1,
+              2,
+              3,
+              1
+            ]
+          ],
+          "output": true,
+          "notes": "Duplicate at ends"
+        },
+        {
+          "input": [
+            [
+              1,
+              2,
+              3,
+              4
+            ]
+          ],
+          "output": false,
+          "notes": "All distinct"
+        },
+        {
+          "input": [
+            [
+              1,
+              1,
+              1,
+              3,
+              3,
+              4,
+              3,
+              2,
+              4,
+              2
+            ]
+          ],
+          "output": true,
+          "notes": "Multiple duplicates"
+        }
+      ],
+      "starter_code": {
+        "python": "def containsDuplicate(nums: List[int]) -> bool:\n    # Your code here\n    pass",
+        "javascript": "function containsDuplicate(nums) {\n    // Your code here\n}",
+        "cpp": "bool containsDuplicate(vector<int>& nums) {\n    // Your code here\n    return false;\n}",
+        "java": "public class Solution {\n    public boolean containsDuplicate(int[] nums) {\n        // Your code here\n        return false;\n    }\n}"
+      },
+      "function_name": "containsDuplicate",
+      "time_complexity": "O(n)",
+      "space_complexity": "O(n)"
+    }
+  ],
+  "databaseSchema": {
+    "tableName": "problems",
+    "columns": {
+      "id": "BIGINT PRIMARY KEY",
+      "title": "TEXT NOT NULL",
+      "description": "TEXT NOT NULL",
+      "difficulty": "TEXT",
+      "pattern": "TEXT",
+      "pattern_id": "BIGINT REFERENCES patterns(id)",
+      "constraints": "TEXT or JSON (array of strings)",
+      "examples": "JSONB (array of objects with input, output, explanation)",
+      "test_cases": "JSONB (array of objects with input, output, notes)",
+      "starter_code": "JSONB (object with python, javascript, cpp, java keys)",
+      "companies": "TEXT[] or JSONB (array of company names)",
+      "tags": "TEXT[] or JSONB (array of tags)",
+      "hints": "TEXT[] or JSONB (array of hint strings)",
+      "function_name": "TEXT",
+      "time_complexity": "TEXT",
+      "space_complexity": "TEXT",
+      "similar_problems": "JSONB (array of titles or IDs)",
+      "solution_approach": "TEXT",
+      "created_at": "TIMESTAMP WITH TIME ZONE",
+      "updated_at": "TIMESTAMP WITH TIME ZONE"
+    }
+  },
+  "patterns": {
+    "total": 25,
+    "list": [
+      "Array",
+      "Linked List",
+      "Tree",
+      "Binary Tree",
+      "Binary Search Tree",
+      "Graph",
+      "String",
+      "Stack",
+      "Queue",
+      "Heap",
+      "Hash Map",
+      "Hash Set",
+      "Dynamic Programming",
+      "Two Pointers",
+      "Sliding Window",
+      "Binary Search",
+      "Bit Manipulation",
+      "Greedy",
+      "Trie",
+      "Union Find",
+      "Topological Sort",
+      "DFS",
+      "BFS",
+      "Matrix",
+      "Backtracking"
+    ]
+  },
+  "difficulties": [
+    "Easy",
+    "Medium",
+    "Hard"
+  ],
+  "distribution": {
+    "byDifficulty": {
+      "Easy": 150,
+      "Medium": 200,
+      "Hard": 75
+    },
+    "byPattern": {
+      "Array": 45,
+      "Linked List": 20,
+      "Tree": 35,
+      "Graph": 25,
+      "String": 30,
+      "Dynamic Programming": 45,
+      "Two Pointers": 20,
+      "Sliding Window": 20,
+      "Binary Search": 25,
+      "Stack & Queue": 20,
+      "Hash Map": 20,
+      "Heap": 15,
+      "Bit Manipulation": 15,
+      "Greedy": 20,
+      "Trie": 15,
+      "Other": 75
+    },
+    "byCompany": {
+      "Google": 85,
+      "Amazon": 120,
+      "Microsoft": 95,
+      "Facebook": 110,
+      "Apple": 80,
+      "LinkedIn": 70,
+      "Bloomberg": 60,
+      "Others": 125
+    }
+  },
+  "validationRules": [
+    "title must be unique",
+    "description must be at least 50 characters",
+    "difficulty must be one of: Easy, Medium, Hard",
+    "pattern must be from the approved list (25+ patterns)",
+    "constraints array must have at least 2 items",
+    "companies array must have at least 1 company",
+    "examples array must have at least 2 examples",
+    "each example must have: input, output, explanation",
+    "test_cases array must have at least 3 test cases",
+    "each test case must have: input, output, notes",
+    "starter_code must have all 4 languages",
+    "function_name must match language naming conventions",
+    "time_complexity should follow Big O notation",
+    "space_complexity should follow Big O notation"
+  ],
+  "seedingProcess": {
+    "step1": "Load 425 problems from PROBLEM_DATA array",
+    "step2": "Merge with basic metadata from dsaProblems.js",
+    "step3": "Validate all fields against validation rules",
+    "step4": "Clear existing problems from database",
+    "step5": "Batch insert problems (50 per batch) to Supabase",
+    "step6": "Verify total count = 425",
+    "step7": "Test sample queries for each pattern",
+    "expectedTime": "2-5 seconds for full seeding"
+  },
+  "integrationPoints": {
+    "frontend": {
+      "component": "ProblemDisplay.jsx",
+      "displays": [
+        "Title with difficulty badge",
+        "Full description",
+        "Examples with explanations",
+        "Constraints list",
+        "Test case table",
+        "Code editor with starter code",
+        "Company tags",
+        "Similar problems"
+      ]
+    },
+    "backend": {
+      "endpoint": "GET /api/problems/:id",
+      "returns": "Complete problem object with all fields",
+      "filtering": "By pattern, difficulty, company, tags"
+    },
+    "database": {
+      "table": "problems",
+      "indexes": [
+        "id",
+        "difficulty",
+        "pattern_id",
+        "companies"
+      ]
+    }
+  },
+  "migrationPath": {
+    "currentState": "22/425 problems with real data (hand-crafted)",
+    "targetState": "425/425 problems with real data (complete)",
+    "approach": "Batch extend PROBLEM_DATA array in seedProblems.js",
+    "timeline": "1-2 weeks for data collection and entry",
+    "dependencies": [
+      "LeetCode problem reference",
+      "Test case validation",
+      "Code template verification"
+    ]
+  }
+}

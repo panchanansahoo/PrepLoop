@@ -7,6 +7,7 @@ import {
     Hand, SmilePlus, Settings, Copy, Maximize2, Minimize2,
     Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield
 } from 'lucide-react';
+import { Upload, FileText } from 'lucide-react';
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepData';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -20,8 +21,76 @@ import DetailedReport from '../components/interview/DetailedReport';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+const INTERVIEW_PRESETS = [
+    {
+        id: 'real_interviewer',
+        label: 'Real Interviewer',
+        blurb: 'Closest to actual interview behavior: concise prompts, rigorous follow-ups, minimal coaching.',
+        options: {
+            interviewerIntensity: 'challenging',
+            followUpDepth: 'deep',
+            answerPace: 'balanced',
+            realInterviewerMode: true,
+            focusTopics: 'clarity, trade-offs, edge cases, decision making',
+            questionCount: 8,
+        },
+    },
+    {
+        id: 'faang_loop',
+        label: 'FAANG Loop',
+        blurb: 'Sharper probing, deeper follow-ups, and longer loops for high-bar rounds.',
+        options: {
+            interviewerIntensity: 'challenging',
+            followUpDepth: 'deep',
+            answerPace: 'fast',
+            realInterviewerMode: false,
+            focusTopics: 'trade-offs, scalability, edge cases, optimization',
+            questionCount: 10,
+        },
+    },
+    {
+        id: 'startup_rapid_fire',
+        label: 'Startup Rapid-Fire',
+        blurb: 'Fast pace, practical questioning, and shipping-focused conversations.',
+        options: {
+            interviewerIntensity: 'challenging',
+            followUpDepth: 'standard',
+            answerPace: 'fast',
+            realInterviewerMode: false,
+            focusTopics: 'MVP thinking, execution speed, prioritization, product sense',
+            questionCount: 8,
+        },
+    },
+    {
+        id: 'campus_placement',
+        label: 'Campus Placement',
+        blurb: 'Supportive structure for fresher-style technical and behavioral rounds.',
+        options: {
+            interviewerIntensity: 'supportive',
+            followUpDepth: 'standard',
+            answerPace: 'balanced',
+            realInterviewerMode: false,
+            focusTopics: 'fundamentals, clarity, structured answers, confidence',
+            questionCount: 6,
+        },
+    },
+    {
+        id: 'behavioral_coach',
+        label: 'Behavioral Coach',
+        blurb: 'Lower-pressure mode optimized for STAR stories and communication quality.',
+        options: {
+            interviewerIntensity: 'supportive',
+            followUpDepth: 'deep',
+            answerPace: 'slow',
+            realInterviewerMode: false,
+            focusTopics: 'STAR method, ownership, teamwork, conflict resolution',
+            questionCount: 8,
+        },
+    },
+];
+
 // ─── AI Avatar Canvas Component (Human photo with animated rings) ───
-function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
+function AIAvatar({ speaking, pose = 'neutral', companyColor, companyLogo, size = 'large' }) {
     const canvasRef = useRef(null);
     const animRef = useRef(null);
     const phaseRef = useRef(0);
@@ -77,8 +146,37 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
             if (imgLoadedRef.current && imgRef.current) {
                 ctx.save();
 
+                // Subtle posture changes so interviewer feels less static.
+                const isListeningPose = pose === 'listening';
+                const isThinkingPose = pose === 'thinking';
+                const isSpeakingPose = speaking || pose === 'speaking';
+                const isNotesPose = pose === 'notes';
+
+                if (isListeningPose) {
+                    const listenTilt = -0.035 + Math.sin(phaseRef.current * 1.6) * 0.012;
+                    ctx.translate(cx, cy);
+                    ctx.rotate(listenTilt);
+                    ctx.translate(-cx, -cy);
+                }
+
+                if (isThinkingPose) {
+                    const thinkingTilt = 0.028 + Math.sin(phaseRef.current * 1.2) * 0.01;
+                    const thinkingNod = Math.sin(phaseRef.current * 1.8) * (size === 'large' ? 1.4 : 0.8);
+                    ctx.translate(cx, cy + thinkingNod);
+                    ctx.rotate(thinkingTilt);
+                    ctx.translate(-cx, -cy);
+                }
+
+                if (isNotesPose) {
+                    const notesTilt = 0.085 + Math.sin(phaseRef.current * 1.1) * 0.01;
+                    const notesDrop = size === 'large' ? 3.2 : 1.8;
+                    ctx.translate(cx, cy + notesDrop);
+                    ctx.rotate(notesTilt);
+                    ctx.translate(-cx, -cy);
+                }
+
                 // Speaking: subtle scale breathing + gentle bounce
-                if (speaking) {
+                if (isSpeakingPose) {
                     const breathe = 1 + Math.sin(phaseRef.current * 3) * 0.018;
                     const bounceY = Math.sin(phaseRef.current * 2.5) * (size === 'large' ? 1.5 : 0.8);
                     ctx.translate(cx, cy + bounceY);
@@ -95,7 +193,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
                 ctx.drawImage(imgRef.current, cx - baseRadius + 3, cy - baseRadius + 3, imgSize, imgSize);
 
                 // Speaking: jaw/mouth area glow to simulate talking
-                if (speaking) {
+                if (isSpeakingPose) {
                     const mouthOpen = (Math.sin(phaseRef.current * 6) + 1) * 0.5;
                     const jawGlow = ctx.createRadialGradient(cx, cy + baseRadius * 0.35, 2, cx, cy + baseRadius * 0.35, baseRadius * 0.5);
                     jawGlow.addColorStop(0, `rgba(255,255,255,${0.06 + mouthOpen * 0.1})`);
@@ -107,7 +205,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
                 ctx.restore();
 
                 // Animated border ring — pulses brighter when speaking
-                const borderGlow = speaking
+                const borderGlow = isSpeakingPose
                     ? (Math.sin(phaseRef.current * 3) + 1) * 0.3 + 0.4
                     : 0.25;
                 ctx.beginPath();
@@ -117,7 +215,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
                 ctx.stroke();
 
                 // Speaking: outer glow halo
-                if (speaking) {
+                if (isSpeakingPose) {
                     const haloR = size === 'large' ? 8 : 5;
                     const halo = ctx.createRadialGradient(cx, cy, baseRadius - 2, cx, cy, baseRadius + haloR);
                     halo.addColorStop(0, `${companyColor}18`);
@@ -146,7 +244,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
             }
 
             // Speaking wave bars
-            if (speaking) {
+            if (speaking || pose === 'speaking') {
                 const barCount = 7;
                 const barWidth = size === 'large' ? 4 : 2.5;
                 const gap = size === 'large' ? 5 : 3;
@@ -171,7 +269,7 @@ function AIAvatar({ speaking, companyColor, companyLogo, size = 'large' }) {
 
         draw();
         return () => cancelAnimationFrame(animRef.current);
-    }, [speaking, companyColor, companyLogo, size]);
+    }, [speaking, pose, companyColor, companyLogo, size]);
 
     return (
         <canvas
@@ -226,6 +324,61 @@ function MicLevel({ stream }) {
     );
 }
 
+function clampInterviewScore(value, fallback = 0) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return fallback;
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function buildInterviewSummaryFallback(avg, config, questionCount, speechHistory = []) {
+    const overallScore = clampInterviewScore(avg, 70);
+    const detailedBreakdown = {
+        technicalSkills: clampInterviewScore(overallScore - 4, overallScore),
+        communication: clampInterviewScore(overallScore + 3, overallScore),
+        problemSolving: clampInterviewScore(overallScore - 1, overallScore),
+        cultureFit: clampInterviewScore(overallScore + 2, overallScore),
+    };
+
+    return {
+        overallScore,
+        summary: `You completed ${questionCount || 0} questions for the ${config.role} role at ${config.company}. Your baseline communication held up, but the next gain will come from making answers more specific and structured.`,
+        strengths: ['Stayed engaged across the session', 'Answered directly instead of stalling', 'Maintained a usable structure in most responses'],
+        improvements: ['Add more specific examples and trade-offs', 'State the core answer earlier', 'Close answers with a concrete takeaway'],
+        recommendation: 'Review the weakest answers from this mock and re-answer them with more depth.',
+        verdict: overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance',
+        verdictEmoji: overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎',
+        detailedBreakdown,
+        categoryScores: detailedBreakdown,
+        suggestedTopics: [
+            { topic: 'Answer specificity', priority: 'high', reason: 'The session needs more concrete examples and clearer support.' },
+            { topic: `${config.stage} interview practice`, priority: 'medium', reason: 'Practicing the exact interview format will improve consistency.' },
+            { topic: 'Follow-up question handling', priority: 'medium', reason: 'Stronger follow-up depth usually improves overall interview performance.' }
+        ],
+        practiceQuestions: [
+            'Repeat one weak answer and make it twice as concrete.',
+            'Answer a follow-up question that asks for trade-offs or edge cases.',
+            `Practice one ${config.stage} interview question under a time limit.`,
+            'Explain one solution and then summarize it in two crisp sentences.',
+            'Record one answer and critique clarity, depth, and structure.'
+        ],
+        studyPlan: [
+            { day: 'Day 1-2', focus: 'Weakest answers', tasks: ['Rewrite the weakest responses', 'Add one concrete example to each'] },
+            { day: 'Day 3-4', focus: 'Structure', tasks: ['Practice clear openings', 'Add trade-offs and outcomes'] },
+            { day: 'Day 5', focus: config.stage, tasks: ['Run a timed mock round', 'Review missed details'] },
+            { day: 'Day 6', focus: 'Communication', tasks: ['Record 3 answers', 'Tighten pacing and clarity'] },
+            { day: 'Day 7', focus: 'Review & Practice', tasks: ['Redo the mock', 'Compare against the prior round'] }
+        ],
+        questionBreakdown: [],
+        recommendations: [{ area: 'Next Focus', action: 'Make each answer more specific and concrete.' }],
+        speechAnalysis: speechHistory?.length > 0 ? {
+            overallWPM: Math.round(speechHistory.reduce((sum, sample) => sum + (sample.wpm || 0), 0) / speechHistory.length),
+            totalFillers: speechHistory.reduce((sum, sample) => sum + (sample.totalFillers || 0), 0),
+            clarityTrend: speechHistory.map(sample => sample.clarityScore || 80),
+            confidenceTrend: speechHistory.map(sample => sample.confidenceScore || 75),
+        } : null,
+    };
+}
+
 
 export default function CompanyInterview() {
     const { user } = useAuth();
@@ -247,7 +400,21 @@ export default function CompanyInterview() {
     const [summaryData, setSummaryData] = useState(null);
     const [detailedReportData, setDetailedReportData] = useState(null);
     const [questionCount, setQuestionCount] = useState(0);
-    const totalQuestions = 8;
+    const [advancedOptions, setAdvancedOptions] = useState({
+        interviewerIntensity: 'balanced',
+        followUpDepth: 'standard',
+        answerPace: 'balanced',
+        realInterviewerMode: false,
+        resumeInterviewMode: 'balanced',
+        focusTopics: '',
+        questionCount: 8,
+    });
+    const [activePreset, setActivePreset] = useState(null);
+    const [useResumeContext, setUseResumeContext] = useState(false);
+    const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
+    const [resumeContext, setResumeContext] = useState(null);
+    const [resumeFileName, setResumeFileName] = useState('');
+    const totalQuestions = advancedOptions.questionCount;
 
     // Realism features
     const [hintData, setHintData] = useState(null);
@@ -273,6 +440,7 @@ export default function CompanyInterview() {
     const [autoSendCountdown, setAutoSendCountdown] = useState(0);
     const autoSendTimerRef = useRef(null);
     const autoSendCountdownRef = useRef(null);
+    const interviewerPauseRef = useRef(null);
 
     // Timer
     const [elapsed, setElapsed] = useState(0);
@@ -295,6 +463,7 @@ export default function CompanyInterview() {
     const audioChunksRef = useRef([]);
     const consecutiveSkipsRef = useRef(0);
     const captionsEndRef = useRef(null);
+    const resumeFileInputRef = useRef(null);
     const [isTranscribing, setIsTranscribing] = useState(false);
 
     // Advanced features state
@@ -339,6 +508,90 @@ export default function CompanyInterview() {
         const m = Math.floor(secs / 60).toString().padStart(2, '0');
         const s = (secs % 60).toString().padStart(2, '0');
         return `${m}:${s}`;
+    };
+
+    const updateAdvancedOption = (key, value) => {
+        setActivePreset(null);
+        setAdvancedOptions(prev => ({ ...prev, [key]: value }));
+    };
+
+    const waitInterviewerBeat = (base = 900, jitter = 600) => {
+        const duration = base + Math.floor(Math.random() * jitter);
+        return new Promise(resolve => {
+            interviewerPauseRef.current = setTimeout(() => {
+                interviewerPauseRef.current = null;
+                resolve();
+            }, duration);
+        });
+    };
+
+    const applyPreset = (preset) => {
+        setActivePreset(preset.id);
+        setAdvancedOptions(prev => ({ ...prev, ...preset.options }));
+    };
+
+    const uploadResumeForInterview = async (file) => {
+        if (!file) return;
+
+        setResumeUploadLoading(true);
+        setResumeFileName(file.name);
+
+        try {
+            const formData = new FormData();
+            formData.append('resume', file);
+
+            const headers = getAuthHeaders();
+            delete headers['Content-Type'];
+
+            const res = await fetch(`${API_URL}/api/resume/analyze`, {
+                method: 'POST',
+                headers,
+                body: formData,
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to upload CV');
+            }
+
+            setResumeContext(data.resumeProfile || null);
+            setUseResumeContext(true);
+        } catch (error) {
+            console.error('CV upload failed:', error);
+            setResumeContext(null);
+        } finally {
+            setResumeUploadLoading(false);
+        }
+    };
+
+    const loadLatestResumeForInterview = async () => {
+        setResumeUploadLoading(true);
+        try {
+            const res = await fetch(`${API_URL}/api/resume/latest`, {
+                method: 'GET',
+                headers: getAuthHeaders(),
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to load latest CV');
+            }
+
+            setResumeContext(data.resumeProfile || null);
+            setResumeFileName('Latest saved CV');
+            setUseResumeContext(true);
+        } catch (error) {
+            console.error('Load latest CV failed:', error);
+            setResumeContext(null);
+        } finally {
+            setResumeUploadLoading(false);
+        }
+    };
+
+    const getQuestionSourceBadge = (source) => {
+        if (source === 'database') return { label: 'Real company', className: 'database' };
+        if (source === 'resume') return { label: 'From CV', className: 'resume' };
+        return { label: 'AI generated', className: 'ai' };
     };
 
     // ── Media controls ──
@@ -838,10 +1091,18 @@ export default function CompanyInterview() {
         try {
             const res = await fetch(`${API_URL}/api/company-interview/start`, {
                 method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ ...config, totalQuestions, useRealQuestions })
+                body: JSON.stringify({
+                    ...config,
+                    totalQuestions,
+                    useRealQuestions,
+                    advancedOptions,
+                    resumeContext: useResumeContext ? resumeContext : null,
+                })
             });
             const data = await res.json();
             const q = data.question || `Hi! Great to have you here today. I'm excited to learn more about your experience as a ${config.role}. Let's start with something fundamental — can you tell me about a challenging technical problem you solved recently?`;
+            setInterviewerReaction('thinking');
+            await waitInterviewerBeat(550, 350);
             setCurrentQuestion(q);
             setQuestionCount(1);
             setInterviewerReaction(data.interviewerReaction || 'greeting');
@@ -857,6 +1118,8 @@ export default function CompanyInterview() {
             speakText(q, () => toggleListening(true));
         } catch {
             const fallback = `Hi! Welcome to your ${companyName} interview. I'm looking forward to our conversation today. Let's dive in — tell me about a challenging project you worked on recently and what made it interesting.`;
+            setInterviewerReaction('thinking');
+            await waitInterviewerBeat(550, 350);
             setCurrentQuestion(fallback);
             setQuestionCount(1);
             setInterviewerReaction('greeting');
@@ -997,7 +1260,9 @@ export default function CompanyInterview() {
                     codeLanguage: editorLanguage || undefined,
                     useRealQuestions,
                     questionBankIds: questionBankIds.length > 0 ? questionBankIds : undefined,
-                    currentQuestionId: currentQuestionMeta?.id || undefined
+                    currentQuestionId: currentQuestionMeta?.id || undefined,
+                    advancedOptions,
+                    resumeContext: useResumeContext ? resumeContext : null,
                 })
             });
             const data = await res.json();
@@ -1024,6 +1289,15 @@ export default function CompanyInterview() {
 
             if (questionCount < totalQuestions) {
                 const followUp = data.followUpQuestion || 'Can you elaborate on that approach?';
+                const isDifficultFollowUp = data.difficultyLevel === 'hard' || (config.difficulty === 'Hard' && data.interviewerReaction === 'challenging');
+                if (isDifficultFollowUp) {
+                    setInterviewerReaction('notes');
+                    await waitInterviewerBeat(520, 280);
+                    if (phaseRef.current !== 'interview') return;
+                }
+                setInterviewerReaction('thinking');
+                await waitInterviewerBeat(900, 700);
+                if (phaseRef.current !== 'interview') return;
                 setCurrentQuestion(followUp);
                 setQuestionCount(prev => prev + 1);
                 if (data.thinkTime) startThinkTimer(data.thinkTime);
@@ -1070,6 +1344,9 @@ export default function CompanyInterview() {
                 "I can see your reasoning there. Let's shift gears a bit.",
                 "Nice approach! Let me ask you something different now.",
             ];
+            setInterviewerReaction('thinking');
+            await waitInterviewerBeat(900, 700);
+            if (phaseRef.current !== 'interview') return;
             setConversation(prev => [...prev, {
                 role: 'feedback', content: fallbackFeedbacks[Math.floor(Math.random() * fallbackFeedbacks.length)], score: 70 + Math.floor(Math.random() * 15),
                 strengths: ['Clear communication'], improvements: ['Add more specifics'],
@@ -1121,6 +1398,7 @@ export default function CompanyInterview() {
         clearTimeout(autoSendTimerRef.current);
         clearTimeout(inactivityTimerRef.current);
         clearInterval(autoSendCountdownRef.current);
+        clearTimeout(interviewerPauseRef.current);
         setAutoSendCountdown(0);
         setThinkTimeLeft(0);
 
@@ -1141,52 +1419,37 @@ export default function CompanyInterview() {
         isListeningRef.current = false;
         setIsListening(false);
 
+        const avg = sessionScores.length > 0 ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : 70;
+        let reportData = null;
+
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/evaluate`, {
+            const res = await fetch(`${API_URL}/api/company-interview/detailed-report`, {
                 method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ company: config.company, role: config.role, stage: config.stage, conversation })
+                body: JSON.stringify({
+                    company: config.company,
+                    role: config.role,
+                    stage: config.stage,
+                    conversation,
+                    sessionScores,
+                    speechHistory: speechHistory || []
+                })
             });
-            const data = await res.json();
-            setSummaryData(data);
+            if (!res.ok) throw new Error('Detailed report request failed');
+            reportData = await res.json();
         } catch {
-            const avg = sessionScores.length > 0 ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : 70;
-            setSummaryData({
-                overallScore: avg,
-                summary: 'Great effort today! You showed solid fundamentals and communicated your ideas clearly.',
-                strengths: ['Consistent responses', 'Good communication', 'Structured thinking'],
-                improvements: ['Add more technical depth', 'Use concrete examples and metrics', 'Consider edge cases proactively'],
-                recommendation: 'Focus on practicing system design and optimization questions to level up your performance.',
-                verdict: avg >= 80 ? 'Would Advance' : avg >= 60 ? 'Borderline' : 'Would Not Advance',
-                verdictEmoji: avg >= 80 ? '👍' : avg >= 60 ? '🤔' : '👎',
-                detailedBreakdown: {
-                    technicalSkills: avg - 5 + Math.floor(Math.random() * 10),
-                    communication: avg + Math.floor(Math.random() * 10),
-                    problemSolving: avg - 3 + Math.floor(Math.random() * 10),
-                    cultureFit: avg + 5 + Math.floor(Math.random() * 5)
-                }
-            });
+            reportData = buildInterviewSummaryFallback(avg, config, questionCount, speechHistory || []);
         }
+
+        setSummaryData(reportData);
+        setDetailedReportData(reportData);
 
         // Release camera and microphone
         stopMedia();
         setPhase('summary');
         setLoading(false);
 
-        // Fetch detailed report in background (non-blocking)
-        try {
-            fetch(`${API_URL}/api/company-interview/detailed-report`, {
-                method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({
-                    company: config.company, role: config.role, stage: config.stage,
-                    conversation, sessionScores,
-                    speechHistory: speechHistory || []
-                })
-            }).then(r => r.json()).then(d => setDetailedReportData(d)).catch(() => { });
-        } catch { }
-
         // Auto-save session to backend (non-blocking)
         try {
-            const avg = sessionScores.length > 0 ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : 70;
             fetch(`${API_URL}/api/company-interview/save-session`, {
                 method: 'POST', headers: getAuthHeaders(),
                 body: JSON.stringify({
@@ -1194,8 +1457,8 @@ export default function CompanyInterview() {
                     company: config.company, role: config.role,
                     stage: config.stage, difficulty: config.difficulty,
                     conversation, scores: sessionScores,
-                    overallScore: summaryData?.overallScore || avg,
-                    summaryData: summaryData || {},
+                    overallScore: reportData?.overallScore || avg,
+                    summaryData: reportData || {},
                     speechMetrics: speechMetrics || null,
                     emotionData: emotionMetrics || null,
                     proctoringViolations: proctoringViolations || [],
@@ -1218,6 +1481,7 @@ export default function CompanyInterview() {
         setInterviewerReaction(null);
         consecutiveSkipsRef.current = 0;
         clearInterval(thinkTimerRef.current);
+        clearTimeout(interviewerPauseRef.current);
         setThinkTimeLeft(0);
         // Stop voice
         window.speechSynthesis?.cancel();
@@ -1282,6 +1546,7 @@ export default function CompanyInterview() {
             clearInterval(autoSendCountdownRef.current);
             clearInterval(thinkTimerRef.current);
             clearInterval(timerRef.current);
+            clearTimeout(interviewerPauseRef.current);
             window.speechSynthesis?.cancel();
             if (audioPlayerRef.current) {
                 audioPlayerRef.current.pause();
@@ -1443,6 +1708,178 @@ export default function CompanyInterview() {
                                 )}
                             </div>
 
+                            <div className="ti-form-section">
+                                <label>Resume-Based Personalization</label>
+                                <div className="ti-realq-toggle">
+                                    <label className="ti-toggle-switch">
+                                        <input
+                                            type="checkbox"
+                                            checked={useResumeContext}
+                                            onChange={() => setUseResumeContext(prev => !prev)}
+                                        />
+                                        <span className="ti-toggle-slider"></span>
+                                    </label>
+                                    <span className="ti-toggle-label">
+                                        <span className="ti-realq-badge">📄</span> Ask questions based on my CV
+                                    </span>
+                                </div>
+                                <div className="ti-resume-actions">
+                                    <input
+                                        ref={resumeFileInputRef}
+                                        type="file"
+                                        accept=".pdf,.txt,.md,.doc,.docx"
+                                        style={{ display: 'none' }}
+                                        onChange={e => uploadResumeForInterview(e.target.files?.[0])}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="ti-check-btn"
+                                        onClick={() => resumeFileInputRef.current?.click()}
+                                        disabled={resumeUploadLoading}
+                                    >
+                                        <Upload size={14} /> {resumeUploadLoading ? 'Uploading CV...' : 'Upload CV'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ti-check-btn"
+                                        onClick={loadLatestResumeForInterview}
+                                        disabled={resumeUploadLoading}
+                                    >
+                                        <FileText size={14} /> {resumeUploadLoading ? 'Loading...' : 'Use latest saved CV'}
+                                    </button>
+                                    {resumeFileName && (
+                                        <span className="ti-resume-file"><FileText size={13} /> {resumeFileName}</span>
+                                    )}
+                                </div>
+                                <div className="ti-form-row" style={{ marginTop: 12 }}>
+                                    <div className="ti-form-section">
+                                        <label>Resume Interview Mode</label>
+                                        <select
+                                            value={advancedOptions.resumeInterviewMode}
+                                            onChange={e => updateAdvancedOption('resumeInterviewMode', e.target.value)}
+                                        >
+                                            <option value="balanced">Balanced Resume Mix</option>
+                                            <option value="walkthrough">Walk Me Through Your Resume</option>
+                                            <option value="project-deep-dive">Project Deep Dive</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                {resumeContext && (
+                                    <div className="ti-resume-preview">
+                                        <div className="ti-resume-preview-title">{resumeContext.candidateHeadline || 'Resume profile ready'}</div>
+                                        <div className="ti-resume-preview-copy">{resumeContext.summary}</div>
+                                        {Array.isArray(resumeContext.coreSkills) && resumeContext.coreSkills.length > 0 && (
+                                            <div className="ti-resume-skill-list">
+                                                {resumeContext.coreSkills.slice(0, 6).map(skill => (
+                                                    <span key={skill} className="ti-resume-skill-chip">{skill}</span>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {useResumeContext && !resumeContext && (
+                                    <div className="ti-realq-note">
+                                        Upload your CV so the interviewer can ask about your actual projects, tools, and experience.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Advanced AI Controls */}
+                            <div className="ti-form-section">
+                                <label>Advanced AI Controls</label>
+                                <div className="ti-preset-grid">
+                                    {INTERVIEW_PRESETS.map(preset => (
+                                        <button
+                                            key={preset.id}
+                                            type="button"
+                                            className={`ti-preset-card ${activePreset === preset.id ? 'active' : ''}`}
+                                            onClick={() => applyPreset(preset)}
+                                        >
+                                            <span className="ti-preset-title">{preset.label}</span>
+                                            <span className="ti-preset-blurb">{preset.blurb}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="ti-preset-status">
+                                    {activePreset
+                                        ? `Preset active: ${INTERVIEW_PRESETS.find(p => p.id === activePreset)?.label || 'Custom'}`
+                                        : 'Preset status: Custom configuration'}
+                                </div>
+                                <div className="ti-realq-toggle" style={{ marginTop: 10 }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={Boolean(advancedOptions.realInterviewerMode)}
+                                            onChange={e => updateAdvancedOption('realInterviewerMode', e.target.checked)}
+                                        />
+                                        <span>
+                                            Real Interviewer Mode
+                                            <small style={{ display: 'block', opacity: 0.75 }}>
+                                                Less coaching, sharper follow-ups, and closer to real interview pressure.
+                                            </small>
+                                        </span>
+                                    </label>
+                                </div>
+                                <div className="ti-form-row">
+                                    <div className="ti-form-section">
+                                        <label>Interviewer Style</label>
+                                        <select
+                                            value={advancedOptions.interviewerIntensity}
+                                            onChange={e => updateAdvancedOption('interviewerIntensity', e.target.value)}
+                                        >
+                                            <option value="supportive">Supportive</option>
+                                            <option value="balanced">Balanced</option>
+                                            <option value="challenging">Challenging</option>
+                                        </select>
+                                    </div>
+                                    <div className="ti-form-section">
+                                        <label>Follow-up Depth</label>
+                                        <select
+                                            value={advancedOptions.followUpDepth}
+                                            onChange={e => updateAdvancedOption('followUpDepth', e.target.value)}
+                                        >
+                                            <option value="standard">Standard</option>
+                                            <option value="deep">Deep</option>
+                                        </select>
+                                    </div>
+                                    <div className="ti-form-section">
+                                        <label>Pacing</label>
+                                        <select
+                                            value={advancedOptions.answerPace}
+                                            onChange={e => updateAdvancedOption('answerPace', e.target.value)}
+                                        >
+                                            <option value="slow">Slow</option>
+                                            <option value="balanced">Balanced</option>
+                                            <option value="fast">Fast</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="ti-form-row">
+                                    <div className="ti-form-section">
+                                        <label>Questions</label>
+                                        <select
+                                            value={advancedOptions.questionCount}
+                                            onChange={e => updateAdvancedOption('questionCount', Number(e.target.value))}
+                                        >
+                                            <option value={6}>6 Questions</option>
+                                            <option value={8}>8 Questions</option>
+                                            <option value={10}>10 Questions</option>
+                                            <option value={12}>12 Questions</option>
+                                        </select>
+                                    </div>
+                                    <div className="ti-form-section" style={{ gridColumn: 'span 2' }}>
+                                        <label>Focus Topics (optional)</label>
+                                        <input
+                                            type="text"
+                                            className="ti-role-input"
+                                            placeholder="e.g. caching, SQL tuning, API design"
+                                            value={advancedOptions.focusTopics}
+                                            onChange={e => updateAdvancedOption('focusTopics', e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Setup Summary Card */}
                             <div className="ti-setup-summary">
                                 <div className="ti-setup-row">
@@ -1453,6 +1890,9 @@ export default function CompanyInterview() {
                                     <span className={`ti-diff-chip ${config.difficulty}`}>
                                         {config.difficulty}
                                     </span>
+                                </div>
+                                <div className="ti-setup-row">
+                                    <span className="ti-setup-icon">❓</span> <span>Questions:</span> <strong>{totalQuestions}</strong>
                                 </div>
                             </div>
                         </div>
@@ -1741,12 +2181,42 @@ export default function CompanyInterview() {
                 <div className={`ti-video-grid ${chatOpen ? 'with-chat' : 'full'}`}>
                     {/* AI Interviewer Tile */}
                     <div className={`ti-tile ti-tile-ai ${aiSpeaking ? 'ai-speaking' : ''}`}>
-                        <AIAvatar
-                            speaking={aiSpeaking || loading}
-                            companyColor={companyColor}
-                            companyLogo={companyLogo}
-                            size="large"
-                        />
+                        <div className="ti-interviewer-stage">
+                            <div className="ti-interviewer-camera-bar">
+                                <span className={`ti-camera-led ${aiSpeaking || loading ? 'live' : ''}`} />
+                                <span className="ti-camera-label">
+                                    {aiSpeaking
+                                        ? 'Asking Question'
+                                        : interviewerReaction === 'notes'
+                                            ? 'Checking Notes'
+                                        : loading
+                                            ? 'Reviewing Answer'
+                                            : isListening
+                                                ? 'Listening to You'
+                                                : 'Front Camera'}
+                                </span>
+                            </div>
+
+                            <div className="ti-interviewer-seat-wrap">
+                                <div className="ti-interviewer-backdrop" />
+                                <AIAvatar
+                                    speaking={aiSpeaking || loading}
+                                    pose={aiSpeaking ? 'speaking' : interviewerReaction === 'notes' ? 'notes' : loading ? 'thinking' : isListening ? 'listening' : 'neutral'}
+                                    companyColor={companyColor}
+                                    companyLogo={companyLogo}
+                                    size="large"
+                                />
+                                <div className="ti-interviewer-desk" />
+                            </div>
+
+                            <div className="ti-interviewer-question-card">
+                                <div className="ti-interviewer-question-label">Current Question</div>
+                                <p className="ti-interviewer-question-text">
+                                    {currentQuestion || 'I will ask your first interview question in a moment.'}
+                                </p>
+                            </div>
+                        </div>
+
                         <div className="ti-tile-nameplate">
                             <div className="ti-tile-name">
                                 {aiSpeaking && <span className="ti-speaking-dot" />}
@@ -1754,7 +2224,7 @@ export default function CompanyInterview() {
                             </div>
                         </div>
                         {aiSpeaking && (
-                            <div className="ti-tile-speaking-badge">Speaking</div>
+                            <div className="ti-tile-speaking-badge">Asking Question</div>
                         )}
                     </div>
 
@@ -1885,9 +2355,16 @@ export default function CompanyInterview() {
                                                 <span className="ti-chat-sender" style={{ color: companyColor }}>
                                                     {companyLogo} AI Interviewer
                                                 </span>
-                                                <span className="ti-chat-time">
-                                                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                </span>
+                                                <div className="ti-chat-meta">
+                                                    {msg.questionSource && (
+                                                        <span className={`ti-chat-source-badge ${getQuestionSourceBadge(msg.questionSource).className}`}>
+                                                            {getQuestionSourceBadge(msg.questionSource).label}
+                                                        </span>
+                                                    )}
+                                                    <span className="ti-chat-time">
+                                                        {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                </div>
                                             </div>
                                             <p className="ti-chat-text">{msg.content}</p>
                                             {msg.tips?.length > 0 && (

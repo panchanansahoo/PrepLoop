@@ -12,6 +12,34 @@ const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
 }) : null;
 
+function buildFallbackResumeProfile(resumeText, analysisData = {}) {
+  const lines = String(resumeText || '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+  const projectHighlights = lines
+    .filter(line => /project|intern|built|developed|implemented|designed|created/i.test(line))
+    .slice(0, 3);
+
+  const coreSkills = [
+    ...(analysisData?.keywordMatch?.technical || []),
+    ...(analysisData?.keywordMatch?.soft || []),
+  ].slice(0, 8);
+
+  return {
+    candidateHeadline: lines[0] || 'Student candidate with project-based experience',
+    coreSkills,
+    projectHighlights,
+    likelyQuestionAreas: [
+      'projects mentioned on the resume',
+      'technical choices and trade-offs',
+      'ownership and collaboration examples',
+    ],
+    summary: `Focus on the candidate's listed projects, skills, and measurable outcomes. ${projectHighlights[0] || ''}`.trim(),
+  };
+}
+
 router.post('/analyze', authenticateToken, upload.single('resume'), async (req, res) => {
   try {
     let resumeText = req.body.resumeText;
@@ -30,6 +58,7 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
     }
 
     let analysisData;
+    let resumeProfile;
 
     if (!groq) {
       analysisData = {
@@ -56,6 +85,7 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
           missing: ['Cloud computing', 'CI/CD', 'Agile']
         }
       };
+      resumeProfile = buildFallbackResumeProfile(resumeText, analysisData);
     } else {
       const completion = await groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -69,8 +99,12 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
             3. Weaknesses (array of strings)
             4. Specific suggestions for improvement (array of strings)
             5. Keyword analysis (object with technical, soft, and missing keywords)
+            6. Interview-ready candidate profile for a mock interviewer
             
-            Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch. Respond ONLY with valid JSON.`
+            Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch, interviewProfile.
+            interviewProfile must include: candidateHeadline, coreSkills (array), projectHighlights (array), likelyQuestionAreas (array), summary.
+            Keep interviewProfile concise and useful for generating personalized interview questions.
+            Respond ONLY with valid JSON.`
           },
           {
             role: 'user',
@@ -81,6 +115,7 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
       });
 
       analysisData = JSON.parse(completion.choices[0].message.content);
+      resumeProfile = analysisData.interviewProfile || buildFallbackResumeProfile(resumeText, analysisData);
     }
 
     const { data: analysis, error } = await supabaseAdmin
@@ -101,7 +136,9 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
 
     res.json({
       analysis: analysisData,
-      id: analysis.id
+      id: analysis.id,
+      resumeText,
+      resumeProfile
     });
   } catch (error) {
     console.error('Resume analysis error:', error);
@@ -123,6 +160,37 @@ router.get('/history', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching resume history:', error);
     res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+router.get('/latest', authenticateToken, async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('resume_analyses')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('analyzed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({ error: 'No saved resume found' });
+    }
+
+    const resumeProfile = buildFallbackResumeProfile(data.resume_text, {
+      keywordMatch: data.keyword_match,
+    });
+
+    res.json({
+      analysis: data,
+      resumeText: data.resume_text,
+      resumeProfile,
+    });
+  } catch (error) {
+    console.error('Error fetching latest resume:', error);
+    res.status(500).json({ error: 'Failed to fetch latest resume' });
   }
 });
 
