@@ -354,7 +354,7 @@ STEP-BY-STEP WORKFLOW FOR EACH PROBLEM:
    - Continue to next problem
 
 10. TRACK PROGRESS
-    - Update PHASE2_DATA_COLLECTION_PLAN.md daily tracker
+  - Update your daily tracker document
     - Mark off completed problems
     - Note any issues encountered
 

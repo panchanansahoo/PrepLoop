@@ -370,7 +370,7 @@ The 425 problems should be distributed as:
 ## 📞 Support & Questions
 
 When stuck, check:
-1. **Logs** - `backend/debug_sol_*.py` or `failure_analysis.txt`
+1. **Logs** - Review current backend runtime logs and terminal output
 2. **Validation** - Run `validateProblems.js` for detailed errors
 3. **Schema** - Reference `PROBLEM_DATA_SCHEMA_REFERENCE.json`
 4. **Examples** - Check the 22 hand-crafted problems for patterns
