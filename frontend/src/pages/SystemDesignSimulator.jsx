@@ -255,12 +255,12 @@ const SIM_NODE_COST = {
     'analytics': 35, 'logging': 20, 'health-check': 5,
 };
 const CHAOS_TYPES = [
-    { id: 'server-crash', label: 'Server Crash', icon: <Skull size={14} /> },
-    { id: 'latency-spike', label: 'Latency Spike', icon: <Timer size={14} /> },
-    { id: 'disk-failure', label: 'Disk Failure', icon: <HardDrive size={14} /> },
-    { id: 'network-split', label: 'Network Partition', icon: <Unplug size={14} /> },
-    { id: 'traffic-spike', label: 'Traffic Spike', icon: <TrendingUp size={14} /> },
-    { id: 'memory-leak', label: 'Memory Leak', icon: <Brain size={14} /> },
+    { id: 'server-crash', label: 'Server Crash', shortLabel: 'Crash', desc: 'Kills a random server', icon: <Skull size={13} />, color: '#ef4444' },
+    { id: 'latency-spike', label: 'Latency Spike', shortLabel: 'Latency', desc: 'Slows all responses 4×', icon: <Timer size={13} />, color: '#f59e0b' },
+    { id: 'disk-failure', label: 'Disk Failure', shortLabel: 'Disk', desc: 'Corrupts database I/O', icon: <HardDrive size={13} />, color: '#8b5cf6' },
+    { id: 'network-split', label: 'Network Partition', shortLabel: 'Network', desc: 'Splits network in half', icon: <Unplug size={13} />, color: '#06b6d4' },
+    { id: 'traffic-spike', label: 'Traffic Spike', shortLabel: 'Traffic', desc: 'Floods system with 3× load', icon: <TrendingUp size={13} />, color: '#f97316' },
+    { id: 'memory-leak', label: 'Memory Leak', shortLabel: 'Memory', desc: 'OOM kills a random node', icon: <Brain size={13} />, color: '#ec4899' },
 ];
 function getSimNodeMetrics(node, traffic, configs, chaosEvents, chaosTargets) {
     const cap = SIM_NODE_CAPACITY[node.componentId] || 500;
@@ -273,11 +273,23 @@ function getSimNodeMetrics(node, traffic, configs, chaosEvents, chaosTargets) {
     if (chaosEvents.has('network-split')) { latency *= 2; errorRate += 8; }
     if (chaosTargets.has(node.id)) { errorRate = 100; latency = 0; }
     const isDown = chaosTargets.has(node.id);
+    // Health score 0-100: higher is better
+    const utilization = Math.min(traffic / cap, 1.5);
+    const latencyRatio = base > 0 ? latency / (base * 5) : 0; // breach at 5× base, not 3×
+    let health = 100;
+    if (isDown) health = 0;
+    else {
+        health -= Math.min(utilization * 30, 40); // capacity penalty
+        health -= Math.min(latencyRatio * 30, 40); // latency penalty
+        health -= Math.min(errorRate * 0.8, 30); // error penalty
+        health = Math.max(0, Math.min(100, health));
+    }
     let status = 'healthy';
     if (isDown) status = 'down';
-    else if (latency > base * 3) status = 'breach';
-    else if (traffic > cap * 0.75) status = 'overloaded';
-    return { rps: Math.max(0, rps), latency: Math.max(0, latency), errorRate: Math.min(100, Math.max(0, errorRate)), status };
+    else if (health < 25) status = 'critical';
+    else if (health < 55) status = 'degraded';
+    else if (health < 80) status = 'warning';
+    return { rps: Math.max(0, rps), latency: Math.max(0, latency), errorRate: Math.min(100, Math.max(0, errorRate)), status, health: Math.round(health) };
 }
 
 function DesignCanvas({ problem, onBack }) {
@@ -675,29 +687,38 @@ function DesignCanvas({ problem, onBack }) {
             {/* Simulation Metrics Bar */}
             {simRunning && (
                 <div className="sd-sim-metrics-bar">
-                    <div className="sd-sim-metric-item">
-                        <Activity size={14} />
-                        <span className="sd-sim-metric-value" style={{ color: simMetrics.rps > 2000 ? '#f87171' : simMetrics.rps > 800 ? '#fbbf24' : '#34d399' }}>{simMetrics.rps.toLocaleString()}</span>
-                        <span className="sd-sim-metric-label">RPS</span>
+                    <div className="sd-sim-metrics-left">
+                        <div className="sd-sim-metric-chip">
+                            <Activity size={12} />
+                            <span className="sd-sim-metric-chip-val" style={{ color: simMetrics.rps > 2000 ? '#f87171' : simMetrics.rps > 800 ? '#fbbf24' : '#34d399' }}>{simMetrics.rps.toLocaleString()}</span>
+                            <span className="sd-sim-metric-chip-unit">req/s</span>
+                        </div>
+                        <div className="sd-sim-metric-chip">
+                            <Timer size={12} />
+                            <span className="sd-sim-metric-chip-val" style={{ color: simMetrics.avgLatency > 200 ? '#f87171' : simMetrics.avgLatency > 50 ? '#fbbf24' : '#34d399' }}>{simMetrics.avgLatency}</span>
+                            <span className="sd-sim-metric-chip-unit">ms</span>
+                        </div>
+                        <div className="sd-sim-metric-chip">
+                            <AlertTriangle size={12} />
+                            <span className="sd-sim-metric-chip-val" style={{ color: simMetrics.errorRate > 5 ? '#f87171' : simMetrics.errorRate > 1 ? '#fbbf24' : '#34d399' }}>{simMetrics.errorRate}</span>
+                            <span className="sd-sim-metric-chip-unit">% err</span>
+                        </div>
+                        <div className="sd-sim-metric-chip">
+                            <DollarSign size={12} />
+                            <span className="sd-sim-metric-chip-val" style={{ color: '#60a5fa' }}>${simMetrics.cost}</span>
+                            <span className="sd-sim-metric-chip-unit">/mo</span>
+                        </div>
                     </div>
-                    <div className="sd-sim-metric-item">
-                        <Timer size={14} />
-                        <span className="sd-sim-metric-value" style={{ color: simMetrics.avgLatency > 200 ? '#f87171' : simMetrics.avgLatency > 50 ? '#fbbf24' : '#34d399' }}>{simMetrics.avgLatency}ms</span>
-                        <span className="sd-sim-metric-label">Latency</span>
-                    </div>
-                    <div className="sd-sim-metric-item">
-                        <AlertTriangle size={14} />
-                        <span className="sd-sim-metric-value" style={{ color: simMetrics.errorRate > 5 ? '#f87171' : simMetrics.errorRate > 1 ? '#fbbf24' : '#34d399' }}>{simMetrics.errorRate}%</span>
-                        <span className="sd-sim-metric-label">Errors</span>
-                    </div>
-                    <div className="sd-sim-metric-item">
-                        <DollarSign size={14} />
-                        <span className="sd-sim-metric-value" style={{ color: '#60a5fa' }}>${simMetrics.cost}/mo</span>
-                        <span className="sd-sim-metric-label">Est. Cost</span>
-                    </div>
-                    <div className="sd-sim-metric-item sd-sim-metric-elapsed">
-                        <Clock size={14} />
-                        <span className="sd-sim-metric-value">{Math.floor(simElapsed)}s</span>
+                    <div className="sd-sim-metrics-right">
+                        {simChaosEvents.size > 0 && (
+                            <div className="sd-sim-active-chaos-tag">
+                                <Zap size={11} /> {simChaosEvents.size} active
+                            </div>
+                        )}
+                        <div className="sd-sim-metric-elapsed">
+                            <Clock size={12} />
+                            <span>{Math.floor(simElapsed / 60)}:{String(Math.floor(simElapsed) % 60).padStart(2, '0')}</span>
+                        </div>
                     </div>
                 </div>
             )}
@@ -884,19 +905,21 @@ function DesignCanvas({ problem, onBack }) {
                                     )}
                                     {/* Simulation status badge */}
                                     {simRunning && simNodeStatus[node.id] && (
-                                        <div className={`sd-sim-node-status-badge sd-sim-status-${simNodeStatus[node.id].status}`}>
-                                            <span className="sd-sim-status-dot" />
+                                        <div className={`sd-sim-node-status-badge sd-sim-status-${simNodeStatus[node.id].status}`}
+                                            title={`${Math.round(simNodeStatus[node.id].latency)}ms latency · ${Math.round(simNodeStatus[node.id].rps)} req/s · ${Math.round(simNodeStatus[node.id].errorRate)}% errors`}
+                                        >
+                                            <div className="sd-sim-health-bar-wrap">
+                                                <div className="sd-sim-health-bar" style={{ width: `${simNodeStatus[node.id].health}%` }} />
+                                            </div>
                                             <span className="sd-sim-status-label">
-                                                {simNodeStatus[node.id].status === 'healthy' ? 'HEALTHY' :
-                                                 simNodeStatus[node.id].status === 'overloaded' ? 'OVERLOADED' :
-                                                 simNodeStatus[node.id].status === 'breach' ? 'LATENCY BREACH' : 'DOWN'}
+                                                {simNodeStatus[node.id].status === 'healthy' ? '✓ Healthy' :
+                                                 simNodeStatus[node.id].status === 'warning' ? '⚠ Stressed' :
+                                                 simNodeStatus[node.id].status === 'degraded' ? '⚠ Degraded' :
+                                                 simNodeStatus[node.id].status === 'critical' ? '✕ Critical' : '✕ Down'}
                                             </span>
-                                            <span className="sd-sim-status-metrics">
-                                                {Math.round(simNodeStatus[node.id].latency)}ms · {Math.round(simNodeStatus[node.id].rps)} rps
-                                            </span>
-                                            {(simNodeStatus[node.id].status === 'breach' || simNodeStatus[node.id].status === 'down') && (
+                                            {(simNodeStatus[node.id].status === 'critical' || simNodeStatus[node.id].status === 'down') && (
                                                 <button className="sd-sim-fix-btn" onClick={(e) => { e.stopPropagation(); fixNode(node.id); }}>
-                                                    <Wrench size={10} /> FIX
+                                                    <Wrench size={10} /> Fix
                                                 </button>
                                             )}
                                         </div>
@@ -931,9 +954,9 @@ function DesignCanvas({ problem, onBack }) {
                     {/* Simulation Control Bar */}
                     {simRunning && (
                         <div className="sd-sim-control-bar">
-                            <div className="sd-sim-ctrl-group">
-                                <button onClick={() => setSimPaused(p => !p)} className="sd-sim-ctrl-btn" title={simPaused ? 'Resume' : 'Pause'}>
-                                    {simPaused ? <Play size={14} /> : <Pause size={14} />}
+                            <div className="sd-sim-ctrl-section">
+                                <button onClick={() => setSimPaused(p => !p)} className={`sd-sim-ctrl-btn sd-sim-play-btn ${simPaused ? 'paused' : ''}`} title={simPaused ? 'Resume' : 'Pause'}>
+                                    {simPaused ? <Play size={15} /> : <Pause size={15} />}
                                 </button>
                                 <div className="sd-sim-speed-btns">
                                     {[1, 2, 5].map(s => (
@@ -941,22 +964,38 @@ function DesignCanvas({ problem, onBack }) {
                                     ))}
                                 </div>
                             </div>
-                            <div className="sd-sim-ctrl-group sd-sim-traffic-group">
-                                <label><Activity size={12} /> Traffic</label>
-                                <input type="range" min="0" max="1000" value={simTraffic} onChange={e => setSimTraffic(Number(e.target.value))} className="sd-sim-traffic-slider" />
+                            <div className="sd-sim-ctrl-divider" />
+                            <div className="sd-sim-ctrl-section sd-sim-traffic-section">
+                                <span className="sd-sim-section-label"><Activity size={11} /> Traffic</span>
+                                <input type="range" min="0" max="1000" step="10" value={simTraffic}
+                                    onChange={e => setSimTraffic(Number(e.target.value))}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onTouchStart={e => e.stopPropagation()}
+                                    className="sd-sim-traffic-slider" />
                                 <span className="sd-sim-traffic-val">{simTraffic} rps</span>
                             </div>
-                            <div className="sd-sim-ctrl-group sd-sim-chaos-group">
-                                <span className="sd-sim-chaos-label"><Zap size={12} /> Chaos</span>
-                                {CHAOS_TYPES.map(ch => (
-                                    <button key={ch.id} onClick={() => triggerChaos(ch.id)} className="sd-sim-chaos-btn" title={ch.label}>
-                                        {ch.icon}
+                            <div className="sd-sim-ctrl-divider" />
+                            <div className="sd-sim-ctrl-section sd-sim-chaos-section">
+                                <span className="sd-sim-section-label sd-sim-chaos-title"><Zap size={11} /> Inject Fault</span>
+                                <div className="sd-sim-chaos-grid">
+                                    {CHAOS_TYPES.map(ch => (
+                                        <button key={ch.id}
+                                            onClick={() => triggerChaos(ch.id)}
+                                            className={`sd-sim-chaos-btn ${simChaosEvents.has(ch.id) ? 'active' : ''}`}
+                                            title={`${ch.label}: ${ch.desc}`}
+                                            style={{ '--chaos-color': ch.color }}
+                                        >
+                                            {ch.icon}
+                                            <span className="sd-sim-chaos-btn-label">{ch.shortLabel}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                {simChaosEvents.size > 0 && (
+                                    <button onClick={() => { setSimChaosEvents(new Set()); setSimChaosTargets(new Set()); }} className="sd-sim-reset-chaos-btn" title="Reset All Faults">
+                                        <RotateCcw size={11} /> Reset
                                     </button>
-                                ))}
+                                )}
                             </div>
-                            <button onClick={() => { setSimChaosEvents([]); setSimChaosTargets({}); }} className="sd-sim-ctrl-btn sd-sim-reset-btn" title="Reset Chaos">
-                                <RotateCcw size={14} />
-                            </button>
                         </div>
                     )}
                 </div>
