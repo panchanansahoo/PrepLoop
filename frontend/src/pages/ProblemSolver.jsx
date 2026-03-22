@@ -182,27 +182,51 @@ export default function ProblemSolver() {
             <p className="whitespace-pre-wrap">{problem.description}</p>
           </div>
 
-          {problem.examples && (
-            <div className="space-y-4 mb-8">
-              <h3 className={`font-bold text-sm uppercase tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>Examples</h3>
-              {problem.examples.map((ex, i) => (
-                <div key={i} className={`rounded-xl p-4 font-mono text-xs ${isLight ? 'bg-slate-100 border border-slate-200' : 'bg-white/5 border border-white/5'}`}>
-                  <div className="mb-2"><span className="text-gray-500">Input:</span> <span className="text-gray-300">{ex.input}</span></div>
-                  <div className="mb-2"><span className="text-gray-500">Output:</span> <span className="text-gray-300">{ex.output}</span></div>
-                  {ex.explanation && (
-                    <div><span className="text-gray-500">Explanation:</span> <span className="text-gray-400">{ex.explanation}</span></div>
-                  )}
-                </div>
-              ))}
+          {problem.examples && problem.examples.length > 0 && (
+            <div className="mb-8">
+              <div className="flex flex-col gap-4">
+                {problem.examples.map((ex, i) => (
+                  <div key={i}>
+                    <p className={`font-bold text-sm mb-2 ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                      Example {i + 1}:
+                    </p>
+                    <div className={`rounded-xl p-4 font-mono text-sm border-l-2 ${isLight ? 'bg-slate-100 border border-slate-200 border-l-slate-400 text-slate-700' : 'bg-white/5 border border-white/5 border-l-white/20 text-gray-300'}`}>
+                      <div className="mb-1">
+                        <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Input: </span>
+                        <span>{ex.input}</span>
+                      </div>
+                      <div className={ex.explanation ? 'mb-1' : ''}>
+                        <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Output: </span>
+                        <span>{ex.output}</span>
+                      </div>
+                      {ex.explanation && (
+                        <div className="mt-1">
+                          <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>Explanation: </span>
+                          <span className="whitespace-pre-wrap">{ex.explanation}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
           {problem.constraints && (
             <div className="mb-8">
-              <h3 className={`font-bold text-sm uppercase tracking-wider mb-3 ${isLight ? 'text-slate-900' : 'text-white'}`}>Constraints</h3>
-              <div className={`rounded-xl p-4 font-mono text-xs whitespace-pre-wrap ${isLight ? 'bg-slate-100 border border-slate-200 text-slate-600' : 'bg-white/5 border border-white/5 text-gray-300'}`}>
-                {problem.constraints}
-              </div>
+              <h3 className={`font-bold text-sm mb-3 ${isLight ? 'text-slate-900' : 'text-white'}`}>Constraints:</h3>
+              <ul className={`ml-0 pl-5 list-disc text-sm leading-relaxed ${isLight ? 'text-slate-700' : 'text-gray-300'}`}>
+                {problem.constraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
+                  const cleanConstraint = constraint.trim().replace(/^- /, '');
+                  return (
+                    <li key={i} className="mb-1.5">
+                      <code className={`px-1.5 py-0.5 rounded font-mono text-sm break-words ${isLight ? 'bg-slate-200 text-slate-800' : 'bg-white/10 text-gray-200'}`}>
+                        {cleanConstraint}
+                      </code>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

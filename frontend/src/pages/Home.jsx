@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import {
   Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
@@ -7,7 +8,8 @@ import {
   Zap, Clock, Target, Award, Play, Sparkles, Database, Calculator, Map,
   Building2, Mic, Globe, Cpu, BarChart3, Bot, Layers, GitBranch,
   GraduationCap, Trophy, Rocket, ChevronRight, Quote, Activity,
-  PenTool, Eye, Gauge, UserCheck, Timer, Flame, Crown, BadgeCheck
+  PenTool, Eye, Gauge, UserCheck, Timer, Flame, Crown, BadgeCheck,
+  Briefcase, MapPin, ExternalLink
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -330,6 +332,266 @@ function ActivityTicker() {
       </span>
       <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>{activity.time}</span>
     </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════ */
+/*              JOB UPDATES PREVIEW                */
+/* ═══════════════════════════════════════════════ */
+
+function JobUpdatesPreview() {
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+        setJobs(data.jobs || []);
+      } catch (err) {
+        console.error('Failed to fetch jobs preview:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, []);
+
+  // Color palette for company initials
+  const gradients = [
+    { bg: 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(99,102,241,0.1))', color: '#c4b5fd' },
+    { bg: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(14,165,233,0.1))', color: '#93c5fd' },
+    { bg: 'linear-gradient(135deg, rgba(236,72,153,0.2), rgba(244,63,94,0.1))', color: '#f9a8d4' },
+    { bg: 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(20,184,166,0.1))', color: '#6ee7b7' },
+    { bg: 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,179,8,0.1))', color: '#fcd34d' },
+    { bg: 'linear-gradient(135deg, rgba(244,63,94,0.2), rgba(239,68,68,0.1))', color: '#fca5a5' },
+  ];
+
+  const getTimeAgo = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffHrs = Math.floor((now - d) / (1000 * 60 * 60));
+    if (diffHrs < 1) return 'Just now';
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return `${Math.floor(diffDays / 7)}w ago`;
+  };
+
+  if (loading) {
+    return (
+      <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
+        <div className="container" style={{ textAlign: 'center' }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '16px' }}>Loading latest jobs...</div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
+      <div className="container">
+        {/* Section Header */}
+        <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            padding: '6px 16px', border: '1px solid rgba(139, 92, 246, 0.2)',
+            borderRadius: '99px', fontSize: '11px', color: '#a78bfa',
+            background: 'rgba(139, 92, 246, 0.08)', marginBottom: '20px',
+            textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: '700'
+          }}>
+            <Briefcase size={12} /> Live Opportunities
+          </div>
+          <h2 style={{ fontSize: '40px', marginBottom: '16px', fontWeight: 'bold' }}>
+            Latest <span className="text-gradient">Career Opportunities</span>
+          </h2>
+          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '17px', maxWidth: '580px', margin: '0 auto', lineHeight: '1.65' }}>
+            Fresher jobs, internships, off-campus drives & company hiring announcements — auto-fetched from top job portals
+          </p>
+        </div>
+
+        {jobs.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px', marginBottom: '48px' }}>
+            {jobs.map((job, i) => {
+              const grad = gradients[i % gradients.length];
+              const initials = (job.company || 'C').split(/[\s&]+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+              const posted = getTimeAgo(job.created_at);
+              const cleanDesc = (job.description || '')
+                .replace(/Job Requisition ID\s*\S+/gi, '')
+                .replace(/Position Overview\s*/gi, '')
+                .trim();
+              const typeBadge = { 'full-time': '#6366f1', 'internship': '#8b5cf6', 'contract': '#f59e0b', 'part-time': '#10b981' };
+              const badgeColor = typeBadge[job.type] || '#6366f1';
+
+              return (
+                <div key={job.id || i} style={{
+                  background: 'rgba(255, 255, 255, 0.025)',
+                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  borderRadius: '20px',
+                  padding: '24px',
+                  backdropFilter: 'blur(20px)',
+                  transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'default',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.2)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.05)';
+                  e.currentTarget.querySelector('.card-accent').style.opacity = '1';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.025)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                  e.currentTarget.querySelector('.card-accent').style.opacity = '0';
+                }}
+                >
+                  {/* Gradient top accent */}
+                  <div className="card-accent" style={{
+                    position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
+                    background: 'linear-gradient(90deg, #8b5cf6, #6366f1, #3b82f6)',
+                    opacity: 0, transition: 'opacity 0.35s ease'
+                  }} />
+
+                  {/* Header: Company + Title */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
+                    {job.logo_url ? (
+                      <img src={job.logo_url} alt={job.company} style={{
+                        width: '48px', height: '48px', borderRadius: '14px', objectFit: 'cover',
+                        border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0
+                      }} />
+                    ) : (
+                      <div style={{
+                        width: '48px', height: '48px', borderRadius: '14px', flexShrink: 0,
+                        background: grad.bg, color: grad.color,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '18px', fontWeight: '800',
+                        border: '1px solid rgba(255,255,255,0.06)'
+                      }}>
+                        {initials}
+                      </div>
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <h3 style={{
+                        fontSize: '16px', fontWeight: '700', color: '#fff', margin: '0 0 3px', lineHeight: '1.35',
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                      }}>{job.title}</h3>
+                      <span style={{ fontSize: '13px', color: '#a78bfa', fontWeight: '500' }}>{job.company}</span>
+                    </div>
+                  </div>
+
+                  {/* Meta chips */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '14px' }}>
+                    {job.location && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
+                        color: 'rgba(255,255,255,0.55)',
+                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <MapPin size={12} /> {job.location}
+                      </span>
+                    )}
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '600',
+                      color: badgeColor, textTransform: 'capitalize',
+                      background: `${badgeColor}18`, border: `1px solid ${badgeColor}30`
+                    }}>
+                      {(job.type || 'full-time').replace(/-/g, ' ')}
+                    </span>
+                    {posted && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '5px',
+                        padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
+                        color: 'rgba(255,255,255,0.55)',
+                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)'
+                      }}>
+                        <Clock size={12} /> {posted}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  <p style={{
+                    fontSize: '13px', lineHeight: '1.65', color: 'rgba(255,255,255,0.35)',
+                    margin: '0 0 18px',
+                    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+                  }}>
+                    {cleanDesc.length > 160 ? cleanDesc.substring(0, 160) + '...' : cleanDesc}
+                  </p>
+
+                  {/* Footer */}
+                  <div style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.04)'
+                  }}>
+                    {(job.source === 'adzuna' || job.source === 'remotive' || job.source === 'jsearch') && (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                        fontSize: '11px', fontWeight: '500', padding: '3px 10px', borderRadius: '6px',
+                        background: 'rgba(16,185,129,0.08)', color: '#34d399',
+                        border: '1px solid rgba(16,185,129,0.15)'
+                      }}>
+                        <Globe size={11} /> Live
+                      </span>
+                    )}
+                    {job.apply_link && (
+                      <a href={job.apply_link} target="_blank" rel="noopener noreferrer" style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                        padding: '9px 20px', borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                        color: '#fff', fontSize: '13px', fontWeight: '600',
+                        textDecoration: 'none', transition: 'all 0.3s ease',
+                        boxShadow: '0 2px 12px rgba(139,92,246,0.25)', marginLeft: 'auto'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
+                        e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,92,246,0.4)';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'linear-gradient(135deg, #8b5cf6, #6366f1)';
+                        e.currentTarget.style.boxShadow = '0 2px 12px rgba(139,92,246,0.25)';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                      }}
+                      >
+                        Apply Now <ExternalLink size={13} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{
+            textAlign: 'center', padding: '48px 24px',
+            background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: '20px', marginBottom: '40px'
+          }}>
+            <Briefcase size={40} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
+            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px', marginBottom: '4px' }}>No job listings yet</p>
+            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>Check back soon for the latest opportunities!</p>
+          </div>
+        )}
+
+        {/* View All CTA */}
+        <div style={{ textAlign: 'center' }}>
+          <Button asChild size="lg" variant="outline" className="h-[48px] px-8 text-base">
+            <Link to="/job-updates">
+              View All Job Updates <ArrowRight size={16} style={{ marginLeft: '6px' }} />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -667,6 +929,13 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <GradientDivider />
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/*               LATEST JOB UPDATES                */}
+      {/* ═══════════════════════════════════════════════ */}
+      <JobUpdatesPreview />
 
       {/* ═══════════════════════════════════════════════ */}
       {/*              TRUSTED BY / LOGO STRIP            */}

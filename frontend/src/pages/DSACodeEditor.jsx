@@ -143,7 +143,7 @@ export default function DSACodeEditor() {
     return () => clearInterval(id);
   }, [timerActive]);
 
-  // ─── Fetch problem ───
+  // ─── Fetch local problem defaults ───
   useEffect(() => {
     setLoading(true);
     // Try to find from local data first (supports numeric or string IDs)
@@ -176,7 +176,7 @@ export default function DSACodeEditor() {
         pattern_name: '',
         topics: [],
         patterns: [],
-        description: `Solve the \"${titleFromSlug}\" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
+        description: `Solve the "${titleFromSlug}" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
         examples: [
           { input: 'See problem description', output: 'Expected output' },
         ],
@@ -186,15 +186,17 @@ export default function DSACodeEditor() {
       });
       setLoading(false);
     }
+  }, [problemId]);
 
-    // Also fetch DB problem for starter code, test cases, and examples
-    if (numId) {
-      fetch(`${API_URL}/api/dsa/problems/${numId}`, { headers: getAuthHeaders() })
+  // ─── Fetch DB problem for examples/constraints ───
+  useEffect(() => {
+    if (problem && problem.id && !isNaN(parseInt(problem.id))) {
+      fetch(`${API_URL}/api/dsa/problems/${problem.id}`, { headers: getAuthHeaders() })
         .then(r => r.json())
         .then(data => { if (data.problem) setDbProblem(data.problem); })
         .catch(() => { });
     }
-  }, [problemId]);
+  }, [problem?.id]);
 
   // ─── Merge DB data into problem (examples, description, constraints) ───
   useEffect(() => {
@@ -209,14 +211,25 @@ export default function DSACodeEditor() {
       updates.examples = dbProblem.examples;
     } else {
       // Fallback: try comprehensive test cases from problemTestCases.js
-      const slug = (problemId || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const rawSlug = (problemId && isNaN(parseInt(problemId))) ? problemId : (problem.title || '');
+      const slug = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       const localExamples = getExamplesForProblem(slug);
-      if (localExamples.length > 0) {
+      if (localExamples && localExamples.length > 0) {
         updates.examples = localExamples;
+      } else {
+        // Clear boilerplate examples if none exist in DB or local fallback
+        updates.examples = [];
       }
     }
-    if (dbProblem.description && !dbProblem.description.startsWith('Solve the ')) updates.description = dbProblem.description;
-    if (dbProblem.constraints && dbProblem.constraints !== 'See problem description for constraints.' && dbProblem.constraints !== 'See problem constraints') updates.constraints = dbProblem.constraints;
+    if (dbProblem.description && !dbProblem.description.startsWith('Solve the ')) {
+      updates.description = dbProblem.description;
+    }
+    
+    if (dbProblem.constraints && dbProblem.constraints !== 'See problem description for constraints.' && dbProblem.constraints !== 'See problem constraints') {
+      updates.constraints = dbProblem.constraints;
+    } else if (!dbProblem.constraints) {
+      updates.constraints = ''; // Clear boilerplate constraints if DB has none
+    }
 
     if (Object.keys(updates).length > 0) {
       setProblem(prev => ({ ...prev, ...updates }));

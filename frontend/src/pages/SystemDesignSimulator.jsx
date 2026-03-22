@@ -10,7 +10,9 @@ import {
     Globe, Smartphone, Cpu, Server, HardDrive, Database, Cloud,
     Wifi, Radio, Router, Layers, MessageSquare, Bell, Lock,
     BarChart3, Activity, MonitorCheck, Workflow, Container, Cog,
-    Network, FileText, Archive, Gauge, GitBranch, Bot, BookOpen, Image
+    Network, FileText, Archive, Gauge, GitBranch, Bot, BookOpen, Image,
+    Play, Pause, Square, Flame, Skull, Unplug, TrendingUp, Brain, Timer,
+    SkipForward, Wrench, DollarSign, CircleDot
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -49,6 +51,7 @@ const DIFF_COLORS = {
     Medium: { bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)', text: '#fbbf24' },
     Hard: { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)', text: '#f87171' },
 };
+
 
 const COMPONENT_CONFIGS = {
     'sql-db': [{ key: 'replicas', label: 'Read Replicas', type: 'number', min: 1, max: 10, default: 1 }, { key: 'sharding', label: 'Sharding', type: 'toggle', default: false }],
@@ -223,6 +226,60 @@ function ProblemCatalog({ onSelect }) {
 // ═══════════════════════════════════════════
 let nodeIdCounter = Date.now();
 
+// ─── Simulation Constants ───
+const SIM_NODE_CAPACITY = {
+    'load-balancer': 5000, 'api-gateway': 4000, 'cdn': 15000, 'dns': 20000, 'reverse-proxy': 5000,
+    'app-server': 800, 'worker': 400, 'serverless': 2000, 'scheduler': 300,
+    'sql-db': 500, 'nosql-db': 2000, 'object-storage': 3000, 'data-warehouse': 200, 'graph-db': 600, 'search-engine': 1500,
+    'redis-cache': 10000, 'memcached': 8000, 'browser-cache': 5000,
+    'message-queue': 3000, 'kafka': 8000, 'pub-sub': 5000,
+    'notification-svc': 1200, 'auth-svc': 1000, 'payment-svc': 400, 'search-svc': 1500, 'media-svc': 800, 'recommendation': 600,
+    'analytics': 2000, 'logging': 5000, 'health-check': 1000,
+};
+const SIM_BASE_LATENCY = {
+    'load-balancer': 2, 'api-gateway': 5, 'cdn': 8, 'dns': 1, 'reverse-proxy': 3,
+    'app-server': 45, 'worker': 120, 'serverless': 60, 'scheduler': 30,
+    'sql-db': 15, 'nosql-db': 8, 'object-storage': 25, 'data-warehouse': 200, 'graph-db': 20, 'search-engine': 12,
+    'redis-cache': 1, 'memcached': 1, 'browser-cache': 0,
+    'message-queue': 5, 'kafka': 3, 'pub-sub': 4,
+    'notification-svc': 30, 'auth-svc': 25, 'payment-svc': 80, 'search-svc': 18, 'media-svc': 50, 'recommendation': 90,
+    'analytics': 10, 'logging': 5, 'health-check': 2,
+};
+const SIM_NODE_COST = {
+    'load-balancer': 25, 'api-gateway': 30, 'cdn': 40, 'dns': 5, 'reverse-proxy': 20,
+    'app-server': 120, 'worker': 80, 'serverless': 15, 'scheduler': 10,
+    'sql-db': 150, 'nosql-db': 100, 'object-storage': 30, 'data-warehouse': 300, 'graph-db': 200, 'search-engine': 180,
+    'redis-cache': 60, 'memcached': 50, 'browser-cache': 0,
+    'message-queue': 40, 'kafka': 90, 'pub-sub': 35,
+    'notification-svc': 20, 'auth-svc': 25, 'payment-svc': 45, 'search-svc': 60, 'media-svc': 50, 'recommendation': 70,
+    'analytics': 35, 'logging': 20, 'health-check': 5,
+};
+const CHAOS_TYPES = [
+    { id: 'server-crash', label: 'Server Crash', icon: <Skull size={14} /> },
+    { id: 'latency-spike', label: 'Latency Spike', icon: <Timer size={14} /> },
+    { id: 'disk-failure', label: 'Disk Failure', icon: <HardDrive size={14} /> },
+    { id: 'network-split', label: 'Network Partition', icon: <Unplug size={14} /> },
+    { id: 'traffic-spike', label: 'Traffic Spike', icon: <TrendingUp size={14} /> },
+    { id: 'memory-leak', label: 'Memory Leak', icon: <Brain size={14} /> },
+];
+function getSimNodeMetrics(node, traffic, configs, chaosEvents, chaosTargets) {
+    const cap = SIM_NODE_CAPACITY[node.componentId] || 500;
+    const base = SIM_BASE_LATENCY[node.componentId] || 30;
+    const rps = Math.min(traffic, cap) + (Math.random() - 0.5) * 20;
+    let latency = base + (traffic / cap) * base * 0.5 + (Math.random() - 0.5) * 5;
+    let errorRate = traffic > cap * 0.9 ? ((traffic - cap * 0.9) / (cap * 0.1)) * 5 : 0;
+    if (chaosEvents.has('latency-spike')) latency *= 4;
+    if (chaosEvents.has('disk-failure') && ['sql-db','nosql-db','object-storage','data-warehouse'].includes(node.componentId)) { latency *= 6; errorRate += 15; }
+    if (chaosEvents.has('network-split')) { latency *= 2; errorRate += 8; }
+    if (chaosTargets.has(node.id)) { errorRate = 100; latency = 0; }
+    const isDown = chaosTargets.has(node.id);
+    let status = 'healthy';
+    if (isDown) status = 'down';
+    else if (latency > base * 3) status = 'breach';
+    else if (traffic > cap * 0.75) status = 'overloaded';
+    return { rps: Math.max(0, rps), latency: Math.max(0, latency), errorRate: Math.min(100, Math.max(0, errorRate)), status };
+}
+
 function DesignCanvas({ problem, onBack }) {
     const [nodes, setNodes] = useState([]);
     const [connections, setConnections] = useState([]);
@@ -249,6 +306,77 @@ function DesignCanvas({ problem, onBack }) {
     const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
     const canvasRef = useRef(null);
     const wrapperRef = useRef(null);
+
+    // Simulation state
+    const [simRunning, setSimRunning] = useState(false);
+    const [simPaused, setSimPaused] = useState(false);
+    const [simSpeed, setSimSpeed] = useState(1);
+    const [simTraffic, setSimTraffic] = useState(200);
+    const [simMetrics, setSimMetrics] = useState({ rps: 0, avgLatency: 0, errorRate: 0, cost: 0 });
+    const [simNodeStatus, setSimNodeStatus] = useState({});
+    const [simChaosEvents, setSimChaosEvents] = useState(new Set());
+    const [simChaosTargets, setSimChaosTargets] = useState(new Set());
+    const [simPackets, setSimPackets] = useState([]);
+    const [simElapsed, setSimElapsed] = useState(0);
+    const simTickRef = useRef(null);
+    const packetIdRef = useRef(0);
+
+    // Simulation engine
+    useEffect(() => {
+        if (!simRunning || simPaused) { if (simTickRef.current) clearInterval(simTickRef.current); simTickRef.current = null; return; }
+        const tickMs = Math.round(200 / simSpeed);
+        simTickRef.current = setInterval(() => {
+            setSimElapsed(p => p + 0.2);
+            const effectiveTraffic = simTraffic * (simChaosEvents.has('traffic-spike') ? 3 : 1);
+            // Update per-node status
+            const statusMap = {};
+            let totalLatency = 0, totalErr = 0, totalCost = 0;
+            const nonClientNodes = nodes.filter(n => !['web-client','mobile-client','iot-device'].includes(n.componentId));
+            nonClientNodes.forEach(n => {
+                const m = getSimNodeMetrics(n, effectiveTraffic, nodeConfigs, simChaosEvents, simChaosTargets);
+                statusMap[n.id] = m;
+                totalLatency += m.latency;
+                totalErr += m.errorRate;
+                totalCost += SIM_NODE_COST[n.componentId] || 10;
+            });
+            setSimNodeStatus(statusMap);
+            const avg = nonClientNodes.length > 0 ? totalLatency / nonClientNodes.length : 0;
+            const avgErr = nonClientNodes.length > 0 ? totalErr / nonClientNodes.length : 0;
+            setSimMetrics({ rps: Math.round(effectiveTraffic), avgLatency: Math.round(avg), errorRate: Math.round(avgErr * 10) / 10, cost: Math.round(totalCost) });
+            // Spawn packets on connections
+            if (connections.length > 0 && Math.random() < 0.4 * simSpeed) {
+                const connIdx = Math.floor(Math.random() * connections.length);
+                const c = connections[connIdx];
+                const hasError = avgErr > 10 && Math.random() < avgErr / 100;
+                setSimPackets(prev => [...prev.filter(p => p.progress < 1), { id: packetIdRef.current++, connId: c.id, progress: 0, isError: hasError }]);
+            }
+            // Move existing packets
+            setSimPackets(prev => prev.map(p => ({ ...p, progress: p.progress + 0.05 * simSpeed })).filter(p => p.progress < 1.1));
+        }, tickMs);
+        return () => { if (simTickRef.current) clearInterval(simTickRef.current); };
+    }, [simRunning, simPaused, simSpeed, simTraffic, nodes, connections, nodeConfigs, simChaosEvents, simChaosTargets]);
+
+    const stopSimulation = useCallback(() => {
+        setSimRunning(false); setSimPaused(false); setSimNodeStatus({}); setSimPackets([]); setSimElapsed(0);
+        setSimChaosEvents(new Set()); setSimChaosTargets(new Set()); setSimMetrics({ rps: 0, avgLatency: 0, errorRate: 0, cost: 0 });
+    }, []);
+
+    const triggerChaos = useCallback((chaosId) => {
+        setSimChaosEvents(prev => { const n = new Set(prev); if (n.has(chaosId)) { n.delete(chaosId); return n; } n.add(chaosId); return n; });
+        if (chaosId === 'server-crash') {
+            const compute = nodes.filter(n => ['app-server','worker','serverless','scheduler'].includes(n.componentId));
+            if (compute.length > 0) { const t = compute[Math.floor(Math.random() * compute.length)]; setSimChaosTargets(prev => { const n = new Set(prev); n.add(t.id); return n; }); }
+        }
+        if (chaosId === 'memory-leak') {
+            const ncs = nodes.filter(n => !['web-client','mobile-client','iot-device'].includes(n.componentId));
+            if (ncs.length > 0) { const t = ncs[Math.floor(Math.random() * ncs.length)]; setSimChaosTargets(prev => { const n = new Set(prev); n.add(t.id); return n; }); }
+        }
+        if (chaosId === 'traffic-spike') { setTimeout(() => { setSimChaosEvents(prev => { const n = new Set(prev); n.delete('traffic-spike'); return n; }); }, 10000); }
+    }, [nodes]);
+
+    const fixNode = useCallback((nodeId) => {
+        setSimChaosTargets(prev => { const n = new Set(prev); n.delete(nodeId); return n; });
+    }, []);
 
     // History
     const [hist, dispatchHist] = useReducer(historyReducer, { history: [{ nodes: [], connections: [] }], index: 0 });
@@ -533,11 +661,46 @@ function DesignCanvas({ problem, onBack }) {
                         <button onClick={loadReference} className="sd-sim-topbar-btn sd-sim-ref-btn"><BookOpen size={14} /> Load Reference</button>
                     )}
                     <button onClick={clearCanvas} className="sd-sim-topbar-btn"><RotateCcw size={14} /> Clear</button>
+                    {!simRunning ? (
+                        <button onClick={() => { if (nodes.length >= 2) setSimRunning(true); }} className="sd-sim-simulate-btn" disabled={nodes.length < 2}><Play size={14} /> Simulate</button>
+                    ) : (
+                        <button onClick={stopSimulation} className="sd-sim-stop-sim-btn"><Square size={14} /> Stop</button>
+                    )}
                     <button onClick={submitDesign} className="sd-sim-submit-btn" disabled={nodes.length < 3 || loadingFeedback}>
                         {loadingFeedback ? <><span className="sd-sim-spinner" /> Analyzing...</> : <><Zap size={14} /> Get AI Feedback</>}
                     </button>
                 </div>
             </div>
+
+            {/* Simulation Metrics Bar */}
+            {simRunning && (
+                <div className="sd-sim-metrics-bar">
+                    <div className="sd-sim-metric-item">
+                        <Activity size={14} />
+                        <span className="sd-sim-metric-value" style={{ color: simMetrics.rps > 2000 ? '#f87171' : simMetrics.rps > 800 ? '#fbbf24' : '#34d399' }}>{simMetrics.rps.toLocaleString()}</span>
+                        <span className="sd-sim-metric-label">RPS</span>
+                    </div>
+                    <div className="sd-sim-metric-item">
+                        <Timer size={14} />
+                        <span className="sd-sim-metric-value" style={{ color: simMetrics.avgLatency > 200 ? '#f87171' : simMetrics.avgLatency > 50 ? '#fbbf24' : '#34d399' }}>{simMetrics.avgLatency}ms</span>
+                        <span className="sd-sim-metric-label">Latency</span>
+                    </div>
+                    <div className="sd-sim-metric-item">
+                        <AlertTriangle size={14} />
+                        <span className="sd-sim-metric-value" style={{ color: simMetrics.errorRate > 5 ? '#f87171' : simMetrics.errorRate > 1 ? '#fbbf24' : '#34d399' }}>{simMetrics.errorRate}%</span>
+                        <span className="sd-sim-metric-label">Errors</span>
+                    </div>
+                    <div className="sd-sim-metric-item">
+                        <DollarSign size={14} />
+                        <span className="sd-sim-metric-value" style={{ color: '#60a5fa' }}>${simMetrics.cost}/mo</span>
+                        <span className="sd-sim-metric-label">Est. Cost</span>
+                    </div>
+                    <div className="sd-sim-metric-item sd-sim-metric-elapsed">
+                        <Clock size={14} />
+                        <span className="sd-sim-metric-value">{Math.floor(simElapsed)}s</span>
+                    </div>
+                </div>
+            )}
 
             <div className="sd-sim-workspace">
                 {/* Left: Palette */}
@@ -665,6 +828,25 @@ function DesignCanvas({ problem, onBack }) {
                                 const edge = getEdgePoint(srcNode, mousePos.x, mousePos.y);
                                 return <path d={simpleBezier(edge.x, edge.y, mousePos.x, mousePos.y)} fill="none" stroke="rgba(96,165,250,0.5)" strokeWidth="2" strokeDasharray="6 6" className="sd-sim-conn-preview" />;
                             })()}
+                            {/* Simulation Packets */}
+                            {simRunning && simPackets.map(pkt => {
+                                const conn = connections.find(c => c.id === pkt.connId);
+                                if (!conn) return null;
+                                const fromNode = nodes.find(n => n.id === conn.from);
+                                const toNode = nodes.find(n => n.id === conn.to);
+                                if (!fromNode || !toNode) return null;
+                                const t = pkt.progress;
+                                const sx = fromNode.x + 70, sy = fromNode.y + 38;
+                                const ex = toNode.x + 70, ey = toNode.y + 38;
+                                const cx = sx + (ex - sx) * t, cy = sy + (ey - sy) * t;
+                                return (
+                                    <circle key={pkt.id} cx={cx} cy={cy} r="4"
+                                        fill={pkt.isError ? '#ef4444' : '#10b981'}
+                                        opacity={0.9}
+                                        className="sd-sim-packet"
+                                    />
+                                );
+                            })}
                         </svg>
 
                         {/* Nodes */}
@@ -700,6 +882,25 @@ function DesignCanvas({ problem, onBack }) {
                                             <button onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }} className="sd-sim-node-action-btn delete" title="Delete"><Trash2 size={11} /></button>
                                         </div>
                                     )}
+                                    {/* Simulation status badge */}
+                                    {simRunning && simNodeStatus[node.id] && (
+                                        <div className={`sd-sim-node-status-badge sd-sim-status-${simNodeStatus[node.id].status}`}>
+                                            <span className="sd-sim-status-dot" />
+                                            <span className="sd-sim-status-label">
+                                                {simNodeStatus[node.id].status === 'healthy' ? 'HEALTHY' :
+                                                 simNodeStatus[node.id].status === 'overloaded' ? 'OVERLOADED' :
+                                                 simNodeStatus[node.id].status === 'breach' ? 'LATENCY BREACH' : 'DOWN'}
+                                            </span>
+                                            <span className="sd-sim-status-metrics">
+                                                {Math.round(simNodeStatus[node.id].latency)}ms · {Math.round(simNodeStatus[node.id].rps)} rps
+                                            </span>
+                                            {(simNodeStatus[node.id].status === 'breach' || simNodeStatus[node.id].status === 'down') && (
+                                                <button className="sd-sim-fix-btn" onClick={(e) => { e.stopPropagation(); fixNode(node.id); }}>
+                                                    <Wrench size={10} /> FIX
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -724,6 +925,38 @@ function DesignCanvas({ problem, onBack }) {
                                 })}
                                 {nodes.map(n => <rect key={n.id} x={n.x} y={n.y} width="140" height="76" rx="8" fill={n.color + '33'} stroke={n.color} strokeWidth="2" />)}
                             </svg>
+                        </div>
+                    )}
+
+                    {/* Simulation Control Bar */}
+                    {simRunning && (
+                        <div className="sd-sim-control-bar">
+                            <div className="sd-sim-ctrl-group">
+                                <button onClick={() => setSimPaused(p => !p)} className="sd-sim-ctrl-btn" title={simPaused ? 'Resume' : 'Pause'}>
+                                    {simPaused ? <Play size={14} /> : <Pause size={14} />}
+                                </button>
+                                <div className="sd-sim-speed-btns">
+                                    {[1, 2, 5].map(s => (
+                                        <button key={s} onClick={() => setSimSpeed(s)} className={`sd-sim-speed-btn ${simSpeed === s ? 'active' : ''}`}>{s}×</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="sd-sim-ctrl-group sd-sim-traffic-group">
+                                <label><Activity size={12} /> Traffic</label>
+                                <input type="range" min="0" max="1000" value={simTraffic} onChange={e => setSimTraffic(Number(e.target.value))} className="sd-sim-traffic-slider" />
+                                <span className="sd-sim-traffic-val">{simTraffic} rps</span>
+                            </div>
+                            <div className="sd-sim-ctrl-group sd-sim-chaos-group">
+                                <span className="sd-sim-chaos-label"><Zap size={12} /> Chaos</span>
+                                {CHAOS_TYPES.map(ch => (
+                                    <button key={ch.id} onClick={() => triggerChaos(ch.id)} className="sd-sim-chaos-btn" title={ch.label}>
+                                        {ch.icon}
+                                    </button>
+                                ))}
+                            </div>
+                            <button onClick={() => { setSimChaosEvents([]); setSimChaosTargets({}); }} className="sd-sim-ctrl-btn sd-sim-reset-btn" title="Reset Chaos">
+                                <RotateCcw size={14} />
+                            </button>
                         </div>
                     )}
                 </div>

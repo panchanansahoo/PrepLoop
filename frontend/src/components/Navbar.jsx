@@ -6,7 +6,7 @@ import { PROBLEMS } from '../data/problemsDatabase';
 import {
   Search, Bell, Menu, X, ChevronRight, User, LogOut,
   Settings, Sparkles, Crown, Command, TrendingUp,
-  Award, ChevronDown, Sun, Moon
+  Award, ChevronDown, Sun, Moon, ShieldCheck, Briefcase
 } from 'lucide-react';
 
 import logo from '../assets/logo.svg';
@@ -29,6 +29,7 @@ const PAGE_TITLES = {
   '/multi-round-interview': 'Full Interview Loop',
   '/interview-analytics': 'Interview Analytics',
   '/interview-history': 'Interview History',
+  '/job-updates': 'Job Updates',
   '/profile': 'Profile',
   '/history': 'History',
 };
@@ -42,7 +43,7 @@ function getPageTitle(pathname) {
 }
 
 export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user);
   const navigate = useNavigate();
@@ -172,6 +173,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           <div className="nav-links desktop-only">
             <a href="/#features" className="nav-link">Features</a>
             <Link to="/library" className="nav-link">Library</Link>
+            <Link to="/job-updates" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
             <Link to="/dashboard" className="nav-link">Dashboard</Link>
             <a href="/#pricing" className="nav-link">Pricing</a>
             <a href="/#faq" className="nav-link">FAQ</a>
@@ -212,6 +214,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           <div className="mobile-menu">
             <a href="/#features" className="mobile-link">Features</a>
             <Link to="/library" className="mobile-link">Library</Link>
+            <Link to="/job-updates" className="mobile-link">Job Updates</Link>
             <Link to="/dashboard" className="mobile-link">Dashboard</Link>
             <a href="/#pricing" className="mobile-link">Pricing</a>
             <a href="/#faq" className="mobile-link">FAQ</a>
@@ -411,6 +414,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                     <Settings size={16} />
                     Settings
                   </Link>
+                  {isAdmin && (
+                    <Link to="/admin" className="user-dropdown-link" style={{ color: 'var(--accent)' }}>
+                      <ShieldCheck size={16} />
+                      Admin Panel
+                    </Link>
+                  )}
                 </div>
 
                 {/* Logout */}

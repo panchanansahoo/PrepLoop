@@ -59,7 +59,8 @@ router.post('/signup', async (req, res) => {
         email: data.user.email,
         fullName: fullName,
         subscriptionTier: 'free',
-        experienceLevel: 'beginner'
+        experienceLevel: 'beginner',
+        role: 'user'
       }
     });
 
@@ -108,7 +109,8 @@ router.post('/login', async (req, res) => {
         email: data.user.email,
         fullName: profile?.full_name || data.user.user_metadata?.full_name || '',
         subscriptionTier: profile?.subscription_tier || 'free',
-        experienceLevel: profile?.experience_level || 'beginner'
+        experienceLevel: profile?.experience_level || 'beginner',
+        role: profile?.role || 'user'
       }
     });
   } catch (error) {

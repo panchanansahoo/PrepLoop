@@ -69,6 +69,8 @@ import InterviewHistory from './pages/InterviewHistory';
 
 import CodingPlayground from './pages/CodingPlayground';
 import DailyChallengesPage from './pages/DailyChallengesPage';
+import AdminDashboard from './pages/AdminDashboard';
+import JobUpdates from './pages/JobUpdates';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Code2 } from 'lucide-react';
@@ -76,6 +78,13 @@ import { Code2 } from 'lucide-react';
 function PrivateRoute({ children }) {
   const { user } = useAuth();
   return user ? children : <Navigate to="/login" />;
+}
+
+function AdminRoute({ children }) {
+  const { user, isAdmin } = useAuth();
+  if (!user) return <Navigate to="/login" />;
+  if (!isAdmin) return <Navigate to="/dashboard" />;
+  return children;
 }
 
 function ProblemRedirect() {
@@ -121,7 +130,7 @@ function AppContent() {
   // Close mobile sidebar on route change
   useEffect(() => {
     setMobileSidebarOpen(false);
-    if (location.pathname === '/visualizer' || location.pathname === '/system-design-sim') {
+    if (location.pathname === '/visualizer' || location.pathname === '/system-design-sim' || location.pathname === '/playground') {
       setSidebarCollapsed(true);
     }
   }, [location.pathname]);
@@ -131,15 +140,16 @@ function AppContent() {
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
+
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  const isFullScreenRoute = isCodeEditorRoute || isPlaygroundRoute || isPaymentRoute;
+  const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
   const showSidebar = user && !isPublicPage;
-  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute;
-  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute;
+  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute;
 
   return (
     <div className="app-layout">
@@ -226,6 +236,7 @@ function AppContent() {
 
             <Route path="/playground" element={<CodingPlayground />} />
             <Route path="/daily-challenges" element={<DailyChallengesPage />} />
+            <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />
@@ -245,6 +256,7 @@ function AppContent() {
             <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
 
             <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
+            <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
           </Routes>
         </div>

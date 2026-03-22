@@ -298,73 +298,71 @@ export default function ProblemDescriptionPanel({
                 </div>
 
                 {/* Examples */}
-                {problem.examples && (
-                  <div style={{ marginBottom: 20 }}>
-                    <button onClick={() => setShowExamples(s => !s)} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                      background: 'none', border: 'none', padding: 0, marginBottom: 10,
-                      color: '#fff', fontSize: 13, fontWeight: 800,
-                    }}>
-                      {showExamples ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      Examples ({problem.examples.length})
-                    </button>
-                    {showExamples && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {problem.examples.map((ex, i) => (
-                          <div key={i} style={{
-                            padding: 12, borderRadius: 10,
-                            background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid rgba(255,255,255,0.05)',
-                            fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+                {problem.examples && problem.examples.length > 0 && (
+                  <div style={{ marginBottom: 24 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                      {problem.examples.map((ex, i) => (
+                        <div key={i}>
+                          <p style={{
+                            color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px 0'
+                          }}>
+                            Example {i + 1}:
+                          </p>
+                          <div style={{
+                            padding: '12px 16px', borderRadius: 8,
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            borderLeft: '2px solid rgba(255, 255, 255, 0.2)',
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+                            color: 'rgba(255,255,255,0.8)', lineHeight: 1.6
                           }}>
                             <div style={{ marginBottom: 4 }}>
-                              <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: 700 }}>
-                                Example {i + 1}
-                              </span>
-                            </div>
-                            <div style={{ marginBottom: 4 }}>
-                              <span style={{ color: 'rgba(255,255,255,0.4)' }}>Input: </span>
-                              <span style={{ color: '#e2e8f0' }}>{ex.input}</span>
+                              <span style={{ fontWeight: 700, color: '#fff' }}>Input: </span>
+                              <span>{ex.input}</span>
                             </div>
                             <div style={{ marginBottom: ex.explanation ? 4 : 0 }}>
-                              <span style={{ color: 'rgba(255,255,255,0.4)' }}>Output: </span>
-                              <span style={{ color: '#4ade80' }}>{ex.output}</span>
+                              <span style={{ fontWeight: 700, color: '#fff' }}>Output: </span>
+                              <span>{ex.output}</span>
                             </div>
                             {ex.explanation && (
-                              <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                                <span style={{ color: 'rgba(255,255,255,0.3)' }}>Explanation: </span>
-                                <span style={{ color: 'rgba(255,255,255,0.5)' }}>{ex.explanation}</span>
+                              <div style={{ marginTop: 4 }}>
+                                <span style={{ fontWeight: 700, color: '#fff' }}>Explanation: </span>
+                                <span style={{ whiteSpace: 'pre-wrap' }}>{ex.explanation}</span>
                               </div>
                             )}
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
                 {/* Constraints */}
                 {problem.constraints && (
-                  <div style={{ marginBottom: 20 }}>
-                    <button onClick={() => setShowConstraints(s => !s)} style={{
-                      display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
-                      background: 'none', border: 'none', padding: 0, marginBottom: 10,
-                      color: '#fff', fontSize: 13, fontWeight: 800,
+                  <div style={{ marginBottom: 24 }}>
+                    <p style={{
+                      color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 12px 0'
                     }}>
-                      {showConstraints ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      Constraints
-                    </button>
-                    {showConstraints && (
-                      <div style={{
-                        padding: 12, borderRadius: 10,
-                        background: 'rgba(250,204,21,0.03)',
-                        border: '1px solid rgba(250,204,21,0.08)',
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
-                        color: 'rgba(255,255,255,0.6)', whiteSpace: 'pre-wrap', lineHeight: 1.8,
-                      }}>
-                        {problem.constraints}
-                      </div>
-                    )}
+                      Constraints:
+                    </p>
+                    <ul style={{
+                      margin: 0, paddingLeft: 20,
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: 13, lineHeight: 1.8
+                    }}>
+                      {problem.constraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
+                        const cleanConstraint = constraint.trim().replace(/^- /, '');
+                        return (
+                          <li key={i} style={{ marginBottom: 6 }}>
+                            <code style={{
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              padding: '2px 6px', borderRadius: 4,
+                              fontFamily: "'JetBrains Mono', monospace",
+                              color: 'rgba(255, 255, 255, 0.85)'
+                            }}>{cleanConstraint}</code>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
                 )}
               </>

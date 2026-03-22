@@ -1,220 +1,422 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-    Plus, Calendar, Trash2, Check, Sparkles,
-    Circle, AlertCircle, GripVertical, CheckCircle2
-} from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import React, { useState, useRef, useMemo } from 'react';
+import { Plus, Trash2, CheckSquare, Square, ListTodo, Flag, Search, Filter, ChevronDown, ChevronRight, GripVertical, CalendarDays, X, CheckCheck } from 'lucide-react';
+import useTodos from '../hooks/useTodos';
+
+const PRIORITIES = { high: '#ef4444', medium: '#f59e0b', low: '#22c55e' };
+const CATEGORIES = [
+    { id: 'all', label: 'All', color: '#94a3b8' },
+    { id: 'study', label: 'Study', color: '#a78bfa' },
+    { id: 'interview', label: 'Interview', color: '#f472b6' },
+    { id: 'project', label: 'Project', color: '#60a5fa' },
+    { id: 'personal', label: 'Personal', color: '#34d399' },
+];
+
+function isOverdue(dueDate) {
+    if (!dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return new Date(dueDate + 'T00:00:00') < today;
+}
+
+function isDueToday(dueDate) {
+    if (!dueDate) return false;
+    return dueDate === new Date().toISOString().split('T')[0];
+}
+
+function formatDueDate(dueDate) {
+    if (!dueDate) return '';
+    const d = new Date(dueDate + 'T00:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = Math.round((d - today) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff === -1) return 'Yesterday';
+    if (diff < 0) return `${Math.abs(diff)}d overdue`;
+    if (diff <= 7) return `in ${diff}d`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function TodoList() {
-    const { theme } = useTheme();
-    const isLight = theme === 'light';
+    const { todos, loading, addTodo, toggleTodo, updateTodo, deleteTodo, clearCompleted, reorderTodos } = useTodos();
+    const [input, setInput] = useState('');
+    const [priority, setPriority] = useState('medium');
+    const [category, setCategory] = useState('study');
+    const [dueDate, setDueDate] = useState(() => new Date().toISOString().split('T')[0]);
+    const [filterCategory, setFilterCategory] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('created');
+    const [dragId, setDragId] = useState(null);
+    const [expandedTodos, setExpandedTodos] = useState({});
+    const [subtaskInput, setSubtaskInput] = useState({});
+    const inputRef = useRef(null);
 
-    const [tasks, setTasks] = useState(() => {
-        const saved = localStorage.getItem('todo_list_v4');
-        return saved ? JSON.parse(saved) : [
-            { id: 1, text: 'Review system design patterns', subject: 'System Design', priority: 'High', dueDate: '2026-02-14', completed: false },
-            { id: 2, text: 'Solve Daily LeetCode Challenge', subject: 'DSA', priority: 'Medium', dueDate: '2026-02-13', completed: true },
-        ];
-    });
-
-    const [newTaskText, setNewTaskText] = useState('');
-    const [newTaskPriority, setNewTaskPriority] = useState('Low');
-    const [newTaskDate, setNewTaskDate] = useState(new Date().toISOString().split('T')[0]);
-    const listRef = useRef(null);
-
-    useEffect(() => {
-        localStorage.setItem('todo_list_v4', JSON.stringify(tasks));
-    }, [tasks]);
-
-    const addTask = () => {
-        if (!newTaskText.trim()) return;
-        const newTask = {
-            id: Date.now(), text: newTaskText, subject: 'General',
-            priority: newTaskPriority, dueDate: newTaskDate,
-            createdAt: new Date().toISOString(), completed: false
-        };
-        setTasks([newTask, ...tasks]);
-        setNewTaskText('');
+    const handleAddTodo = async () => {
+        const text = input.trim();
+        if (!text) return;
+        await addTodo({ text, priority, category, dueDate: dueDate || null });
+        setInput('');
+        setDueDate(new Date().toISOString().split('T')[0]);
+        inputRef.current?.focus();
     };
 
-    const updateTask = (id, field, value) => {
-        setTasks(tasks.map(t => t.id === id ? { ...t, [field]: value } : t));
+    const handleToggleTodo = (id) => {
+        toggleTodo(id);
     };
 
-    const deleteTask = (id) => setTasks(tasks.filter(t => t.id !== id));
-    const toggleComplete = (id) => setTasks(tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t));
+    const handleDeleteTodo = (id) => {
+        deleteTodo(id);
+    };
 
-    const getPriorityColor = (p) => {
-        switch (p) {
-            case 'High': return isLight ? 'text-rose-500 decoration-rose-500/30' : 'text-rose-400 decoration-rose-400/30';
-            case 'Medium': return isLight ? 'text-orange-500 decoration-orange-500/30' : 'text-orange-400 decoration-orange-400/30';
-            case 'Low': return isLight ? 'text-emerald-600 decoration-emerald-600/30' : 'text-emerald-400 decoration-emerald-400/30';
-            default: return isLight ? 'text-slate-500' : 'text-zinc-400';
+    const handleClearCompleted = () => {
+        clearCompleted();
+    };
+
+    // Subtask management
+    const addSubtask = (todoId) => {
+        const text = (subtaskInput[todoId] || '').trim();
+        if (!text) return;
+        const todo = todos.find(t => t.id === todoId);
+        if (!todo) return;
+        const newSubtasks = [...(todo.subtasks || []), { id: Date.now(), text, done: false }];
+        updateTodo(todoId, { subtasks: newSubtasks });
+        setSubtaskInput(prev => ({ ...prev, [todoId]: '' }));
+    };
+
+    const toggleSubtask = (todoId, subtaskId) => {
+        const todo = todos.find(t => t.id === todoId);
+        if (!todo) return;
+        const newSubtasks = (todo.subtasks || []).map(st =>
+            st.id === subtaskId ? { ...st, done: !st.done } : st
+        );
+        updateTodo(todoId, { subtasks: newSubtasks });
+    };
+
+    const deleteSubtask = (todoId, subtaskId) => {
+        const todo = todos.find(t => t.id === todoId);
+        if (!todo) return;
+        const newSubtasks = (todo.subtasks || []).filter(st => st.id !== subtaskId);
+        updateTodo(todoId, { subtasks: newSubtasks });
+    };
+
+    const toggleExpand = (id) => {
+        setExpandedTodos(prev => ({ ...prev, [id]: !prev[id] }));
+    };
+
+    // Drag and drop
+    const handleDragStart = (e, id) => {
+        setDragId(id);
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDrop = (e, targetId) => {
+        e.preventDefault();
+        if (dragId === targetId) return;
+        const items = [...todos];
+        const dragIdx = items.findIndex(t => t.id === dragId);
+        const targetIdx = items.findIndex(t => t.id === targetId);
+        const [dragged] = items.splice(dragIdx, 1);
+        items.splice(targetIdx, 0, dragged);
+        reorderTodos(items);
+        setDragId(null);
+    };
+
+    // Filtered & sorted todos
+    const filteredTodos = useMemo(() => {
+        let result = [...todos];
+
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase();
+            result = result.filter(t => t.text.toLowerCase().includes(q));
         }
-    };
 
-    // Theme-aware classes
-    const containerBg = isLight
-        ? 'bg-white/60 backdrop-blur-xl border-indigo-200/30 ring-indigo-100/50'
-        : 'bg-[#050505]/80 backdrop-blur-3xl border-white/5 ring-white/5';
-    const glowClass = isLight ? 'bg-indigo-500/5' : 'bg-indigo-500/10';
-    const titleClass = isLight ? 'text-slate-800' : 'text-white';
-    const dividerClass = isLight ? 'bg-indigo-200/30' : 'bg-white/20';
-    const subtitleClass = isLight ? 'text-slate-500' : 'text-zinc-400';
-    const inputBg = isLight
-        ? 'bg-white/80 border-indigo-200/30 ring-indigo-100/30'
-        : 'bg-[#0F0F10] border-white/10 ring-white/5';
-    const inputText = isLight ? 'text-slate-800 placeholder-slate-400' : 'text-white placeholder-zinc-500';
-    const taskCardBg = isLight
-        ? 'bg-white/50 border-indigo-100/30 hover:bg-white/70 hover:shadow-md'
-        : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:shadow-lg';
-    const taskText = isLight ? 'text-slate-700 group-hover:text-slate-900' : 'text-zinc-200 group-hover:text-white';
-    const taskCompletedText = isLight ? 'text-slate-500 line-through decoration-slate-400' : 'text-zinc-500 line-through decoration-zinc-800';
-    const metaText = isLight ? 'text-slate-400' : 'text-zinc-500';
-    const checkBtnUnchecked = isLight ? 'border-slate-300 hover:border-indigo-400' : 'border-zinc-600 hover:border-white/50';
-    const circleTrack = isLight ? 'text-indigo-200' : 'text-zinc-800';
+        if (filterCategory !== 'all') {
+            result = result.filter(t => t.category === filterCategory);
+        }
+
+        if (filterStatus === 'active') result = result.filter(t => !t.done);
+        else if (filterStatus === 'done') result = result.filter(t => t.done);
+
+        if (sortBy === 'priority') {
+            const order = { high: 0, medium: 1, low: 2 };
+            result.sort((a, b) => order[a.priority] - order[b.priority]);
+        } else if (sortBy === 'due') {
+            result.sort((a, b) => {
+                if (!a.dueDate && !b.dueDate) return 0;
+                if (!a.dueDate) return 1;
+                if (!b.dueDate) return -1;
+                return a.dueDate.localeCompare(b.dueDate);
+            });
+        }
+
+        return result;
+    }, [todos, searchQuery, filterCategory, filterStatus, sortBy]);
+
+    const completedCount = todos.filter(t => t.done).length;
+    const totalCount = todos.length;
+    const overdueCount = todos.filter(t => !t.done && isOverdue(t.dueDate)).length;
+    const todayCount = todos.filter(t => !t.done && isDueToday(t.dueDate)).length;
+    const progressPercent = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
+
+    if (loading) {
+        return (
+            <div className="todo-widget todo-advanced">
+                <div className="todo-header">
+                    <div className="todo-title-row">
+                        <div className="todo-icon-wrap"><ListTodo size={18} /></div>
+                        <div>
+                            <h3 className="todo-title">Todo List</h3>
+                            <p className="todo-subtitle">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="relative h-full flex flex-col group/container m-4">
-            <div className={`absolute inset-0 ${containerBg} border rounded-[32px] shadow-2xl overflow-hidden ring-1`}>
-                <div className={`absolute -top-32 -right-32 w-64 h-64 ${glowClass} rounded-full blur-[80px] pointer-events-none animate-pulse-slow`}></div>
-                <div className={`absolute -bottom-32 -left-32 w-64 h-64 ${isLight ? 'bg-rose-500/3' : 'bg-rose-500/5'} rounded-full blur-[80px] pointer-events-none animate-pulse-slow delay-700`}></div>
-                {!isLight && <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay pointer-events-none"></div>}
+        <div className="todo-widget todo-advanced">
+            {/* Header */}
+            <div className="todo-header">
+                <div className="todo-title-row">
+                    <div className="todo-icon-wrap">
+                        <ListTodo size={18} />
+                    </div>
+                    <div>
+                        <h3 className="todo-title">Todo List</h3>
+                        <p className="todo-subtitle">{completedCount}/{totalCount} done</p>
+                    </div>
+                </div>
+                <div className="todo-header-badges">
+                    {overdueCount > 0 && <span className="todo-badge overdue">{overdueCount} overdue</span>}
+                    {todayCount > 0 && <span className="todo-badge today">{todayCount} today</span>}
+                </div>
             </div>
 
-            <div className="relative z-10 flex flex-col h-full p-8">
-                {/* Header */}
-                <div className="relative flex items-center justify-center mb-12 mt-2">
-                    <div className="flex flex-col items-center justify-center z-10">
-                        <h2 className={`text-xl font-black ${titleClass} tracking-[0.2em] uppercase drop-shadow-md mb-2`}>
-                            MY DAY
-                        </h2>
-                        <div className={`h-px w-16 ${dividerClass} mb-2`}></div>
-                        <span className={`text-[10px] font-bold ${subtitleClass} uppercase tracking-[0.3em]`}>
-                            {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
-                        </span>
+            {/* Progress Bar */}
+            {totalCount > 0 && (
+                <div className="todo-progress-wrap">
+                    <div className="todo-progress-bar">
+                        <div className="todo-progress-fill" style={{ width: `${progressPercent}%` }} />
                     </div>
-
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 group/ring">
-                        <div className="absolute inset-0 bg-indigo-500/20 blur-xl rounded-full opacity-0 group-hover/ring:opacity-100 transition-opacity"></div>
-                        <svg className="w-12 h-12 -rotate-90 text-indigo-500">
-                            <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent" className={circleTrack} />
-                            <circle cx="24" cy="24" r="20" stroke="currentColor" strokeWidth="4" fill="transparent"
-                                strokeDasharray={2 * Math.PI * 20}
-                                strokeDashoffset={2 * Math.PI * 20 - (tasks.length ? (tasks.filter(t => t.completed).length / tasks.length) : 0) * 2 * Math.PI * 20}
-                                strokeLinecap="round"
-                                className="transition-all duration-1000 ease-out drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]"
-                            />
-                        </svg>
-                    </div>
+                    <span className="todo-progress-label">{Math.round(progressPercent)}%</span>
                 </div>
+            )}
 
-                {/* Input Area */}
-                <div className="relative mb-8 z-20 mx-2 md:mx-4 group/input">
-                    <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-rose-500/20 rounded-2xl opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-500 blur-md"></div>
-                    <div className={`relative flex items-center ${inputBg} border rounded-2xl shadow-xl p-1.5 ring-1 transition-all duration-300 hover:border-opacity-40`}>
-                        <div className={`pl-1 pr-2 border-r ${isLight ? 'border-indigo-100/50' : 'border-white/5'} flex-shrink-0`}>
-                            <button
-                                onClick={() => {
-                                    const p = ['High', 'Medium', 'Low'];
-                                    setNewTaskPriority(p[(p.indexOf(newTaskPriority) + 1) % 3]);
-                                }}
-                                className={`h-9 px-4 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 border ${isLight ? 'border-indigo-100/50 bg-indigo-50/50 hover:bg-indigo-50' : 'border-white/5 bg-white/5 hover:bg-white/10 hover:border-white/10'} group ${newTaskPriority === 'High' ? 'text-rose-400' :
-                                    newTaskPriority === 'Medium' ? 'text-orange-400' : 'text-emerald-400'
-                                    }`}
-                            >
-                                <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px_currentColor] transition-transform duration-300 group-hover:scale-125 ${newTaskPriority === 'High' ? 'bg-rose-500' :
-                                    newTaskPriority === 'Medium' ? 'bg-orange-500' : 'bg-emerald-500'
-                                    }`}></div>
-                                <span className={`${isLight ? 'text-slate-500 group-hover:text-slate-700' : 'text-zinc-400 group-hover:text-white'} transition-colors`}>{newTaskPriority}</span>
-                            </button>
-                        </div>
-
-                        <input
-                            type="text"
-                            value={newTaskText}
-                            onChange={(e) => setNewTaskText(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && addTask()}
-                            placeholder="Add a new task..."
-                            className={`flex-1 bg-transparent border-none py-2 px-4 text-sm ${inputText} focus:ring-0 focus:outline-none h-10 font-medium tracking-wide min-w-[100px]`}
-                        />
-
-                        <div className="flex items-center gap-2 flex-shrink-0 pr-1">
-                            <div className="relative group/date hidden sm:block">
-                                <input type="date" value={newTaskDate} onChange={(e) => setNewTaskDate(e.target.value)}
-                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                                <div className={`p-2 rounded-xl ${isLight ? 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50' : 'text-zinc-500 hover:text-white hover:bg-white/10'} transition-all border border-transparent hover:border-white/5`}>
-                                    <Calendar size={18} />
-                                </div>
-                            </div>
-
-                            <button onClick={addTask}
-                                className={`relative h-9 px-6 rounded-2xl ${isLight ? 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-md hover:shadow-lg' : 'bg-white/5 hover:bg-white/10 text-white border border-white/10 shadow-[0_8px_16px_-6px_rgba(0,0,0,0.5)]'} text-[10px] font-black uppercase tracking-widest transition-all duration-300 hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-2 group overflow-hidden`}
-                            >
-                                <span className="relative z-10 drop-shadow-sm">ADD</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Task List */}
-                <div ref={listRef} className="flex-1 overflow-y-auto px-2 pb-6 pt-2 mask-image-gradient-b custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {tasks.sort((a, b) => {
-                            if (a.completed !== b.completed) return Number(a.completed) - Number(b.completed);
-                            const priorityOrder = { High: 3, Medium: 2, Low: 1 };
-                            return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
-                        }).map((task) => (
-                            <div key={task.id}
-                                className={`group flex items-start gap-3 p-3 rounded-xl border ${taskCardBg} transition-all duration-300 hover:-translate-y-0.5 ${task.completed ? (isLight ? 'opacity-70' : 'opacity-60') : ''}`}
-                            >
-                                <button onClick={() => toggleComplete(task.id)}
-                                    className={`mt-1.5 flex-shrink-0 relative w-5 h-5 rounded-full border flex items-center justify-center transition-all duration-300 ${task.completed
-                                        ? `${isLight ? 'bg-indigo-400 border-indigo-400' : 'bg-zinc-500 border-zinc-500'} text-white`
-                                        : `bg-transparent ${checkBtnUnchecked} text-transparent`
-                                        }`}
-                                >
-                                    <Check size={12} strokeWidth={3} className={`transition-transform ${task.completed ? 'scale-100' : 'scale-0'}`} />
-                                </button>
-
-                                <div className="flex-1 min-w-0">
-                                    <input type="text" value={task.text}
-                                        onChange={(e) => updateTask(task.id, 'text', e.target.value)}
-                                        className={`w-full bg-transparent border-none p-0 text-sm font-medium focus:ring-0 transition-colors ${task.completed ? taskCompletedText : taskText}`}
-                                    />
-                                    <div className="flex items-center gap-2 mt-1.5">
-                                        <div className={`flex items-center gap-1.5 text-[10px] font-medium px-1.5 py-0.5 rounded-md ${isLight ? 'bg-indigo-50/50' : 'bg-white/5'} ${getPriorityColor(task.priority)}`}>
-                                            <Circle size={6} fill="currentColor" />
-                                            {task.priority}
-                                        </div>
-                                        {task.createdAt && (
-                                            <span className={`${metaText} text-[10px] font-mono ml-2 border-l ${isLight ? 'border-indigo-100/50' : 'border-white/10'} pl-2 flex items-center gap-1`}>
-                                                {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </span>
-                                        )}
-                                        <span className={`${metaText} text-[10px] font-mono ml-auto`}>
-                                            {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <button onClick={() => deleteTask(task.id)}
-                                    className={`opacity-0 group-hover:opacity-100 ${isLight ? 'text-slate-400 hover:text-rose-500' : 'text-zinc-500 hover:text-rose-400'} transition-all p-1`}
-                                >
-                                    <Trash2 size={13} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>
-
-                    {tasks.length === 0 && (
-                        <div className={`flex flex-col items-center justify-center h-full ${isLight ? 'text-slate-400' : 'text-zinc-600'} gap-2 opacity-50 py-12`}>
-                            <Sparkles size={24} />
-                            <p className="text-sm">No active tasks</p>
-                        </div>
+            {/* Search & Filters */}
+            <div className="todo-toolbar">
+                <div className="todo-search-wrap">
+                    <Search size={14} />
+                    <input
+                        type="text"
+                        className="todo-search"
+                        placeholder="Search tasks..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                    />
+                    {searchQuery && (
+                        <button className="todo-search-clear" onClick={() => setSearchQuery('')}><X size={12} /></button>
                     )}
                 </div>
+                <div className="todo-filter-row">
+                    <div className="todo-category-pills">
+                        {CATEGORIES.map(cat => (
+                            <button
+                                key={cat.id}
+                                className={`todo-cat-pill ${filterCategory === cat.id ? 'active' : ''}`}
+                                style={filterCategory === cat.id ? { background: cat.color, borderColor: cat.color } : { borderColor: cat.color, color: cat.color }}
+                                onClick={() => setFilterCategory(cat.id)}
+                            >
+                                {cat.label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="todo-status-filter">
+                        {['all', 'active', 'done'].map(s => (
+                            <button
+                                key={s}
+                                className={`todo-status-btn ${filterStatus === s ? 'active' : ''}`}
+                                onClick={() => setFilterStatus(s)}
+                            >
+                                {s.charAt(0).toUpperCase() + s.slice(1)}
+                            </button>
+                        ))}
+                    </div>
+                    <select className="todo-sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                        <option value="created">Created</option>
+                        <option value="priority">Priority</option>
+                        <option value="due">Due Date</option>
+                    </select>
+                </div>
             </div>
+
+            {/* Add Task */}
+            <div className="todo-add-section">
+                <div className="todo-add-row">
+                    <div className="todo-input-wrap">
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            className="todo-input"
+                            placeholder="Add a task..."
+                            value={input}
+                            onChange={e => setInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && handleAddTodo()}
+                        />
+                    </div>
+                    <button className="todo-add-btn" onClick={handleAddTodo} disabled={!input.trim()}>
+                        <Plus size={16} />
+                    </button>
+                </div>
+                <div className="todo-add-controls">
+                    <div className="todo-priority-selector" title="Priority">
+                        {Object.entries(PRIORITIES).map(([key, color]) => (
+                            <button
+                                key={key}
+                                className={`todo-priority-dot ${priority === key ? 'active' : ''}`}
+                                style={{ background: priority === key ? color : 'transparent', borderColor: color }}
+                                onClick={() => setPriority(key)}
+                                title={`Priority: ${key}`}
+                            />
+                        ))}
+                    </div>
+                    <select
+                        className="todo-cat-select"
+                        value={category}
+                        onChange={e => setCategory(e.target.value)}
+                        title="Category"
+                    >
+                        {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.label}</option>
+                        ))}
+                    </select>
+                    <div className="todo-due-input" title="Due date">
+                        <CalendarDays size={13} />
+                        <input
+                            type="date"
+                            value={dueDate}
+                            onChange={e => setDueDate(e.target.value)}
+                            className="todo-date-input"
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Todo Items */}
+            <div className="todo-list-items">
+                {filteredTodos.length === 0 && (
+                    <div className="todo-empty">
+                        <ListTodo size={28} />
+                        <span>{searchQuery ? 'No matching tasks' : 'No tasks yet. Add one above!'}</span>
+                    </div>
+                )}
+                {filteredTodos.map(todo => {
+                    const catInfo = CATEGORIES.find(c => c.id === todo.category) || CATEGORIES[1];
+                    const hasSubtasks = todo.subtasks && todo.subtasks.length > 0;
+                    const isExpanded = expandedTodos[todo.id];
+                    const subtaskDone = hasSubtasks ? todo.subtasks.filter(st => st.done).length : 0;
+                    const overdue = !todo.done && isOverdue(todo.dueDate);
+
+                    return (
+                        <div
+                            key={todo.id}
+                            className={`todo-item ${todo.done ? 'done' : ''} ${overdue ? 'overdue' : ''} ${dragId === todo.id ? 'dragging' : ''}`}
+                            draggable
+                            onDragStart={e => handleDragStart(e, todo.id)}
+                            onDragOver={handleDragOver}
+                            onDrop={e => handleDrop(e, todo.id)}
+                        >
+                            <div className="todo-item-main">
+                                <div className="todo-drag-handle">
+                                    <GripVertical size={12} />
+                                </div>
+                                <button className="todo-check" onClick={() => handleToggleTodo(todo.id)}>
+                                    {todo.done
+                                        ? <CheckSquare size={18} style={{ color: '#22c55e' }} />
+                                        : <Square size={18} />
+                                    }
+                                </button>
+                                <div className="todo-item-content">
+                                    <div className="todo-item-top">
+                                        <span className="todo-item-text">{todo.text}</span>
+                                        <Flag size={10} style={{ color: PRIORITIES[todo.priority], flexShrink: 0 }} />
+                                    </div>
+                                    <div className="todo-item-meta">
+                                        <span className="todo-cat-badge" style={{ borderColor: catInfo.color, color: catInfo.color }}>
+                                            {catInfo.label}
+                                        </span>
+                                        {todo.dueDate && (
+                                            <span className={`todo-due-badge ${overdue ? 'overdue' : isDueToday(todo.dueDate) ? 'today' : ''}`}>
+                                                <CalendarDays size={10} />
+                                                {formatDueDate(todo.dueDate)}
+                                            </span>
+                                        )}
+                                        {hasSubtasks && (
+                                            <span className="todo-subtask-count">{subtaskDone}/{todo.subtasks.length}</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="todo-item-actions">
+                                    {(hasSubtasks || true) && (
+                                        <button className="todo-expand-btn" onClick={() => toggleExpand(todo.id)}>
+                                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                        </button>
+                                    )}
+                                    <button className="todo-delete" onClick={() => handleDeleteTodo(todo.id)}>
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Subtasks */}
+                            {isExpanded && (
+                                <div className="todo-subtasks">
+                                    {(todo.subtasks || []).map(st => (
+                                        <div key={st.id} className={`todo-subtask ${st.done ? 'done' : ''}`}>
+                                            <button onClick={() => toggleSubtask(todo.id, st.id)} className="todo-st-check">
+                                                {st.done ? <CheckSquare size={14} style={{ color: '#22c55e' }} /> : <Square size={14} />}
+                                            </button>
+                                            <span className="todo-st-text">{st.text}</span>
+                                            <button onClick={() => deleteSubtask(todo.id, st.id)} className="todo-st-del">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <div className="todo-add-subtask">
+                                        <input
+                                            type="text"
+                                            placeholder="Add subtask..."
+                                            value={subtaskInput[todo.id] || ''}
+                                            onChange={e => setSubtaskInput(prev => ({ ...prev, [todo.id]: e.target.value }))}
+                                            onKeyDown={e => e.key === 'Enter' && addSubtask(todo.id)}
+                                            className="todo-st-input"
+                                        />
+                                        <button onClick={() => addSubtask(todo.id)} className="todo-st-add">
+                                            <Plus size={12} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Footer actions */}
+            {completedCount > 0 && (
+                <div className="todo-footer">
+                    <button className="todo-clear-btn" onClick={handleClearCompleted}>
+                        <CheckCheck size={14} />
+                        Clear {completedCount} completed
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

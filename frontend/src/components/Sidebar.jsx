@@ -7,7 +7,7 @@ import {
     CalendarDays, BarChart3, Clock, Settings, User,
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal, Network
+    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +55,12 @@ const navSections = [
         ]
     },
     {
+        category: 'Career',
+        items: [
+            { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
+        ]
+    },
+    {
         category: 'Account',
         items: [
             { path: '/dashboard/analytics', label: 'Analytics', subtitle: 'Track your progress', icon: BarChart3 },
@@ -67,9 +73,21 @@ const navSections = [
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
     const location = useLocation();
-    const { user } = useAuth();
+    const { user, isAdmin } = useAuth();
     const userName = user?.fullName || user?.name || 'Engineer';
     const userEmail = user?.email || '';
+
+    // Build nav sections dynamically based on role
+    const sections = [...navSections];
+    if (isAdmin) {
+        // Insert Admin section before Account
+        sections.splice(sections.length - 1, 0, {
+            category: 'Admin',
+            items: [
+                { path: '/admin', label: 'Admin Dashboard', subtitle: 'Manage users & content', icon: ShieldCheck },
+            ]
+        });
+    }
 
     return (
         <>
@@ -103,7 +121,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
 
 
                 <nav className="sidebar-nav">
-                    {navSections.map((section, sIdx) => (
+                    {sections.map((section, sIdx) => (
                         <div key={section.category} className="sidebar-section">
                             {(!collapsed || mobileOpen) && (
                                 <div className="sidebar-section-label">{section.category}</div>

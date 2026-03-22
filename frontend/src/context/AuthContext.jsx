@@ -25,17 +25,32 @@ export function AuthProvider({ children }) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
-              const userMetadata = session.user.user_metadata || {};
+              // Fetch profile from backend to get role
+              const response = await axios.get('/api/user/profile');
+              const profileData = response.data.user;
               const fullUser = {
                 id: session.user.id,
                 email: session.user.email,
-                fullName: userMetadata.full_name,
-                ...userMetadata
+                fullName: profileData.full_name || session.user.user_metadata?.full_name,
+                subscriptionTier: profileData.subscription_tier || 'free',
+                experienceLevel: profileData.experience_level || 'beginner',
+                role: profileData.role || 'user',
               };
               if (mounted) setUser(fullUser);
               localStorage.setItem('user', JSON.stringify(fullUser));
             } catch (err) {
               console.error("Profile sync error", err);
+              // Fallback without role
+              const userMetadata = session.user.user_metadata || {};
+              const fullUser = {
+                id: session.user.id,
+                email: session.user.email,
+                fullName: userMetadata.full_name,
+                role: 'user',
+                ...userMetadata
+              };
+              if (mounted) setUser(fullUser);
+              localStorage.setItem('user', JSON.stringify(fullUser));
             }
             // Supabase session found — skip localStorage fallback to avoid overwriting
             return;
@@ -58,7 +73,8 @@ export function AuthProvider({ children }) {
               id: 'guest',
               fullName: 'Guest User',
               email: 'guest@careerloop.io',
-              isGuest: true
+              isGuest: true,
+              role: 'user'
             });
           }
         }
@@ -91,9 +107,17 @@ export function AuthProvider({ children }) {
 
           try {
             const response = await axios.get('/api/user/profile');
+            const profileData = response.data.user;
+            const fullUser = {
+              ...profileData,
+              id: profileData.id,
+              email: profileData.email || session.user.email,
+              fullName: profileData.full_name,
+              role: profileData.role || 'user',
+            };
             if (mounted) {
-              setUser(response.data.user);
-              localStorage.setItem('user', JSON.stringify(response.data.user));
+              setUser(fullUser);
+              localStorage.setItem('user', JSON.stringify(fullUser));
             }
           } catch (e) {
             console.error('Profile fetch failed', e);
@@ -101,7 +125,8 @@ export function AuthProvider({ children }) {
             const u = {
               id: session.user.id,
               email: session.user.email,
-              fullName: session.user.user_metadata.full_name
+              fullName: session.user.user_metadata.full_name,
+              role: 'user'
             };
             if (mounted) setUser(u);
           }
@@ -231,7 +256,8 @@ export function AuthProvider({ children }) {
       id: 'guest',
       fullName: 'Guest User',
       email: 'guest@careerloop.io',
-      isGuest: true
+      isGuest: true,
+      role: 'user'
     };
     setUser(guestUser);
     localStorage.setItem('isGuest', 'true');
@@ -279,6 +305,9 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Derived helper
+  const isAdmin = user?.role === 'admin';
+
   // Set up axios interceptor for token refresh on 401/403
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
@@ -313,7 +342,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

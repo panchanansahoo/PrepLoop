@@ -49,15 +49,15 @@ import ReadinessScore from '../components/ReadinessScore';
 import StreakHeatmap from '../components/StreakHeatmap';
 import RecentActivity from '../components/RecentActivity';
 import SkillRadar from '../components/SkillRadar';
-import TodoList from '../components/TodoList';
-import CalendarWidget from '../components/CalendarWidget';
 import DailyChallenge from '../components/DailyChallenge';
-import PomodoroTimer from '../components/PomodoroTimer';
-import ActivityTracker from '../components/ActivityTracker';
 
-import WeeklyGoals from '../components/WeeklyGoals';
+
 import TopicProgress from '../components/TopicProgress';
 import UpcomingContests from '../components/UpcomingContests';
+import CalendarWidget from '../components/CalendarWidget';
+import PomodoroTimer from '../components/PomodoroTimer';
+
+import TodoList from '../components/TodoList';
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
@@ -67,15 +67,16 @@ const WIDGET_REGISTRY = [
     { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadar, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
     { id: 'recentActivity', name: 'Recent Activity', component: RecentActivity, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
     { id: 'streakHeatmap', name: 'Activity Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: 'GitHub-style solving heatmap' },
-    { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '3col', description: 'Focus timer with breaks' },
-    { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '3col', description: 'Monthly calendar view' },
-    { id: 'activityTracker', name: 'Digital Wellbeing', component: ActivityTracker, defaultVisible: true, premium: false, layout: '3col', description: 'Screen time & activity tracker' },
-    { id: 'todoList', name: 'My Day Todo', component: TodoList, defaultVisible: true, premium: false, layout: 'full', description: 'Daily task checklist' },
+
     { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
 
-    { id: 'weeklyGoals', name: 'Weekly Goals', component: WeeklyGoals, defaultVisible: true, premium: false, layout: '2col-left', description: 'Track weekly problem-solving goals' },
+
     { id: 'topicProgress', name: 'Topic Progress', component: TopicProgress, defaultVisible: true, premium: true, layout: '2col-right', description: 'DSA roadmap completion tracker' },
     { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
+    { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Mini monthly calendar with date picker' },
+    { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
+
+    { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';

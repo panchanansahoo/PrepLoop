@@ -1,199 +1,316 @@
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Trophy, Info, Calendar as CalendarIcon } from 'lucide-react';
-import { useTheme } from '../context/ThemeContext';
+import React, { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Calendar, Plus, X, Clock, Edit2, Trash2 } from 'lucide-react';
+import useCalendarEvents from '../hooks/useCalendarEvents';
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+const EVENT_TAGS = [
+    { id: 'study', label: 'Study', color: '#a78bfa' },
+    { id: 'interview', label: 'Interview', color: '#f472b6' },
+    { id: 'contest', label: 'Contest', color: '#fb923c' },
+    { id: 'deadline', label: 'Deadline', color: '#ef4444' },
+    { id: 'personal', label: 'Personal', color: '#34d399' },
+    { id: 'other', label: 'Other', color: '#60a5fa' },
+];
+
+function getDaysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year, month) {
+    return new Date(year, month, 1).getDay();
+}
+
+function dateKey(y, m, d) {
+    return `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
+function getRelativeDay(dateStr) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(dateStr + 'T00:00:00');
+    const diff = Math.round((target - today) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff === -1) return 'Yesterday';
+    if (diff > 0 && diff <= 7) return `in ${diff} days`;
+    return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
 
 export default function CalendarWidget() {
-    const { theme } = useTheme();
-    const isLight = theme === 'light';
+    const today = new Date();
+    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+    const [currentYear, setCurrentYear] = useState(today.getFullYear());
+    const [selectedDate, setSelectedDate] = useState(today.getDate());
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [editingEvent, setEditingEvent] = useState(null);
+    const [newEvent, setNewEvent] = useState({ title: '', time: '', tag: 'study' });
+    const [slideDir, setSlideDir] = useState('');
 
-    const [currentDate, setCurrentDate] = useState(new Date());
-    const [displayDate, setDisplayDate] = useState(new Date());
-    const [timeLeft, setTimeLeft] = useState('');
-    const [streak, setStreak] = useState({ current: 0, best: 0 });
+    const { events, loading, addEvent, updateEvent, deleteEvent } = useCalendarEvents();
 
-    useEffect(() => {
-        const updateTimer = () => {
-            const now = new Date();
-            const endOfDay = new Date(now);
-            endOfDay.setHours(23, 59, 59, 999);
-            const diff = endOfDay - now;
-            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const minutes = Math.floor((diff / (1000 * 60)) % 60);
-            const seconds = Math.floor((diff / 1000) % 60);
-            setTimeLeft(`${hours.toString().padStart(2, '0')} : ${minutes.toString().padStart(2, '0')} : ${seconds.toString().padStart(2, '0')}`);
-        };
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+    const isCurrentMonth = currentMonth === today.getMonth() && currentYear === today.getFullYear();
+    const selKey = dateKey(currentYear, currentMonth, selectedDate);
 
-        const calculateStreaks = () => {
-            try {
-                const savedData = localStorage.getItem('guest_activityData');
-                if (!savedData) return;
-                const data = JSON.parse(savedData);
-                const activityMap = new Map();
-                data.forEach(d => { if (d.seconds_active > 0) activityMap.set(d.date, d.seconds_active); });
-                const todayKey = new Date().toISOString().split('T')[0];
-                let current = 0;
-                let checkDate = new Date();
-                if (activityMap.has(todayKey)) current = 1;
-                checkDate.setDate(checkDate.getDate() - 1);
-                while (true) {
-                    const key = checkDate.toISOString().split('T')[0];
-                    if (activityMap.has(key)) { current++; checkDate.setDate(checkDate.getDate() - 1); }
-                    else break;
-                }
-                let best = 0, tempStreak = 0;
-                const sortedDates = [...activityMap.keys()].sort();
-                if (sortedDates.length > 0) {
-                    let prevDate = new Date(sortedDates[0]); tempStreak = 1; best = 1;
-                    for (let i = 1; i < sortedDates.length; i++) {
-                        const currDate = new Date(sortedDates[i]);
-                        const diffDays = Math.ceil(Math.abs(currDate - prevDate) / (1000 * 60 * 60 * 24));
-                        if (diffDays === 1) tempStreak++; else tempStreak = 1;
-                        best = Math.max(best, tempStreak); prevDate = currDate;
-                    }
-                }
-                setStreak({ current, best });
-            } catch (e) { console.error("Streak calculation error", e); }
-        };
-
-        const timer = setInterval(() => { updateTimer(); calculateStreaks(); }, 1000);
-        updateTimer(); calculateStreaks();
-        return () => clearInterval(timer);
-    }, []);
-
-    const getDaysInMonth = (date) => {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        return { days: new Date(year, month + 1, 0).getDate(), firstDay: new Date(year, month, 1).getDay() };
+    const prevMonth = () => {
+        setSlideDir('slide-right');
+        setTimeout(() => setSlideDir(''), 300);
+        if (currentMonth === 0) { setCurrentMonth(11); setCurrentYear(y => y - 1); }
+        else setCurrentMonth(m => m - 1);
+        setSelectedDate(1);
     };
 
-    const { days, firstDay } = getDaysInMonth(displayDate);
-    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const nextMonth = () => {
+        setSlideDir('slide-left');
+        setTimeout(() => setSlideDir(''), 300);
+        if (currentMonth === 11) { setCurrentMonth(0); setCurrentYear(y => y + 1); }
+        else setCurrentMonth(m => m + 1);
+        setSelectedDate(1);
+    };
 
-    const prevMonth = () => setDisplayDate(new Date(displayDate.getFullYear(), displayDate.getMonth() - 1, 1));
-    const nextMonth = () => setDisplayDate(new Date(displayDate.getFullYear(), displayDate.getMonth() + 1, 1));
-    const isToday = (day) => day === currentDate.getDate() && displayDate.getMonth() === currentDate.getMonth() && displayDate.getFullYear() === currentDate.getFullYear();
+    const goToToday = () => {
+        setCurrentMonth(today.getMonth());
+        setCurrentYear(today.getFullYear());
+        setSelectedDate(today.getDate());
+    };
 
-    // Theme-aware classes
-    const containerClass = isLight
-        ? 'bg-white/60 backdrop-blur-xl border-indigo-200/30 ring-indigo-100/50 hover:border-indigo-200/50'
-        : 'bg-[#0a0a0a]/80 backdrop-blur-3xl border-white/5 ring-white/5 hover:border-white/10';
-    const navBtn = isLight
-        ? 'bg-indigo-50/50 border-indigo-200/30 hover:bg-indigo-50 hover:border-indigo-200/50 text-slate-500 hover:text-indigo-600'
-        : 'bg-white/5 border-white/5 hover:bg-white/10 hover:border-white/10 text-zinc-400 hover:text-white';
-    const monthLabel = isLight ? 'text-slate-400' : 'text-zinc-500';
-    const monthTitle = isLight ? 'text-slate-800' : 'text-white';
-    const yearColor = isLight ? 'text-slate-400' : 'text-zinc-500';
-    const infoCard = isLight
-        ? 'bg-gradient-to-br from-indigo-50/80 to-purple-50/80 border-indigo-200/30'
-        : 'bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border-white/5';
-    const dayHeaderColor = isLight ? 'text-slate-400' : 'text-zinc-500';
-    const dayColor = isLight ? 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/80' : 'text-zinc-400 hover:text-white hover:bg-white/10';
-    const streakBg = isLight ? 'bg-white/50 border-indigo-100/30 hover:border-indigo-200/40' : 'bg-white/[0.02] border-white/5 hover:border-white/10';
-    const streakLabel = isLight ? 'text-slate-500' : 'text-zinc-500';
-    const streakValue = isLight ? 'text-slate-800' : 'text-white';
-    const streakUnit = isLight ? 'text-slate-400' : 'text-zinc-600';
-    const footerText = isLight ? 'text-slate-400' : 'text-zinc-600';
+    const handleAddEvent = async () => {
+        if (!newEvent.title.trim()) return;
+        await addEvent(selKey, {
+            title: newEvent.title.trim(),
+            time: newEvent.time,
+            tag: newEvent.tag,
+        });
+        setNewEvent({ title: '', time: '', tag: 'study' });
+        setShowAddForm(false);
+    };
 
-    return (
-        <div className={`relative h-full flex flex-col ${containerClass} border rounded-3xl overflow-hidden shadow-2xl ring-1 transition-all duration-300`}>
-            {!isLight && <div className="absolute inset-0 opacity-20 pointer-events-none bg-[url('https://grainy-gradients.vercel.app/noise.svg')] mix-blend-overlay"></div>}
-            {isLight && <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-200/50 to-transparent"></div>}
-            {!isLight && <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50"></div>}
+    const handleUpdateEvent = async () => {
+        if (!editingEvent || !newEvent.title.trim()) return;
+        await updateEvent(selKey, editingEvent.id, {
+            title: newEvent.title.trim(),
+            time: newEvent.time,
+            tag: newEvent.tag,
+        });
+        setEditingEvent(null);
+        setNewEvent({ title: '', time: '', tag: 'study' });
+        setShowAddForm(false);
+    };
 
-            {/* Header */}
-            <div className="relative z-10 p-3 pb-1">
-                <div className="flex justify-between items-center mb-4">
-                    <button onClick={prevMonth} className={`group p-2 rounded-xl ${navBtn} border transition-all`}>
-                        <ChevronLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
-                    </button>
-                    <div className="flex flex-col items-center">
-                        <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${monthLabel} mb-1`}>Month</span>
-                        <h2 className={`text-lg font-bold ${monthTitle} tracking-wide`}>
-                            {months[displayDate.getMonth()]} <span className={yearColor}>{displayDate.getFullYear()}</span>
-                        </h2>
-                    </div>
-                    <button onClick={nextMonth} className={`group p-2 rounded-xl ${navBtn} border transition-all`}>
-                        <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
-                    </button>
-                </div>
+    const handleDeleteEvent = async (evtId) => {
+        await deleteEvent(selKey, evtId);
+    };
 
-                {/* Info Card */}
-                <div className={`relative overflow-hidden rounded-xl ${infoCard} border p-3 mb-2`}>
-                    <div className="relative flex justify-between items-end">
+    const startEdit = (evt) => {
+        setEditingEvent(evt);
+        setNewEvent({ title: evt.title, time: evt.time || '', tag: evt.tag || 'study' });
+        setShowAddForm(true);
+    };
+
+    // Build upcoming agenda (next 14 days with events, show max 3)
+    const upcoming = useMemo(() => {
+        const result = [];
+        for (let i = 0; i <= 14 && result.length < 3; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + i);
+            const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+            if (events[key] && events[key].length > 0) {
+                events[key].forEach(evt => {
+                    if (result.length < 3) {
+                        result.push({ ...evt, dateStr: key, relative: getRelativeDay(key) });
+                    }
+                });
+            }
+        }
+        return result;
+    }, [events, today.toDateString()]);
+
+    const selectedEvents = events[selKey] || [];
+
+    const cells = [];
+    for (let i = 0; i < firstDay; i++) cells.push(null);
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+    if (loading) {
+        return (
+            <div className="cal-widget cal-advanced">
+                <div className="cal-header">
+                    <div className="cal-title-row">
+                        <div className="cal-icon-wrap"><Calendar size={18} /></div>
                         <div>
-                            <span className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-widest ${isLight ? 'text-indigo-500' : 'text-indigo-300'} mb-0.5`}>
-                                <CalendarIcon size={9} /> Today
-                            </span>
-                            <div className={`text-xl font-bold ${monthTitle} tracking-tight`}>
-                                {currentDate.getDate()} {months[currentDate.getMonth()].slice(0, 3)}
-                            </div>
-                        </div>
-                        <div className="text-right">
-                            <span className={`text-[9px] font-bold uppercase tracking-widest ${isLight ? 'text-purple-500' : 'text-purple-300'} mb-0.5 block`}>Day End In</span>
-                            <div className={`text-xs font-mono ${isLight ? 'text-slate-700' : 'text-white/90'} font-medium tracking-wider`}>
-                                {timeLeft}
-                            </div>
+                            <h3 className="cal-title">Calendar</h3>
+                            <p className="cal-subtitle">Loading...</p>
                         </div>
                     </div>
                 </div>
             </div>
+        );
+    }
 
-            {/* Calendar Grid */}
-            <div className="relative z-10 flex-1 min-h-0 px-4 py-2">
-                <div className="grid grid-cols-7 place-items-center">
-                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
-                        <div key={`header-${i}`} className={`h-8 flex items-center justify-center text-[10px] font-bold ${dayHeaderColor} uppercase tracking-widest mb-2`}>
-                            {day}
+    return (
+        <div className="cal-widget cal-advanced">
+            {/* Header */}
+            <div className="cal-header">
+                <div className="cal-title-row">
+                    <div className="cal-icon-wrap">
+                        <Calendar size={18} />
+                    </div>
+                    <div>
+                        <h3 className="cal-title">Calendar</h3>
+                        <p className="cal-subtitle">{MONTHS[currentMonth]} {currentYear}</p>
+                    </div>
+                </div>
+                <div className="cal-nav">
+                    <button className="cal-nav-btn" onClick={prevMonth}><ChevronLeft size={16} /></button>
+                    <button className="cal-today-btn" onClick={goToToday}>Today</button>
+                    <button className="cal-nav-btn" onClick={nextMonth}><ChevronRight size={16} /></button>
+                </div>
+            </div>
+
+            {/* Day headers */}
+            <div className="cal-grid cal-day-headers">
+                {DAYS.map(d => <div key={d} className="cal-day-header">{d}</div>)}
+            </div>
+
+            {/* Date cells */}
+            <div className={`cal-grid cal-dates ${slideDir}`}>
+                {cells.map((day, i) => {
+                    if (!day) return <div key={`e-${i}`} className="cal-cell cal-empty" />;
+                    const isToday = isCurrentMonth && day === today.getDate();
+                    const isSelected = day === selectedDate;
+                    const dayKey = dateKey(currentYear, currentMonth, day);
+                    const dayEvents = events[dayKey] || [];
+                    const hasEvents = dayEvents.length > 0;
+
+                    return (
+                        <div
+                            key={day}
+                            className={`cal-cell ${isToday ? 'cal-today' : ''} ${isSelected && !isToday ? 'cal-selected' : ''} ${hasEvents ? 'cal-has-events' : ''}`}
+                            onClick={() => setSelectedDate(day)}
+                        >
+                            <span>{day}</span>
+                            {hasEvents && (
+                                <div className="cal-event-dots">
+                                    {dayEvents.slice(0, 3).map((ev, idx) => {
+                                        const tag = EVENT_TAGS.find(t => t.id === ev.tag) || EVENT_TAGS[5];
+                                        return <span key={idx} className="cal-dot" style={{ background: tag.color }} />;
+                                    })}
+                                </div>
+                            )}
                         </div>
-                    ))}
-                    {Array.from({ length: firstDay }).map((_, i) => <div key={`empty-${i}`} className="h-8 w-8" />)}
-                    {Array.from({ length: days }).map((_, i) => {
-                        const day = i + 1;
-                        const today = isToday(day);
+                    );
+                })}
+            </div>
+
+            {/* Selected Date Events Panel */}
+            <div className="cal-events-panel">
+                <div className="cal-events-header">
+                    <span className="cal-events-date">
+                        {MONTHS[currentMonth]} {selectedDate}
+                        {selectedEvents.length > 0 && <span className="cal-events-count">{selectedEvents.length}</span>}
+                    </span>
+                    <button
+                        className="cal-add-event-btn"
+                        onClick={() => {
+                            setEditingEvent(null);
+                            setNewEvent({ title: '', time: '', tag: 'study' });
+                            setShowAddForm(!showAddForm);
+                        }}
+                    >
+                        {showAddForm ? <X size={14} /> : <Plus size={14} />}
+                    </button>
+                </div>
+
+                {/* Add/Edit Form */}
+                {showAddForm && (
+                    <div className="cal-event-form">
+                        <input
+                            type="text"
+                            placeholder="Event title..."
+                            value={newEvent.title}
+                            onChange={e => setNewEvent(prev => ({ ...prev, title: e.target.value }))}
+                            onKeyDown={e => e.key === 'Enter' && (editingEvent ? handleUpdateEvent() : handleAddEvent())}
+                            className="cal-event-input"
+                            autoFocus
+                        />
+                        <div className="cal-event-form-row">
+                            <input
+                                type="time"
+                                value={newEvent.time}
+                                onChange={e => setNewEvent(prev => ({ ...prev, time: e.target.value }))}
+                                className="cal-event-time"
+                            />
+                            <div className="cal-tag-selector">
+                                {EVENT_TAGS.map(tag => (
+                                    <button
+                                        key={tag.id}
+                                        className={`cal-tag-btn ${newEvent.tag === tag.id ? 'active' : ''}`}
+                                        style={{
+                                            background: newEvent.tag === tag.id ? tag.color : 'transparent',
+                                            borderColor: tag.color,
+                                            color: newEvent.tag === tag.id ? '#fff' : tag.color
+                                        }}
+                                        onClick={() => setNewEvent(prev => ({ ...prev, tag: tag.id }))}
+                                        title={tag.label}
+                                    >
+                                        {tag.label.charAt(0)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <button
+                            className="cal-event-submit"
+                            onClick={editingEvent ? handleUpdateEvent : handleAddEvent}
+                            disabled={!newEvent.title.trim()}
+                        >
+                            {editingEvent ? 'Update' : 'Add Event'}
+                        </button>
+                    </div>
+                )}
+
+                {/* Event list */}
+                <div className="cal-event-list">
+                    {selectedEvents.length === 0 && !showAddForm && (
+                        <div className="cal-no-events">No events this day</div>
+                    )}
+                    {selectedEvents.map(evt => {
+                        const tag = EVENT_TAGS.find(t => t.id === evt.tag) || EVENT_TAGS[5];
                         return (
-                            <div key={day}
-                                className={`relative h-8 w-8 flex items-center justify-center text-xs font-medium rounded-full transition-all duration-300 group cursor-pointer
-                                    ${today
-                                        ? 'bg-gradient-to-br from-indigo-500 to-indigo-600 text-white font-bold shadow-[0_0_20px_rgba(99,102,241,0.5)] scale-110 z-10'
-                                        : dayColor
-                                    }`}
-                            >
-                                {today && <div className="absolute inset-0 rounded-full animate-pulse opacity-30 bg-indigo-400 blur-sm"></div>}
-                                {day}
+                            <div key={evt.id} className="cal-event-item">
+                                <div className="cal-event-tag-strip" style={{ background: tag.color }} />
+                                <div className="cal-event-info">
+                                    <span className="cal-event-title">{evt.title}</span>
+                                    {evt.time && <span className="cal-event-time-label"><Clock size={10} /> {evt.time}</span>}
+                                </div>
+                                <div className="cal-event-actions">
+                                    <button onClick={() => startEdit(evt)} className="cal-evt-btn"><Edit2 size={12} /></button>
+                                    <button onClick={() => handleDeleteEvent(evt.id)} className="cal-evt-btn cal-evt-del"><Trash2 size={12} /></button>
+                                </div>
                             </div>
                         );
                     })}
                 </div>
             </div>
 
-            {/* Stats */}
-            <div className="relative z-10 p-3 pt-1">
-                <div className={`flex items-center justify-between p-3 rounded-2xl ${streakBg} border transition-colors duration-300`}>
-                    <div className="flex items-center gap-3 flex-1 pl-2">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500/10 to-transparent border border-orange-500/10">
-                            <Flame size={18} className="text-orange-400" />
-                        </div>
-                        <div>
-                            <div className={`text-[10px] uppercase tracking-wider ${streakLabel} font-bold mb-0.5`}>Current</div>
-                            <div className={`text-xl font-bold ${streakValue} tracking-tight`}>{streak.current} <span className={`text-[10px] ${streakUnit} font-medium`}>Days</span></div>
-                        </div>
-                    </div>
-                    <div className={`w-px h-8 bg-gradient-to-b from-transparent ${isLight ? 'via-indigo-200/30' : 'via-white/10'} to-transparent mx-2`}></div>
-                    <div className="flex items-center gap-3 flex-1 pl-4">
-                        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-500/10 to-transparent border border-yellow-500/10">
-                            <Trophy size={18} className="text-yellow-400" />
-                        </div>
-                        <div>
-                            <div className={`text-[10px] uppercase tracking-wider ${streakLabel} font-bold mb-0.5`}>Best</div>
-                            <div className={`text-xl font-bold ${streakValue} tracking-tight`}>{streak.best} <span className={`text-[10px] ${streakUnit} font-medium`}>Days</span></div>
-                        </div>
-                    </div>
+            {/* Upcoming Agenda */}
+            {upcoming.length > 0 && (
+                <div className="cal-agenda">
+                    <div className="cal-agenda-title">Upcoming</div>
+                    {upcoming.map((evt, i) => {
+                        const tag = EVENT_TAGS.find(t => t.id === evt.tag) || EVENT_TAGS[5];
+                        return (
+                            <div key={i} className="cal-agenda-item">
+                                <span className="cal-agenda-dot" style={{ background: tag.color }} />
+                                <span className="cal-agenda-text">{evt.title}</span>
+                                <span className="cal-agenda-when">{evt.relative}</span>
+                            </div>
+                        );
+                    })}
                 </div>
-                <div className={`mt-4 flex items-center justify-center gap-2 text-[10px] ${footerText} font-medium`}>
-                    <Info size={12} />
-                    <span>Consistency is key to mastery</span>
-                </div>
-            </div>
+            )}
         </div>
     );
 }

@@ -27,6 +27,8 @@ async function initializeServer() {
     const paymentRoutes = (await import('./routes/payment.js')).default;
     const voiceRoutes = (await import('./routes/voice.js')).default;
     const notesRoutes = (await import('./routes/notes.js')).default;
+    const adminRoutes = (await import('./routes/admin.js')).default;
+    const jobsRoutes = (await import('./routes/jobs.js')).default;
     
     console.log('✅ Routes loaded successfully');
 
@@ -89,6 +91,8 @@ async function initializeServer() {
     app.use('/api/payment', paymentRoutes);
     app.use('/api/voice', voiceRoutes);
     app.use('/api/notes', notesRoutes);
+    app.use('/api/admin', adminRoutes);
+    app.use('/api/jobs', jobsRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {

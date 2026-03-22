@@ -1,0 +1,26 @@
+Invoke-WebRequest : 
+Missing an argument 
+for parameter 
+'SessionVariable'. 
+Specify a parameter of 
+type 'System.String' 
+and try again.
+At line:1 char:6
++ curl -s -H 
+'x-rapidapi-key: b0429c
+fe62mshaf49aba4ddfa8b6p
+1236d1jsn8f5 ...
++      ~~
+    + CategoryInfo     
+         : InvalidArg  
+  ument: (:) [Invoke   
+ -WebRequest], Para    
+meterBindingExcept    
+ion
+    + FullyQualifiedEr 
+   rorId : MissingArg  
+  ument,Microsoft.Po   
+ werShell.Commands.    
+InvokeWebRequestCo    
+mmand
+ 
