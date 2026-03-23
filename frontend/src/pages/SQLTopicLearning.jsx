@@ -10,6 +10,7 @@ import {
     getSQLTopicProgress, markSQLConceptComplete, markSQLThinkingComplete,
     markSQLTricksComplete
 } from '../data/sqlLearningProgress';
+import { useTheme } from '../context/ThemeContext';
 
 const TABS = [
     { id: 'concepts', label: 'Concept & Patterns', icon: <BookOpen size={15} />, color: '#22d3ee' },
@@ -18,18 +19,58 @@ const TABS = [
     { id: 'practice', label: 'Practice', icon: <Target size={15} />, color: '#facc15' },
 ];
 
+/* ─── Theme colors helper ─── */
+function useColors() {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+    return {
+        isLight,
+        pageBg: isLight ? '#f8f9fc' : '#030303',
+        pageText: isLight ? '#1f2937' : '#fff',
+        muted: isLight ? '#6b7280' : '#71717a',
+        mutedDark: isLight ? '#9ca3af' : '#52525b',
+        bodyText: isLight ? '#374151' : '#d4d4d8',
+        cardBg: isLight ? '#fff' : 'rgba(255,255,255,0.02)',
+        cardBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        stepBg: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)',
+        stepBorder: isLight ? '#f3f4f6' : 'rgba(255,255,255,0.03)',
+        codeBg: isLight ? '#f1f5f9' : 'rgba(0,0,0,0.4)',
+        codeBorder: isLight ? 'rgba(34,211,238,0.2)' : 'rgba(34,211,238,0.15)',
+        codeColor: isLight ? '#0891b2' : '#67e8f9',
+        code2Bg: isLight ? '#f0fdf4' : 'rgba(0,0,0,0.5)',
+        code2Border: isLight ? 'rgba(52,211,153,0.2)' : 'rgba(52,211,153,0.12)',
+        code2Color: isLight ? '#059669' : '#a7f3d0',
+        rulesBg: isLight ? '#f0fdfa' : 'rgba(0,0,0,0.3)',
+        rulesBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        rulesColor: isLight ? '#0891b2' : '#67e8f9',
+        thinkingBg: isLight ? '#ecfdf5' : 'rgba(0,0,0,0.3)',
+        thinkingBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        pitfallBg: isLight ? '#fffbeb' : 'rgba(0,0,0,0.2)',
+        tabsBg: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)',
+        tabsBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        inactiveTab: isLight ? '#6b7280' : '#71717a',
+        progressTrack: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        stepNotDoneBg: isLight ? '#f9fafb' : 'rgba(255,255,255,0.03)',
+        stepNotDoneBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        notDoneStepText: isLight ? '#9ca3af' : '#525252',
+        unsolved: isLight ? '#d1d5db' : '#3f3f46',
+        problemTitle: isLight ? '#1f2937' : '#fff',
+        tagBg: isLight ? '#f3f4f6' : 'rgba(255,255,255,0.04)',
+    };
+}
+
 /* ─── Theory Section Renderer ─── */
-function TheorySection({ section, topic, index }) {
+function TheorySection({ section, topic, index, c }) {
     return (
         <div style={{
-            marginBottom: 24, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+            marginBottom: 24, background: c.cardBg, border: `1px solid ${c.cardBorder}`,
             borderRadius: 16, overflow: 'hidden'
         }}>
             <div style={{
                 padding: '18px 24px', background: `linear-gradient(135deg, ${topic.color}08, transparent)`,
-                borderBottom: '1px solid rgba(255,255,255,0.04)'
+                borderBottom: `1px solid ${c.stepBorder}`
             }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: c.pageText, margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
                         width: 28, height: 28, borderRadius: 8, background: `${topic.color}18`, color: topic.color,
                         display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800
@@ -43,15 +84,15 @@ function TheorySection({ section, topic, index }) {
                         {section.steps.map((step, si) => (
                             <div key={si} style={{
                                 display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10,
-                                padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.03)'
+                                padding: '10px 14px', borderRadius: 10, background: c.stepBg,
+                                border: `1px solid ${c.stepBorder}`
                             }}>
                                 <span style={{
                                     minWidth: 24, height: 24, borderRadius: '50%', background: `${topic.color}15`,
                                     color: topic.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1
                                 }}>{si + 1}</span>
-                                <span style={{ fontSize: 13, color: '#d4d4d8', lineHeight: 1.7 }}>{step}</span>
+                                <span style={{ fontSize: 13, color: c.bodyText, lineHeight: 1.7 }}>{step}</span>
                             </div>
                         ))}
                     </div>
@@ -60,14 +101,14 @@ function TheorySection({ section, topic, index }) {
                     <div style={{ marginBottom: section.code ? 20 : 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                             <span style={{ fontSize: 14 }}>🖼️</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>Visual Diagram</span>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: c.muted, textTransform: 'uppercase', letterSpacing: 1 }}>Visual Diagram</span>
                         </div>
                         <div style={{
-                            padding: '18px 20px', borderRadius: 12, background: 'rgba(0,0,0,0.4)',
-                            border: '1px solid rgba(34,211,238,0.15)', overflow: 'auto'
+                            padding: '18px 20px', borderRadius: 12, background: c.codeBg,
+                            border: `1px solid ${c.codeBorder}`, overflow: 'auto'
                         }}>
                             <pre style={{
-                                margin: 0, fontSize: 12, lineHeight: 1.7, color: '#67e8f9',
+                                margin: 0, fontSize: 12, lineHeight: 1.7, color: c.codeColor,
                                 fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
                                 whiteSpace: 'pre', overflowX: 'auto'
                             }}>{section.visual}</pre>
@@ -79,7 +120,7 @@ function TheorySection({ section, topic, index }) {
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <Code2 size={14} style={{ color: '#34d399' }} />
-                                <span style={{ fontSize: 12, fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: c.muted, textTransform: 'uppercase', letterSpacing: 1 }}>
                                     {section.code.title}
                                 </span>
                             </div>
@@ -89,11 +130,11 @@ function TheorySection({ section, topic, index }) {
                             }}>{section.code.language}</span>
                         </div>
                         <div style={{
-                            padding: '18px 20px', borderRadius: 12, background: 'rgba(0,0,0,0.5)',
-                            border: '1px solid rgba(52,211,153,0.12)', overflow: 'auto'
+                            padding: '18px 20px', borderRadius: 12, background: c.code2Bg,
+                            border: `1px solid ${c.code2Border}`, overflow: 'auto'
                         }}>
                             <pre style={{
-                                margin: 0, fontSize: 12, lineHeight: 1.6, color: '#a7f3d0',
+                                margin: 0, fontSize: 12, lineHeight: 1.6, color: c.code2Color,
                                 fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
                                 whiteSpace: 'pre', overflowX: 'auto'
                             }}>{section.code.code}</pre>
@@ -106,7 +147,7 @@ function TheorySection({ section, topic, index }) {
 }
 
 /* ─── Concepts Tab ─── */
-function ConceptsTab({ topic, progress, onComplete }) {
+function ConceptsTab({ topic, progress, onComplete, c }) {
     const theory = sqlTheoryData[topic.id];
     return (
         <div>
@@ -115,34 +156,34 @@ function ConceptsTab({ topic, progress, onComplete }) {
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
                         padding: '10px 16px', borderRadius: 10,
-                        background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(244,114,182,0.05))',
-                        border: '1px solid rgba(34,211,238,0.15)'
+                        background: c.isLight ? 'linear-gradient(135deg, rgba(34,211,238,0.06), rgba(244,114,182,0.03))' : 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(244,114,182,0.05))',
+                        border: `1px solid ${c.codeBorder}`
                     }}>
                         <BookOpen size={16} style={{ color: '#22d3ee' }} />
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#67e8f9' }}>📚 Deep Dive Theory</span>
-                        <span style={{ fontSize: 11, color: '#71717a', marginLeft: 'auto' }}>{theory.sections.length} lessons</span>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: c.isLight ? '#0891b2' : '#67e8f9' }}>📚 Deep Dive Theory</span>
+                        <span style={{ fontSize: 11, color: c.muted, marginLeft: 'auto' }}>{theory.sections.length} lessons</span>
                     </div>
                     {theory.sections.map((section, si) => (
-                        <TheorySection key={si} section={section} topic={topic} index={si} />
+                        <TheorySection key={si} section={section} topic={topic} index={si} c={c} />
                     ))}
                 </div>
             )}
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                 ⚡ Quick Reference
             </h3>
             {topic.concepts.map((section, si) => (
                 <div key={si} style={{
-                    marginBottom: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    marginBottom: 16, background: c.cardBg, border: `1px solid ${c.cardBorder}`,
                     borderRadius: 14, padding: 20
                 }}>
-                    <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <BookOpen size={14} style={{ color: topic.color }} /> {section.title}
                     </h4>
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                         {section.points.map((p, pi) => (
                             <li key={pi} style={{
-                                padding: '8px 12px', marginBottom: 4, borderRadius: 6, background: 'rgba(255,255,255,0.03)',
-                                fontSize: 12, color: '#d4d4d8', lineHeight: 1.6, display: 'flex', gap: 8, alignItems: 'flex-start'
+                                padding: '8px 12px', marginBottom: 4, borderRadius: 6, background: c.stepBg,
+                                fontSize: 12, color: c.bodyText, lineHeight: 1.6, display: 'flex', gap: 8, alignItems: 'flex-start'
                             }}>
                                 <span style={{ color: topic.color, fontSize: 12, marginTop: 2 }}>▸</span>
                                 <span>{p}</span>
@@ -156,13 +197,13 @@ function ConceptsTab({ topic, progress, onComplete }) {
                     marginBottom: 20, background: `${topic.color}08`, border: `1px solid ${topic.color}20`,
                     borderRadius: 14, padding: 24
                 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Lightbulb size={16} style={{ color: '#facc15' }} /> Key Rules & Invariants
                     </h3>
                     {topic.invariants.map((inv, i) => (
                         <div key={i} style={{
-                            padding: '10px 16px', marginBottom: 8, borderRadius: 8, background: 'rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#67e8f9',
+                            padding: '10px 16px', marginBottom: 8, borderRadius: 8, background: c.rulesBg,
+                            border: `1px solid ${c.rulesBorder}`, fontSize: 13, color: c.rulesColor,
                             fontFamily: '"JetBrains Mono", "Fira Code", monospace', lineHeight: 1.6
                         }}>{inv}</div>
                     ))}
@@ -183,26 +224,26 @@ function ConceptsTab({ topic, progress, onComplete }) {
 }
 
 /* ─── Thinking Tab ─── */
-function ThinkingTab({ topic, progress, onComplete }) {
+function ThinkingTab({ topic, progress, onComplete, c }) {
     return (
         <div>
             <div style={{
-                marginBottom: 20, background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)',
+                marginBottom: 20, background: c.isLight ? 'rgba(52,211,153,0.04)' : 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)',
                 borderRadius: 14, padding: 24
             }}>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Zap size={16} style={{ color: '#34d399' }} /> Decision Tree
                 </h3>
-                <p style={{ fontSize: 12, color: '#71717a', marginBottom: 16 }}>Use this framework to quickly identify the right SQL approach:</p>
+                <p style={{ fontSize: 12, color: c.muted, marginBottom: 16 }}>Use this framework to quickly identify the right SQL approach:</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {topic.thinkingFramework.map((rule, i) => (
                         <div key={i} style={{
                             display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center',
-                            padding: '12px 16px', borderRadius: 10, background: 'rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255,255,255,0.06)'
+                            padding: '12px 16px', borderRadius: 10, background: c.thinkingBg,
+                            border: `1px solid ${c.thinkingBorder}`
                         }}>
-                            <div style={{ fontSize: 13, color: '#facc15', fontWeight: 600 }}>{rule.condition}</div>
-                            <ChevronRight size={16} style={{ color: '#525252' }} />
+                            <div style={{ fontSize: 13, color: '#f59e0b', fontWeight: 600 }}>{rule.condition}</div>
+                            <ChevronRight size={16} style={{ color: c.mutedDark }} />
                             <div style={{ fontSize: 13, color: '#34d399', fontWeight: 600 }}>{rule.action}</div>
                         </div>
                     ))}
@@ -223,21 +264,21 @@ function ThinkingTab({ topic, progress, onComplete }) {
 }
 
 /* ─── Tricks Tab ─── */
-function TricksTab({ topic, progress, onComplete }) {
+function TricksTab({ topic, progress, onComplete, c }) {
     return (
         <div>
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Sparkles size={16} style={{ color: '#f472b6' }} /> Tips & Shortcuts
             </h3>
             {topic.tricks && topic.tricks.length > 0 ? (
                 <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
                     {topic.tricks.map((trick, i) => (
                         <div key={i} style={{
-                            padding: '18px 20px', borderRadius: 12, background: 'rgba(244,114,182,0.06)',
+                            padding: '18px 20px', borderRadius: 12, background: c.isLight ? 'rgba(244,114,182,0.04)' : 'rgba(244,114,182,0.06)',
                             border: '1px solid rgba(244,114,182,0.15)'
                         }}>
                             <div style={{ fontSize: 14, fontWeight: 700, color: '#f472b6', marginBottom: 6 }}>{trick.name}</div>
-                            <div style={{ fontSize: 13, color: '#d4d4d8', lineHeight: 1.6, marginBottom: 8 }}>{trick.tip}</div>
+                            <div style={{ fontSize: 13, color: c.bodyText, lineHeight: 1.6, marginBottom: 8 }}>{trick.tip}</div>
                             <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: 11, color: '#34d399', padding: '3px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}>
                                     ✓ When: {trick.when}
@@ -252,22 +293,22 @@ function TricksTab({ topic, progress, onComplete }) {
                     ))}
                 </div>
             ) : (
-                <div style={{ padding: 20, textAlign: 'center', color: '#52525b', fontSize: 13, marginBottom: 24 }}>
+                <div style={{ padding: 20, textAlign: 'center', color: c.mutedDark, fontSize: 13, marginBottom: 24 }}>
                     No specific tricks for this topic. Focus on the concepts and invariants!
                 </div>
             )}
 
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: c.pageText, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <AlertTriangle size={16} style={{ color: '#f59e0b' }} /> Common Pitfalls
             </h3>
             <div style={{
-                padding: '18px 20px', borderRadius: 12, background: 'rgba(245,158,11,0.06)',
+                padding: '18px 20px', borderRadius: 12, background: c.isLight ? 'rgba(245,158,11,0.04)' : 'rgba(245,158,11,0.06)',
                 border: '1px solid rgba(245,158,11,0.15)'
             }}>
                 {topic.pitfalls.map((pit, i) => (
                     <div key={i} style={{
                         padding: '8px 12px', marginBottom: i < topic.pitfalls.length - 1 ? 8 : 0,
-                        borderRadius: 8, background: 'rgba(0,0,0,0.2)', fontSize: 13, color: '#fbbf24',
+                        borderRadius: 8, background: c.pitfallBg, fontSize: 13, color: '#fbbf24',
                         display: 'flex', alignItems: 'center', gap: 8
                     }}>
                         <AlertTriangle size={13} style={{ flexShrink: 0 }} /> {pit}
@@ -289,10 +330,10 @@ function TricksTab({ topic, progress, onComplete }) {
 }
 
 /* ─── Practice Tab ─── */
-function PracticeTab({ topic, progress }) {
+function PracticeTab({ topic, progress, c }) {
     if (!topic.practiceProblems || topic.practiceProblems.length === 0) {
         return (
-            <div style={{ padding: 40, textAlign: 'center', color: '#52525b' }}>
+            <div style={{ padding: 40, textAlign: 'center', color: c.mutedDark }}>
                 <Target size={32} style={{ marginBottom: 12, opacity: 0.5 }} />
                 <div style={{ fontSize: 14, marginBottom: 4 }}>No practice problems yet for this topic.</div>
                 <div style={{ fontSize: 12 }}>Focus on mastering the theory and concepts!</div>
@@ -310,8 +351,8 @@ function PracticeTab({ topic, progress }) {
     return (
         <div>
             <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 13, color: '#71717a' }}>{solved.size} / {topic.practiceProblems.length} solved</span>
-                <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
+                <span style={{ fontSize: 13, color: c.muted }}>{solved.size} / {topic.practiceProblems.length} solved</span>
+                <div style={{ flex: 1, height: 4, borderRadius: 2, background: c.progressTrack }}>
                     <div style={{
                         height: '100%', borderRadius: 2, background: topic.color, transition: 'width 0.5s',
                         width: `${(solved.size / topic.practiceProblems.length) * 100}%`
@@ -332,16 +373,16 @@ function PracticeTab({ topic, progress }) {
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '12px 16px', borderRadius: 10, textDecoration: 'none',
                                     background: isSolved ? 'rgba(52,211,153,0.06)' : group.bg,
-                                    border: `1px solid ${isSolved ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)'}`,
+                                    border: `1px solid ${isSolved ? 'rgba(52,211,153,0.15)' : c.cardBorder}`,
                                     transition: 'all 0.2s'
                                 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                         {isSolved
                                             ? <CheckCircle2 size={16} style={{ color: '#34d399', flexShrink: 0 }} />
-                                            : <Circle size={16} style={{ color: '#3f3f46', flexShrink: 0 }} />}
+                                            : <Circle size={16} style={{ color: c.unsolved, flexShrink: 0 }} />}
                                         <div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{problem.title}</div>
-                                            <div style={{ fontSize: 11, color: '#52525b' }}>{problem.pattern}</div>
+                                            <div style={{ fontSize: 13, fontWeight: 600, color: c.problemTitle }}>{problem.title}</div>
+                                            <div style={{ fontSize: 11, color: c.mutedDark }}>{problem.pattern}</div>
                                         </div>
                                     </div>
                                     <span style={{
@@ -362,6 +403,7 @@ function PracticeTab({ topic, progress }) {
 export default function SQLTopicLearning() {
     const { topicId } = useParams();
     const navigate = useNavigate();
+    const c = useColors();
     const [activeTab, setActiveTab] = useState('concepts');
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -371,7 +413,7 @@ export default function SQLTopicLearning() {
 
     if (!topic) {
         return (
-            <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#fff' }}>
+            <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', background: c.pageBg, color: c.pageText }}>
                 <h2 style={{ fontSize: 24, marginBottom: 16 }}>Topic not found</h2>
                 <button onClick={() => navigate('/sql-path')} style={{
                     padding: '10px 24px', borderRadius: 8, background: '#22d3ee', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600
@@ -393,11 +435,11 @@ export default function SQLTopicLearning() {
     ];
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: c.pageBg, color: c.pageText, paddingBottom: 80 }}>
             <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 0' }}>
                 <button onClick={() => navigate('/sql-path')} style={{
                     display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-                    color: '#71717a', cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0
+                    color: c.muted, cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0
                 }}>
                     <ArrowLeft size={16} /> Back to SQL Path
                 </button>
@@ -410,30 +452,30 @@ export default function SQLTopicLearning() {
                         <div>
                             <div style={{ fontSize: 32, marginBottom: 8 }}>{topic.icon}</div>
                             <h1 style={{ fontSize: 'clamp(24px,3vw,36px)', fontWeight: 700, marginBottom: 6 }}>{topic.title}</h1>
-                            <p style={{ fontSize: 14, color: '#71717a', margin: 0, maxWidth: 500 }}>{topic.description}</p>
+                            <p style={{ fontSize: 14, color: c.muted, margin: 0, maxWidth: 500 }}>{topic.description}</p>
                             <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
                                 <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: `${topic.color}15`, color: topic.color, fontWeight: 600 }}>{topic.difficulty}</span>
-                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', color: '#71717a', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: c.tagBg, color: c.muted, display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <Clock size={11} /> {topic.estimatedTime}
                                 </span>
-                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', color: '#71717a' }}>
+                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: c.tagBg, color: c.muted }}>
                                     {topic.practiceProblems.length} problems
                                 </span>
                             </div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
                             <div style={{ fontSize: 36, fontWeight: 800, color: topic.color }}>{mastery}%</div>
-                            <div style={{ fontSize: 11, color: '#71717a', marginBottom: 10 }}>Mastery</div>
+                            <div style={{ fontSize: 11, color: c.muted, marginBottom: 10 }}>Mastery</div>
                             <div style={{ display: 'flex', gap: 6 }}>
                                 {steps.map((s, i) => (
                                     <div key={i} onClick={() => setActiveTab(s.tab)} style={{
                                         textAlign: 'center', padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
-                                        background: s.done ? `${topic.color}12` : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${s.done ? `${topic.color}25` : 'rgba(255,255,255,0.06)'}`,
+                                        background: s.done ? `${topic.color}12` : c.stepNotDoneBg,
+                                        border: `1px solid ${s.done ? `${topic.color}25` : c.stepNotDoneBorder}`,
                                         transition: 'all 0.2s'
                                     }}>
                                         <div style={{ fontSize: 10 }}>{s.done ? '✅' : '○'}</div>
-                                        <div style={{ fontSize: 8, color: s.done ? topic.color : '#525252', fontWeight: 600 }}>{s.label}</div>
+                                        <div style={{ fontSize: 8, color: s.done ? topic.color : c.notDoneStepText, fontWeight: 600 }}>{s.label}</div>
                                     </div>
                                 ))}
                             </div>
@@ -442,14 +484,14 @@ export default function SQLTopicLearning() {
                 </div>
 
                 <div style={{
-                    display: 'flex', gap: 4, marginBottom: 28, background: 'rgba(255,255,255,0.02)',
-                    borderRadius: 12, padding: 4, border: '1px solid rgba(255,255,255,0.06)'
+                    display: 'flex', gap: 4, marginBottom: 28, background: c.tabsBg,
+                    borderRadius: 12, padding: 4, border: `1px solid ${c.tabsBorder}`
                 }}>
                     {TABS.map(tab => (
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                             flex: 1, padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
                             background: activeTab === tab.id ? `${tab.color}15` : 'transparent',
-                            color: activeTab === tab.id ? tab.color : '#71717a',
+                            color: activeTab === tab.id ? tab.color : c.inactiveTab,
                             fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 12,
                             transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
                         }}>
@@ -459,10 +501,10 @@ export default function SQLTopicLearning() {
                 </div>
 
                 <div>
-                    {activeTab === 'concepts' && <ConceptsTab topic={topic} progress={progress} onComplete={handleConceptComplete} />}
-                    {activeTab === 'thinking' && <ThinkingTab topic={topic} progress={progress} onComplete={handleThinkingComplete} />}
-                    {activeTab === 'tricks' && <TricksTab topic={topic} progress={progress} onComplete={handleTricksComplete} />}
-                    {activeTab === 'practice' && <PracticeTab topic={topic} progress={progress} />}
+                    {activeTab === 'concepts' && <ConceptsTab topic={topic} progress={progress} onComplete={handleConceptComplete} c={c} />}
+                    {activeTab === 'thinking' && <ThinkingTab topic={topic} progress={progress} onComplete={handleThinkingComplete} c={c} />}
+                    {activeTab === 'tricks' && <TricksTab topic={topic} progress={progress} onComplete={handleTricksComplete} c={c} />}
+                    {activeTab === 'practice' && <PracticeTab topic={topic} progress={progress} c={c} />}
                 </div>
             </div>
         </div>

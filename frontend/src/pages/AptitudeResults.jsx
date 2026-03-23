@@ -5,8 +5,11 @@ import {
     ArrowLeft, RotateCcw, ArrowRight, Lightbulb, BarChart3,
     BookOpen, Bookmark, Star, TrendingUp, Award
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export default function AptitudeResults() {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const location = useLocation();
     const navigate = useNavigate();
     const state = location.state;
@@ -15,7 +18,7 @@ export default function AptitudeResults() {
 
     if (!state) {
         return (
-            <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+            <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
                 <h2>No results to display</h2>
                 <Link to="/aptitude" className="btn btn-primary">Go to Aptitude Hub</Link>
             </div>
@@ -52,11 +55,11 @@ export default function AptitudeResults() {
     const displayedQuestions = showAll ? questions : questions.slice(0, 10);
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', paddingBottom: 80 }}>
             {/* Header */}
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ padding: '16px 24px', borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)' }}>
                 <button onClick={() => navigate('/aptitude')} style={{
-                    background: 'none', border: 'none', color: '#71717a', cursor: 'pointer',
+                    background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: 6, fontSize: 13
                 }}>
                     <ArrowLeft size={16} /> Back to Aptitude Hub
@@ -67,7 +70,7 @@ export default function AptitudeResults() {
                 {/* Score Card */}
                 <div style={{
                     textAlign: 'center', padding: '48px 24px', marginBottom: 32,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                    background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                     borderRadius: 20, position: 'relative', overflow: 'hidden'
                 }}>
                     <div style={{
@@ -82,7 +85,7 @@ export default function AptitudeResults() {
                         marginBottom: 24
                     }}>
                         <span style={{ fontSize: 64, fontWeight: 800 }}>{correct}</span>
-                        <span style={{ fontSize: 24, color: '#71717a' }}>/ {total}</span>
+                        <span style={{ fontSize: 24, color: isLight ? '#9ca3af' : '#71717a' }}>/ {total}</span>
                     </div>
 
                     {/* Stats Row */}
@@ -100,11 +103,11 @@ export default function AptitudeResults() {
                         ].map((s, i) => (
                             <div key={i} style={{
                                 padding: '14px 12px', borderRadius: 12,
-                                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)'
+                                background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)'
                             }}>
                                 <div style={{ color: s.color, marginBottom: 4, display: 'flex', justifyContent: 'center' }}>{s.icon}</div>
                                 <div style={{ fontSize: 20, fontWeight: 700 }}>{s.value}</div>
-                                <div style={{ fontSize: 11, color: '#71717a' }}>{s.label}</div>
+                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>{s.label}</div>
                             </div>
                         ))}
                     </div>
@@ -113,7 +116,7 @@ export default function AptitudeResults() {
                 {/* Difficulty Breakdown */}
                 <div style={{
                     padding: 24, borderRadius: 16, marginBottom: 32,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)'
+                    background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)'
                 }}>
                     <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Performance by Difficulty</h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
@@ -126,20 +129,20 @@ export default function AptitudeResults() {
                             const pct = data.total > 0 ? Math.round((data.correct / data.total) * 100) : 0;
                             return (
                                 <div key={d.key} style={{
-                                    padding: 16, borderRadius: 12, background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
+                                    padding: 16, borderRadius: 12, background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                    border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
                                 }}>
                                     <div style={{ fontSize: 13, color: d.color, fontWeight: 600, marginBottom: 8 }}>{d.label}</div>
                                     <div style={{ fontSize: 24, fontWeight: 700 }}>{data.correct}/{data.total}</div>
                                     <div style={{
-                                        height: 4, background: '#222', borderRadius: 2, marginTop: 8, overflow: 'hidden'
+                                        height: 4, background: isLight ? '#e5e7eb' : '#222', borderRadius: 2, marginTop: 8, overflow: 'hidden'
                                     }}>
                                         <div style={{
                                             height: '100%', background: d.color, borderRadius: 2,
                                             width: `${pct}%`, transition: 'width 1s ease'
                                         }} />
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#71717a', marginTop: 4 }}>{pct}%</div>
+                                    <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a', marginTop: 4 }}>{pct}%</div>
                                 </div>
                             );
                         })}
@@ -164,7 +167,7 @@ export default function AptitudeResults() {
                 {/* Question-by-Question Review */}
                 <div style={{
                     padding: 24, borderRadius: 16,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)'
+                    background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)'
                 }}>
                     <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 20 }}>
                         📝 Question Review ({total} questions)
@@ -179,8 +182,8 @@ export default function AptitudeResults() {
 
                             return (
                                 <div key={q.id} style={{
-                                    borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
-                                    background: isExpQ ? 'rgba(255,255,255,0.03)' : 'transparent'
+                                    borderRadius: 12, border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+                                    background: isExpQ ? (isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)') : 'transparent'
                                 }}>
                                     <div
                                         onClick={() => setExpandedQ(isExpQ ? null : idx)}
@@ -197,7 +200,7 @@ export default function AptitudeResults() {
                                             {wasSkipped ? '—' : isCorrectQ ? <Check size={14} /> : <X size={14} />}
                                         </span>
                                         <span style={{
-                                            flex: 1, fontSize: 13, color: '#d4d4d8',
+                                            flex: 1, fontSize: 13, color: isLight ? '#4b5563' : '#d4d4d8',
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                                         }}>{q.question}</span>
                                         <span style={{
@@ -206,14 +209,14 @@ export default function AptitudeResults() {
                                             color: q.difficulty === 'easy' ? '#34d399' : q.difficulty === 'medium' ? '#facc15' : '#f87171'
                                         }}>{q.difficulty}</span>
                                         <ChevronDown size={14} style={{
-                                            color: '#525252', transform: isExpQ ? 'rotate(180deg)' : 'rotate(0)',
+                                            color: isLight ? '#9ca3af' : '#525252', transform: isExpQ ? 'rotate(180deg)' : 'rotate(0)',
                                             transition: 'transform 0.2s'
                                         }} />
                                     </div>
 
                                     {isExpQ && (
                                         <div style={{ padding: '0 16px 16px' }}>
-                                            <p style={{ fontSize: 14, color: '#e4e4e7', lineHeight: 1.7, margin: '0 0 16px 0' }}>{q.question}</p>
+                                            <p style={{ fontSize: 14, color: isLight ? '#374151' : '#e4e4e7', lineHeight: 1.7, margin: '0 0 16px 0' }}>{q.question}</p>
 
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
                                                 {q.options.map(opt => {
@@ -223,15 +226,15 @@ export default function AptitudeResults() {
                                                         <div key={opt.label} style={{
                                                             display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8,
                                                             background: isCorr ? 'rgba(52,211,153,0.08)' : isSel ? 'rgba(248,113,113,0.08)' : 'transparent',
-                                                            border: `1px solid ${isCorr ? 'rgba(52,211,153,0.3)' : isSel ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.05)'}`,
+                                                            border: `1px solid ${isCorr ? 'rgba(52,211,153,0.3)' : isSel ? 'rgba(248,113,113,0.3)' : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)')}`,
                                                             fontSize: 13
                                                         }}>
                                                             <span style={{
                                                                 width: 22, height: 22, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                                background: isCorr ? '#34d399' : isSel ? '#f87171' : 'rgba(255,255,255,0.06)',
-                                                                color: (isCorr || isSel) ? '#fff' : '#71717a', fontSize: 11, fontWeight: 700
+                                                                background: isCorr ? '#34d399' : isSel ? '#f87171' : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'),
+                                                                color: (isCorr || isSel) ? '#fff' : (isLight ? '#6b7280' : '#71717a'), fontSize: 11, fontWeight: 700
                                                             }}>{opt.label}</span>
-                                                            <span style={{ color: isCorr ? '#34d399' : isSel ? '#f87171' : '#a1a1aa' }}>{opt.value}</span>
+                                                            <span style={{ color: isCorr ? '#34d399' : isSel ? '#f87171' : (isLight ? '#4b5563' : '#a1a1aa') }}>{opt.value}</span>
                                                             {isCorr && <Check size={14} style={{ color: '#34d399', marginLeft: 'auto' }} />}
                                                             {isSel && !isCorr && <X size={14} style={{ color: '#f87171', marginLeft: 'auto' }} />}
                                                         </div>
@@ -246,7 +249,7 @@ export default function AptitudeResults() {
                                                 <div style={{ fontSize: 11, fontWeight: 600, color: '#818cf8', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
                                                     <Lightbulb size={12} /> Explanation
                                                 </div>
-                                                <p style={{ fontSize: 13, color: '#d4d4d8', lineHeight: 1.6, margin: 0 }}>{q.explanation}</p>
+                                                <p style={{ fontSize: 13, color: isLight ? '#4b5563' : '#d4d4d8', lineHeight: 1.6, margin: 0 }}>{q.explanation}</p>
                                             </div>
                                         </div>
                                     )}
@@ -258,7 +261,7 @@ export default function AptitudeResults() {
                     {!showAll && questions.length > 10 && (
                         <button onClick={() => setShowAll(true)} style={{
                             width: '100%', padding: '12px', marginTop: 12, borderRadius: 8,
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                            background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.08)',
                             color: '#818cf8', cursor: 'pointer', fontSize: 13, fontWeight: 500
                         }}>
                             Show All {questions.length} Questions

@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import { Sparkles, Trophy, Zap, Target, Flame, BookOpen, Lock, ChevronRight, Clock, GraduationCap } from 'lucide-react';
 import { LEARNING_TOPICS, getTopicIds } from '../data/learningPathData';
 import { getTopicProgress, getOverallProgress, getStreakDays } from '../data/learningPathProgress';
@@ -12,11 +13,11 @@ function ProgressRing({ percent, size = 64, strokeWidth = 5, color }) {
     const offset = circ - (percent / 100) * circ;
     return (
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(128,128,128,0.15)" strokeWidth={strokeWidth} />
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
                 strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
                 style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill="#fff"
+            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill="currentColor"
                 fontSize={size * 0.22} fontWeight="700" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}>
                 {percent}%
             </text>
@@ -37,8 +38,11 @@ export default function LearningPath() {
     const overall = useMemo(() => getOverallProgress(topicIds), []);
     const streak = useMemo(() => getStreakDays(), []);
 
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#030303', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
             {/* Hero */}
             <section style={{ padding: '60px 24px 40px', maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
                 <div style={{
@@ -66,7 +70,7 @@ export default function LearningPath() {
                         { label: 'Day Streak', value: streak, icon: <Flame size={18} />, color: '#f472b6' },
                     ].map((s, i) => (
                         <div key={i} style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                            background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`,
                             borderRadius: 12, padding: '20px 16px', textAlign: 'center'
                         }}>
                             <div style={{ color: s.color, marginBottom: 8 }}>{s.icon}</div>
@@ -86,11 +90,11 @@ export default function LearningPath() {
                         const badge = getMasteryBadge(progress.masteryPercent);
                         return (
                             <div key={topic.id} onClick={() => navigate(`/learning-path/${topic.id}`)} style={{
-                                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
+                                background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`, borderRadius: 16,
                                 padding: 28, cursor: 'pointer', transition: 'all 0.3s', position: 'relative', overflow: 'hidden'
                             }}
                                 onMouseEnter={e => { e.currentTarget.style.borderColor = `${topic.color}40`; e.currentTarget.style.transform = 'translateY(-4px)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                 {/* Glow */}
                                 <div style={{
                                     position: 'absolute', top: -40, right: -40, width: 120, height: 120, borderRadius: '50%',
@@ -101,7 +105,7 @@ export default function LearningPath() {
                                     <div>
                                         <div style={{ fontSize: 32, marginBottom: 8 }}>{ICON_MAP[topic.icon] || '📖'}</div>
                                         <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{topic.title}</h3>
-                                        <p style={{ fontSize: 13, color: '#71717a', margin: 0, lineHeight: 1.5, maxWidth: 220 }}>{topic.description}</p>
+                                        <p style={{ fontSize: 13, color: isLight ? '#64748b' : '#71717a', margin: 0, lineHeight: 1.5, maxWidth: 220 }}>{topic.description}</p>
                                     </div>
                                     <ProgressRing percent={progress.masteryPercent} color={topic.color} />
                                 </div>
@@ -116,8 +120,8 @@ export default function LearningPath() {
                                     ].map((step, i) => (
                                         <div key={i} style={{
                                             textAlign: 'center', padding: '8px 4px', borderRadius: 8,
-                                            background: step.done ? `${topic.color}15` : 'rgba(255,255,255,0.03)',
-                                            border: `1px solid ${step.done ? `${topic.color}30` : 'rgba(255,255,255,0.04)'}`
+                                            background: step.done ? `${topic.color}15` : (isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'),
+                                            border: `1px solid ${step.done ? `${topic.color}30` : (isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)')}`
                                         }}>
                                             <div style={{ fontSize: 11, marginBottom: 2 }}>{step.done ? '✅' : '○'}</div>
                                             <div style={{ fontSize: 10, color: step.done ? topic.color : '#525252', fontWeight: 600 }}>{step.label}</div>
@@ -153,8 +157,8 @@ export default function LearningPath() {
                         { step: '4', title: 'Practice', desc: 'Progressive difficulty with hints', icon: <Target size={20} />, color: '#facc15' },
                     ].map(m => (
                         <div key={m.step} style={{
-                            padding: 24, borderRadius: 16, background: 'rgba(255,255,255,0.02)',
-                            border: '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
+                            padding: 24, borderRadius: 16, background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.02)',
+                            border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`, textAlign: 'center'
                         }}>
                             <div style={{
                                 width: 44, height: 44, borderRadius: 12, margin: '0 auto 12px',

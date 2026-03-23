@@ -1,10 +1,32 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, Clock, ArrowUpDown } from 'lucide-react';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function SQLResultsPanel({ results, expectedOutput, status, executionTime }) {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const [activeTab, setActiveTab] = useState('results');
     const [sortCol, setSortCol] = useState(null);
     const [sortDir, setSortDir] = useState('asc');
+
+    const c = {
+        bg: isLight ? '#fff' : '#0d0d1f',
+        text: isLight ? '#1f2937' : '#e2e8f0',
+        muted: isLight ? '#6b7280' : 'rgba(255,255,255,0.4)',
+        mutedSoft: isLight ? '#9ca3af' : 'rgba(255,255,255,0.3)',
+        mutedSofter: isLight ? '#d1d5db' : 'rgba(255,255,255,0.25)',
+        border: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.06)',
+        borderLight: isLight ? '#f3f4f6' : 'rgba(255,255,255,0.03)',
+        headerBg: isLight ? '#fff' : '#0d0d1f',
+        headerText: isLight ? '#4b5563' : 'rgba(255,255,255,0.6)',
+        headerBorder: isLight ? '#e5e7eb' : 'rgba(255,255,255,0.08)',
+        stripeBg: isLight ? '#f9fafb' : 'rgba(255,255,255,0.02)',
+        nullColor: isLight ? '#d1d5db' : 'rgba(255,255,255,0.25)',
+        activeTab: isLight ? '#1f2937' : '#e2e8f0',
+        inactiveTab: isLight ? '#9ca3af' : 'rgba(255,255,255,0.4)',
+        tabBorder: '#8b5cf6',
+        emptyColor: isLight ? '#9ca3af' : 'rgba(255,255,255,0.3)',
+    };
 
     const tabs = [
         { id: 'results', label: 'Results' },
@@ -49,7 +71,7 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
 
     const renderTable = (data) => {
         if (!data || !data.columns || !data.rows) {
-            return <div style={{ padding: 24, textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>Run your query to see results</div>;
+            return <div style={{ padding: 24, textAlign: 'center', color: c.emptyColor, fontSize: 13 }}>Run your query to see results</div>;
         }
         const sorted = sortData(data.rows, data.columns);
         return (
@@ -61,7 +83,7 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
                                 <th
                                     key={col}
                                     onClick={() => handleSort(col)}
-                                    style={{ position: 'sticky', top: 0, padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: 'rgba(255,255,255,0.6)', background: '#0d0d1f', borderBottom: '1px solid rgba(255,255,255,0.08)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', fontFamily: 'monospace', fontSize: 11 }}
+                                    style={{ position: 'sticky', top: 0, padding: '6px 10px', textAlign: 'left', fontWeight: 600, color: c.headerText, background: c.headerBg, borderBottom: `1px solid ${c.headerBorder}`, whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none', fontFamily: 'monospace', fontSize: 11 }}
                                 >
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                                         {col}
@@ -73,9 +95,9 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
                     </thead>
                     <tbody>
                         {sorted.map((row, i) => (
-                            <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)', transition: 'background 0.1s' }}>
+                            <tr key={i} style={{ background: i % 2 === 0 ? 'transparent' : c.stripeBg, transition: 'background 0.1s' }}>
                                 {row.map((val, j) => (
-                                    <td key={j} style={{ padding: '4px 10px', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', color: val === null ? 'rgba(255,255,255,0.25)' : '#e2e8f0', fontStyle: val === null ? 'italic' : 'normal', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <td key={j} style={{ padding: '4px 10px', fontFamily: 'monospace', fontSize: 11, whiteSpace: 'nowrap', color: val === null ? c.nullColor : c.text, fontStyle: val === null ? 'italic' : 'normal', borderBottom: `1px solid ${c.borderLight}` }}>
                                         {val === null ? 'NULL' : String(val)}
                                     </td>
                                 ))}
@@ -90,20 +112,20 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
     const currentData = activeTab === 'results' ? results : expectedOutput;
 
     return (
-        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: '#0d0d1f', color: '#e2e8f0' }}>
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', background: c.bg, color: c.text }}>
             {/* Tabs + status */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', padding: '0 12px', borderBottom: `1px solid ${c.border}`, flexShrink: 0 }}>
                 {tabs.map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
-                        style={{ padding: '8px 14px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? '2px solid #8b5cf6' : '2px solid transparent', color: activeTab === tab.id ? '#e2e8f0' : 'rgba(255,255,255,0.4)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
+                        style={{ padding: '8px 14px', background: 'none', border: 'none', borderBottom: activeTab === tab.id ? `2px solid ${c.tabBorder}` : '2px solid transparent', color: activeTab === tab.id ? c.activeTab : c.inactiveTab, fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}
                     >
                         {tab.label}
                     </button>
                 ))}
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-                    {executionTime && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>{currentData?.rows?.length || 0} rows • {executionTime}ms</span>}
+                    {executionTime && <span style={{ fontSize: 11, color: c.mutedSoft }}>{currentData?.rows?.length || 0} rows • {executionTime}ms</span>}
                     {statusBadge()}
                 </div>
             </div>

@@ -145,15 +145,15 @@ export default function DSAPatterns() {
                     <h1 className={`text-4xl font-bold bg-clip-text text-transparent mb-4 ${isLight ? 'bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600' : 'bg-gradient-to-r from-white via-blue-100 to-white'}`}>
                         Master the Patterns
                     </h1>
-                    <p className="text-zinc-400 max-w-lg mx-auto">
-                        A structured roadmap to ace your coding interviews. Master 15 key patterns to solve 95% of questions.
+                    <p className={`max-w-lg mx-auto ${isLight ? 'text-slate-500' : 'text-zinc-400'}`}>
+                        A structured roadmap to ace your coding interviews. Master key patterns to solve 95% of questions.
                     </p>
                 </div>
 
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 gap-4">
                         <Loader className="animate-spin text-purple-500" size={32} />
-                        <p className="text-zinc-500">Loading your roadmap...</p>
+                        <p className={isLight ? 'text-slate-500' : 'text-zinc-500'}>Loading your roadmap...</p>
                     </div>
                 ) : (
                     <div className="space-y-4">

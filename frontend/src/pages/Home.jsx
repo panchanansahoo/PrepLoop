@@ -407,7 +407,7 @@ function JobUpdatesPreview() {
           <h2 style={{ fontSize: '40px', marginBottom: '16px', fontWeight: 'bold' }}>
             Latest <span className="text-gradient">Career Opportunities</span>
           </h2>
-          <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '17px', maxWidth: '580px', margin: '0 auto', lineHeight: '1.65' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '17px', maxWidth: '580px', margin: '0 auto', lineHeight: '1.65' }}>
             Fresher jobs, internships, off-campus drives & company hiring announcements — auto-fetched from top job portals
           </p>
         </div>
@@ -427,8 +427,8 @@ function JobUpdatesPreview() {
 
               return (
                 <div key={job.id || i} style={{
-                  background: 'rgba(255, 255, 255, 0.025)',
-                  border: '1px solid rgba(255, 255, 255, 0.06)',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border)',
                   borderRadius: '20px',
                   padding: '24px',
                   backdropFilter: 'blur(20px)',
@@ -438,15 +438,15 @@ function JobUpdatesPreview() {
                   overflow: 'hidden',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.2)';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)';
+                  e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
+                  e.currentTarget.style.background = 'var(--bg-card-hover, rgba(255, 255, 255, 0.04))';
                   e.currentTarget.style.transform = 'translateY(-4px)';
                   e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.05)';
                   e.currentTarget.querySelector('.card-accent').style.opacity = '1';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.025)';
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.background = 'var(--bg-card)';
                   e.currentTarget.style.transform = 'translateY(0)';
                   e.currentTarget.style.boxShadow = 'none';
                   e.currentTarget.querySelector('.card-accent').style.opacity = '0';
@@ -464,7 +464,7 @@ function JobUpdatesPreview() {
                     {job.logo_url ? (
                       <img src={job.logo_url} alt={job.company} style={{
                         width: '48px', height: '48px', borderRadius: '14px', objectFit: 'cover',
-                        border: '1px solid rgba(255,255,255,0.08)', flexShrink: 0
+                        border: '1px solid var(--border)', flexShrink: 0
                       }} />
                     ) : (
                       <div style={{
@@ -472,14 +472,14 @@ function JobUpdatesPreview() {
                         background: grad.bg, color: grad.color,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                         fontSize: '18px', fontWeight: '800',
-                        border: '1px solid rgba(255,255,255,0.06)'
+                        border: '1px solid var(--border)'
                       }}>
                         {initials}
                       </div>
                     )}
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <h3 style={{
-                        fontSize: '16px', fontWeight: '700', color: '#fff', margin: '0 0 3px', lineHeight: '1.35',
+                        fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 3px', lineHeight: '1.35',
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
                       }}>{job.title}</h3>
                       <span style={{ fontSize: '13px', color: '#a78bfa', fontWeight: '500' }}>{job.company}</span>
@@ -492,8 +492,8 @@ function JobUpdatesPreview() {
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '5px',
                         padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
-                        color: 'rgba(255,255,255,0.55)',
-                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)'
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-card)', border: '1px solid var(--border)'
                       }}>
                         <MapPin size={12} /> {job.location}
                       </span>
@@ -510,8 +510,8 @@ function JobUpdatesPreview() {
                       <span style={{
                         display: 'inline-flex', alignItems: 'center', gap: '5px',
                         padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: '500',
-                        color: 'rgba(255,255,255,0.55)',
-                        background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)'
+                        color: 'var(--text-secondary)',
+                        background: 'var(--bg-card)', border: '1px solid var(--border)'
                       }}>
                         <Clock size={12} /> {posted}
                       </span>
@@ -520,7 +520,7 @@ function JobUpdatesPreview() {
 
                   {/* Description */}
                   <p style={{
-                    fontSize: '13px', lineHeight: '1.65', color: 'rgba(255,255,255,0.35)',
+                    fontSize: '13px', lineHeight: '1.65', color: 'var(--text-muted)',
                     margin: '0 0 18px',
                     display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
                   }}>
@@ -530,7 +530,7 @@ function JobUpdatesPreview() {
                   {/* Footer */}
                   <div style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.04)'
+                    paddingTop: '16px', borderTop: '1px solid var(--border)'
                   }}>
                     {(job.source === 'adzuna' || job.source === 'remotive' || job.source === 'jsearch') && (
                       <span style={{
@@ -573,12 +573,12 @@ function JobUpdatesPreview() {
         ) : (
           <div style={{
             textAlign: 'center', padding: '48px 24px',
-            background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)',
+            background: 'var(--bg-card)', border: '1px solid var(--border)',
             borderRadius: '20px', marginBottom: '40px'
           }}>
-            <Briefcase size={40} style={{ color: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
-            <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '16px', marginBottom: '4px' }}>No job listings yet</p>
-            <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>Check back soon for the latest opportunities!</p>
+            <Briefcase size={40} style={{ color: 'var(--text-muted)', marginBottom: '12px' }} />
+            <p style={{ color: 'var(--text-secondary)', fontSize: '16px', marginBottom: '4px' }}>No job listings yet</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Check back soon for the latest opportunities!</p>
           </div>
         )}
 

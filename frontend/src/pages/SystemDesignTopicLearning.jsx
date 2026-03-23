@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Brain, Lightbulb, Target, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';
 import { SD_TOPICS } from '../data/systemDesignData';
@@ -12,14 +13,14 @@ const tabs = [
     { id: 'tricks', label: 'Tricks & Pitfalls', icon: Target, color: '#ef4444' },
 ];
 
-function TheorySection({ topic }) {
+function TheorySection({ topic, isLight }) {
     const theory = SD_THEORY[topic.id];
     if (!theory) return <div style={{ color: 'var(--zinc-500)', padding: '32px', textAlign: 'center' }}>Theory content coming soon for this topic.</div>;
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
             {theory.sections.map((section, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '24px' }}>
-                    <h3 style={{ color: '#fff', fontSize: '18px', marginBottom: '16px', fontWeight: 600 }}>{section.title}</h3>
+                <div key={i} style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', padding: '24px' }}>
+                    <h3 style={{ color: isLight ? '#1e293b' : '#fff', fontSize: '18px', marginBottom: '16px', fontWeight: 600 }}>{section.title}</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: section.visual ? '20px' : 0 }}>
                         {section.steps.map((step, j) => (
                             <div key={j} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -29,18 +30,18 @@ function TheorySection({ topic }) {
                         ))}
                     </div>
                     {section.visual && (
-                        <div style={{ background: '#0a0a0a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '20px', overflow: 'auto' }}>
-                            <pre style={{ color: '#d4d4d8', fontFamily: '"Fira Code", "JetBrains Mono", monospace', fontSize: '12px', lineHeight: '1.5', margin: 0, whiteSpace: 'pre' }}>{section.visual}</pre>
+                        <div style={{ background: isLight ? '#f1f5f9' : '#0a0a0a', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', padding: '20px', overflow: 'auto' }}>
+                            <pre style={{ color: isLight ? '#334155' : '#d4d4d8', fontFamily: '"Fira Code", "JetBrains Mono", monospace', fontSize: '12px', lineHeight: '1.5', margin: 0, whiteSpace: 'pre' }}>{section.visual}</pre>
                         </div>
                     )}
                     {section.code && (
                         <div style={{ marginTop: '16px' }}>
-                            <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', overflow: 'hidden' }}>
-                                <div style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ background: isLight ? '#f8fafc' : '#111', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '10px', overflow: 'hidden' }}>
+                                <div style={{ padding: '10px 16px', borderBottom: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <span style={{ color: '#60a5fa', fontSize: '12px', fontWeight: 600 }}>{section.code.title}</span>
                                     <span style={{ color: 'var(--zinc-600)', fontSize: '11px' }}>{section.code.language}</span>
                                 </div>
-                                <pre style={{ padding: '16px', color: '#d4d4d8', fontFamily: '"Fira Code", "JetBrains Mono", monospace', fontSize: '12px', lineHeight: '1.6', margin: 0, overflow: 'auto' }}>{section.code.code}</pre>
+                                <pre style={{ padding: '16px', color: isLight ? '#334155' : '#d4d4d8', fontFamily: '"Fira Code", "JetBrains Mono", monospace', fontSize: '12px', lineHeight: '1.6', margin: 0, overflow: 'auto' }}>{section.code.code}</pre>
                             </div>
                         </div>
                     )}
@@ -50,12 +51,12 @@ function TheorySection({ topic }) {
     );
 }
 
-function ConceptsTab({ topic }) {
+function ConceptsTab({ topic, isLight }) {
     const [openIdx, setOpenIdx] = useState(0);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {topic.concepts.map((concept, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden' }}>
+                <div key={i} style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', overflow: 'hidden' }}>
                     <button onClick={() => setOpenIdx(openIdx === i ? -1 : i)} style={{
                         width: '100%', padding: '16px 20px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px',
                         background: 'transparent', border: 'none'
@@ -90,17 +91,17 @@ function ConceptsTab({ topic }) {
     );
 }
 
-function ThinkingTab({ topic }) {
+function ThinkingTab({ topic, isLight }) {
     return (
         <div>
-            <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+            <div style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`, borderRadius: '14px', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'}` }}>
                     <div style={{ padding: '14px 20px', fontWeight: 700, color: '#f59e0b', fontSize: '13px' }}>WHEN YOU SEE…</div>
                     <div style={{ padding: '14px 20px', fontWeight: 700, color: '#10b981', fontSize: '13px' }}>THINK…</div>
                 </div>
                 {topic.thinkingFramework.map((item, i) => (
-                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: i < topic.thinkingFramework.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                        <div style={{ padding: '14px 20px', color: 'var(--zinc-300)', fontSize: '14px', lineHeight: '1.5', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{item.condition}</div>
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: i < topic.thinkingFramework.length - 1 ? `1px solid ${isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}` : 'none' }}>
+                        <div style={{ padding: '14px 20px', color: 'var(--zinc-300)', fontSize: '14px', lineHeight: '1.5', borderRight: `1px solid ${isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)'}` }}>{item.condition}</div>
                         <div style={{ padding: '14px 20px', color: 'var(--zinc-300)', fontSize: '14px', lineHeight: '1.5' }}>{item.action}</div>
                     </div>
                 ))}
@@ -109,7 +110,7 @@ function ThinkingTab({ topic }) {
     );
 }
 
-function TricksTab({ topic }) {
+function TricksTab({ topic, isLight }) {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {topic.tricks && topic.tricks.length > 0 && (
@@ -149,7 +150,7 @@ function TricksTab({ topic }) {
                                 background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.2)',
                                 borderRadius: '12px', padding: '16px'
                             }}>
-                                <div style={{ color: '#fff', fontWeight: 600, fontSize: '14px', marginBottom: '6px' }}>{design.title}</div>
+                                <div style={{ color: isLight ? '#1e293b' : '#fff', fontWeight: 600, fontSize: '14px', marginBottom: '6px' }}>{design.title}</div>
                                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '6px', background: design.difficulty === 'Easy' ? 'rgba(52,211,153,0.15)' : design.difficulty === 'Medium' ? 'rgba(251,191,36,0.15)' : 'rgba(239,68,68,0.15)', color: design.difficulty === 'Easy' ? '#34d399' : design.difficulty === 'Medium' ? '#fbbf24' : '#f87171' }}>{design.difficulty}</span>
                                     <span style={{ color: 'var(--zinc-500)', fontSize: '12px' }}>{design.focus}</span>
@@ -166,13 +167,15 @@ function TricksTab({ topic }) {
 export default function SystemDesignTopicLearning() {
     const { topicId } = useParams();
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const [activeTab, setActiveTab] = useState('theory');
     const topic = useMemo(() => SD_TOPICS.find(t => t.id === topicId), [topicId]);
     const progress = useMemo(() => getSDTopicProgress(topicId), [topicId]);
 
     if (!topic) return (
         <div style={{ maxWidth: '900px', margin: '0 auto', padding: '80px 20px', textAlign: 'center' }}>
-            <h2 style={{ color: '#fff' }}>Topic not found</h2>
+            <h2 style={{ color: isLight ? '#1e293b' : '#fff' }}>Topic not found</h2>
             <button onClick={() => navigate('/system-design')} style={{ color: '#60a5fa', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px', marginTop: '16px' }}>← Back to System Design Path</button>
         </div>
     );
@@ -193,7 +196,7 @@ export default function SystemDesignTopicLearning() {
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
                 <span style={{ fontSize: '32px' }}>{topic.icon}</span>
-                <h1 style={{ color: '#fff', fontSize: '26px', fontWeight: 700, margin: 0 }}>{topic.title}</h1>
+                <h1 style={{ color: isLight ? '#1e293b' : '#fff', fontSize: '26px', fontWeight: 700, margin: 0 }}>{topic.title}</h1>
             </div>
             <p style={{ color: 'var(--zinc-400)', fontSize: '14px', marginBottom: '28px' }}>{topic.description}</p>
 
@@ -206,7 +209,7 @@ export default function SystemDesignTopicLearning() {
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                             display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px', borderRadius: '10px', cursor: 'pointer',
                             background: active ? `${tab.color}18` : 'transparent',
-                            border: `1px solid ${active ? `${tab.color}44` : 'rgba(255,255,255,0.06)'}`,
+                            border: `1px solid ${active ? `${tab.color}44` : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)')}`,  
                             color: active ? tab.color : 'var(--zinc-400)', fontSize: '13px', fontWeight: active ? 600 : 400,
                             whiteSpace: 'nowrap', transition: 'all 0.2s'
                         }}>
@@ -217,10 +220,10 @@ export default function SystemDesignTopicLearning() {
             </div>
 
             {/* Tab Content */}
-            {activeTab === 'theory' && <TheorySection topic={topic} />}
-            {activeTab === 'concepts' && <ConceptsTab topic={topic} />}
-            {activeTab === 'thinking' && <ThinkingTab topic={topic} />}
-            {activeTab === 'tricks' && <TricksTab topic={topic} />}
+            {activeTab === 'theory' && <TheorySection topic={topic} isLight={isLight} />}
+            {activeTab === 'concepts' && <ConceptsTab topic={topic} isLight={isLight} />}
+            {activeTab === 'thinking' && <ThinkingTab topic={topic} isLight={isLight} />}
+            {activeTab === 'tricks' && <TricksTab topic={topic} isLight={isLight} />}
 
             {/* Mark Complete */}
             {doneField && (

@@ -307,7 +307,7 @@ export default function ProblemExplorer() {
 
     return (
         <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0a0a0a] text-white'} selection:bg-purple-500/30`} style={{ scrollBehavior: 'smooth' }}>
-            <div className="fixed inset-0 pointer-events-none" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.10), transparent 70%)' }} />
+            <div className="fixed inset-0 pointer-events-none" style={{ background: isLight ? 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.06), transparent 70%)' : 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.10), transparent 70%)' }} />
             <style>{`
                 @keyframes shimmer-border { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
                 @keyframes pulse-glow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
@@ -325,7 +325,7 @@ export default function ProblemExplorer() {
                 }} onClick={() => setActiveNote(null)}>
                     <div onClick={e => e.stopPropagation()} style={{
                         width: 440, padding: 24, borderRadius: 16,
-                        background: '#1a1a2e', border: '1px solid rgba(255,255,255,0.1)',
+                        background: isLight ? '#fff' : '#1a1a2e', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.1)',
                         boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -334,10 +334,10 @@ export default function ProblemExplorer() {
                                 Problem Notes
                             </div>
                             <button onClick={() => setActiveNote(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-                                <X size={18} color="rgba(255,255,255,0.4)" />
+                                <X size={18} color={isLight ? '#94a3b8' : 'rgba(255,255,255,0.4)'} />
                             </button>
                         </div>
-                        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, color: isLight ? '#64748b' : 'rgba(255,255,255,0.5)', marginBottom: 12 }}>
                             {PROBLEMS.find(p => p.id === activeNote)?.title}
                         </div>
                         <textarea
@@ -346,8 +346,8 @@ export default function ProblemExplorer() {
                             placeholder="Add your notes, approach, key insights..."
                             style={{
                                 width: '100%', minHeight: 120, padding: 12, borderRadius: 10,
-                                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                                color: '#fff', fontSize: 13, resize: 'vertical', outline: 'none',
+                                background: isLight ? '#f8fafc' : 'rgba(255,255,255,0.04)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
+                                color: isLight ? '#1e293b' : '#fff', fontSize: 13, resize: 'vertical', outline: 'none',
                                 fontFamily: 'inherit', lineHeight: 1.6,
                             }}
                             autoFocus
@@ -379,15 +379,15 @@ export default function ProblemExplorer() {
                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                             textShadow: 'none',
                         }}>Problem Explorer</h1>
-                        <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <p style={{ color: isLight ? '#64748b' : 'rgba(255,255,255,0.35)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#6ee7b7', animation: 'pulse-glow 2s ease-in-out infinite', boxShadow: '0 0 8px rgba(110,231,183,0.4)' }} />
                             {PROBLEMS.length} original problems • {TOPICS.length} topics • {COMPANIES.length} companies
                         </p>
                     </div>
                     <button onClick={pickRandom} style={{
                         display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 12,
-                        background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(110,231,183,0.1))',
-                        border: '1px solid rgba(139,92,246,0.25)', color: '#e9d5ff',
+                        background: isLight ? 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(110,231,183,0.08))' : 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(110,231,183,0.1))',
+                        border: isLight ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(139,92,246,0.25)', color: isLight ? '#7c3aed' : '#e9d5ff',
                         cursor: 'pointer', fontWeight: 700, fontSize: 13, transition: 'all 0.3s ease',
                         boxShadow: '0 0 15px rgba(139,92,246,0.08)',
                     }}
@@ -415,7 +415,7 @@ export default function ProblemExplorer() {
                         >
                             <div style={{ width: 8, height: 8, borderRadius: '50%', background: diffColor(d), boxShadow: `0 0 6px ${diffColor(d)}60` }} />
                             <span style={{ fontSize: 13, color: diffColor(d), fontWeight: 700 }}>{diffCounts[d]}</span>
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>{d}</span>
+                            <span style={{ fontSize: 12, color: isLight ? '#475569' : 'rgba(255,255,255,0.4)' }}>{d}</span>
                         </div>
                     ))}
 
@@ -433,7 +433,7 @@ export default function ProblemExplorer() {
                     >
                         <div style={{ position: 'relative', width: 28, height: 28 }}>
                             <svg width="28" height="28" viewBox="0 0 28 28" style={{ transform: 'rotate(-90deg)' }}>
-                                <circle cx="14" cy="14" r="11" stroke="rgba(255,255,255,0.06)" strokeWidth="3" fill="none" />
+                                <circle cx="14" cy="14" r="11" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth="3" fill="none" />
                                 <circle cx="14" cy="14" r="11" stroke="url(#progressGrad)" strokeWidth="3" fill="none"
                                     strokeDasharray={`${2 * Math.PI * 11}`}
                                     strokeDashoffset={`${2 * Math.PI * 11 * (1 - progressPercent / 100)}`}
@@ -446,32 +446,32 @@ export default function ProblemExplorer() {
                         </div>
                         <div>
                             <span style={{ fontSize: 13, color: '#a78bfa', fontWeight: 700 }}>{solvedCount}</span>
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)' }}>/{totalCount}</span>
+                            <span style={{ fontSize: 12, color: isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>/{totalCount}</span>
                         </div>
                     </div>
 
                     {/* Bookmarks Toggle */}
                     <button onClick={() => setShowBookmarksOnly(b => !b)} style={{
                         padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                        background: showBookmarksOnly ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: showBookmarksOnly ? '1px solid rgba(251,191,36,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                        background: showBookmarksOnly ? 'rgba(251,191,36,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        border: showBookmarksOnly ? '1px solid rgba(251,191,36,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
                         display: 'flex', alignItems: 'center', gap: 6,
                     }}>
-                        <Bookmark size={14} color={showBookmarksOnly ? '#fbbf24' : 'rgba(255,255,255,0.4)'} fill={showBookmarksOnly ? '#fbbf24' : 'none'} />
-                        <span style={{ fontSize: 13, color: showBookmarksOnly ? '#fbbf24' : 'rgba(255,255,255,0.4)', fontWeight: 700 }}>{bookmarks.size}</span>
-                        <span style={{ fontSize: 12, color: showBookmarksOnly ? '#fbbf24' : 'rgba(255,255,255,0.3)' }}>Saved</span>
+                        <Bookmark size={14} color={showBookmarksOnly ? '#fbbf24' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} fill={showBookmarksOnly ? '#fbbf24' : 'none'} />
+                        <span style={{ fontSize: 13, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#475569' : 'rgba(255,255,255,0.4)', fontWeight: 700 }}>{bookmarks.size}</span>
+                        <span style={{ fontSize: 12, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Saved</span>
                     </button>
 
                     {/* Streak Badge */}
                     <div style={{
                         padding: '8px 14px', borderRadius: 10,
-                        background: streak > 0 ? 'rgba(251,146,60,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: streak > 0 ? '1px solid rgba(251,146,60,0.25)' : '1px solid rgba(255,255,255,0.08)',
+                        background: streak > 0 ? 'rgba(251,146,60,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        border: streak > 0 ? '1px solid rgba(251,146,60,0.25)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
                         display: 'flex', alignItems: 'center', gap: 6,
                     }}>
-                        <Flame size={14} color={streak > 0 ? '#fb923c' : 'rgba(255,255,255,0.3)'} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: streak > 0 ? '#fb923c' : 'rgba(255,255,255,0.3)' }}>{streak}</span>
-                        <span style={{ fontSize: 11, color: streak > 0 ? 'rgba(251,146,60,0.7)' : 'rgba(255,255,255,0.25)' }}>Streak</span>
+                        <Flame size={14} color={streak > 0 ? '#fb923c' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)'} />
+                        <span style={{ fontSize: 13, fontWeight: 700, color: streak > 0 ? '#fb923c' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)' }}>{streak}</span>
+                        <span style={{ fontSize: 11, color: streak > 0 ? 'rgba(251,146,60,0.7)' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.25)' }}>Streak</span>
                     </div>
 
                     {/* Weekly Goal */}
@@ -484,7 +484,7 @@ export default function ProblemExplorer() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <span style={{ fontSize: 10, color: 'rgba(103,232,249,0.7)' }}>Week Goal</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <div style={{ width: 50, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                <div style={{ width: 50, height: 4, borderRadius: 2, background: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                                     <div style={{ width: `${Math.min(100, (weekSolved / weeklyGoal) * 100)}%`, height: '100%', background: weekSolved >= weeklyGoal ? '#6ee7b7' : '#67e8f9', borderRadius: 2, transition: 'width 0.3s' }} />
                                 </div>
                                 <span style={{ fontSize: 10, fontWeight: 700, color: weekSolved >= weeklyGoal ? '#6ee7b7' : '#67e8f9' }}>{weekSolved}/{weeklyGoal}</span>
@@ -493,16 +493,16 @@ export default function ProblemExplorer() {
                         {showGoalEdit && (
                             <div onClick={e => e.stopPropagation()} style={{
                                 position: 'absolute', top: '110%', left: 0, zIndex: 20, padding: 12, borderRadius: 10,
-                                background: 'rgba(15,15,25,0.97)', border: '1px solid rgba(103,232,249,0.2)',
-                                display: 'flex', alignItems: 'center', gap: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                                background: isLight ? '#fff' : 'rgba(15,15,25,0.97)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(103,232,249,0.2)',
+                                display: 'flex', alignItems: 'center', gap: 6, boxShadow: isLight ? '0 8px 24px rgba(0,0,0,0.1)' : '0 8px 24px rgba(0,0,0,0.5)',
                             }}>
-                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Goal:</span>
+                                <span style={{ fontSize: 11, color: isLight ? '#64748b' : 'rgba(255,255,255,0.4)' }}>Goal:</span>
                                 {[3, 5, 7, 10, 15].map(g => (
                                     <button key={g} onClick={() => { setWeeklyGoal(g); localStorage.setItem('cl_weekly_goal', String(g)); setShowGoalEdit(false); }} style={{
                                         padding: '3px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                                        background: weeklyGoal === g ? 'rgba(103,232,249,0.2)' : 'rgba(255,255,255,0.04)',
-                                        border: weeklyGoal === g ? '1px solid rgba(103,232,249,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                                        color: weeklyGoal === g ? '#67e8f9' : 'rgba(255,255,255,0.4)',
+                                        background: weeklyGoal === g ? 'rgba(103,232,249,0.2)' : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                                        border: weeklyGoal === g ? '1px solid rgba(103,232,249,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.06)',
+                                        color: weeklyGoal === g ? (isLight ? '#0891b2' : '#67e8f9') : isLight ? '#475569' : 'rgba(255,255,255,0.4)',
                                     }}>{g}/wk</button>
                                 ))}
                             </div>
@@ -512,24 +512,24 @@ export default function ProblemExplorer() {
                     {/* Topic Mastery Toggle */}
                     <button onClick={() => setShowTopicMastery(t => !t)} style={{
                         padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                        background: showTopicMastery ? 'rgba(103,232,249,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: showTopicMastery ? '1px solid rgba(103,232,249,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                        background: showTopicMastery ? 'rgba(103,232,249,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        border: showTopicMastery ? '1px solid rgba(103,232,249,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
                         display: 'flex', alignItems: 'center', gap: 6,
                     }}>
-                        <BarChart2 size={14} color={showTopicMastery ? '#67e8f9' : 'rgba(255,255,255,0.4)'} />
-                        <span style={{ fontSize: 12, color: showTopicMastery ? '#67e8f9' : 'rgba(255,255,255,0.3)' }}>Mastery</span>
+                        <BarChart2 size={14} color={showTopicMastery ? '#67e8f9' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} />
+                        <span style={{ fontSize: 12, color: showTopicMastery ? (isLight ? '#0891b2' : '#67e8f9') : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Mastery</span>
                     </button>
 
                     {/* Recently Viewed Toggle */}
                     {recentProblems.length > 0 && (
                         <button onClick={() => setShowRecentlyViewed(r => !r)} style={{
                             padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                            background: showRecentlyViewed ? 'rgba(139,92,246,0.12)' : 'rgba(255,255,255,0.03)',
-                            border: showRecentlyViewed ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.08)',
+                            background: showRecentlyViewed ? 'rgba(139,92,246,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                            border: showRecentlyViewed ? '1px solid rgba(139,92,246,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
                             display: 'flex', alignItems: 'center', gap: 6,
                         }}>
-                            <History size={14} color={showRecentlyViewed ? '#a78bfa' : 'rgba(255,255,255,0.4)'} />
-                            <span style={{ fontSize: 12, color: showRecentlyViewed ? '#a78bfa' : 'rgba(255,255,255,0.3)' }}>Recent</span>
+                            <History size={14} color={showRecentlyViewed ? '#a78bfa' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} />
+                            <span style={{ fontSize: 12, color: showRecentlyViewed ? '#a78bfa' : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Recent</span>
                         </button>
                     )}
                 </div>
@@ -538,7 +538,7 @@ export default function ProblemExplorer() {
                 {showTopicMastery && (
                     <div style={{
                         marginBottom: 16, padding: 16, borderRadius: 14,
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(103,232,249,0.12)',
+                        background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(103,232,249,0.12)',
                     }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#67e8f9', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                             Topic Mastery
@@ -548,19 +548,19 @@ export default function ProblemExplorer() {
                                 <button key={tm.topic} onClick={() => { setSelectedTopics([tm.topic]); setShowTopicMastery(false); }}
                                     style={{
                                         padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                                        background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
                                         textAlign: 'left', transition: 'background 0.15s',
                                     }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                                    onMouseEnter={e => e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.02)'}
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                        <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>{tm.topic}</span>
-                                        <span style={{ fontSize: 10, color: tm.percent === 100 ? '#6ee7b7' : 'rgba(255,255,255,0.35)', fontWeight: 700 }}>
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.65)' : 'rgba(255,255,255,0.6)' }}>{tm.topic}</span>
+                                        <span style={{ fontSize: 10, color: tm.percent === 100 ? '#6ee7b7' : isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)', fontWeight: 700 }}>
                                             {tm.solved}/{tm.total}
                                         </span>
                                     </div>
-                                    <div style={{ width: '100%', height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                    <div style={{ width: '100%', height: 4, borderRadius: 2, background: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
                                         <div style={{
                                             width: `${tm.percent}%`, height: '100%', borderRadius: 2,
                                             background: tm.percent === 100 ? '#6ee7b7' : tm.percent > 50 ? '#fbbf24' : '#a78bfa',
@@ -577,7 +577,7 @@ export default function ProblemExplorer() {
                 {showRecentlyViewed && recentProblems.length > 0 && (
                     <div style={{
                         marginBottom: 16, padding: 16, borderRadius: 14,
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.12)',
+                        background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(139,92,246,0.12)',
                     }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: '#a78bfa', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <History size={13} /> Recently Viewed
@@ -586,14 +586,14 @@ export default function ProblemExplorer() {
                             {recentProblems.map(p => (
                                 <button key={p.id} onClick={() => goToProblem(p.id)} style={{
                                     padding: '8px 14px', borderRadius: 8, cursor: 'pointer',
-                                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                                    background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                                     display: 'flex', alignItems: 'center', gap: 8, transition: 'background 0.15s',
                                 }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                                    onMouseEnter={e => e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)'}
                                 >
-                                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>#{p.id}</span>
-                                    <span style={{ fontSize: 12, fontWeight: 600, color: '#fff' }}>{p.title}</span>
+                                    <span style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)' }}>#{p.id}</span>
+                                    <span style={{ fontSize: 12, fontWeight: 600, color: isLight ? '#1e293b' : '#fff' }}>{p.title}</span>
                                     <span style={{
                                         fontSize: 9, fontWeight: 700, color: diffColor(p.difficulty),
                                         padding: '1px 5px', borderRadius: 3, background: `${diffColor(p.difficulty)}15`,
@@ -606,7 +606,7 @@ export default function ProblemExplorer() {
 
                 {/* Company Quick Prep */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Quick Prep:</span>
+                    <span style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Quick Prep:</span>
                     {QUICK_PREP_COMPANIES.map(cId => {
                         const comp = COMPANIES.find(c => c.id === cId);
                         if (!comp) return null;
@@ -614,9 +614,9 @@ export default function ProblemExplorer() {
                         return (
                             <button key={cId} onClick={() => isActive ? clearAll() : quickPrep(cId)} style={{
                                 padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                background: isActive ? `${comp.color}20` : 'rgba(255,255,255,0.03)',
-                                border: isActive ? `1px solid ${comp.color}40` : '1px solid rgba(255,255,255,0.06)',
-                                color: isActive ? comp.color : 'rgba(255,255,255,0.4)',
+                                background: isActive ? `${comp.color}20` : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)',
+                                border: isActive ? `1px solid ${comp.color}40` : isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.06)',
+                                color: isActive ? comp.color : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                 transition: 'all 0.15s',
                             }}>
                                 {comp.name}
@@ -663,14 +663,14 @@ export default function ProblemExplorer() {
                                 </span>
                             )}
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{dailyChallenge.title}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? '#1e293b' : '#fff' }}>{dailyChallenge.title}</div>
                     </div>
                     <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
                         {dailyChallenge.topics.slice(0, 2).map(t => (
                             <span key={t} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.1)', color: '#c084fc', fontWeight: 600 }}>{t}</span>
                         ))}
                     </div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                    <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
                         <Clock size={11} />{dailyChallenge.timeEstimate}m
                     </div>
                 </div>
@@ -679,22 +679,22 @@ export default function ProblemExplorer() {
                 <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
                     <div style={{
                         flex: 1, display: 'flex', alignItems: 'center', gap: 10,
-                        background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '10px 14px',
+                        border: isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.08)',
                     }}>
-                        <Search size={18} color="rgba(255,255,255,0.3)" />
+                        <Search size={18} color={isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'} />
                         <input
                             value={search} onChange={e => setSearch(e.target.value)}
                             placeholder="Search problems by name or topic..."
-                            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#fff', fontSize: 14 }}
+                            style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: isLight ? '#1e293b' : '#fff', fontSize: 14 }}
                         />
-                        {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} color="rgba(255,255,255,0.3)" /></button>}
+                        {search && <button onClick={() => setSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={16} color={isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'} /></button>}
                     </div>
                     <button onClick={() => setShowFilters(f => !f)} style={{
                         display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 12,
-                        background: showFilters ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.04)',
-                        border: showFilters ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.08)',
-                        color: showFilters ? '#c084fc' : 'rgba(255,255,255,0.5)',
+                        background: showFilters ? 'rgba(139,92,246,0.15)' : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                        border: showFilters ? '1px solid rgba(139,92,246,0.3)' : isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.08)',
+                        color: showFilters ? '#c084fc' : isLight ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.5)',
                         fontWeight: 600, fontSize: 13, cursor: 'pointer',
                     }}>
                         <SlidersHorizontal size={16} />
@@ -711,29 +711,29 @@ export default function ProblemExplorer() {
                 {/* Filters Panel */}
                 {showFilters && (
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: 22,
-                        border: '1px solid rgba(255,255,255,0.06)', marginBottom: 20,
+                        background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', borderRadius: 18, padding: 22,
+                        border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', marginBottom: 20,
                         display: 'flex', flexDirection: 'column', gap: 18,
-                        boxShadow: '0 4px 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)',
+                        boxShadow: isLight ? '0 4px 30px rgba(0,0,0,0.06)' : '0 4px 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.03)',
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>FILTERS</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: isLight ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.6)' }}>FILTERS</span>
                             {activeFilterCount > 0 && (
                                 <button onClick={clearAll} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}>Clear All</button>
                             )}
                         </div>
 
                         <div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Difficulty</div>
+                            <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Difficulty</div>
                             <div style={{ display: 'flex', gap: 8 }}>
                                 {DIFFICULTIES.map(d => {
                                     const active = selectedDifficulties.includes(d);
                                     return (
                                         <button key={d} onClick={() => toggleListItem(selectedDifficulties, setSelectedDifficulties, d)} style={{
                                             padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                                            background: active ? `${diffColor(d)}20` : 'rgba(255,255,255,0.04)',
-                                            border: active ? `1px solid ${diffColor(d)}40` : '1px solid rgba(255,255,255,0.06)',
-                                            color: active ? diffColor(d) : 'rgba(255,255,255,0.4)',
+                                            background: active ? `${diffColor(d)}20` : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                                            border: active ? `1px solid ${diffColor(d)}40` : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                                            color: active ? diffColor(d) : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                         }}>{d}</button>
                                     );
                                 })}
@@ -741,16 +741,16 @@ export default function ProblemExplorer() {
                         </div>
 
                         <div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Topics</div>
+                            <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Topics</div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 {TOPICS.map(t => {
                                     const active = selectedTopics.includes(t);
                                     return (
                                         <button key={t} onClick={() => toggleListItem(selectedTopics, setSelectedTopics, t)} style={{
                                             padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                            background: active ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.03)',
-                                            border: active ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.05)',
-                                            color: active ? '#c084fc' : 'rgba(255,255,255,0.4)',
+                                            background: active ? 'rgba(139,92,246,0.2)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                            border: active ? '1px solid rgba(139,92,246,0.4)' : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
+                                            color: active ? '#c084fc' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                         }}>{t}</button>
                                     );
                                 })}
@@ -758,16 +758,16 @@ export default function ProblemExplorer() {
                         </div>
 
                         <div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Companies</div>
+                            <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Companies</div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 {COMPANIES.map(c => {
                                     const active = selectedCompanies.includes(c.id);
                                     return (
                                         <button key={c.id} onClick={() => toggleListItem(selectedCompanies, setSelectedCompanies, c.id)} style={{
                                             padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                            background: active ? `${c.color}20` : 'rgba(255,255,255,0.03)',
-                                            border: active ? `1px solid ${c.color}40` : '1px solid rgba(255,255,255,0.05)',
-                                            color: active ? c.color : 'rgba(255,255,255,0.4)',
+                                            background: active ? `${c.color}20` : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                            border: active ? `1px solid ${c.color}40` : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
+                                            color: active ? c.color : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                         }}>{c.name}</button>
                                     );
                                 })}
@@ -775,7 +775,7 @@ export default function ProblemExplorer() {
                         </div>
 
                         <div>
-                            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Patterns / Algorithms</div>
+                            <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Patterns / Algorithms</div>
                             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 {PATTERNS.map(p => {
                                     const active = selectedPatterns.includes(p.id);
@@ -783,9 +783,9 @@ export default function ProblemExplorer() {
                                         <button key={p.id} onClick={() => toggleListItem(selectedPatterns, setSelectedPatterns, p.id)}
                                             title={p.desc} style={{
                                                 padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                                background: active ? `${p.color}20` : 'rgba(255,255,255,0.03)',
-                                                border: active ? `1px solid ${p.color}40` : '1px solid rgba(255,255,255,0.05)',
-                                                color: active ? p.color : 'rgba(255,255,255,0.4)',
+                                                background: active ? `${p.color}20` : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                                border: active ? `1px solid ${p.color}40` : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
+                                                color: active ? p.color : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                                 display: 'flex', alignItems: 'center', gap: 4,
                                             }}>
                                             <span style={{ fontSize: 12 }}>{p.icon}</span>{p.name}
@@ -797,32 +797,32 @@ export default function ProblemExplorer() {
 
                         <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
                             <div>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Frequency</div>
+                                <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Frequency</div>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     {FREQUENCIES.map(f => {
                                         const active = selectedFrequency === f;
                                         return (
                                             <button key={f} onClick={() => setSelectedFrequency(active ? '' : f)} style={{
                                                 padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600, textTransform: 'capitalize',
-                                                background: active ? `${freqColor(f)}20` : 'rgba(255,255,255,0.03)',
-                                                border: active ? `1px solid ${freqColor(f)}40` : '1px solid rgba(255,255,255,0.05)',
-                                                color: active ? freqColor(f) : 'rgba(255,255,255,0.4)',
+                                                background: active ? `${freqColor(f)}20` : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                                border: active ? `1px solid ${freqColor(f)}40` : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
+                                                color: active ? freqColor(f) : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                             }}>{f}</button>
                                         );
                                     })}
                                 </div>
                             </div>
                             <div>
-                                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Max Time (min)</div>
+                                <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>Max Time (min)</div>
                                 <div style={{ display: 'flex', gap: 6 }}>
                                     {TIME_ESTIMATES.map(t => {
                                         const active = maxTime === String(t);
                                         return (
                                             <button key={t} onClick={() => setMaxTime(active ? '' : String(t))} style={{
                                                 padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                                background: active ? 'rgba(103,232,249,0.15)' : 'rgba(255,255,255,0.03)',
-                                                border: active ? '1px solid rgba(103,232,249,0.4)' : '1px solid rgba(255,255,255,0.05)',
-                                                color: active ? '#67e8f9' : 'rgba(255,255,255,0.4)',
+                                                background: active ? 'rgba(103,232,249,0.15)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                                border: active ? '1px solid rgba(103,232,249,0.4)' : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.05)',
+                                                color: active ? '#67e8f9' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                             }}>{t}m</button>
                                         );
                                     })}
@@ -834,7 +834,7 @@ export default function ProblemExplorer() {
 
                 {/* Study Plan Presets */}
                 <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
                         <BookOpen size={12} /> Study Plans:
                     </span>
                     {STUDY_PLANS.map(plan => {
@@ -842,9 +842,9 @@ export default function ProblemExplorer() {
                         return (
                             <button key={plan.id} onClick={() => { setActivePlan(isActive ? null : plan.id); setViewMode('all'); setPage(1); }} title={plan.desc} style={{
                                 padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                background: isActive ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
-                                border: isActive ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(255,255,255,0.06)',
-                                color: isActive ? '#c084fc' : 'rgba(255,255,255,0.4)',
+                                background: isActive ? 'rgba(139,92,246,0.15)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                                border: isActive ? '1px solid rgba(139,92,246,0.3)' : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                                color: isActive ? '#c084fc' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                                 transition: 'all 0.15s',
                             }}>{plan.label}</button>
                         );
@@ -852,12 +852,12 @@ export default function ProblemExplorer() {
                 </div>
 
                 {/* ── View Toggle Tabs ── */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 3, border: '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 14, background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 3, border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', width: 'fit-content' }}>
                     <button onClick={() => setViewMode('patterns')} style={{
                         padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                         background: viewMode === 'patterns' ? 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(99,102,241,0.2))' : 'transparent',
                         border: viewMode === 'patterns' ? '1px solid rgba(139,92,246,0.35)' : '1px solid transparent',
-                        color: viewMode === 'patterns' ? '#c084fc' : 'rgba(255,255,255,0.4)',
+                        color: viewMode === 'patterns' ? '#c084fc' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                         transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6,
                     }}>
                         <BookOpen size={14} /> Pattern Based
@@ -866,7 +866,7 @@ export default function ProblemExplorer() {
                         padding: '8px 20px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer',
                         background: viewMode === 'all' ? 'linear-gradient(135deg, rgba(59,130,246,0.25), rgba(99,102,241,0.2))' : 'transparent',
                         border: viewMode === 'all' ? '1px solid rgba(59,130,246,0.35)' : '1px solid transparent',
-                        color: viewMode === 'all' ? '#93c5fd' : 'rgba(255,255,255,0.4)',
+                        color: viewMode === 'all' ? '#93c5fd' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                         transition: 'all 0.2s ease', display: 'flex', alignItems: 'center', gap: 6,
                     }}>
                         <List size={14} /> All Questions
@@ -874,7 +874,7 @@ export default function ProblemExplorer() {
                 </div>
 
                 {/* Results Count */}
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ fontSize: 13, color: isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
                     <span>Showing <span style={{ color: '#c084fc', fontWeight: 700 }}>{filteredProblems.length}</span> problems</span>
                     {solvedInFiltered > 0 && (
                         <span style={{ color: 'rgba(110,231,183,0.6)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 3 }}>
@@ -885,9 +885,9 @@ export default function ProblemExplorer() {
                     <button onClick={() => { setHideSolved(h => !h); setPage(1); }} style={{
                         marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5,
                         padding: '4px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                        background: hideSolved ? 'rgba(110,231,183,0.12)' : 'rgba(255,255,255,0.03)',
-                        border: hideSolved ? '1px solid rgba(110,231,183,0.25)' : '1px solid rgba(255,255,255,0.06)',
-                        color: hideSolved ? '#6ee7b7' : 'rgba(255,255,255,0.4)',
+                        background: hideSolved ? 'rgba(110,231,183,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        border: hideSolved ? '1px solid rgba(110,231,183,0.25)' : isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                        color: hideSolved ? '#6ee7b7' : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
                     }}>
                         {hideSolved ? <EyeOff size={12} /> : <Eye size={12} />}
                         {hideSolved ? 'Showing Unsolved' : 'Hide Solved'}
@@ -917,7 +917,7 @@ export default function ProblemExplorer() {
                             });
 
                             return (
-                                <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+                                <div style={{ borderRadius: 14, overflow: 'hidden', border: isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.06)', boxShadow: isLight ? '0 4px 24px rgba(0,0,0,0.06)' : '0 4px 24px rgba(0,0,0,0.2)' }}>
                                     {initialLoading ? (
                                         Array.from({ length: 8 }).map((_, i) => (
                                             <div key={i} style={{ padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.04)', display: 'flex', alignItems: 'center', gap: 14, animation: `fade-up-in 0.4s ease ${i * 0.07}s both` }}>
@@ -973,15 +973,15 @@ export default function ProblemExplorer() {
                                                         onClick={() => setExpandedCategories(prev => ({ ...prev, [category.id]: !prev[category.id] }))}
                                                         style={{
                                                             display: 'flex', alignItems: 'center', gap: 14, padding: '15px 20px',
-                                                            background: isCatExpanded ? 'rgba(139,92,246,0.05)' : catIdx % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent',
-                                                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                                            background: isCatExpanded ? 'rgba(139,92,246,0.05)' : catIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.015)') : 'transparent',
+                                                            borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                                                             cursor: 'pointer', transition: 'all 0.2s ease', userSelect: 'none',
                                                         }}
                                                         onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.07)'}
-                                                        onMouseLeave={e => e.currentTarget.style.background = isCatExpanded ? 'rgba(139,92,246,0.05)' : catIdx % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = isCatExpanded ? 'rgba(139,92,246,0.05)' : catIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.015)') : 'transparent'}
                                                     >
                                                         <div style={{ transition: 'transform 0.2s ease', transform: isCatExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                                            <ChevronRight size={16} color="rgba(255,255,255,0.4)" />
+                                                            <ChevronRight size={16} color={isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'} />
                                                         </div>
                                                         <div style={{
                                                             minWidth: 32, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -991,17 +991,17 @@ export default function ProblemExplorer() {
                                                         }}>
                                                             {ROMAN[catIdx] || catIdx + 1}
                                                         </div>
-                                                        <div style={{ flex: 1, fontSize: 15, fontWeight: 700, color: '#fff', letterSpacing: '-0.01em' }}>
+                                                        <div style={{ flex: 1, fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', letterSpacing: '-0.01em' }}>
                                                             {category.name}
                                                         </div>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexShrink: 0 }}>
                                                             <div style={{ textAlign: 'center' }}>
-                                                                <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{totalProblems}</span>
-                                                                <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', display: 'block', lineHeight: 1, marginTop: 1 }}>problems</span>
+                                                                <span style={{ fontSize: 14, fontWeight: 700, color: isLight ? '#1e293b' : '#fff' }}>{totalProblems}</span>
+                                                                <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)', display: 'block', lineHeight: 1, marginTop: 1 }}>problems</span>
                                                             </div>
                                                             <div style={{ textAlign: 'center' }}>
-                                                                <span style={{ fontSize: 14, fontWeight: 700, color: attemptedProblems > 0 ? '#6ee7b7' : 'rgba(255,255,255,0.2)' }}>{attemptedProblems}</span>
-                                                                <span style={{ fontSize: 9, color: attemptedProblems > 0 ? 'rgba(110,231,183,0.6)' : 'rgba(255,255,255,0.2)', display: 'block', lineHeight: 1, marginTop: 1 }}>attempted</span>
+                                                                <span style={{ fontSize: 14, fontWeight: 700, color: attemptedProblems > 0 ? '#6ee7b7' : isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' }}>{attemptedProblems}</span>
+                                                                <span style={{ fontSize: 9, color: attemptedProblems > 0 ? 'rgba(110,231,183,0.6)' : isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)', display: 'block', lineHeight: 1, marginTop: 1 }}>attempted</span>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1030,15 +1030,15 @@ export default function ProblemExplorer() {
                                                                     onClick={() => setExpandedSubPatterns(prev => ({ ...prev, [subKey]: !prev[subKey] }))}
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px 11px 52px',
-                                                                        background: isSubExpanded ? 'rgba(103,232,249,0.04)' : 'rgba(0,0,0,0.15)',
-                                                                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                                        background: isSubExpanded ? 'rgba(103,232,249,0.04)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.15)',
+                                                                        borderBottom: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)',
                                                                         cursor: 'pointer', transition: 'all 0.15s ease', userSelect: 'none',
                                                                     }}
                                                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(103,232,249,0.06)'}
-                                                                    onMouseLeave={e => e.currentTarget.style.background = isSubExpanded ? 'rgba(103,232,249,0.04)' : 'rgba(0,0,0,0.15)'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = isSubExpanded ? 'rgba(103,232,249,0.04)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.15)'}
                                                                 >
                                                                     <div style={{ transition: 'transform 0.2s ease', transform: isSubExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                                                        <ChevronRight size={14} color="rgba(255,255,255,0.3)" />
+                                                                        <ChevronRight size={14} color={isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'} />
                                                                     </div>
                                                                     {/* Sub-pattern number badge */}
                                                                     <span style={{
@@ -1049,7 +1049,7 @@ export default function ProblemExplorer() {
                                                                         {globalIdx}/{totalSubPatterns}
                                                                     </span>
                                                                     {/* Sub-pattern name */}
-                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isLight ? '#334155' : 'rgba(255,255,255,0.85)' }}>
                                                                         {pattern.name}
                                                                     </span>
                                                                     {/* Theory badge */}
@@ -1068,26 +1068,26 @@ export default function ProblemExplorer() {
                                                                     )}
                                                                     {/* Sub-pattern counts */}
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{problems.length} problems</span>
-                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: subAttempted > 0 ? '#6ee7b7' : 'rgba(255,255,255,0.2)' }}>{subAttempted} attempted</span>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)' }}>{problems.length} problems</span>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: subAttempted > 0 ? '#6ee7b7' : isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' }}>{subAttempted} attempted</span>
                                                                     </div>
                                                                 </div>
 
                                                                 {/* Sub-pattern expanded: Problem table */}
                                                                 {isSubExpanded && (
-                                                                    <div style={{ background: 'rgba(0,0,0,0.3)' }}>
+                                                                    <div style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.3)' }}>
                                                                         {/* Table header */}
                                                                         <div style={{
                                                                             display: 'grid', gridTemplateColumns: '40px 1fr 80px 70px 70px 60px',
                                                                             gap: 8, padding: '7px 20px 7px 90px',
-                                                                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                                                            borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                                                                         }}>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}></span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}>Problem</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Editorial</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>AI Coach</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>External</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}></span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}>Problem</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Editorial</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>AI Coach</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>External</span>
                                                                         </div>
 
                                                                         {/* Problem rows */}
@@ -1101,18 +1101,18 @@ export default function ProblemExplorer() {
                                                                                 <div key={problem.id || probIdx} style={{
                                                                                     display: 'grid', gridTemplateColumns: '40px 1fr 80px 70px 70px 60px',
                                                                                     gap: 8, padding: '9px 20px 9px 90px', alignItems: 'center',
-                                                                                    borderBottom: probIdx < filteredProbs.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none',
-                                                                                    background: isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent',
+                                                                                    borderBottom: probIdx < filteredProbs.length - 1 ? (isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.025)') : 'none',
+                                                                                    background: isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent',
                                                                                     transition: 'background 0.15s',
                                                                                 }}
                                                                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.04)'}
-                                                                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent'}
+                                                                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent'}
                                                                                 >
-                                                                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{probIdx + 1}.</span>
+                                                                                    <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{probIdx + 1}.</span>
                                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                                                                         {isSolved && <CheckCircle2 size={12} color="#6ee7b7" style={{ flexShrink: 0 }} />}
                                                                                         <span style={{
-                                                                                            fontSize: 13, fontWeight: 500, color: isSolved ? 'rgba(255,255,255,0.4)' : '#fff',
+                                                                                            fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
                                                                                             textDecoration: isSolved ? 'line-through' : 'none',
                                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                                                         }}>{problem.title}</span>
@@ -1128,7 +1128,7 @@ export default function ProblemExplorer() {
                                                                                                 padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 600,
                                                                                                 background: 'rgba(139,92,246,0.12)', color: '#c084fc', textDecoration: 'none',
                                                                                             }}>Editorial</Link>
-                                                                                        ) : <Lock size={12} color="rgba(255,255,255,0.12)" />}
+                                                                                        ) : <Lock size={12} color={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'} />}
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                                                                                         <button onClick={() => navigate(`/problem/${problem.id}`)} style={{
@@ -1142,25 +1142,25 @@ export default function ProblemExplorer() {
                                                                                         >Solve</button>
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                                                                        <MessageSquare size={14} color="rgba(255,255,255,0.18)" style={{ cursor: 'pointer' }} />
+                                                                                        <MessageSquare size={14} color={isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.18)'} style={{ cursor: 'pointer' }} />
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                                                                                         {problem.leetcodeLink ? (
                                                                                             <a href={problem.leetcodeLink} target="_blank" rel="noopener noreferrer" style={{
                                                                                                 display: 'flex', alignItems: 'center', padding: 3, borderRadius: 4,
-                                                                                                color: 'rgba(255,255,255,0.3)', transition: 'all 0.15s',
+                                                                                                color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)', transition: 'all 0.15s',
                                                                                             }}
                                                                                                 onMouseEnter={e => { e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(251,191,36,0.1)'; }}
-                                                                                                onMouseLeave={e => { e.currentTarget.style.color = 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent'; }}
+                                                                                                onMouseLeave={e => { e.currentTarget.style.color = isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'; e.currentTarget.style.background = 'transparent'; }}
                                                                                             ><ExternalLink size={12} /></a>
-                                                                                        ) : <span style={{ color: 'rgba(255,255,255,0.08)' }}>—</span>}
+                                                                                        ) : <span style={{ color: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)' }}>—</span>}
                                                                                     </div>
                                                                                 </div>
                                                                             );
                                                                         })}
 
                                                                         {filteredProbs.length === 0 && (
-                                                                            <div style={{ padding: '14px 90px', color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>No problems match current filters.</div>
+                                                                            <div style={{ padding: '14px 90px', color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontSize: 12 }}>No problems match current filters.</div>
                                                                         )}
                                                                     </div>
                                                                 )}
@@ -1190,15 +1190,15 @@ export default function ProblemExplorer() {
                                                                     onClick={() => setExpandedSubPatterns(prev => ({ ...prev, [extraKey]: !prev[extraKey] }))}
                                                                     style={{
                                                                         display: 'flex', alignItems: 'center', gap: 12, padding: '11px 20px 11px 52px',
-                                                                        background: isExtraExpanded ? 'rgba(251,191,36,0.04)' : 'rgba(0,0,0,0.15)',
-                                                                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                                                        background: isExtraExpanded ? 'rgba(251,191,36,0.04)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.15)',
+                                                                        borderBottom: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)',
                                                                         cursor: 'pointer', transition: 'all 0.15s ease', userSelect: 'none',
                                                                     }}
                                                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(251,191,36,0.06)'}
-                                                                    onMouseLeave={e => e.currentTarget.style.background = isExtraExpanded ? 'rgba(251,191,36,0.04)' : 'rgba(0,0,0,0.15)'}
+                                                                    onMouseLeave={e => e.currentTarget.style.background = isExtraExpanded ? 'rgba(251,191,36,0.04)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(0,0,0,0.15)'}
                                                                 >
                                                                     <div style={{ transition: 'transform 0.2s ease', transform: isExtraExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                                                                        <ChevronRight size={14} color="rgba(255,255,255,0.3)" />
+                                                                        <ChevronRight size={14} color={isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'} />
                                                                     </div>
                                                                     <span style={{
                                                                         fontSize: 10, fontWeight: 700, color: '#fbbf24',
@@ -1207,28 +1207,28 @@ export default function ProblemExplorer() {
                                                                     }}>
                                                                         {globalIdx}/{totalSubPatterns}
                                                                     </span>
-                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                                                                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: isLight ? '#334155' : 'rgba(255,255,255,0.85)' }}>
                                                                         More {category.name.replace(' Patterns', '').replace(' Manipulation', '')} Problems
                                                                     </span>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{extraProblems.length} problems</span>
-                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: extraAttemptedCount > 0 ? '#6ee7b7' : 'rgba(255,255,255,0.2)' }}>{extraAttemptedCount} attempted</span>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.45)' }}>{extraProblems.length} problems</span>
+                                                                        <span style={{ fontSize: 12, fontWeight: 600, color: extraAttemptedCount > 0 ? '#6ee7b7' : isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)' }}>{extraAttemptedCount} attempted</span>
                                                                     </div>
                                                                 </div>
 
                                                                 {isExtraExpanded && (
-                                                                    <div style={{ background: 'rgba(0,0,0,0.3)' }}>
+                                                                    <div style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(0,0,0,0.3)' }}>
                                                                         <div style={{
                                                                             display: 'grid', gridTemplateColumns: '40px 1fr 80px 70px 70px 60px',
                                                                             gap: 8, padding: '7px 20px 7px 90px',
-                                                                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                                                            borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                                                                         }}>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}></span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}>Problem</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Editorial</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>AI Coach</span>
-                                                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>External</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}></span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase' }}>Problem</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Editorial</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>AI Coach</span>
+                                                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>External</span>
                                                                         </div>
 
                                                                         {filteredExtra.map((problem, probIdx) => {
@@ -1241,18 +1241,18 @@ export default function ProblemExplorer() {
                                                                                 <div key={problem.id} style={{
                                                                                     display: 'grid', gridTemplateColumns: '40px 1fr 80px 70px 70px 60px',
                                                                                     gap: 8, padding: '9px 20px 9px 90px', alignItems: 'center',
-                                                                                    borderBottom: probIdx < filteredExtra.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none',
-                                                                                    background: isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent',
+                                                                                    borderBottom: probIdx < filteredExtra.length - 1 ? (isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.025)') : 'none',
+                                                                                    background: isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent',
                                                                                     transition: 'background 0.15s',
                                                                                 }}
                                                                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.04)'}
-                                                                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent'}
+                                                                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : probIdx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent'}
                                                                                 >
-                                                                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{probIdx + 1}.</span>
+                                                                                    <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{probIdx + 1}.</span>
                                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                                                                         {isSolved && <CheckCircle2 size={12} color="#6ee7b7" style={{ flexShrink: 0 }} />}
                                                                                         <span style={{
-                                                                                            fontSize: 13, fontWeight: 500, color: isSolved ? 'rgba(255,255,255,0.4)' : '#fff',
+                                                                                            fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
                                                                                             textDecoration: isSolved ? 'line-through' : 'none',
                                                                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                                                                         }}>{problem.title}</span>
@@ -1263,7 +1263,7 @@ export default function ProblemExplorer() {
                                                                                         }}>{dt}</span>
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                                                                        <Lock size={12} color="rgba(255,255,255,0.12)" />
+                                                                                        <Lock size={12} color={isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.12)'} />
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
                                                                                         <button onClick={() => navigate(`/problem/${problem.id}`)} style={{
@@ -1277,17 +1277,17 @@ export default function ProblemExplorer() {
                                                                                         >Solve</button>
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                                                                        <MessageSquare size={14} color="rgba(255,255,255,0.18)" style={{ cursor: 'pointer' }} />
+                                                                                        <MessageSquare size={14} color={isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.18)'} style={{ cursor: 'pointer' }} />
                                                                                     </div>
                                                                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                                                                        <span style={{ color: 'rgba(255,255,255,0.08)' }}>—</span>
+                                                                                        <span style={{ color: isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)' }}>—</span>
                                                                                     </div>
                                                                                 </div>
                                                                             );
                                                                         })}
 
                                                                         {filteredExtra.length === 0 && (
-                                                                            <div style={{ padding: '14px 90px', color: 'rgba(255,255,255,0.2)', fontSize: 12 }}>No problems match current filters.</div>
+                                                                            <div style={{ padding: '14px 90px', color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontSize: 12 }}>No problems match current filters.</div>
                                                                         )}
                                                                     </div>
                                                                 )}
@@ -1306,20 +1306,20 @@ export default function ProblemExplorer() {
 
                 {/* ══════════ ALL QUESTIONS VIEW ══════════ */}
                 {viewMode === 'all' && (
-                    <div style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
+                    <div style={{ borderRadius: 14, overflow: 'hidden', border: isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.06)', boxShadow: isLight ? '0 4px 24px rgba(0,0,0,0.06)' : '0 4px 24px rgba(0,0,0,0.2)' }}>
                         {/* Table Header */}
                         <div style={{
                             display: 'grid', gridTemplateColumns: '50px 1fr 140px 100px 80px 70px',
                             gap: 8, padding: '10px 20px',
-                            background: 'rgba(255,255,255,0.02)',
-                            borderBottom: '1px solid rgba(255,255,255,0.06)',
+                            background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)',
+                            borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                         }}>
-                            <SortHeader label="#" sortKey="id" sortBy={sortBy} sortDir={sortDir} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
-                            <SortHeader label="Problem" sortKey="title" sortBy={sortBy} sortDir={sortDir} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontWeight: 700, textTransform: 'uppercase' }}>Company</span>
-                            <SortHeader label="Difficulty" sortKey="difficulty" sortBy={sortBy} sortDir={sortDir} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
-                            <SortHeader label="Acceptance" sortKey="acceptance" sortBy={sortBy} sortDir={sortDir} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
-                            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
+                            <SortHeader label="#" sortKey="id" sortBy={sortBy} sortDir={sortDir} isLight={isLight} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
+                            <SortHeader label="Problem" sortKey="title" sortBy={sortBy} sortDir={sortDir} isLight={isLight} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
+                            <span style={{ fontSize: 10, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', fontWeight: 700, textTransform: 'uppercase' }}>Company</span>
+                            <SortHeader label="Difficulty" sortKey="difficulty" sortBy={sortBy} sortDir={sortDir} isLight={isLight} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
+                            <SortHeader label="Acceptance" sortKey="acceptance" sortBy={sortBy} sortDir={sortDir} isLight={isLight} onClick={k => { setSortBy(k); setSortDir(d => sortBy === k ? (d === 'asc' ? 'desc' : 'asc') : 'asc'); }} />
+                            <span style={{ fontSize: 10, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.25)', fontWeight: 700, textTransform: 'uppercase', textAlign: 'center' }}>Code</span>
                         </div>
 
                         {/* Problem Rows */}
@@ -1332,26 +1332,26 @@ export default function ProblemExplorer() {
                                 <div key={problem.id} style={{
                                     display: 'grid', gridTemplateColumns: '50px 1fr 140px 100px 80px 70px',
                                     gap: 8, padding: '10px 20px', alignItems: 'center',
-                                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                                    background: isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent',
+                                    borderBottom: isLight ? '1px solid rgba(0,0,0,0.05)' : '1px solid rgba(255,255,255,0.03)',
+                                    background: isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent',
                                     transition: 'background 0.15s',
                                 }}
                                     onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.04)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? 'rgba(255,255,255,0.008)' : 'transparent'}
+                                    onMouseLeave={e => e.currentTarget.style.background = isSolved ? 'rgba(110,231,183,0.025)' : idx % 2 === 0 ? (isLight ? 'rgba(0,0,0,0.015)' : 'rgba(255,255,255,0.008)') : 'transparent'}
                                 >
-                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{idx + 1}</span>
+                                    <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{idx + 1}</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                         {isSolved && <CheckCircle2 size={13} color="#6ee7b7" style={{ flexShrink: 0 }} />}
                                         <span style={{
-                                            fontSize: 13, fontWeight: 500, color: isSolved ? 'rgba(255,255,255,0.4)' : '#fff',
+                                            fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
                                             textDecoration: isSolved ? 'line-through' : 'none',
                                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                                         }}>{problem.title}</span>
                                         {(problem.topics || []).slice(0, 2).map(t => (
                                             <span key={t} style={{
-                                                fontSize: 9, fontWeight: 600, color: 'rgba(255,255,255,0.3)',
-                                                background: 'rgba(255,255,255,0.04)', padding: '1px 6px', borderRadius: 3,
-                                                border: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
+                                                fontSize: 9, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)',
+                                                background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)', padding: '1px 6px', borderRadius: 3,
+                                                border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
                                             }}>{t}</span>
                                         ))}
                                     </div>
@@ -1364,7 +1364,7 @@ export default function ProblemExplorer() {
                                             }}>{c}</span>
                                         ))}
                                         {(problem.companies || []).length > 2 && (
-                                            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>+{problem.companies.length - 2}</span>
+                                            <span style={{ fontSize: 9, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)' }}>+{problem.companies.length - 2}</span>
                                         )}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1373,7 +1373,7 @@ export default function ProblemExplorer() {
                                             padding: '2px 10px', borderRadius: 5, border: `1px solid ${dc}25`,
                                         }}>{problem.difficulty}</span>
                                     </div>
-                                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
+                                    <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.35)', textAlign: 'center' }}>
                                         {problem.acceptance || '—'}
                                     </span>
                                     <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -1392,7 +1392,7 @@ export default function ProblemExplorer() {
                         })}
 
                         {filteredProblems.length === 0 && (
-                            <div style={{ textAlign: 'center', padding: 48, color: 'rgba(255,255,255,0.3)' }}>No problems match your filters.</div>
+                            <div style={{ textAlign: 'center', padding: 48, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)' }}>No problems match your filters.</div>
                         )}
                     </div>
                 )}
@@ -1402,12 +1402,12 @@ export default function ProblemExplorer() {
     );
 }
 
-function SortHeader({ label, sortKey, sortBy, sortDir, onClick }) {
+function SortHeader({ label, sortKey, sortBy, sortDir, onClick, isLight }) {
     const active = sortBy === sortKey;
     return (
         <button onClick={() => onClick(sortKey)} style={{
             display: 'flex', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 10, color: active ? '#c084fc' : 'rgba(255,255,255,0.3)', fontWeight: 700,
+            fontSize: 10, color: active ? '#c084fc' : (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.3)'), fontWeight: 700,
             padding: 0, textTransform: 'uppercase', letterSpacing: 0.5,
         }}>
             {label}

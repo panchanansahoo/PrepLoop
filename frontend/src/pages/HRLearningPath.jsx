@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import { Users, MessagesSquare, Target, Check, Play, BookOpen } from 'lucide-react';
 import { HR_STAGES, HR_TOPICS, getHRTopicIds, getHRTopicsByStage } from '../data/hrLearningPathData';
 import { getHRTopicProgress, getHROverallProgress } from '../data/hrLearningProgress';
 
-function StoryboardNode({ topic, index, isLast, onClick }) {
+function StoryboardNode({ topic, index, isLast, onClick, isLight }) {
     const progress = getHRTopicProgress(topic.id);
     const isMastered = progress.masteryPercent >= 90;
 
@@ -14,13 +15,13 @@ function StoryboardNode({ topic, index, isLast, onClick }) {
             {!isLast && (
                 <div style={{
                     position: 'absolute', left: 24, top: 48, bottom: -24, width: 2,
-                    background: isMastered ? '#34d399' : 'rgba(255,255,255,0.1)', zIndex: 0
+                    background: isMastered ? '#34d399' : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'), zIndex: 0
                 }} />
             )}
 
             {/* Icon Node */}
             <div style={{
-                width: 50, height: 50, borderRadius: '50%', background: 'rgba(0,0,0,0.8)',
+                width: 50, height: 50, borderRadius: '50%', background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)',
                 border: `2px solid ${isMastered ? '#34d399' : topic.color}`, zIndex: 1,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
                 boxShadow: isMastered ? '0 0 15px rgba(52,211,153,0.3)' : 'none'
@@ -30,31 +31,31 @@ function StoryboardNode({ topic, index, isLast, onClick }) {
 
             {/* Content Card */}
             <div onClick={onClick} style={{
-                flex: 1, background: 'rgba(20,20,25,0.9)', border: `1px solid ${isMastered ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                flex: 1, background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(20,20,25,0.9)', border: `1px solid ${isMastered ? 'rgba(52,211,153,0.3)' : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.06)')}`,
                 borderRadius: 16, padding: 24, marginBottom: 32, cursor: 'pointer',
                 transition: 'all 0.3s', position: 'relative'
             }}
                 onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(8px)'; e.currentTarget.style.borderColor = topic.color; }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = isMastered ? 'rgba(52,211,153,0.3)' : 'rgba(255,255,255,0.06)'; }}>
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(0)'; e.currentTarget.style.borderColor = isMastered ? 'rgba(52,211,153,0.3)' : (isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.06)'); }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
                         <div style={{ fontSize: 12, color: topic.color, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 1 }}>
                             Episode {index + 1}
                         </div>
-                        <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', marginBottom: 8 }}>{topic.title}</h3>
-                        <p style={{ fontSize: 14, color: '#a1a1aa', margin: 0, lineHeight: 1.5, maxWidth: 500 }}>{topic.description}</p>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 8 }}>{topic.title}</h3>
+                        <p style={{ fontSize: 14, color: isLight ? '#64748b' : '#a1a1aa', margin: 0, lineHeight: 1.5, maxWidth: 500 }}>{topic.description}</p>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 18, fontWeight: 700, color: isMastered ? '#34d399' : '#fff' }}>{progress.masteryPercent}%</div>
+                        <div style={{ fontSize: 18, fontWeight: 700, color: isMastered ? '#34d399' : (isLight ? '#1e293b' : '#fff') }}>{progress.masteryPercent}%</div>
                         <div style={{ fontSize: 11, color: '#525252' }}>Mastery</div>
                     </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 12, marginTop: 16 }}>
-                    <span style={{ fontSize: 11, padding: '4px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 6, color: '#d4d4d8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, padding: '4px 10px', background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderRadius: 6, color: isLight ? '#475569' : '#d4d4d8', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Target size={12} /> STAR Builder
                     </span>
-                    <span style={{ fontSize: 11, padding: '4px 10px', background: 'rgba(255,255,255,0.05)', borderRadius: 6, color: '#d4d4d8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontSize: 11, padding: '4px 10px', background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.05)', borderRadius: 6, color: isLight ? '#475569' : '#d4d4d8', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Play size={12} /> Simulator Map
                     </span>
                 </div>
@@ -65,11 +66,13 @@ function StoryboardNode({ topic, index, isLast, onClick }) {
 
 export default function HRLearningPath() {
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const topicIds = useMemo(() => getHRTopicIds(), []);
     const overall = useMemo(() => getHROverallProgress(topicIds), []);
 
     return (
-        <div style={{ minHeight: '100vh', background: '#050507', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#050507', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
 
             {/* Hero Section */}
             <section style={{ padding: '60px 24px 40px', maxWidth: 900, margin: '0 auto', textAlign: 'center' }}>
@@ -89,13 +92,13 @@ export default function HRLearningPath() {
 
                 {/* Overall Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16, maxWidth: 500, margin: '0 auto' }}>
-                    <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '20px' }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '20px' }}>
                         <div style={{ fontSize: 32, fontWeight: 700, color: '#f472b6' }}>{overall.avgMastery}%</div>
-                        <div style={{ fontSize: 12, color: '#a1a1aa', marginTop: 4 }}>Interview Polish</div>
+                        <div style={{ fontSize: 12, color: isLight ? '#64748b' : '#a1a1aa', marginTop: 4 }}>Interview Polish</div>
                     </div>
-                    <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '20px' }}>
+                    <div style={{ background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.6)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 12, padding: '20px' }}>
                         <div style={{ fontSize: 32, fontWeight: 700, color: '#818cf8' }}>{overall.topicsMastered}/{HR_TOPICS.length}</div>
-                        <div style={{ fontSize: 12, color: '#a1a1aa', marginTop: 4 }}>Stories Prepared</div>
+                        <div style={{ fontSize: 12, color: isLight ? '#64748b' : '#a1a1aa', marginTop: 4 }}>Stories Prepared</div>
                     </div>
                 </div>
             </section>
@@ -117,6 +120,7 @@ export default function HRLearningPath() {
                                         topic={topic}
                                         index={idx}
                                         isLast={idx === topics.length - 1}
+                                        isLight={isLight}
                                         onClick={() => navigate(`/hr-path/${topic.id}`)}
                                     />
                                 ))}

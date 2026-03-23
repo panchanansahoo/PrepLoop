@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import ReactMarkdown from 'react-markdown';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
     ArrowLeft, Play, Terminal, Trash2, Copy, Check,
     Download, Upload, Clock, ChevronDown, Code2,
@@ -8,7 +11,9 @@ import {
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
     Type, ChevronUp, Link2, TextCursorInput,
-    PanelRightOpen, PanelRightClose, Settings, Info
+    PanelRightOpen, PanelRightClose, Settings, Info,
+    Bot, Send, MessageSquare, Eraser,
+    ClipboardCheck, RefreshCw, FileCode2
 } from 'lucide-react';
 import { LANGUAGES, ALGORITHM_TEMPLATES } from '../data/dsaTemplates';
 import { EDITOR_THEMES, registerAllThemes, getSavedTheme, saveTheme } from '../data/editorThemes';
@@ -286,6 +291,14 @@ export default function CodingPlayground() {
     const [showSidebar, setShowSidebar] = useState(true);
     const [sidebarTab, setSidebarTab] = useState('input');
 
+    // ─── AI ASSISTANT STATE ───
+    const [aiMessages, setAiMessages] = useState([]);
+    const [aiInput, setAiInput] = useState('');
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiCopied, setAiCopied] = useState(null);
+    const [lastAiRequest, setLastAiRequest] = useState(null);
+    const aiEndRef = useRef(null);
+
     // Console resize ref
     const draggingRef = useRef(null);
     const monacoRef = useRef(null);
@@ -471,6 +484,82 @@ export default function CodingPlayground() {
         setCode(DEFAULT_CODE[language] || '');
         localStorage.removeItem(`playground-code-${language}`);
     };
+
+    // ─── AI Assistant handler ───
+    const handleAiAssist = useCallback(async (mode, customPrompt = '') => {
+        if (aiLoading) return;
+        const modeLabels = {
+            explain: '✨ Explain this code',
+            review: '🔍 Review this code',
+            debug: '🐛 Debug this code',
+            optimize: '⚡ Optimize this code',
+            complexity: '📊 Analyze complexity',
+            comment: '💬 Add comments',
+        };
+        const userMsg = mode === 'ask'
+            ? customPrompt || 'Help me with this code'
+            : modeLabels[mode] || customPrompt;
+
+        setAiMessages(prev => [...prev, { role: 'user', content: userMsg, timestamp: new Date().toLocaleTimeString() }]);
+        setAiLoading(true);
+        setAiInput('');
+        setLastAiRequest({ mode, customPrompt });
+
+        try {
+            const res = await fetch(`${API_URL}/api/ai/playground-assist`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    code, language, mode, prompt: customPrompt,
+                    history: aiMessages.slice(-6),
+                }),
+            });
+            const data = await res.json();
+            setAiMessages(prev => [...prev, {
+                role: 'assistant',
+                content: data.response || data.error || 'No response received.',
+                timestamp: new Date().toLocaleTimeString(),
+            }]);
+        } catch (err) {
+            setAiMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `⚠️ Error: ${err.message}`,
+                timestamp: new Date().toLocaleTimeString(),
+                isError: true,
+            }]);
+        } finally {
+            setAiLoading(false);
+        }
+    }, [code, language, aiLoading, aiMessages]);
+
+    // Copy AI message
+    const handleAiCopy = (text, idx) => {
+        navigator.clipboard.writeText(text);
+        setAiCopied(idx);
+        setTimeout(() => setAiCopied(null), 2000);
+    };
+
+    // Apply code from AI response to editor
+    const handleAiApplyCode = (content) => {
+        const codeMatch = content.match(/```[\w]*\n([\s\S]*?)```/);
+        if (codeMatch) {
+            setCode(codeMatch[1].trim());
+        }
+    };
+
+    // Retry last AI request
+    const handleAiRetry = () => {
+        if (lastAiRequest) {
+            // Remove last 2 messages (user + assistant)
+            setAiMessages(prev => prev.slice(0, -2));
+            setTimeout(() => handleAiAssist(lastAiRequest.mode, lastAiRequest.customPrompt), 100);
+        }
+    };
+
+    // Auto-scroll AI chat
+    useEffect(() => {
+        aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [aiMessages, aiLoading]);
 
     // ─── Insert snippet ───
     const insertSnippet = (snippetCode) => {
@@ -818,6 +907,7 @@ export default function CodingPlayground() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                             {[
                                 { id: 'input', icon: <TextCursorInput size={16} />, label: 'Input' },
+                                { id: 'ai', icon: <Bot size={16} />, label: 'AI' },
                                 { id: 'history', icon: <History size={16} />, label: 'History' },
                                 { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Keys' },
                                 { id: 'info', icon: <Info size={16} />, label: 'Info' },
@@ -873,6 +963,180 @@ export default function CodingPlayground() {
                                     placeholder={"Enter input for your program...\nEach line = one input\n\nPython: input()\nC++: cin >> x\nJava: Scanner"}
                                     spellCheck={false}
                                 />
+                            </div>
+                        )}
+
+                        {sidebarTab === 'ai' && (
+                            <div className="pg-sidebar-section pg-ai-section">
+                                <div className="pg-sidebar-section-header">
+                                    <Bot size={14} />
+                                    <span>AI Assistant</span>
+                                    {aiMessages.length > 0 && (
+                                        <button className="pg-ai-clear-btn" onClick={() => { setAiMessages([]); setLastAiRequest(null); }} title="Clear chat">
+                                            <Eraser size={12} />
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Quick Action Chips */}
+                                <div className="pg-ai-chips">
+                                    {[
+                                        { mode: 'explain', icon: '✨', label: 'Explain' },
+                                        { mode: 'review', icon: '🔍', label: 'Review' },
+                                        { mode: 'debug', icon: '🐛', label: 'Debug' },
+                                        { mode: 'optimize', icon: '⚡', label: 'Optimize' },
+                                        { mode: 'complexity', icon: '📊', label: 'Complexity' },
+                                        { mode: 'comment', icon: '💬', label: 'Comment' },
+                                    ].map(chip => (
+                                        <button
+                                            key={chip.mode}
+                                            className="pg-ai-chip"
+                                            onClick={() => handleAiAssist(chip.mode)}
+                                            disabled={aiLoading || !code.trim()}
+                                            title={!code.trim() ? 'Write some code first' : `${chip.label} your code`}
+                                        >
+                                            <span>{chip.icon}</span>
+                                            <span>{chip.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Chat Messages */}
+                                <div className="pg-ai-messages">
+                                    {aiMessages.length === 0 && !aiLoading && (
+                                        <div className="pg-ai-empty">
+                                            <div className="pg-ai-empty-icon">
+                                                <Sparkles size={24} strokeWidth={1.5} />
+                                            </div>
+                                            <p>AI Code Assistant</p>
+                                            <span>Analyze, debug, optimize, and understand your code with AI</span>
+                                            <div className="pg-ai-suggestions">
+                                                {[
+                                                    { icon: '✨', text: 'Explain this code logic', mode: 'explain' },
+                                                    { icon: '🐛', text: 'Find bugs in my code', mode: 'debug' },
+                                                    { icon: '⚡', text: 'Optimize for performance', mode: 'optimize' },
+                                                ].map(s => (
+                                                    <button
+                                                        key={s.mode}
+                                                        className="pg-ai-suggestion-btn"
+                                                        onClick={() => handleAiAssist(s.mode)}
+                                                        disabled={aiLoading || !code.trim()}
+                                                    >
+                                                        <span className="pg-ai-suggestion-icon">{s.icon}</span>
+                                                        {s.text}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {aiMessages.map((msg, i) => (
+                                        <div key={i} className={`pg-ai-msg pg-ai-msg-${msg.role}`}>
+                                            <div className="pg-ai-msg-header">
+                                                {msg.role === 'user' ? <MessageSquare size={11} /> : <Bot size={11} />}
+                                                <span>{msg.role === 'user' ? 'You' : 'AI'}</span>
+                                                <span className="pg-ai-msg-time">{msg.timestamp}</span>
+                                            </div>
+                                            <div className="pg-ai-msg-body">
+                                                {msg.role === 'assistant' ? (
+                                                    <ReactMarkdown
+                                                        components={{
+                                                            code({ node, inline, className, children, ...props }) {
+                                                                const match = /language-(\w+)/.exec(className || '');
+                                                                return !inline && match ? (
+                                                                    <SyntaxHighlighter
+                                                                        style={oneDark}
+                                                                        language={match[1]}
+                                                                        PreTag="div"
+                                                                        customStyle={{ margin: '8px 0', borderRadius: '8px', fontSize: '11px' }}
+                                                                        {...props}
+                                                                    >
+                                                                        {String(children).replace(/\n$/, '')}
+                                                                    </SyntaxHighlighter>
+                                                                ) : (
+                                                                    <code className="pg-ai-inline-code" {...props}>{children}</code>
+                                                                );
+                                                            }
+                                                        }}
+                                                    >
+                                                        {msg.content}
+                                                    </ReactMarkdown>
+                                                ) : msg.content}
+                                            </div>
+                                            {/* Action buttons for AI messages */}
+                                            {msg.role === 'assistant' && !msg.isError && (
+                                                <div className="pg-ai-msg-actions">
+                                                    <button
+                                                        className="pg-ai-action-btn"
+                                                        onClick={() => handleAiCopy(msg.content, i)}
+                                                        title="Copy response"
+                                                    >
+                                                        {aiCopied === i ? <ClipboardCheck size={11} /> : <Copy size={11} />}
+                                                        <span>{aiCopied === i ? 'Copied' : 'Copy'}</span>
+                                                    </button>
+                                                    {msg.content.includes('```') && (
+                                                        <button
+                                                            className="pg-ai-action-btn"
+                                                            onClick={() => handleAiApplyCode(msg.content)}
+                                                            title="Apply code to editor"
+                                                        >
+                                                            <FileCode2 size={11} />
+                                                            <span>Apply</span>
+                                                        </button>
+                                                    )}
+                                                    {i === aiMessages.length - 1 && (
+                                                        <button
+                                                            className="pg-ai-action-btn"
+                                                            onClick={handleAiRetry}
+                                                            title="Retry this request"
+                                                        >
+                                                            <RefreshCw size={11} />
+                                                            <span>Retry</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {aiLoading && (
+                                        <div className="pg-ai-msg pg-ai-msg-assistant">
+                                            <div className="pg-ai-msg-header">
+                                                <Bot size={11} />
+                                                <span>AI</span>
+                                            </div>
+                                            <div className="pg-ai-typing">
+                                                <span></span><span></span><span></span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div ref={aiEndRef} />
+                                </div>
+
+                                {/* Chat Input */}
+                                <div className="pg-ai-input-area">
+                                    <input
+                                        className="pg-ai-input"
+                                        value={aiInput}
+                                        onChange={e => setAiInput(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter' && !e.shiftKey && aiInput.trim()) {
+                                                e.preventDefault();
+                                                handleAiAssist('ask', aiInput.trim());
+                                            }
+                                        }}
+                                        placeholder="Ask about your code..."
+                                        disabled={aiLoading}
+                                    />
+                                    <button
+                                        className="pg-ai-send-btn"
+                                        onClick={() => aiInput.trim() && handleAiAssist('ask', aiInput.trim())}
+                                        disabled={aiLoading || !aiInput.trim()}
+                                    >
+                                        <Send size={14} />
+                                    </button>
+                                </div>
+                                <div className="pg-ai-model-badge">
+                                    <Sparkles size={9} /> Powered by Groq AI
+                                </div>
                             </div>
                         )}
 

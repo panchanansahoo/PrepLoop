@@ -9,6 +9,7 @@ import {
     GitCompareArrows, Play, Filter, ArrowRight, Settings, Database, Box, Network
 } from 'lucide-react';
 import { APTITUDE_CATEGORIES, getCategoryStats, getOverallStats } from '../data/aptitudeData';
+import { useTheme } from '../context/ThemeContext';
 
 const ICON_MAP = {
     Calculator, Brain, BookOpen, Hash, Percent, Scale, Hammer, Timer,
@@ -27,6 +28,8 @@ export default function AptitudeHub() {
     const [expandedCategory, setExpandedCategory] = useState(null);
     const [difficultyFilter, setDifficultyFilter] = useState('all');
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     const overallStats = useMemo(() => getOverallStats(), []);
 
@@ -48,7 +51,7 @@ export default function AptitudeHub() {
     };
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', paddingBottom: 80 }}>
 
             {/* Hero Section */}
             <section style={{
@@ -60,8 +63,8 @@ export default function AptitudeHub() {
                 <div style={{
                     display: 'inline-flex', alignItems: 'center', gap: 8,
                     padding: '6px 16px', borderRadius: 99,
-                    background: 'rgba(129, 140, 248, 0.1)', border: '1px solid rgba(129, 140, 248, 0.3)',
-                    fontSize: 13, color: '#a5b4fc', marginBottom: 24
+                    background: isLight ? 'rgba(129, 140, 248, 0.08)' : 'rgba(129, 140, 248, 0.1)', border: '1px solid rgba(129, 140, 248, 0.3)',
+                    fontSize: 13, color: isLight ? '#6366f1' : '#a5b4fc', marginBottom: 24
                 }}>
                     <Sparkles size={14} />
                     {overallStats.total}+ Practice Problems
@@ -76,7 +79,7 @@ export default function AptitudeHub() {
                         Mastery
                     </span>
                 </h1>
-                <p style={{ fontSize: 18, color: '#71717a', maxWidth: 600, margin: '0 auto 40px', lineHeight: 1.6 }}>
+                <p style={{ fontSize: 18, color: isLight ? '#6b7280' : '#71717a', maxWidth: 600, margin: '0 auto 40px', lineHeight: 1.6 }}>
                     Practice quantitative aptitude, logical reasoning, and verbal ability.
                     Prepare for placements, CAT, GATE, GRE, and more.
                 </p>
@@ -93,12 +96,12 @@ export default function AptitudeHub() {
                         { label: 'Difficulty Levels', value: '3', icon: <Trophy size={18} />, color: '#34d399' }
                     ].map((s, i) => (
                         <div key={i} style={{
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                            background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                             borderRadius: 12, padding: '20px 16px', textAlign: 'center'
                         }}>
                             <div style={{ color: s.color, marginBottom: 8 }}>{s.icon}</div>
                             <div style={{ fontSize: 28, fontWeight: 700 }}>{s.value}</div>
-                            <div style={{ fontSize: 12, color: '#71717a', marginTop: 4 }}>{s.label}</div>
+                            <div style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a', marginTop: 4 }}>{s.label}</div>
                         </div>
                     ))}
                 </div>
@@ -133,11 +136,11 @@ export default function AptitudeHub() {
                             onClick={() => setDifficultyFilter(d)}
                             style={{
                                 padding: '6px 16px', borderRadius: 99, fontSize: 13, fontWeight: 500,
-                                border: difficultyFilter === d ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                                border: difficultyFilter === d ? 'none' : (isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid rgba(255,255,255,0.1)'),
                                 background: difficultyFilter === d
                                     ? (d === 'easy' ? '#34d399' : d === 'medium' ? '#facc15' : d === 'hard' ? '#f87171' : 'rgba(129,140,248,0.2)')
                                     : 'transparent',
-                                color: difficultyFilter === d ? '#000' : '#a1a1aa',
+                                color: difficultyFilter === d ? '#000' : (isLight ? '#6b7280' : '#a1a1aa'),
                                 cursor: 'pointer', transition: 'all 0.2s'
                             }}
                         >
@@ -157,11 +160,11 @@ export default function AptitudeHub() {
 
                         return (
                             <div key={cat.key} style={{
-                                background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.06)',
+                                background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)',
+                                border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
                                 borderRadius: 16, overflow: 'hidden',
                                 transition: 'border-color 0.3s',
-                                borderColor: isExpanded ? `${cat.color}40` : 'rgba(255,255,255,0.06)'
+                                borderColor: isExpanded ? `${cat.color}40` : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)')
                             }}>
                                 {/* Category Header */}
                                 <div
@@ -169,7 +172,7 @@ export default function AptitudeHub() {
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                         padding: '24px 28px', cursor: 'pointer', transition: 'background 0.2s',
-                                        background: isExpanded ? 'rgba(255,255,255,0.02)' : 'transparent'
+                                        background: isExpanded ? (isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)') : 'transparent'
                                     }}
                                 >
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -182,7 +185,7 @@ export default function AptitudeHub() {
                                         </div>
                                         <div>
                                             <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>{cat.title}</h2>
-                                            <p style={{ fontSize: 14, color: '#71717a', margin: 0 }}>{cat.description}</p>
+                                            <p style={{ fontSize: 14, color: isLight ? '#6b7280' : '#71717a', margin: 0 }}>{cat.description}</p>
                                         </div>
                                     </div>
 
@@ -190,15 +193,15 @@ export default function AptitudeHub() {
                                         <div style={{ textAlign: 'center', display: 'flex', gap: 20 }}>
                                             <div>
                                                 <div style={{ fontSize: 18, fontWeight: 700 }}>{cat.stats.total}</div>
-                                                <div style={{ fontSize: 11, color: '#71717a' }}>Problems</div>
+                                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>Problems</div>
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{cat.stats.totalXP}</div>
-                                                <div style={{ fontSize: 11, color: '#71717a' }}>XP</div>
+                                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>XP</div>
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 18, fontWeight: 700 }}>{subcatEntries.length}</div>
-                                                <div style={{ fontSize: 11, color: '#71717a' }}>Topics</div>
+                                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>Topics</div>
                                             </div>
                                         </div>
 
@@ -216,7 +219,7 @@ export default function AptitudeHub() {
                                         <ChevronDown
                                             size={20}
                                             style={{
-                                                color: '#71717a',
+                                                color: isLight ? '#9ca3af' : '#71717a',
                                                 transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
                                                 transition: 'transform 0.3s'
                                             }}
@@ -244,18 +247,18 @@ export default function AptitudeHub() {
                                                     onClick={() => startPractice(cat.key, subKey)}
                                                     style={{
                                                         padding: '16px 20px', borderRadius: 12, cursor: 'pointer',
-                                                        background: 'rgba(255,255,255,0.03)',
-                                                        border: '1px solid rgba(255,255,255,0.06)',
+                                                        background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)',
+                                                        border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
                                                         transition: 'all 0.2s',
                                                         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                                                     }}
                                                     onMouseEnter={e => {
-                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+                                                        e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)';
                                                         e.currentTarget.style.borderColor = `${cat.color}30`;
                                                     }}
                                                     onMouseLeave={e => {
-                                                        e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
-                                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                                                        e.currentTarget.style.background = isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)';
+                                                        e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
                                                     }}
                                                 >
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
@@ -274,8 +277,8 @@ export default function AptitudeHub() {
                                                         </div>
                                                     </div>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                                                        <span style={{ fontSize: 13, color: '#a1a1aa', fontWeight: 600 }}>{qCount}</span>
-                                                        <ChevronRight size={14} style={{ color: '#525252' }} />
+                                                        <span style={{ fontSize: 13, color: isLight ? '#6b7280' : '#a1a1aa', fontWeight: 600 }}>{qCount}</span>
+                                                        <ChevronRight size={14} style={{ color: isLight ? '#9ca3af' : '#525252' }} />
                                                     </div>
                                                 </div>
                                             );
@@ -303,12 +306,12 @@ export default function AptitudeHub() {
                             onClick={() => navigate(`/aptitude/practice/all?mode=${m.mode}&difficulty=${difficultyFilter}`)}
                             style={{
                                 padding: 24, borderRadius: 16, cursor: 'pointer',
-                                background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.06)',
+                                background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)',
+                                border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
                                 transition: 'all 0.2s', textAlign: 'center'
                             }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = `${m.color}40`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; }}
                         >
                             <div style={{
                                 width: 44, height: 44, borderRadius: 12, margin: '0 auto 12px',
@@ -316,7 +319,7 @@ export default function AptitudeHub() {
                                 display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}>{m.icon}</div>
                             <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{m.title}</h3>
-                            <p style={{ fontSize: 13, color: '#71717a', margin: 0, lineHeight: 1.5 }}>{m.desc}</p>
+                            <p style={{ fontSize: 13, color: isLight ? '#6b7280' : '#71717a', margin: 0, lineHeight: 1.5 }}>{m.desc}</p>
                         </div>
                     ))}
                 </div>

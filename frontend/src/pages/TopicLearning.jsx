@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import {
     ArrowLeft, BookOpen, Zap, Sparkles, Target, Check, ChevronRight, Clock,
     Lightbulb, Eye, EyeOff, RotateCcw, Timer, CheckCircle2, XCircle, ChevronDown
@@ -18,7 +19,7 @@ const TABS = [
 ];
 
 /* ─── Flip Card ─── */
-function FormulaCard({ formula, example, color }) {
+function FormulaCard({ formula, example, color, isLight }) {
     const [flipped, setFlipped] = useState(false);
     return (
         <div onClick={() => setFlipped(!flipped)} style={{
@@ -32,12 +33,12 @@ function FormulaCard({ formula, example, color }) {
                 {/* Front */}
                 <div style={{
                     position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
+                    background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'}`,
                     borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'center',
                     borderLeft: `3px solid ${color}`,
                 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: '#e4e4e7', lineHeight: 1.5 }}>{formula}</div>
-                    <div style={{ fontSize: 11, color: '#525252', marginTop: 8 }}>Click to see example →</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: isLight ? '#334155' : '#e4e4e7', lineHeight: 1.5 }}>{formula}</div>
+                    <div style={{ fontSize: 11, color: isLight ? '#94a3b8' : '#525252', marginTop: 8 }}>Click to see example →</div>
                 </div>
                 {/* Back */}
                 <div style={{
@@ -47,7 +48,7 @@ function FormulaCard({ formula, example, color }) {
                     borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', justifyContent: 'center',
                 }}>
                     <div style={{ fontSize: 11, color: color, fontWeight: 700, marginBottom: 6 }}>EXAMPLE</div>
-                    <div style={{ fontSize: 13, color: '#a1a1aa', lineHeight: 1.6 }}>{example}</div>
+                    <div style={{ fontSize: 13, color: isLight ? '#475569' : '#a1a1aa', lineHeight: 1.6 }}>{example}</div>
                 </div>
             </div>
         </div>
@@ -55,7 +56,7 @@ function FormulaCard({ formula, example, color }) {
 }
 
 /* ─── Theory Tab ─── */
-function TheoryTab({ topic, progress, onComplete }) {
+function TheoryTab({ topic, progress, onComplete, isLight }) {
     return (
         <div>
             {topic.theory.sections.map((section, si) => (
@@ -65,7 +66,7 @@ function TheoryTab({ topic, progress, onComplete }) {
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
                         {section.formulas.map((f, fi) => (
-                            <FormulaCard key={fi} formula={f.formula} example={f.example} color={topic.color} />
+                            <FormulaCard key={fi} formula={f.formula} example={f.example} color={topic.color} isLight={isLight} />
                         ))}
                     </div>
                 </div>
@@ -84,7 +85,7 @@ function TheoryTab({ topic, progress, onComplete }) {
 }
 
 /* ─── Methods Tab ─── */
-function MethodsTab({ topic, progress, onLearn }) {
+function MethodsTab({ topic, progress, onLearn, isLight }) {
     const [expanded, setExpanded] = useState(null);
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -93,7 +94,7 @@ function MethodsTab({ topic, progress, onLearn }) {
                 const isOpen = expanded === i;
                 return (
                     <div key={m.id} style={{
-                        background: 'rgba(255,255,255,0.02)', border: `1px solid ${learned ? `${topic.color}30` : 'rgba(255,255,255,0.06)'}`,
+                        background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: `1px solid ${learned ? `${topic.color}30` : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)')}`,
                         borderRadius: 14, overflow: 'hidden',
                     }}>
                         <div onClick={() => setExpanded(isOpen ? null : i)} style={{
@@ -120,12 +121,12 @@ function MethodsTab({ topic, progress, onLearn }) {
                             </div>
                         </div>
                         {isOpen && (
-                            <div style={{ padding: '0 24px 20px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div style={{ padding: '0 24px 20px', borderTop: `1px solid ${isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'}` }}>
                                 <div style={{ padding: '16px 0' }}>
                                     <div style={{ fontSize: 13, color: '#a1a1aa', marginBottom: 12 }}>
-                                        <strong style={{ color: '#e4e4e7' }}>Problem:</strong> {m.problem}
+                                        <strong style={{ color: isLight ? '#334155' : '#e4e4e7' }}>Problem:</strong> {m.problem}
                                     </div>
-                                    <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
+                                    <div style={{ background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', borderRadius: 10, padding: 16, marginBottom: 12 }}>
                                         {m.steps.map((s, si) => (
                                             <div key={si} style={{ fontSize: 13, color: '#a1a1aa', padding: '4px 0', display: 'flex', gap: 8 }}>
                                                 <span style={{ color: topic.color, fontWeight: 700, flexShrink: 0 }}>→</span> {s}
@@ -157,25 +158,25 @@ function MethodsTab({ topic, progress, onLearn }) {
 }
 
 /* ─── Shortcuts Tab ─── */
-function ShortcutsTab({ topic, progress, onLearn }) {
+function ShortcutsTab({ topic, progress, onLearn, isLight }) {
     return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: 16 }}>
             {topic.shortcuts.map(s => {
                 const learned = progress.shortcutsLearned.includes(s.id);
                 return (
                     <div key={s.id} style={{
-                        background: 'rgba(255,255,255,0.02)', border: `1px solid ${learned ? `${topic.color}30` : 'rgba(255,255,255,0.06)'}`,
+                        background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: `1px solid ${learned ? `${topic.color}30` : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)')}`,
                         borderRadius: 14, padding: 24, display: 'flex', flexDirection: 'column',
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
                             <h4 style={{ fontSize: 16, fontWeight: 700, color: topic.color, margin: 0 }}>{s.name}</h4>
                             {learned && <span style={{ fontSize: 11, color: '#34d399', fontWeight: 600 }}>✅</span>}
                         </div>
-                        <p style={{ fontSize: 13, color: '#a1a1aa', marginBottom: 16, lineHeight: 1.5 }}>{s.description}</p>
+                        <p style={{ fontSize: 13, color: isLight ? '#64748b' : '#a1a1aa', marginBottom: 16, lineHeight: 1.5 }}>{s.description}</p>
 
-                        <div style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                        <div style={{ background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 14, marginBottom: 12 }}>
                             <div style={{ fontSize: 11, color: '#71717a', marginBottom: 6, fontWeight: 600 }}>EXAMPLE</div>
-                            <div style={{ fontSize: 13, color: '#e4e4e7', marginBottom: 4 }}><strong>Q:</strong> {s.example.problem}</div>
+                            <div style={{ fontSize: 13, color: isLight ? '#334155' : '#e4e4e7', marginBottom: 4 }}><strong>Q:</strong> {s.example.problem}</div>
                             <div style={{ fontSize: 13, color: '#34d399' }}><strong>A:</strong> {s.example.solution}</div>
                         </div>
 
@@ -206,7 +207,7 @@ function ShortcutsTab({ topic, progress, onLearn }) {
 }
 
 /* ─── Practice Tab ─── */
-function PracticeTab({ topic, progress }) {
+function PracticeTab({ topic, progress, isLight }) {
     const [difficulty, setDifficulty] = useState('all');
     const [currentIdx, setCurrentIdx] = useState(0);
     const [selected, setSelected] = useState(null);
@@ -300,7 +301,7 @@ function PracticeTab({ topic, progress }) {
                             padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 500, cursor: 'pointer',
                             background: difficulty === d ? (diffColors[d] || 'rgba(129,140,248,0.2)') : 'transparent',
                             color: difficulty === d ? '#000' : '#71717a',
-                            border: difficulty === d ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                            border: difficulty === d ? 'none' : `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)'}`,
                         }}>
                         {d.charAt(0).toUpperCase() + d.slice(1)}
                     </button>
@@ -312,7 +313,7 @@ function PracticeTab({ topic, progress }) {
 
             {/* Question Card */}
             <div style={{
-                background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
+                background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'}`,
                 borderRadius: 16, padding: 28, marginBottom: 20,
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -327,13 +328,13 @@ function PracticeTab({ topic, progress }) {
                     </span>
                 </div>
 
-                <h3 style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, marginBottom: 20, color: '#e4e4e7' }}>{q.question}</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 600, lineHeight: 1.6, marginBottom: 20, color: isLight ? '#1e293b' : '#e4e4e7' }}>{q.question}</h3>
 
                 {/* Options */}
                 <div style={{ display: 'grid', gap: 10, marginBottom: 20 }}>
                     {q.options.map((opt, oi) => {
-                        let bg = 'rgba(255,255,255,0.03)';
-                        let border = 'rgba(255,255,255,0.06)';
+                        let bg = isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)';
+                        let border = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
                         let iconEl = null;
                         if (selected !== null) {
                             if (oi === q.correct) { bg = 'rgba(52,211,153,0.1)'; border = '#34d39950'; iconEl = <CheckCircle2 size={16} style={{ color: '#34d399' }} />; }
@@ -342,7 +343,7 @@ function PracticeTab({ topic, progress }) {
                         return (
                             <button key={oi} onClick={() => handleSelect(oi)} disabled={selected !== null} style={{
                                 padding: '14px 18px', borderRadius: 10, fontSize: 14, textAlign: 'left', cursor: selected !== null ? 'default' : 'pointer',
-                                background: bg, border: `1px solid ${border}`, color: '#e4e4e7',
+                                background: bg, border: `1px solid ${border}`, color: isLight ? '#1e293b' : '#e4e4e7',
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s',
                             }}>
                                 <span><strong style={{ color: topic.color, marginRight: 8 }}>{String.fromCharCode(65 + oi)}.</strong>{opt}</span>
@@ -420,6 +421,8 @@ function PracticeTab({ topic, progress }) {
 export default function TopicLearning() {
     const { topicId } = useParams();
     const navigate = useNavigate();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const [activeTab, setActiveTab] = useState('theory');
     const [, forceUpdate] = useState(0);
 
@@ -427,7 +430,7 @@ export default function TopicLearning() {
     const progress = useMemo(() => getTopicProgress(topicId), [topicId, activeTab]);
 
     if (!topic) return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#030303', color: isLight ? '#1e293b' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 48, marginBottom: 12 }}>📚</div>
                 <h2>Topic not found</h2>
@@ -439,7 +442,7 @@ export default function TopicLearning() {
     const refresh = () => forceUpdate(n => n + 1);
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#030303', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
             {/* Header */}
             <section style={{ padding: '24px 24px 0', maxWidth: 1200, margin: '0 auto' }}>
                 <button onClick={() => navigate('/learning-path')} style={{
@@ -468,7 +471,7 @@ export default function TopicLearning() {
                         <span style={{ fontSize: 12, color: '#71717a' }}>Mastery</span>
                         <span style={{ fontSize: 12, color: topic.color, fontWeight: 700 }}>{progress.masteryPercent}%</span>
                     </div>
-                    <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
+                    <div style={{ height: 6, background: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)', borderRadius: 3 }}>
                         <div style={{
                             height: '100%', width: `${progress.masteryPercent}%`, background: topic.gradient,
                             borderRadius: 3, transition: 'width 0.5s ease'
@@ -484,7 +487,7 @@ export default function TopicLearning() {
                         <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                             padding: '10px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer',
                             background: activeTab === tab.id ? `${tab.color}15` : 'transparent',
-                            border: `1px solid ${activeTab === tab.id ? `${tab.color}30` : 'rgba(255,255,255,0.06)'}`,
+                            border: `1px solid ${activeTab === tab.id ? `${tab.color}30` : (isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)')}`,
                             color: activeTab === tab.id ? tab.color : '#71717a',
                             display: 'flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap', transition: 'all 0.2s',
                         }}>
@@ -495,10 +498,10 @@ export default function TopicLearning() {
                 </div>
 
                 {/* Tab Content */}
-                {activeTab === 'theory' && <TheoryTab topic={topic} progress={progress} onComplete={() => { markTheoryComplete(topicId); refresh(); }} />}
-                {activeTab === 'methods' && <MethodsTab topic={topic} progress={progress} onLearn={(id) => { markMethodLearned(topicId, id); refresh(); }} />}
-                {activeTab === 'shortcuts' && <ShortcutsTab topic={topic} progress={progress} onLearn={(id) => { markShortcutLearned(topicId, id); refresh(); }} />}
-                {activeTab === 'practice' && <PracticeTab topic={topic} progress={progress} />}
+                {activeTab === 'theory' && <TheoryTab topic={topic} progress={progress} isLight={isLight} onComplete={() => { markTheoryComplete(topicId); refresh(); }} />}
+                {activeTab === 'methods' && <MethodsTab topic={topic} progress={progress} isLight={isLight} onLearn={(id) => { markMethodLearned(topicId, id); refresh(); }} />}
+                {activeTab === 'shortcuts' && <ShortcutsTab topic={topic} progress={progress} isLight={isLight} onLearn={(id) => { markShortcutLearned(topicId, id); refresh(); }} />}
+                {activeTab === 'practice' && <PracticeTab topic={topic} progress={progress} isLight={isLight} />}
             </section>
         </div>
     );

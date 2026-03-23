@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
 
 const NODE_RADIUS = 22;
-const COLORS = {
+
+const DARK_COLORS = {
   unvisited: 'rgba(255,255,255,0.12)',
   visiting: '#fbbf24',
   visited: '#22c55e',
@@ -9,12 +10,23 @@ const COLORS = {
   exploring: '#22d3ee',
   edgeDefault: 'rgba(255,255,255,0.1)',
   edgeActive: '#8b5cf670',
-  textDefault: 'rgba(255,255,255,0.5)',
+};
+
+const LIGHT_COLORS = {
+  unvisited: '#d1d5db',
+  visiting: '#fbbf24',
+  visited: '#22c55e',
+  current: '#8b5cf6',
+  exploring: '#22d3ee',
+  edgeDefault: '#e5e7eb',
+  edgeActive: '#8b5cf670',
 };
 
 export default function GraphVisualizer({ step }) {
   if (!step || !step.nodes) return null;
   const { nodes, edges, visited = [], current, exploring, queue, order = [] } = step;
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const C = isLight ? LIGHT_COLORS : DARK_COLORS;
 
   // Force-layout positions (pre-computed for default 7-node graph)
   const positions = useMemo(() => {
@@ -43,15 +55,15 @@ export default function GraphVisualizer({ step }) {
   }, [nodes]);
 
   const getNodeColor = (node) => {
-    if (node === current) return COLORS.current;
-    if (node === exploring) return COLORS.exploring;
-    if (visited.includes(node)) return COLORS.visited;
-    return COLORS.unvisited;
+    if (node === current) return C.current;
+    if (node === exploring) return C.exploring;
+    if (visited.includes(node)) return C.visited;
+    return C.unvisited;
   };
 
   const getNodeGlow = (node) => {
-    if (node === current) return `0 0 20px ${COLORS.current}80`;
-    if (node === exploring) return `0 0 16px ${COLORS.exploring}60`;
+    if (node === current) return `0 0 20px ${C.current}80`;
+    if (node === exploring) return `0 0 16px ${C.exploring}60`;
     return 'none';
   };
 
@@ -63,7 +75,7 @@ export default function GraphVisualizer({ step }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, width: '100%' }}>
+    <div className="gv-container">
       {/* Graph SVG */}
       <svg width="700" height="360" viewBox="0 0 700 360" style={{ maxWidth: '100%' }}>
         {/* Edges */}
@@ -75,7 +87,7 @@ export default function GraphVisualizer({ step }) {
           return (
             <line key={i}
               x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
-              stroke={active ? COLORS.exploring : (visited.includes(u) && visited.includes(v)) ? COLORS.edgeActive : COLORS.edgeDefault}
+              stroke={active ? C.exploring : (visited.includes(u) && visited.includes(v)) ? C.edgeActive : C.edgeDefault}
               strokeWidth={active ? 3 : 2}
               strokeLinecap="round"
               style={{ transition: 'all 0.3s ease' }}
@@ -107,17 +119,19 @@ export default function GraphVisualizer({ step }) {
               />
               {/* Node label */}
               <text x={pos.x} y={pos.y + 1} textAnchor="middle" dominantBaseline="central"
-                fill={isActive || visited.includes(node) ? '#fff' : COLORS.textDefault}
+                className="gv-node-label"
+                data-state={isActive ? 'active' : visited.includes(node) ? 'visited' : 'default'}
                 fontSize={14} fontWeight={700} fontFamily="system-ui"
               >{node}</text>
               {/* Visit order badge */}
               {order.includes(node) && (
                 <g>
                   <circle cx={pos.x + NODE_RADIUS - 2} cy={pos.y - NODE_RADIUS + 2} r={9}
-                    fill="#1e1b4b" stroke={COLORS.visited} strokeWidth={1.5}
+                    className="gv-order-badge-bg"
+                    stroke={C.visited} strokeWidth={1.5}
                   />
                   <text x={pos.x + NODE_RADIUS - 2} y={pos.y - NODE_RADIUS + 3} textAnchor="middle" dominantBaseline="central"
-                    fill={COLORS.visited} fontSize={8} fontWeight={800} fontFamily="system-ui"
+                    fill={C.visited} fontSize={8} fontWeight={800} fontFamily="system-ui"
                   >{order.indexOf(node) + 1}</text>
                 </g>
               )}
@@ -128,17 +142,13 @@ export default function GraphVisualizer({ step }) {
 
       {/* Queue / Stack indicator */}
       {queue && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Queue:</span>
-          <div style={{ display: 'flex', gap: 4 }}>
+        <div className="gv-info-bar">
+          <span className="gv-info-label">Queue:</span>
+          <div className="gv-info-items">
             {queue.length === 0 ? (
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.2)', fontStyle: 'italic' }}>empty</span>
+              <span className="gv-info-empty">empty</span>
             ) : queue.map((node, i) => (
-              <span key={i} style={{
-                padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                background: 'rgba(139,92,246,0.15)', color: '#c084fc',
-                border: '1px solid rgba(139,92,246,0.2)',
-              }}>{node}</span>
+              <span key={i} className="gv-info-chip gv-info-chip-purple">{node}</span>
             ))}
           </div>
         </div>
@@ -146,17 +156,13 @@ export default function GraphVisualizer({ step }) {
 
       {/* Traversal order */}
       {order.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontWeight: 700, textTransform: 'uppercase' }}>Order:</span>
-          <div style={{ display: 'flex', gap: 4 }}>
+        <div className="gv-info-bar">
+          <span className="gv-info-label">Order:</span>
+          <div className="gv-info-items">
             {order.map((node, i) => (
               <span key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <span style={{
-                  padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                  background: 'rgba(34,197,94,0.12)', color: '#4ade80',
-                  border: '1px solid rgba(34,197,94,0.2)',
-                }}>{node}</span>
-                {i < order.length - 1 && <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 10 }}>→</span>}
+                <span className="gv-info-chip gv-info-chip-green">{node}</span>
+                {i < order.length - 1 && <span className="gv-info-arrow">→</span>}
               </span>
             ))}
           </div>
@@ -164,11 +170,11 @@ export default function GraphVisualizer({ step }) {
       )}
 
       {/* Legend */}
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <LegendItem color={COLORS.unvisited} label="Unvisited" />
-        <LegendItem color={COLORS.current} label="Current" />
-        <LegendItem color={COLORS.exploring} label="Exploring" />
-        <LegendItem color={COLORS.visited} label="Visited" />
+      <div className="gv-legend">
+        <LegendItem color={C.unvisited} label="Unvisited" />
+        <LegendItem color={C.current} label="Current" />
+        <LegendItem color={C.exploring} label="Exploring" />
+        <LegendItem color={C.visited} label="Visited" />
       </div>
 
       {/* Pulse animation */}
@@ -181,9 +187,9 @@ export default function GraphVisualizer({ step }) {
 
 function LegendItem({ color, label }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <div style={{ width: 12, height: 12, borderRadius: '50%', background: `${color}40`, border: `2px solid ${color}` }} />
-      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 600 }}>{label}</span>
+    <div className="gv-legend-item">
+      <div className="gv-legend-dot" style={{ background: `${color}40`, border: `2px solid ${color}` }} />
+      <span>{label}</span>
     </div>
   );
 }

@@ -203,4 +203,74 @@ router.post('/explain', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── Playground AI Assistant ───
+router.post('/playground-assist', authenticateToken, async (req, res) => {
+  const { code, language, mode, prompt, history } = req.body;
+
+  if (!code && mode !== 'ask') {
+    return res.status(400).json({ error: 'Code is required for this action' });
+  }
+
+  const systemPrompts = {
+    explain: 'You are a coding tutor. Explain the given code clearly and concisely. Break down complex parts using markdown formatting with headings, bullet points, and code blocks. Keep it under 300 words.',
+    review: 'You are a senior code reviewer. Analyze the code for: time/space complexity, code quality, potential bugs, and improvements. Be constructive and specific. Use markdown with ### headings for each section and bullet points.',
+    debug: 'You are a debugging expert. Find bugs, logic errors, edge cases, and potential runtime issues. For each issue, explain the problem and suggest a fix with code blocks. If the code looks correct, say so.',
+    optimize: 'You are a performance optimization expert. Suggest ways to make the code faster, use less memory, or be more idiomatic. Provide optimized code snippets in fenced code blocks. Focus on practical improvements.',
+    complexity: 'You are an algorithm analysis expert. Analyze the time complexity and space complexity of the code. Break it down by function/section. Use Big-O notation. Provide a clear summary table if multiple functions exist. Use markdown formatting.',
+    comment: 'You are a documentation expert. Add clear, concise inline comments to the code explaining what each significant section does. Return the fully commented code in a fenced code block. Do not change the logic.',
+    ask: 'You are a helpful coding assistant. Answer the user\'s question about their code clearly and concisely. Use markdown formatting with code blocks when showing examples.',
+  };
+
+  const systemContent = systemPrompts[mode] || systemPrompts.ask;
+
+  let userContent;
+  if (mode === 'ask') {
+    userContent = prompt ? `${prompt}\n\nCode (${language}):\n\`\`\`${language}\n${code || '(no code provided)'}\n\`\`\`` : `Help me with this ${language} code:\n\`\`\`${language}\n${code}\n\`\`\``;
+  } else {
+    const extra = prompt ? `\nUser note: ${prompt}` : '';
+    userContent = `Language: ${language}\n\nCode:\n\`\`\`${language}\n${code}\n\`\`\`${extra}`;
+  }
+
+  // Build messages array with optional conversation history
+  const messages = [{ role: 'system', content: systemContent }];
+
+  if (history && Array.isArray(history)) {
+    // Include last 6 messages for context
+    const recentHistory = history.slice(-6).map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content,
+    }));
+    messages.push(...recentHistory);
+  }
+
+  messages.push({ role: 'user', content: userContent });
+
+  try {
+    if (!groq) {
+      const fallbacks = {
+        explain: 'This code defines functions and logic. For detailed AI explanations, please configure the GROQ_API_KEY.',
+        review: 'Code looks structurally sound. For detailed AI code review, please configure the GROQ_API_KEY.',
+        debug: 'No obvious bugs detected from static analysis. For AI-powered debugging, please configure the GROQ_API_KEY.',
+        optimize: 'Consider caching repeated computations and using efficient data structures. For AI optimization tips, please configure the GROQ_API_KEY.',
+        complexity: 'For AI-powered complexity analysis, please configure the GROQ_API_KEY.',
+        comment: 'For AI-generated code comments, please configure the GROQ_API_KEY.',
+        ask: 'For AI-assisted coding help, please configure the GROQ_API_KEY in the backend.',
+      };
+      return res.json({ response: fallbacks[mode] || fallbacks.ask });
+    }
+
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      max_tokens: 1500,
+      temperature: 0.3,
+    });
+
+    res.json({ response: completion.choices[0].message.content });
+  } catch (error) {
+    console.error('Playground AI error:', error);
+    res.status(500).json({ error: 'Failed to get AI response' });
+  }
+});
+
 export default router;

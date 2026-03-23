@@ -10,6 +10,7 @@ import {
     APTITUDE_CATEGORIES, getCategoryQuestions, getSubcategoryQuestions,
     getAllQuestions, filterByDifficulty, getRandomQuestions, FORMULA_SHEETS
 } from '../data/aptitudeData';
+import { useTheme } from '../context/ThemeContext';
 
 const MODE_CONFIG = {
     learning: { label: 'Learning', color: '#34d399', timer: false, showAnswer: true, icon: <BookOpen size={14} /> },
@@ -55,24 +56,24 @@ function CalcWidget({ onClose }) {
 
     return (
         <div style={{
-            position: 'absolute', top: 50, right: 0, width: 260, background: '#111', border: '1px solid #333',
-            borderRadius: 12, padding: 12, zIndex: 100, boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
+            position: 'absolute', top: 50, right: 0, width: 260, background: isLight ? '#fff' : '#111', border: isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid #333',
+            borderRadius: 12, padding: 12, zIndex: 100, boxShadow: isLight ? '0 10px 40px rgba(0,0,0,0.15)' : '0 10px 40px rgba(0,0,0,0.6)'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span style={{ fontSize: 12, color: '#71717a' }}>Calculator</span>
-                <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}><X size={14} /></button>
+                <span style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>Calculator</span>
+                <button onClick={onClose} style={{ background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer' }}><X size={14} /></button>
             </div>
             <div style={{
-                background: '#1a1a1a', borderRadius: 8, padding: '12px 16px', marginBottom: 8,
-                fontSize: 24, fontWeight: 700, textAlign: 'right', color: '#fff', fontFamily: 'monospace',
+                background: isLight ? '#f3f4f6' : '#1a1a1a', borderRadius: 8, padding: '12px 16px', marginBottom: 8,
+                fontSize: 24, fontWeight: 700, textAlign: 'right', color: isLight ? '#1a1a2e' : '#fff', fontFamily: 'monospace',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
             }}>{display}</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                 {btns.map(b => (
                     <button key={b} onClick={() => press(b)} style={{
                         padding: '10px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600,
-                        background: b === '=' ? '#818cf8' : ['÷', '×', '-', '+'].includes(b) ? '#333' : ['C', '±', '%', '√'].includes(b) ? '#252525' : '#1a1a1a',
-                        color: b === '=' ? '#fff' : ['÷', '×', '-', '+'].includes(b) ? '#818cf8' : '#fff',
+                        background: b === '=' ? '#818cf8' : ['÷', '×', '-', '+'].includes(b) ? (isLight ? '#e5e7eb' : '#333') : ['C', '±', '%', '√'].includes(b) ? (isLight ? '#f3f4f6' : '#252525') : (isLight ? '#fff' : '#1a1a1a'),
+                        color: b === '=' ? '#fff' : ['÷', '×', '-', '+'].includes(b) ? '#818cf8' : (isLight ? '#1a1a2e' : '#fff'),
                         gridColumn: b === '0' ? 'span 1' : undefined
                     }}>{b}</button>
                 ))}
@@ -89,6 +90,8 @@ export default function AptitudePractice() {
     const modeParam = searchParams.get('mode') || 'practice';
     const diffParam = searchParams.get('difficulty') || 'all';
 
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const mode = MODE_CONFIG[modeParam] || MODE_CONFIG.practice;
 
     // Load questions
@@ -200,11 +203,11 @@ export default function AptitudePractice() {
     if (!questions.length) {
         return (
             <div style={{
-                minHeight: '100vh', background: '#030303', color: '#fff',
+                minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16
             }}>
                 <h2>No questions found</h2>
-                <p style={{ color: '#71717a' }}>Try changing the difficulty filter or category.</p>
+                <p style={{ color: isLight ? '#6b7280' : '#71717a' }}>Try changing the difficulty filter or category.</p>
                 <button onClick={() => navigate('/aptitude')} className="btn btn-primary">Back to Aptitude Hub</button>
             </div>
         );
@@ -214,23 +217,23 @@ export default function AptitudePractice() {
     const catTitle = category === 'all' ? 'Mixed Practice' : (catInfo?.title || 'Practice');
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff' }}>
+        <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff' }}>
             {/* Top Bar */}
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '12px 24px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-                background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 50
+                padding: '12px 24px', borderBottom: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
+                background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.5)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 50
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <button onClick={() => navigate('/aptitude')} style={{
-                        background: 'none', border: 'none', color: '#71717a', cursor: 'pointer',
+                        background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer',
                         display: 'flex', alignItems: 'center', gap: 6, fontSize: 13
                     }}>
                         <ArrowLeft size={16} /> Back
                     </button>
                     <div>
                         <div style={{ fontSize: 15, fontWeight: 600 }}>{catTitle}</div>
-                        <div style={{ fontSize: 12, color: '#71717a' }}>
+                        <div style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>
                             <span style={{
                                 padding: '2px 8px', borderRadius: 4, fontSize: 11,
                                 background: `${mode.color}20`, color: mode.color
@@ -244,9 +247,9 @@ export default function AptitudePractice() {
                     {mode.timer && (
                         <div style={{
                             display: 'flex', alignItems: 'center', gap: 6,
-                            padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.05)',
+                            padding: '6px 12px', borderRadius: 8, background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)',
                             fontSize: 14, fontFamily: 'monospace', fontWeight: 600,
-                            color: modeParam === 'speed' && questionTime > 20 ? '#f87171' : '#fff'
+                            color: modeParam === 'speed' && questionTime > 20 ? '#f87171' : (isLight ? '#1a1a2e' : '#fff')
                         }}>
                             <Clock size={14} />
                             {modeParam === 'speed' ? `${30 - questionTime}s` : formatTime(totalTime)}
@@ -255,7 +258,7 @@ export default function AptitudePractice() {
 
                     {/* Speed bar for speed mode */}
                     {modeParam === 'speed' && (
-                        <div style={{ width: 80, height: 4, background: '#333', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ width: 80, height: 4, background: isLight ? '#e5e7eb' : '#333', borderRadius: 2, overflow: 'hidden' }}>
                             <div style={{
                                 height: '100%', borderRadius: 2, transition: 'width 1s linear',
                                 width: `${((30 - questionTime) / 30) * 100}%`,
@@ -265,7 +268,7 @@ export default function AptitudePractice() {
                     )}
 
                     {/* Progress */}
-                    <div style={{ fontSize: 13, color: '#a1a1aa' }}>
+                    <div style={{ fontSize: 13, color: isLight ? '#6b7280' : '#a1a1aa' }}>
                         {currentIndex + 1} / {questions.length}
                     </div>
 
@@ -276,8 +279,8 @@ export default function AptitudePractice() {
                             title="Calculator"
                             style={{
                                 width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer',
-                                background: showCalc ? 'rgba(129,140,248,0.2)' : 'rgba(255,255,255,0.05)',
-                                color: showCalc ? '#818cf8' : '#a1a1aa', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                background: showCalc ? 'rgba(129,140,248,0.2)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)'),
+                                color: showCalc ? '#818cf8' : (isLight ? '#6b7280' : '#a1a1aa'), display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}
                         ><Calculator size={16} /></button>
 
@@ -286,8 +289,8 @@ export default function AptitudePractice() {
                             title="Formula Sheet"
                             style={{
                                 width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer',
-                                background: showFormula ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.05)',
-                                color: showFormula ? '#34d399' : '#a1a1aa', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                background: showFormula ? 'rgba(52,211,153,0.2)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)'),
+                                color: showFormula ? '#34d399' : (isLight ? '#6b7280' : '#a1a1aa'), display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}
                         ><FileText size={16} /></button>
 
@@ -296,8 +299,8 @@ export default function AptitudePractice() {
                             title="Question Grid"
                             style={{
                                 width: 36, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer',
-                                background: showGrid ? 'rgba(250,204,21,0.2)' : 'rgba(255,255,255,0.05)',
-                                color: showGrid ? '#facc15' : '#a1a1aa', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                background: showGrid ? 'rgba(250,204,21,0.2)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)'),
+                                color: showGrid ? '#facc15' : (isLight ? '#6b7280' : '#a1a1aa'), display: 'flex', alignItems: 'center', justifyContent: 'center'
                             }}
                         ><Grid3X3 size={16} /></button>
 
@@ -306,18 +309,18 @@ export default function AptitudePractice() {
                         {/* Formula Sheet Panel */}
                         {showFormula && (
                             <div style={{
-                                position: 'absolute', top: 50, right: 0, width: 320, background: '#111',
-                                border: '1px solid #333', borderRadius: 12, padding: 16, zIndex: 100,
-                                maxHeight: 400, overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.6)'
+                                position: 'absolute', top: 50, right: 0, width: 320, background: isLight ? '#fff' : '#111',
+                                border: isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid #333', borderRadius: 12, padding: 16, zIndex: 100,
+                                maxHeight: 400, overflowY: 'auto', boxShadow: isLight ? '0 10px 40px rgba(0,0,0,0.15)' : '0 10px 40px rgba(0,0,0,0.6)'
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                                     <span style={{ fontSize: 13, fontWeight: 600, color: '#34d399' }}>📐 Formula Sheet</span>
-                                    <button onClick={() => setShowFormula(false)} style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}><X size={14} /></button>
+                                    <button onClick={() => setShowFormula(false)} style={{ background: 'none', border: 'none', color: isLight ? '#6b7280' : '#71717a', cursor: 'pointer' }}><X size={14} /></button>
                                 </div>
                                 {relevantFormulas.map((f, i) => (
                                     <div key={i} style={{
                                         padding: '8px 12px', borderRadius: 6, marginBottom: 4,
-                                        background: 'rgba(255,255,255,0.03)', fontSize: 12, color: '#d4d4d8',
+                                        background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', fontSize: 12, color: isLight ? '#4b5563' : '#d4d4d8',
                                         fontFamily: 'monospace', lineHeight: 1.5
                                     }}>{f}</div>
                                 ))}
@@ -339,11 +342,11 @@ export default function AptitudePractice() {
             {/* Question Grid Overlay */}
             {showGrid && (
                 <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)',
+                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: isLight ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.8)',
                     zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }} onClick={() => setShowGrid(false)}>
                     <div style={{
-                        background: '#111', borderRadius: 16, padding: 24, maxWidth: 500, width: '90%'
+                        background: isLight ? '#fff' : '#111', borderRadius: 16, padding: 24, maxWidth: 500, width: '90%'
                     }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ marginBottom: 16, fontSize: 16 }}>Question Navigator</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(10, 1fr)', gap: 6 }}>
@@ -353,9 +356,9 @@ export default function AptitudePractice() {
                                 const isCur = i === currentIndex;
                                 return (
                                     <button key={i} onClick={() => { setCurrentIndex(i); setShowGrid(false); }} style={{
-                                        width: 36, height: 36, borderRadius: 8, border: isCur ? '2px solid #818cf8' : '1px solid #333',
+                                        width: 36, height: 36, borderRadius: 8, border: isCur ? '2px solid #818cf8' : (isLight ? '1px solid #d1d5db' : '1px solid #333'),
                                         background: isAns ? (submitted && answers[q.id] === q.correctAnswer ? 'rgba(52,211,153,0.2)' : submitted ? 'rgba(248,113,113,0.2)' : 'rgba(129,140,248,0.2)') : 'transparent',
-                                        color: isCur ? '#818cf8' : isAns ? '#fff' : '#71717a', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                                        color: isCur ? '#818cf8' : isAns ? (isLight ? '#1a1a2e' : '#fff') : (isLight ? '#9ca3af' : '#71717a'), cursor: 'pointer', fontSize: 12, fontWeight: 600,
                                         position: 'relative'
                                     }}>
                                         {i + 1}
@@ -364,7 +367,7 @@ export default function AptitudePractice() {
                                 );
                             })}
                         </div>
-                        <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 11, color: '#71717a' }}>
+                        <div style={{ display: 'flex', gap: 16, marginTop: 16, fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>
                             <span>⬜ Unanswered</span>
                             <span style={{ color: '#818cf8' }}>🟪 Answered</span>
                             <span>🟡 Bookmarked</span>
@@ -380,7 +383,7 @@ export default function AptitudePractice() {
                         {/* Question Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                <span style={{ fontSize: 13, color: '#71717a' }}>Question {currentIndex + 1}</span>
+                                <span style={{ fontSize: 13, color: isLight ? '#6b7280' : '#71717a' }}>Question {currentIndex + 1}</span>
                                 <span style={{
                                     padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 600,
                                     background: currentQ.difficulty === 'easy' ? 'rgba(52,211,153,0.15)' : currentQ.difficulty === 'medium' ? 'rgba(250,204,21,0.15)' : 'rgba(248,113,113,0.15)',
@@ -401,8 +404,8 @@ export default function AptitudePractice() {
                         {/* Question Text */}
                         <div style={{
                             fontSize: 18, fontWeight: 500, lineHeight: 1.7, marginBottom: 32,
-                            padding: 24, background: 'rgba(255,255,255,0.02)', borderRadius: 12,
-                            border: '1px solid rgba(255,255,255,0.06)'
+                            padding: 24, background: isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)', borderRadius: 12,
+                            border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)'
                         }}>
                             {currentQ.question}
                         </div>
@@ -414,8 +417,8 @@ export default function AptitudePractice() {
                                 const shouldReveal = (modeParam === 'learning' && isAnswered) || submitted;
                                 const isCorrectOpt = opt.label === currentQ.correctAnswer;
 
-                                let bg = 'rgba(255,255,255,0.03)';
-                                let borderCol = 'rgba(255,255,255,0.08)';
+                                let bg = isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.03)';
+                                let borderCol = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
                                 if (isSelected && !shouldReveal) { bg = 'rgba(129,140,248,0.15)'; borderCol = '#818cf8'; }
                                 if (shouldReveal && isCorrectOpt) { bg = 'rgba(52,211,153,0.12)'; borderCol = '#34d399'; }
                                 if (shouldReveal && isSelected && !isCorrectOpt) { bg = 'rgba(248,113,113,0.12)'; borderCol = '#f87171'; }
@@ -429,13 +432,13 @@ export default function AptitudePractice() {
                                             display: 'flex', alignItems: 'center', gap: 16,
                                             padding: '16px 20px', borderRadius: 12, border: `1px solid ${borderCol}`,
                                             background: bg, cursor: submitted ? 'default' : 'pointer',
-                                            transition: 'all 0.2s', textAlign: 'left', color: '#fff', fontSize: 15
+                                            transition: 'all 0.2s', textAlign: 'left', color: isLight ? '#1a1a2e' : '#fff', fontSize: 15
                                         }}
                                     >
                                         <span style={{
                                             width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            background: isSelected ? (shouldReveal ? (isCorrectOpt ? '#34d399' : '#f87171') : '#818cf8') : 'rgba(255,255,255,0.06)',
-                                            color: isSelected ? '#fff' : '#a1a1aa', fontSize: 13, fontWeight: 700, flexShrink: 0
+                                            background: isSelected ? (shouldReveal ? (isCorrectOpt ? '#34d399' : '#f87171') : '#818cf8') : (isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)'),
+                                            color: isSelected ? '#fff' : (isLight ? '#6b7280' : '#a1a1aa'), fontSize: 13, fontWeight: 700, flexShrink: 0
                                         }}>{opt.label}</span>
                                         <span style={{ flex: 1 }}>{opt.value}</span>
                                         {shouldReveal && isCorrectOpt && <Check size={18} style={{ color: '#34d399' }} />}
@@ -456,7 +459,7 @@ export default function AptitudePractice() {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, fontSize: 13, fontWeight: 600, color: '#facc15' }}>
                                             <BookOpen size={14} /> Core Theory
                                         </div>
-                                        <p style={{ fontSize: 14, color: '#d4d4d8', lineHeight: 1.6, margin: 0 }}>
+                                        <p style={{ fontSize: 14, color: isLight ? '#4b5563' : '#d4d4d8', lineHeight: 1.6, margin: 0 }}>
                                             {currentQ.theory}
                                         </p>
                                     </div>
@@ -464,7 +467,7 @@ export default function AptitudePractice() {
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, fontSize: 13, fontWeight: 600, color: '#818cf8' }}>
                                     <Lightbulb size={14} /> Explanation
                                 </div>
-                                <p style={{ fontSize: 14, color: '#d4d4d8', lineHeight: 1.7, margin: 0 }}>
+                                <p style={{ fontSize: 14, color: isLight ? '#4b5563' : '#d4d4d8', lineHeight: 1.7, margin: 0 }}>
                                     {currentQ.explanation}
                                 </p>
                             </div>
@@ -474,12 +477,12 @@ export default function AptitudePractice() {
                         <div style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             position: 'fixed', bottom: 0, left: 0, right: 0,
-                            padding: '16px 24px', background: 'rgba(3,3,3,0.95)', backdropFilter: 'blur(10px)',
-                            borderTop: '1px solid rgba(255,255,255,0.06)', zIndex: 40
+                            padding: '16px 24px', background: isLight ? 'rgba(255,255,255,0.95)' : 'rgba(3,3,3,0.95)', backdropFilter: 'blur(10px)',
+                            borderTop: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', zIndex: 40
                         }}>
                             <button onClick={goPrev} disabled={currentIndex === 0} style={{
                                 display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8,
-                                background: 'rgba(255,255,255,0.05)', border: 'none', color: currentIndex === 0 ? '#333' : '#a1a1aa',
+                                background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)', border: 'none', color: currentIndex === 0 ? (isLight ? '#d1d5db' : '#333') : (isLight ? '#6b7280' : '#a1a1aa'),
                                 cursor: currentIndex === 0 ? 'default' : 'pointer', fontSize: 13, fontWeight: 500
                             }}>
                                 <ChevronLeft size={16} /> Previous
@@ -497,8 +500,8 @@ export default function AptitudePractice() {
 
                             <button onClick={goNext} disabled={currentIndex === questions.length - 1} style={{
                                 display: 'flex', alignItems: 'center', gap: 6, padding: '10px 20px', borderRadius: 8,
-                                background: currentIndex === questions.length - 1 ? 'rgba(255,255,255,0.05)' : '#818cf8',
-                                border: 'none', color: currentIndex === questions.length - 1 ? '#333' : '#fff',
+                                background: currentIndex === questions.length - 1 ? (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.05)') : '#818cf8',
+                                border: 'none', color: currentIndex === questions.length - 1 ? (isLight ? '#d1d5db' : '#333') : '#fff',
                                 cursor: currentIndex === questions.length - 1 ? 'default' : 'pointer', fontSize: 13, fontWeight: 500
                             }}>
                                 Next <ChevronRight size={16} />
