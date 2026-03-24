@@ -11,6 +11,7 @@ import { LANGUAGES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES, PATTERN_HINTS
 import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
 import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../data/editorThemes';
+import { markProblemAsAttempted } from '../data/dsaLearningProgress';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -397,6 +398,7 @@ export default function DSACodeEditor() {
           suggestions: 'Solution accepted! All test cases passed.',
         });
         setTimerActive(false);
+        if (problem?.id) markProblemAsAttempted(problem.id, true);
       }
     } catch (err) {
       setOutput({

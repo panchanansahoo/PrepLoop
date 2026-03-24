@@ -33,9 +33,15 @@ const navSections = [
         ]
     },
     {
+        category: 'Roadmap',
+        items: [
+            { path: '/roadmap', label: 'Roadmaps', subtitle: 'All learning paths', icon: Map },
+        ]
+    },
+    {
         category: 'Learning',
         items: [
-            { path: '/dsa-path', label: 'DSA Learning Path', subtitle: 'DSA roadmap & patterns', icon: Map },
+            { path: '/dsa-path', label: 'DSA Learning Path', subtitle: 'DSA roadmap & patterns', icon: GraduationCap },
             { path: '/technical-path', label: 'Technical Path', subtitle: 'CS & System Design', icon: Server },
             { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
             { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },

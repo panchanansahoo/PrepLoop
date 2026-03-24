@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Sparkles, Trophy, Zap, Target, Flame, ChevronRight, Clock,
@@ -146,8 +146,20 @@ export default function DSALearningPath() {
     const isLight = theme === 'light';
 
     const topicIds = useMemo(() => getDSATopicIds(), []);
-    const overall = useMemo(() => getDSAOverallProgress(topicIds), []);
-    const radarData = useMemo(() => getDSASkillRadar(topicIds), []);
+    const [overall, setOverall] = useState(() => getDSAOverallProgress(topicIds));
+    const [radarData, setRadarData] = useState(() => getDSASkillRadar(topicIds));
+    const [updater, setUpdater] = useState(0);
+
+    useEffect(() => {
+        const handleUpdate = () => setUpdater(prev => prev + 1);
+        window.addEventListener('dsaTopicUpdate', handleUpdate);
+        return () => window.removeEventListener('dsaTopicUpdate', handleUpdate);
+    }, []);
+
+    useEffect(() => {
+        setOverall(getDSAOverallProgress(topicIds));
+        setRadarData(getDSASkillRadar(topicIds));
+    }, [updater, topicIds]);
 
     const toggleStage = (id) => setExpandedStages(prev => ({ ...prev, [id]: !prev[id] }));
     const track = TIME_TRACKS[selectedTrack];

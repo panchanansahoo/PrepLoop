@@ -6,7 +6,7 @@ import { PROBLEMS } from '../data/problemsDatabase';
 import {
   Search, Bell, Menu, X, ChevronRight, User, LogOut,
   Settings, Sparkles, Crown, Command, TrendingUp,
-  Award, ChevronDown, Sun, Moon, ShieldCheck, Briefcase
+  Award, ChevronDown, Sun, Moon, ShieldCheck, Briefcase, Home
 } from 'lucide-react';
 
 import logo from '../assets/logo.svg';
@@ -15,6 +15,7 @@ import { useNotifications } from '../hooks/useNotifications';
 // Page title mapping for breadcrumb
 const PAGE_TITLES = {
   '/dashboard': 'Dashboard',
+  '/roadmap': 'Roadmap',
   '/problems': 'Problem Explorer',
   '/code-editor': 'Code Editor',
   '/playground': 'Playground',
@@ -40,6 +41,35 @@ function getPageTitle(pathname) {
     if (pathname.startsWith(path)) return title;
   }
   return 'Dashboard';
+}
+
+function getBreadcrumbItems(pathname) {
+  if (pathname === '/roadmap') {
+      return [
+        { label: 'Home', to: '/dashboard', icon: 'home' },
+        { label: 'Roadmap', to: '/roadmap' },
+      ];
+  }
+
+  if (pathname.startsWith('/roadmap/')) {
+    const roadmapLabels = {
+      '/roadmap/dsa': 'DSA',
+      '/roadmap/language': 'Language',
+      '/roadmap/system-design': 'System Design',
+      '/roadmap/web-dev': 'Web Dev',
+    };
+
+    const currentLabel = roadmapLabels[pathname];
+    if (currentLabel) {
+      return [
+        { label: 'Home', to: '/dashboard', icon: 'home' },
+        { label: 'Roadmap', to: '/roadmap' },
+        { label: currentLabel, to: pathname },
+      ];
+    }
+  }
+
+  return null;
 }
 
 export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
@@ -234,6 +264,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
   // ─── Premium Dashboard Navbar ───
   const pageTitle = getPageTitle(location.pathname);
+  const breadcrumbItems = getBreadcrumbItems(location.pathname);
   const userTier = 'Free'; // or 'Pro'
 
   return (
@@ -241,16 +272,41 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
       <div className="premium-topbar-inner">
 
         {/* Left: Mobile menu + Page title */}
-        <div className="topbar-left">
-          <button
-            className="icon-btn mobile-only"
-            onClick={onMobileMenuToggle}
-          >
+          <div className="topbar-left">
+            <button
+              className="icon-btn mobile-only"
+              onClick={onMobileMenuToggle}
+            >
             <Menu size={22} />
           </button>
 
           <div className="topbar-page-info desktop-only">
-            <h2 className="topbar-page-title">{pageTitle}</h2>
+            {breadcrumbItems ? (
+              <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
+                {breadcrumbItems.map((item, index) => {
+                  const isLast = index === breadcrumbItems.length - 1;
+                  return (
+                    <React.Fragment key={item.to}>
+                      {index > 0 ? <ChevronRight size={13} className="topbar-breadcrumb-separator" /> : null}
+                      {isLast ? (
+                        <span className="topbar-breadcrumb-current">{item.label}</span>
+                      ) : (
+                        <Link
+                          to={item.to}
+                          className={`topbar-breadcrumb-link ${item.icon ? 'is-icon' : ''}`}
+                          aria-label={item.label}
+                          title={item.label}
+                        >
+                          {item.icon === 'home' ? <Home size={14} /> : item.label}
+                        </Link>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </nav>
+            ) : (
+              <h2 className="topbar-page-title">{pageTitle}</h2>
+            )}
           </div>
         </div>
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     ArrowLeft, BookOpen, Zap, Sparkles, Target, Check, ChevronRight, Clock,
@@ -420,6 +420,11 @@ export default function DSATopicLearning() {
     const progress = useMemo(() => getDSATopicProgress(topicId), [topicId, refreshKey]);
 
     const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
+
+    useEffect(() => {
+        window.addEventListener('dsaTopicUpdate', refresh);
+        return () => window.removeEventListener('dsaTopicUpdate', refresh);
+    }, [refresh]);
 
     if (!topic) {
         return (

@@ -861,6 +861,19 @@ html[data-theme="light"] {
   color: #1a1d2e;
 }
 
+[data-theme="light"] .topbar-breadcrumb-link {
+  color: #5c6078;
+}
+
+[data-theme="light"] .topbar-breadcrumb-link:hover,
+[data-theme="light"] .topbar-breadcrumb-current {
+  color: #1a1d2e;
+}
+
+[data-theme="light"] .topbar-breadcrumb-separator {
+  color: #8b8fa6;
+}
+
 /* ─── Search Bar (Dashboard) ─── */
 [data-theme="light"] .premium-search {
   background: rgba(99, 102, 241, 0.04) !important;
@@ -2273,6 +2286,46 @@ h3 {
 .topbar-page-info {
   display: flex;
   flex-direction: column;
+}
+
+.topbar-breadcrumbs {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.topbar-breadcrumb-link,
+.topbar-breadcrumb-current {
+  font-size: 13px;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+.topbar-breadcrumb-link {
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.18s ease;
+}
+
+.topbar-breadcrumb-link.is-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-breadcrumb-link:hover {
+  color: var(--text-primary);
+}
+
+.topbar-breadcrumb-current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.topbar-breadcrumb-separator {
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .topbar-page-title {

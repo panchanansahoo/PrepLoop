@@ -1,4 +1,6 @@
 // DSA Learning Path Progress — localStorage-based tracking
+import { DSA_TOPICS } from './dsaLearningPathData';
+
 const STORAGE_KEY = 'preploop_dsa_progress';
 
 const load = () => {
@@ -45,6 +47,7 @@ export const markDSAConceptComplete = (topicId) => {
   all[topicId].conceptComplete = true;
   all[topicId].lastActivity = new Date().toISOString();
   save(all);
+  window.dispatchEvent(new CustomEvent('dsaTopicUpdate', { detail: { topicId } }));
 };
 
 export const markDSAThinkingComplete = (topicId) => {
@@ -53,6 +56,7 @@ export const markDSAThinkingComplete = (topicId) => {
   all[topicId].thinkingComplete = true;
   all[topicId].lastActivity = new Date().toISOString();
   save(all);
+  window.dispatchEvent(new CustomEvent('dsaTopicUpdate', { detail: { topicId } }));
 };
 
 export const markDSATricksComplete = (topicId) => {
@@ -61,6 +65,7 @@ export const markDSATricksComplete = (topicId) => {
   all[topicId].tricksComplete = true;
   all[topicId].lastActivity = new Date().toISOString();
   save(all);
+  window.dispatchEvent(new CustomEvent('dsaTopicUpdate', { detail: { topicId } }));
 };
 
 export const recordDSAPracticeAttempt = (topicId, problemId, correct) => {
@@ -72,6 +77,7 @@ export const recordDSAPracticeAttempt = (topicId, problemId, correct) => {
   }
   all[topicId].lastActivity = new Date().toISOString();
   save(all);
+  window.dispatchEvent(new CustomEvent('dsaTopicUpdate', { detail: { topicId } }));
 };
 
 export const getDSAOverallProgress = (topicIds) => {
@@ -101,4 +107,11 @@ export const getDSASkillRadar = (topicIds) => {
 
 export const resetDSAProgress = () => {
   localStorage.removeItem(STORAGE_KEY);
+};
+
+export const markProblemAsAttempted = (problemId, correct) => {
+  const topic = DSA_TOPICS.find(t => t.practiceProblems && t.practiceProblems.some(p => p.id === problemId));
+  if (topic) {
+    recordDSAPracticeAttempt(topic.id, problemId, correct);
+  }
 };

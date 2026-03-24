@@ -10,8 +10,10 @@ import Dashboard from './pages/Dashboard';
 import DSAPatterns from './pages/DSAPatterns';
 import PatternDetail from './pages/PatternDetail';
 import ProblemSolver from './pages/ProblemSolver';
-
-
+import LanguageRoadmap from './pages/LanguageRoadmap';
+import SystemDesignRoadmap from './pages/SystemDesignRoadmap';
+import WebDevRoadmap from './pages/WebDevRoadmap';
+import RoadmapIndex from './pages/RoadmapIndex';
 
 
 
@@ -136,7 +138,7 @@ function AppContent() {
   }, [location.pathname]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
@@ -145,9 +147,10 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
+  const isRoadmapRoute = location.pathname.startsWith('/roadmap');
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
-  const showSidebar = user && !isPublicPage;
+  const showSidebar = (user && !isPublicPage) || isRoadmapRoute;
   const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute;
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute;
 
@@ -185,7 +188,11 @@ function AppContent() {
               path="/overview"
               element={<PrivateRoute><Overview /></PrivateRoute>}
             />
-            <Route path="/dsa-patterns" element={<DSAPatterns />} />
+            <Route path="/roadmap" element={<RoadmapIndex />} />
+            <Route path="/roadmap/dsa" element={<DSAPatterns />} />
+            <Route path="/roadmap/language" element={<LanguageRoadmap />} />
+            <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
+            <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
             <Route path="/patterns/:id" element={<PatternDetail />} />
             <Route
               path="/problems/:id"

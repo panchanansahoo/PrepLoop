@@ -78,6 +78,54 @@ const exploreQuestionTemplates = {
   ]
 };
 
+const leetCodeExampleTemplate = {
+  input: 'See problem description',
+  output: 'See expected output'
+};
+
+/**
+ * Ensure every explore question includes a LeetCode-style structure.
+ */
+function normalizeExploreQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
+
+  return questions.map((item, index) => {
+    const questionText = typeof item?.question === 'string' && item.question.trim()
+      ? item.question.trim()
+      : `Explore approach #${index + 1}`;
+
+    const hintText = typeof item?.hint === 'string' && item.hint.trim()
+      ? item.hint.trim()
+      : 'Use the problem statement and sample cases to reason about the approach.';
+
+    const existingExample = item?.example && typeof item.example === 'object'
+      ? item.example
+      : {};
+
+    const example = {
+      input: existingExample.input || leetCodeExampleTemplate.input,
+      output: existingExample.output || leetCodeExampleTemplate.output
+    };
+
+    const constraints = typeof item?.constraints === 'string' && item.constraints.trim()
+      ? item.constraints.trim()
+      : 'See problem description';
+
+    const explanation = typeof item?.explanation === 'string' && item.explanation.trim()
+      ? item.explanation.trim()
+      : hintText;
+
+    return {
+      ...item,
+      question: questionText,
+      hint: hintText,
+      example,
+      constraints,
+      explanation
+    };
+  });
+}
+
 const testCaseTemplates = {
   'Basic Edge Cases': [
     { input: 'Empty input', expected: 'Handle gracefully or return empty result' },
@@ -110,7 +158,8 @@ const testCaseTemplates = {
  * Get explore questions for a problem based on its pattern
  */
 function getExploreQuestionsForPattern(pattern) {
-  return exploreQuestionTemplates[pattern] || exploreQuestionTemplates['Array'];
+  const baseQuestions = exploreQuestionTemplates[pattern] || exploreQuestionTemplates['Array'];
+  return normalizeExploreQuestions(baseQuestions);
 }
 
 /**
@@ -131,16 +180,15 @@ async function seedExploreQuestionsAndTestCases() {
   try {
     console.log('🌱 Seeding Explore Questions and Extended Test Cases...\n');
 
-    // Fetch all problems with their patterns
+    // Fetch all problems so we can normalize existing exploration data as well
     const { data: problems, error: fetchError } = await supabaseAdmin
       .from('problems')
-      .select('id, title, pattern_id, patterns(name)')
-      .is('explore_questions', null);
+      .select('id, title, pattern_id, explore_questions, patterns(name)');
 
     if (fetchError) throw fetchError;
 
     if (!problems || problems.length === 0) {
-      console.log('✅ All problems already have explore questions!');
+      console.log('✅ No problems found to process.');
       return;
     }
 
@@ -155,7 +203,10 @@ async function seedExploreQuestionsAndTestCases() {
 
       const updates = batch.map(problem => {
         const patternName = problem.patterns?.name || 'Array';
-        const exploreQuestions = getExploreQuestionsForPattern(patternName);
+        const existingQuestions = Array.isArray(problem.explore_questions)
+          ? problem.explore_questions
+          : getExploreQuestionsForPattern(patternName);
+        const exploreQuestions = normalizeExploreQuestions(existingQuestions);
         const extendedTestCases = getExtendedTestCases();
 
         return supabaseAdmin
@@ -167,7 +218,7 @@ async function seedExploreQuestionsAndTestCases() {
               enhanced_at: new Date().toISOString(),
               questions_count: exploreQuestions.length,
               extended_cases_count: extendedTestCases.length,
-              method: 'template-based'
+              method: Array.isArray(problem.explore_questions) ? 'normalized-existing' : 'template-based'
             }
           })
           .eq('id', problem.id);
@@ -195,6 +246,12 @@ async function seedExploreQuestionsAndTestCases() {
     console.log(`   - 15+ comprehensive test case descriptions`);
 
   } catch (error) {
+    if (error?.code === '42703') {
+      console.error('❌ Missing exploration columns on problems table.');
+      console.error('   Run migration: backend/db/migration_add_exploration.sql');
+      console.error('   Then re-run: node backend/scripts/seedExploreQuestions.js');
+      process.exit(1);
+    }
     console.error('Fatal error during seeding:', error);
     process.exit(1);
   }

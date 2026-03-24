@@ -5,6 +5,51 @@ const client = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
+const leetCodeExampleTemplate = {
+  input: 'See problem description',
+  output: 'See expected output'
+};
+
+function normalizeExploreQuestions(questions) {
+  if (!Array.isArray(questions)) return [];
+
+  return questions.map((item, index) => {
+    const questionText = typeof item?.question === 'string' && item.question.trim()
+      ? item.question.trim()
+      : `Explore approach #${index + 1}`;
+
+    const hintText = typeof item?.hint === 'string' && item.hint.trim()
+      ? item.hint.trim()
+      : 'Use the problem statement and sample cases to reason about the approach.';
+
+    const existingExample = item?.example && typeof item.example === 'object'
+      ? item.example
+      : {};
+
+    const example = {
+      input: existingExample.input || leetCodeExampleTemplate.input,
+      output: existingExample.output || leetCodeExampleTemplate.output
+    };
+
+    const constraints = typeof item?.constraints === 'string' && item.constraints.trim()
+      ? item.constraints.trim()
+      : 'See problem description';
+
+    const explanation = typeof item?.explanation === 'string' && item.explanation.trim()
+      ? item.explanation.trim()
+      : hintText;
+
+    return {
+      ...item,
+      question: questionText,
+      hint: hintText,
+      example,
+      constraints,
+      explanation
+    };
+  });
+}
+
 /**
  * Generate exploratory questions for a problem
  * These help students understand the problem deeply
@@ -28,8 +73,15 @@ Generate 5 exploratory learning questions that help someone understand this prob
 4. Follow-up variations
 5. Real-world applications
 
-Format the response as a JSON array with 5 objects, each having "question" and "hint" fields.
-Example: [{"question": "How would you...", "hint": "Consider..."}, ...]
+For each question object, include these fields:
+- "question": the exploration prompt
+- "hint": a concise hint
+- "example": {"input": "See problem description", "output": "See expected output"}
+- "constraints": "See problem description"
+- "explanation": a short explanation for the learner
+
+Format the response as a JSON array with 5 objects.
+Example: [{"question": "How would you...", "hint": "Consider...", "example": {"input": "See problem description", "output": "See expected output"}, "constraints": "See problem description", "explanation": "Why this question matters"}, ...]
 
 Return ONLY the JSON array, no other text.`
         }
@@ -37,7 +89,8 @@ Return ONLY the JSON array, no other text.`
     });
 
     const content = message.content[0]?.text || '[]';
-    return JSON.parse(content);
+    const parsed = JSON.parse(content);
+    return normalizeExploreQuestions(parsed);
   } catch (error) {
     console.error(`Error generating explore questions for ${problemTitle}:`, error.message);
     return [];
