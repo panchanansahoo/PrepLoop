@@ -2,6 +2,59 @@ import { execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
+
+const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
+const COMPILED_CACHE_MAX_ENTRIES = 50;
+const COMPILED_BINARY_CACHE = new Map();
+
+const createCompiledCacheKey = (language, code) => {
+    const hash = crypto.createHash('sha256').update(`${language}\n${code}`).digest('hex').slice(0, 32);
+    return hash;
+};
+
+const isCacheableCompiledLanguage = (language) => language === 'c' || language === 'cpp';
+
+const sweepCompiledCache = () => {
+    const now = Date.now();
+    for (const [key, entry] of COMPILED_BINARY_CACHE.entries()) {
+        const expired = now - entry.createdAt > COMPILED_CACHE_TTL_MS;
+        const missing = !fs.existsSync(entry.binaryPath);
+        if (expired || missing) {
+            if (expired && fs.existsSync(entry.binaryPath)) {
+                try { fs.unlinkSync(entry.binaryPath); } catch { }
+            }
+            COMPILED_BINARY_CACHE.delete(key);
+        }
+    }
+
+    if (COMPILED_BINARY_CACHE.size <= COMPILED_CACHE_MAX_ENTRIES) return;
+
+    const ordered = [...COMPILED_BINARY_CACHE.entries()].sort((a, b) => a[1].createdAt - b[1].createdAt);
+    const toDelete = ordered.slice(0, COMPILED_BINARY_CACHE.size - COMPILED_CACHE_MAX_ENTRIES);
+    for (const [key, entry] of toDelete) {
+        if (fs.existsSync(entry.binaryPath)) {
+            try { fs.unlinkSync(entry.binaryPath); } catch { }
+        }
+        COMPILED_BINARY_CACHE.delete(key);
+    }
+};
+
+const LANGUAGE_ALIASES = {
+    c: 'c',
+    py: 'python',
+    python3: 'python',
+    js: 'javascript',
+    node: 'javascript',
+    ts: 'typescript',
+    cxx: 'cpp',
+    'c++': 'cpp',
+};
+
+const normalizeLanguage = (language = '') => {
+    const normalized = String(language || '').toLowerCase().trim();
+    return LANGUAGE_ALIASES[normalized] || normalized;
+};
 
 const LANG_CONFIG = {
     python: {
@@ -14,9 +67,15 @@ const LANG_CONFIG = {
         commands: ['node'],
         run: (file, cmd) => `${cmd} "${file}"`,
     },
+    c: {
+        ext: '.c',
+        commands: ['gcc', 'clang', '"C:\\Program Files\\LLVM\\bin\\clang.exe"'],
+        compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
+        run: (file, cmd, out) => `"${out}"`,
+    },
     cpp: {
         ext: '.cpp',
-        commands: ['g++'],
+        commands: ['g++', 'clang++', '"C:\\Program Files\\LLVM\\bin\\clang++.exe"'],
         compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
         run: (file, cmd, out) => `"${out}"`,
     },
@@ -33,23 +92,21 @@ const LANG_CONFIG = {
             return `java -cp "${dir}" ${className}`;
         },
     },
-    go: {
-        ext: '.go',
-        commands: ['go'],
-        run: (file, cmd) => `${cmd} run "${file}"`,
-    },
 };
 
 /**
  * Execute code in the given language and return the result.
  * @param {string} code - The source code to execute
- * @param {string} language - The programming language (python, javascript, cpp, java, go)
+ * @param {string} language - The programming language (python, javascript, c, cpp, java)
  * @param {string} input - Optional stdin input
  * @returns {{ success: boolean, output: string, error?: string, executionTime: number }}
  */
 export async function executeCode(code, language, input = '') {
     const startTime = Date.now();
-    const normalizedLanguage = language === 'typescript' ? 'javascript' : language;
+    const requestedLanguage = normalizeLanguage(language);
+    const normalizedLanguage = requestedLanguage === 'typescript' ? 'javascript' : requestedLanguage;
+
+    sweepCompiledCache();
 
     // JavaScript: execute in sandboxed child process via Node.js
     if (normalizedLanguage === 'javascript') {
@@ -63,14 +120,16 @@ export async function executeCode(code, language, input = '') {
                     cwd: os.tmpdir(),
                 });
                 const output = result.toString().trim() || '(No output — use console.log() to see results)';
-                return { success: true, output, executionTime: Date.now() - startTime };
+                const total = Date.now() - startTime;
+                return { success: true, output, executionTime: total, compileTime: 0, runTime: total };
             } catch (runErr) {
                 const stderr = runErr.stderr ? runErr.stderr.toString().trim() : '';
                 const stdout = runErr.stdout ? runErr.stdout.toString().trim() : '';
-                return { success: false, output: stdout, error: stderr || runErr.message || 'Runtime error', executionTime: Date.now() - startTime };
+                const total = Date.now() - startTime;
+                return { success: false, output: stdout, error: stderr || runErr.message || 'Runtime error', executionTime: total, compileTime: 0, runTime: total };
             }
         } catch (fileErr) {
-            return { success: false, output: '', error: `Failed to create temp file: ${fileErr.message}`, executionTime: Date.now() - startTime };
+            return { success: false, output: '', error: `Failed to create temp file: ${fileErr.message}`, executionTime: Date.now() - startTime, compileTime: 0, runTime: 0 };
         } finally {
             try { fs.unlinkSync(tmpFile); } catch { }
         }
@@ -79,7 +138,14 @@ export async function executeCode(code, language, input = '') {
     // Other languages: execute via child_process
     const langConfig = LANG_CONFIG[normalizedLanguage];
     if (!langConfig) {
-        return { success: false, output: '', error: `Language "${normalizedLanguage}" is not supported.`, executionTime: Date.now() - startTime };
+        return {
+            success: false,
+            output: '',
+            error: `Language "${language}" is not supported. Supported: python, javascript, c, cpp, java.`,
+            executionTime: Date.now() - startTime,
+            compileTime: 0,
+            runTime: 0,
+        };
     }
 
     // Find available command
@@ -96,7 +162,9 @@ export async function executeCode(code, language, input = '') {
         return {
             success: false, output: '',
             error: `${normalizedLanguage} runtime not found. Install ${langConfig.commands[0]} or use JavaScript.`,
-            executionTime: Date.now() - startTime
+            executionTime: Date.now() - startTime,
+            compileTime: 0,
+            runTime: 0,
         };
     }
 
@@ -114,44 +182,79 @@ export async function executeCode(code, language, input = '') {
     try {
         fs.writeFileSync(tmpFile, code, 'utf-8');
         const outFile = tmpFile.replace(langConfig.ext, '');
+        const compiledOutFile = process.platform === 'win32' && langConfig.compile ? `${outFile}.exe` : outFile;
+        let compileTime = 0;
+        let finalExecutablePath = compiledOutFile;
+        let cacheHit = false;
 
         // Compile if needed
         if (langConfig.compile) {
-            try {
-                execSync(langConfig.compile(tmpFile, outFile, availableCmd, className), {
-                    stdio: 'pipe', timeout: 15000, shell: true, cwd: tmpDir,
-                });
-            } catch (compileErr) {
-                const stderr = compileErr.stderr ? compileErr.stderr.toString() : compileErr.message;
-                return { success: false, output: '', error: `Compilation Error:\n${stderr}`, executionTime: Date.now() - startTime };
+            const cacheable = isCacheableCompiledLanguage(normalizedLanguage);
+            const cacheKey = cacheable ? createCompiledCacheKey(normalizedLanguage, code) : null;
+            const cachedEntry = cacheKey ? COMPILED_BINARY_CACHE.get(cacheKey) : null;
+
+            if (cachedEntry && fs.existsSync(cachedEntry.binaryPath)) {
+                finalExecutablePath = cachedEntry.binaryPath;
+                cacheHit = true;
+            } else {
+                const compileStart = Date.now();
+                const compileTarget = cacheable
+                    ? path.join(tmpDir, `playground_cache_${cacheKey}${process.platform === 'win32' ? '.exe' : ''}`)
+                    : compiledOutFile;
+
+                try {
+                    execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
+                        stdio: 'pipe', timeout: 15000, shell: true, cwd: tmpDir,
+                    });
+                    compileTime = Date.now() - compileStart;
+                    finalExecutablePath = compileTarget;
+
+                    if (cacheable) {
+                        COMPILED_BINARY_CACHE.set(cacheKey, { binaryPath: compileTarget, createdAt: Date.now() });
+                    }
+                } catch (compileErr) {
+                    const stderr = compileErr.stderr ? compileErr.stderr.toString() : compileErr.message;
+                    compileTime = Date.now() - compileStart;
+                    return { success: false, output: '', error: `Compilation Error:\n${stderr}`, executionTime: Date.now() - startTime, compileTime, runTime: 0, cacheHit };
+                }
             }
         }
 
         // Run
-        const runCmd = langConfig.run(tmpFile, availableCmd, outFile, className);
+        const executablePath = fs.existsSync(finalExecutablePath)
+            ? finalExecutablePath
+            : (fs.existsSync(compiledOutFile) ? compiledOutFile : (fs.existsSync(outFile + '.exe') ? outFile + '.exe' : outFile));
+        const runCmd = langConfig.run(tmpFile, availableCmd, executablePath, className);
+        const runStart = Date.now();
         try {
             const result = execSync(runCmd, {
                 stdio: 'pipe', timeout: 10000, shell: true, input: input || '', cwd: tmpDir,
             });
             const output = result.toString().trim() || '(No output)';
-            console.log('--- RAW STDOUT ---');
-            console.log(output);
-            console.log('------------------');
-            return { success: true, output, executionTime: Date.now() - startTime };
+            const runTime = Date.now() - runStart;
+            return { success: true, output, executionTime: Date.now() - startTime, compileTime, runTime, cacheHit };
         } catch (runErr) {
             const stderr = runErr.stderr ? runErr.stderr.toString().trim() : '';
             const stdout = runErr.stdout ? runErr.stdout.toString().trim() : '';
-            return { success: false, output: stdout, error: stderr || runErr.message || 'Runtime error', executionTime: Date.now() - startTime };
+            const runTime = Date.now() - runStart;
+            return { success: false, output: stdout, error: stderr || runErr.message || 'Runtime error', executionTime: Date.now() - startTime, compileTime, runTime, cacheHit };
         }
     } catch (fileErr) {
-        return { success: false, output: '', error: `Failed to create temp file: ${fileErr.message}`, executionTime: Date.now() - startTime };
+        return { success: false, output: '', error: `Failed to create temp file: ${fileErr.message}`, executionTime: Date.now() - startTime, compileTime: 0, runTime: 0 };
     } finally {
         // Cleanup
         try { fs.unlinkSync(tmpFile); } catch { }
         if (langConfig.compile) {
+            const cacheable = isCacheableCompiledLanguage(normalizedLanguage);
             const outFile = tmpFile.replace(langConfig.ext, '');
+            const compiledOutFile = process.platform === 'win32' ? `${outFile}.exe` : outFile;
+            if (!cacheable) {
+                try { fs.unlinkSync(compiledOutFile); } catch { }
+            }
             try { fs.unlinkSync(outFile); } catch { }
-            try { fs.unlinkSync(outFile + '.exe'); } catch { }
+            if (!cacheable) {
+                try { fs.unlinkSync(outFile + '.exe'); } catch { }
+            }
             if (normalizedLanguage === 'java') {
                 try { fs.unlinkSync(path.join(tmpDir, `${className}.class`)); } catch { }
             }
@@ -168,13 +271,82 @@ ${userCode}
 // --- Test Runner ---
 const __tests = ${tests};
 const __results = [];
+
+function __isNumber(v) {
+    return typeof v === 'number' && Number.isFinite(v);
+}
+
+function __deepEqual(a, b) {
+    if (a === b) return true;
+
+    if (__isNumber(a) && __isNumber(b)) {
+        return Math.abs(a - b) <= 1e-6;
+    }
+
+    if (Array.isArray(a) && Array.isArray(b)) {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+            if (!__deepEqual(a[i], b[i])) return false;
+        }
+        return true;
+    }
+
+    if (a && b && typeof a === 'object' && typeof b === 'object') {
+        const aKeys = Object.keys(a).sort();
+        const bKeys = Object.keys(b).sort();
+        if (!__deepEqual(aKeys, bKeys)) return false;
+        for (const k of aKeys) {
+            if (!__deepEqual(a[k], b[k])) return false;
+        }
+        return true;
+    }
+
+    return false;
+}
+
+function __resolveCallable(targetName) {
+    // 1) Direct function by name
+    try {
+        const direct = eval(targetName);
+        if (typeof direct === 'function') return direct;
+    } catch {}
+
+    // 2) LeetCode-style class Solution with method name
+    try {
+        const Sol = eval('Solution');
+        if (typeof Sol === 'function') {
+            const instance = new Sol();
+
+            if (instance && typeof instance[targetName] === 'function') {
+                return (...args) => instance[targetName](...args);
+            }
+
+            // Fallback to first public method on Solution instance
+            const proto = Object.getPrototypeOf(instance) || {};
+            const methodNames = Object.getOwnPropertyNames(proto)
+                .filter((name) => name !== 'constructor' && typeof instance[name] === 'function');
+            if (methodNames.length > 0) {
+                return (...args) => instance[methodNames[0]](...args);
+            }
+        }
+    } catch {}
+
+    return null;
+}
+
+const __fn = __resolveCallable('${fnName}');
+
 for (const tc of __tests) {
   try {
-    let fn = eval('${fnName}');
-    const result = fn(...tc.input);
-    const expected = JSON.stringify(tc.output);
-    const actual = JSON.stringify(result);
-    __results.push({ passed: expected === actual, expected: tc.output, actual: result, input: tc.input });
+        if (!__fn) {
+            __results.push({ passed: false, expected: tc.output, actual: 'Function ${fnName} not found', input: tc.input, error: 'Function not found' });
+            continue;
+        }
+
+        const args = Array.isArray(tc.input) ? tc.input : [tc.input];
+        const result = __fn(...args);
+        const passed = __deepEqual(tc.output, result);
+        __results.push({ passed, expected: tc.output, actual: result, input: tc.input });
   } catch (e) {
     __results.push({ passed: false, expected: tc.output, actual: 'Error: ' + e.message, input: tc.input, error: e.message });
   }
@@ -487,6 +659,9 @@ print('__TEST_RESULTS__' + json.dumps(__results))
 
     // For other languages, we can optionally append a dummy main to make it compile successfully.
     let wrappedCode = userCode;
+    if (language === 'c' && !userCode.includes('main(')) {
+        wrappedCode += '\n\nint main() {\n    return 0;\n}\n';
+    }
     if (language === 'cpp' && !userCode.includes('main(')) {
         wrappedCode += '\n\nint main() {\n    return 0;\n}\n';
     }

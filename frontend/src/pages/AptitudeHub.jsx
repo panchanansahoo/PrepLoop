@@ -6,7 +6,7 @@ import {
     Hash, Percent, Scale, Hammer, Timer, IndianRupee, Dices, Droplets,
     Users, Compass, Lock, ArrowUpNarrowWide, GitBranch, LayoutGrid, Puzzle,
     SpellCheck, TextCursorInput, ArrowLeftRight, Shuffle, Quote,
-    GitCompareArrows, Play, Filter, ArrowRight, Settings, Database, Box, Network
+    GitCompareArrows, Play, Filter, ArrowRight, Settings, Database, Box, Network, GraduationCap
 } from 'lucide-react';
 import { APTITUDE_CATEGORIES, getCategoryStats, getOverallStats } from '../data/aptitudeData';
 import { useTheme } from '../context/ThemeContext';
@@ -107,18 +107,30 @@ export default function AptitudeHub() {
                 </div>
 
                 {/* Quick Start Buttons */}
-                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 16 }}>
+                <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 24 }}>
+                    <button
+                        onClick={() => navigate('/learning-path')}
+                        className="btn btn-primary"
+                        style={{ 
+                            display: 'flex', alignItems: 'center', gap: 10, padding: '14px 32px',
+                            background: 'linear-gradient(135deg, #6366f1, #a855f7)', border: 'none',
+                            boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)',
+                            fontWeight: 700, fontSize: 15
+                        }}
+                    >
+                        <GraduationCap size={20} /> Start Aptitude Learning Path
+                    </button>
                     <button
                         onClick={() => navigate('/aptitude/practice/all?mode=practice&difficulty=all')}
-                        className="btn btn-primary"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px' }}
+                        className="btn btn-outline"
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px', fontWeight: 600 }}
                     >
-                        <Play size={16} /> Random Quiz (20 Qs)
+                        <Play size={16} /> Random Quiz
                     </button>
                     <button
                         onClick={() => navigate('/aptitude/practice/all?mode=speed&difficulty=all')}
                         className="btn btn-outline"
-                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 24px' }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 24px', fontWeight: 600 }}
                     >
                         <Zap size={16} /> Speed Challenge
                     </button>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark } from 'lucide-react';
-import NotionEditor from '../components/editor/NotionEditor';
 import { useTheme } from '../context/ThemeContext';
+import NotionViewer from '../components/editor/NotionViewer';
 
 
 export default function BlogPost() {
@@ -90,10 +90,7 @@ export default function BlogPost() {
                 {/* Content Area - Render JSON Blocks or Legacy HTML */}
                 {blog.content && blog.content.trim().startsWith('[') ? (
                     <div className="notion-renderer">
-                        <NotionEditor
-                            initialContent={JSON.parse(blog.content)}
-                            editable={false}
-                        />
+                        <NotionViewer content={blog.content} />
                     </div>
                 ) : (
                     <div

@@ -4,7 +4,7 @@ import {
     CheckCircle, Clock, ArrowRight, RotateCcw, Zap,
     Code2, Users, Brain, Briefcase, Award, Target
 } from 'lucide-react';
-import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepData';
+import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 

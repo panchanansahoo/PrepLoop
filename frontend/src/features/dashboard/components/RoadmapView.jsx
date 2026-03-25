@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+    ArrowLeft,
     ArrowUpRight,
     BookOpen,
     CheckCircle2,
@@ -8,10 +9,14 @@ import {
     ChevronRight,
     Compass,
     GitBranch,
+    Layers,
+    Maximize2,
+    Minimize2,
     Minus,
     Plus,
     ScanSearch,
     Search,
+    Sparkles,
 } from 'lucide-react';
 import ReactFlow, {
     Handle,
@@ -270,10 +275,10 @@ function estimateNodeWidth(label, depth) {
     return Math.max(base, Math.min(max, base + label.length * perChar));
 }
 
-function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = false) {
-    const siblingGap = 18;
-    const rootGap = 24;
-    const depthGap = 152;
+function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = false, rootLabel = 'Roadmap') {
+    const gapByDepth = [0, 48, 26, 22, 20]; // depth 1=48, 2=26, 3=22, 4+=20
+    const getGap = (d) => gapByDepth[Math.min(d, gapByDepth.length - 1)];
+    const depthGap = 185;
     const originX = 228;
     const startY = 74;
     const positions = [];
@@ -282,12 +287,14 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
 
     const measureNode = (node, depth) => {
         const width = estimateNodeWidth(node.label, depth);
-        const height = depth === 1 ? 36 : 28;
+        // Must match actual rendered node height (padding + badges + progress bar)
+        const height = depth === 1 ? 58 : 48;
         const isCollapsed = !forceExpand && collapsedNodeIds.has(node.id);
         const visibleChildren = isCollapsed ? [] : node.children;
         const childHeights = visibleChildren.map((child) => measureNode(child, depth + 1));
+        const gap = getGap(depth);
         const childrenHeight = childHeights.length
-            ? childHeights.reduce((sum, current) => sum + current, 0) + siblingGap * (childHeights.length - 1)
+            ? childHeights.reduce((sum, current) => sum + current, 0) + gap * (childHeights.length - 1)
             : 0;
         const subtreeHeight = Math.max(height, childrenHeight);
 
@@ -322,6 +329,7 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
             isMatch: node.isMatch,
             hasChildren: measurement.hasChildren,
             isCollapsed: measurement.isCollapsed,
+            descendantGuideCount: node.descendantGuideCount || 0,
             guideText: node.guide
                 ? `${node.guide.problemCount} problems${node.guide.solvedCount ? ` • ${node.guide.solvedCount} solved` : ''}`
                 : '',
@@ -333,9 +341,10 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
 
         if (measurement.visibleChildren.length) {
             let childTopY = topY;
+            const gap = getGap(depth);
             measurement.visibleChildren.forEach((child) => {
                 placeNode(child, depth + 1, branchColor, childTopY, node.id);
-                childTopY += measurements.get(child.id).subtreeHeight + siblingGap;
+                childTopY += measurements.get(child.id).subtreeHeight + gap;
             });
         }
 
@@ -343,9 +352,10 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
     };
 
     let currentY = startY;
+    const rootGap = getGap(1);
     roots.forEach((root, index) => {
         const subtreeHeight = measureNode(root, 1);
-        placeNode(root, 1, root.color, currentY, 'dsa-root');
+        placeNode(root, 1, root.color, currentY, 'roadmap-root');
         if (index < roots.length - 1) {
             currentY += subtreeHeight + rootGap;
         }
@@ -357,11 +367,11 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
     const rootY = (minY + maxY) / 2 - 21;
 
     positions.push({
-        id: 'dsa-root',
-        label: 'DSA Patterns',
+        id: 'roadmap-root',
+        label: rootLabel,
         x: 46,
         y: rootY,
-        width: 128,
+        width: Math.max(128, 40 + rootLabel.length * 8.5),
         height: 42,
         depth: 0,
         branchColor: '#ffffff',
@@ -385,6 +395,10 @@ function buildEdgePath(fromNode, toNode) {
     return `M ${startX} ${startY} C ${startX + delta} ${startY}, ${endX - delta} ${endY}, ${endX} ${endY}`;
 }
 
+/* ────────────────────────────
+   React Flow Node Components
+   ──────────────────────────── */
+
 function MindMapRootNode({ data }) {
     return (
         <div className="rf-roadmap-root">
@@ -394,12 +408,20 @@ function MindMapRootNode({ data }) {
     );
 }
 
+const DIFF_COLORS = {
+    Easy: { bg: 'rgba(52, 211, 153, 0.14)', color: '#34d399', border: 'rgba(52, 211, 153, 0.25)' },
+    Medium: { bg: 'rgba(251, 191, 36, 0.14)', color: '#fbbf24', border: 'rgba(251, 191, 36, 0.25)' },
+    Hard: { bg: 'rgba(248, 113, 113, 0.14)', color: '#f87171', border: 'rgba(248, 113, 113, 0.25)' },
+};
+
 function MindMapTextNode({ data }) {
     const labelContent = (
         <span className={`rf-roadmap-label depth-${data.depth}`}>
             {highlightText(data.label, data.query)}
         </span>
     );
+
+    const diffStyle = data.guide?.difficulty ? DIFF_COLORS[data.guide.difficulty] : null;
 
     return (
         <div
@@ -438,8 +460,35 @@ function MindMapTextNode({ data }) {
                     <div className="rf-roadmap-link">{labelContent}</div>
                 )}
 
+                {/* Count badge for branch nodes */}
+                {data.hasChildren && data.descendantGuideCount > 0 && (
+                    <span
+                        className="rf-roadmap-count-badge"
+                        style={{
+                            background: `color-mix(in srgb, ${data.color} 22%, rgba(0,0,0,0.3))`,
+                            color: data.color,
+                            borderColor: `color-mix(in srgb, ${data.color} 34%, transparent)`,
+                        }}
+                    >
+                        {data.descendantGuideCount}
+                    </span>
+                )}
+
                 {data.guide ? (
                     <div className="rf-roadmap-guide-actions">
+                        {/* Difficulty badge */}
+                        {diffStyle && (
+                            <span
+                                className="rf-roadmap-diff-badge"
+                                style={{
+                                    background: diffStyle.bg,
+                                    color: diffStyle.color,
+                                    borderColor: diffStyle.border,
+                                }}
+                            >
+                                {data.guide.difficulty}
+                            </span>
+                        )}
                         {data.guide.isComplete ? (
                             <span className="rf-roadmap-complete-badge" aria-label={`${data.guide.name} completed`}>
                                 <CheckCircle2 size={12} />
@@ -457,6 +506,20 @@ function MindMapTextNode({ data }) {
                     </div>
                 ) : null}
             </div>
+
+            {/* Mini progress bar for guide nodes */}
+            {data.guide && data.guide.problemCount > 0 && (
+                <div className="rf-roadmap-node-progress">
+                    <div
+                        className="rf-roadmap-node-progress-fill"
+                        style={{
+                            width: `${data.guide.progressPercent}%`,
+                            background: data.guide.isComplete ? '#34d399' : data.color,
+                        }}
+                    />
+                </div>
+            )}
+
             <Handle type="source" position={Position.Right} className="rf-roadmap-handle" />
         </div>
     );
@@ -484,6 +547,7 @@ function createFlowGraph(layout, query, onToggleNode) {
             isMatch: node.isMatch,
             hasChildren: node.hasChildren,
             isCollapsed: node.isCollapsed,
+            descendantGuideCount: node.descendantGuideCount || 0,
             id: node.id,
             onToggle: onToggleNode,
             query,
@@ -500,13 +564,27 @@ function createFlowGraph(layout, query, onToggleNode) {
         animated: false,
         style: {
             stroke: edge.color,
-            strokeWidth: edge.depth === 1 ? 3.2 : edge.depth === 2 ? 2.5 : 1.9,
-            opacity: 0.95,
+            strokeWidth: edge.depth === 1 ? 2.4 : edge.depth === 2 ? 1.8 : 1.2,
+            strokeLinecap: 'round',
+            strokeLinejoin: 'round',
+            opacity: edge.depth === 1 ? 0.55 : edge.depth === 2 ? 0.42 : 0.32,
         },
     }));
 
     return { nodes, edges };
 }
+
+/* ─── Helper: count total leaf nodes ─── */
+function countAllLeafNodes(nodes = []) {
+    return nodes.reduce((sum, node) => {
+        if (!node.children?.length) return sum + 1;
+        return sum + countAllLeafNodes(node.children);
+    }, 0);
+}
+
+/* ════════════════════════════════════════════
+   Main RoadmapView export
+   ════════════════════════════════════════════ */
 
 export default function RoadmapView({
     hierarchy = [],
@@ -531,6 +609,7 @@ export default function RoadmapView({
         [defaultCollapsedNodeIds]
     );
     const [collapsedNodeIds, setCollapsedNodeIds] = useState(() => new Set(defaultCollapsedNodeIds));
+    const [legendOpen, setLegendOpen] = useState(true);
 
     const patternIndexes = useMemo(() => createPatternIndexes(patterns), [patterns]);
     const topicProgressIndex = useMemo(() => createTopicProgressIndex(topics), [topics]);
@@ -575,6 +654,27 @@ export default function RoadmapView({
     const totalProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.problemCount, 0);
     const solvedProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.solvedCount, 0);
     const clickableLeaves = Array.from(uniqueGuides.values()).filter((guide) => guide.generated).length;
+    const overallProgress = totalProblems > 0 ? Math.round((solvedProblems / totalProblems) * 100) : 0;
+
+    // Branch-level stats for legend
+    const branchStats = useMemo(() => {
+        return enrichedRoots.map((root) => {
+            const rootGuides = Array.from(collectUniqueGuides([root]).values());
+            const rootSolved = rootGuides.reduce((sum, guide) => sum + guide.solvedCount, 0);
+            const rootTotal = rootGuides.reduce((sum, guide) => sum + guide.problemCount, 0);
+            return {
+                id: root.id,
+                label: root.label,
+                color: root.color,
+                childCount: root.children.length,
+                guideCount: rootGuides.length,
+                solvedCount: rootSolved,
+                totalCount: rootTotal,
+                progressPercent: rootTotal > 0 ? Math.round((rootSolved / rootTotal) * 100) : 0,
+            };
+        });
+    }, [enrichedRoots]);
+
     const topCompactRoots = enrichedRoots
         .map((root) => {
             const rootGuides = Array.from(collectUniqueGuides([root]).values());
@@ -590,8 +690,8 @@ export default function RoadmapView({
         .sort((left, right) => right.problemCount - left.problemCount)
         .slice(0, 6);
     const mindmapLayout = useMemo(
-        () => createMindmapLayout(filteredRoots, collapsedNodeIds, Boolean(query.trim())),
-        [collapsedNodeIds, filteredRoots, query]
+        () => createMindmapLayout(filteredRoots, collapsedNodeIds, Boolean(query.trim()), title),
+        [collapsedNodeIds, filteredRoots, query, title]
     );
     const flowGraph = useMemo(
         () => createFlowGraph(mindmapLayout, query, handleToggleNode),
@@ -603,6 +703,16 @@ export default function RoadmapView({
             flowInstance.fitView({ padding: query.trim() ? 0.12 : 0.08, duration: 320 });
         }
     }, [filteredRoots.length, flowInstance, isCompact, query]);
+
+    const handleExpandAll = useCallback(() => {
+        setCollapsedNodeIds(new Set());
+        setTimeout(() => flowInstance?.fitView({ padding: 0.06, duration: 400 }), 100);
+    }, [flowInstance]);
+
+    const handleCollapseAll = useCallback(() => {
+        setCollapsedNodeIds(new Set(defaultCollapsedNodeIds));
+        setTimeout(() => flowInstance?.fitView({ padding: 0.14, duration: 400 }), 100);
+    }, [defaultCollapsedNodeIds, flowInstance]);
 
     if (isCompact) {
         return (
@@ -678,16 +788,78 @@ export default function RoadmapView({
         );
     }
 
+    /* ──────────────────────────
+       Full-page Mind-map View
+       ────────────────────────── */
     return (
         <div className="roadmap-mindmap-page">
             <div className="roadmap-mindmap-shell">
+                {/* ── Header Panel ── */}
+                <div className="roadmap-header-panel">
+                    <div className="roadmap-header-left">
+                        <Link to="/roadmap" className="roadmap-header-back">
+                            <ArrowLeft size={14} />
+                            <span>All Roadmaps</span>
+                        </Link>
+                        <div className="roadmap-header-kicker">
+                            <Layers size={13} />
+                            <span>{kicker}</span>
+                        </div>
+                        <h1 className="roadmap-header-title">{title}</h1>
+                        {subtitle && <p className="roadmap-header-subtitle">{subtitle}</p>}
+                    </div>
+
+                    <div className="roadmap-header-right">
+                        {/* Stats chips */}
+                        <div className="roadmap-header-stats">
+                            <div className="roadmap-header-stat">
+                                <Compass size={14} />
+                                <strong>{enrichedRoots.length}</strong>
+                                <span>Sections</span>
+                            </div>
+                            <div className="roadmap-header-stat-divider" />
+                            <div className="roadmap-header-stat">
+                                <GitBranch size={14} />
+                                <strong>{uniqueGuides.size}</strong>
+                                <span>Guides</span>
+                            </div>
+                            <div className="roadmap-header-stat-divider" />
+                            <div className="roadmap-header-stat">
+                                <BookOpen size={14} />
+                                <strong>{totalProblems}</strong>
+                                <span>Reps</span>
+                            </div>
+                            <div className="roadmap-header-stat-divider" />
+                            <div className="roadmap-header-stat">
+                                <Sparkles size={14} />
+                                <strong>{overallProgress}%</strong>
+                                <span>Done</span>
+                            </div>
+                        </div>
+
+                        {/* Search */}
+                        <div className="roadmap-header-search">
+                            <Search size={14} />
+                            <input
+                                type="text"
+                                placeholder={searchPlaceholder}
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Canvas ── */}
                 <div className="roadmap-mindmap-canvas">
                     <div className="roadmap-canvas-atmosphere" aria-hidden="true">
                         <span className="roadmap-canvas-glow roadmap-canvas-glow-a" />
                         <span className="roadmap-canvas-glow roadmap-canvas-glow-b" />
                         <span className="roadmap-canvas-grid" />
+                        <span className="roadmap-canvas-dots" />
                     </div>
 
+                    {/* Toolbar */}
                     <div className="roadmap-floating road-map-floating-top">
                         <div className="roadmap-mindmap-controls">
                             <button
@@ -716,7 +888,83 @@ export default function RoadmapView({
                                 <ScanSearch size={14} />
                                 Fit
                             </button>
+                            <span className="roadmap-control-divider" />
+                            <button
+                                type="button"
+                                className="roadmap-control-btn"
+                                onClick={handleExpandAll}
+                                aria-label="Expand all"
+                            >
+                                <Maximize2 size={13} />
+                                <span>All</span>
+                            </button>
+                            <button
+                                type="button"
+                                className="roadmap-control-btn"
+                                onClick={handleCollapseAll}
+                                aria-label="Collapse all"
+                            >
+                                <Minimize2 size={13} />
+                                <span>Collapse</span>
+                            </button>
                         </div>
+                    </div>
+
+                    {/* Branch Legend (floating right) */}
+                    <div className={`roadmap-legend ${legendOpen ? 'is-open' : 'is-closed'}`}>
+                        <button
+                            className="roadmap-legend-toggle"
+                            onClick={() => setLegendOpen((prev) => !prev)}
+                        >
+                            {legendOpen ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
+                            <span>Branches</span>
+                        </button>
+                        {legendOpen && (
+                            <div className="roadmap-legend-list">
+                                {branchStats.map((branch) => (
+                                    <div key={branch.id} className="roadmap-legend-item">
+                                        <span
+                                            className="roadmap-legend-dot"
+                                            style={{ background: branch.color, boxShadow: `0 0 8px ${branch.color}` }}
+                                        />
+                                        <div className="roadmap-legend-item-info">
+                                            <span className="roadmap-legend-item-name">{branch.label}</span>
+                                            <span className="roadmap-legend-item-meta">
+                                                {branch.guideCount} guides · {branch.totalCount} reps
+                                            </span>
+                                            {/* Mini branch progress bar */}
+                                            <div className="roadmap-legend-item-bar">
+                                                <div
+                                                    className="roadmap-legend-item-bar-fill"
+                                                    style={{
+                                                        width: `${Math.max(branch.progressPercent, 3)}%`,
+                                                        background: branch.color,
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <span className="roadmap-legend-item-pct">{branch.progressPercent}%</span>
+                                    </div>
+                                ))}
+
+                                {/* Overall progress */}
+                                <div className="roadmap-legend-overall">
+                                    <div className="roadmap-legend-overall-header">
+                                        <span>Overall</span>
+                                        <span>{overallProgress}%</span>
+                                    </div>
+                                    <div className="roadmap-legend-overall-bar">
+                                        <div
+                                            className="roadmap-legend-overall-fill"
+                                            style={{ width: `${overallProgress}%` }}
+                                        />
+                                    </div>
+                                    <div className="roadmap-legend-overall-meta">
+                                        {completedGuideCount}/{uniqueGuides.size} guides · {solvedProblems}/{totalProblems} reps
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {filteredRoots.length === 0 ? (

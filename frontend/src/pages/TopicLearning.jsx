@@ -60,11 +60,18 @@ function TheoryTab({ topic, progress, onComplete, isLight }) {
     return (
         <div>
             {topic.theory.sections.map((section, si) => (
-                <div key={si} style={{ marginBottom: 32 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16, color: topic.color }}>
+                <div key={si} style={{ marginBottom: 40 }}>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, color: topic.color, borderBottom: `2px solid ${topic.color}20`, paddingBottom: 8 }}>
                         {section.title}
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12 }}>
+                    <div style={{ marginBottom: 24 }}>
+                        {section.content?.map((text, ti) => (
+                            <p key={ti} style={{ fontSize: 15, color: isLight ? '#475569' : '#a1a1aa', lineHeight: 1.7, marginBottom: 12 }}>
+                                {text}
+                            </p>
+                        ))}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
                         {section.formulas.map((f, fi) => (
                             <FormulaCard key={fi} formula={f.formula} example={f.example} color={topic.color} isLight={isLight} />
                         ))}

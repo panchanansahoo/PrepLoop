@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { COMPANY_QUESTIONS } from './companyPrepData';
 
 const STORAGE_KEY = 'preploop_company_prep_progress';
 
@@ -21,7 +20,7 @@ function defaultProgress() {
   };
 }
 
-export function useCompanyPrepProgress() {
+export function useCompanyPrepProgress(questions = []) {
   const [progress, setProgress] = useState(() => loadProgress() || defaultProgress());
 
   useEffect(() => {
@@ -62,7 +61,7 @@ export function useCompanyPrepProgress() {
 
   const stats = useMemo(() => {
     const solvedIds = Object.keys(progress.solved);
-    const solvedQuestions = COMPANY_QUESTIONS.filter(q => progress.solved[q.id]);
+    const solvedQuestions = questions.filter(q => progress.solved[q.id]);
 
     const byCompany = {};
     const byDifficulty = { Easy: 0, Medium: 0, Hard: 0 };
@@ -76,7 +75,7 @@ export function useCompanyPrepProgress() {
 
     // Weak areas: tags with low solve rate
     const allTagCounts = {};
-    COMPANY_QUESTIONS.forEach(q => q.tags.forEach(t => { allTagCounts[t] = (allTagCounts[t] || 0) + 1; }));
+    questions.forEach(q => q.tags.forEach(t => { allTagCounts[t] = (allTagCounts[t] || 0) + 1; }));
     const weakTags = Object.entries(allTagCounts)
       .map(([tag, total]) => ({ tag, total, solved: byTag[tag] || 0, rate: (byTag[tag] || 0) / total }))
       .filter(t => t.rate < 0.3 && t.total >= 3)
@@ -85,18 +84,18 @@ export function useCompanyPrepProgress() {
 
     return {
       totalSolved: solvedIds.length,
-      totalQuestions: COMPANY_QUESTIONS.length,
+      totalQuestions: questions.length,
       byCompany,
       byDifficulty,
       byTag,
       weakTags,
     };
-  }, [progress.solved]);
+  }, [progress.solved, questions]);
 
   const getRecommendations = useCallback((limit = 10) => {
     const weakTagNames = stats.weakTags.map(t => t.tag);
     const targets = new Set(progress.targetCompanies);
-    const unsolved = COMPANY_QUESTIONS.filter(q => !progress.solved[q.id]);
+    const unsolved = questions.filter(q => !progress.solved[q.id]);
 
     // Score each unsolved question
     const scored = unsolved.map(q => {
@@ -111,7 +110,7 @@ export function useCompanyPrepProgress() {
 
     scored.sort((a, b) => b._score - a._score);
     return scored.slice(0, limit);
-  }, [progress.solved, progress.targetCompanies, stats.weakTags]);
+  }, [progress.solved, progress.targetCompanies, stats.weakTags, questions]);
 
   return {
     progress,

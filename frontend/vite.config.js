@@ -22,7 +22,21 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true
+    sourcemap: true,
+    chunkSizeWarningLimit: 10000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
+          if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-editor';
+          if (id.includes('prettier')) return 'vendor-prettier';
+          if (id.includes('reactflow')) return 'vendor-reactflow';
+          if (id.includes('@react-three') || id.includes('three')) return 'vendor-3d';
+        },
+      },
+    },
   },
   test: {
     globals: true,

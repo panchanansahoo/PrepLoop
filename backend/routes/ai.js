@@ -9,6 +9,50 @@ const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
 }) : null;
 
+const slugifyProblemTitle = (value = '') =>
+  value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const resolveProblemId = async (problemIdentifier) => {
+  if (!problemIdentifier) return null;
+
+  const rawIdentifier = String(problemIdentifier).trim();
+  if (!rawIdentifier) return null;
+
+  if (/^\d+$/.test(rawIdentifier)) {
+    const numericId = Number(rawIdentifier);
+    const { data: byId } = await supabaseAdmin
+      .from('problems')
+      .select('id')
+      .eq('id', numericId)
+      .single();
+
+    if (byId?.id) return byId.id;
+  }
+
+  const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
+  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim().toLowerCase();
+
+  const { data: candidates } = await supabaseAdmin
+    .from('problems')
+    .select('id, title')
+    .limit(1500);
+
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const matched =
+    candidates.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
+    candidates.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
+    candidates.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+    null;
+
+  return matched?.id || null;
+};
+
 router.post('/code-feedback', authenticateToken, async (req, res) => {
   const { code, language, problemId } = req.body;
 
@@ -18,11 +62,13 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
 
   try {
     let problemContext = '';
+    let canonicalProblemId = null;
     if (problemId) {
+      canonicalProblemId = await resolveProblemId(problemId);
       const { data: problem } = await supabaseAdmin
         .from('problems')
         .select('title, description')
-        .eq('id', problemId)
+        .eq('id', canonicalProblemId)
         .single();
 
       if (problem) {
@@ -66,13 +112,13 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
 
     const feedback = JSON.parse(completion.choices[0].message.content);
     
-    if (problemId) {
+    if (canonicalProblemId) {
       // Update latest submission with AI feedback
       const { data: latestSub } = await supabaseAdmin
         .from('submissions')
         .select('id')
         .eq('user_id', req.user.id)
-        .eq('problem_id', problemId)
+        .eq('problem_id', canonicalProblemId)
         .order('submitted_at', { ascending: false })
         .limit(1)
         .single();
@@ -131,10 +177,16 @@ router.post('/hint', authenticateToken, async (req, res) => {
   const { problemId, currentCode } = req.body;
 
   try {
+    const canonicalProblemId = await resolveProblemId(problemId);
+
+    if (!canonicalProblemId) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
       .select('title, description, hints')
-      .eq('id', problemId)
+      .eq('id', canonicalProblemId)
       .single();
 
     if (error || !problem) {

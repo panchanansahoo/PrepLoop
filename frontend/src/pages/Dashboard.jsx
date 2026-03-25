@@ -50,9 +50,6 @@ import StreakHeatmap from '../components/StreakHeatmap';
 import RecentActivity from '../components/RecentActivity';
 import SkillRadar from '../components/SkillRadar';
 import DailyChallenge from '../components/DailyChallenge';
-
-
-import TopicProgress from '../components/TopicProgress';
 import UpcomingContests from '../components/UpcomingContests';
 import CalendarWidget from '../components/CalendarWidget';
 import PomodoroTimer from '../components/PomodoroTimer';
@@ -69,9 +66,6 @@ const WIDGET_REGISTRY = [
     { id: 'streakHeatmap', name: 'Activity Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: 'GitHub-style solving heatmap' },
 
     { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
-
-
-    { id: 'topicProgress', name: 'Topic Progress', component: TopicProgress, defaultVisible: true, premium: true, layout: '2col-right', description: 'DSA roadmap completion tracker' },
     { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
     { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Mini monthly calendar with date picker' },
     { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
@@ -158,8 +152,6 @@ export default function Dashboard() {
                 return { data: dashboardData.skillBreakdown };
             case 'recentActivity':
                 return { activities: dashboardData.recentActivity };
-            case 'topicProgress':
-                return { topics: dashboardData.topicProgress };
             case 'weeklyGoals':
                 return { weeklyData: dashboardData.weeklyGoals };
             default:

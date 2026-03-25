@@ -54,6 +54,96 @@ export default function ProblemDescriptionPanel({
   const hints = problem.hints || [];
   const visibleTopics = showAllTopics ? topics : topics.slice(0, 3);
   const hiddenCount = topics.length - 3;
+  const hasPlaceholderText = (value) => {
+    const text = String(value || '').toLowerCase();
+    return text.includes('see problem') || text.includes('see expected') || text.includes('see constraints') || text.includes('sample input') || text.includes('sample output');
+  };
+
+  const buildDefaultExamples = () => {
+    const topicSet = new Set((problem.topics || []).map((t) => String(t).toLowerCase()));
+
+    if (topicSet.has('linked list')) return [{ input: 'head = [1,2,3,4]', output: '[1,2,3,4]' }, { input: 'head = [5,1,8]', output: '[5,1,8]' }];
+    if (topicSet.has('trees') || topicSet.has('tree')) return [{ input: 'root = [1,2,3,null,4]', output: 'true' }, { input: 'root = [3,9,20,null,null,15,7]', output: '3' }];
+    if (topicSet.has('strings') || topicSet.has('string')) return [{ input: 's = "abcabcbb"', output: '3' }, { input: 's = "bbbbb"', output: '1' }];
+    if (topicSet.has('graphs') || topicSet.has('graph')) return [{ input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' }, { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' }];
+    if (topicSet.has('matrix')) return [{ input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' }, { input: 'matrix = [[1,0],[0,1]]', output: '2' }];
+
+    return [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }, { input: 'nums = [3,2,4], target = 6', output: '[1,2]' }];
+  };
+
+  const normalizedExamples = useMemo(() => {
+    const examples = Array.isArray(problem.examples) ? problem.examples : [];
+    const defaultExamples = buildDefaultExamples();
+    const cleaned = examples.map((example) => ({
+      input: (() => {
+        const value = String(example?.input || '').trim();
+        return value && !hasPlaceholderText(value) ? value : defaultExamples[0].input;
+      })(),
+      output: (() => {
+        const value = String(example?.output || '').trim();
+        return value && !hasPlaceholderText(value) ? value : defaultExamples[0].output;
+      })(),
+      explanation: String(example?.explanation || '').trim(),
+    }));
+
+    const deduped = [];
+    const seen = new Set();
+    [...cleaned, ...defaultExamples].forEach((example) => {
+      const input = String(example.input || '').trim();
+      const output = String(example.output || '').trim();
+      const key = `${input}::${output}`;
+      if (!input || !output || seen.has(key)) return;
+      seen.add(key);
+      deduped.push({
+        input,
+        output,
+        explanation: String(example.explanation || '').trim(),
+      });
+    });
+
+    return deduped.length >= 2
+      ? deduped
+      : defaultExamples.map((ex) => ({ ...ex, explanation: '' }));
+  }, [problem.examples, problem.topics]);
+
+  const normalizedConstraints = useMemo(() => {
+    if (Array.isArray(problem.constraints)) {
+      const lines = problem.constraints.map((item) => String(item || '').trim()).filter(Boolean);
+      const sanitizedLines = lines.filter((line) => !hasPlaceholderText(line));
+      return sanitizedLines.length > 0 ? sanitizedLines.join('\n') : '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
+    }
+
+    if (problem.constraints && typeof problem.constraints === 'object') {
+      const lines = Object.entries(problem.constraints)
+        .map(([key, value]) => `${key}: ${String(value || '').trim()}`)
+        .filter((line) => !line.endsWith(':'))
+        .filter((line) => !hasPlaceholderText(line));
+      return lines.length > 0 ? lines.join('\n') : '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
+    }
+
+    const constraints = String(problem.constraints || '').trim();
+    if (constraints && !hasPlaceholderText(constraints)) {
+      return constraints;
+    }
+    return '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
+  }, [problem.constraints]);
+
+  const problemExplanation = useMemo(() => {
+    const explicit = String(problem.explanation || '').trim();
+    if (explicit) return explicit;
+
+    const desc = String(problem.description || '').trim();
+    const hintText = (problem.hints || [])
+      .map((h) => String(h || '').trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' ');
+
+    if (desc && hintText) return `${desc} ${hintText}`;
+    if (desc) return desc;
+    if (hintText) return hintText;
+    return 'No explanation available yet.';
+  }, [problem.explanation, problem.description, problem.hints]);
 
   // ─── Related Questions ───
   const relatedProblems = useMemo(() => {
@@ -297,74 +387,90 @@ export default function ProblemDescriptionPanel({
                   <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{problem.description}</p>
                 </div>
 
-                {/* Examples */}
-                {problem.examples && problem.examples.length > 0 && (
-                  <div style={{ marginBottom: 24 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                      {problem.examples.map((ex, i) => (
-                        <div key={i}>
-                          <p style={{
-                            color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px 0'
-                          }}>
-                            Example {i + 1}:
-                          </p>
-                          <div style={{
-                            padding: '12px 16px', borderRadius: 8,
-                            background: 'rgba(255, 255, 255, 0.05)',
-                            borderLeft: '2px solid rgba(255, 255, 255, 0.2)',
-                            fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
-                            color: 'rgba(255,255,255,0.8)', lineHeight: 1.6
-                          }}>
-                            <div style={{ marginBottom: 4 }}>
-                              <span style={{ fontWeight: 700, color: '#fff' }}>Input: </span>
-                              <span>{ex.input}</span>
-                            </div>
-                            <div style={{ marginBottom: ex.explanation ? 4 : 0 }}>
-                              <span style={{ fontWeight: 700, color: '#fff' }}>Output: </span>
-                              <span>{ex.output}</span>
-                            </div>
-                            {ex.explanation && (
-                              <div style={{ marginTop: 4 }}>
-                                <span style={{ fontWeight: 700, color: '#fff' }}>Explanation: </span>
-                                <span style={{ whiteSpace: 'pre-wrap' }}>{ex.explanation}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                <div style={{ marginBottom: 24 }}>
+                  <p style={{
+                    color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px 0',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}>
+                    <Lightbulb size={14} color="#fbbf24" /> Explanation
+                  </p>
+                  <div style={{
+                    padding: '12px 14px', borderRadius: 8,
+                    background: 'rgba(251,191,36,0.07)',
+                    border: '1px solid rgba(251,191,36,0.18)',
+                    color: 'rgba(255,255,255,0.8)',
+                    fontSize: 13,
+                    lineHeight: 1.7,
+                    whiteSpace: 'pre-wrap',
+                  }}>
+                    {problemExplanation}
                   </div>
-                )}
+                </div>
+
+                {/* Examples */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {normalizedExamples.map((ex, i) => (
+                      <div key={i}>
+                        <p style={{
+                          color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 8px 0'
+                        }}>
+                          Example {i + 1}:
+                        </p>
+                        <div style={{
+                          padding: '12px 16px', borderRadius: 8,
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          borderLeft: '2px solid rgba(255, 255, 255, 0.2)',
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+                          color: 'rgba(255,255,255,0.8)', lineHeight: 1.6
+                        }}>
+                          <div style={{ marginBottom: 4 }}>
+                            <span style={{ fontWeight: 700, color: '#fff' }}>Input: </span>
+                            <span>{ex.input}</span>
+                          </div>
+                          <div style={{ marginBottom: ex.explanation ? 4 : 0 }}>
+                            <span style={{ fontWeight: 700, color: '#fff' }}>Output: </span>
+                            <span>{ex.output}</span>
+                          </div>
+                          {ex.explanation && (
+                            <div style={{ marginTop: 4 }}>
+                              <span style={{ fontWeight: 700, color: '#fff' }}>Explanation: </span>
+                              <span style={{ whiteSpace: 'pre-wrap' }}>{ex.explanation}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
                 {/* Constraints */}
-                {problem.constraints && (
-                  <div style={{ marginBottom: 24 }}>
-                    <p style={{
-                      color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 12px 0'
-                    }}>
-                      Constraints:
-                    </p>
-                    <ul style={{
-                      margin: 0, paddingLeft: 20,
-                      color: 'rgba(255, 255, 255, 0.7)',
-                      fontSize: 13, lineHeight: 1.8
-                    }}>
-                      {problem.constraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
-                        const cleanConstraint = constraint.trim().replace(/^- /, '');
-                        return (
-                          <li key={i} style={{ marginBottom: 6 }}>
-                            <code style={{
-                              background: 'rgba(255, 255, 255, 0.08)',
-                              padding: '2px 6px', borderRadius: 4,
-                              fontFamily: "'JetBrains Mono', monospace",
-                              color: 'rgba(255, 255, 255, 0.85)'
-                            }}>{cleanConstraint}</code>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
+                <div style={{ marginBottom: 24 }}>
+                  <p style={{
+                    color: '#fff', fontSize: 14, fontWeight: 700, margin: '0 0 12px 0'
+                  }}>
+                    Constraints:
+                  </p>
+                  <ul style={{
+                    margin: 0, paddingLeft: 20,
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: 13, lineHeight: 1.8
+                  }}>
+                    {normalizedConstraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
+                      const cleanConstraint = constraint.trim().replace(/^- /, '');
+                      return (
+                        <li key={i} style={{ marginBottom: 6 }}>
+                          <code style={{
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            padding: '2px 6px', borderRadius: 4,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            color: 'rgba(255, 255, 255, 0.85)'
+                          }}>{cleanConstraint}</code>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               </>
             )}
 
@@ -375,7 +481,7 @@ export default function ProblemDescriptionPanel({
                   fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
                   textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
                 }}>Example Test Cases</div>
-                {(problem.examples || []).map((ex, i) => (
+                {normalizedExamples.map((ex, i) => (
                   <div key={i} style={{
                     padding: 14, borderRadius: 10,
                     background: 'rgba(255,255,255,0.02)',

@@ -220,19 +220,19 @@ const TestCasePanel = forwardRef(function TestCasePanel({
         const passed = results.filter(t => t.status === 'passed').length;
         onTestResults?.({ passed, total: results.length, results });
       } else {
-        // Fallback: raw execution result (no structured tests)
+        // Fallback: raw execution result (unverified against expected output)
         const actualOutput = (data.output || data.error || 'No output').trim();
         const results = testCases.map(tc => ({
           ...tc,
-          status: data.success ? 'passed' : 'error',
+          status: data.success ? 'failed' : 'error',
           actualOutput,
           runtime: data.executionTime ? `${Math.round(data.executionTime)} ms` : undefined,
-          memory: data.success ? `${(14 + Math.random() * 6).toFixed(1)} MB` : undefined,
+          memory: undefined,
+          error: data.success ? 'Unverified result: backend did not return judged test results.' : (data.error || null),
         }));
         setTestCases(results);
         setMode('result');
-        const passed = results.filter(t => t.status === 'passed').length;
-        onTestResults?.({ passed, total: results.length, results });
+        onTestResults?.({ passed: 0, total: results.length, results });
       }
     } catch (err) {
       const results = testCases.map(tc => ({

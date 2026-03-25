@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle,
   Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight,
   BarChart3, Target, X, Mic, Brain, Code, MessageSquare, Calendar,
   ChevronLeft, ChevronRight, Lightbulb
 } from 'lucide-react';
-import { COMPANIES, COMPANY_QUESTIONS, STAGES, ROLES, DIFFICULTIES, getCompanyStats, getAllTags, DATA_LAST_UPDATED } from '../data/companyPrepData';
+import { COMPANIES, STAGES, ROLES, DIFFICULTIES, DATA_LAST_UPDATED } from '../data/companyPrepMeta';
 import { useCompanyPrepProgress } from '../data/companyPrepProgress';
 import { Link } from 'react-router-dom';
 
@@ -26,14 +26,56 @@ export default function CompanyPrep() {
   const [activeView, setActiveView] = useState('all'); // 'all' | 'company' | 'recommended'
   const [selectedCompanyTile, setSelectedCompanyTile] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [questions, setQuestions] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
+  const [questionLoadError, setQuestionLoadError] = useState('');
   const QUESTIONS_PER_PAGE = 50;
 
-  const { progress, toggleSolved, setNote, toggleBookmark, stats, isSolved, isBookmarked, getNote, getRecommendations } = useCompanyPrepProgress();
+  const { progress, toggleSolved, setNote, toggleBookmark, stats, isSolved, isBookmarked, getNote, getRecommendations } = useCompanyPrepProgress(questions);
 
-  const companyStats = useMemo(() => getCompanyStats(), []);
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingQuestions(true);
+    setQuestionLoadError('');
+
+    fetch('/company-prep-questions.json')
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch question bank');
+        }
+        return res.json();
+      })
+      .then((loaded) => {
+        if (cancelled) return;
+        setQuestions(Array.isArray(loaded) ? loaded : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setQuestionLoadError('Failed to load question bank. Please refresh and try again.');
+        setQuestions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingQuestions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const companyStats = useMemo(() => {
+    const byCompany = {};
+    questions.forEach((q) => {
+      byCompany[q.company] = byCompany[q.company] || { total: 0, byStage: {}, byDifficulty: { Easy: 0, Medium: 0, Hard: 0 } };
+      byCompany[q.company].total += 1;
+      byCompany[q.company].byStage[q.stage] = (byCompany[q.company].byStage[q.stage] || 0) + 1;
+      byCompany[q.company].byDifficulty[q.difficulty] = (byCompany[q.company].byDifficulty[q.difficulty] || 0) + 1;
+    });
+    return byCompany;
+  }, [questions]);
 
   const filteredQuestions = useMemo(() => {
-    let filtered = [...COMPANY_QUESTIONS];
+    let filtered = [...questions];
 
     if (selectedCompanyTile) {
       filtered = filtered.filter(q => q.company === selectedCompanyTile);
@@ -62,7 +104,7 @@ export default function CompanyPrep() {
     if (showBookmarkedOnly) filtered = filtered.filter(q => isBookmarked(q.id));
 
     return filtered;
-  }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile, progress]);
+  }, [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile, progress, questions]);
 
   // Reset to page 1 when filters change
   useMemo(() => setCurrentPage(1), [search, selectedCompanies, selectedDifficulty, selectedStage, selectedRole, frequencyMin, recentFilter, showSolvedOnly, showBookmarkedOnly, selectedCompanyTile]);
@@ -151,6 +193,18 @@ export default function CompanyPrep() {
           </Link>
         </div>
       </div>
+
+      {questionLoadError && (
+        <div className="cp-recommended-section" style={{ marginBottom: 16 }}>
+          <div className="cp-rec-header">
+            <X size={20} />
+            <div>
+              <h3>Unable to load questions</h3>
+              <p>{questionLoadError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters Panel */}
       {showFilters && (
@@ -280,7 +334,10 @@ export default function CompanyPrep() {
       {/* Questions List */}
       <div className="cp-questions-list">
         <div className="cp-list-header">
-          <span>{activeView === 'recommended' ? recommendations.length : filteredQuestions.length} questions{activeView !== 'recommended' && totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : ''}</span>
+          <span>
+            {loadingQuestions ? 'Loading question bank...' : `${activeView === 'recommended' ? recommendations.length : filteredQuestions.length} questions`}
+            {!loadingQuestions && activeView !== 'recommended' && totalPages > 1 ? ` · Page ${currentPage} of ${totalPages}` : ''}
+          </span>
         </div>
 
         {(activeView === 'recommended' ? recommendations : paginatedQuestions).map(q => (

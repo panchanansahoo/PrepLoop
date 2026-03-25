@@ -4,6 +4,50 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const slugifyProblemTitle = (value = '') =>
+  value
+    .toString()
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+const resolveProblemId = async (problemIdentifier) => {
+  if (!problemIdentifier) return null;
+
+  const rawIdentifier = String(problemIdentifier).trim();
+  if (!rawIdentifier) return null;
+
+  if (/^\d+$/.test(rawIdentifier)) {
+    const numericId = Number(rawIdentifier);
+    const { data: byId } = await supabaseAdmin
+      .from('problems')
+      .select('id')
+      .eq('id', numericId)
+      .single();
+
+    if (byId?.id) return byId.id;
+  }
+
+  const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
+  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim().toLowerCase();
+
+  const { data: candidates } = await supabaseAdmin
+    .from('problems')
+    .select('id, title')
+    .limit(1500);
+
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const matched =
+    candidates.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
+    candidates.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
+    candidates.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+    null;
+
+  return matched?.id || null;
+};
+
 router.get('/patterns', optionalAuth, async (req, res) => {
   try {
     // Get patterns with problem counts
@@ -82,11 +126,16 @@ router.get('/patterns/:id', optionalAuth, async (req, res) => {
 router.get('/problems/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const canonicalProblemId = await resolveProblemId(id);
+
+    if (!canonicalProblemId) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
 
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
       .select('*, patterns(name, category)')
-      .eq('id', id)
+      .eq('id', canonicalProblemId)
       .single();
 
     if (error || !problem) {
@@ -107,7 +156,7 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
         .from('user_progress')
         .select('*')
         .eq('user_id', req.user.id)
-        .eq('problem_id', id)
+        .eq('problem_id', canonicalProblemId)
         .single();
       userProgress = progress || null;
     }
@@ -130,11 +179,16 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
 router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const canonicalProblemId = await resolveProblemId(id);
+
+    if (!canonicalProblemId) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
 
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
       .select('id, title, difficulty, explore_questions, extended_test_cases, exploration_metadata')
-      .eq('id', id)
+      .eq('id', canonicalProblemId)
       .single();
 
     if (error || !problem) {
@@ -162,11 +216,16 @@ router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
 router.get('/problems/:id/solution', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    const canonicalProblemId = await resolveProblemId(id);
+
+    if (!canonicalProblemId) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
 
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
       .select('solution_code')
-      .eq('id', id)
+      .eq('id', canonicalProblemId)
       .single();
 
     if (error || !problem) {

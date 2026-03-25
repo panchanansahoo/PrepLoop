@@ -1,13 +1,13 @@
 // ─── DSA Code Templates ───
 // Algorithm skeletons, data structure boilerplate, and utility snippets
-// for Python, JavaScript, C++, Java, Go
+// for Python, JavaScript, C, C++, Java
 
 export const LANGUAGES = [
   { id: 'python', label: 'Python', monacoId: 'python', icon: '🐍' },
   { id: 'javascript', label: 'JavaScript', monacoId: 'javascript', icon: '⚡' },
+  { id: 'c', label: 'C', monacoId: 'c', icon: '🧩' },
   { id: 'cpp', label: 'C++', monacoId: 'cpp', icon: '⚙️' },
   { id: 'java', label: 'Java', monacoId: 'java', icon: '☕' },
-  { id: 'go', label: 'Go', monacoId: 'go', icon: '🔷' },
 ];
 
 export const ALGORITHM_TEMPLATES = {

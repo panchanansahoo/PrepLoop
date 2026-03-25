@@ -1,19 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import {
     ArrowLeft, Play, Terminal, Trash2, Copy, Check,
     Download, Upload, Clock, ChevronDown, Code2,
     Braces, Hash, FileCode, Layers, Sparkles, X,
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
-    Type, ChevronUp, Link2, TextCursorInput,
+    Type, ChevronUp, Link2,
     PanelRightOpen, PanelRightClose, Settings, Info,
     Bot, Send, MessageSquare, Eraser,
-    ClipboardCheck, RefreshCw, FileCode2
+    ClipboardCheck, RefreshCw, FileCode2, AlertTriangle
 } from 'lucide-react';
 import { LANGUAGES, ALGORITHM_TEMPLATES } from '../data/dsaTemplates';
 import { EDITOR_THEMES, registerAllThemes, getSavedTheme, saveTheme } from '../data/editorThemes';
@@ -25,6 +23,156 @@ const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     if (token) headers.Authorization = `Bearer ${token}`;
     return headers;
+};
+
+// Enhanced error parser with line number extraction
+const parseErrorWithLineInfo = (errorText = '') => {
+    const text = String(errorText || '').trim();
+    // Try to extract line:col info from common compiler formats
+    const lineMatch = text.match(/:?(\d+):\s*(\d+):?/); // "file.py:5:10" or ":5:10"
+    const lineNum = lineMatch ? parseInt(lineMatch[1]) : null;
+    const colNum = lineMatch ? parseInt(lineMatch[2]) : null;
+    return { text, lineNum, colNum };
+};
+
+const getPlaygroundFriendlyError = (rawError = '', status = 0) => {
+    const message = String(rawError || '').trim();
+    const lower = message.toLowerCase();
+
+    if (lower.includes('code must be a string') || lower.includes('code is required')) {
+        return 'Write some code before running.';
+    }
+
+    if (lower.includes('language is required')) {
+        return 'Select a language before running.';
+    }
+
+    if (lower.includes('is not supported')) {
+        return 'This language is not supported by the executor yet.';
+    }
+
+    if (status >= 500) {
+        return 'Server error while executing code. Please try again.';
+    }
+
+    return message || 'Execution failed. Please try again.';
+};
+
+const findBracketErrors = (source = '') => {
+    const openToClose = { '(': ')', '[': ']', '{': '}' };
+    const closeToOpen = { ')': '(', ']': '[', '}': '{' };
+    const stack = [];
+    const errors = [];
+    const lines = source.split('\n');
+
+    lines.forEach((lineText, lineIndex) => {
+        for (let col = 0; col < lineText.length; col++) {
+            const ch = lineText[col];
+            if (openToClose[ch]) {
+                stack.push({ ch, line: lineIndex + 1, col: col + 1 });
+            } else if (closeToOpen[ch]) {
+                const top = stack[stack.length - 1];
+                if (!top || top.ch !== closeToOpen[ch]) {
+                    errors.push({
+                        line: lineIndex + 1,
+                        col: col + 1,
+                        message: `Unexpected '${ch}'`,
+                        severity: 'error',
+                    });
+                    return;
+                }
+                stack.pop();
+            }
+            }
+    });
+
+    stack.forEach((item) => {
+        errors.push({
+            line: item.line,
+            col: item.col,
+            message: `Unclosed '${item.ch}'`,
+            severity: 'error',
+        });
+    });
+
+    return errors;
+};
+
+const findJavaScriptSyntaxErrors = (source = '') => {
+    if (!source.trim()) return [];
+    try {
+        // eslint-disable-next-line no-new-func
+        new Function(source);
+        return [];
+    } catch (err) {
+        const raw = String(err?.stack || err?.message || 'Syntax error');
+        const lineMatch = raw.match(/<anonymous>:(\d+):(\d+)/);
+        const line = lineMatch ? Math.max(1, Number(lineMatch[1]) - 1) : 1;
+        const col = lineMatch ? Math.max(1, Number(lineMatch[2])) : 1;
+        return [{
+            line,
+            col,
+            message: String(err?.message || 'Syntax error'),
+            severity: 'error',
+        }];
+    }
+};
+
+const getRealtimeErrors = (source = '', language = '') => {
+    const normalized = String(language || '').toLowerCase();
+    const errors = findBracketErrors(source);
+    if (normalized === 'javascript') {
+        errors.push(...findJavaScriptSyntaxErrors(source));
+    }
+    if (normalized === 'python') {
+        const lines = source.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const current = lines[i];
+            const trimmed = current.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+
+            if (/^\s*\t+\s+|^\s+\t+/.test(current)) {
+                errors.push({ line: i + 1, col: 1, message: 'Mixed tabs and spaces indentation', severity: 'warning' });
+            }
+
+            if (trimmed.endsWith(':')) {
+                let next = i + 1;
+                while (next < lines.length && (!lines[next].trim() || lines[next].trim().startsWith('#'))) next++;
+                if (next < lines.length) {
+                    const currentIndent = current.match(/^\s*/)?.[0].length || 0;
+                    const nextIndent = lines[next].match(/^\s*/)?.[0].length || 0;
+                    if (nextIndent <= currentIndent) {
+                        errors.push({
+                            line: next + 1,
+                            col: 1,
+                            message: 'Expected indented block after ":"',
+                            severity: 'error',
+                        });
+                    }
+                }
+            }
+        }
+    }
+    return errors;
+};
+
+const mergeAndDedupeErrors = (...groups) => {
+    const seen = new Set();
+    const merged = [];
+    for (const group of groups) {
+        for (const error of group || []) {
+            const key = `${error.line || 1}:${error.col || 1}:${error.message || 'Error'}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            merged.push({
+                line: error.line || 1,
+                col: error.col || 1,
+                message: error.message || 'Error',
+                severity: error.severity || 'error',
+            });
+        }
+    }
+    return merged;
 };
 
 // ─── Default starter code per language ───
@@ -57,6 +205,29 @@ function hello() {
 }
 
 hello();
+`,
+    c: `// 🧩 C Playground
+// Write any C code here and experiment freely!
+
+#include <stdio.h>
+
+int main(void) {
+    printf("Hello from PrepLoop Playground!\\n");
+
+    // Try out arrays
+    int nums[] = {3, 1, 4, 1, 5, 9, 2, 6};
+    int n = sizeof(nums) / sizeof(nums[0]);
+    int sum = 0;
+
+    printf("Original: ");
+    for (int i = 0; i < n; i++) {
+        printf("%d ", nums[i]);
+        sum += nums[i];
+    }
+    printf("\\nSum:      %d\\n", sum);
+
+    return 0;
+}
 `,
     cpp: `// ⚙️ C++ Playground
 // Write any C++ code here and experiment freely!
@@ -142,6 +313,83 @@ func main() {
 `,
 };
 
+let prettierRuntimePromise = null;
+
+const loadPrettierRuntime = async () => {
+    if (prettierRuntimePromise) return prettierRuntimePromise;
+
+    prettierRuntimePromise = Promise.all([
+        import('prettier/standalone'),
+        import('prettier/plugins/babel'),
+        import('prettier/plugins/estree'),
+    ]).then(([prettier, babelPlugin, estreePlugin]) => ({
+        prettier: prettier.default || prettier,
+        plugins: [
+            babelPlugin.default || babelPlugin,
+            estreePlugin.default || estreePlugin,
+        ],
+    }));
+
+    return prettierRuntimePromise;
+};
+
+// ─── Code formatter utility ───
+const formatCode = async (code, language) => {
+    try {
+        const normalized = String(language || '').toLowerCase();
+        const lines = code.split('\n');
+
+        if (normalized === 'javascript') {
+            const runtime = await loadPrettierRuntime();
+            return runtime.prettier.format(code, {
+                parser: 'babel',
+                plugins: runtime.plugins,
+                semi: true,
+                singleQuote: true,
+                tabWidth: 2,
+                printWidth: 100,
+                trailingComma: 'es5',
+            });
+        }
+
+        if (normalized === 'python') {
+            const formatted = [];
+            let indent = 0;
+            for (const rawLine of lines) {
+                const trimmed = rawLine.trim();
+                if (!trimmed) {
+                    formatted.push('');
+                    continue;
+                }
+                if (/^(return|break|continue|pass|raise)\b/.test(trimmed) && indent > 0) {
+                    formatted.push(`${'    '.repeat(indent)}${trimmed}`);
+                } else {
+                    formatted.push(`${'    '.repeat(Math.max(0, indent))}${trimmed}`);
+                }
+                if (trimmed.endsWith(':') && !trimmed.startsWith('#')) indent += 1;
+            }
+            return formatted.join('\n').replace(/[ \t]+$/gm, '');
+        }
+
+        const usesBraces = ['typescript', 'c', 'cpp', 'java'].includes(normalized);
+        if (usesBraces) {
+            let indent = 0;
+            return lines.map((line) => {
+                const trimmed = line.trim();
+                if (!trimmed) return '';
+                if (/^[}\])]/.test(trimmed)) indent = Math.max(0, indent - 1);
+                const current = `${'    '.repeat(indent)}${trimmed.replace(/\s+$/g, '')}`;
+                if (/[{[(]$/.test(trimmed) && !/^\s*\/\//.test(trimmed)) indent += 1;
+                return current;
+            }).join('\n');
+        }
+
+        return code.replace(/[ \t]+$/gm, '');
+    } catch {
+        return code;
+    }
+};
+
 // ─── Quick snippet templates ───
 const SNIPPETS = [
     {
@@ -150,6 +398,7 @@ const SNIPPETS = [
         code: {
             python: `for i in range(n):\n    pass`,
             javascript: `for (let i = 0; i < n; i++) {\n  \n}`,
+            c: `for (int i = 0; i < n; i++) {\n    \n}`,
             cpp: `for (int i = 0; i < n; i++) {\n    \n}`,
             java: `for (int i = 0; i < n; i++) {\n    \n}`,
             go: `for i := 0; i < n; i++ {\n    \n}`,
@@ -161,6 +410,7 @@ const SNIPPETS = [
         code: {
             python: `from collections import defaultdict\nfreq = defaultdict(int)\nfor item in arr:\n    freq[item] += 1`,
             javascript: `const map = new Map();\nfor (const item of arr) {\n  map.set(item, (map.get(item) || 0) + 1);\n}`,
+            c: `#include <stdio.h>\n\nint freq[1001] = {0};\nfor (int i = 0; i < n; i++) {\n    freq[arr[i]]++;\n}`,
             cpp: `unordered_map<int, int> freq;\nfor (int x : arr) {\n    freq[x]++;\n}`,
             java: `Map<Integer, Integer> freq = new HashMap<>();\nfor (int x : arr) {\n    freq.put(x, freq.getOrDefault(x, 0) + 1);\n}`,
             go: `freq := make(map[int]int)\nfor _, x := range arr {\n    freq[x]++\n}`,
@@ -172,6 +422,7 @@ const SNIPPETS = [
         code: {
             python: `stack = []\nstack.append(item)  # push\ntop = stack.pop()   # pop\nif stack:           # not empty`,
             javascript: `const stack = [];\nstack.push(item);           // push\nconst top = stack.pop();    // pop\nif (stack.length > 0) {}    // not empty`,
+            c: `#include <stdio.h>\n\nint stack[1000], top = -1;\nstack[++top] = item;   // push\nint v = stack[top--];  // pop\nif (top >= 0) {}`,
             cpp: `stack<int> st;\nst.push(item);     // push\nint top = st.top(); st.pop(); // pop\nif (!st.empty()) {} // not empty`,
             java: `Stack<Integer> stack = new Stack<>();\nstack.push(item);      // push\nint top = stack.pop(); // pop\nif (!stack.isEmpty()) {} // not empty`,
             go: `stack := []int{}\nstack = append(stack, item)       // push\ntop := stack[len(stack)-1]        // peek\nstack = stack[:len(stack)-1]      // pop`,
@@ -183,6 +434,7 @@ const SNIPPETS = [
         code: {
             python: `from collections import deque\nqueue = deque()\nqueue.append(item)   # enqueue\nfront = queue.popleft()  # dequeue`,
             javascript: `const queue = [];\nqueue.push(item);           // enqueue\nconst front = queue.shift(); // dequeue`,
+            c: `#include <stdio.h>\n\nint queue[1000], head = 0, tail = 0;\nqueue[tail++] = item;      // enqueue\nint front = queue[head++]; // dequeue`,
             cpp: `queue<int> q;\nq.push(item);      // enqueue\nint front = q.front(); q.pop(); // dequeue`,
             java: `Queue<Integer> queue = new LinkedList<>();\nqueue.offer(item);       // enqueue\nint front = queue.poll(); // dequeue`,
             go: `queue := []int{}\nqueue = append(queue, item) // enqueue\nfront := queue[0]           // peek\nqueue = queue[1:]           // dequeue`,
@@ -194,6 +446,7 @@ const SNIPPETS = [
         code: {
             python: `class ListNode:\n    def __init__(self, val=0, next=None):\n        self.val = val\n        self.next = next`,
             javascript: `class ListNode {\n  constructor(val = 0, next = null) {\n    this.val = val;\n    this.next = next;\n  }\n}`,
+            c: `typedef struct ListNode {\n    int val;\n    struct ListNode* next;\n} ListNode;`,
             cpp: `struct ListNode {\n    int val;\n    ListNode* next;\n    ListNode(int x) : val(x), next(nullptr) {}\n};`,
             java: `class ListNode {\n    int val;\n    ListNode next;\n    ListNode(int val) { this.val = val; }\n}`,
             go: `type ListNode struct {\n    Val  int\n    Next *ListNode\n}`,
@@ -205,6 +458,7 @@ const SNIPPETS = [
         code: {
             python: `class TreeNode:\n    def __init__(self, val=0, left=None, right=None):\n        self.val = val\n        self.left = left\n        self.right = right`,
             javascript: `class TreeNode {\n  constructor(val = 0, left = null, right = null) {\n    this.val = val;\n    this.left = left;\n    this.right = right;\n  }\n}`,
+            c: `typedef struct TreeNode {\n    int val;\n    struct TreeNode* left;\n    struct TreeNode* right;\n} TreeNode;`,
             cpp: `struct TreeNode {\n    int val;\n    TreeNode* left;\n    TreeNode* right;\n    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n};`,
             java: `class TreeNode {\n    int val;\n    TreeNode left, right;\n    TreeNode(int val) { this.val = val; }\n}`,
             go: `type TreeNode struct {\n    Val   int\n    Left  *TreeNode\n    Right *TreeNode\n}`,
@@ -229,6 +483,7 @@ function simulateOutput(code, language) {
     const printPatterns = {
         python: /print\s*\(\s*(?:f?["'](.+?)["']|(.+?))\s*\)/g,
         javascript: /console\.log\s*\(\s*["'](.+?)["']\s*(?:,\s*(.+?))?\s*\)/g,
+        c: /printf\s*\(\s*["'](.+?)["']/g,
         cpp: /cout\s*<<\s*["'](.+?)["']/g,
         java: /System\.out\.println\s*\(\s*["'](.+?)["']\s*\)/g,
         go: /fmt\.Println\s*\(\s*["'](.+?)["']\s*\)/g,
@@ -256,11 +511,13 @@ function simulateOutput(code, language) {
 export default function CodingPlayground() {
     const navigate = useNavigate();
     const editorRef = useRef(null);
+    const supportedLanguageIds = LANGUAGES.map((l) => l.id);
 
     // Editor state
-    const [language, setLanguage] = useState(() =>
-        localStorage.getItem('playground-lang') || 'python'
-    );
+    const [language, setLanguage] = useState(() => {
+        const savedLanguage = localStorage.getItem('playground-lang') || 'python';
+        return supportedLanguageIds.includes(savedLanguage) ? savedLanguage : 'python';
+    });
     const [code, setCode] = useState('');
     const [running, setRunning] = useState(false);
     const [consoleOutput, setConsoleOutput] = useState([]);
@@ -278,8 +535,6 @@ export default function CodingPlayground() {
     const [showThemeMenu, setShowThemeMenu] = useState(false);
 
     // ─── NEW FEATURE STATE ───
-    const [stdinInput, setStdinInput] = useState('');
-    const [showStdin, setShowStdin] = useState(false);
     const [fontSize, setFontSize] = useState(() => parseInt(localStorage.getItem('pg-font-size')) || 14);
     const [execHistory, setExecHistory] = useState(() => {
         try { return JSON.parse(localStorage.getItem('pg-exec-history') || '[]'); } catch { return []; }
@@ -289,7 +544,12 @@ export default function CodingPlayground() {
     const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
     const [shareCopied, setShareCopied] = useState(false);
     const [showSidebar, setShowSidebar] = useState(true);
-    const [sidebarTab, setSidebarTab] = useState('input');
+    const [sidebarTab, setSidebarTab] = useState('errors');
+    const [liveErrors, setLiveErrors] = useState([]);
+    const [liveLintPending, setLiveLintPending] = useState(false);
+    const [runPhase, setRunPhase] = useState('idle');
+    const [lastExecutionMeta, setLastExecutionMeta] = useState(null);
+    const [consoleFilter, setConsoleFilter] = useState('all');
 
     // ─── AI ASSISTANT STATE ───
     const [aiMessages, setAiMessages] = useState([]);
@@ -304,6 +564,11 @@ export default function CodingPlayground() {
     const monacoRef = useRef(null);
     const rootRef = useRef(null);
     const consoleEndRef = useRef(null);
+    const lintAbortRef = useRef(null);
+    const prevErrorCountRef = useRef(0);
+    const runPhaseTimeoutsRef = useRef([]);
+    const runAbortRef = useRef(null);
+    const runTokenRef = useRef(0);
 
     // ─── Load saved code or default ───
     useEffect(() => {
@@ -341,20 +606,72 @@ export default function CodingPlayground() {
 
     // ─── Run code ───
     const handleRun = useCallback(async () => {
+        runAbortRef.current?.abort();
+        runTokenRef.current += 1;
+        const runToken = runTokenRef.current;
+        const controller = new AbortController();
+        runAbortRef.current = controller;
+
+        runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
+        runPhaseTimeoutsRef.current = [];
+        setRunPhase('queued');
         setRunning(true);
         const timestamp = new Date().toLocaleTimeString();
         setConsoleOutput(prev => [...prev, { type: 'info', text: `[${timestamp}] Running ${language}...` }]);
+        setLastExecutionMeta(null);
+
+        runPhaseTimeoutsRef.current.push(setTimeout(() => setRunPhase('sending'), 80));
+        runPhaseTimeoutsRef.current.push(setTimeout(() => setRunPhase('compiling'), 350));
+        runPhaseTimeoutsRef.current.push(setTimeout(() => setRunPhase('executing'), 900));
 
         try {
             const res = await fetch(`${API_URL}/api/practice/execute`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ code, language, input: stdinInput }),
+                body: JSON.stringify({ code, language }),
+                signal: controller.signal,
             });
-            const data = await res.json();
+
+            if (runToken !== runTokenRef.current) return;
+            const data = await res.json().catch(() => ({}));
+            setRunPhase('processing');
+
+            if (!res.ok) {
+                const friendlyError = getPlaygroundFriendlyError(data?.error, res.status);
+                setConsoleOutput(prev => [...prev, { type: 'error', text: friendlyError }]);
+
+                const histEntry = {
+                    id: Date.now(),
+                    timestamp,
+                    language,
+                    codeSnippet: code.slice(0, 100),
+                    outputPreview: friendlyError.slice(0, 80),
+                    success: false,
+                };
+                setExecHistory(prev => {
+                    const updated = [histEntry, ...prev].slice(0, 10);
+                    localStorage.setItem('pg-exec-history', JSON.stringify(updated));
+                    return updated;
+                });
+                return;
+            }
+
             const outputText = (data.output || '').trim();
             const errorText = (data.error || '').trim();
             const outputLines = [];
+            const compileMs = Number(data.compileTime || 0);
+            const runMs = Number(data.runTime || 0);
+            const totalMs = Number(data.executionTime || 0);
+            const cacheHit = Boolean(data.cacheHit);
+            setLastExecutionMeta({
+                success: !!data.success,
+                compileMs,
+                runMs,
+                totalMs,
+                cacheHit,
+                language,
+                time: timestamp,
+            });
 
             if (data.success && outputText) {
                 outputText.split('\n').forEach(line => {
@@ -362,7 +679,12 @@ export default function CodingPlayground() {
                 });
             } else if (!data.success && errorText) {
                 errorText.split('\n').forEach(line => {
-                    outputLines.push({ type: 'error', text: line });
+                    const errorInfo = parseErrorWithLineInfo(line);
+                    let displayText = getPlaygroundFriendlyError(errorInfo.text, res.status);
+                    if (errorInfo.lineNum) {
+                        displayText = `📍 Line ${errorInfo.lineNum}${errorInfo.colNum ? `:${errorInfo.colNum}` : ''} — ${displayText}`;
+                    }
+                    outputLines.push({ type: 'error', text: displayText });
                 });
             } else if (outputText) {
                 outputText.split('\n').forEach(line => {
@@ -372,8 +694,12 @@ export default function CodingPlayground() {
                 outputLines.push({ type: 'info', text: '(No output — use console.log() or print() to see results)' });
             }
 
-            const runtime = data.executionTime ? `${Math.round(data.executionTime)}ms` : 'N/A';
+            const runtime = totalMs ? `${Math.round(totalMs)}ms` : 'N/A';
             outputLines.push({ type: 'info', text: `\n⏱ Runtime: ${runtime}` });
+            outputLines.push({
+                type: 'info',
+                text: `⚙ Compile: ${Math.round(compileMs)}ms${cacheHit ? ' (cache)' : ''}  |  ▶ Run: ${Math.round(runMs)}ms`,
+            });
             setConsoleOutput(prev => [...prev, ...outputLines]);
 
             // Save to execution history
@@ -384,6 +710,7 @@ export default function CodingPlayground() {
                 codeSnippet: code.slice(0, 100),
                 outputPreview: outputText.slice(0, 80) || errorText.slice(0, 80) || 'No output',
                 success: data.success,
+                runtimeMs: totalMs || 0,
             };
             setExecHistory(prev => {
                 const updated = [histEntry, ...prev].slice(0, 10);
@@ -391,11 +718,29 @@ export default function CodingPlayground() {
                 return updated;
             });
         } catch (err) {
-            setConsoleOutput(prev => [...prev, { type: 'error', text: `Network error: ${err.message}` }]);
+            if (err?.name === 'AbortError') {
+                setConsoleOutput(prev => [...prev, { type: 'info', text: 'Execution cancelled by user.' }]);
+            } else {
+                setConsoleOutput(prev => [...prev, { type: 'error', text: `Network error: ${err.message}` }]);
+            }
         } finally {
+            setRunPhase('idle');
+            runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
+            runPhaseTimeoutsRef.current = [];
+            if (runAbortRef.current === controller) runAbortRef.current = null;
             setRunning(false);
         }
-    }, [code, language, stdinInput]);
+    }, [code, language]);
+
+    const handleCancelRun = useCallback(() => {
+        if (!running) return;
+        runAbortRef.current?.abort();
+        runAbortRef.current = null;
+        runTokenRef.current += 1;
+        setRunPhase('idle');
+        setRunning(false);
+        setConsoleOutput(prev => [...prev, { type: 'info', text: 'Run stopped.' }]);
+    }, [running]);
 
     // ─── Font size ───
     const handleFontSize = (delta) => {
@@ -405,6 +750,13 @@ export default function CodingPlayground() {
             return next;
         });
     };
+
+    // ─── Format code ───
+    const handleFormat = useCallback(async () => {
+        const formatted = await formatCode(code, language);
+        setCode(formatted);
+        setConsoleOutput(prev => [...prev, { type: 'info', text: `✓ Code formatted (${language})` }]);
+    }, [code, language]);
 
     // ─── Fullscreen ───
     const handleFullscreen = () => {
@@ -465,6 +817,7 @@ export default function CodingPlayground() {
         const fileInfo = {
             python: { ext: 'py', mime: 'text/x-python' },
             javascript: { ext: 'js', mime: 'text/javascript' },
+            c: { ext: 'c', mime: 'text/x-c' },
             cpp: { ext: 'cpp', mime: 'text/x-c++src' },
             java: { ext: 'java', mime: 'text/x-java-source' },
             go: { ext: 'go', mime: 'text/x-go' },
@@ -561,6 +914,97 @@ export default function CodingPlayground() {
         aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [aiMessages, aiLoading]);
 
+    // ─── Real-time editor diagnostics ───
+    useEffect(() => {
+        if (!editorRef.current || !monacoRef.current) return;
+        const editor = editorRef.current;
+        const monaco = monacoRef.current;
+        const model = editor.getModel();
+        if (!model) return;
+
+        const timer = setTimeout(() => {
+            const nextLocalErrors = getRealtimeErrors(code, language);
+            setLiveErrors(nextLocalErrors);
+
+            const markers = nextLocalErrors.map((error) => ({
+                startLineNumber: error.line,
+                startColumn: error.col,
+                endLineNumber: error.line,
+                endColumn: error.col + 1,
+                message: error.message,
+                severity: monaco.MarkerSeverity.Error,
+            }));
+
+            monaco.editor.setModelMarkers(model, 'playground-live', markers);
+
+            const serverLintSupportedLanguages = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
+            if (!serverLintSupportedLanguages.has(language)) {
+                setLiveLintPending(false);
+                return;
+            }
+
+            setLiveLintPending(true);
+            lintAbortRef.current?.abort();
+            const controller = new AbortController();
+            lintAbortRef.current = controller;
+
+            fetch(`${API_URL}/api/practice/lint`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ code, language }),
+                signal: controller.signal,
+            })
+                .then((res) => res.json().catch(() => ({})))
+                .then((data) => {
+                    if (controller.signal.aborted) return;
+                    const serverErrors = Array.isArray(data?.errors) ? data.errors : [];
+                    const mergedErrors = mergeAndDedupeErrors(nextLocalErrors, serverErrors);
+                    setLiveErrors(mergedErrors);
+
+                    const mergedMarkers = mergedErrors.map((error) => ({
+                        startLineNumber: error.line,
+                        startColumn: error.col,
+                        endLineNumber: error.line,
+                        endColumn: error.col + 1,
+                        message: error.message,
+                        severity: error.severity === 'warning' ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+                    }));
+                    monaco.editor.setModelMarkers(model, 'playground-live', mergedMarkers);
+                })
+                .catch(() => {
+                    // Ignore lint network errors for realtime UX.
+                })
+                .finally(() => {
+                    if (!controller.signal.aborted) setLiveLintPending(false);
+                });
+        }, 220);
+
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [code, language]);
+
+    useEffect(() => {
+        const prevCount = prevErrorCountRef.current;
+        if (liveErrors.length > 0 && prevCount === 0) {
+            setSidebarTab('errors');
+        }
+        prevErrorCountRef.current = liveErrors.length;
+    }, [liveErrors.length]);
+
+    useEffect(() => {
+        return () => {
+            runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
+            runAbortRef.current?.abort();
+            lintAbortRef.current?.abort();
+            if (!editorRef.current || !monacoRef.current) return;
+            const model = editorRef.current.getModel();
+            if (model) {
+                monacoRef.current.editor.setModelMarkers(model, 'playground-live', []);
+            }
+        };
+    }, []);
+
     // ─── Insert snippet ───
     const insertSnippet = (snippetCode) => {
         if (editorRef.current) {
@@ -628,14 +1072,14 @@ export default function CodingPlayground() {
             } else if (e.ctrlKey && e.key === '/') {
                 e.preventDefault();
                 setShowShortcuts(s => !s);
-            } else if (e.ctrlKey && e.key === 'i') {
+            } else if (e.key === 'Escape' && running) {
                 e.preventDefault();
-                setShowStdin(s => !s);
+                handleCancelRun();
             }
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [handleRun]);
+    }, [handleCancelRun, handleRun, running]);
 
     // ─── Monaco editor setup ───
     const handleBeforeMount = (monaco) => {
@@ -668,6 +1112,58 @@ export default function CodingPlayground() {
         }
         setShowThemeMenu(false);
     };
+
+    const focusErrorLine = (error) => {
+        if (!editorRef.current || !error?.line) return;
+        editorRef.current.revealLineInCenter(error.line);
+        editorRef.current.setPosition({ lineNumber: error.line, column: error.col || 1 });
+        editorRef.current.focus();
+    };
+
+    const sidebarTabs = useMemo(() => ([
+        { id: 'errors', icon: <AlertTriangle size={16} />, label: `Errors${liveErrors.length ? ` (${liveErrors.length})` : ''}` },
+        { id: 'ai', icon: <Bot size={16} />, label: 'AI' },
+        { id: 'history', icon: <History size={16} />, label: 'History' },
+        { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Keys' },
+        { id: 'info', icon: <Info size={16} />, label: 'Info' },
+    ]), [liveErrors.length]);
+
+    const snippetItems = useMemo(() => SNIPPETS.map((s) => ({
+        icon: s.icon,
+        label: s.label,
+        code: s.code[language] || s.code.python,
+    })), [language]);
+
+    const templateItems = useMemo(() => Object.entries(ALGORITHM_TEMPLATES).map(([key, tmpl]) => ({
+        key,
+        icon: tmpl.icon,
+        name: tmpl.name,
+        complexity: tmpl.complexity?.time || 'N/A',
+        template: tmpl,
+    })), []);
+
+    const runPhaseLabel = useMemo(() => {
+        if (!running) return 'Idle';
+        return {
+            queued: 'Queued',
+            sending: 'Sending',
+            compiling: 'Compiling',
+            executing: 'Executing',
+            processing: 'Processing',
+        }[runPhase] || 'Running';
+    }, [runPhase, running]);
+
+    const filteredConsoleOutput = useMemo(() => {
+        if (consoleFilter === 'all') return consoleOutput;
+        return consoleOutput.filter((line) => line.type === consoleFilter);
+    }, [consoleFilter, consoleOutput]);
+
+    const consoleCounts = useMemo(() => ({
+        all: consoleOutput.length,
+        output: consoleOutput.filter((line) => line.type === 'output').length,
+        error: consoleOutput.filter((line) => line.type === 'error').length,
+        info: consoleOutput.filter((line) => line.type === 'info').length,
+    }), [consoleOutput]);
 
     const langInfo = LANGUAGES.find(l => l.id === language) || LANGUAGES[0];
 
@@ -722,11 +1218,11 @@ export default function CodingPlayground() {
                         {showSnippets && (
                             <div className="pg-dropdown pg-snippets-dropdown">
                                 <div className="pg-dropdown-header">Quick Snippets</div>
-                                {SNIPPETS.map((s, i) => (
+                                {snippetItems.map((s, i) => (
                                     <button
                                         key={i}
                                         className="pg-dropdown-item"
-                                        onClick={() => insertSnippet(s.code[language] || s.code.python)}
+                                        onClick={() => insertSnippet(s.code)}
                                     >
                                         <span>{s.icon}</span>
                                         <span>{s.label}</span>
@@ -745,15 +1241,15 @@ export default function CodingPlayground() {
                         {showTemplates && (
                             <div className="pg-dropdown pg-templates-dropdown">
                                 <div className="pg-dropdown-header">Algorithm Templates</div>
-                                {Object.entries(ALGORITHM_TEMPLATES).map(([key, tmpl]) => (
+                                {templateItems.map((tmpl) => (
                                     <button
-                                        key={key}
+                                        key={tmpl.key}
                                         className="pg-dropdown-item"
-                                        onClick={() => insertTemplate(tmpl)}
+                                        onClick={() => insertTemplate(tmpl.template)}
                                     >
                                         <span>{tmpl.icon}</span>
                                         <span>{tmpl.name}</span>
-                                        <span className="pg-complexity">{tmpl.complexity.time}</span>
+                                        <span className="pg-complexity">{tmpl.complexity}</span>
                                     </button>
                                 ))}
                             </div>
@@ -795,9 +1291,15 @@ export default function CodingPlayground() {
                 <div className="pg-topbar-center">
                     <button className="pg-run-btn" onClick={handleRun} disabled={running} style={{ padding: '8px 24px', fontSize: '13px', borderRadius: '10px' }}>
                         <Play size={16} style={{ fill: 'currentColor' }} />
-                        <span>{running ? 'Running...' : 'Run Code'}</span>
+                        <span>{running ? `Running (${runPhaseLabel})...` : 'Run Code'}</span>
                         <kbd style={{ marginLeft: '8px' }}>Ctrl+&#x21b5;</kbd>
                     </button>
+                    {running && (
+                        <button className="pg-run-btn" onClick={handleCancelRun} style={{ marginLeft: '8px', padding: '8px 14px', fontSize: '12px', borderRadius: '10px', background: 'rgba(255,90,90,0.18)', border: '1px solid rgba(255,110,110,0.45)' }}>
+                            <X size={14} />
+                            <span>Stop</span>
+                        </button>
+                    )}
                 </div>
 
                 <div className="pg-topbar-right">
@@ -875,19 +1377,36 @@ export default function CodingPlayground() {
                                 <span>Console</span>
                                 <span className="pg-console-count">{consoleOutput.length} lines</span>
                             </div>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                {[
+                                    ['all', `All ${consoleCounts.all}`],
+                                    ['output', `Out ${consoleCounts.output}`],
+                                    ['error', `Err ${consoleCounts.error}`],
+                                    ['info', `Info ${consoleCounts.info}`],
+                                ].map(([key, label]) => (
+                                    <button
+                                        key={key}
+                                        className={`pg-console-clear ${consoleFilter === key ? 'pg-active' : ''}`}
+                                        onClick={() => setConsoleFilter(key)}
+                                        style={{ padding: '2px 8px', borderRadius: '8px' }}
+                                    >
+                                        <span>{label}</span>
+                                    </button>
+                                ))}
+                            </div>
                             <button className="pg-console-clear" onClick={clearConsole}>
                                 <Trash2 size={12} /><span>Clear</span>
                             </button>
                         </div>
                         <div className="pg-console-body">
-                            {consoleOutput.length === 0 ? (
+                            {filteredConsoleOutput.length === 0 ? (
                                 <div className="pg-console-empty">
                                     <Terminal size={24} strokeWidth={1} />
                                     <p>Run your code to see output here</p>
                                     <kbd>Ctrl + Enter</kbd>
                                 </div>
                             ) : (
-                                consoleOutput.map((line, i) => (
+                                filteredConsoleOutput.map((line, i) => (
                                     <div key={i} className={`pg-console-line pg-console-${line.type}`}>
                                         {line.type === 'info' && <span className="pg-console-prefix">›</span>}
                                         {line.type === 'output' && <span className="pg-console-prefix">»</span>}
@@ -905,13 +1424,7 @@ export default function CodingPlayground() {
                 <div className={`pg-sidebar ${!showSidebar ? 'pg-sidebar-collapsed' : ''}`}>
                     <div className="pg-sidebar-tabs" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingBottom: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
-                            {[
-                                { id: 'input', icon: <TextCursorInput size={16} />, label: 'Input' },
-                                { id: 'ai', icon: <Bot size={16} />, label: 'AI' },
-                                { id: 'history', icon: <History size={16} />, label: 'History' },
-                                { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Keys' },
-                                { id: 'info', icon: <Info size={16} />, label: 'Info' },
-                            ].map(tab => (
+                            {sidebarTabs.map(tab => (
                                 <button
                                     key={tab.id}
                                     className={`pg-sidebar-tab ${sidebarTab === tab.id ? 'pg-sidebar-tab-active' : ''}`}
@@ -936,6 +1449,9 @@ export default function CodingPlayground() {
                             <button className="pg-sidebar-tab" onClick={handleReset} title="Reset Code">
                                 <RotateCcw size={16} />
                             </button>
+                            <button className="pg-sidebar-tab" onClick={handleFormat} title="Format Code">
+                                <Code2 size={16} />
+                            </button>
                             <div style={{ width: '20px', height: '1px', background: 'rgba(255,255,255,0.1)', margin: '8px 0' }} />
                             <button className="pg-sidebar-tab" onClick={() => handleFontSize(1)} title="Zoom In (Ctrl+)">
                                 <ZoomIn size={16} />
@@ -950,19 +1466,40 @@ export default function CodingPlayground() {
                     </div>
 
                     <div className="pg-sidebar-content">
-                        {sidebarTab === 'input' && (
+                        {sidebarTab === 'errors' && (
                             <div className="pg-sidebar-section">
                                 <div className="pg-sidebar-section-header">
-                                    <TextCursorInput size={14} />
-                                    <span>Input (stdin)</span>
+                                    <AlertTriangle size={14} />
+                                    <span>Live Errors</span>
+                                    <span className="pg-sidebar-badge">{liveErrors.length}</span>
                                 </div>
-                                <textarea
-                                    className="pg-stdin-input pg-sidebar-textarea"
-                                    value={stdinInput}
-                                    onChange={e => setStdinInput(e.target.value)}
-                                    placeholder={"Enter input for your program...\nEach line = one input\n\nPython: input()\nC++: cin >> x\nJava: Scanner"}
-                                    spellCheck={false}
-                                />
+                                {liveLintPending && (
+                                    <div style={{ fontSize: '11px', opacity: 0.75, marginBottom: '8px' }}>
+                                        Checking syntax...
+                                    </div>
+                                )}
+                                <div className="pg-sidebar-scroll">
+                                    {liveErrors.length === 0 ? (
+                                        <div className="pg-sidebar-empty">
+                                            <Check size={28} strokeWidth={1} />
+                                            <p>No syntax issues detected</p>
+                                            <span>Diagnostics update while you type</span>
+                                        </div>
+                                    ) : liveErrors.map((error, idx) => (
+                                        <button
+                                            key={`${error.line}-${error.col}-${idx}`}
+                                            className="pg-history-entry pg-history-error"
+                                            onClick={() => focusErrorLine(error)}
+                                            style={{ textAlign: 'left', width: '100%', cursor: 'pointer' }}
+                                        >
+                                            <div className="pg-history-meta">
+                                                <span>Line {error.line}:{error.col || 1}</span>
+                                                <span className="pg-history-lang">syntax</span>
+                                            </div>
+                                            <div className="pg-history-preview">{error.message}</div>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
 
@@ -1041,19 +1578,12 @@ export default function CodingPlayground() {
                                                     <ReactMarkdown
                                                         components={{
                                                             code({ node, inline, className, children, ...props }) {
-                                                                const match = /language-(\w+)/.exec(className || '');
-                                                                return !inline && match ? (
-                                                                    <SyntaxHighlighter
-                                                                        style={oneDark}
-                                                                        language={match[1]}
-                                                                        PreTag="div"
-                                                                        customStyle={{ margin: '8px 0', borderRadius: '8px', fontSize: '11px' }}
-                                                                        {...props}
-                                                                    >
-                                                                        {String(children).replace(/\n$/, '')}
-                                                                    </SyntaxHighlighter>
-                                                                ) : (
+                                                                return inline ? (
                                                                     <code className="pg-ai-inline-code" {...props}>{children}</code>
+                                                                ) : (
+                                                                    <pre className="pg-ai-code-block">
+                                                                        <code className={className} {...props}>{String(children).replace(/\n$/, '')}</code>
+                                                                    </pre>
                                                                 );
                                                             }
                                                         }}
@@ -1159,6 +1689,7 @@ export default function CodingPlayground() {
                                             <div className="pg-history-meta">
                                                 <span>{entry.timestamp}</span>
                                                 <span className="pg-history-lang">{entry.language}</span>
+                                                {typeof entry.runtimeMs === 'number' ? <span>{Math.round(entry.runtimeMs)}ms</span> : null}
                                                 {entry.success ? <span style={{ color: '#4ade80' }}>✓</span> : <span style={{ color: '#f87171' }}>✗</span>}
                                             </div>
                                             <div className="pg-history-preview">{entry.outputPreview}</div>
@@ -1180,7 +1711,7 @@ export default function CodingPlayground() {
                                         ['Ctrl + =', 'Zoom in'],
                                         ['Ctrl + -', 'Zoom out'],
                                         ['Ctrl + /', 'Shortcuts'],
-                                        ['Ctrl + I', 'Input panel'],
+                                        ['Esc', 'Stop running code'],
                                         ['F11', 'Fullscreen'],
                                         ['Ctrl + D', 'Duplicate line'],
                                         ['Ctrl+Shift+K', 'Delete line'],
@@ -1213,6 +1744,11 @@ export default function CodingPlayground() {
                                             ['Encoding', 'UTF-8'],
                                             ['Theme', editorTheme],
                                             ['Total Runs', execHistory.length],
+                                            ['Run Stage', runPhaseLabel],
+                                            ['Last Total', lastExecutionMeta ? `${Math.round(lastExecutionMeta.totalMs)}ms` : 'N/A'],
+                                            ['Last Compile', lastExecutionMeta ? `${Math.round(lastExecutionMeta.compileMs)}ms` : 'N/A'],
+                                            ['Last Run', lastExecutionMeta ? `${Math.round(lastExecutionMeta.runMs)}ms` : 'N/A'],
+                                            ['Compile Cache', lastExecutionMeta ? (lastExecutionMeta.cacheHit ? 'Hit' : 'Miss') : 'N/A'],
                                         ].map(([label, value], i) => (
                                             <div key={i} className="pg-info-item">
                                                 <span className="pg-info-label">{label}</span>
@@ -1236,6 +1772,8 @@ export default function CodingPlayground() {
                 </div>
                 <div className="pg-status-right">
                     <span className="pg-status-item">{langInfo.icon} {langInfo.label}</span>
+                    <span className="pg-status-item">Stage: {runPhaseLabel}</span>
+                    <span className="pg-status-item">Last: {lastExecutionMeta ? `${Math.round(lastExecutionMeta.totalMs)}ms` : 'N/A'}</span>
                     <span className="pg-status-item">Font: {fontSize}px</span>
                     <span className="pg-status-item">UTF-8</span>
                 </div>

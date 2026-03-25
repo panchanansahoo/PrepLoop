@@ -87,6 +87,164 @@ export const dsaLearningPath = {
         'Kadane\'s Algorithm',
         'Dutch National Flag'
       ],
+      theory: {
+        fundamentals: `
+Arrays are contiguous blocks of memory storing elements of the same type. They provide O(1) access to any element via index.
+
+MEMORY LAYOUT:
+- Arrays allocate consecutive memory addresses
+- First element at base address, subsequent at base + (index × element_size)
+- This enables instant access: address[i] = base_address + i × sizeof(element)
+
+TIME COMPLEXITY:
+- Access: O(1) - Direct memory access
+- Search: O(n) - Linear scan needed
+- Insertion: O(n) - May need to shift elements
+- Deletion: O(n) - May need to shift elements
+
+SPACE COMPLEXITY:
+- Storage: O(n) for n elements
+- In-place operations: O(1) extra space
+        `,
+        techniques: {
+          twoPointers: `
+CONCEPT: Use two pointers to iterate through array, one from start and one from end (or same direction with different speeds).
+
+WHEN TO USE:
+- Sorted arrays - enables binary search properties
+- Palindrome checking
+- Container problems (trapping water)
+- Merging sorted arrays
+- Cycle detection in linked lists
+
+PATTERNS:
+1. Opposite Ends: Left pointer at start, right at end
+   - Converge when condition met
+   - Check elements before moving pointers
+   
+2. Same Direction: Both pointers moving forward
+   - One moves faster (multiplier speed)
+   - Useful for cycle detection (Floyd's algorithm)
+   
+EXAMPLE - Two Sum in Sorted Array:
+function twoSum(arr, target) {
+  let left = 0, right = arr.length - 1;
+  while (left < right) {
+    const sum = arr[left] + arr[right];
+    if (sum === target) return [left, right];
+    if (sum < target) left++;
+    else right--;
+  }
+  return null; // Not found
+}
+          `,
+          slidingWindow: `
+CONCEPT: Maintain a window of elements and slide it through the array to solve subarray/substring problems.
+
+TYPES:
+1. Fixed Window Size K:
+   - Compute result for first k elements
+   - Slide window: remove leftmost, add rightmost
+   - Each result takes O(1) to update
+   
+2. Variable Window Size:
+   - Expand window: add right element
+   - Shrink window: remove from left when condition breaks
+   - Track maximum/minimum window while valid
+
+PATTERN:
+1. Initialize window and pointers (left=0, right=0)
+2. Expand window by moving right pointer
+3. When invalid, shrink from left
+4. Update result at each valid window
+
+EXAMPLE - Longest Substring Without Repeating:
+function lengthOfLongestSubstring(s) {
+  const map = new Map();
+  let maxLen = 0, left = 0;
+  
+  for (let right = 0; right < s.length; right++) {
+    const char = s[right];
+    if (map.has(char)) {
+      left = Math.max(left, map.get(char) + 1);
+    }
+    map.set(char, right);
+    maxLen = Math.max(maxLen, right - left + 1);
+  }
+  return maxLen;
+}
+
+TIME: O(n) - right pointer goes through each element once, left only moves right
+          `
+        },
+        algorithms: {
+          kadanes: `
+CONCEPT: Find maximum sum contiguous subarray by maintaining max_current and max_global.
+
+IDEA:
+- At each position, decide: extend current subarray or start new one
+- Extend if adding current element increases max_current
+- Otherwise, start fresh from current element
+- Track global maximum seen so far
+
+ALGORITHM:
+max_current = 0, max_global = INT_MIN
+for each element x in array:
+  max_current = max(x, max_current + x)
+  max_global = max(max_global, max_current)
+
+WHY IT WORKS:
+- If max_current becomes negative, starting fresh is better
+- We only keep cumulative sum while it's beneficial
+- Subarray problem solved with single pass
+
+EXAMPLE:
+arr = [-2, 1, -3, 4, -1, 2, 1, -5, 4]
+Trace:
+  x=-2: max_current=-2, max_global=-2
+  x=1:  max_current=1,  max_global=1
+  x=-3: max_current=-2, max_global=1
+  x=4:  max_current=4,  max_global=4
+  x=-1: max_current=3,  max_global=4
+  x=2:  max_current=5,  max_global=5
+  x=1:  max_current=6,  max_global=6
+Result: 6 (subarray [4,-1,2,1])
+
+TIME: O(n), SPACE: O(1)
+          `,
+          dutchFlag: `
+CONCEPT: Partition array into 3 sections by value with single pass.
+
+PROBLEM: Given array with 3 values (0, 1, 2), sort in-place in one pass.
+
+ALGORITHM:
+- Maintain 3 pointers: low, mid, high
+- low=0: [0...low-1] contains 0s
+- mid=0: [low...mid-1] contains 1s  
+- high=n-1: [high+1...n-1] contains 2s
+- [mid...high] is unknown region
+
+PROCESS:
+while mid <= high:
+  if arr[mid] == 0: swap(arr[low], arr[mid]), low++, mid++
+  if arr[mid] == 1: mid++
+  if arr[mid] == 2: swap(arr[mid], arr[high]), high--
+
+EXAMPLE:
+arr = [2, 0, 2, 1, 1, 0]
+Initial: low=0, mid=0, high=5
+  arr[mid]=2: swap with high, high=4 -> [0,0,2,1,1,2], mid=0
+  arr[mid]=0: swap with low, low=1, mid=1 -> [0,0,2,1,1,2]
+  arr[mid]=0: skip, mid=2 -> no change
+  arr[mid]=2: swap, high=3 -> [0,0,1,1,2,2], mid=2
+  arr[mid]=1: mid=3
+  mid > high: done
+Result: [0,0,1,1,2,2]
+
+TIME: O(n), SPACE: O(1)
+          `
+        }
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -163,6 +321,136 @@ export const dsaLearningPath = {
         'Merging Sorted Arrays',
         'Cycle Detection'
       ],
+      theory: {
+        fundamental: `
+TWO POINTERS TECHNIQUE FUNDAMENTALS:
+
+Core Idea: Use two pointers to process array/list from different positions simultaneously.
+
+ADVANTAGES:
+- Eliminates nested loops in many cases
+- Reduces time complexity from O(n²) to O(n)
+- Enables single-pass solutions
+- Efficient space usage O(1) extra space
+
+WHEN TO USE:
+1. Sorted arrays with pair/triplet problems
+2. Partitioning arrays (separation problems)
+3. Collision/meeting point detection
+4. Palindrome validation
+5. Removing/moving elements in-place
+
+KEY INSIGHT:
+Since array is sorted, moving pointers maintain monotonic property:
+- Moving left pointer right increases values
+- Moving right pointer left decreases values
+- This eliminates intermediate values from consideration
+        `,
+        patterns: {
+          oppositeDirection: `
+PATTERN: One pointer at start, one at end. Move towards center.
+
+TERMINATION: pointers meet or variables satisfy condition
+
+USE CASE: Finding pairs with target sum
+
+ALGORITHM:
+1. Initialize: left = 0, right = n-1
+2. While left < right:
+   - Calculate result from arr[left] and arr[right]
+   - If result matches target: found
+   - If result < target: left++ (need larger sum)
+   - If result > target: right-- (need smaller sum)
+
+EXAMPLE - Container With Most Water:
+Area = min(height[left], height[right]) × (right - left)
+Move pointer with smaller height (might find taller one)
+
+function maxArea(height) {
+  let left = 0, right = height.length - 1;
+  let maxArea = 0;
+  
+  while (left < right) {
+    const area = Math.min(height[left], height[right]) * (right - left);
+    maxArea = Math.max(maxArea, area);
+    
+    // Move pointer with smaller height
+    if (height[left] < height[right]) left++;
+    else right--;
+  }
+  return maxArea;
+}
+
+TIME: O(n), SPACE: O(1)
+          `,
+          sameDirection: `
+PATTERN: Both pointers move in same direction, different speeds.
+
+USE CASE: Cycle detection, finding middle element
+
+SPEEDS:
+- Slow: moves 1 step
+- Fast: moves 2 steps (or more)
+
+MATHEMATICAL BASIS (Cycle Detection):
+If cycle exists, fast pointer will catch slow pointer.
+- Distance fast travels: 2d
+- Distance slow travels: d
+- From point slow enters cycle: fast moving 2 steps, slow 1 step
+- Will meet when: (2d) - d = cycle_length
+- Always meets if cycle exists
+
+EXAMPLE - Cycle Detection in Linked List:
+function hasCycle(head) {
+  let slow = head, fast = head;
+  
+  while (fast && fast.next) {
+    slow = slow.next;
+    fast = fast.next.next;
+    if (slow === fast) return true;
+  }
+  return false;
+}
+
+FINDING CYCLE START:
+After detecting cycle, reset slow to head.
+Move both slow and fast 1 step until they meet.
+Meeting point is cycle start.
+
+TIME: O(n), SPACE: O(1)
+          `
+        },
+        edgeCases: `
+CRITICAL EDGE CASES FOR TWO POINTERS:
+
+1. Array Length:
+   - Empty array: return early
+   - Single element: often valid answer
+   - Two elements: pointers might meet/cross immediately
+
+2. Duplicate Values:
+   - Opposite direction: skip duplicates carefully
+   - May need to move both pointers past duplicates safely
+
+3. Pointer Crossing:
+   - Ensure left < right before accessing arr[left], arr[right]
+   - Crossing is termination condition, not error
+
+4. Off-by-One Errors:
+   - Check boundary conditions: left <= right vs left < right
+   - Verify last pair is processed
+
+5. In-place Modifications:
+   - Track what pointer positions mean
+   - Ensure invariant maintained throughout
+
+VALIDATION CHECKLIST:
+- Test with arrays of size 0, 1, 2
+- Test with all same values
+- Test with negative numbers
+- Test when answer is first/last element
+        `
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -232,6 +520,145 @@ export const dsaLearningPath = {
         'Longest/Shortest Subarray',
         'K-distinct Elements'
       ],
+      theory: {
+        concept: `
+SLIDING WINDOW FUNDAMENTALS:
+
+CORE IDEA: Maintain a contiguous window of elements and slide it through array.
+At each position, window [left...right] contains elements relevant to current computation.
+
+OPTIMIZATION PRINCIPLE:
+- Instead of recalculating result for each window from scratch: O(n×k)
+- Update result incrementally by removing left element, adding right element: O(n)
+
+WHEN TO USE:
+1. Subarray/substring problems
+2. Contiguous elements with condition
+3. K elements/window problems
+4. Two string/array problems
+5. Any O(n) linear scan after O(n) or O(n²) brute force
+
+TYPES:
+1. FIXED SIZE: Window always has k elements
+   - Easier: just slide without shrinking
+   - Initial window setup, then slide
+
+2. VARIABLE SIZE: Window grows/shrinks based on condition
+   - Complex: balance expand and shrink
+   - Maintain invariant: current window always satisfies/violates condition
+        `,
+        fixedWindow: `
+FIXED WINDOW PATTERN (Size K):
+
+ALGORITHM:
+1. Calculate initial sum/result for first k elements: O(k)
+2. Store as current_sum = sum of arr[0...k-1]
+3. For each position i from k to n:
+   - Remove leftmost: current_sum -= arr[i-k]
+   - Add rightmost: current_sum += arr[i]
+   - Update result with current_sum
+
+EXAMPLE - Maximum Sum of K Consecutive Elements:
+function maxSumSubarray(arr, k) {
+  let windowSum = 0;
+  
+  // Initial window
+  for (let i = 0; i < k; i++) {
+    windowSum += arr[i];
+  }
+  let maxSum = windowSum;
+  
+  // Slide window
+  for (let i = k; i < arr.length; i++) {
+    windowSum = windowSum - arr[i-k] + arr[i];
+    maxSum = Math.max(maxSum, windowSum);
+  }
+  return maxSum;
+}
+
+TRACE: arr=[1,3,-1,-3,5,3,6,7], k=3
+i=0: [1,3,-1], sum=3
+i=1: [3,-1,-3], sum=-1
+i=2: [-1,-3,5], sum=1
+i=3: [-3,5,3], sum=5
+i=4: [5,3,6], sum=14
+i=5: [3,6,7], sum=16 (max)
+
+TIME: O(n), SPACE: O(1)
+        `,
+        variableWindow: `
+VARIABLE WINDOW PATTERN:
+
+ALGORITHM:
+1. Initialize: left=0, right=0, window_state
+2. EXPAND: Add arr[right] to window
+3. While window violated condition:
+   - SHRINK: Remove arr[left] from window
+   - Move left++
+4. Update result with valid window
+5. Move right++
+
+KEY INSIGHT: At any point, window [left...right] is MAXIMAL valid window ending at right
+
+EXAMPLE - Longest Substring Without Repeating Characters:
+function lengthOfLongestSubstring(s) {
+  const charIndex = new Map();
+  let maxLen = 0, left = 0;
+  
+  for (let right = 0; right < s.length; right++) {
+    const char = s[right];
+    
+    // If duplicate exists in window, shrink from left
+    if (charIndex.has(char) && charIndex.get(char) >= left) {
+      left = charIndex.get(char) + 1;
+    }
+    
+    charIndex.set(char, right);
+    maxLen = Math.max(maxLen, right - left + 1);
+  }
+  return maxLen;
+}
+
+TRACE: s = "abcabcbb"
+right=0, char='a': left=0, map={a:0}, len=1, maxLen=1
+right=1, char='b': left=0, map={a:0,b:1}, len=2, maxLen=2
+right=2, char='c': left=0, map={a:0,b:1,c:2}, len=3, maxLen=3
+right=3, char='a': duplicate at 0 >= 0, left=1, map={a:3,b:1,c:2}, len=3
+right=4, char='b': duplicate at 1 >= 1, left=2, map={a:3,b:4,c:2}, len=3
+right=5, char='c': duplicate at 2 >= 2, left=3, map={a:3,b:4,c:5}, len=3
+right=6, char='b': duplicate at 4 >= 3, left=5, map={a:3,b:6,c:5}, len=2
+right=7, char='b': duplicate at 6 >= 5, left=7, map={a:3,b:7,c:5}, len=1
+
+Result: 3 (for "abc")
+
+TIME: O(n), SPACE: O(min(alphabet_size, n))
+        `,
+        techniques: `
+IMPORTANT WINDOW TECHNIQUES:
+
+1. FREQUENCY TRACKING:
+   - Keep hash map of character/element frequencies in window
+   - Update frequency when adding/removing from window
+   - Common: Find substrings with k distinct characters
+
+2. SLIDING CONDITIONS:
+   - Count condition: window contains exactly k elements
+   - Sum condition: window sum >= target
+   - Frequency condition: all chars appear with required frequency
+   - Match conditions: window contains all elements from pattern
+
+3. RIGHT POINTER DRIVEN:
+   - Right pointer expands to explore new elements
+   - When condition breaks, left pointer shrinks
+   - Always process [left...right] window
+
+4. CONSTRAINT MANAGEMENT:
+   - Keep counters/maps for window properties
+   - When adding element, increment its counter
+   - When removing element, decrement its counter
+   - Check condition based on current counters
+        `
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -487,6 +914,138 @@ export const dsaLearningPath = {
         'Capacity Problems',
         'Minimum Maximum Problems'
       ],
+      theory: {
+        fundamentals: `
+BINARY SEARCH FUNDAMENTALS:
+
+CORE REQUIREMENT: Search space must be MONOTONIC
+- Monotonic: property is true for a range, false for rest
+- Example: sorted array, valid capacity threshold, feasible time
+
+DIVIDE AND CONQUER:
+- Eliminate half of search space with each comparison
+- O(log n) time complexity
+
+COMPARISON TREE:
+- Each node represents comparison with mid element
+- Worst case depth: log₂(n)
+- For n=1,000,000: log₂(1,000,000) ≈ 20 comparisons
+
+WHY BINARY SEARCH:
+Linear search: 1 million comparisons
+Binary search: 20 comparisons
+THAT'S 50,000X FASTER!
+
+KEY INSIGHT:
+If sorted array, ALWAYS consider binary search before O(n) solutions
+        `,
+        template: `
+UNIVERSAL BINARY SEARCH TEMPLATE:
+
+This template handles ALL binary search variations:
+
+function binarySearch(arr, target) {
+  let left = 0, right = arr.length - 1;
+  
+  while (left <= right) {
+    // Prevent overflow: left + (right - left) / 2
+    const mid = left + Math.floor((right - left) / 2);
+    
+    if (arr[mid] === target) {
+      return mid; // Found
+    } else if (arr[mid] < target) {
+      left = mid + 1; // Search right
+    } else {
+      right = mid - 1; // Search left
+    }
+  }
+  
+  return -1; // Not found
+}
+
+INVARIANT:
+- [left...right] contains target if it exists
+- left: first element where condition might be true
+- right: last element where condition might be true
+- When left > right: search space exhausted
+
+WHY left + (right - left) / 2:
+- Avoids integer overflow: left + right might exceed max int
+- Equivalent to (left + right) / 2 but safer
+
+TEMPLATE VARIATIONS:
+
+1. LEFTMOST OCCURRENCE (First position of target):
+   if (arr[mid] >= target) right = mid - 1;
+   else left = mid + 1;
+   // After loop, left is answer
+
+2. RIGHTMOST OCCURRENCE (Last position of target):
+   if (arr[mid] <= target) left = mid + 1;
+   else right = mid - 1;
+   // After loop, right is answer
+
+3. BINARY SEARCH ON ANSWER:
+   while (left < right):
+     mid = left + (right - left) / 2
+     if (canAchieve(mid)): right = mid
+     else: left = mid + 1
+   // After loop, left is minimum feasible answer
+        `,
+        searchOnAnswer: `
+BINARY SEARCH ON ANSWER PATTERN:
+
+PROBLEM: Find minimum/maximum value satisfying condition (not searching in array)
+
+APPROACH:
+1. Define search space [minValue...maxValue]
+2. Define feasibility check: canAchieve(value) -> boolean
+3. Binary search to find optimal value
+
+PATTERN:
+- Feasibility is MONOTONIC
+  Example: canReadBooks(hours = 10) = True, canReadBooks(hours = 20) = True
+  If x hours is feasible, then x+1 hours is also feasible
+  
+- Find MINIMUM feasible value: search right when feasible
+- Find MAXIMUM feasible value: search left when feasible
+
+EXAMPLE - Koko Eating Bananas:
+Koko eats from piles at speed k bananas/hour.
+Find minimum speed k to finish all piles in h hours.
+
+function minEatingSpeed(piles, h) {
+  let left = 1, right = Math.max(...piles);
+  
+  while (left < right) {
+    const mid = left + Math.floor((right - left) / 2);
+    
+    // Calculate hours needed at speed mid
+    const hoursNeeded = piles.reduce((sum, p) => 
+      sum + Math.ceil(p / mid), 0);
+    
+    if (hoursNeeded <= h) {
+      // Can finish in time, try slower speed
+      right = mid;
+    } else {
+      // Can't finish, need faster speed
+      left = mid + 1;
+    }
+  }
+  return left;
+}
+
+SEARCH SPACE:
+- Minimum speed: 1 banana/hour
+- Maximum speed: max(piles) - beyond this is wasteful
+
+FEASIBILITY IS MONOTONIC:
+- If can finish at speed k, can also finish at k+1
+- Binary search to find minimum feasible speed
+
+TIME: O(n log(max_pile))
+        `
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -618,6 +1177,183 @@ export const dsaLearningPath = {
         'Minimum Spanning Tree',
         'Graph Coloring'
       ],
+      theory: {
+        fundamentals: `
+GRAPH FUNDAMENTALS:
+
+DEFINITION:
+Graph G = (V, E) where V = vertices, E = edges connecting vertices
+
+TYPES:
+1. DIRECTED: Edges have direction (u → v)
+2. UNDIRECTED: Edges bidirectional (u ↔ v)
+3. WEIGHTED: Each edge has weight/cost
+4. UNWEIGHTED: All edges equal weight
+
+REPRESENTATIONS:
+1. ADJACENCY LIST: 
+   - Each vertex stores list of adjacent vertices
+   - Space: O(V + E)
+   - Best for sparse graphs
+   - JavaScript: Map or array of arrays
+
+2. ADJACENCY MATRIX:
+   - 2D array, matrix[i][j] = edge weight
+   - Space: O(V²)
+   - Best for dense graphs
+   - Fast edge lookup: O(1)
+
+DENSITY:
+- Sparse: E ≈ V (E << V²) - use adjacency list
+- Dense: E ≈ V² - use adjacency matrix
+        `,
+        traversal: `
+GRAPH TRAVERSAL: DFS VS BFS
+
+DFS (DEPTH-FIRST SEARCH):
+ALGORITHM:
+1. Start from vertex
+2. Explore one branch fully before backtracking
+3. Use STACK (recursive or explicit)
+
+Process:
+- Visit vertex, mark as visited
+- Recursively visit unvisited neighbors
+- Backtrack when no unvisited neighbors
+
+CODE:
+function dfs(graph, vertex, visited = new Set()) {
+  visited.add(vertex);
+  console.log(vertex);
+  
+  for (let neighbor of graph[vertex]) {
+    if (!visited.has(neighbor)) {
+      dfs(graph, neighbor, visited);
+    }
+  }
+}
+
+USE CASES:
+- Topological sorting
+- Cycle detection (undirected/directed)
+- Path finding
+- Backtracking problems
+
+PROPERTIES:
+- Time: O(V + E)
+- Space: O(V) for recursion stack
+- Order: Not guaranteed
+
+BFS (BREADTH-FIRST SEARCH):
+ALGORITHM:
+1. Start from vertex
+2. Visit all neighbors at current depth
+3. Then move to next depth level
+4. Use QUEUE
+
+CODE:
+function bfs(graph, start) {
+  const visited = new Set([start]);
+  const queue = [start];
+  
+  while (queue.length) {
+    const vertex = queue.shift();
+    console.log(vertex);
+    
+    for (let neighbor of graph[vertex]) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+}
+
+USE CASES:
+- Shortest path (unweighted)
+- Level-order traversal
+- Connected components
+- Social network distance
+
+PROPERTIES:
+- Time: O(V + E)
+- Space: O(V) for queue
+- Order: Level-by-level
+- Finds shortest unweighted path
+        `,
+        advanced: `
+ADVANCED GRAPH ALGORITHMS:
+
+UNION-FIND (DISJOINT SET UNION):
+Data structure for connectivity queries.
+
+OPERATIONS:
+- find(x): Which set does x belong to?
+- union(x, y): Merge sets containing x and y
+
+USE CASES:
+- Connected components
+- Cycle detection in undirected graphs
+- Minimum spanning tree (Kruskal's)
+
+IMPLEMENTATION:
+class UnionFind {
+  constructor(n) {
+    this.parent = Array(n).fill(0).map((_, i) => i);
+    this.rank = Array(n).fill(0);
+  }
+  
+  find(x) {
+    if (this.parent[x] !== x) {
+      this.parent[x] = this.find(this.parent[x]); // Path compression
+    }
+    return this.parent[x];
+  }
+  
+  union(x, y) {
+    const px = this.find(x), py = this.find(y);
+    if (px === py) return false; // Already connected
+    
+    // Union by rank
+    if (this.rank[px] < this.rank[py]) {
+      this.parent[px] = py;
+    } else if (this.rank[px] > this.rank[py]) {
+      this.parent[py] = px;
+    } else {
+      this.parent[py] = px;
+      this.rank[px]++;
+    }
+    return true;
+  }
+}
+
+DIJKSTRA'S ALGORITHM:
+Find shortest path from source to all vertices.
+Requires non-negative edge weights.
+
+ALGORITHM:
+1. Initialize distances: dist[source] = 0, others = ∞
+2. Use min-heap priority queue
+3. Extract minimum distance vertex
+4. Relax edges: if dist[u] + weight(u,v) < dist[v], update
+
+TIME: O((V + E) log V) with binary heap
+
+TOPOLOGICAL SORT:
+Linear ordering of vertices in a DAG.
+For each edge u → v, u comes before v in ordering.
+
+ALGORITHM (DFS-based):
+1. DFS from unvisited vertices
+2. Push to stack after visiting all descendants
+3. Stack contains topological order (reverse)
+
+USE CASES:
+- Task scheduling with dependencies
+- Build systems
+- Course prerequisites
+        `
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -689,6 +1425,191 @@ export const dsaLearningPath = {
         'Digit DP',
         'Bitmask DP'
       ],
+      theory: {
+        fundamentals: `
+DYNAMIC PROGRAMMING FUNDAMENTALS:
+
+WHAT IS DP?
+Technique for solving optimization problems by breaking them into overlapping subproblems
+and storing results to avoid recomputation.
+
+TWO KEY PROPERTIES:
+1. OPTIMAL SUBSTRUCTURE:
+   Optimal solution to problem contains optimal solutions to subproblems
+   Example: Longest path in a DAG uses longest paths of child problems
+   
+2. OVERLAPPING SUBPROBLEMS:
+   Same subproblem solved multiple times in naive recursion
+   Example: fib(5) calls fib(3) twice, fib(2) three times
+
+WITHOUT DP (Exponential):
+fib(5) = fib(4) + fib(3)
+fib(4) = fib(3) + fib(2)
+fib(3) = fib(2) + fib(1) (computed 2+ times!)
+Time: O(2^n)
+
+WITH DP (Polynomial):
+Store results: dp[1]=1, dp[2]=1
+dp[3] = dp[2] + dp[1] = 2
+dp[4] = dp[3] + dp[2] = 3
+dp[5] = dp[4] + dp[3] = 5
+Time: O(n)
+
+WHEN TO USE DP:
+- Find optimal value (max/min/count)
+- Problem has overlapping subproblems
+- Problem has optimal substructure
+        `,
+        approaches: `
+THREE APPROACHES TO DP:
+
+1. MEMOIZATION (Top-Down):
+   - Start with recursive solution
+   - Add cache to store results
+   - Before recursion, check cache
+   
+   Example:
+   memo = {}
+   function fib(n):
+     if n in memo: return memo[n]
+     if n <= 1: return n
+     memo[n] = fib(n-1) + fib(n-2)
+     return memo[n]
+
+   Advantages:
+   - Natural recursive thinking
+   - Only compute needed subproblems
+   - Intuitive code flow
+   
+2. TABULATION (Bottom-Up):
+   - Create table for all subproblems
+   - Fill table iteratively from base cases
+   - Answer in final cell
+   
+   Example:
+   dp[0] = 0, dp[1] = 1
+   for i from 2 to n:
+     dp[i] = dp[i-1] + dp[i-2]
+   return dp[n]
+
+   Advantages:
+   - Avoids recursion overhead
+   - Can optimize space
+   - Iterative (no stack overflow)
+   
+3. SPACE OPTIMIZATION:
+   - Recognize which previous states needed
+   - Use only required variables instead of table
+   
+   Example:
+   prev, curr = 0, 1
+   for i from 2 to n:
+     next = prev + curr
+     prev, curr = curr, next
+   return curr
+
+   Advantages:
+   - O(1) space instead of O(n)
+   - Best performance
+        `,
+        patterns: {
+          linear1D: `
+LINEAR 1D DP (Array DP):
+
+STATE DEFINITION:
+dp[i] = optimal value considering elements up to index i
+
+PATTERN:
+1. Define what dp[i] represents
+2. Write recurrence relation: dp[i] = f(dp[0..i-1])
+3. Identify base case(s): dp[0], dp[1], etc
+4. Fill table iteratively
+
+EXAMPLE - House Robber:
+Cannot rob adjacent houses, maximize total robbed.
+
+dp[i] = max money robbing houses [0...i]
+dp[i] = max(dp[i-1], nums[i] + dp[i-2])
+- Option 1: Don't rob house i, take dp[i-1]
+- Option 2: Rob house i, add to dp[i-२]
+
+BASE: dp[0] = nums[0], dp[1] = max(nums[0], nums[1])
+
+Example: nums = [1,2,3,1]
+dp[0] = 1
+dp[1] = max(1, 2) = 2
+dp[2] = max(2, 3+1) = 4
+dp[3] = max(4, 1+2) = 4
+Result: 4 (houses 0 and 2)
+
+TIME: O(n), SPACE: O(n) or O(1) with optimization
+          `,
+          linear2D: `
+2D DP (Matrix Problems):
+
+STATE DEFINITION:
+dp[i][j] = optimal value considering first i rows, j columns
+Or: dp[i][j] = optimal value at position (i,j)
+
+PATTERN:
+1. Define dp[i][j] clearly
+2. Write recurrence: dp[i][j] = f(dp[i-1][j], dp[i][j-1], ...)
+3. Initialize first row and column
+4. Fill table iteratively
+
+EXAMPLE - Minimum Path Sum:
+Find minimum sum path from top-left to bottom-right.
+Can only move right or down.
+
+dp[i][j] = minimum sum to reach (i,j)
+dp[i][j] = grid[i][j] + min(dp[i-1][j], dp[i][j-1])
+
+BASE: 
+dp[0][0] = grid[0][0]
+dp[0][j] = dp[0][j-1] + grid[0][j] (only from left)
+dp[i][0] = dp[i-1][0] + grid[i][0] (only from top)
+
+Example: grid = [[1,3,1], [1,5,1], [4,2,1]]
+   1  3  4      (going right: 1+3+1)
+   2  7  5      (going down: 1+5, right: 1+1)
+   6  8  5      (min path: 1+1+1+1+1 = 5)
+
+TIME: O(m×n), SPACE: O(m×n) or O(min(m,n)) with optimization
+          `,
+          knapsack: `
+KNAPSACK DP PROBLEMS:
+
+0/1 KNAPSACK:
+Given items with weight and value, maximize value with weight limit W.
+
+STATE:
+dp[i][w] = max value using items [0...i-1] with weight limit w
+
+RECURRENCE:
+For item i with weight[i] and value[i]:
+- Don't take: dp[i][w] = dp[i-1][w]
+- Take (if weight[i] <= w): value[i] + dp[i-1][w-weight[i]]
+dp[i][w] = max(both options)
+
+Example: items = [(w:2,v:3), (w:3,v:4), (w:4,v:5)], capacity = 5
+    0  1  2  3  4  5
+0   0  0  0  0  0  0
+1   0  0  3  3  3  3  (item 0, w=2, v=3)
+2   0  0  3  4  4  7  (item 1, w=３, v=4)
+3   0  0  3  4  5  7  (item 2, w=4, v=5)
+
+Best: Take items 0,1: weight=5, value=7
+
+UNBOUNDED KNAPSACK (coins, combinations):
+Can use each item multiple times.
+
+dp[w] = min coins to make amount w
+dp[w] = min(dp[w], 1 + dp[w-coin]) for each coin
+
+TIME: O(n×W), SPACE: O(W)
+          `
+        }
+      },
       studyMaterials: [
         {
           type: 'video',
@@ -990,6 +1911,160 @@ export const dsaLearningPath = {
       ]
     }
   ],
+
+    theoryCompanion: {
+    problemSolvingFramework: `
+  DSA PROBLEM-SOLVING FRAMEWORK:
+
+  STEP 1 - CLASSIFY THE PROBLEM:
+  - Data domain: array, string, tree, graph, interval, stream
+  - Objective: optimize, count, search, validate, transform
+  - Constraints: n size, value bounds, updates, memory limits
+
+  STEP 2 - BASELINE FIRST:
+  - Write brute-force approach for correctness clarity
+  - Use brute-force as oracle for testing optimized solution
+
+  STEP 3 - IDENTIFY PATTERN SIGNALS:
+  - Sorted + search target -> binary search family
+  - Contiguous range optimization -> sliding window/prefix sums
+  - Overlapping subproblems -> dynamic programming
+  - Dependencies and reachability -> graph traversal/topological
+
+  STEP 4 - PROVE OR JUSTIFY:
+  - Invariants for loops/pointers
+  - Exchange argument for greedy
+  - Recurrence + base cases for DP
+
+  STEP 5 - OPTIMIZE WITH TRADE-OFFS:
+  - Time vs space (hash map, prefix arrays, memoization)
+  - Preprocessing vs query latency
+  - In-place mutation vs immutability safety
+    `,
+    complexityMastery: `
+  TIME/SPACE COMPLEXITY MASTERY:
+
+  1. BIG-O, THETA, OMEGA:
+  - O: upper bound, worst-case growth
+  - Theta: tight bound
+  - Omega: lower bound
+
+  2. AMORTIZED ANALYSIS:
+  - Occasional expensive operations can still yield cheap average cost
+  - Example: dynamic array resize has O(1) amortized append
+
+  3. INPUT-SENSITIVE COMPLEXITY:
+  - Distinguish by dimensions (n, m, k) instead of merging blindly
+  - Graph often O(V + E), not O(n^2) by default
+
+  4. HIDDEN COSTS:
+  - Recursion stack depth
+  - Hash collisions and rehashing
+  - Sorting prerequisites cost O(n log n)
+
+  5. MEMORY LOCALITY:
+  - Arrays often outperform linked structures due to cache behavior
+  - Consider practical runtime, not just asymptotics
+    `,
+    dataStructureSelection: `
+  DATA STRUCTURE SELECTION GUIDE:
+
+  ARRAY:
+  - Best for index access and contiguous scans
+  - Poor for frequent middle insert/delete
+
+  HASH MAP / SET:
+  - O(1) average lookup/update
+  - Ideal for frequency maps and deduplication
+
+  HEAP:
+  - Best for repeated min/max extraction and top-K queries
+
+  BALANCED BST:
+  - Ordered operations and range queries
+
+  TRIE:
+  - Prefix and dictionary lookups on string sets
+
+  UNION-FIND:
+  - Dynamic connectivity and component merge queries
+
+  SELECTION RULE:
+  Choose based on dominant operation frequency and required ordering guarantees.
+    `,
+    correctnessAndTesting: `
+  CORRECTNESS AND TESTING STRATEGY:
+
+  1. LOOP INVARIANTS:
+  - Define condition that remains true each iteration
+  - Use it to reason about termination correctness
+
+  2. EDGE-CASE CHECKLIST:
+  - Empty input
+  - Single element
+  - Duplicates/all-equal values
+  - Negative values and zero
+  - Maximum constraints
+
+  3. DIFFERENTIAL TESTING:
+  - Compare optimized implementation with brute-force on random small inputs
+
+  4. PROPERTY TESTING IDEAS:
+  - Sorting output is monotonic and permutation-preserving
+  - Shortest path distances satisfy triangle inequality constraints
+
+  5. FAILURE ANALYSIS:
+  - Off-by-one errors
+  - Overflow in mid calculation or cumulative sums
+  - Mutable shared state in recursion/backtracking
+    `,
+    interviewBlueprint: `
+  DSA INTERVIEW BLUEPRINT:
+
+  1. Clarify input/output and constraints
+  2. State brute-force and complexity
+  3. Derive optimized pattern from constraints
+  4. Explain core invariant or recurrence
+  5. Write clean implementation with naming clarity
+  6. Dry run with representative and edge examples
+  7. Provide time/space complexity with justification
+  8. Mention alternate approaches and trade-offs
+
+  COMMUNICATION TIP:
+  Narrate decisions and discarded options briefly; interviewers value reasoning, not just final code.
+    `,
+    advancedTechniques: `
+  ADVANCED TECHNIQUE OVERVIEW:
+
+  1. MONOTONIC DATA STRUCTURES:
+  - Monotonic stack/queue for next greater/smaller and sliding extrema
+
+  2. PREFIX + DIFFERENCE ARRAYS:
+  - Fast range update/query transformations
+
+  3. BINARY SEARCH ON ANSWER:
+  - Feasibility monotonicity over answer space
+
+  4. TREE EULER TOUR + LCA:
+  - Convert subtree problems to range queries
+
+  5. BITMASKING:
+  - Compact subset state representation for DP/search
+
+  6. MEET-IN-THE-MIDDLE:
+  - Split exponential search to reduce complexity from O(2^n) to O(2^(n/2))
+    `,
+    antiPatterns: `
+  COMMON DSA ANTI-PATTERNS:
+
+  1. Pattern forcing without validating assumptions
+  2. Premature micro-optimization before correctness
+  3. Ignoring integer overflow and language limits
+  4. Overusing recursion without stack-depth awareness
+  5. Complex code with poor variable naming and no structure
+  6. Not validating algorithm against adversarial cases
+    `
+    },
 
   resources: {
     books: [

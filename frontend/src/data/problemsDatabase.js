@@ -1,6 +1,8 @@
 // ─── DSA Problems Database (425 Problems) ───
 // All problems synced from backend pattern-based dataset
 
+import { getTestCasesForProblem } from './problemTestCases';
+
 export const COMPANIES = [
   { id: 'google', name: 'Google', color: '#4285F4' },
   { id: 'amazon', name: 'Amazon', color: '#FF9900' },
@@ -66,7 +68,7 @@ export const PATTERNS = [
   { id: 'char-counting', name: 'Character Counting', icon: '📝', color: '#0891b2', desc: 'Frequency counting and comparison of characters' },
 ];
 
-export const PROBLEMS = [
+const RAW_PROBLEMS = [
   { id: 1, title: 'Two Sum', difficulty: 'Easy', topics: ["Arrays"], patterns: ["prefix-sum","two-pointers"], companies: ["google","amazon","microsoft","meta","apple"], frequency: 'high', acceptance: 71, timeEstimate: 15, description: 'Solve the Two Sum problem using the Array pattern.', examples: [{"input":"See problem description","output":"See expected output"}], constraints: 'See problem constraints', hints: ["Think about the Array approach","Consider edge cases","Optimize for time and space complexity"] },
   { id: 2, title: 'Best Time to Buy and Sell Stock', difficulty: 'Easy', topics: ["Arrays"], patterns: ["prefix-sum","two-pointers"], companies: ["amazon","microsoft","meta"], frequency: 'high', acceptance: 69, timeEstimate: 15, description: 'Solve the Best Time to Buy and Sell Stock problem using the Array pattern.', examples: [{"input":"See problem description","output":"See expected output"}], constraints: 'See problem constraints', hints: ["Think about the Array approach","Consider edge cases","Optimize for time and space complexity"] },
   { id: 3, title: 'Contains Duplicate', difficulty: 'Easy', topics: ["Arrays"], patterns: ["prefix-sum","two-pointers"], companies: ["google","amazon","apple"], frequency: 'high', acceptance: 77, timeEstimate: 15, description: 'Solve the Contains Duplicate problem using the Array pattern.', examples: [{"input":"See problem description","output":"See expected output"}], constraints: 'See problem constraints', hints: ["Think about the Array approach","Consider edge cases","Optimize for time and space complexity"] },
@@ -512,6 +514,212 @@ export const PROBLEMS = [
   { id: 443, title: 'Power of Three', difficulty: 'Easy', topics: ["Math"], patterns: ["prefix-sum"], companies: ["tcs","wipro"], frequency: 'medium', acceptance: 72, timeEstimate: 10, description: 'Given an integer n, return true if it is a power of three. Otherwise, return false.', examples: [{"input":"n = 27","output":"true"},{"input":"n = 0","output":"false"}], constraints: '-2^31 <= n <= 2^31 - 1', hints: ["Repeatedly divide by 3","Check if n is positive first","Use logarithm approach for O(1)"] },
   { id: 444, title: 'Merge k Sorted Lists', difficulty: 'Hard', topics: ["Linked List","Heap"], patterns: ["k-way-merge"], companies: ["google","amazon","meta","microsoft"], frequency: 'high', acceptance: 38, timeEstimate: 35, description: 'You are given an array of k linked-lists, each sorted in ascending order. Merge all linked-lists into one sorted linked-list and return it.', examples: [{"input":"lists = [[1,4,5],[1,3,4],[2,6]]","output":"[1,1,2,3,4,4,5,6]"}], constraints: 'k == lists.length, 0 <= k <= 10^4, 0 <= lists[i].length <= 500', hints: ["Use a min-heap to track the smallest element across all lists","Always extract the minimum and advance that list","Consider divide and conquer approach merging pairs"] },
 ];
+
+function buildProblemExplanation(problem) {
+  if (typeof problem.explanation === 'string' && problem.explanation.trim()) {
+    return problem.explanation.trim();
+  }
+
+  const hintText = Array.isArray(problem.hints)
+    ? problem.hints
+      .map((hint) => String(hint || '').trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' ')
+    : '';
+
+  const description = String(problem.description || '').trim();
+  if (hintText && description) {
+    return `${description} ${hintText}`;
+  }
+  if (description) {
+    return description;
+  }
+  if (hintText) {
+    return hintText;
+  }
+
+  return `Solve ${problem.title} with an efficient approach and verify edge cases.`;
+}
+
+function buildLeetCodeStyleDescription(problem) {
+  const title = String(problem.title || 'the problem').trim();
+  const topic = Array.isArray(problem.topics) && problem.topics.length > 0
+    ? String(problem.topics[0]).trim().toLowerCase()
+    : 'algorithm';
+
+  return [
+    `Given the input for ${title}, write a ${topic} solution that computes the required result.`,
+    'Return the answer in the format shown in the examples.',
+    'Your solution should handle edge cases and be efficient for large inputs.',
+  ].join('\n\n');
+}
+
+function normalizeDescription(problem) {
+  const description = String(problem.description || '').trim();
+  if (!description) {
+    return buildLeetCodeStyleDescription(problem);
+  }
+
+  const lowered = description.toLowerCase();
+  const looksGeneric = lowered.startsWith('solve the ') || lowered.includes('using the ') && lowered.includes(' pattern.');
+  return looksGeneric ? buildLeetCodeStyleDescription(problem) : description;
+}
+
+function isPlaceholderText(value) {
+  const text = String(value || '').toLowerCase();
+  return text.includes('see problem') || text.includes('see expected') || text.includes('see constraints') || text.includes('sample input') || text.includes('sample output');
+}
+
+function buildDefaultExamples(problem) {
+  const topicSet = new Set((problem.topics || []).map((t) => String(t).toLowerCase()));
+
+  if (topicSet.has('linked list')) {
+    return [
+      { input: 'head = [1,2,3,4]', output: '[1,2,3,4]' },
+      { input: 'head = [5,1,8]', output: '[5,1,8]' },
+    ];
+  }
+  if (topicSet.has('trees') || topicSet.has('tree')) {
+    return [
+      { input: 'root = [1,2,3,null,4]', output: 'true' },
+      { input: 'root = [3,9,20,null,null,15,7]', output: '3' },
+    ];
+  }
+  if (topicSet.has('strings') || topicSet.has('string')) {
+    return [
+      { input: 's = "abcabcbb"', output: '3' },
+      { input: 's = "bbbbb"', output: '1' },
+    ];
+  }
+  if (topicSet.has('graphs') || topicSet.has('graph')) {
+    return [
+      { input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' },
+      { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' },
+    ];
+  }
+  if (topicSet.has('matrix')) {
+    return [
+      { input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' },
+      { input: 'matrix = [[1,0],[0,1]]', output: '2' },
+    ];
+  }
+
+  return [
+    { input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' },
+    { input: 'nums = [3,2,4], target = 6', output: '[1,2]' },
+  ];
+}
+
+function getProblemSlug(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+function stringifyExampleValue(value) {
+  if (typeof value === 'string') return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function buildExamplesFromLocalTestCases(problem) {
+  const slug = getProblemSlug(problem.title);
+  const testCases = getTestCasesForProblem(slug);
+  if (!Array.isArray(testCases) || testCases.length === 0) return [];
+
+  return testCases.slice(0, 3).map((testCase) => {
+    const rawInput = testCase?.input;
+    const rawOutput = testCase?.output;
+
+    const input = Array.isArray(rawInput)
+      ? rawInput.map((arg) => stringifyExampleValue(arg)).join(', ')
+      : stringifyExampleValue(rawInput);
+    const output = stringifyExampleValue(rawOutput);
+
+    return {
+      input: String(input || '').trim(),
+      output: String(output || '').trim(),
+    };
+  }).filter((example) => example.input && example.output);
+}
+
+function buildDefaultConstraints(problem) {
+  const difficulty = String(problem.difficulty || '').toLowerCase();
+  if (difficulty === 'easy') {
+    return '1 <= n <= 10^3\nUse an O(n) approach when possible.';
+  }
+  if (difficulty === 'hard') {
+    return '1 <= n <= 10^5\nDesign an optimized solution for large inputs.';
+  }
+  return '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
+}
+
+function normalizeExamples(problem) {
+  const examples = Array.isArray(problem.examples) ? problem.examples : [];
+  const localTestCaseExamples = buildExamplesFromLocalTestCases(problem);
+  const defaultExamples = buildDefaultExamples(problem);
+  const normalized = examples
+    .map((example) => {
+      const input = String(example?.input ?? '').trim();
+      const output = String(example?.output ?? '').trim();
+      const explanation = String(example?.explanation ?? '').trim();
+
+      const normalizedInput = input && !isPlaceholderText(input) ? input : defaultExamples[0].input;
+      const normalizedOutput = output && !isPlaceholderText(output) ? output : defaultExamples[0].output;
+
+      return {
+        input: normalizedInput,
+        output: normalizedOutput,
+        ...(explanation ? { explanation } : {}),
+      };
+    })
+    .filter((example) => example.input || example.output || example.explanation);
+
+  const deduped = [];
+  const seen = new Set();
+  [...normalized, ...localTestCaseExamples, ...defaultExamples].forEach((example) => {
+    const input = String(example.input || '').trim();
+    const output = String(example.output || '').trim();
+    const key = `${input}::${output}`;
+    if (!input || !output || seen.has(key)) return;
+    seen.add(key);
+    deduped.push({
+      input,
+      output,
+      ...(example.explanation ? { explanation: String(example.explanation).trim() } : {}),
+    });
+  });
+
+  if (deduped.length >= 2) {
+    return deduped;
+  }
+
+  return defaultExamples;
+}
+
+function normalizeConstraints(problem) {
+  const constraints = String(problem.constraints || '').trim();
+  if (constraints && !isPlaceholderText(constraints)) {
+    return constraints;
+  }
+  return buildDefaultConstraints(problem);
+}
+
+export const PROBLEMS = RAW_PROBLEMS.map((problem) => {
+  const description = normalizeDescription(problem);
+  return {
+    ...problem,
+    description,
+    examples: normalizeExamples(problem),
+    constraints: normalizeConstraints(problem),
+    explanation: buildProblemExplanation({ ...problem, description }),
+  };
+});
 
 export const getDifficultyCounts = () => {
   const counts = { Easy: 0, Medium: 0, Hard: 0 };

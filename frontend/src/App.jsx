@@ -1,81 +1,71 @@
-import React, { useState, Component, useEffect } from 'react';
+import React, { useState, Component, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
-import Home from './pages/Home';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import Overview from './pages/Overview';
-import Dashboard from './pages/Dashboard';
-import DSAPatterns from './pages/DSAPatterns';
-import PatternDetail from './pages/PatternDetail';
-import ProblemSolver from './pages/ProblemSolver';
-import LanguageRoadmap from './pages/LanguageRoadmap';
-import SystemDesignRoadmap from './pages/SystemDesignRoadmap';
-import WebDevRoadmap from './pages/WebDevRoadmap';
-import RoadmapIndex from './pages/RoadmapIndex';
-
-
-
-
-
-
-import Pricing from './pages/Pricing';
-import Payment from './pages/Payment';
-import BlogList from './pages/BlogList';
-import BlogPost from './pages/BlogPost';
-import CreateBlog from './pages/CreateBlog';
-import PrivacyPolicy from './pages/PrivacyPolicy';
-import TermsOfService from './pages/TermsOfService';
-import About from './pages/About';
-import Library from './pages/Library';
-import Contact from './pages/Contact';
-import VerifyEmail from './pages/VerifyEmail';
-import Onboarding from './pages/Onboarding';
-import Profile from './pages/Profile';
-import History from './pages/History';
-import Analytics from './pages/Analytics';
-import Settings from './pages/Settings';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-
-
-import DSACodeEditor from './pages/DSACodeEditor';
-import SQLProblemExplorer from './pages/SQLProblemExplorer';
-import SQLCodeEditor from './pages/SQLCodeEditor';
-
-import InterviewPlatform from './components/InterviewPlatform';
-
-import AptitudeHub from './pages/AptitudeHub';
-import AptitudePractice from './pages/AptitudePractice';
-import AptitudeResults from './pages/AptitudeResults';
-import ProblemExplorer from './pages/ProblemExplorer';
-import AlgorithmPlayground from './pages/AlgorithmPlayground';
-import LearningPath from './pages/LearningPath';
-import TopicLearning from './pages/TopicLearning';
-import DSALearningPath from './pages/DSALearningPath';
-import DSATopicLearning from './pages/DSATopicLearning';
-import TechnicalLearningPath from './pages/TechnicalLearningPath';
-import TechnicalTopicLearning from './pages/TechnicalTopicLearning';
-import HRLearningPath from './pages/HRLearningPath';
-import HRTopicLearning from './pages/HRTopicLearning';
-import SystemDesignPath from './pages/SystemDesignPath';
-import SystemDesignTopicLearning from './pages/SystemDesignTopicLearning';
-import SystemDesignSimulator from './pages/SystemDesignSimulator';
-import AITutorHub from './pages/AITutorHub';
-import CompanyPrep from './pages/CompanyPrep';
-import CompanyInterview from './pages/CompanyInterview';
-import MultiRoundInterview from './pages/MultiRoundInterview';
-import InterviewAnalytics from './pages/InterviewAnalytics';
-import InterviewHistory from './pages/InterviewHistory';
-
-import CodingPlayground from './pages/CodingPlayground';
-import DailyChallengesPage from './pages/DailyChallengesPage';
-import AdminDashboard from './pages/AdminDashboard';
-import JobUpdates from './pages/JobUpdates';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Code2 } from 'lucide-react';
+
+const Home = lazy(() => import('./pages/Home'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const Overview = lazy(() => import('./pages/Overview'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const DSAPatterns = lazy(() => import('./pages/DSAPatterns'));
+const PatternDetail = lazy(() => import('./pages/PatternDetail'));
+const ProblemSolver = lazy(() => import('./pages/ProblemSolver'));
+const LanguageRoadmap = lazy(() => import('./pages/LanguageRoadmap'));
+const SystemDesignRoadmap = lazy(() => import('./pages/SystemDesignRoadmap'));
+const WebDevRoadmap = lazy(() => import('./pages/WebDevRoadmap'));
+const RoadmapIndex = lazy(() => import('./pages/RoadmapIndex'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const Payment = lazy(() => import('./pages/Payment'));
+const BlogList = lazy(() => import('./pages/BlogList'));
+const BlogPost = lazy(() => import('./pages/BlogPost'));
+const CreateBlog = lazy(() => import('./pages/CreateBlog'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const About = lazy(() => import('./pages/About'));
+const Library = lazy(() => import('./pages/Library'));
+const Contact = lazy(() => import('./pages/Contact'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Profile = lazy(() => import('./pages/Profile'));
+const History = lazy(() => import('./pages/History'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Settings = lazy(() => import('./pages/Settings'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const DSACodeEditor = lazy(() => import('./pages/DSACodeEditor'));
+const SQLProblemExplorer = lazy(() => import('./pages/SQLProblemExplorer'));
+const SQLCodeEditor = lazy(() => import('./pages/SQLCodeEditor'));
+const InterviewPlatform = lazy(() => import('./components/InterviewPlatform'));
+const AptitudeHub = lazy(() => import('./pages/AptitudeHub'));
+const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
+const AptitudeResults = lazy(() => import('./pages/AptitudeResults'));
+const ProblemExplorer = lazy(() => import('./pages/ProblemExplorer'));
+const AlgorithmPlayground = lazy(() => import('./pages/AlgorithmPlayground'));
+const LearningPath = lazy(() => import('./pages/LearningPath'));
+const TopicLearning = lazy(() => import('./pages/TopicLearning'));
+const DSALearningPath = lazy(() => import('./pages/DSALearningPath'));
+const DSATopicLearning = lazy(() => import('./pages/DSATopicLearning'));
+const TechnicalLearningPath = lazy(() => import('./pages/TechnicalLearningPath'));
+const TechnicalTopicLearning = lazy(() => import('./pages/TechnicalTopicLearning'));
+const HRLearningPath = lazy(() => import('./pages/HRLearningPath'));
+const HRTopicLearning = lazy(() => import('./pages/HRTopicLearning'));
+const SystemDesignPath = lazy(() => import('./pages/SystemDesignPath'));
+const SystemDesignTopicLearning = lazy(() => import('./pages/SystemDesignTopicLearning'));
+const SystemDesignSimulator = lazy(() => import('./pages/SystemDesignSimulator'));
+const AITutorHub = lazy(() => import('./pages/AITutorHub'));
+const CompanyPrep = lazy(() => import('./pages/CompanyPrep'));
+const CompanyInterview = lazy(() => import('./pages/CompanyInterview'));
+const MultiRoundInterview = lazy(() => import('./pages/MultiRoundInterview'));
+const InterviewAnalytics = lazy(() => import('./pages/InterviewAnalytics'));
+const InterviewHistory = lazy(() => import('./pages/InterviewHistory'));
+const CodingPlayground = lazy(() => import('./pages/CodingPlayground'));
+const DailyChallengesPage = lazy(() => import('./pages/DailyChallengesPage'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const JobUpdates = lazy(() => import('./pages/JobUpdates'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -174,6 +164,7 @@ function AppContent() {
         )}
 
         <div className={showSidebar && !isFullBleedCodingRoute ? 'page-content' : ''}>
+          <Suspense fallback={<div style={{ padding: 24 }}>Loading...</div>}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
@@ -266,6 +257,7 @@ function AppContent() {
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
           </Routes>
+          </Suspense>
         </div>
 
         {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <Footer />}

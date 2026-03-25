@@ -5,27 +5,13 @@ export const LEARNING_TOPICS = [
     gradient: 'linear-gradient(135deg, #f472b6, #ec4899)',
     description: 'Master percentages, profit/loss, discounts, and successive changes',
     estimatedTime: '2 hours',
-    theory: {
-      sections: [
-        { title: 'Core Formulas', formulas: [
-          { formula: 'Percentage = (Value/Total) × 100', example: '15 out of 60 = (15/60)×100 = 25%' },
-          { formula: 'Value = (Percentage × Total) / 100', example: '20% of 250 = (20×250)/100 = 50' },
-          { formula: 'Increase% = [(New - Old)/Old] × 100', example: '(60-50)/50 × 100 = 20% increase' },
-          { formula: 'Decrease% = [(Old - New)/Old] × 100', example: '(50-40)/50 × 100 = 20% decrease' },
-          { formula: 'Successive Change = a + b + (ab/100)', example: '+20% then -10% = 20-10-(200/100) = 8%' },
+    theory: { sections: [
+        { title: 'Base Values & Changes', content: ['Always identify the "base" value. "A is what % of B" implies B is the base (A/B × 100). "A% increase" means the new value is A% more than the original (New = Old + [A/100]×Old).', 'Successive percentage changes do not simply add up. An increase of A% followed by B% results in an effective change of [A + B + (A×B)/100]%. If A=20 and B=10, the total increase is 20 + 10 + 200/100 = 32%, not 30%.'], formulas: [
+          { formula: 'Percentage = (Value / Base) × 100', example: '15 of 60 = 25%' },
+          { formula: 'Successive Change = A + B + (AB/100)', example: '20% + 10% = 32%' },
+          { formula: 'Population after n years = P(1 ± R/100)^n', example: 'Pop=1000, 10% inc for 2 yrs = 1000(1.1)² = 1210' }
         ]},
-        { title: 'Profit & Loss', formulas: [
-          { formula: 'Profit% = (Profit/CP) × 100', example: 'CP=200, SP=250: Profit%=(50/200)×100=25%' },
-          { formula: 'Loss% = (Loss/CP) × 100', example: 'CP=200, SP=180: Loss%=(20/200)×100=10%' },
-          { formula: 'SP = CP × (100 + Profit%)/100', example: 'CP=400, Profit%=15: SP=400×115/100=460' },
-          { formula: 'CP = SP × 100/(100 + Profit%)', example: 'SP=460, Profit%=15: CP=460×100/115=400' },
-        ]},
-        { title: 'Discounts', formulas: [
-          { formula: 'Discount% = (Discount/MP) × 100', example: 'MP=500, Discount=75: 75/500×100=15%' },
-          { formula: 'SP = MP × (100 - Discount%)/100', example: 'MP=800, Discount%=20: SP=800×80/100=640' },
-          { formula: 'SP = CP + Profit = MP - Discount', example: 'CP=400, Profit=60 → SP=460' },
-        ]},
-      ]
+    ]
     },
     quickMethods: [
       { id: 'pct_m1', name: 'Direct Formula (10% Building Block)', difficulty: 'Easy', timeEstimate: '10 seconds',
@@ -88,23 +74,16 @@ export const LEARNING_TOPICS = [
     gradient: 'linear-gradient(135deg, #fb923c, #f97316)',
     description: 'Work rates, combined work, pipes & cisterns, efficiency problems',
     estimatedTime: '2.5 hours',
-    theory: {
-      sections: [
-        { title: 'Basic Formulas', formulas: [
+    theory: { sections: [
+        { title: 'Rate, Efficiency & Time', content: ['Work = Rate × Time. Usually, we assume total work is 1 piece of work. If A can complete the work in X days, A\'s rate is 1/X of the work per day.', 'Efficiency is inversely proportional to time.'], formulas: [
           { formula: 'Work = Rate × Time', example: 'Rate=1/10, Time=10 → Work=1 (complete)' },
-          { formula: 'If A does work in x days → Rate = 1/x per day', example: 'A finishes in 15 days → rate = 1/15' },
-          { formula: 'Combined: 1/a + 1/b → Time = ab/(a+b)', example: 'A=10d, B=15d → Together = 150/25 = 6 days' },
+          { formula: 'Together = (ab)/(a+b)', example: 'A=10, B=15 → 150/25 = 6 days' },
         ]},
-        { title: 'Efficiency & Man-Days', formulas: [
-          { formula: 'If A:B efficiency = m:n → Time ratio = n:m', example: 'Eff 3:2, B=20d → A=20×2/3=13.3 days' },
-          { formula: 'A is x% more efficient → Time = B×100/(100+x)', example: 'A 25% more efficient, B=15d → A=12d' },
-          { formula: 'M₁D₁ = M₂D₂ (Man-days constant)', example: '20 men × 15 days = x men × 10 days → x=30' },
+        { title: 'Chain Rule & Negative Work', content: ['Chain Rule: (M₁D₁H₁)/W₁ = (M₂D₂H₂)/W₂. Very useful for variable group sizes.', 'Pipes & Cisterns: Outlets perform negative work. Assign negative rates to leaks or drains.'], formulas: [
+          { formula: 'M₁D₁H₁ / W₁ = M₂D₂H₂ / W₂', example: '10 men × 5 days = 25 men × D days → D=2' },
+          { formula: 'Net rate = Inlet(+1/a) + Outlet(-1/b)', example: 'Fill 4h, Empty 6h → Net = 1/4 - 1/6 = 1/12' },
         ]},
-        { title: 'Pipes & Cisterns', formulas: [
-          { formula: 'Inlet rate = +1/time, Outlet rate = -1/time', example: 'Fill 6hr: +1/6, Empty 8hr: -1/8' },
-          { formula: 'Net rate = Sum of all rates', example: '1/6 - 1/8 = 1/24. Fills in 24 hours' },
-        ]},
-      ]
+    ]
     },
     quickMethods: [
       { id: 'tw_m1', name: 'LCM Method (Best for Multiple Workers)', difficulty: 'Easy', timeEstimate: '15 seconds',
@@ -161,34 +140,17 @@ export const LEARNING_TOPICS = [
     gradient: 'linear-gradient(135deg, #818cf8, #6366f1)',
     description: 'Speed calculations, trains, boats & streams, relative speed',
     estimatedTime: '2.5 hours',
-    theory: {
-      sections: [
-        { title: 'Basic Formulas', formulas: [
-          { formula: 'Speed = Distance / Time', example: '180 km in 3 hrs → Speed = 60 km/hr' },
-          { formula: 'Distance = Speed × Time', example: '50 km/hr × 4 hrs = 200 km' },
-          { formula: 'km/hr to m/s: multiply by 5/18', example: '72 km/hr = 72×5/18 = 20 m/s' },
-          { formula: 'm/s to km/hr: multiply by 18/5', example: '15 m/s = 15×18/5 = 54 km/hr' },
+    theory: { sections: [
+        { title: 'Fundamentals & Average Speed', content: ['Distance = Speed × Time. When distance is constant, speed and time are inversely proportional. Always ensure units match (e.g., km/hr with hours, m/s with seconds). To convert km/hr to m/s, multiply by 5/18.', 'Average speed is NOT the average of speeds. Average Speed = Total Distance / Total Time. If a person covers two equal distances at speeds S1 and S2, the average speed is 2*S1*S2/(S1+S2).'], formulas: [
+          { formula: 'Distance = Speed × Time', example: '60 km/hr for 2 hours = 120 km' },
+          { formula: 'Average Speed = Total Distance / Total Time', example: 'Travel 100km in 2h, then 100km in 3h → avg = 200/5 = 40 km/h' },
+          { formula: 'Conversion: km/hr to m/s', example: 'Multiply by 5/18' }
         ]},
-        { title: 'Relative Speed', formulas: [
-          { formula: 'Same direction: S₁ - S₂', example: '80 km/hr & 60 km/hr → Relative = 20 km/hr' },
-          { formula: 'Opposite direction: S₁ + S₂', example: '80 + 60 = 140 km/hr' },
+        { title: 'Relative Speed & Trains', content: ['When two objects move in the SAME direction, their relative speed is the DIFFERENCE of their speeds (|S1 - S2|). When moving in OPPOSITE directions, their relative speed is the SUM of their speeds (S1 + S2).', 'For train crossing problems, the total distance covered is the sum of the lengths of the objects. If a train of length L passes a platform of length P, distance = L + P. If it passes a pole, distance = L.'], formulas: [
+          { formula: 'Relative Speed (Same Dir) = |S1 - S2|', example: 'Car at 80 chases at 50 → relative = 30' },
+          { formula: 'Relative Speed (Opposite) = S1 + S2', example: 'Trains at 60 and 40 approach → relative = 100' },
         ]},
-        { title: 'Trains', formulas: [
-          { formula: 'Cross pole: Length/Speed', example: '150m train at 10m/s → 15 seconds' },
-          { formula: 'Cross platform: (Train+Platform)/Speed', example: '(150+350)/10 = 50 seconds' },
-          { formula: 'Two trains cross: (L₁+L₂)/(S₁±S₂)', example: 'Opposite: (100+200)/(20+15) ≈ 8.6s' },
-        ]},
-        { title: 'Boats & Streams', formulas: [
-          { formula: 'Downstream = Boat + Stream', example: 'Boat=10, Stream=2 → Down=12 km/hr' },
-          { formula: 'Upstream = Boat - Stream', example: 'Boat=10, Stream=2 → Up=8 km/hr' },
-          { formula: 'Boat speed = (Down + Up)/2', example: '(12+8)/2 = 10 km/hr' },
-          { formula: 'Stream speed = (Down - Up)/2', example: '(12-8)/2 = 2 km/hr' },
-        ]},
-        { title: 'Average Speed', formulas: [
-          { formula: 'Average Speed = Total Distance / Total Time', example: 'Always use this definition!' },
-          { formula: 'Equal distances: 2xy/(x+y)', example: '40 & 60 km/hr → 2×40×60/100 = 48 km/hr' },
-        ]},
-      ]
+    ]
     },
     quickMethods: [
       { id: 'tsd_m1', name: 'Unit Conversion Trick', difficulty: 'Easy', timeEstimate: '3 seconds',
@@ -246,17 +208,16 @@ export const LEARNING_TOPICS = [
     description: 'HCF, LCM, divisibility, prime numbers, remainders',
     estimatedTime: '2 hours',
     theory: { sections: [
-      { title: 'Divisibility & Primes', formulas: [
-        { formula: 'HCF × LCM = Product of two numbers', example: 'HCF(12,18)=6, LCM=36. 6×36=216=12×18 ✓' },
-        { formula: 'Divisibility by 3: sum of digits divisible by 3', example: '123 → 1+2+3=6 → divisible by 3' },
-        { formula: 'Divisibility by 11: alternating sum divisible by 11', example: '1023 → 1-0+2-3=0 → divisible' },
-        { formula: 'Unit digit cycles: 2,3,7,8 repeat every 4 powers', example: '7¹=7, 7²=9, 7³=3, 7⁴=1, 7⁵=7...' },
-      ]},
-      { title: 'Remainders', formulas: [
-        { formula: "Fermat's Little: a^(p-1) ≡ 1 (mod p), p prime", example: '2^16 ≡ 1 (mod 17)' },
-        { formula: 'Remainder of sum = sum of remainders (mod n)', example: '17+23 mod 5 = (2+3) mod 5 = 0' },
-      ]},
-    ]},
+        { title: 'Classifications & Divisibility', content: ['Numbers are classified into Reals, Rationals, Primes, and Composites. Two numbers are Co-Prime if their HCF is 1 (they share no common factors).', 'Divisibility rules speed up calculations. For 3 and 9, sum the digits. For 4, check the last 2 digits. For 8, the last 3. For 11, the sum of odd-placed digits minus sum of even-placed digits must be 0 or a multiple of 11.'], formulas: [
+          { formula: 'Sum of first n naturals = n(n+1)/2', example: 'Sum of 1 to 10 = 10(11)/2 = 55' },
+          { formula: 'Divisibility by 11: |Sum(odd places) - Sum(even places)|', example: '1331: (1+3)-(3+1) = 0 (divisible)' },
+        ]},
+        { title: 'LCM, HCF & Remainders', content: ['For any two numbers A and B: LCM(A, B) × HCF(A, B) = A × B. The HCF of fractions is HCF(numerators)/LCM(denominators).', 'To find the unit digit of large powers (like 2^45), divide the exponent by 4 (the cyclicity of 2, 3, 7, 8). The remainder gives the effective power. Remainder 1 -> 2^1=2.'], formulas: [
+          { formula: 'LCM × HCF = Product of Numbers', example: 'LCM(12,15)=60, HCF=3 → 12×15=180=60×3' },
+          { formula: 'Cyclicity of 2, 3, 7, 8 is 4', example: 'Unit digit of 2^7 = 2^(remainder of 7/4) = 2^3 = 8' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'ns_m1', name:'Prime factorization for HCF/LCM', difficulty:'Easy', timeEstimate:'15 seconds',
         problem:'Find HCF and LCM of 36 and 84',
@@ -296,12 +257,12 @@ export const LEARNING_TOPICS = [
     description: 'Ratios, direct/inverse proportion, partnerships',
     estimatedTime: '1.5 hours',
     theory: { sections: [
-      { title: 'Core Ratios', formulas: [
+      { title: 'Core Ratios', content: ['A ratio compares the relative sizes of two or more quantities. It is fundamental to understand that a ratio does not give absolute values, but rather the relationship between them. For instance, if A and B are in the ratio 2:3, A could be 20 and B could be 30, or A could be 200 and B could be 300.', 'The most important skill in ratio problems is "equalizing" ratios that share a common term. If you know A:B and B:C, you must find the Least Common Multiple (LCM) of the two values representing B to express A, B, and C in a single, combined ratio.'], formulas: [
         { formula: 'a:b and b:c → a:b:c (equalize common term)', example: 'A:B=2:3, B:C=4:5 → A:B:C = 8:12:15' },
         { formula: 'Compound ratio of a:b and c:d = ac:bd', example: '2:3 and 4:5 → 8:15' },
         { formula: 'Duplicate ratio of a:b = a²:b²', example: 'Dup of 3:4 = 9:16' },
       ]},
-      { title: 'Proportion', formulas: [
+      { title: 'Proportion', content: ['A proportion exists when two ratios are equal (a:b = c:d). Direct proportion means as one quantity increases, the other increases at the same rate. Inverse proportion means as one increases, the other decreases (e.g., more workers = less time to finish a job).', 'In inverse proportion problems, always use the product equivalence: a1 × b1 = a2 × b2. This simple rule is the foundation for almost all "Time and Work" group-efficiency questions.'], formulas: [
         { formula: 'Direct: a₁/b₁ = a₂/b₂', example: 'If 5 pens cost ₹50, 8 pens = ₹80' },
         { formula: 'Inverse: a₁ × b₁ = a₂ × b₂', example: '15 workers×48 hrs = x workers×30 hrs → x=24' },
       ]},
@@ -344,17 +305,15 @@ export const LEARNING_TOPICS = [
     description: 'Simple average, weighted average, age problems',
     estimatedTime: '1.5 hours',
     theory: { sections: [
-      { title: 'Core Formulas', formulas: [
-        { formula: 'Average = Sum / Count', example: 'Avg of 10,20,30 = 60/3 = 20' },
-        { formula: 'Sum = Average × Count', example: 'Avg 25, Count 8 → Sum = 200' },
-        { formula: 'Weighted Avg = Σ(wᵢ×xᵢ) / Σwᵢ', example: '3 subjects: 80×4 + 90×3 + 70×3 = 800/10 = 80' },
-      ]},
-      { title: 'Changes in Average', formulas: [
-        { formula: 'New avg when item added = (nA + x)/(n+1)', example: 'Avg 25 for 8 items. Add 34 → new avg = (200+34)/9 = 26' },
-        { formula: 'New avg when item removed = (nA - x)/(n-1)', example: 'Avg 25 for 8 items. Remove 17 → (200-17)/7 = 26.14' },
-        { formula: 'Avg of first n natural numbers = (n+1)/2', example: 'First 50: (50+1)/2 = 25.5' },
-      ]},
-    ]},
+        { title: 'Foundations & Deviations', content: ['Average = Sum of all items / Number of items. If the average of N items is A, their total sum is N × A. If every item in a set is increased by k, the new average also increases by k.', 'The Deviation method is often faster: ASSUME an average, calculate how much each number deviates from it, and balance out these deviations. The true average is your assumed average plus (net deviation / N).'], formulas: [
+          { formula: 'Sum = Average × Count', example: 'Avg of 5 numbers is 20 → Sum = 100' },
+          { formula: 'New Avg (item added) = Old Avg + (Value - Old Avg)/New Count', example: 'Avg is 20 for 5. Add 26. New = 20 + (26-20)/6 = 21' },
+        ]},
+        { title: 'Weighted Averages', content: ['When merging two groups with different averages, use the Weighted Average formula: (N₁A₁ + N₂A₂) / (N₁ + N₂). This is essentially finding the total sum of both groups and dividing by the total count.', 'Mixture and Alligation is a reversed form of weighted average, used specifically to find the ratio N₁:N₂ given the group averages.'], formulas: [
+          { formula: 'Weighted Average = (w₁x₁ + w₂x₂) / (w₁ + w₂)', example: 'Mix 2kg of $10 and 3kg of $20 → (20+60)/5 = $16' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'av_m1', name:'Deviation Method', difficulty:'Medium', timeEstimate:'15 seconds',
         problem:'Average of 78, 82, 75, 85, 80',
@@ -394,18 +353,16 @@ export const LEARNING_TOPICS = [
     description: 'SI, CI, difference between SI and CI, installments',
     estimatedTime: '2 hours',
     theory: { sections: [
-      { title: 'Simple Interest', formulas: [
-        { formula: 'SI = P × R × T / 100', example: 'P=5000, R=10%, T=3yr → SI=1500' },
-        { formula: 'Amount = P + SI = P(1 + RT/100)', example: 'A = 5000 + 1500 = 6500' },
-        { formula: 'P = 100×SI / (R×T)', example: 'SI=600, R=10, T=3 → P=2000' },
-      ]},
-      { title: 'Compound Interest', formulas: [
-        { formula: 'A = P(1 + R/100)^T', example: 'P=10000, R=10%, T=2 → A=12100' },
-        { formula: 'CI = A - P = P[(1+R/100)^T - 1]', example: 'CI = 12100-10000 = 2100' },
-        { formula: 'CI - SI for 2 years = P(R/100)²', example: 'P=10000,R=10: diff=10000×0.01=100' },
-        { formula: 'Half-yearly: A = P(1 + R/200)^(2T)', example: 'R=10% → use 5% for double the time' },
-      ]},
-    ]},
+        { title: 'Simple & Compound Foundations', content: ['Simple Interest (SI) is calculated only on the principal amount. It grows linearly. CI is calculated on the accumulated amount (Principal + previous Interest). It grows exponentially.', 'For the first year (or first compounding period), SI and CI are exactly the same. After that, CI outpaces SI because you earn "interest on your interest".'], formulas: [
+          { formula: 'Simple Interest (SI) = P * R * T / 100', example: 'P=1000, R=10%, T=2 → SI=200' },
+          { formula: 'Compound Interest Amount = P * (1 + R/100)^n', example: 'P=1000, R=10%, T=2 → A=1000(1.1)² = 1210' },
+        ]},
+        { title: 'Difference Formulas & Installments', content: ['The difference between CI and SI for 2 years is purely the interest earned on the 1st year\'s interest. Formula: Diff = P(R/100)². For 3 years, Diff = P(R/100)² * (3 + R/100).', 'If compounding happens half-yearly, halve the rate (R/2) and double the time periods (2T).'], formulas: [
+          { formula: 'CI - SI difference (2 years) = P(R/100)²', example: 'P=1000, R=10% → Diff = 1000 * (0.1)² = 10' },
+          { formula: 'Half-yearly Compounding: Rate=R/2, Time=2T', example: '10% annually for 1 year → 5% for 2 periods' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'si_m1', name:'SI Direct Calculation', difficulty:'Easy', timeEstimate:'10 seconds',
         problem:'Find SI on ₹8000 at 12% for 3 years',
@@ -445,15 +402,14 @@ export const LEARNING_TOPICS = [
     description: 'Mixing solutions, alligation rule, repeated dilution',
     estimatedTime: '1.5 hours',
     theory: { sections: [
-      { title: 'Alligation Rule', formulas: [
-        { formula: 'Cheaper : Dearer = (d-m) : (m-c)', example: 'Mix ₹40/kg & ₹60/kg for ₹45/kg → 15:5 = 3:1' },
-        { formula: 'Mean price formula from alligation cross', example: 'Quantities known → weighted average' },
-      ]},
-      { title: 'Repeated Dilution', formulas: [
-        { formula: 'After n operations: Original × (1 - x/V)^n', example: '20L milk, 4L replaced 3 times: 20×(16/20)³ = 10.24L milk' },
-        { formula: 'Concentration after dilution = C×V/(V+added)', example: '50% sol, 10L + 5L water = 50×10/15 = 33.3%' },
-      ]},
-    ]},
+        { title: 'Alligation Rule', content: ['Alligation is a shortcut to solve weighted average problems. If you mix two quantities of prices A and B to get a mixture of price M, the ratio in which they were mixed is (B - M) : (M - A).', 'Always ensure the units are identical! Never mix a Cost Price with a Selling Price. Convert SP to CP first if dealing with profits.'], formulas: [
+          { formula: 'Alligation Ratio = (Cheaper diff) : (Dearer diff)', example: 'Mix 10 and 20 to get 14. Ratio = (20-14):(14-10) = 6:4 = 3:2' },
+        ]},
+        { title: 'Repeated Dilution (Replacement)', content: ['When a container has purely liquid A, and you repeatedly remove Vol V and replace it with water N times, the final amount of liquid A is given by an exponential decay formula.', 'Final Vol = Initial Vol × (1 - Removed/Total)ⁿ. This works because each replacement dilutes the original liquid by the same fraction.'], formulas: [
+          { formula: 'Final Amount = Initial × (1 - Replacement_Vol / Total_Vol)^n', example: '100L pure wine. Replace 10L twice. Final = 100 × (1 - 10/100)² = 81L' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'ma_m1', name:'Alligation Cross Method', difficulty:'Easy', timeEstimate:'15 seconds',
         problem:'Mix ₹40/kg rice with ₹60/kg rice to get ₹45/kg. Ratio?',
@@ -490,18 +446,17 @@ export const LEARNING_TOPICS = [
     description: 'Linear equations, quadratics, progressions (AP/GP)',
     estimatedTime: '2.5 hours',
     theory: { sections: [
-      { title: 'Equations', formulas: [
-        { formula: 'Quadratic: x = [-b ± √(b²-4ac)] / 2a', example: 'x²-5x+6=0 → x=(5±1)/2 → x=3,2' },
-        { formula: 'Sum of roots = -b/a, Product = c/a', example: 'x²-5x+6: sum=5, product=6' },
-        { formula: 'Discriminant D = b²-4ac', example: 'D>0: 2 real roots, D=0: equal, D<0: complex' },
-      ]},
-      { title: 'Progressions', formulas: [
-        { formula: 'AP: aₙ = a + (n-1)d', example: '2,5,8... a₁₀ = 2+9×3 = 29' },
-        { formula: 'AP Sum: Sₙ = n/2 × [2a + (n-1)d]', example: 'S₁₀ = 10/2 × [4+27] = 155' },
-        { formula: 'GP: aₙ = a × r^(n-1)', example: '2,6,18... a₅ = 2×3⁴ = 162' },
-        { formula: 'GP Sum: Sₙ = a(rⁿ-1)/(r-1)', example: 'S₅ = 2(3⁵-1)/2 = 242' },
-      ]},
-    ]},
+        { title: 'Identities & Expansions', content: ['Algebraic identities are the bedrock of quick manipulation. Master the basic expansions: (a±b)², (a±b)³, a²-b², and a³±b³.', 'Many competitive questions mask these identities by asking for x + 1/x given x² + 1/x². Remember that (x + 1/x)² = x² + 1/x² + 2.'], formulas: [
+          { formula: '(a+b)² = a² + b² + 2ab', example: 'Can be used to find x²+1/x² = (x+1/x)² - 2' },
+          { formula: 'a² - b² = (a - b)(a + b)', example: 'Difference of squares' },
+          { formula: 'a³ + b³ = (a+b)(a² - ab + b²)', example: 'Sum of cubes' },
+        ]},
+        { title: 'Quadratics & Roots', content: ['A quadratic equation ax² + bx + c = 0 has at most two real roots. The nature of these roots depends on the discriminant D = b² - 4ac. If D>0, real/distinct. If D=0, real/equal. If D<0, complex.', 'The sum of roots is -b/a. The product of roots is c/a.'], formulas: [
+          { formula: 'Sum of roots (α + β) = -b/a', example: 'x² - 5x + 6 = 0 → Sum = 5' },
+          { formula: 'Product of roots (αβ) = c/a', example: 'x² - 5x + 6 = 0 → Product = 6' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'al_m1', name:'Factorization Method', difficulty:'Easy', timeEstimate:'10 seconds',
         problem:'Solve x² - 7x + 12 = 0',
@@ -538,19 +493,16 @@ export const LEARNING_TOPICS = [
     description: 'Areas, volumes, triangles, circles, coordinate geometry',
     estimatedTime: '2.5 hours',
     theory: { sections: [
-      { title: '2D Shapes', formulas: [
-        { formula: 'Triangle area = ½ × base × height', example: 'b=10, h=6 → A=30 sq units' },
-        { formula: "Heron's: A = √[s(s-a)(s-b)(s-c)], s=(a+b+c)/2", example: 'a=3,b=4,c=5: s=6, A=√(6×3×2×1)=6' },
-        { formula: 'Circle area = πr², Circumference = 2πr', example: 'r=7: A=154, C=44' },
-        { formula: 'Rectangle area = l×b, Perimeter = 2(l+b)', example: 'l=8,b=5: A=40, P=26' },
-      ]},
-      { title: '3D Solids', formulas: [
-        { formula: 'Cube: V=a³, SA=6a²', example: 'a=5: V=125, SA=150' },
-        { formula: 'Cylinder: V=πr²h, SA=2πr(r+h)', example: 'r=7,h=10: V=1540' },
-        { formula: 'Sphere: V=4/3×πr³, SA=4πr²', example: 'r=7: V=1437.3, SA=616' },
-        { formula: 'Cone: V=1/3×πr²h, Slant=√(r²+h²)', example: 'r=7,h=24: slant=25' },
-      ]},
-    ]},
+        { title: 'Triangles', content: ['A polygon with 3 sides. The sum of interior angles is 180°. In a right triangle, use Pythagoras: a² + b² = c².', 'Similarity: If two triangles are similar, the ratio of their areas is the square of the ratio of their corresponding sides.'], formulas: [
+          { formula: 'Pythagorean Theorem: a² + b² = c²', example: 'Sides 3,4 → Hypotenuse 5' },
+          { formula: 'Area = 1/2 × base × height', example: 'Base 10, Height 5 → Area = 25' },
+        ]},
+        { title: 'Circles & Polygons', content: ['For circles, the angle subtended by an arc at the center is double the angle subtended at the circumference. Angles in the same segment are equal.', 'For regular polygons of N sides, the sum of interior angles is (N-2)×180°. Each interior angle is (N-2)×180° / N.'], formulas: [
+          { formula: 'Area of Circle = πr²', example: 'Radius 7 → Area ≈ (22/7)×49 = 154' },
+          { formula: 'Sum of interior angles = (N-2)×180°', example: 'Hexagon (N=6): 4×180 = 720°' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'ge_m1', name:'30-60-90 Triangle Ratios', difficulty:'Easy', timeEstimate:'5 seconds',
         problem:'In a 30-60-90 triangle, hypotenuse=10. Find sides.',
@@ -587,18 +539,16 @@ export const LEARNING_TOPICS = [
     description: 'Permutations, combinations, probability, events',
     estimatedTime: '2 hours',
     theory: { sections: [
-      { title: 'Permutations & Combinations', formulas: [
-        { formula: 'nPr = n! / (n-r)!', example: '5P3 = 120/2 = 60' },
-        { formula: 'nCr = n! / [r!(n-r)!]', example: '5C3 = 120/(6×2) = 10' },
-        { formula: 'nCr = nC(n-r)', example: '10C8 = 10C2 = 45' },
-      ]},
-      { title: 'Probability', formulas: [
-        { formula: 'P(A) = favorable / total outcomes', example: '1 die: P(even) = 3/6 = 1/2' },
-        { formula: 'P(A∪B) = P(A) + P(B) - P(A∩B)', example: 'Cards: P(King or Heart) = 4/52+13/52-1/52 = 16/52' },
-        { formula: 'P(A∩B) = P(A) × P(B) if independent', example: '2 coins: P(HH) = 1/2 × 1/2 = 1/4' },
-        { formula: "P(A') = 1 - P(A)", example: 'P(not 6 on die) = 1-1/6 = 5/6' },
-      ]},
-    ]},
+        { title: 'Permutations & Combinations', content: ['Permutations are for ARRANGEMENTS (order matters). Combinations are for SELECTIONS (order does not matter). Determine whether the problem cares about order before choosing nPr or nCr.', 'The fundamental counting principle: If action A can be done in M ways and action B in N ways, both can be done in M×N ways if they are independent.'], formulas: [
+          { formula: 'nCr (Choosing) = n! / (r! × (n-r)!)', example: '5C2 = 5! / (2! 3!) = 10' },
+          { formula: 'nPr (Arranging) = n! / (n-r)!', example: '5P2 = 5! / 3! = 20' },
+        ]},
+        { title: 'Probability Basics', content: ['Probability = (Favorable Outcomes) / (Total Possible Outcomes). It always ranges from 0 (impossible) to 1 (certain).', 'For independent events, P(A AND B) = P(A) × P(B). For OR events, use the union formula: P(A OR B) = P(A) + P(B) - P(A AND B).'], formulas: [
+          { formula: 'P(Event) = Favorable / Total', example: 'Rolling a 4 on a die = 1/6' },
+          { formula: 'P(A OR B) = P(A) + P(B) - P(A AND B)', example: 'Mutually exclusive: P(A AND B)=0' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'pc_m1', name:'Committee Selection', difficulty:'Easy', timeEstimate:'15 seconds',
         problem:'From 6 men and 4 women, select committee of 3 men and 2 women',
@@ -635,16 +585,14 @@ export const LEARNING_TOPICS = [
     description: 'Tables, bar charts, pie charts, line graphs, caselets',
     estimatedTime: '2 hours',
     theory: { sections: [
-      { title: 'Key Concepts', formulas: [
-        { formula: 'Percentage change = [(New-Old)/Old] × 100', example: 'Sales 200→250: (50/200)×100 = 25%' },
-        { formula: 'Pie chart: angle = (value/total) × 360°', example: '25% sector = 90°' },
-        { formula: 'Average growth rate = (final/initial)^(1/n) - 1', example: '100→144 in 2yr: √1.44 - 1 = 20%' },
-      ]},
-      { title: 'Approximation', formulas: [
-        { formula: 'Round to nearest 5 or 10 for quick estimation', example: '397 × 4.1 ≈ 400 × 4 = 1600' },
-        { formula: 'Fraction shortcuts: 1/6≈17%, 1/7≈14%, 1/8≈12.5%', example: '142/998 ≈ 14% (≈1/7)' },
-      ]},
-    ]},
+        { title: 'Visual & Tabular Data', content: ['DI tests your ability to extract meaning from Charts (Pie, Bar, Line) and Tables. The key is to approximate early and only calculate precisely if the multiple-choice options are extremely close to each other.', 'Always scan the units before calculating (e.g., "in thousands", "in millions"). Read the axes carefully.'], formulas: [
+          { formula: 'Growth Rate = (Final - Initial) / Initial × 100', example: 'Sales from 50k to 60k → 20% growth' },
+        ]},
+        { title: 'Angles in Pie Charts', content: ['A full pie chart is 360°, representing 100% of the data. Thus, 1% corresponds to 3.6°. If a sector is given as an angle, convert it to percentage by dividing by 360 and multiplying by 100.', 'Example: A 90° sector is 90/360 = 1/4 of the total data (25%).'], formulas: [
+          { formula: 'Sector % = (Angle / 360°) × 100', example: '72° sector = 72/360 = 1/5 = 20%' },
+        ]},
+    ]
+    },
     quickMethods: [
       { id:'di_m1', name:'Quick Percentage Calculation', difficulty:'Easy', timeEstimate:'10 seconds',
         problem:'What is 347 out of 1200 as a percentage?',

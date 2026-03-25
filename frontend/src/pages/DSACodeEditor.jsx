@@ -177,7 +177,8 @@ export default function DSACodeEditor() {
         pattern_name: '',
         topics: [],
         patterns: [],
-        description: `Solve the "${titleFromSlug}" problem.\n\nWrite an efficient solution and analyze its time and space complexity.`,
+        description: `Given the input for ${titleFromSlug}, write a solution that computes the required result.\n\nReturn the answer in the format shown in the examples.\n\nYour solution should handle edge cases and be efficient for large inputs.`,
+        explanation: `Approach this problem step by step: define the core state, handle edge cases, and validate time-space tradeoffs before finalizing the implementation.`,
         examples: [
           { input: 'See problem description', output: 'Expected output' },
         ],
@@ -199,37 +200,155 @@ export default function DSACodeEditor() {
     }
   }, [problem?.id]);
 
-  // ─── Merge DB data into problem (examples, description, constraints) ───
+  // ─── Merge DB data into problem (examples, description, explanation, constraints) ───
   useEffect(() => {
     if (!dbProblem || !problem) return;
-    const hasRealExamples = (ex) =>
-      ex && Array.isArray(ex) && ex.length > 0 && ex[0].input &&
-      !String(ex[0].input).toLowerCase().includes('see problem') &&
-      !String(ex[0].input).toLowerCase().includes('see expected');
+    const buildLeetCodeStyleDescription = () => {
+      const title = String(problem.title || 'the problem').trim();
+      const topic = Array.isArray(problem.topics) && problem.topics.length > 0
+        ? String(problem.topics[0]).trim().toLowerCase()
+        : 'algorithm';
+      return [
+        `Given the input for ${title}, write a ${topic} solution that computes the required result.`,
+        'Return the answer in the format shown in the examples.',
+        'Your solution should handle edge cases and be efficient for large inputs.',
+      ].join('\n\n');
+    };
+
+    const hasPlaceholderText = (value) => {
+      const text = String(value || '').toLowerCase();
+      return text.includes('see problem') || text.includes('see expected') || text.includes('see constraints') || text.includes('sample input') || text.includes('sample output');
+    };
+
+    const isGenericDescription = (value) => {
+      const text = String(value || '').trim().toLowerCase();
+      return !text || text.startsWith('solve the ') || (text.includes('using the ') && text.includes(' pattern.'));
+    };
+
+    const buildDefaultExamples = () => {
+      const topicSet = new Set((problem.topics || []).map((t) => String(t).toLowerCase()));
+
+      if (topicSet.has('linked list')) return [{ input: 'head = [1,2,3,4]', output: '[1,2,3,4]' }, { input: 'head = [5,1,8]', output: '[5,1,8]' }];
+      if (topicSet.has('trees') || topicSet.has('tree')) return [{ input: 'root = [1,2,3,null,4]', output: 'true' }, { input: 'root = [3,9,20,null,null,15,7]', output: '3' }];
+      if (topicSet.has('strings') || topicSet.has('string')) return [{ input: 's = "abcabcbb"', output: '3' }, { input: 's = "bbbbb"', output: '1' }];
+      if (topicSet.has('graphs') || topicSet.has('graph')) return [{ input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' }, { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' }];
+      if (topicSet.has('matrix')) return [{ input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' }, { input: 'matrix = [[1,0],[0,1]]', output: '2' }];
+
+      return [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }, { input: 'nums = [3,2,4], target = 6', output: '[1,2]' }];
+    };
+
+    const stringifyValue = (value) => {
+      if (typeof value === 'string') return value;
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    };
+
+    const normalizeExamples = (examples) => {
+      const list = Array.isArray(examples) ? examples : [];
+      const defaultExamples = buildDefaultExamples();
+      const cleaned = list.map((example) => ({
+        input: (() => {
+          const value = String(example?.input || '').trim();
+          return value && !hasPlaceholderText(value) ? value : defaultExamples[0].input;
+        })(),
+        output: (() => {
+          const value = String(example?.output || '').trim();
+          return value && !hasPlaceholderText(value) ? value : defaultExamples[0].output;
+        })(),
+        ...(example?.explanation ? { explanation: String(example.explanation).trim() } : {}),
+      }));
+
+      const deduped = [];
+      const seen = new Set();
+      [...cleaned, ...defaultExamples].forEach((example) => {
+        const input = String(example.input || '').trim();
+        const output = String(example.output || '').trim();
+        const key = `${input}::${output}`;
+        if (!input || !output || seen.has(key)) return;
+        seen.add(key);
+        deduped.push({
+          input,
+          output,
+          ...(example.explanation ? { explanation: String(example.explanation).trim() } : {}),
+        });
+      });
+
+      return deduped.length >= 2 ? deduped : defaultExamples;
+    };
+
+    const examplesFromTestCases = (testCases) => {
+      if (!Array.isArray(testCases) || testCases.length === 0) return [];
+      return testCases
+        .slice(0, 3)
+        .map((tc, index) => {
+          const rawInput = tc?.input ?? tc?.i;
+          const rawOutput = tc?.output ?? tc?.o;
+          if (rawInput === undefined && rawOutput === undefined) return null;
+
+          const input = Array.isArray(rawInput)
+            ? rawInput.map((arg) => stringifyValue(arg)).join(', ')
+            : stringifyValue(rawInput);
+          const output = stringifyValue(rawOutput);
+
+          return {
+            input: String(input || '').trim() || `test_case_${index + 1}_input`,
+            output: String(output || '').trim() || `test_case_${index + 1}_output`,
+          };
+        })
+        .filter(Boolean);
+    };
+
+    const normalizeConstraints = (constraintsValue) => {
+      if (Array.isArray(constraintsValue)) {
+        const lines = constraintsValue.map((item) => String(item || '').trim()).filter(Boolean);
+        return lines.length > 0 ? lines.join('\n') : '';
+      }
+
+      if (constraintsValue && typeof constraintsValue === 'object') {
+        const lines = Object.entries(constraintsValue)
+          .map(([key, value]) => `${key}: ${String(value || '').trim()}`)
+          .filter((line) => !line.endsWith(':'));
+        return lines.length > 0 ? lines.join('\n') : '';
+      }
+
+      const text = String(constraintsValue || '').trim();
+      return text;
+    };
 
     const updates = {};
-    if (hasRealExamples(dbProblem.examples)) {
-      updates.examples = dbProblem.examples;
-    } else {
-      // Fallback: try comprehensive test cases from problemTestCases.js
-      const rawSlug = (problemId && isNaN(parseInt(problemId))) ? problemId : (problem.title || '');
-      const slug = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      const localExamples = getExamplesForProblem(slug);
-      if (localExamples && localExamples.length > 0) {
-        updates.examples = localExamples;
-      } else {
-        // Clear boilerplate examples if none exist in DB or local fallback
-        updates.examples = [];
-      }
-    }
-    if (dbProblem.description && !dbProblem.description.startsWith('Solve the ')) {
+
+    // Build best-available example set in priority order:
+    // DB examples, DB test_cases-derived examples, local test-case mapped examples, then defaults.
+    const rawSlug = (problemId && isNaN(parseInt(problemId))) ? problemId : (problem.title || '');
+    const slug = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const localExamples = getExamplesForProblem(slug);
+    const dbExamples = Array.isArray(dbProblem.examples) ? dbProblem.examples : [];
+    const dbExamplesFromTestCases = examplesFromTestCases(dbProblem.test_cases);
+
+    updates.examples = normalizeExamples([
+      ...dbExamples,
+      ...dbExamplesFromTestCases,
+      ...(Array.isArray(localExamples) ? localExamples : []),
+    ]);
+
+    if (dbProblem.description && !isGenericDescription(dbProblem.description)) {
       updates.description = dbProblem.description;
+    } else if (!problem.description || isGenericDescription(problem.description)) {
+      updates.description = buildLeetCodeStyleDescription();
+    }
+
+    if (dbProblem.explanation && String(dbProblem.explanation).trim()) {
+      updates.explanation = String(dbProblem.explanation).trim();
     }
     
-    if (dbProblem.constraints && dbProblem.constraints !== 'See problem description for constraints.' && dbProblem.constraints !== 'See problem constraints') {
-      updates.constraints = dbProblem.constraints;
-    } else if (!dbProblem.constraints) {
-      updates.constraints = ''; // Clear boilerplate constraints if DB has none
+    const normalizedConstraints = normalizeConstraints(dbProblem.constraints);
+    if (normalizedConstraints && !hasPlaceholderText(normalizedConstraints)) {
+      updates.constraints = normalizedConstraints;
+    } else if (!normalizedConstraints || hasPlaceholderText(normalizedConstraints)) {
+      updates.constraints = '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
     }
 
     if (Object.keys(updates).length > 0) {
@@ -300,11 +419,12 @@ export default function DSACodeEditor() {
     setFeedback(null);
 
     try {
+      const resolvedProblemId = problem?.id || problemId;
       // Use /run endpoint with problemId for structured test case execution
       const res = await fetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ code, language, problemId: problem?.id }),
+        body: JSON.stringify({ code, language, problemId: resolvedProblemId }),
       });
       const data = await res.json();
 
@@ -321,15 +441,15 @@ export default function DSACodeEditor() {
           executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
         });
       } else {
-        // Fallback: raw execution result
+        // Fallback: raw execution result (not judged against test cases)
         const actualOutput = (data.output || '').trim();
         const errorMsg = (data.error || '').trim();
         setOutput({
-          success: data.success,
+          success: false,
           output: actualOutput || errorMsg || '',
-          message: data.success
-            ? (actualOutput ? 'Executed Successfully' : 'No output produced')
-            : `Error: ${errorMsg || 'Unknown error'}`,
+          message: errorMsg
+            ? `Error: ${errorMsg}`
+            : 'Execution completed but no judged test results were returned.',
           executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
         });
       }
@@ -344,7 +464,7 @@ export default function DSACodeEditor() {
     } finally {
       setRunning(false);
     }
-  }, [code, language, problem]);
+  }, [code, language, problem, problemId]);
 
   // ─── Submit code ───
   const handleSubmit = useCallback(async () => {
@@ -353,10 +473,11 @@ export default function DSACodeEditor() {
     setFeedback(null);
 
     try {
+      const resolvedProblemId = problem?.id || problemId;
       const res = await fetch(`${API_URL}/api/practice/submit`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ problemId: problem?.id, code, language }),
+        body: JSON.stringify({ problemId: resolvedProblemId, code, language }),
       });
 
       if (res.status === 401) {
@@ -409,7 +530,7 @@ export default function DSACodeEditor() {
     } finally {
       setRunning(false);
     }
-  }, [code, language, problem]);
+  }, [code, language, problem, problemId]);
 
   // ─── Keyboard shortcuts ───
   useEffect(() => {
@@ -628,7 +749,7 @@ export default function DSACodeEditor() {
               ref={testCaseRef}
               code={code}
               language={language}
-              problemId={problemId}
+              problemId={problem?.id || problemId}
               problemDescription={problem?.description}
               problemExamples={problem?.examples}
               onTestResults={setTestResults}

@@ -264,6 +264,12 @@ export default function ProblemExplorer() {
     const diffColor = (d) => d === 'Easy' ? '#6ee7b7' : d === 'Medium' ? '#fbbf24' : '#f87171';
     const freqColor = (f) => f === 'high' ? '#f87171' : f === 'medium' ? '#fbbf24' : '#6ee7b7';
 
+    const getExplanationSnippet = useCallback((problem) => {
+        const base = (problem.explanation || problem.description || '').trim();
+        if (!base) return 'No explanation available yet.';
+        return base.length > 140 ? `${base.slice(0, 137)}...` : base;
+    }, []);
+
     const pickRandom = () => {
         const pool = filteredProblems.length > 0 ? filteredProblems : PROBLEMS;
         const random = pool[Math.floor(Math.random() * pool.length)];
@@ -1111,11 +1117,18 @@ export default function ProblemExplorer() {
                                                                                     <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{probIdx + 1}.</span>
                                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                                                                         {isSolved && <CheckCircle2 size={12} color="#6ee7b7" style={{ flexShrink: 0 }} />}
-                                                                                        <span style={{
-                                                                                            fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
-                                                                                            textDecoration: isSolved ? 'line-through' : 'none',
-                                                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                                                        }}>{problem.title}</span>
+                                                                                        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                                                            <span style={{
+                                                                                                fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
+                                                                                                textDecoration: isSolved ? 'line-through' : 'none',
+                                                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                                            }}>{problem.title}</span>
+                                                                                            <span style={{
+                                                                                                fontSize: 10,
+                                                                                                color: isLight ? 'rgba(30,41,59,0.55)' : 'rgba(255,255,255,0.45)',
+                                                                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                                                            }}>{getExplanationSnippet(problem)}</span>
+                                                                                        </div>
                                                                                         <span style={{
                                                                                             fontSize: 9, fontWeight: 800, color: dc, background: dbg,
                                                                                             padding: '1px 6px', borderRadius: 3, border: `1px solid ${dc}25`,
@@ -1342,11 +1355,18 @@ export default function ProblemExplorer() {
                                     <span style={{ fontSize: 12, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.25)', fontWeight: 600 }}>{idx + 1}</span>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                                         {isSolved && <CheckCircle2 size={13} color="#6ee7b7" style={{ flexShrink: 0 }} />}
-                                        <span style={{
-                                            fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
-                                            textDecoration: isSolved ? 'line-through' : 'none',
-                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                        }}>{problem.title}</span>
+                                        <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                            <span style={{
+                                                fontSize: 13, fontWeight: 500, color: isSolved ? (isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.4)') : (isLight ? '#1e293b' : '#fff'),
+                                                textDecoration: isSolved ? 'line-through' : 'none',
+                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                            }}>{problem.title}</span>
+                                            <span style={{
+                                                fontSize: 10,
+                                                color: isLight ? 'rgba(30,41,59,0.55)' : 'rgba(255,255,255,0.45)',
+                                                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                            }}>{getExplanationSnippet(problem)}</span>
+                                        </div>
                                         {(problem.topics || []).slice(0, 2).map(t => (
                                             <span key={t} style={{
                                                 fontSize: 9, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)',

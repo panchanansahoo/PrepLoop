@@ -8,7 +8,7 @@ import {
     Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield
 } from 'lucide-react';
 import { Upload, FileText } from 'lucide-react';
-import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepData';
+import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
