@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     Mic, Code2, Database, Sparkles,
-    Building2, Calculator, Terminal
+    Building2, Calculator, CalendarDays
 } from 'lucide-react';
 
 const actions = [
@@ -37,6 +37,14 @@ const actions = [
         color: '#f59e0b',
         glow: 'rgba(245, 158, 11, 0.12)',
         path: '/ai-tutor'
+    },
+    {
+        label: 'Advanced Planner',
+        description: 'Date-wise roadmap',
+        icon: CalendarDays,
+        color: '#e84f2e',
+        glow: 'rgba(232, 79, 46, 0.14)',
+        path: '/advanced-learning-path'
     },
     {
         label: 'Company Prep',

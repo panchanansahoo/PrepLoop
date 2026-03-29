@@ -14,6 +14,67 @@ import {
 import { executeCode, buildTestWrapper, parseTestResults } from "../utils/executeCode.js";
 
 const router = express.Router();
+const PROBLEM_SOLVE_COIN_REWARD = 10;
+
+const isSchemaMissingError = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const combined = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return (
+    code === '42703' ||
+    code === '42P01' ||
+    combined.includes('does not exist') ||
+    combined.includes('could not find') ||
+    combined.includes('relationship')
+  );
+};
+
+const awardFirstSolveCoins = async ({ userId, problemId, problemTitle }) => {
+  const description = `Problem solved: ${problemId} - ${problemTitle || 'Unknown Problem'}`.slice(0, 160);
+
+  const { data: existingReward } = await supabaseAdmin
+    .from('coin_transactions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('type', 'earn')
+    .eq('description', description)
+    .limit(1);
+
+  if (existingReward?.length) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('coins')
+      .eq('id', userId)
+      .single();
+
+    return { coinsAwarded: 0, currentCoins: profile?.coins || 0 };
+  }
+
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('profiles')
+    .select('coins')
+    .eq('id', userId)
+    .single();
+
+  if (profileError) throw profileError;
+
+  const newBalance = (profile?.coins || 0) + PROBLEM_SOLVE_COIN_REWARD;
+
+  const { error: updateError } = await supabaseAdmin
+    .from('profiles')
+    .update({ coins: newBalance })
+    .eq('id', userId);
+
+  if (updateError) throw updateError;
+
+  await supabaseAdmin.from('coin_transactions').insert({
+    user_id: userId,
+    amount: PROBLEM_SOLVE_COIN_REWARD,
+    type: 'earn',
+    description,
+  });
+
+  return { coinsAwarded: PROBLEM_SOLVE_COIN_REWARD, currentCoins: newBalance };
+};
 
 const slugifyProblemTitle = (value = "") =>
   value
@@ -575,6 +636,8 @@ router.post("/submit", authenticateToken, async (req, res) => {
       .single();
 
     let progress;
+    let coinsAwarded = 0;
+    let coinBalance = null;
     if (existingProgress) {
       const updateData = {
         attempts: existingProgress.attempts + 1,
@@ -592,6 +655,17 @@ router.post("/submit", authenticateToken, async (req, res) => {
         .select()
         .single();
       progress = data;
+
+      const isFirstSolve = progressStatus === "solved" && existingProgress.status !== "solved";
+      if (isFirstSolve) {
+        const rewardResult = await awardFirstSolveCoins({
+          userId: req.user.id,
+          problemId: canonicalProblemId,
+          problemTitle: problem.title,
+        });
+        coinsAwarded = rewardResult.coinsAwarded;
+        coinBalance = rewardResult.currentCoins;
+      }
     } else {
       const { data } = await supabaseAdmin
         .from("user_progress")
@@ -607,6 +681,16 @@ router.post("/submit", authenticateToken, async (req, res) => {
         .select()
         .single();
       progress = data;
+
+      if (progressStatus === "solved") {
+        const rewardResult = await awardFirstSolveCoins({
+          userId: req.user.id,
+          problemId: canonicalProblemId,
+          problemTitle: problem.title,
+        });
+        coinsAwarded = rewardResult.coinsAwarded;
+        coinBalance = rewardResult.currentCoins;
+      }
     }
 
     res.json({
@@ -620,9 +704,16 @@ router.post("/submit", authenticateToken, async (req, res) => {
         status === "accepted"
           ? "All test cases passed!"
           : `${testsPassed}/${totalTests} test cases passed`,
+      coinsAwarded,
+      coinBalance,
     });
   } catch (error) {
     console.error("Submission error:", error);
+    if (isSchemaMissingError(error)) {
+      return res.status(503).json({
+        error: "Coins/submission schema is missing. Run migration_coins_streaks.sql.",
+      });
+    }
     res.status(500).json({ error: "Failed to submit solution" });
   }
 });

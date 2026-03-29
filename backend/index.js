@@ -20,6 +20,7 @@ async function initializeServer() {
     const coachRoutes = (await import('./routes/coach.js')).default;
     const interviewRoutes = (await import('./routes/interview.js')).default;
     const interviewEnhancedRoutes = (await import('./routes/interview-enhanced.js')).default;
+    const interviewSuiteRoutes = (await import('./routes/interview-suite.js')).default;
     const contactRoutes = (await import('./routes/contact.js')).default;
     const blogRoutes = (await import('./routes/blog.js')).default;
     const activityRoutes = (await import('./routes/activity.js')).default;
@@ -29,6 +30,12 @@ async function initializeServer() {
     const notesRoutes = (await import('./routes/notes.js')).default;
     const adminRoutes = (await import('./routes/admin.js')).default;
     const jobsRoutes = (await import('./routes/jobs.js')).default;
+    const coinsRoutes = (await import('./routes/coins.js')).default;
+    const chatRoutes = (await import('./routes/chat.js')).default;
+    const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
+    const scheduleRoutes = (await import('./routes/schedule.js')).default;
+    const streakRoutes = (await import('./routes/streak.js')).default;
+    const hrRoutes = (await import('./routes/hr.js')).default;
     
     console.log('✅ Routes loaded successfully');
 
@@ -84,6 +91,7 @@ async function initializeServer() {
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
+    app.use('/api/interview-suite', interviewSuiteRoutes);
     app.use('/api/contact', contactRoutes);
     app.use('/api/blog', blogRoutes);
     app.use('/api/activity', activityRoutes);
@@ -93,6 +101,12 @@ async function initializeServer() {
     app.use('/api/notes', notesRoutes);
     app.use('/api/admin', adminRoutes);
     app.use('/api/jobs', jobsRoutes);
+    app.use('/api/coins', coinsRoutes);
+    app.use('/api/chat', chatRoutes);
+    app.use('/api/real-interview', realInterviewRoutes);
+    app.use('/api/schedule', scheduleRoutes);
+    app.use('/api/streak', streakRoutes);
+    app.use('/api/hr', hrRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {

@@ -1,4 +1,4 @@
-import { dsaPatterns as baseDsaPatterns } from './dsaPatternsData';
+import { dsaPatternsAll as baseDsaPatterns } from './dsaPatternsData';
 import { languagePatterns as baseLanguagePatterns, languageRoadmapHierarchy } from './languageRoadmapData';
 import { roadmapHierarchy as dsaRoadmapHierarchy } from './roadmapData';
 import { systemDesignPatterns as baseSystemDesignPatterns, systemDesignRoadmapHierarchy } from './systemDesignRoadmapData';

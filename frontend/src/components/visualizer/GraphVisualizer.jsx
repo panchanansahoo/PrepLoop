@@ -23,8 +23,13 @@ const LIGHT_COLORS = {
 };
 
 export default function GraphVisualizer({ step }) {
-  if (!step || !step.nodes) return null;
-  const { nodes, edges, visited = [], current, exploring, queue, order = [] } = step;
+  const nodes = step?.nodes || [];
+  const edges = step?.edges || [];
+  const visited = step?.visited || [];
+  const current = step?.current;
+  const exploring = step?.exploring;
+  const queue = step?.queue;
+  const order = step?.order || [];
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
   const C = isLight ? LIGHT_COLORS : DARK_COLORS;
 
@@ -53,6 +58,8 @@ export default function GraphVisualizer({ step }) {
       y: cy + r * Math.sin((2 * Math.PI * i) / n - Math.PI / 2),
     }));
   }, [nodes]);
+
+  if (!step || !nodes.length) return null;
 
   const getNodeColor = (node) => {
     if (node === current) return C.current;

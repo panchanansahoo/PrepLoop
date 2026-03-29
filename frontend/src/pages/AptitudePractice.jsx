@@ -20,7 +20,7 @@ const MODE_CONFIG = {
 };
 
 // Simple Calculator Component
-function CalcWidget({ onClose }) {
+function CalcWidget({ onClose, isLight }) {
     const [display, setDisplay] = useState('0');
     const [prev, setPrev] = useState(null);
     const [op, setOp] = useState(null);
@@ -304,7 +304,7 @@ export default function AptitudePractice() {
                             }}
                         ><Grid3X3 size={16} /></button>
 
-                        {showCalc && <CalcWidget onClose={() => setShowCalc(false)} />}
+                        {showCalc && <CalcWidget onClose={() => setShowCalc(false)} isLight={isLight} />}
 
                         {/* Formula Sheet Panel */}
                         {showFormula && (

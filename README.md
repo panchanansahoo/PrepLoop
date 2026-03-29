@@ -61,7 +61,44 @@ From the repository root:
 npm run install:all
 ```
 
+Bootstrap env files and verify setup:
+
+```bash
+npm run setup
+```
+
 ### 2) Configure environment variables
+
+Copy example files first:
+
+```bash
+copy backend\.env.example backend\.env
+copy frontend\.env.example frontend\.env
+```
+
+Then update values as needed.
+
+Validate setup before starting:
+
+```bash
+npm run verify:setup
+```
+
+Advanced validation examples:
+
+```bash
+# Require specific integration keys
+node scripts/verifySetup.js --require=GROQ_API_KEY,RAZORPAY_KEY_ID
+
+# Require all known keys (strict mode)
+npm run verify:setup:strict
+```
+
+If env files do not exist yet:
+
+```bash
+npm run setup:env
+```
 
 Create `backend/.env`:
 
@@ -113,6 +150,11 @@ VITE_SUPABASE_URL=your_supabase_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+Reference files:
+
+- `backend/.env.example`
+- `frontend/.env.example`
+
 ### 3) Run the app (frontend + backend)
 
 From root:
@@ -132,6 +174,14 @@ npm run dev
 - `npm run dev` - starts frontend and backend concurrently
 - `npm run start` - alias for `dev`
 - `npm run install:all` - installs dependencies across root, backend, and frontend
+- `npm run setup:env` - creates missing `backend/.env` and `frontend/.env` from templates
+- `npm run setup` - runs setup bootstrap and env verification in one command
+- `npm run verify:setup` - validates required env files/keys for local setup
+- `npm run verify:setup:strict` - enforces all known env keys as required
+- `npm run lint` - runs backend + frontend lint checks
+- `npm run test` - runs backend + frontend tests
+- `npm run build` - builds frontend for production
+- `npm run audit` - audits production dependencies in backend and frontend
 
 ### Frontend (`frontend/`)
 
@@ -147,6 +197,35 @@ npm run dev
 - `npm run dev` - run backend with file watching
 - `npm run start` - run backend normally
 - `npm run setup` - project setup script
+- `npm run lint` - syntax checks for key backend entry scripts
+- `npm run test` - startup/import smoke verification
+- `node backend/diagnose.js` - diagnostic route/module check (non-server mode)
+- `node backend/diagnose.js --start` - run diagnostics and then boot server
+
+## CI/CD
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- On push/PR, CI runs lint, test, and build checks.
+- On push to `main`/`master`, CI also runs production dependency audit.
+- Dependabot updates are configured in `.github/dependabot.yml`.
+
+## Collaboration Workflow
+
+- PR template: `.github/pull_request_template.md`
+- Issue templates:
+  - `.github/ISSUE_TEMPLATE/bug_report.yml`
+  - `.github/ISSUE_TEMPLATE/feature_request.yml`
+  - `.github/ISSUE_TEMPLATE/docs_request.yml`
+  - `.github/ISSUE_TEMPLATE/config.yml`
+- Code ownership routing: `.github/CODEOWNERS`
+- Contributor guide: `CONTRIBUTING.md`
+- Release guide: `RELEASE.md`
+- Changelog: `CHANGELOG.md`
+
+## Architecture
+
+- System architecture overview: `docs/ARCHITECTURE.md`
+- Documentation index: `docs/README.md`
 
 ## API Overview
 

@@ -22,7 +22,7 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     chunkSizeWarningLimit: 10000,
     rollupOptions: {
       output: {
@@ -31,6 +31,7 @@ export default defineConfig({
 
           if (id.includes('react-dom') || id.includes('react-router')) return 'vendor-react';
           if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-editor';
+          if (id.includes('@blocknote') || id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-richtext';
           if (id.includes('prettier')) return 'vendor-prettier';
           if (id.includes('reactflow')) return 'vendor-reactflow';
           if (id.includes('@react-three') || id.includes('three')) return 'vendor-3d';

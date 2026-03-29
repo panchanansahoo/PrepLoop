@@ -1,0 +1,10 @@
+# CODEOWNERS
+
+* @panch
+
+/frontend/ @panch
+
+/backend/ @panch
+
+/.github/ @panch
+/README.md @panch

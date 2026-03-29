@@ -275,6 +275,11 @@ export default function Dashboard() {
                             Customize
                             <span className="dash-customize-count">{visibleCount}/{totalCount}</span>
                         </button>
+                        <Link to="/advanced-learning-path" className="dash-hero-cta dash-hero-cta-secondary">
+                            <Sparkles size={18} />
+                            Open Advanced Planner
+                            <ArrowRight size={16} />
+                        </Link>
                         <Link to="/company-interview" className="dash-hero-cta">
                             <Sparkles size={18} />
                             Start Mock Interview

@@ -363,11 +363,9 @@ export default function TodoList() {
                                     </div>
                                 </div>
                                 <div className="todo-item-actions">
-                                    {(hasSubtasks || true) && (
-                                        <button className="todo-expand-btn" onClick={() => toggleExpand(todo.id)}>
-                                            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                                        </button>
-                                    )}
+                                    <button className="todo-expand-btn" onClick={() => toggleExpand(todo.id)}>
+                                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                                    </button>
                                     <button className="todo-delete" onClick={() => handleDeleteTodo(todo.id)}>
                                         <Trash2 size={14} />
                                     </button>

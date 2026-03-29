@@ -7,20 +7,24 @@
     "scripts": {
         "start": "node index.js",
         "dev": "node --watch index.js",
-        "setup": "node setup.js"
+        "setup": "node setup.js",
+        "lint": "node --check index.js && node --check diagnose.js && node --check test-startup.js",
+        "test": "node test-startup.js"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.95.3",
+        "bcryptjs": "^3.0.3",
         "cors": "^2.8.5",
         "dotenv": "^16.3.1",
-        "express": "^4.18.2",
+        "express": "^4.21.2",
         "express-rate-limit": "^7.5.1",
         "express-validator": "^7.0.1",
         "groq-sdk": "^0.37.0",
         "helmet": "^7.1.0",
-        "mailparser": "^3.9.3",
+        "jsonwebtoken": "^9.0.3",
+        "mailparser": "^3.9.6",
         "multer": "^1.4.5-lts.1",
-        "nodemailer": "^8.0.1",
+        "nodemailer": "^8.0.4",
         "pdf-parse": "^1.1.1",
         "pg": "^8.18.0",
         "razorpay": "^2.9.6"

@@ -313,6 +313,26 @@ export default function RoadmapIndex() {
             <RouteCard key={track.key} track={track} />
           ))}
         </section>
+
+        <section className="ri-specials">
+          <Link to="/advanced-learning-path" className="ri-special-card">
+            <div className="ri-special-icon">
+              <Sparkles size={18} />
+            </div>
+            <div className="ri-special-body">
+              <div className="ri-special-kicker">Power Tool</div>
+              <h3>AI Advanced Roadmap Planner</h3>
+              <p>
+                Build date-wise preparation plans across DSA, Aptitude, SQL, and System Design with
+                confidence scoring, rescheduling, and calendar exports.
+              </p>
+            </div>
+            <div className="ri-special-cta">
+              <span>Open Planner</span>
+              <ArrowUpRight size={14} />
+            </div>
+          </Link>
+        </section>
       </div>
     </div>
   );

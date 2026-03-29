@@ -2,8 +2,16 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
+import nodemailer from 'nodemailer';
+import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
 
 const router = express.Router();
+
+const isMissingEmailVerificationSchema = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return (code === 'PGRST204' || code === '42703') && message.includes('email_verified');
+};
 
 router.post('/signup', async (req, res) => {
   const { email, password, fullName } = req.body;
@@ -17,10 +25,11 @@ router.post('/signup', async (req, res) => {
   }
 
   try {
+    // Create user with email NOT confirmed
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: false, // User must verify email before full access
       user_metadata: { full_name: fullName }
     });
 
@@ -32,35 +41,77 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    // Sign in to get a session token (admin client with persistSession:false works server-side)
-    const { data: signInData, error: signInError } = await supabaseAdmin.auth.signInWithPassword({
-      email,
-      password
-    });
+    // Generate verification token
+    const verificationToken = generateVerificationToken();
+    const tokenExpiresAt = getTokenExpirationTime();
 
-    if (signInError) {
-      console.error('Auto sign-in error:', signInError);
-      return res.status(201).json({
-        message: 'User created successfully. Please log in.',
-        user: {
-          id: data.user.id,
-          email: data.user.email,
-          fullName: fullName
-        }
-      });
+    // Store verification token in profiles table
+    let legacyMode = false;
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        verification_token: verificationToken,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        verification_sent_at: new Date().toISOString(),
+        email_verified: false
+      })
+      .eq('id', data.user.id);
+
+    if (profileError) {
+      if (isMissingEmailVerificationSchema(profileError)) {
+        legacyMode = true;
+        console.warn('Email verification columns missing; continuing signup in legacy mode.');
+        await supabaseAdmin.auth.admin.updateUserById(data.user.id, {
+          email_confirm: true,
+        }).catch((confirmError) => {
+          console.error('Error auto-confirming email in legacy mode:', confirmError);
+        });
+      }
+    }
+
+    if (profileError && !legacyMode) {
+      console.error('Error storing verification token:', profileError);
+      // Delete the user if we can't store verification token
+      await supabaseAdmin.auth.admin.deleteUser(data.user.id);
+      return res.status(500).json({ error: 'Failed to process signup' });
+    }
+
+    if (!legacyMode) {
+      // Send verification email
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+          }
+        });
+
+        const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+
+        await transporter.sendMail({
+          from: `"PrepLoop" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: 'Verify your PrepLoop email address',
+          html: getVerificationEmailHTML(verificationUrl, email)
+        });
+
+        markEmailSent('signup', email);
+      } catch (emailError) {
+        console.error('Error sending verification email:', emailError);
+        // Don't fail signup if email fails, but log it
+      }
     }
 
     res.status(201).json({
-      message: 'User created successfully',
-      token: signInData.session.access_token,
-      refreshToken: signInData.session.refresh_token,
+      message: legacyMode
+        ? 'User created successfully.'
+        : 'User created successfully. Please check your email to verify your account.',
       user: {
         id: data.user.id,
         email: data.user.email,
         fullName: fullName,
-        subscriptionTier: 'free',
-        experienceLevel: 'beginner',
-        role: 'user'
+        emailVerified: legacyMode
       }
     });
 
@@ -87,14 +138,36 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
+    // Check if email is verified
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('email_verified')
+      .eq('id', data.user.id)
+      .single();
+
+    if (profileError && !isMissingEmailVerificationSchema(profileError)) {
+      console.error('Login profile verification query error:', profileError);
+      return res.status(500).json({ error: 'Login failed' });
+    }
+
+    const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
+
+    if (!shouldBypassVerification && !profile?.email_verified) {
+      return res.status(403).json({ 
+        error: 'Please verify your email before logging in',
+        userId: data.user.id,
+        email: data.user.email
+      });
+    }
+
     // Update last_login in profiles
     await supabaseAdmin
       .from('profiles')
       .update({ last_login: new Date().toISOString() })
       .eq('id', data.user.id);
 
-    // Get profile data
-    const { data: profile } = await supabaseAdmin
+    // Get full profile data
+    const { data: fullProfile } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', data.user.id)
@@ -107,15 +180,167 @@ router.post('/login', async (req, res) => {
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: profile?.full_name || data.user.user_metadata?.full_name || '',
-        subscriptionTier: profile?.subscription_tier || 'free',
-        experienceLevel: profile?.experience_level || 'beginner',
-        role: profile?.role || 'user'
+        fullName: fullProfile?.full_name || data.user.user_metadata?.full_name || '',
+        subscriptionTier: fullProfile?.subscription_tier || 'free',
+        experienceLevel: fullProfile?.experience_level || 'beginner',
+        role: fullProfile?.role || 'user',
+        emailVerified: shouldBypassVerification ? true : (fullProfile?.email_verified || false)
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Verify email endpoint - validates verification token and marks email as verified
+router.post('/verify-email', verificationLimiter, async (req, res) => {
+  const { token, email } = req.body;
+
+  if (!token || !email) {
+    return res.status(400).json({ error: 'Token and email are required' });
+  }
+
+  try {
+    // Find profile by verification token
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('verification_token', token)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(400).json({ error: 'Invalid verification token' });
+    }
+
+    // Verify email matches
+    if (profile.email !== email) {
+      return res.status(400).json({ error: 'Email does not match token' });
+    }
+
+    // Check if token has expired
+    if (isTokenExpired(profile.token_expires_at)) {
+      return res.status(400).json({ 
+        error: 'Verification token has expired. Please request a new one.',
+        email: profile.email
+      });
+    }
+
+    // Check if already verified
+    if (profile.email_verified) {
+      return res.status(400).json({ error: 'Email already verified. You can log in now.' });
+    }
+
+    // Mark email as verified and clear token
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        email_verified: true,
+        verification_token: null,
+        token_expires_at: null
+      })
+      .eq('id', profile.id);
+
+    if (updateError) {
+      console.error('Error updating profile:', updateError);
+      return res.status(500).json({ error: 'Failed to verify email' });
+    }
+
+    // Also confirm the email in Supabase Auth if not already confirmed
+    // This is optional but recommended for additional security
+    await supabaseAdmin.auth.admin.updateUserById(profile.id, {
+      email_confirm: true
+    }).catch(err => {
+      console.error('Error confirming email in auth:', err);
+      // Don't fail if this step fails
+    });
+
+    res.json({
+      message: 'Email verified successfully. You can now log in.',
+      email: profile.email,
+      verified: true
+    });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(500).json({ error: 'Failed to verify email' });
+  }
+});
+
+// Resend verification email endpoint
+router.post('/resend-verification-email', verificationLimiter, async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+
+  // Per-email cooldown: 60 seconds between resends
+  if (isEmailCoolingDown('resend-verification-email', email)) {
+    return res.status(429).json({ error: 'Please wait at least 60 seconds before requesting another verification email.' });
+  }
+
+  try {
+    // Find unverified profile with this email
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .eq('email_verified', false)
+      .single();
+
+    if (profileError || !profile) {
+      // For security, don't reveal whether email exists or is already verified
+      return res.json({ message: 'If an account with that email exists and is unverified, we has sent a verification email.' });
+    }
+
+    // Generate new verification token
+    const verificationToken = generateVerificationToken();
+    const tokenExpiresAt = getTokenExpirationTime();
+
+    // Update verification token
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        verification_token: verificationToken,
+        token_expires_at: tokenExpiresAt.toISOString(),
+        verification_sent_at: new Date().toISOString()
+      })
+      .eq('id', profile.id);
+
+    if (updateError) {
+      console.error('Error updating verification token:', updateError);
+      return res.status(500).json({ error: 'Failed to resend verification email' });
+    }
+
+    // Send verification email
+    try {
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+
+      await transporter.sendMail({
+        from: `"PrepLoop" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Verify your PrepLoop email address',
+        html: getVerificationEmailHTML(verificationUrl, email)
+      });
+
+      markEmailSent('resend-verification-email', email);
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError);
+      // Don't fail the endpoint if email fails to send
+    }
+
+    res.json({ message: 'If an account with that email exists and is unverified, we has sent a verification email.' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
+    res.status(500).json({ error: 'Failed to process request' });
   }
 });
 

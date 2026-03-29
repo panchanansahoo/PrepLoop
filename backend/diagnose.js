@@ -2,10 +2,11 @@
 
 console.log('🔍 Diagnosing Backend Startup Issues...\n');
 
-// Load environment variables first
-import('./config/env.js').then(() => {
+async function runDiagnostic() {
+  // Load environment variables first.
+  await import('./config/env.js');
   console.log('✅ Environment variables loaded\n');
-  
+
   const routes = [
     { name: 'auth', path: './routes/auth.js' },
     { name: 'dsa', path: './routes/dsa.js' },
@@ -28,8 +29,8 @@ import('./config/env.js').then(() => {
   ];
 
   console.log('🧪 Testing route imports:\n');
-  
-  let failed = [];
+
+  const failed = [];
   for (const route of routes) {
     try {
       await import(route.path);
@@ -46,17 +47,23 @@ import('./config/env.js').then(() => {
     for (const route of failed) {
       console.log(`   - ${route.name}`);
     }
-  } else {
-    console.log('✅ All routes loaded successfully!');
-    console.log('\n🚀 Attempting to start server...\n');
-    
-    // Now try to start the actual server
-    import('./index.js').catch(err => {
-      console.error('❌ Server startup failed:', err);
-      process.exit(1);
-    });
+    process.exitCode = 1;
+    return;
   }
-}).catch(err => {
-  console.error('❌ Failed to load environment:', err.message);
+
+  console.log('✅ All routes loaded successfully!');
+
+  const shouldStartServer = process.argv.includes('--start');
+  if (!shouldStartServer) {
+    console.log('\nℹ️ Diagnostic completed. Use "node backend/diagnose.js --start" to also boot the server.');
+    return;
+  }
+
+  console.log('\n🚀 Attempting to start server...\n');
+  await import('./index.js');
+}
+
+runDiagnostic().catch((err) => {
+  console.error('❌ Diagnostic failed:', err.message);
   process.exit(1);
 });

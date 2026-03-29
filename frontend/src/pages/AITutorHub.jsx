@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { Brain, Sparkles, Code, Database, Calculator, Map, ArrowRight, ChevronDown, Zap } from 'lucide-react';
 import AITutorPanel from '../components/AITutorPanel';
 import { getAvailableDSATopics, getAvailableSQLConcepts, getAvailableAptitudeCategories } from '../data/tutorEngine';
+import { useCoins } from '../context/CoinContext';
 
 const TABS = [
     { id: 'dsa', label: 'DSA Patterns', icon: <Brain size={18} />, color: '#818cf8', gradient: 'linear-gradient(135deg, #818cf8 0%, #6366f1 100%)' },
@@ -11,6 +12,8 @@ const TABS = [
 ];
 
 export default function AITutorHub() {
+    const AI_TUTOR_COST = 5;
+    const { coins, spendCoins } = useCoins();
     const [activeTab, setActiveTab] = useState('dsa');
     const [selectedTopic, setSelectedTopic] = useState(null);
     const [selectedConcept, setSelectedConcept] = useState(null);
@@ -20,6 +23,7 @@ export default function AITutorHub() {
     const [showTutor, setShowTutor] = useState(false);
     const [tutorContext, setTutorContext] = useState({});
     const [tutorMode, setTutorMode] = useState('hub');
+    const [coinError, setCoinError] = useState('');
 
     const dsaTopics = getAvailableDSATopics();
     const sqlConcepts = getAvailableSQLConcepts();
@@ -44,23 +48,33 @@ export default function AITutorHub() {
         setShowTutor(true);
     }, []);
 
+    const launchTutorWithCoins = useCallback(async (mode, context, description) => {
+        setCoinError('');
+        const result = await spendCoins(AI_TUTOR_COST, description || 'AI Tutor query');
+        if (!result?.success) {
+            setCoinError(`You need ${AI_TUTOR_COST} coins for AI Tutor. Current balance: ${coins}.`);
+            return;
+        }
+        launchTutor(mode, context);
+    }, [AI_TUTOR_COST, coins, spendCoins, launchTutor]);
+
     const handleDSATopicClick = (topic) => {
         setSelectedTopic(topic);
-        launchTutor('dsa-learn', { topicId: topic.id });
+        launchTutorWithCoins('dsa-learn', { topicId: topic.id }, `AI Tutor: DSA topic ${topic.id}`);
     };
 
     const handleSQLConceptClick = (concept) => {
         setSelectedConcept(concept);
-        launchTutor('sql', { sqlConcept: concept.key });
+        launchTutorWithCoins('sql', { sqlConcept: concept.key }, `AI Tutor: SQL concept ${concept.key}`);
     };
 
     const handleAptitudeClick = (cat) => {
         setSelectedCategory(cat);
-        launchTutor('aptitude', { category: cat.key });
+        launchTutorWithCoins('aptitude', { category: cat.key }, `AI Tutor: Aptitude category ${cat.key}`);
     };
 
     const handlePathGenerate = () => {
-        launchTutor('hub', { days: pathDays, level: pathLevel });
+        launchTutorWithCoins('hub', { days: pathDays, level: pathLevel }, 'AI Tutor: Learning path generation');
     };
 
     return (
@@ -95,6 +109,20 @@ export default function AITutorHub() {
             </div>
 
             <div className="tutor-hub-content">
+                {coinError && (
+                    <div style={{
+                        marginBottom: 12,
+                        padding: '10px 12px',
+                        borderRadius: 10,
+                        border: '1px solid rgba(248,113,113,0.4)',
+                        color: '#fca5a5',
+                        background: 'rgba(239,68,68,0.1)',
+                        fontSize: 13,
+                    }}>
+                        {coinError}
+                    </div>
+                )}
+
                 {/* DSA Tab */}
                 {activeTab === 'dsa' && !showTutor && (
                     <div className="tutor-hub-grid-section">

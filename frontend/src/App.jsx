@@ -4,6 +4,9 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { CoinProvider } from './context/CoinContext';
+import ChatAssistant from './components/ChatAssistant';
+import StreakNotification from './components/StreakNotification';
 import { Code2 } from 'lucide-react';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -51,6 +54,7 @@ const DSALearningPath = lazy(() => import('./pages/DSALearningPath'));
 const DSATopicLearning = lazy(() => import('./pages/DSATopicLearning'));
 const TechnicalLearningPath = lazy(() => import('./pages/TechnicalLearningPath'));
 const TechnicalTopicLearning = lazy(() => import('./pages/TechnicalTopicLearning'));
+const AdvancedLearningPathPage = lazy(() => import('./pages/AdvancedLearningPathPage'));
 const HRLearningPath = lazy(() => import('./pages/HRLearningPath'));
 const HRTopicLearning = lazy(() => import('./pages/HRTopicLearning'));
 const SystemDesignPath = lazy(() => import('./pages/SystemDesignPath'));
@@ -66,6 +70,12 @@ const CodingPlayground = lazy(() => import('./pages/CodingPlayground'));
 const DailyChallengesPage = lazy(() => import('./pages/DailyChallengesPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const JobUpdates = lazy(() => import('./pages/JobUpdates'));
+const RealInterview = lazy(() => import('./pages/RealInterview'));
+const InterviewScheduler = lazy(() => import('./pages/InterviewScheduler'));
+const HRLogin = lazy(() => import('./pages/HRLogin'));
+const HRDashboard = lazy(() => import('./pages/HRDashboard'));
+const ResumeAnalyzer = lazy(() => import('./pages/ResumeAnalyzer'));
+const CommunityHub = lazy(() => import('./pages/CommunityHub'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -146,6 +156,8 @@ function AppContent() {
 
   return (
     <div className="app-layout">
+      <StreakNotification />
+      <ChatAssistant />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -214,6 +226,7 @@ function AppContent() {
             <Route path="/aptitude/practice/:category" element={<AptitudePractice />} />
             <Route path="/aptitude/results" element={<AptitudeResults />} />
             <Route path="/learning-path" element={<LearningPath />} />
+            <Route path="/advanced-learning-path" element={<AdvancedLearningPathPage />} />
             <Route path="/learning-path/:topicId" element={<TopicLearning />} />
             <Route path="/dsa-path" element={<DSALearningPath />} />
             <Route path="/dsa-path/:topicId" element={<DSATopicLearning />} />
@@ -235,6 +248,8 @@ function AppContent() {
             <Route path="/playground" element={<CodingPlayground />} />
             <Route path="/daily-challenges" element={<DailyChallengesPage />} />
             <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
+            <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
+            <Route path="/community" element={<CommunityHub />} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />
@@ -254,6 +269,10 @@ function AppContent() {
             <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
 
             <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
+            <Route path="/real-interview" element={<PrivateRoute><RealInterview /></PrivateRoute>} />
+            <Route path="/interview-scheduler" element={<PrivateRoute><InterviewScheduler /></PrivateRoute>} />
+            <Route path="/hr/login" element={<HRLogin />} />
+            <Route path="/hr/dashboard" element={<HRDashboard />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
           </Routes>
@@ -323,9 +342,11 @@ function App() {
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
-          <Router>
-            <AppContent />
-          </Router>
+          <CoinProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </CoinProvider>
         </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>

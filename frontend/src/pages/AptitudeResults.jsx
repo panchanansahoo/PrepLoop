@@ -15,17 +15,19 @@ export default function AptitudeResults() {
     const state = location.state;
     const [expandedQ, setExpandedQ] = useState(null);
     const [showAll, setShowAll] = useState(false);
-
-    if (!state) {
-        return (
-            <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
-                <h2>No results to display</h2>
-                <Link to="/aptitude" className="btn btn-primary">Go to Aptitude Hub</Link>
-            </div>
-        );
-    }
-
-    const { questions, answers, totalTime, mode, correct, attempted, total, category, subcategory, negativeMarking, bookmarks = [] } = state;
+    const {
+        questions = [],
+        answers = {},
+        totalTime = 0,
+        mode = 'practice',
+        correct = 0,
+        attempted = 0,
+        total = 0,
+        category = 'all',
+        subcategory = '',
+        negativeMarking = false,
+        bookmarks = []
+    } = state || {};
     const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
     const score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
     const totalXP = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + q.xp, 0);
@@ -46,6 +48,15 @@ export default function AptitudeResults() {
         });
         return result;
     }, [questions, answers]);
+
+    if (!state) {
+        return (
+            <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16 }}>
+                <h2>No results to display</h2>
+                <Link to="/aptitude" className="btn btn-primary">Go to Aptitude Hub</Link>
+            </div>
+        );
+    }
 
     const grade = accuracy >= 90 ? { label: 'Excellent!', emoji: '🏆', color: '#34d399' }
         : accuracy >= 70 ? { label: 'Great Job!', emoji: '⭐', color: '#818cf8' }

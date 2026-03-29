@@ -7,7 +7,8 @@ import {
     CalendarDays, BarChart3, Clock, Settings, User,
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase
+    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase,
+    MessageCircle, Heart
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -36,6 +37,7 @@ const navSections = [
         category: 'Roadmap',
         items: [
             { path: '/roadmap', label: 'Roadmaps', subtitle: 'All learning paths', icon: Map },
+            { path: '/advanced-learning-path', label: 'AI Advanced Roadmap', subtitle: 'Timeline planner & exports', icon: Sparkles },
         ]
     },
     {
@@ -54,6 +56,8 @@ const navSections = [
         items: [
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
+            { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
+            { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
 
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
@@ -63,7 +67,14 @@ const navSections = [
     {
         category: 'Career',
         items: [
+            { path: '/resume-analyzer', label: 'Resume Analyzer', subtitle: 'AI-powered ATS scoring', icon: FileText },
             { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
+        ]
+    },
+    {
+        category: 'Community',
+        items: [
+            { path: '/community', label: 'Community Hub', subtitle: 'Groups, events & discussions', icon: Heart },
         ]
     },
     {
@@ -136,6 +147,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 <div className="sidebar-section-divider" />
                             )}
                             {section.items.map(item => {
+                                if (item.roles && !item.roles.includes(user?.role)) {
+                                    return null;
+                                }
+
                                 const Icon = item.icon;
                                 const isActive = location.pathname === item.path ||
                                     (item.path !== '/dashboard' && location.pathname.startsWith(item.path));

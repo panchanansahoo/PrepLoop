@@ -61,6 +61,22 @@ export default function LearningPath() {
                     Master each topic with our 4-step methodology: Theory → Quick Methods → Shortcuts → Practice
                 </p>
 
+                <button
+                    onClick={() => navigate('/advanced-learning-path')}
+                    style={{
+                        marginBottom: 36,
+                        padding: '10px 18px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(129,140,248,0.45)',
+                        background: 'rgba(129,140,248,0.12)',
+                        color: '#a5b4fc',
+                        fontWeight: 600,
+                        cursor: 'pointer'
+                    }}
+                >
+                    Open AI Advanced Roadmap
+                </button>
+
                 {/* Stats */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 16, maxWidth: 700, margin: '0 auto 48px' }}>
                     {[

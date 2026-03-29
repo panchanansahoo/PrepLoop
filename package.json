@@ -4,8 +4,21 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "discord:install": "npm install --prefix discord-bot",
+    "discord:dev": "npm run dev --prefix discord-bot",
+    "discord:start": "npm run start --prefix discord-bot",
+    "discord:deploy": "npm run deploy --prefix discord-bot",
+    "discord:check": "npm run check --prefix discord-bot",
     "install:all": "npm install && npm install --prefix backend && npm install --prefix frontend",
-    "start": "npm run dev"
+    "start": "npm run dev",
+    "setup:env": "node scripts/bootstrapSetup.js",
+    "setup": "node scripts/bootstrapSetup.js --verify",
+    "verify:setup": "node scripts/verifySetup.js",
+    "verify:setup:strict": "node scripts/verifySetup.js --strict",
+    "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
+    "test": "npm run test --prefix backend && npm run test --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "audit": "npm audit --omit=dev --prefix backend && npm audit --omit=dev --prefix frontend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

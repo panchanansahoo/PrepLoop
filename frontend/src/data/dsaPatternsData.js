@@ -1847,3 +1847,20 @@ Q2. Dijkstra fails when? A) Graph is dense  B) Edges have negative weights  C) G
         ]
     }
 ];
+
+// ── Import extended pattern batches ──
+import { dsaPatternsExtended } from './dsaPatternsExtended.js';
+import { dsaPatternsExtended2 } from './dsaPatternsExtended2.js';
+import { dsaPatternsExtended3 } from './dsaPatternsExtended3.js';
+import { dsaPatternsExtended4 } from './dsaPatternsExtended4.js';
+import { dsaPatternsArrayString } from './dsaPatternsArrayString.js';
+
+// ── Unified pattern export (97 base + 23 granular Array & String) ──
+export const dsaPatternsAll = [
+    ...dsaPatterns,
+    ...dsaPatternsExtended,
+    ...dsaPatternsExtended2,
+    ...dsaPatternsExtended3,
+    ...dsaPatternsExtended4,
+    ...dsaPatternsArrayString,
+];

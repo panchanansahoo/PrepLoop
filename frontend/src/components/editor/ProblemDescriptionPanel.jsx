@@ -32,26 +32,15 @@ export default function ProblemDescriptionPanel({
   const [submissions, setSubmissions] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  if (!problem) {
-    return (
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        height: '100%', color: 'rgba(255,255,255,0.3)', fontSize: 13,
-      }}>
-        Loading problem...
-      </div>
-    );
-  }
-
   const diffColors = {
     Easy: { bg: 'rgba(34,197,94,0.1)', text: '#4ade80', border: 'rgba(34,197,94,0.2)' },
     Medium: { bg: 'rgba(250,204,21,0.1)', text: '#fbbf24', border: 'rgba(250,204,21,0.2)' },
     Hard: { bg: 'rgba(239,68,68,0.1)', text: '#f87171', border: 'rgba(239,68,68,0.2)' },
   };
 
-  const dc = diffColors[problem.difficulty] || diffColors.Medium;
-  const topics = problem.topics || [];
-  const hints = problem.hints || [];
+  const dc = diffColors[problem?.difficulty] || diffColors.Medium;
+  const topics = problem?.topics || [];
+  const hints = problem?.hints || [];
   const visibleTopics = showAllTopics ? topics : topics.slice(0, 3);
   const hiddenCount = topics.length - 3;
   const hasPlaceholderText = (value) => {
@@ -59,21 +48,18 @@ export default function ProblemDescriptionPanel({
     return text.includes('see problem') || text.includes('see expected') || text.includes('see constraints') || text.includes('sample input') || text.includes('sample output');
   };
 
-  const buildDefaultExamples = () => {
-    const topicSet = new Set((problem.topics || []).map((t) => String(t).toLowerCase()));
-
-    if (topicSet.has('linked list')) return [{ input: 'head = [1,2,3,4]', output: '[1,2,3,4]' }, { input: 'head = [5,1,8]', output: '[5,1,8]' }];
-    if (topicSet.has('trees') || topicSet.has('tree')) return [{ input: 'root = [1,2,3,null,4]', output: 'true' }, { input: 'root = [3,9,20,null,null,15,7]', output: '3' }];
-    if (topicSet.has('strings') || topicSet.has('string')) return [{ input: 's = "abcabcbb"', output: '3' }, { input: 's = "bbbbb"', output: '1' }];
-    if (topicSet.has('graphs') || topicSet.has('graph')) return [{ input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' }, { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' }];
-    if (topicSet.has('matrix')) return [{ input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' }, { input: 'matrix = [[1,0],[0,1]]', output: '2' }];
-
-    return [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }, { input: 'nums = [3,2,4], target = 6', output: '[1,2]' }];
-  };
-
   const normalizedExamples = useMemo(() => {
-    const examples = Array.isArray(problem.examples) ? problem.examples : [];
-    const defaultExamples = buildDefaultExamples();
+    const examples = Array.isArray(problem?.examples) ? problem.examples : [];
+    const topicSet = new Set((problem?.topics || []).map((t) => String(t).toLowerCase()));
+    const defaultExamples = (() => {
+      if (topicSet.has('linked list')) return [{ input: 'head = [1,2,3,4]', output: '[1,2,3,4]' }, { input: 'head = [5,1,8]', output: '[5,1,8]' }];
+      if (topicSet.has('trees') || topicSet.has('tree')) return [{ input: 'root = [1,2,3,null,4]', output: 'true' }, { input: 'root = [3,9,20,null,null,15,7]', output: '3' }];
+      if (topicSet.has('strings') || topicSet.has('string')) return [{ input: 's = "abcabcbb"', output: '3' }, { input: 's = "bbbbb"', output: '1' }];
+      if (topicSet.has('graphs') || topicSet.has('graph')) return [{ input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' }, { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' }];
+      if (topicSet.has('matrix')) return [{ input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' }, { input: 'matrix = [[1,0],[0,1]]', output: '2' }];
+
+      return [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }, { input: 'nums = [3,2,4], target = 6', output: '[1,2]' }];
+    })();
     const cleaned = examples.map((example) => ({
       input: (() => {
         const value = String(example?.input || '').trim();
@@ -104,16 +90,16 @@ export default function ProblemDescriptionPanel({
     return deduped.length >= 2
       ? deduped
       : defaultExamples.map((ex) => ({ ...ex, explanation: '' }));
-  }, [problem.examples, problem.topics]);
+  }, [problem?.examples, problem?.topics]);
 
   const normalizedConstraints = useMemo(() => {
-    if (Array.isArray(problem.constraints)) {
+    if (Array.isArray(problem?.constraints)) {
       const lines = problem.constraints.map((item) => String(item || '').trim()).filter(Boolean);
       const sanitizedLines = lines.filter((line) => !hasPlaceholderText(line));
       return sanitizedLines.length > 0 ? sanitizedLines.join('\n') : '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
     }
 
-    if (problem.constraints && typeof problem.constraints === 'object') {
+    if (problem?.constraints && typeof problem.constraints === 'object') {
       const lines = Object.entries(problem.constraints)
         .map(([key, value]) => `${key}: ${String(value || '').trim()}`)
         .filter((line) => !line.endsWith(':'))
@@ -121,19 +107,19 @@ export default function ProblemDescriptionPanel({
       return lines.length > 0 ? lines.join('\n') : '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
     }
 
-    const constraints = String(problem.constraints || '').trim();
+    const constraints = String(problem?.constraints || '').trim();
     if (constraints && !hasPlaceholderText(constraints)) {
       return constraints;
     }
     return '1 <= n <= 10^4\nAim for an efficient time and space complexity.';
-  }, [problem.constraints]);
+  }, [problem?.constraints]);
 
   const problemExplanation = useMemo(() => {
-    const explicit = String(problem.explanation || '').trim();
+    const explicit = String(problem?.explanation || '').trim();
     if (explicit) return explicit;
 
-    const desc = String(problem.description || '').trim();
-    const hintText = (problem.hints || [])
+    const desc = String(problem?.description || '').trim();
+    const hintText = (problem?.hints || [])
       .map((h) => String(h || '').trim())
       .filter(Boolean)
       .slice(0, 2)
@@ -143,7 +129,7 @@ export default function ProblemDescriptionPanel({
     if (desc) return desc;
     if (hintText) return hintText;
     return 'No explanation available yet.';
-  }, [problem.explanation, problem.description, problem.hints]);
+  }, [problem?.explanation, problem?.description, problem?.hints]);
 
   // ─── Related Questions ───
   const relatedProblems = useMemo(() => {
@@ -185,7 +171,7 @@ export default function ProblemDescriptionPanel({
         setSolutionError('Could not load solution');
       })
       .finally(() => setLoadingSolution(false));
-  }, [activeTopTab, resolvedId]);
+  }, [activeTopTab, resolvedId, solutionCode]);
 
   // Fetch submission history when History tab is activated
   useEffect(() => {
@@ -220,6 +206,17 @@ export default function ProblemDescriptionPanel({
     { id: 'hints', label: 'Hints', icon: Lightbulb },
     { id: 'related', label: 'Related', icon: Link2 },
   ];
+
+  if (!problem) {
+    return (
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        height: '100%', color: 'rgba(255,255,255,0.3)', fontSize: 13,
+      }}>
+        Loading problem...
+      </div>
+    );
+  }
 
   return (
     <div style={{

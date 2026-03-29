@@ -11,6 +11,7 @@ import {
 
 import logo from '../assets/logo.svg';
 import { useNotifications } from '../hooks/useNotifications';
+import CoinDisplay from './CoinDisplay';
 
 // Page title mapping for breadcrumb
 const PAGE_TITLES = {
@@ -24,6 +25,7 @@ const PAGE_TITLES = {
   '/aptitude': 'Aptitude',
   '/dsa-path': 'DSA Learning Path',
   '/learning-path': 'Aptitude Path',
+  '/advanced-learning-path': 'AI Advanced Roadmap',
   '/ai-tutor': 'AI Tutor',
   '/company-prep': 'Company Prep',
   '/company-interview': 'AI Interview',
@@ -67,6 +69,14 @@ function getBreadcrumbItems(pathname) {
         { label: currentLabel, to: pathname },
       ];
     }
+  }
+
+  if (pathname === '/advanced-learning-path') {
+    return [
+      { label: 'Home', to: '/dashboard', icon: 'home' },
+      { label: 'Aptitude Path', to: '/learning-path' },
+      { label: 'AI Advanced Roadmap', to: '/advanced-learning-path' },
+    ];
   }
 
   return null;
@@ -354,6 +364,9 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               </div>
             )}
           </div>
+
+          {/* Coin Balance */}
+          <CoinDisplay />
 
           {/* Theme Toggle */}
           <button

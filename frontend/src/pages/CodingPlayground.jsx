@@ -9,7 +9,7 @@ import {
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
     Type, ChevronUp, Link2,
-    PanelRightOpen, PanelRightClose, Settings, Info,
+    PanelRightOpen, Settings, Info,
     Bot, Send, MessageSquare, Eraser,
     ClipboardCheck, RefreshCw, FileCode2, AlertTriangle
 } from 'lucide-react';
@@ -543,7 +543,9 @@ export default function CodingPlayground() {
     const [showShortcuts, setShowShortcuts] = useState(false);
     const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
     const [shareCopied, setShareCopied] = useState(false);
-    const [showSidebar, setShowSidebar] = useState(true);
+    const [showSidebar] = useState(true);
+    const [showMobileConsole, setShowMobileConsole] = useState(false);
+    const [showMobileSidebar, setShowMobileSidebar] = useState(false);
     const [sidebarTab, setSidebarTab] = useState('errors');
     const [liveErrors, setLiveErrors] = useState([]);
     const [liveLintPending, setLiveLintPending] = useState(false);
@@ -1169,6 +1171,10 @@ export default function CodingPlayground() {
 
     return (
         <div className="pg-root" ref={rootRef}>
+            {/* Mobile sidebar drawer overlay */}
+            {showMobileSidebar && (
+                <div className="pg-mobile-overlay" onClick={() => setShowMobileSidebar(false)} />
+            )}
             {/* ─── Top Bar ─── */}
             <div className="pg-topbar">
                 <div className="pg-topbar-left">
@@ -1319,9 +1325,6 @@ export default function CodingPlayground() {
 
                     {/* Actions */}
                     <div className="pg-toolbar-divider" />
-                    <button className={`pg-toolbar-btn-icon ${showSidebar ? 'pg-active' : ''}`} onClick={() => setShowSidebar(s => !s)} title="Toggle sidebar">
-                        {showSidebar ? <PanelRightClose size={14} /> : <PanelRightOpen size={14} />}
-                    </button>
                 </div>
             </div>
 
@@ -1367,7 +1370,7 @@ export default function CodingPlayground() {
                     </div>
 
                     {/* Console Panel */}
-                    <div className="pg-console" style={{ height: consoleHeight }}>
+                    <div className={`pg-console ${showMobileConsole ? 'pg-console-mobile-open' : ''}`} style={{ height: consoleHeight }}>
                         <div className="pg-console-resize" onMouseDown={handleResizeMouseDown}>
                             <div className="pg-console-resize-bar" />
                         </div>
@@ -1421,7 +1424,7 @@ export default function CodingPlayground() {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className={`pg-sidebar ${!showSidebar ? 'pg-sidebar-collapsed' : ''}`}>
+                <div className={`pg-sidebar ${(!showSidebar && !showMobileSidebar) ? 'pg-sidebar-collapsed' : ''} ${(showSidebar || showMobileSidebar) ? 'pg-sidebar-mobile-open' : ''}`}>
                     <div className="pg-sidebar-tabs" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingBottom: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                             {sidebarTabs.map(tab => (
@@ -1761,6 +1764,43 @@ export default function CodingPlayground() {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* Mobile Bottom Action Bar */}
+            <div className="pg-mobile-bar">
+                <button className="pg-mobile-bar-btn" onClick={() => navigate('/dashboard')}>
+                    <ArrowLeft size={18} />
+                    <span>Back</span>
+                </button>
+                <button
+                    className="pg-mobile-bar-btn pg-mobile-bar-lang"
+                    onClick={() => setShowLangMenu(s => !s)}
+                >
+                    <span>{langInfo.icon}</span>
+                    <span>{langInfo.label}</span>
+                    <ChevronDown size={12} />
+                </button>
+                <button
+                    className={`pg-mobile-run-fab ${running ? 'pg-mobile-run-fab--running' : ''}`}
+                    onClick={running ? handleCancelRun : handleRun}
+                    title={running ? 'Stop' : 'Run Code'}
+                >
+                    {running ? <X size={20} /> : <Play size={20} style={{ fill: 'currentColor' }} />}
+                </button>
+                <button
+                    className={`pg-mobile-bar-btn ${showMobileConsole ? 'pg-mobile-bar-active' : ''}`}
+                    onClick={() => setShowMobileConsole(s => !s)}
+                >
+                    <Terminal size={18} />
+                    <span>Console</span>
+                </button>
+                <button
+                    className={`pg-mobile-bar-btn ${showMobileSidebar ? 'pg-mobile-bar-active' : ''}`}
+                    onClick={() => setShowMobileSidebar(s => !s)}
+                >
+                    <PanelRightOpen size={18} />
+                    <span>Panel</span>
+                </button>
             </div>
 
             {/* Status Bar */}
