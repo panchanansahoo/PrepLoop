@@ -21,6 +21,6 @@
     "audit": "npm audit --omit=dev --prefix backend && npm audit --omit=dev --prefix frontend"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^9.2.1"
   }
 }
