@@ -28,6 +28,12 @@ const isSchemaMissingError = (error) => {
   );
 };
 
+const isProfilesAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P17' || message.includes('infinite recursion detected in policy');
+};
+
 const awardFirstSolveCoins = async ({ userId, problemId, problemTitle }) => {
   const description = `Problem solved: ${problemId} - ${problemTitle || 'Unknown Problem'}`.slice(0, 160);
 
@@ -638,6 +644,7 @@ router.post("/submit", authenticateToken, async (req, res) => {
     let progress;
     let coinsAwarded = 0;
     let coinBalance = null;
+    let rewardDegraded = false;
     if (existingProgress) {
       const updateData = {
         attempts: existingProgress.attempts + 1,
@@ -658,13 +665,21 @@ router.post("/submit", authenticateToken, async (req, res) => {
 
       const isFirstSolve = progressStatus === "solved" && existingProgress.status !== "solved";
       if (isFirstSolve) {
-        const rewardResult = await awardFirstSolveCoins({
-          userId: req.user.id,
-          problemId: canonicalProblemId,
-          problemTitle: problem.title,
-        });
-        coinsAwarded = rewardResult.coinsAwarded;
-        coinBalance = rewardResult.currentCoins;
+        try {
+          const rewardResult = await awardFirstSolveCoins({
+            userId: req.user.id,
+            problemId: canonicalProblemId,
+            problemTitle: problem.title,
+          });
+          coinsAwarded = rewardResult.coinsAwarded;
+          coinBalance = rewardResult.currentCoins;
+        } catch (rewardError) {
+          if (isProfilesAccessBlocked(rewardError)) {
+            rewardDegraded = true;
+          } else {
+            throw rewardError;
+          }
+        }
       }
     } else {
       const { data } = await supabaseAdmin
@@ -683,13 +698,21 @@ router.post("/submit", authenticateToken, async (req, res) => {
       progress = data;
 
       if (progressStatus === "solved") {
-        const rewardResult = await awardFirstSolveCoins({
-          userId: req.user.id,
-          problemId: canonicalProblemId,
-          problemTitle: problem.title,
-        });
-        coinsAwarded = rewardResult.coinsAwarded;
-        coinBalance = rewardResult.currentCoins;
+        try {
+          const rewardResult = await awardFirstSolveCoins({
+            userId: req.user.id,
+            problemId: canonicalProblemId,
+            problemTitle: problem.title,
+          });
+          coinsAwarded = rewardResult.coinsAwarded;
+          coinBalance = rewardResult.currentCoins;
+        } catch (rewardError) {
+          if (isProfilesAccessBlocked(rewardError)) {
+            rewardDegraded = true;
+          } else {
+            throw rewardError;
+          }
+        }
       }
     }
 
@@ -706,12 +729,14 @@ router.post("/submit", authenticateToken, async (req, res) => {
           : `${testsPassed}/${totalTests} test cases passed`,
       coinsAwarded,
       coinBalance,
+      degraded: rewardDegraded,
     });
   } catch (error) {
     console.error("Submission error:", error);
-    if (isSchemaMissingError(error)) {
+    if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
       return res.status(503).json({
-        error: "Coins/submission schema is missing. Run migration_coins_streaks.sql.",
+        error: "Coins/submission feature is temporarily unavailable.",
+        degraded: true,
       });
     }
     res.status(500).json({ error: "Failed to submit solution" });

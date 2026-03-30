@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../services/companyQuestionService.js';
 
 const router = express.Router();
@@ -343,16 +344,22 @@ router.post('/start', optionalAuth, async (req, res) => {
       // If groq is available, generate a natural greeting wrapping the real question
       if (groq) {
         try {
-          const completion = await groq.chat.completions.create({
-            model: 'llama-3.1-8b-instant',
-            messages: [
-              {
-                role: 'system',
-                content: `You are a friendly interviewer at ${company}. Greet the candidate warmly in 1 sentence, then naturally ask this exact interview question (do NOT change the question content, just present it conversationally):\n\n"${firstQ.question}"\n\nRespond as JSON:\n{\n  "question": "Your greeting + the question asked naturally",\n  "tips": ["Tip 1", "Tip 2"],\n  "thinkTime": 30,\n  "interviewerReaction": "greeting"\n}`
-              }
-            ],
-            response_format: { type: 'json_object' },
-            temperature: 0.7
+          const completion = await aiCallWithRetry({
+            operation: () =>
+              groq.chat.completions.create({
+                model: 'llama-3.1-8b-instant',
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are a friendly interviewer at ${company}. Greet the candidate warmly in 1 sentence, then naturally ask this exact interview question (do NOT change the question content, just present it conversationally):\n\n"${firstQ.question}"\n\nRespond as JSON:\n{\n  "question": "Your greeting + the question asked naturally",\n  "tips": ["Tip 1", "Tip 2"],\n  "thinkTime": 30,\n  "interviewerReaction": "greeting"\n}`
+                  }
+                ],
+                response_format: { type: 'json_object' },
+                temperature: 0.7
+              }),
+            timeoutMs: 12000,
+            maxRetries: 2,
+            baseDelayMs: 250,
           });
           const result = JSON.parse(completion.choices[0].message.content);
           return res.json({
@@ -402,12 +409,14 @@ router.post('/start', optionalAuth, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: getInterviewerPersona(company, role, stage, difficulty, 1, resolvedTotalQuestions, normalizedAdvanced, resumeContext) + `
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: getInterviewerPersona(company, role, stage, difficulty, 1, resolvedTotalQuestions, normalizedAdvanced, resumeContext) + `
 
 Respond as JSON:
 {
@@ -416,11 +425,15 @@ Respond as JSON:
   "thinkTime": 30,
   "interviewerReaction": "greeting"
 }`
-        },
-        { role: 'user', content: `Start the ${stage} interview for ${role} at ${company}. Greet warmly first.` }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.8
+            },
+            { role: 'user', content: `Start the ${stage} interview for ${role} at ${company}. Greet warmly first.` }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.8
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
@@ -697,11 +710,17 @@ Respond as JSON:
       { role: 'user', content: code ? `${userAnswer}\n\n[Code submitted in ${codeLanguage || 'unknown'}]:\n${code}` : userAnswer }
     ];
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages,
-      response_format: { type: 'json_object' },
-      temperature: 0.75
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          response_format: { type: 'json_object' },
+          temperature: 0.75
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
@@ -755,12 +774,14 @@ router.post('/hint', optionalAuth, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a helpful interviewer at ${company}. The candidate is stuck on a ${stage} question for ${role}. 
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a helpful interviewer at ${company}. The candidate is stuck on a ${stage} question for ${role}. 
 Give a gentle nudge WITHOUT giving away the answer.
 
 Respond as JSON:
@@ -769,15 +790,19 @@ Respond as JSON:
   "approach": "Suggested approach without the full answer",
   "keyTopics": ["Topic 1", "Topic 2", "Topic 3"]
 }`
-        },
-        ...(conversationHistory || []).slice(-4).map(h => ({
-          role: h.role === 'interviewer' ? 'assistant' : 'user',
-          content: h.content
-        })),
-        { role: 'user', content: `I'm stuck on: "${currentQuestion}". Can you give me a hint?` }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7
+            },
+            ...(conversationHistory || []).slice(-4).map(h => ({
+              role: h.role === 'interviewer' ? 'assistant' : 'user',
+              content: h.content
+            })),
+            { role: 'user', content: `I'm stuck on: "${currentQuestion}". Can you give me a hint?` }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
@@ -797,22 +822,28 @@ router.post('/nudge', optionalAuth, async (req, res) => {
       return res.json({ nudge: null });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant', // Fast model for sub-200ms response
-      messages: [
-        {
-          role: 'system',
-          content: `You are a real-time interview coach. Based on the candidate's partial answer to a ${stage} question at ${company}, give ONE brief coaching tip (max 15 words). Focus on what they should add or fix RIGHT NOW.
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a real-time interview coach. Based on the candidate's partial answer to a ${stage} question at ${company}, give ONE brief coaching tip (max 15 words). Focus on what they should add or fix RIGHT NOW.
 Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|filler|pace" }`
-        },
-        {
-          role: 'user',
-          content: `Question: ${currentQuestion}\nPartial answer so far: ${partialAnswer.substring(0, 500)}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-      max_tokens: 60
+            },
+            {
+              role: 'user',
+              content: `Question: ${currentQuestion}\nPartial answer so far: ${partialAnswer.substring(0, 500)}`
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 60
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
@@ -1206,12 +1237,14 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
   }).join('\n\n');
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a senior interview panel creating the final report for a ${stage} interview at ${company} for the ${role} role.
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a senior interview panel creating the final report for a ${stage} interview at ${company} for the ${role} role.
 Evaluate the candidate fairly for their experience level. Ground every judgment in the ACTUAL question-answer pairs provided. Do not invent strengths or weaknesses that are not supported by the transcript.
 
 Return valid JSON with this shape:
@@ -1256,14 +1289,18 @@ Return valid JSON with this shape:
     { "day": "Day 1-2", "focus": "Focus area", "tasks": ["Task 1", "Task 2"] }
   ]
 }`
-        },
-        {
-          role: 'user',
-          content: `Analyze this interview using only the evidence below:\n\n${qaText}`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3
+            },
+            {
+              role: 'user',
+              content: `Analyze this interview using only the evidence below:\n\n${qaText}`
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const parsed = JSON.parse(completion.choices[0].message.content);
@@ -1389,12 +1426,14 @@ router.post('/copilot-suggest', optionalAuth, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert AI interview copilot helping a candidate in a ${stage} interview at ${company} for ${role}.
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert AI interview copilot helping a candidate in a ${stage} interview at ${company} for ${role}.
 The candidate is currently answering this question: "${currentQuestion}".
 Their partial answer so far: "${partialAnswer || '(Not started yet)'}".
 Job Description context: "${jobDescription || 'Standard software engineering role'}".
@@ -1415,10 +1454,14 @@ Respond strictly in this JSON format:
   "structureSuggestion": "1 short sentence suggesting how to structure the rest of the answer.",
   "followUpPredictions": ["Potential follow-up 1", "Potential follow-up 2"]
 }`
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.6
+            }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.6
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const result = JSON.parse(completion.choices[0].message.content);

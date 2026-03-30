@@ -4,6 +4,12 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const isProfilesAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P17' || message.includes('infinite recursion detected in policy');
+};
+
 // All admin routes require authentication + admin role
 router.use(authenticateToken, requireAdmin);
 
@@ -99,6 +105,12 @@ router.get('/stats', async (req, res) => {
     });
   } catch (error) {
     console.error('Admin stats error:', error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({
+        error: 'Admin stats are temporarily unavailable due to profile access issue',
+        degraded: true,
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch admin stats' });
   }
 });
@@ -145,6 +157,12 @@ router.get('/users', async (req, res) => {
     });
   } catch (error) {
     console.error('Admin users error:', error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({
+        error: 'User listing is temporarily unavailable due to profile access issue',
+        degraded: true,
+      });
+    }
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
@@ -176,6 +194,12 @@ router.put('/users/:id/role', async (req, res) => {
     res.json({ message: `User role updated to ${role}`, user: data });
   } catch (error) {
     console.error('Update role error:', error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({
+        error: 'Role update is temporarily unavailable due to profile access issue',
+        degraded: true,
+      });
+    }
     res.status(500).json({ error: 'Failed to update user role' });
   }
 });

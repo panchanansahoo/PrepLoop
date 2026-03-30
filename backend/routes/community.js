@@ -10,7 +10,7 @@ router.get('/posts', optionalAuth, async (req, res) => {
 
     let query = supabaseAdmin
       .from('community_posts')
-      .select('*, profiles(full_name), community_replies(count)')
+      .select('*, profiles(full_name)')
       .limit(50);
 
     if (filter === 'popular') {
@@ -28,9 +28,8 @@ router.get('/posts', optionalAuth, async (req, res) => {
     const posts = (data || []).map(p => ({
       ...p,
       author_name: p.profiles?.full_name || 'Anonymous',
-      reply_count: p.community_replies?.[0]?.count || 0,
+      reply_count: p.replies || 0,
       profiles: undefined,
-      community_replies: undefined
     }));
 
     res.json({ posts });
@@ -70,12 +69,16 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
     const { id } = req.params;
 
     // Deduplicate: check if user already liked this post
-    const { data: existingLike } = await supabaseAdmin
+    const { data: existingLike, error: existingLikeError } = await supabaseAdmin
       .from('community_post_likes')
       .select('id')
       .eq('post_id', id)
       .eq('user_id', req.user.id)
       .single();
+
+    if (existingLikeError && existingLikeError.code !== 'PGRST116') {
+      throw existingLikeError;
+    }
 
     if (existingLike) {
       return res.status(400).json({ error: 'You have already liked this post' });
@@ -97,9 +100,15 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
     // Fallback if RPC doesn't exist yet — still better than non-atomic
     if (updateError) {
+      const { data: post } = await supabaseAdmin
+        .from('community_posts')
+        .select('likes')
+        .eq('id', id)
+        .single();
+
       await supabaseAdmin
         .from('community_posts')
-        .update({ likes: supabaseAdmin.rpc ? undefined : 1 })
+        .update({ likes: (post?.likes || 0) + 1 })
         .eq('id', id);
     }
 

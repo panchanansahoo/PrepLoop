@@ -1313,7 +1313,7 @@ export default function ResumeAnalyzer() {
                       key={template.id}
                       onClick={() => setSelectedTemplate(template.id)}
                       style={{
-                        padding: '12px 14px', borderRadius: 12, border: 'none',
+                        padding: '12px 14px', borderRadius: 12,
                         background: selectedTemplate === template.id ? `${template.color}20` : 'rgba(255,255,255,0.03)',
                         border: `1px solid ${selectedTemplate === template.id ? template.color : 'rgba(255,255,255,0.08)'}`,
                         color: selectedTemplate === template.id ? template.color : '#fff',

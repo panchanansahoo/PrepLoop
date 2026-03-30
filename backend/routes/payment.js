@@ -11,6 +11,12 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const isProfilesAccessBlocked = (error) => {
+    const code = String(error?.code || '').toUpperCase();
+    const message = String(error?.message || '').toLowerCase();
+    return code === '42P17' || message.includes('infinite recursion detected in policy');
+};
 const isDev = process.env.NODE_ENV !== 'production';
 
 // ═══════════════════════════════════════════════
@@ -384,6 +390,15 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
         if (updateProfileError) {
             console.error('Update profile error:', updateProfileError);
+            if (isProfilesAccessBlocked(updateProfileError)) {
+                return res.status(202).json({
+                    success: true,
+                    message: 'Payment verified, but plan activation is pending due to temporary profile access issue.',
+                    plan: paymentRecord.plan,
+                    paymentId: razorpay_payment_id,
+                    degraded: true,
+                });
+            }
             return res.status(500).json({ error: 'Payment verified but failed to upgrade plan' });
         }
 
@@ -458,12 +473,20 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
                     .eq('razorpay_order_id', orderId);
 
                 // Upgrade user
-                await supabaseAdmin
+                const { error: updateProfileError } = await supabaseAdmin
                     .from('profiles')
                     .update({ subscription_tier: existing.plan })
                     .eq('id', existing.user_id);
 
-                console.log(`Webhook: Payment ${payment.id} captured, user upgraded to ${existing.plan}`);
+                if (updateProfileError) {
+                    if (isProfilesAccessBlocked(updateProfileError)) {
+                        console.warn(`Webhook: payment captured but profile update blocked for order ${orderId}`);
+                    } else {
+                        throw updateProfileError;
+                    }
+                } else {
+                    console.log(`Webhook: Payment ${payment.id} captured, user upgraded to ${existing.plan}`);
+                }
             }
         } else if (eventType === 'payment.failed') {
             const payment = event.payload.payment.entity;

@@ -1,6 +1,7 @@
 import express from 'express';
 import Groq from 'groq-sdk';
 import { authenticateToken } from '../middleware/auth.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 
@@ -85,21 +86,26 @@ router.post('/feedback', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a senior system design architect. Evaluate system design solutions and provide constructive feedback.
-          Consider: scalability, reliability, maintainability, performance, cost-effectiveness.
-          Format response as JSON with: strengths (array), improvements (array), score (0-100), detailedFeedback (string)`
-        },
-        {
-          role: 'user',
-          content: `Topic: ${topic.title}\nDescription: ${topic.description}\n\nUser's Design:\n${design}\n\nComponents used: ${components.join(', ')}\n\nProvide feedback.`
-        }
-      ],
-      response_format: { type: 'json_object' }
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a senior system design architect. Evaluate system design solutions and provide constructive feedback.
+            Consider: scalability, reliability, maintainability, performance, cost-effectiveness.
+            Format response as JSON with: strengths (array), improvements (array), score (0-100), detailedFeedback (string)`
+          },
+          {
+            role: 'user',
+            content: `Topic: ${topic.title}\nDescription: ${topic.description}\n\nUser's Design:\n${design}\n\nComponents used: ${components.join(', ')}\n\nProvide feedback.`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250
     });
 
     const feedback = JSON.parse(completion.choices[0].message.content);
@@ -120,18 +126,23 @@ router.post('/diagram-explain', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a system design expert. Explain system architecture diagrams clearly, highlighting data flow and component interactions.'
-        },
-        {
-          role: 'user',
-          content: `Explain this system design:\nComponents: ${components.join(', ')}\nDiagram description: ${diagram}`
-        }
-      ]
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a system design expert. Explain system architecture diagrams clearly, highlighting data flow and component interactions.'
+          },
+          {
+            role: 'user',
+            content: `Explain this system design:\nComponents: ${components.join(', ')}\nDiagram description: ${diagram}`
+          }
+        ]
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250
     });
 
     res.json({

@@ -76,6 +76,10 @@ const HRLogin = lazy(() => import('./pages/HRLogin'));
 const HRDashboard = lazy(() => import('./pages/HRDashboard'));
 const ResumeAnalyzer = lazy(() => import('./pages/ResumeAnalyzer'));
 const CommunityHub = lazy(() => import('./pages/CommunityHub'));
+const InterviewSuite = lazy(() => import('./pages/InterviewSuite'));
+const LiveCodingCopilot = lazy(() => import('./pages/LiveCodingCopilot'));
+const DebuggingInterview = lazy(() => import('./pages/DebuggingInterview'));
+const CodeReviewInterview = lazy(() => import('./pages/CodeReviewInterview'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -244,12 +248,16 @@ function AppContent() {
             <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
             <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
+            <Route path="/live-coding" element={<PrivateRoute><LiveCodingCopilot /></PrivateRoute>} />
+            <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
+            <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
 
             <Route path="/playground" element={<CodingPlayground />} />
             <Route path="/daily-challenges" element={<DailyChallengesPage />} />
             <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
             <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
             <Route path="/community" element={<CommunityHub />} />
+            <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />

@@ -2,6 +2,7 @@ import express from 'express';
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -26,30 +27,35 @@ router.post('/feedback/realtime', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert interview coach providing real-time feedback.
-          Analyze the candidate's answer and provide constructive, encouraging feedback.
-          Interview Type: ${type}, Difficulty: ${difficulty}.
-          
-          Return JSON with:
-          - strengths: array of 2-3 specific strengths observed
-          - improvements: array of 2-3 specific areas to improve
-          - score: 0-100 score for this answer
-          - suggestion: one actionable tip to improve the next answer
-          - confidence: your confidence in the score (0-100)
-          
-          Be encouraging but honest. Respond ONLY with valid JSON.`
-        },
-        {
-          role: 'user',
-          content: `Question: ${question}\n\nCandidate's Answer: ${answer}`
-        }
-      ],
-      response_format: { type: 'json_object' }
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert interview coach providing real-time feedback.
+            Analyze the candidate's answer and provide constructive, encouraging feedback.
+            Interview Type: ${type}, Difficulty: ${difficulty}.
+            
+            Return JSON with:
+            - strengths: array of 2-3 specific strengths observed
+            - improvements: array of 2-3 specific areas to improve
+            - score: 0-100 score for this answer
+            - suggestion: one actionable tip to improve the next answer
+            - confidence: your confidence in the score (0-100)
+            
+            Be encouraging but honest. Respond ONLY with valid JSON.`
+          },
+          {
+            role: 'user',
+            content: `Question: ${question}\n\nCandidate's Answer: ${answer}`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250
     });
 
     const feedback = JSON.parse(completion.choices[0].message.content);
@@ -88,31 +94,36 @@ router.post('/analysis/detailed', authenticateToken, async (req, res) => {
       `Q${i + 1}: ${r.question}\nA: ${r.answer || '(No response provided)'}`
     ).join('\n\n---\n\n');
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert technical interviewer evaluating a complete interview.
-          Interview Type: ${type}, Difficulty: ${difficulty}, Duration: ${duration}min.
-          
-          Provide comprehensive feedback with:
-          - overall_score: 0-100
-          - scores object with: communication, technical_knowledge, problem_solving, clarity, confidence (each 0-100)
-          - strengths: array of 3-4 specific strengths
-          - weaknesses: array of 3-4 specific weaknesses
-          - recommendations: array of 3-5 specific action items
-          - readiness_percentage: likelihood of passing real interview (0-100)
-          - top_challenge: the biggest challenge observed
-          
-          Be balanced and constructive. Respond ONLY with valid JSON.`
-        },
-        {
-          role: 'user',
-          content: `Evaluate this interview:\n\n${responseSummary}`
-        }
-      ],
-      response_format: { type: 'json_object' }
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert technical interviewer evaluating a complete interview.
+            Interview Type: ${type}, Difficulty: ${difficulty}, Duration: ${duration}min.
+            
+            Provide comprehensive feedback with:
+            - overall_score: 0-100
+            - scores object with: communication, technical_knowledge, problem_solving, clarity, confidence (each 0-100)
+            - strengths: array of 3-4 specific strengths
+            - weaknesses: array of 3-4 specific weaknesses
+            - recommendations: array of 3-5 specific action items
+            - readiness_percentage: likelihood of passing real interview (0-100)
+            - top_challenge: the biggest challenge observed
+            
+            Be balanced and constructive. Respond ONLY with valid JSON.`
+          },
+          {
+            role: 'user',
+            content: `Evaluate this interview:\n\n${responseSummary}`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250
     });
 
     const analysis = JSON.parse(completion.choices[0].message.content);
@@ -156,32 +167,37 @@ router.post('/recommendations/personalized', authenticateToken, async (req, res)
       ? `Past interviews: ${interviewHistory.map(i => `${i.interview_type}(${i.difficulty}): ${i.overall_score}`).join(', ')}`
       : 'First interview';
 
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert career coach creating personalized learning paths.
-          Student Profile: ${historyContext}.
-          Current Performance: ${type}(${difficulty}) - Score: ${score}.
-          Main Weaknesses: ${weaknesses?.join(', ') || 'General improvement needed'}.
-          
-          Create a strategic, personalized learning path. Return JSON with:
-          - learning_path: array of topics ordered by priority (each with topic, priority, resources array)
-          - next_interview_topics: array of 3 topics to focus on for next interview
-          - estimated_improvement: expected score improvement with this path
-          - study_duration: recommended time commitment
-          - quick_wins: array of 2-3 quick improvements they can make today
-          - long_term_goals: array of 3-4 long-term skills to develop
-          
-          Be specific and actionable. Respond ONLY with valid JSON.`
-        },
-        {
-          role: 'user',
-          content: `Create a personalized learning path for a candidate with these weaknesses: ${weaknesses?.join(', ')}`
-        }
-      ],
-      response_format: { type: 'json_object' }
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert career coach creating personalized learning paths.
+            Student Profile: ${historyContext}.
+            Current Performance: ${type}(${difficulty}) - Score: ${score}.
+            Main Weaknesses: ${weaknesses?.join(', ') || 'General improvement needed'}.
+            
+            Create a strategic, personalized learning path. Return JSON with:
+            - learning_path: array of topics ordered by priority (each with topic, priority, resources array)
+            - next_interview_topics: array of 3 topics to focus on for next interview
+            - estimated_improvement: expected score improvement with this path
+            - study_duration: recommended time commitment
+            - quick_wins: array of 2-3 quick improvements they can make today
+            - long_term_goals: array of 3-4 long-term skills to develop
+            
+            Be specific and actionable. Respond ONLY with valid JSON.`
+          },
+          {
+            role: 'user',
+            content: `Create a personalized learning path for a candidate with these weaknesses: ${weaknesses?.join(', ')}`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250
     });
 
     const recommendations = JSON.parse(completion.choices[0].message.content);

@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { randomUUID } from 'crypto';
 import './config/env.js';
 
 let app;
@@ -40,18 +41,21 @@ async function initializeServer() {
     console.log('✅ Routes loaded successfully');
 
     app = express();
+    app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
     // Configure rate limiting
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 100,
-      message: 'Too many requests from this IP, please try again later.'
+      max: Number.parseInt(process.env.GLOBAL_RATE_LIMIT_MAX || '250', 10),
+      message: 'Too many requests from this IP, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
     });
 
     // Stricter rate limit for auth endpoints to prevent brute-force attacks
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 20,
+      max: Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || '30', 10),
       message: 'Too many authentication attempts. Please try again later.',
       standardHeaders: true,
       legacyHeaders: false,
@@ -68,11 +72,21 @@ async function initializeServer() {
     app.use('/api/auth', authLimiter);
     app.use('/api/', limiter);
 
-    // Debug middleware
-    app.use((req, res, next) => {
-      console.log(`[DEBUG] ${req.method} ${req.url} from ${req.headers.origin}`);
-      next();
-    });
+    const shouldLogRequests = process.env.LOG_REQUESTS === 'true' || process.env.NODE_ENV === 'development';
+    if (shouldLogRequests) {
+      app.use((req, res, next) => {
+        const startedAt = Date.now();
+        const requestId = randomUUID();
+        res.setHeader('x-request-id', requestId);
+
+        res.on('finish', () => {
+          const durationMs = Date.now() - startedAt;
+          console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
+        });
+
+        next();
+      });
+    }
 
     // Health check endpoint
     app.get('/health', (req, res) => {

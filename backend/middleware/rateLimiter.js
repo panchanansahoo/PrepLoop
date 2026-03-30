@@ -2,6 +2,17 @@ import rateLimit from 'express-rate-limit';
 
 // --- Per-email cooldown (in-memory) ---
 const emailCooldowns = new Map(); // key: "endpoint:email" => timestamp
+const EMAIL_COOLDOWN_RETENTION_MS = 10 * 60 * 1000;
+const EMAIL_COOLDOWN_MAX_ENTRIES = Number.parseInt(process.env.EMAIL_COOLDOWN_MAX_ENTRIES || '5000', 10);
+
+function pruneStaleCooldowns() {
+    const now = Date.now();
+    for (const [key, timestamp] of emailCooldowns) {
+        if (now - timestamp > EMAIL_COOLDOWN_RETENTION_MS) {
+            emailCooldowns.delete(key);
+        }
+    }
+}
 
 /**
  * Check if an email is in cooldown for a given endpoint.
@@ -21,18 +32,18 @@ export function isEmailCoolingDown(endpoint, email, cooldownMs = 60000) {
  */
 export function markEmailSent(endpoint, email) {
     const key = `${endpoint}:${email.toLowerCase()}`;
+    if (emailCooldowns.size >= EMAIL_COOLDOWN_MAX_ENTRIES) {
+        const oldestKey = emailCooldowns.keys().next().value;
+        if (oldestKey) {
+            emailCooldowns.delete(oldestKey);
+        }
+    }
     emailCooldowns.set(key, Date.now());
 }
 
 // Clean up stale entries every 10 minutes
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, timestamp] of emailCooldowns) {
-        if (now - timestamp > 600000) { // 10 min
-            emailCooldowns.delete(key);
-        }
-    }
-}, 600000);
+const cleanupTimer = setInterval(pruneStaleCooldowns, EMAIL_COOLDOWN_RETENTION_MS);
+cleanupTimer.unref();
 
 // --- Rate limiters ---
 

@@ -4,6 +4,7 @@ import Groq from 'groq-sdk';
 import pdf from 'pdf-parse';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -87,31 +88,36 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
       };
       resumeProfile = buildFallbackResumeProfile(resumeText, analysisData);
     } else {
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert resume analyst and ATS specialist. 
-            Analyze the resume and provide:
-            1. ATS score (0-100)
-            2. Strengths (array of strings)
-            3. Weaknesses (array of strings)
-            4. Specific suggestions for improvement (array of strings)
-            5. Keyword analysis (object with technical, soft, and missing keywords)
-            6. Interview-ready candidate profile for a mock interviewer
-            
-            Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch, interviewProfile.
-            interviewProfile must include: candidateHeadline, coreSkills (array), projectHighlights (array), likelyQuestionAreas (array), summary.
-            Keep interviewProfile concise and useful for generating personalized interview questions.
-            Respond ONLY with valid JSON.`
-          },
-          {
-            role: 'user',
-            content: `Analyze this resume:\n\n${resumeText}`
-          }
-        ],
-        response_format: { type: 'json_object' }
+      const completion = await aiCallWithRetry({
+        operation: () => groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert resume analyst and ATS specialist. 
+              Analyze the resume and provide:
+              1. ATS score (0-100)
+              2. Strengths (array of strings)
+              3. Weaknesses (array of strings)
+              4. Specific suggestions for improvement (array of strings)
+              5. Keyword analysis (object with technical, soft, and missing keywords)
+              6. Interview-ready candidate profile for a mock interviewer
+              
+              Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch, interviewProfile.
+              interviewProfile must include: candidateHeadline, coreSkills (array), projectHighlights (array), likelyQuestionAreas (array), summary.
+              Keep interviewProfile concise and useful for generating personalized interview questions.
+              Respond ONLY with valid JSON.`
+            },
+            {
+              role: 'user',
+              content: `Analyze this resume:\n\n${resumeText}`
+            }
+          ],
+          response_format: { type: 'json_object' }
+        }),
+        timeoutMs: 12000,
+        maxRetries: 2,
+        baseDelayMs: 250
       });
 
       analysisData = JSON.parse(completion.choices[0].message.content);

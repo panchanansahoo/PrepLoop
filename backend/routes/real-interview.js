@@ -25,7 +25,7 @@ router.get('/slots', authenticateToken, async (req, res) => {
       .from('interview_slots')
       .select(`
         id, slot_date, start_time, end_time, is_booked,
-        hr:profiles!interview_slots_hr_id_fkey(id, full_name, email)
+        hr:profiles!interview_slots_hr_id_fkey(id, full_name)
       `)
       .eq('is_booked', false)
       .gte('slot_date', new Date().toISOString().split('T')[0])
@@ -131,7 +131,7 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
       .from('real_interviews')
       .select(`
         id, scheduled_at, status, meeting_link, notes, feedback, rating, created_at,
-        hr:profiles!real_interviews_hr_id_fkey(id, full_name, email),
+        hr:profiles!real_interviews_hr_id_fkey(id, full_name),
         slot:interview_slots(slot_date, start_time, end_time)
       `)
       .eq('user_id', req.user.id)

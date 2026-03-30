@@ -10,6 +10,12 @@ import aiLearningPath from "../data/aiLearningPath.js";
 
 const router = express.Router();
 
+const isProfilesAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P17' || message.includes('infinite recursion detected in policy');
+};
+
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
@@ -17,6 +23,20 @@ router.get("/profile", authenticateToken, async (req, res) => {
       .select("*")
       .eq("id", req.user.id)
       .single();
+
+    if (isProfilesAccessBlocked(error)) {
+      return res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          full_name: req.user.user_metadata?.full_name || '',
+          subscription_tier: 'free',
+          experience_level: 'beginner',
+          role: 'user',
+        },
+        degraded: true,
+      });
+    }
 
     if (error || !profile) {
       return res.status(404).json({ error: "User not found" });
@@ -36,6 +56,19 @@ router.get("/profile", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching profile:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.json({
+        user: {
+          id: req.user.id,
+          email: req.user.email,
+          full_name: req.user.user_metadata?.full_name || '',
+          subscription_tier: 'free',
+          experience_level: 'beginner',
+          role: 'user',
+        },
+        degraded: true,
+      });
+    }
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
@@ -72,6 +105,9 @@ router.put("/profile", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating profile:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
+    }
     res.status(500).json({ error: "Failed to update profile" });
   }
 });
@@ -934,6 +970,17 @@ router.get("/settings", authenticateToken, async (req, res) => {
       .eq("id", req.user.id)
       .single();
 
+    if (isProfilesAccessBlocked(error)) {
+      return res.json({
+        settings: {
+          full_name: req.user.user_metadata?.full_name || '',
+          experience_level: 'beginner',
+          subscription_tier: 'free',
+        },
+        degraded: true,
+      });
+    }
+
     if (error || !profile) {
       return res.status(404).json({ error: "User not found" });
     }
@@ -947,6 +994,16 @@ router.get("/settings", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching settings:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.json({
+        settings: {
+          full_name: req.user.user_metadata?.full_name || '',
+          experience_level: 'beginner',
+          subscription_tier: 'free',
+        },
+        degraded: true,
+      });
+    }
     res.status(500).json({ error: "Failed to fetch settings" });
   }
 });
@@ -980,6 +1037,9 @@ router.put("/settings", authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error("Error updating settings:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({ error: "Settings update is temporarily unavailable", degraded: true });
+    }
     res.status(500).json({ error: "Failed to update settings" });
   }
 });
@@ -1003,6 +1063,9 @@ router.post("/preferences", authenticateToken, async (req, res) => {
     res.json({ success: true, message: "Preferences saved" });
   } catch (error) {
     console.error("Error saving preferences:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.status(503).json({ error: "Preferences update is temporarily unavailable", degraded: true });
+    }
     res.status(500).json({ error: "Failed to save preferences" });
   }
 });

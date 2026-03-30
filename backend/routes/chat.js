@@ -2,6 +2,7 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import Groq from 'groq-sdk';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 
@@ -18,6 +19,12 @@ const isSchemaMissingError = (error) => {
     combined.includes('could not find') ||
     combined.includes('relationship')
   );
+};
+
+const isProfilesAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P17' || message.includes('infinite recursion detected in policy');
 };
 
 const SYSTEM_PROMPT = `You are PrepLoop AI Assistant — a friendly, expert coding interview preparation coach. You help with:
@@ -108,7 +115,7 @@ router.post('/message', authenticateToken, async (req, res) => {
       }
       didCharge = true;
     } catch (error) {
-      if (isSchemaMissingError(error)) {
+      if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
         degraded = true;
       } else {
         throw error;
@@ -160,11 +167,16 @@ router.post('/message', authenticateToken, async (req, res) => {
     ];
 
     // Get AI response
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages,
-      temperature: 0.7,
-      max_tokens: 1024,
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages,
+        temperature: 0.7,
+        max_tokens: 1024,
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const aiResponse = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
@@ -193,7 +205,7 @@ router.post('/message', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Chat error:', error);
 
-    if (isSchemaMissingError(error)) {
+    if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
       return res.status(500).json({
         error: 'Failed to get response',
         degraded: true,

@@ -138,40 +138,41 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check if email is verified
+    // Fetch profile once for verification + response payload
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('email_verified')
+      .select('full_name, subscription_tier, experience_level, role, email_verified')
       .eq('id', data.user.id)
       .single();
 
     if (profileError && !isMissingEmailVerificationSchema(profileError)) {
-      console.error('Login profile verification query error:', profileError);
+      console.error('Login profile query error:', profileError);
       return res.status(500).json({ error: 'Login failed' });
     }
 
     const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
 
     if (!shouldBypassVerification && !profile?.email_verified) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Please verify your email before logging in',
         userId: data.user.id,
         email: data.user.email
       });
     }
 
-    // Update last_login in profiles
-    await supabaseAdmin
+    // Update last_login asynchronously so login response is not blocked.
+    supabaseAdmin
       .from('profiles')
       .update({ last_login: new Date().toISOString() })
-      .eq('id', data.user.id);
-
-    // Get full profile data
-    const { data: fullProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('*')
       .eq('id', data.user.id)
-      .single();
+      .then(({ error: updateError }) => {
+        if (updateError) {
+          console.error('Failed to update last_login:', updateError.message || updateError);
+        }
+      })
+      .catch((updateErr) => {
+        console.error('Failed to update last_login:', updateErr.message || updateErr);
+      });
 
     res.json({
       message: 'Login successful',
@@ -180,11 +181,11 @@ router.post('/login', async (req, res) => {
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: fullProfile?.full_name || data.user.user_metadata?.full_name || '',
-        subscriptionTier: fullProfile?.subscription_tier || 'free',
-        experienceLevel: fullProfile?.experience_level || 'beginner',
-        role: fullProfile?.role || 'user',
-        emailVerified: shouldBypassVerification ? true : (fullProfile?.email_verified || false)
+        fullName: profile?.full_name || data.user.user_metadata?.full_name || '',
+        subscriptionTier: profile?.subscription_tier || 'free',
+        experienceLevel: profile?.experience_level || 'beginner',
+        role: profile?.role || 'user',
+        emailVerified: shouldBypassVerification ? true : (profile?.email_verified || false)
       }
     });
   } catch (error) {

@@ -2,6 +2,7 @@ import express from 'express';
 import Groq from 'groq-sdk';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY
@@ -370,13 +371,19 @@ async function groqJson(systemPrompt, userPrompt, fallback) {
   if (!groq) return fallback;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+        }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     return JSON.parse(completion.choices[0].message.content);
@@ -389,26 +396,30 @@ async function groqJson(systemPrompt, userPrompt, fallback) {
 // 1) Resume-to-question generator
 router.post('/resume/question-generator', authenticateToken, async (req, res) => {
   try {
+    const levelHint = asString(req.body.experienceLevel || req.body.skillLevel, 'fresher').toLowerCase();
+    const normalizedExperienceLevel = ['beginner', 'intermediate', 'advanced'].includes(levelHint)
+      ? levelHint
+      : levelHint || 'fresher';
+
     const {
       resumeText = '',
       resumeProfile = {},
       company = 'target company',
       role = 'Software Engineer',
-      experienceLevel = 'fresher',
     } = req.body || {};
 
     const fallback = buildFallbackResumeQuestions({ resumeText, resumeProfile, company, role });
 
     const generated = await groqJson(
       'You are an expert interviewer. Generate personalized follow-up questions from resume context. Return JSON only with keys: projectQuestions, hrQuestions, technicalQuestions. Each key must be an array of exactly 6 concise interview questions.',
-      `Company: ${company}\nRole: ${role}\nExperience level: ${experienceLevel}\nResume profile: ${JSON.stringify(resumeProfile || {})}\nResume text: ${resumeText}`,
+      `Company: ${company}\nRole: ${role}\nExperience level: ${normalizedExperienceLevel}\nResume profile: ${JSON.stringify(resumeProfile || {})}\nResume text: ${resumeText}`,
       fallback,
     );
 
     res.json({
       company,
       role,
-      experienceLevel,
+      experienceLevel: normalizedExperienceLevel,
       projectQuestions: toArray(generated.projectQuestions).slice(0, 6),
       hrQuestions: toArray(generated.hrQuestions).slice(0, 6),
       technicalQuestions: toArray(generated.technicalQuestions).slice(0, 6),
@@ -523,29 +534,42 @@ router.get('/weakness/heatmap', authenticateToken, async (req, res) => {
 // 4) Company-specific round simulation flow
 router.post('/company/round-simulation-flow', authenticateToken, async (req, res) => {
   try {
+    const skillLevel = normalizeSkillLevel(req.body.skillLevel);
+    const requestedDifficulty = asString(req.body.difficulty, '');
+    const inferredDifficulty = requestedDifficulty || (skillLevel === 'beginner'
+      ? 'Easy'
+      : skillLevel === 'advanced'
+        ? 'Hard'
+        : 'Medium');
+
     const {
       company = 'Google',
       role = 'Software Engineer',
-      difficulty = 'Medium',
       includeDebugMode = true,
       customFocus = [],
     } = req.body || {};
 
-    const fallback = buildRoundFlow({ company, role, difficulty, includeDebugMode });
+    const fallback = buildRoundFlow({ company, role, difficulty: inferredDifficulty, includeDebugMode });
 
     const generated = await groqJson(
       'You design realistic interview loops. Return JSON with keys: roundCount, rounds(array), prepChecklist(array). Each round must include: round, name, durationMinutes, objective, signals(array), questionMix(array).',
-      JSON.stringify({ company, role, difficulty, includeDebugMode, customFocus }),
+      JSON.stringify({ company, role, difficulty: inferredDifficulty, includeDebugMode, customFocus, skillLevel }),
       fallback,
     );
 
-    res.json({
+    const resolvedRoadmap = {
       company,
       role,
-      difficulty,
+      difficulty: inferredDifficulty,
+      skillLevel,
       roundCount: Number(generated.roundCount) || fallback.roundCount,
       rounds: toArray(generated.rounds).length > 0 ? generated.rounds : fallback.rounds,
       prepChecklist: toArray(generated.prepChecklist).length > 0 ? generated.prepChecklist : fallback.prepChecklist,
+    };
+
+    res.json({
+      ...resolvedRoadmap,
+      roadmap: resolvedRoadmap,
       source: groq ? 'ai' : 'fallback',
     });
   } catch (error) {
@@ -558,7 +582,7 @@ router.post('/company/round-simulation-flow', authenticateToken, async (req, res
 router.post('/communication/rubric-score', authenticateToken, async (req, res) => {
   try {
     const answers = toArray(req.body.answers);
-    const transcriptText = asString(req.body.transcript);
+    const transcriptText = asString(req.body.transcript || req.body.answer);
     const raw = answers.length > 0
       ? answers.join('\n')
       : transcriptText;

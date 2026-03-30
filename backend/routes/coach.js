@@ -1,6 +1,7 @@
 import express from 'express';
 import Groq from 'groq-sdk';
 import { authenticateToken } from '../middleware/auth.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -53,11 +54,16 @@ router.post('/chat', authenticateToken, async (req, res) => {
     ];
 
     if (groq) {
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: 0.6,
-        max_tokens: 1024
+      const completion = await aiCallWithRetry({
+        operation: () => groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages,
+          temperature: 0.6,
+          max_tokens: 1024
+        }),
+        timeoutMs: 12000,
+        maxRetries: 2,
+        baseDelayMs: 250,
       });
       
       const responseContent = completion.choices[0].message.content;
@@ -74,8 +80,12 @@ router.post('/chat', authenticateToken, async (req, res) => {
        res.json(mock);
     }
   } catch (error) {
-    console.error('Error in coach chat:', error);
-    res.status(500).json({ error: "Failed to get response" });
+    console.error('Error in coach chat:', error.message || error);
+    const mock = getMockResponse(req.body?.message || '', req.body?.mode);
+    res.json({
+      ...mock,
+      degraded: true,
+    });
   }
 });
 

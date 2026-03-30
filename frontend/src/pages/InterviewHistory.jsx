@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     Clock, Star, ChevronRight, ArrowLeft, Briefcase,
     Code2, Brain, Users, Zap, Filter, Loader2,
-    MessageSquare, BarChart3
+    MessageSquare, BarChart3, Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -15,6 +15,65 @@ export default function InterviewHistory() {
     const [loading, setLoading] = useState(true);
     const [selectedSession, setSelectedSession] = useState(null);
     const [filterCompany, setFilterCompany] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const normalizeText = (value) => (value || '').toString().toLowerCase();
+
+    const extractSessionSummary = (session) => {
+        if (!session) return 'No summary available yet.';
+
+        const explicitSummary =
+            session.summary ||
+            session.summary_text ||
+            session.session_summary ||
+            session.ai_summary ||
+            session.overall_feedback;
+
+        if (explicitSummary && typeof explicitSummary === 'string') {
+            return explicitSummary;
+        }
+
+        const feedbackMessage = Array.isArray(session.conversation)
+            ? session.conversation.find((item) => item?.role === 'feedback' && item?.content)
+            : null;
+        if (feedbackMessage?.content) {
+            return feedbackMessage.content;
+        }
+
+        const candidateTurns = Array.isArray(session.conversation)
+            ? session.conversation.filter((item) => item?.role === 'candidate' && item?.content)
+            : [];
+
+        if (candidateTurns.length === 0) {
+            return 'Session completed. Review the transcript for details.';
+        }
+
+        return candidateTurns
+            .slice(0, 2)
+            .map((item) => item.content)
+            .join(' ')
+            .slice(0, 220);
+    };
+
+    const filteredSessions = sessions.filter((session) => {
+        if (filterCompany && normalizeText(session.company) !== normalizeText(filterCompany)) {
+            return false;
+        }
+
+        if (!searchQuery.trim()) return true;
+
+        const haystack = [
+            session.company,
+            session.role,
+            session.stage,
+            session.difficulty,
+            extractSessionSummary(session),
+        ]
+            .map(normalizeText)
+            .join(' ');
+
+        return haystack.includes(normalizeText(searchQuery.trim()));
+    });
 
     const getAuthHeaders = () => {
         const headers = { 'Content-Type': 'application/json' };
@@ -111,6 +170,21 @@ export default function InterviewHistory() {
                         </div>
                     </div>
 
+                    <div style={{
+                        background: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: 16,
+                        padding: 20,
+                        marginBottom: 20
+                    }}>
+                        <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <BarChart3 size={14} style={{ color: '#22c55e' }} /> Session Summary
+                        </h3>
+                        <p style={{ margin: 0, color: '#cbd5e1', fontSize: 13, lineHeight: 1.65 }}>
+                            {extractSessionSummary(selectedSession)}
+                        </p>
+                    </div>
+
                     {/* Conversation Replay */}
                     <div style={{
                         background: 'rgba(255,255,255,0.03)',
@@ -183,12 +257,64 @@ export default function InterviewHistory() {
                     </div>
                 </div>
 
+                <div style={{
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 12,
+                    padding: 12,
+                    marginBottom: 16,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    gap: 10,
+                    alignItems: 'center'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        background: 'rgba(15,23,42,0.72)',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 10,
+                        padding: '8px 10px'
+                    }}>
+                        <Search size={14} color="#94a3b8" />
+                        <input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by company, role, stage, summary..."
+                            style={{
+                                width: '100%',
+                                background: 'transparent',
+                                border: 'none',
+                                outline: 'none',
+                                color: '#e2e8f0',
+                                fontSize: 12,
+                            }}
+                        />
+                    </div>
+                    <input
+                        value={filterCompany}
+                        onChange={(e) => setFilterCompany(e.target.value)}
+                        placeholder="Company"
+                        style={{
+                            width: 130,
+                            background: 'rgba(15,23,42,0.72)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            borderRadius: 10,
+                            padding: '9px 10px',
+                            color: '#e2e8f0',
+                            fontSize: 12,
+                            outline: 'none',
+                        }}
+                    />
+                </div>
+
                 {/* Sessions List */}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}>
                         <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
                     </div>
-                ) : sessions.length === 0 ? (
+                ) : filteredSessions.length === 0 ? (
                     <div style={{
                         textAlign: 'center', padding: 60,
                         background: 'rgba(255,255,255,0.02)',
@@ -196,9 +322,13 @@ export default function InterviewHistory() {
                         borderRadius: 16
                     }}>
                         <Clock size={40} style={{ color: '#475569', marginBottom: 12 }} />
-                        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>No interview sessions yet</h3>
+                        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+                            {sessions.length === 0 ? 'No interview sessions yet' : 'No sessions match this search'}
+                        </h3>
                         <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>
-                            Complete an interview to see your history here
+                            {sessions.length === 0
+                                ? 'Complete an interview to see your history here'
+                                : 'Try a different keyword, stage, or company filter'}
                         </p>
                         <Link to="/company-interview" style={{
                             padding: '10px 20px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
@@ -209,7 +339,7 @@ export default function InterviewHistory() {
                     </div>
                 ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {sessions.map((session) => (
+                        {filteredSessions.map((session) => (
                             <div
                                 key={session.id}
                                 onClick={() => fetchSessionDetail(session.id)}
@@ -238,6 +368,9 @@ export default function InterviewHistory() {
                                     </div>
                                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
                                         {session.stage} · {session.difficulty} · {new Date(session.completed_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, lineHeight: 1.5 }}>
+                                        {extractSessionSummary(session)}
                                     </div>
                                 </div>
                                 <div style={{

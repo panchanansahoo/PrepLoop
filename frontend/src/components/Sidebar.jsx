@@ -8,7 +8,7 @@ import {
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
     Building2, Mic, Terminal, Network, ShieldCheck, Briefcase,
-    MessageCircle, Heart
+    MessageCircle, Heart, Bug, GitPullRequest, Eye
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -56,10 +56,14 @@ const navSections = [
         items: [
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
+            { path: '/interview-suite', label: 'Interview Suite', subtitle: 'Unified AI prep workspace', icon: Sparkles },
             { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
             { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
 
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
+            { path: '/live-coding', label: 'Live Coding Copilot', subtitle: 'Real-time code scoring', icon: Eye },
+            { path: '/debugging-interview', label: 'Debugging Mode', subtitle: 'Find, fix & explain bugs', icon: Bug },
+            { path: '/code-review-interview', label: 'Code Review', subtitle: 'PR review simulation', icon: GitPullRequest },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
             { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },
         ]

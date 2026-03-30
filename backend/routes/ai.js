@@ -2,12 +2,20 @@ import express from 'express';
 import Groq from 'groq-sdk';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 
 const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
 }) : null;
+
+const createGroqCompletion = async (payload) => aiCallWithRetry({
+  operation: () => groq.chat.completions.create(payload),
+  timeoutMs: 12000,
+  maxRetries: 2,
+  baseDelayMs: 250,
+});
 
 const slugifyProblemTitle = (value = '') =>
   value
@@ -95,7 +103,7 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
@@ -150,7 +158,7 @@ router.post('/mock-interview', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
@@ -199,7 +207,7 @@ router.post('/hint', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
@@ -232,7 +240,7 @@ router.post('/explain', authenticateToken, async (req, res) => {
       });
     }
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages: [
         {
@@ -311,7 +319,7 @@ router.post('/playground-assist', authenticateToken, async (req, res) => {
       return res.json({ response: fallbacks[mode] || fallbacks.ask });
     }
 
-    const completion = await groq.chat.completions.create({
+    const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages,
       max_tokens: 1500,

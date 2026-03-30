@@ -2,6 +2,7 @@ import express from 'express';
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -110,24 +111,29 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
   if (!groq) return null;
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
           The candidate may have limited professional experience — frame questions around college projects, internships, coursework, or learning.
           Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.
           Avoid repeating these previously asked questions: ${JSON.stringify(previousQuestions)}.
           
           Format as JSON with "question" and "context" fields. Respond ONLY with valid JSON.`
-        },
-        {
-          role: 'user',
-          content: `Generate a ${difficulty} ${type} interview question.`
-        }
-      ],
-      response_format: { type: 'json_object' }
+          },
+          {
+            role: 'user',
+            content: `Generate a ${difficulty} ${type} interview question.`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     return JSON.parse(completion.choices[0].message.content);
@@ -202,23 +208,28 @@ router.post('/complete', authenticateToken, async (req, res) => {
           `Q${i + 1}: ${r.question?.question || r.question || 'Unknown'}\nA: ${r.answer || r.response || '(no response)'}`
         ).join('\n\n');
 
-        const completion = await groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert interview evaluator. Score the candidate's interview responses on a scale of 0-100.
+        const completion = await aiCallWithRetry({
+          operation: () => groq.chat.completions.create({
+            model: 'llama-3.1-8b-instant',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert interview evaluator. Score the candidate's interview responses on a scale of 0-100.
               Interview type: ${type}, Difficulty: ${difficulty}.
               Provide scores as JSON with fields: overall, communication, technical, problemSolving.
               Be fair but rigorous. Consider: depth of answer, clarity, technical accuracy, structure (STAR method for behavioral).
               Short or empty answers should get lower scores. Respond ONLY with valid JSON.`
-            },
-            {
-              role: 'user',
-              content: `Evaluate these interview responses:\n\n${responseSummary}`
-            }
-          ],
-          response_format: { type: 'json_object' }
+              },
+              {
+                role: 'user',
+                content: `Evaluate these interview responses:\n\n${responseSummary}`
+              }
+            ],
+            response_format: { type: 'json_object' }
+          }),
+          timeoutMs: 12000,
+          maxRetries: 2,
+          baseDelayMs: 250,
         });
 
         const aiScores = JSON.parse(completion.choices[0].message.content);
@@ -363,23 +374,28 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
     }
 
     // Generate real-time feedback using Groq
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      messages: [
-        {
-          role: 'system',
-          content: `You are an expert interview coach. Provide real-time feedback on the candidate's answer.
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert interview coach. Provide real-time feedback on the candidate's answer.
           Consider: clarity, completeness, relevance, depth, technical accuracy (if technical), and STAR structure (if behavioral).
           Provide: 1) Overall assessment (1 sentence), 2) Strengths (2-3 bullet points), 3) Areas to improve (2-3 bullet points), 4) Specific tips for better response.
           Be constructive and encouraging. Keep total response under 200 words.
           Respond as JSON with fields: assessment, strengths, improvements, tips. Quote strengths and improvements as short phrases.`
-        },
-        {
-          role: 'user',
-          content: `Question: "${question.question}"\nContext: ${question.context}\nCandidate's Answer: "${responseText}"`
-        }
-      ],
-      response_format: { type: 'json_object' }
+          },
+          {
+            role: 'user',
+            content: `Question: "${question.question}"\nContext: ${question.context}\nCandidate's Answer: "${responseText}"`
+          }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+      timeoutMs: 12000,
+      maxRetries: 2,
+      baseDelayMs: 250,
     });
 
     const feedback = JSON.parse(completion.choices[0].message.content);

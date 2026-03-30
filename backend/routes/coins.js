@@ -27,6 +27,44 @@ const sanitizeDescription = (value, fallback) => {
   return text.slice(0, 160);
 };
 
+const isMissingAtomicCoinFunction = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'PGRST202' || message.includes('coin_apply_transaction');
+};
+
+const tryAtomicCoinTransaction = async (userId, amount, type, description) => {
+  const { data, error } = await supabaseAdmin.rpc('coin_apply_transaction', {
+    user_id_input: userId,
+    amount_input: amount,
+    txn_type_input: type,
+    description_input: description,
+  });
+
+  if (error) {
+    if (isMissingAtomicCoinFunction(error)) {
+      return { handled: false };
+    }
+    throw error;
+  }
+
+  const result = Array.isArray(data) ? data[0] : data;
+  if (!result?.success) {
+    return {
+      handled: true,
+      success: false,
+      error: result?.error || 'Failed to apply coin transaction',
+      balance: Number(result?.new_balance || 0),
+    };
+  }
+
+  return {
+    handled: true,
+    success: true,
+    balance: Number(result.new_balance || 0),
+  };
+};
+
 // Get coin balance
 router.get('/balance', authenticateToken, async (req, res) => {
   try {
@@ -58,6 +96,14 @@ router.post('/earn', authenticateToken, async (req, res) => {
       return res.status(400).json({
         error: `Amount must be an integer between ${COIN_LIMITS.minEarn} and ${COIN_LIMITS.maxEarn}`,
       });
+    }
+
+    const atomicResult = await tryAtomicCoinTransaction(req.user.id, amount, 'earn', description);
+    if (atomicResult.handled) {
+      if (!atomicResult.success) {
+        return res.status(400).json({ error: atomicResult.error, coins: atomicResult.balance });
+      }
+      return res.json({ coins: atomicResult.balance, earned: amount });
     }
 
     // Get current balance
@@ -110,6 +156,18 @@ router.post('/spend', authenticateToken, async (req, res) => {
       return res.status(400).json({
         error: `Amount must be an integer between ${COIN_LIMITS.minSpend} and ${COIN_LIMITS.maxSpend}`,
       });
+    }
+
+    const atomicResult = await tryAtomicCoinTransaction(req.user.id, amount, 'spend', description);
+    if (atomicResult.handled) {
+      if (!atomicResult.success) {
+        return res.status(400).json({
+          error: atomicResult.error,
+          coins: atomicResult.balance,
+          required: amount,
+        });
+      }
+      return res.json({ coins: atomicResult.balance, spent: amount });
     }
 
     // Get current balance

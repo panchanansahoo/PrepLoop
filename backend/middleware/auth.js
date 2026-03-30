@@ -1,5 +1,62 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
 
+const ROLE_CACHE_TTL_MS = Number.parseInt(process.env.AUTH_ROLE_CACHE_TTL_MS || '300000', 10);
+const ROLE_CACHE_MAX_ENTRIES = Number.parseInt(process.env.AUTH_ROLE_CACHE_MAX_ENTRIES || '10000', 10);
+const roleCache = new Map();
+
+const getRoleFromCache = (userId) => {
+  const cached = roleCache.get(userId);
+  if (!cached) {
+    return null;
+  }
+
+  if (cached.expiresAt <= Date.now()) {
+    roleCache.delete(userId);
+    return null;
+  }
+
+  return cached.role;
+};
+
+const setRoleCache = (userId, role) => {
+  if (roleCache.size >= ROLE_CACHE_MAX_ENTRIES) {
+    const oldestKey = roleCache.keys().next().value;
+    if (oldestKey) {
+      roleCache.delete(oldestKey);
+    }
+  }
+
+  roleCache.set(userId, {
+    role,
+    expiresAt: Date.now() + ROLE_CACHE_TTL_MS,
+  });
+};
+
+const resolveUserRole = async (userId) => {
+  const cachedRole = getRoleFromCache(userId);
+  if (cachedRole) {
+    return cachedRole;
+  }
+
+  let role = 'user';
+  try {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+
+    if (profile?.role) {
+      role = profile.role;
+    }
+  } catch (e) {
+    // Default to user if profile fetch fails
+  }
+
+  setRoleCache(userId, role);
+  return role;
+};
+
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -15,20 +72,7 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
 
-    // Fetch role from profiles
-    let role = 'user';
-    try {
-      const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      if (profile?.role) {
-        role = profile.role;
-      }
-    } catch (e) {
-      // Default to 'user' if profile fetch fails
-    }
+    const role = await resolveUserRole(user.id);
 
     req.user = { id: user.id, email: user.email, role };
     next();
@@ -53,20 +97,7 @@ export const optionalAuth = async (req, res, next) => {
     try {
       const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
       if (!error && user) {
-        // Fetch role from profiles
-        let role = 'user';
-        try {
-          const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-          if (profile?.role) {
-            role = profile.role;
-          }
-        } catch (e) {
-          // Default to 'user'
-        }
+        const role = await resolveUserRole(user.id);
         req.user = { id: user.id, email: user.email, role };
       }
     } catch (error) {
