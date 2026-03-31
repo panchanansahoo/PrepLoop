@@ -1,0 +1,195 @@
+/**
+ * Frontend Routing Setup Guide - Email Verification Integration
+ * 
+ * This file demonstrates how to integrate the email verification pages
+ * into your React Router setup.
+ * 
+ * File Location: frontend/src/App.jsx or frontend/src/routes/index.jsx
+ */
+
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+
+// Import pages
+import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import DashboardPage from './pages/DashboardPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import NotFoundPage from './pages/NotFoundPage';
+
+// Protected route component
+const ProtectedRoute = ({ element }) => {
+  const isAuthenticated = !!localStorage.getItem('authToken');
+  return isAuthenticated ? element : <Navigate to="/login" replace />;
+};
+
+/**
+ * OPTION 1: Basic Setup (Simple)
+ * Use this if you have a simple app without middleware.
+ */
+export function AppBasicSetup() {
+  return (
+    <Router>
+      <Routes>
+        {/* Public Auth Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        
+        {/* Email Verification Route - IMPORTANT */}
+        {/* This route must be public since unverified users need to access it */}
+        {/* URL format: /verify-email?token=<token>&email=<email> */}
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
+
+        {/* Default Redirect */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        
+        {/* 404 Page */}
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+/**
+ * OPTION 2: Advanced Setup (With Layout Wrapper)
+ * Use this if you have different layouts for authenticated vs public pages.
+ */
+import PublicLayout from './layouts/PublicLayout';
+import DashboardLayout from './layouts/DashboardLayout';
+
+export function AppAdvancedSetup() {
+  return (
+    <Router>
+      <Routes>
+        {/* Public Pages Layout */}
+        <Route element={<PublicLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignupPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        </Route>
+
+        {/* Protected Pages Layout */}
+        <Route element={<DashboardLayout />}>
+          <Route path="/dashboard" element={<ProtectedRoute element={<DashboardPage />} />} />
+          {/* Add other protected routes here */}
+        </Route>
+
+        {/* Redirects and 404 */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+/**
+ * OPTION 3: Auth Context Setup (Recommended)
+ * Use this if you have an AuthContext for global auth state.
+ */
+import { useAuth } from './context/AuthContext';
+
+const ProtectedRouteWithContext = ({ element }) => {
+  const { user, loading } = useAuth();
+  
+  if (loading) return <div>Loading...</div>; // Loading state
+  return user ? element : <Navigate to="/login" replace />;
+};
+
+export function AppWithAuthContext() {
+  return (
+    <Router>
+      <Routes>
+        {/* Public Auth Routes */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+        {/* Protected Routes */}
+        <Route path="/dashboard" element={<ProtectedRouteWithContext element={<DashboardPage />} />} />
+
+        {/* Redirects and 404 */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+/**
+ * CRITICAL POINTS FOR EMAIL VERIFICATION ROUTING:
+ * 
+ * 1. VERIFY-EMAIL ROUTE MUST BE PUBLIC
+ *    - Users click verification link in email before they're logged in
+ *    - The route should NOT be protected with ProtectedRoute
+ *    - URL is: /verify-email?token=xxxxx&email=user@example.com
+ * 
+ * 2. QUERY PARAMETER HANDLING
+ *    - The token is passed as URL query parameter (?token=...)
+ *    - The email is passed as URL query parameter (?email=...)
+ *    - VerifyEmailPage.jsx uses useSearchParams() to extract these
+ * 
+ * 3. REDIRECT AFTER VERIFICATION
+ *    - After successful verification, user is redirected to /login
+ *    - User then logs in with credentials
+ *    - This ensures 2-step process: verify email → then authenticate
+ * 
+ * 4. EMAIL IN EMAIL VERIFICATION LINK
+ *    - The frontend URL generated by backend includes the email: 
+ *      {FRONTEND_URL}/verify-email?token=xxx&email=user@example.com
+ *    - This is generated in backend emailVerification.js getVerificationEmailHTML()
+ * 
+ * 5. ERROR HANDLING
+ *    - Invalid/expired tokens: Shows error with resend option
+ *    - Already verified: Shows message and redirects to login
+ *    - Rate limited: Generic message to prevent enumeration
+ */
+
+/**
+ * STEP-BY-STEP INTEGRATION CHECKLIST:
+ * 
+ * 1. ✅ Add VerifyEmailPage import
+ * 2. ✅ Add /verify-email route as PUBLIC route
+ * 3. ✅ Ensure /login and /signup are PUBLIC routes
+ * 4. ✅ Test with manual URL: http://localhost:5173/verify-email?token=abc123&email=test@example.com
+ * 5. ✅ Verify that LoginPage handles 403 "email-not-verified" response
+ * 6. ✅ Verify that SignupPage shows success message after signup
+ * 7. ✅ Test full flow: signup → email received → verify email → login
+ * 
+ * DEBUGGING:
+ * - If verification link doesn't work:
+ *   - Check that token and email query params are in URL
+ *   - Verify backend is running and /verify-email endpoint is accessible
+ *   - Check browser console for error messages
+ * 
+ * - If email is not sent:
+ *   - Verify SMTP_USER and SMTP_PASS environment variables are set
+ *   - Check backend logs for email delivery errors
+ *   - Test with cURL: curl -X POST http://localhost:3000/api/auth/verify-email ...
+ * 
+ * - If redirect doesn't work after verification:
+ *   - Ensure navigate('/login') is called in VerifyEmailPage
+ *   - Check that LoginPage is properly imported
+ *   - Verify React Router is properly configured
+ */
+
+/**
+ * EXAMPLE ENVIRONMENT VARIABLES NEEDED:
+ * 
+ * In frontend/.env:
+ * VITE_API_URL=http://localhost:3000
+ * VITE_FRONTEND_URL=http://localhost:5173
+ * 
+ * In backend/.env:
+ * FRONTEND_URL=http://localhost:5173
+ * SMTP_USER=your-email@gmail.com
+ * SMTP_PASS=16-character-app-specific-password
+ */
+
+export default AppWithAuthContext;
