@@ -1,9 +1,23 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   SlashCommandBuilder,
   EmbedBuilder,
+  ChannelType,
+  PermissionFlagsBits,
 } from 'discord.js';
+import fs from 'node:fs';
+import path from 'node:path';
 import { preploopApi } from './preploopApi.js';
 import { getLinkedToken, removeLinkedToken, setLinkedToken } from './linkStore.js';
+
+const roleButtonMap = {
+  'role:dsa': 'DSA Learner',
+  'role:aptitude': 'Aptitude Learner',
+  'role:lld': 'LLD Learner',
+  'role:interview': 'Interview Prep',
+};
 
 function truncate(text, max = 3500) {
   const safe = String(text || '').trim();
@@ -31,6 +45,36 @@ function pickProblem(problems, difficulty) {
 
   if (!filtered.length) return null;
   return filtered[Math.floor(Math.random() * filtered.length)];
+}
+
+function loadSlaState(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return {};
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSlaState(filePath, state) {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  fs.writeFileSync(filePath, JSON.stringify(state, null, 2));
+}
+
+function getMentorRole(guild) {
+  return guild.roles.cache.find((r) => r.name.toLowerCase() === 'mentor');
+}
+
+function currentThread(interaction) {
+  if (!interaction.channel || interaction.channel.type !== ChannelType.PublicThread) {
+    return null;
+  }
+  return interaction.channel;
 }
 
 export const commandBuilders = [
@@ -114,7 +158,75 @@ export const commandBuilders = [
   new SlashCommandBuilder()
     .setName('my-bookings')
     .setDescription('Show your booked interviews'),
+
+  new SlashCommandBuilder()
+    .setName('post-onboarding')
+    .setDescription('Post role picker + onboarding checklist in the current channel')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
+  new SlashCommandBuilder()
+    .setName('health')
+    .setDescription('Show bot runtime feature status')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
+
+  new SlashCommandBuilder()
+    .setName('resolve-thread')
+    .setDescription('Mark current help thread as resolved')
+    .addStringOption((option) =>
+      option
+        .setName('note')
+        .setDescription('Optional resolution summary')
+        .setRequired(false),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageThreads),
+
+  new SlashCommandBuilder()
+    .setName('escalate-thread')
+    .setDescription('Escalate current help thread to Mentor role')
+    .addStringOption((option) =>
+      option
+        .setName('reason')
+        .setDescription('Escalation reason')
+        .setRequired(false),
+    )
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageThreads),
+
+  new SlashCommandBuilder()
+    .setName('mentor-remind')
+    .setDescription('Send manual mentor reminder in current help thread')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageThreads),
 ].map((builder) => builder.toJSON());
+
+function createRolePickerComponents() {
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('role:dsa').setLabel('DSA Learner').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('role:aptitude').setLabel('Aptitude Learner').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('role:lld').setLabel('LLD Learner').setStyle(ButtonStyle.Primary),
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('role:interview').setLabel('Interview Prep').setStyle(ButtonStyle.Success),
+  );
+
+  return [row1, row2];
+}
+
+function buildOnboardingEmbed() {
+  return new EmbedBuilder()
+    .setTitle('Welcome to Preploop Community')
+    .setColor(0x22c55e)
+    .setDescription(
+      [
+        'Pick your learning tracks using the buttons below. Click again anytime to remove a role.',
+        '',
+        'Starter checklist:',
+        '1) Introduce yourself in #verify-and-intros',
+        '2) Select your track role(s)',
+        '3) Start today\'s challenge in #daily-dsa / #daily-aptitude / #daily-lld',
+        '4) Ask doubts in #dsa-help / #aptitude-help / #lld-help',
+      ].join('\n'),
+    );
+}
 
 export async function handleCommand(config, interaction) {
   const { commandName } = interaction;
@@ -183,6 +295,95 @@ export async function handleCommand(config, interaction) {
       .setDescription(url ? `[Open problem](${url})` : 'No external link available for this problem.');
 
     await interaction.editReply({ embeds: [embed] });
+    return;
+  }
+
+  if (commandName === 'health') {
+    const embed = new EmbedBuilder()
+      .setTitle('Preploop Bot Health')
+      .setColor(0x10b981)
+      .addFields(
+        { name: 'API Base URL', value: config.apiBaseUrl || 'not-set', inline: false },
+        { name: 'Daily Poster', value: config.enableDailyPoster ? 'enabled' : 'disabled', inline: true },
+        { name: 'Help SLA Monitor', value: config.enableHelpSlaMonitor ? 'enabled' : 'disabled', inline: true },
+        { name: 'Onboarding DM', value: config.enableOnboardingDm ? 'enabled' : 'disabled', inline: true },
+        {
+          name: 'SLA Config',
+          value: `minutes=${config.helpSlaMinutes}, channels=${(config.helpSlaChannels || []).join(', ') || 'none'}`,
+          inline: false,
+        },
+      )
+      .setFooter({ text: 'Use discord:doctor in terminal for deep readiness checks.' });
+
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+    return;
+  }
+
+  if (commandName === 'resolve-thread') {
+    if (!interaction.inGuild()) {
+      await interaction.reply({ content: 'This command can only be used inside a server.', ephemeral: true });
+      return;
+    }
+
+    const thread = currentThread(interaction);
+    if (!thread) {
+      await interaction.reply({ content: 'Run this command inside a public help thread.', ephemeral: true });
+      return;
+    }
+
+    const note = interaction.options.getString('note', false);
+    const state = loadSlaState(config.helpSlaStatePath);
+    if (!state[thread.id]) state[thread.id] = {};
+    state[thread.id].resolved = true;
+    state[thread.id].resolvedAt = new Date().toISOString();
+    state[thread.id].resolvedBy = interaction.user.id;
+    if (note) {
+      state[thread.id].resolutionNote = truncate(note, 300);
+    }
+    saveSlaState(config.helpSlaStatePath, state);
+
+    if (!/^\[resolved\]/i.test(thread.name)) {
+      await thread.setName(`[resolved] ${thread.name}`.slice(0, 100)).catch(() => {});
+    }
+
+    await thread.send(`Marked resolved by ${interaction.user}. ${note ? `Note: ${note}` : ''}`.trim());
+    await interaction.reply({ content: 'Thread marked as resolved.', ephemeral: true });
+    return;
+  }
+
+  if (commandName === 'escalate-thread' || commandName === 'mentor-remind') {
+    if (!interaction.inGuild()) {
+      await interaction.reply({ content: 'This command can only be used inside a server.', ephemeral: true });
+      return;
+    }
+
+    const thread = currentThread(interaction);
+    if (!thread) {
+      await interaction.reply({ content: 'Run this command inside a public help thread.', ephemeral: true });
+      return;
+    }
+
+    const mentorRole = getMentorRole(interaction.guild);
+    if (!mentorRole) {
+      await interaction.reply({ content: 'Mentor role not found.', ephemeral: true });
+      return;
+    }
+
+    const reason = interaction.options?.getString('reason', false);
+    const base = commandName === 'escalate-thread'
+      ? `${mentorRole} Escalation requested by ${interaction.user}.`
+      : `${mentorRole} Reminder requested by ${interaction.user}.`;
+
+    const content = reason ? `${base} Reason: ${reason}` : base;
+    await thread.send(content);
+
+    const state = loadSlaState(config.helpSlaStatePath);
+    if (!state[thread.id]) state[thread.id] = {};
+    state[thread.id].lastEscalatedAt = new Date().toISOString();
+    state[thread.id].lastEscalatedBy = interaction.user.id;
+    saveSlaState(config.helpSlaStatePath, state);
+
+    await interaction.reply({ content: 'Mentor escalation sent.', ephemeral: true });
     return;
   }
 
@@ -285,5 +486,52 @@ export async function handleCommand(config, interaction) {
     return;
   }
 
+  if (commandName === 'post-onboarding') {
+    const embed = buildOnboardingEmbed();
+    const components = createRolePickerComponents();
+
+    await interaction.channel.send({
+      embeds: [embed],
+      components,
+    });
+
+    await interaction.reply({
+      content: 'Onboarding panel posted.',
+      ephemeral: true,
+    });
+    return;
+  }
+
   await interaction.reply({ content: 'Command not implemented.', ephemeral: true });
+}
+
+export async function handleRoleButton(interaction) {
+  if (!interaction.inGuild()) {
+    await interaction.reply({ content: 'Role actions can only be used in a server.', ephemeral: true });
+    return;
+  }
+
+  const roleName = roleButtonMap[interaction.customId];
+  if (!roleName) {
+    await interaction.reply({ content: 'Unknown role action.', ephemeral: true });
+    return;
+  }
+
+  const role = interaction.guild.roles.cache.find((r) => r.name.toLowerCase() === roleName.toLowerCase());
+  if (!role) {
+    await interaction.reply({ content: `Role \"${roleName}\" not found.`, ephemeral: true });
+    return;
+  }
+
+  const member = interaction.member;
+  const hasRole = member.roles.cache.has(role.id);
+
+  if (hasRole) {
+    await member.roles.remove(role.id, 'Self-unassign via onboarding role picker');
+    await interaction.reply({ content: `Removed role: ${roleName}`, ephemeral: true });
+    return;
+  }
+
+  await member.roles.add(role.id, 'Self-assign via onboarding role picker');
+  await interaction.reply({ content: `Added role: ${roleName}`, ephemeral: true });
 }

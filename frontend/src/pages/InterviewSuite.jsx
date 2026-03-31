@@ -1,96 +1,107 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Sparkles,
-  Target,
-  Brain,
-  FileText,
-  Users,
-  Mic,
-  Code2,
-  History,
-  Network,
-  Building2,
-  Loader2,
-  ArrowRight,
-  Search,
-  CheckCircle2,
-  AlertTriangle,
-  BarChart3,
+  Sparkles, Target, Brain, FileText, Mic, Code2,
+  History, Building2, Loader2, ArrowRight, Clock,
+  BarChart3, Bug, GitPullRequest, Eye, Play, Zap,
+  TrendingUp, Award, ChevronRight, Flame, Timer,
+  Radio, BookOpen
 } from 'lucide-react';
+import './InterviewHub.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const MODULES = [
+/* ─── Interview Mode Definitions ─── */
+const INTERVIEW_MODES = [
   {
-    title: 'Adaptive AI Mock Interview',
-    subtitle: 'Dynamic company-aware rounds and pressure control',
-    icon: Sparkles,
+    id: 'mock',
+    title: 'AI Mock Interview',
+    desc: 'Company-specific mock interviews with real-time AI feedback, voice mode, and adaptive difficulty.',
     path: '/company-interview',
+    icon: Mic,
     accent: '#8b5cf6',
+    badge: 'Most Popular',
+    badgeBg: 'rgba(139,92,246,0.2)',
+    badgeColor: '#c4b5fd',
+    time: '20–45 min',
+    difficulty: 'Adaptive',
   },
   {
-    title: 'Feedback and Scoring Rubric',
-    subtitle: 'Communication rubric with actionable coaching',
-    icon: Target,
-    path: '/interview-analytics',
-    accent: '#22c55e',
-  },
-  {
-    title: 'Weak Topic Analysis Dashboard',
-    subtitle: 'Heatmap-backed weak area prioritization',
-    icon: BarChart3,
-    path: '/interview-analytics',
+    id: 'loop',
+    title: 'Full Interview Loop',
+    desc: 'Multi-round simulation covering DSA, System Design, Behavioral, and HR — just like a real onsite.',
+    path: '/multi-round-interview',
+    icon: Play,
     accent: '#3b82f6',
+    badge: 'Comprehensive',
+    badgeBg: 'rgba(59,130,246,0.18)',
+    badgeColor: '#93c5fd',
+    time: '60–90 min',
+    difficulty: 'All Levels',
   },
   {
-    title: 'Resume Analyzer and ATS Checker',
-    subtitle: 'ATS score, keyword gaps, and resume fixes',
-    icon: FileText,
-    path: '/resume-analyzer',
-    accent: '#f59e0b',
+    id: 'coding',
+    title: 'Live Coding Copilot',
+    desc: 'Write code in real-time while being scored on Communication, Complexity, Tests & Debugging.',
+    path: '/live-coding',
+    icon: Eye,
+    accent: '#eab308',
+    badge: 'Real-Time',
+    badgeBg: 'rgba(234,179,8,0.15)',
+    badgeColor: '#fde68a',
+    time: '30–45 min',
+    difficulty: 'Easy → Hard',
   },
   {
-    title: 'Resume-Based Project Viva',
-    subtitle: 'Generate tailored viva and HR follow-up questions',
-    icon: Brain,
-    path: '/resume-analyzer',
-    accent: '#06b6d4',
-  },
-  {
-    title: 'Company-Wise Interview Roadmap',
-    subtitle: 'Round flow and prep checklist by role and company',
-    icon: Building2,
-    path: '/company-prep',
+    id: 'debug',
+    title: 'Debugging Challenge',
+    desc: 'Find bugs, fix code, and explain your reasoning — a critical skill tested in modern interviews.',
+    path: '/debugging-interview',
+    icon: Bug,
     accent: '#ef4444',
+    badge: 'Skill Builder',
+    badgeBg: 'rgba(239,68,68,0.15)',
+    badgeColor: '#fca5a5',
+    time: '15–25 min',
+    difficulty: 'Medium+',
   },
   {
-    title: 'Coding Editor with Test Feedback',
-    subtitle: 'Execution, complexity, and solution quality feedback',
-    icon: Code2,
-    path: '/playground',
+    id: 'review',
+    title: 'Code Review Sim',
+    desc: 'Review realistic pull requests — spot issues, suggest improvements, and defend your approach.',
+    path: '/code-review-interview',
+    icon: GitPullRequest,
+    accent: '#06b6d4',
+    badge: 'New',
+    badgeBg: 'rgba(6,182,212,0.15)',
+    badgeColor: '#67e8f9',
+    time: '20–30 min',
+    difficulty: 'Medium',
+  },
+];
+
+/* ─── Quick Tool Definitions ─── */
+const QUICK_TOOLS = [
+  {
+    title: 'Behavioral Coach',
+    desc: 'Polish STAR-method answers',
+    path: '/hr-path',
+    icon: Brain,
     accent: '#a855f7',
   },
   {
-    title: 'Behavioral Answer Coach',
-    subtitle: 'Rubric-based polish for behavioral responses',
-    icon: Mic,
-    path: '/hr-path',
-    accent: '#14b8a6',
+    title: 'Resume Analyzer',
+    desc: 'ATS score & resume viva prep',
+    path: '/resume-analyzer',
+    icon: FileText,
+    accent: '#0ea5e9',
   },
   {
-    title: 'Searchable Interview History',
-    subtitle: 'Replay, summary, and searchable prior sessions',
-    icon: History,
-    path: '/interview-history',
-    accent: '#eab308',
-  },
-  {
-    title: 'Community and Mentor Support',
-    subtitle: 'Peer mock matching and mentor slot booking',
-    icon: Users,
-    path: '/community',
-    accent: '#10b981',
+    title: 'Company Roadmap',
+    desc: 'Round-by-round prep checklist',
+    path: '/company-prep',
+    icon: Building2,
+    accent: '#22c55e',
   },
 ];
 
@@ -101,412 +112,352 @@ function getAuthHeaders() {
   return headers;
 }
 
+/* ─── Mode Icon Map for Sessions ─── */
+const MODE_ICONS = {
+  mock: Mic,
+  dsa: Code2,
+  'system-design': Building2,
+  behavioral: Brain,
+  hr: FileText,
+  coding: Eye,
+  debug: Bug,
+  review: GitPullRequest,
+};
+
+function getModeIcon(type) {
+  const normalized = (type || '').toLowerCase();
+  for (const [key, Icon] of Object.entries(MODE_ICONS)) {
+    if (normalized.includes(key)) return Icon;
+  }
+  return Sparkles;
+}
+
+function getModeColor(type) {
+  const normalized = (type || '').toLowerCase();
+  if (normalized.includes('mock') || normalized.includes('dsa')) return '#8b5cf6';
+  if (normalized.includes('system')) return '#3b82f6';
+  if (normalized.includes('behavioral') || normalized.includes('hr')) return '#a855f7';
+  if (normalized.includes('coding')) return '#eab308';
+  if (normalized.includes('debug')) return '#ef4444';
+  if (normalized.includes('review')) return '#06b6d4';
+  return '#8b5cf6';
+}
+
+function getScoreColor(score) {
+  if (score >= 80) return '#4ade80';
+  if (score >= 60) return '#fbbf24';
+  if (score >= 40) return '#fb923c';
+  return '#f87171';
+}
+
+function getBarColor(score) {
+  if (score >= 80) return '#4ade80';
+  if (score >= 60) return '#fbbf24';
+  return '#f87171';
+}
+
+/* ─── Main Component ─── */
 export default function InterviewSuite() {
-  const [loadingHeatmap, setLoadingHeatmap] = useState(true);
+  const [stats, setStats] = useState({ sessions: 0, avgScore: 0, streak: 0 });
   const [heatmap, setHeatmap] = useState([]);
-
-  const [roadmapLoading, setRoadmapLoading] = useState(false);
-  const [roadmapError, setRoadmapError] = useState('');
-  const [roadmap, setRoadmap] = useState(null);
-  const [roadmapForm, setRoadmapForm] = useState({
-    company: 'Google',
-    role: 'SDE',
-    skillLevel: 'intermediate',
-  });
-
-  const [rubricInput, setRubricInput] = useState('I usually start by clarifying assumptions, outline trade-offs, and then propose a practical solution.');
-  const [rubricLoading, setRubricLoading] = useState(false);
-  const [rubricResult, setRubricResult] = useState(null);
-  const [rubricError, setRubricError] = useState('');
-
-  const [resumeText, setResumeText] = useState('');
-  const [vivaLoading, setVivaLoading] = useState(false);
-  const [vivaError, setVivaError] = useState('');
-  const [vivaResult, setVivaResult] = useState(null);
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadHeatmap = async () => {
-      setLoadingHeatmap(true);
+    const load = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/api/interview-suite/weakness/heatmap`, {
+        // Load weakness heatmap
+        const heatRes = await fetch(`${API_URL}/api/interview-suite/weakness/heatmap`, {
           headers: getAuthHeaders(),
         });
-        const data = await res.json();
-        setHeatmap(Array.isArray(data?.heatmap) ? data.heatmap.slice(0, 5) : []);
-      } catch (error) {
+        const heatData = await heatRes.json();
+        setHeatmap(Array.isArray(heatData?.heatmap) ? heatData.heatmap.slice(0, 6) : []);
+      } catch {
         setHeatmap([]);
-      } finally {
-        setLoadingHeatmap(false);
       }
+
+      try {
+        // Load recent sessions
+        const sessRes = await fetch(`${API_URL}/api/interview/sessions?limit=5`, {
+          headers: getAuthHeaders(),
+        });
+        const sessData = await sessRes.json();
+        const sessions = Array.isArray(sessData?.sessions) ? sessData.sessions : (Array.isArray(sessData) ? sessData : []);
+        setRecentSessions(sessions.slice(0, 5));
+
+        // Compute stats
+        if (sessions.length > 0) {
+          const scores = sessions.filter(s => s.score != null).map(s => s.score);
+          const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+          setStats({
+            sessions: sessions.length,
+            avgScore,
+            streak: sessions.length >= 3 ? sessions.length : Math.min(sessions.length, 7),
+          });
+        }
+      } catch {
+        setRecentSessions([]);
+      }
+
+      setLoading(false);
     };
 
-    loadHeatmap();
+    load();
   }, []);
 
-  const topWeakness = useMemo(() => (heatmap.length > 0 ? heatmap[0] : null), [heatmap]);
-
-  const generateRoadmap = async () => {
-    setRoadmapLoading(true);
-    setRoadmapError('');
-    setRoadmap(null);
-    try {
-      const res = await fetch(`${API_URL}/api/interview-suite/company/round-simulation-flow`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          company: roadmapForm.company,
-          role: roadmapForm.role,
-          skillLevel: roadmapForm.skillLevel,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Unable to generate roadmap');
-      }
-      setRoadmap(data);
-    } catch (error) {
-      setRoadmapError(error.message || 'Unable to generate roadmap');
-    } finally {
-      setRoadmapLoading(false);
-    }
-  };
-
-  const scoreRubric = async () => {
-    if (!rubricInput.trim()) {
-      setRubricError('Enter an interview answer first.');
-      return;
-    }
-    setRubricError('');
-    setRubricLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/interview-suite/communication/rubric-score`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          answer: rubricInput,
-          question: 'Tell me about a time you handled ambiguity.',
-          context: {
-            company: roadmapForm.company,
-            role: roadmapForm.role,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Unable to score answer');
-      }
-      setRubricResult(data);
-    } catch (error) {
-      setRubricError(error.message || 'Unable to score answer');
-      setRubricResult(null);
-    } finally {
-      setRubricLoading(false);
-    }
-  };
-
-  const generateVivaQuestions = async () => {
-    if (!resumeText.trim()) {
-      setVivaError('Paste resume text or project bullets first.');
-      return;
-    }
-    setVivaError('');
-    setVivaLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/interview-suite/resume/question-generator`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          resumeText,
-          company: roadmapForm.company,
-          role: roadmapForm.role,
-          experienceLevel: roadmapForm.skillLevel,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data?.error || 'Unable to generate viva questions');
-      }
-      setVivaResult(data);
-    } catch (error) {
-      setVivaError(error.message || 'Unable to generate viva questions');
-      setVivaResult(null);
-    } finally {
-      setVivaLoading(false);
-    }
-  };
-
   return (
-    <div style={{ maxWidth: 1120, margin: '0 auto', padding: '20px 0' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, color: '#fff', fontSize: 28, fontWeight: 800 }}>Interview Suite</h1>
-        <p style={{ marginTop: 8, color: 'rgba(255,255,255,0.55)', fontSize: 14 }}>
-          End-to-end mock preparation workspace across adaptive interviews, rubric scoring, weak-topic analytics, resume viva, coding signals, and mentor support.
-        </p>
+    <div className="ihub-container">
+      {/* ═══ Hero Section ═══ */}
+      <div className="ihub-hero">
+        <div className="ihub-hero-content">
+          <div className="ihub-hero-top">
+            <div>
+              <h1 className="ihub-hero-title">
+                <span className="ihub-hero-title-icon">
+                  <Sparkles size={22} />
+                </span>
+                Interview Hub
+              </h1>
+              <p className="ihub-hero-subtitle">
+                Your unified command center for interview mastery — mock interviews, live coding, 
+                debugging challenges, code reviews, and performance analytics all in one place.
+              </p>
+            </div>
+            <Link to="/company-interview" className="ihub-hero-cta">
+              <Zap size={15} />
+              Quick Start Interview
+              <ArrowRight size={14} />
+            </Link>
+          </div>
+
+          <div className="ihub-stats">
+            <div className="ihub-stat-pill">
+              <Award size={15} color="#8b5cf6" />
+              <div>
+                <div className="ihub-stat-value">{stats.sessions}</div>
+                <div className="ihub-stat-label">Sessions</div>
+              </div>
+            </div>
+            <div className="ihub-stat-pill">
+              <TrendingUp size={15} color="#4ade80" />
+              <div>
+                <div className="ihub-stat-value">{stats.avgScore || '—'}</div>
+                <div className="ihub-stat-label">Avg Score</div>
+              </div>
+            </div>
+            <div className="ihub-stat-pill">
+              <Flame size={15} color="#f59e0b" />
+              <div>
+                <div className="ihub-stat-value">{stats.streak}</div>
+                <div className="ihub-stat-label">Day Streak</div>
+              </div>
+            </div>
+            <div className="ihub-stat-pill">
+              <Radio size={15} color="#06b6d4" />
+              <div>
+                <div className="ihub-stat-value">5</div>
+                <div className="ihub-stat-label">Modes</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-        gap: 12,
-        marginBottom: 20,
-      }}>
-        {MODULES.map((module) => {
-          const Icon = module.icon;
+      {/* ═══ Interview Modes ═══ */}
+      <div className="ihub-section-header">
+        <div className="ihub-section-icon" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
+          <Target size={17} />
+        </div>
+        <div>
+          <h2 className="ihub-section-title">Choose Your Interview Mode</h2>
+          <p className="ihub-section-subtitle">Select a practice mode that matches your preparation goal</p>
+        </div>
+      </div>
+
+      <div className="ihub-modes-grid">
+        {INTERVIEW_MODES.map((mode) => {
+          const Icon = mode.icon;
           return (
-            <Link
-              key={module.title}
-              to={module.path}
-              style={{
-                textDecoration: 'none',
-                borderRadius: 14,
-                border: `1px solid ${module.accent}33`,
-                background: 'rgba(255,255,255,0.03)',
-                padding: 14,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  background: `${module.accent}22`,
-                  color: module.accent,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Icon size={16} />
+            <Link key={mode.id} to={mode.path} className="ihub-mode-card">
+              <div className="ihub-mode-top">
+                <div 
+                  className="ihub-mode-icon" 
+                  style={{ background: `${mode.accent}18`, color: mode.accent }}
+                >
+                  <Icon size={22} />
                 </div>
-                <ArrowRight size={14} color={module.accent} />
+                <span 
+                  className="ihub-mode-badge" 
+                  style={{ background: mode.badgeBg, color: mode.badgeColor }}
+                >
+                  {mode.badge}
+                </span>
               </div>
-              <div style={{ color: '#fff', fontWeight: 700, fontSize: 13 }}>{module.title}</div>
-              <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, lineHeight: 1.4 }}>{module.subtitle}</div>
+              <h3 className="ihub-mode-title">{mode.title}</h3>
+              <p className="ihub-mode-desc">{mode.desc}</p>
+              <div className="ihub-mode-meta">
+                <span className="ihub-mode-meta-item">
+                  <Timer size={12} /> {mode.time}
+                </span>
+                <span className="ihub-mode-meta-item">
+                  <BarChart3 size={12} /> {mode.difficulty}
+                </span>
+                <span className="ihub-mode-start" style={{ color: mode.accent }}>
+                  Start <ArrowRight size={13} />
+                </span>
+              </div>
             </Link>
           );
         })}
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1.2fr 1fr',
-        gap: 16,
-      }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(59,130,246,0.28)',
-            background: 'rgba(255,255,255,0.03)',
-            padding: 16,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <BarChart3 size={16} color="#60a5fa" />
-              <h3 style={{ margin: 0, color: '#fff', fontSize: 14 }}>Weak Topic Snapshot</h3>
-            </div>
-            {loadingHeatmap ? (
-              <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Loader2 size={14} className="spinning" style={{ animation: 'spin 1s linear infinite' }} /> Loading weakness heatmap...
-              </div>
-            ) : heatmap.length === 0 ? (
-              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
-                No interview sessions yet. Complete one round to unlock weak-topic analysis.
-              </div>
-            ) : (
-              <div>
-                {topWeakness && (
-                  <div style={{
-                    padding: '10px 12px',
-                    borderRadius: 10,
-                    background: 'rgba(248,113,113,0.12)',
-                    border: '1px solid rgba(248,113,113,0.25)',
-                    marginBottom: 10,
-                    color: '#fecaca',
-                    fontSize: 12,
-                  }}>
-                    Highest priority: <strong>{topWeakness.area.replace(/_/g, ' ')}</strong> (weakness {topWeakness.weakness}%)
-                  </div>
-                )}
-                <div style={{ display: 'grid', gap: 8 }}>
-                  {heatmap.map((item) => (
-                    <div key={item.area} style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr auto',
-                      gap: 8,
-                      alignItems: 'center',
-                      color: 'rgba(255,255,255,0.75)',
-                      fontSize: 12,
-                    }}>
-                      <div>{item.area.replace(/_/g, ' ')}</div>
-                      <div style={{ color: item.intensity === 'high' ? '#f87171' : item.intensity === 'medium' ? '#fbbf24' : '#6ee7b7', fontWeight: 700 }}>
-                        {item.score}%
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(34,197,94,0.28)',
-            background: 'rgba(255,255,255,0.03)',
-            padding: 16,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-              <Building2 size={16} color="#22c55e" />
-              <h3 style={{ margin: 0, color: '#fff', fontSize: 14 }}>Company-Wise Roadmap Builder</h3>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 8, marginBottom: 10 }}>
-              <input
-                value={roadmapForm.company}
-                onChange={(e) => setRoadmapForm((prev) => ({ ...prev, company: e.target.value }))}
-                placeholder="Company"
-                style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 10px', color: '#fff', fontSize: 12 }}
-              />
-              <input
-                value={roadmapForm.role}
-                onChange={(e) => setRoadmapForm((prev) => ({ ...prev, role: e.target.value }))}
-                placeholder="Role"
-                style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 10px', color: '#fff', fontSize: 12 }}
-              />
-              <select
-                value={roadmapForm.skillLevel}
-                onChange={(e) => setRoadmapForm((prev) => ({ ...prev, skillLevel: e.target.value }))}
-                style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: 10, padding: '9px 10px', color: '#fff', fontSize: 12 }}
-              >
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-              <button
-                type="button"
-                onClick={generateRoadmap}
-                disabled={roadmapLoading}
-                style={{ border: 'none', borderRadius: 10, background: '#22c55e', color: '#052e16', padding: '0 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-              >
-                {roadmapLoading ? '...' : 'Build'}
-              </button>
-            </div>
-            {roadmapError && <div style={{ color: '#fca5a5', fontSize: 12 }}>{roadmapError}</div>}
-            {roadmap?.roadmap && (
-              <div style={{ display: 'grid', gap: 8 }}>
-                {roadmap.roadmap.rounds?.slice(0, 4).map((round, idx) => (
-                  <div key={`${round.name}-${idx}`} style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.18)', borderRadius: 10, padding: 10 }}>
-                    <div style={{ color: '#dcfce7', fontSize: 12, fontWeight: 700 }}>{round.round}. {round.name}</div>
-                    <div style={{ color: 'rgba(220,252,231,0.8)', fontSize: 11, marginTop: 4 }}>{round.objective}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* ═══ Quick Tools ═══ */}
+      <div className="ihub-section-header">
+        <div className="ihub-section-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
+          <BookOpen size={17} />
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(168,85,247,0.3)',
-            background: 'rgba(255,255,255,0.03)',
-            padding: 16,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <Mic size={16} color="#c084fc" />
-              <h3 style={{ margin: 0, color: '#fff', fontSize: 14 }}>Behavioral Answer Coach</h3>
-            </div>
-            <textarea
-              value={rubricInput}
-              onChange={(e) => setRubricInput(e.target.value)}
-              rows={4}
-              placeholder="Paste your answer..."
-              style={{ width: '100%', resize: 'vertical', borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: 12, padding: 10 }}
-            />
-            <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <button type="button" onClick={scoreRubric} disabled={rubricLoading} style={{ border: 'none', borderRadius: 10, background: '#a855f7', color: '#f5f3ff', padding: '8px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {rubricLoading ? 'Scoring...' : 'Score Answer'}
-              </button>
-              <Link to="/interview-history" style={{ color: '#c4b5fd', fontSize: 11, textDecoration: 'none', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                <Search size={12} /> Search interview history
-              </Link>
-            </div>
-            {rubricError && <div style={{ color: '#fca5a5', fontSize: 12, marginTop: 8 }}>{rubricError}</div>}
-            {rubricResult && (
-              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                <div style={{ color: '#ddd6fe', fontSize: 12, fontWeight: 700 }}>
-                  Overall: {rubricResult.evaluation?.overall ?? rubricResult.overall ?? 0}/100
-                </div>
-                {Array.isArray(rubricResult.evaluation?.improvements || rubricResult.improvements) && (
-                  <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 11 }}>
-                    {(rubricResult.evaluation?.improvements || rubricResult.improvements).slice(0, 2).map((tip, idx) => (
-                      <div key={idx}>• {tip}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(14,165,233,0.3)',
-            background: 'rgba(255,255,255,0.03)',
-            padding: 16,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <FileText size={16} color="#38bdf8" />
-              <h3 style={{ margin: 0, color: '#fff', fontSize: 14 }}>Resume Viva Question Generator</h3>
-            </div>
-            <textarea
-              value={resumeText}
-              onChange={(e) => setResumeText(e.target.value)}
-              rows={5}
-              placeholder="Paste resume summary, projects, skills..."
-              style={{ width: '100%', resize: 'vertical', borderRadius: 10, border: '1px solid rgba(255,255,255,0.14)', background: 'rgba(15,23,42,0.8)', color: '#fff', fontSize: 12, padding: 10 }}
-            />
-            <div style={{ marginTop: 8 }}>
-              <button type="button" onClick={generateVivaQuestions} disabled={vivaLoading} style={{ border: 'none', borderRadius: 10, background: '#0ea5e9', color: '#082f49', padding: '8px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                {vivaLoading ? 'Generating...' : 'Generate Questions'}
-              </button>
-            </div>
-            {vivaError && <div style={{ color: '#fca5a5', fontSize: 12, marginTop: 8 }}>{vivaError}</div>}
-            {vivaResult && (
-              <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#bae6fd', fontSize: 12, fontWeight: 700 }}>
-                  <CheckCircle2 size={13} /> Generated question sets
-                </div>
-                {[
-                  { label: 'Project', key: 'projectQuestions' },
-                  { label: 'HR', key: 'hrQuestions' },
-                  { label: 'Technical', key: 'technicalQuestions' },
-                ].map((group) => (
-                  <div key={group.key} style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11 }}>
-                    <strong>{group.label}:</strong>{' '}
-                    {(vivaResult.questions?.[group.key] || vivaResult[group.key] || []).slice(0, 1).join('') || 'No questions'}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{
-            borderRadius: 16,
-            border: '1px solid rgba(16,185,129,0.28)',
-            background: 'rgba(255,255,255,0.03)',
-            padding: 14,
-            color: 'rgba(255,255,255,0.75)',
-            fontSize: 12,
-            display: 'flex',
-            gap: 8,
-            alignItems: 'flex-start',
-          }}>
-            <AlertTriangle size={14} color="#34d399" style={{ marginTop: 2 }} />
-            Peer mock and mentor booking are available through backend Interview Suite APIs and can be reached from Community Hub and Real Interview flows.
-          </div>
+        <div>
+          <h2 className="ihub-section-title">Quick Prep Tools</h2>
+          <p className="ihub-section-subtitle">Supporting tools to round out your preparation</p>
         </div>
       </div>
 
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="ihub-tools-strip">
+        {QUICK_TOOLS.map((tool) => {
+          const Icon = tool.icon;
+          return (
+            <Link key={tool.title} to={tool.path} className="ihub-tool-card">
+              <div
+                className="ihub-tool-icon"
+                style={{ background: `${tool.accent}18`, color: tool.accent }}
+              >
+                <Icon size={18} />
+              </div>
+              <div>
+                <div className="ihub-tool-title">{tool.title}</div>
+                <div className="ihub-tool-desc">{tool.desc}</div>
+              </div>
+              <ChevronRight size={16} className="ihub-tool-arrow" />
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* ═══ Bottom Grid: Performance + Recent ═══ */}
+      <div className="ihub-bottom-grid">
+        {/* Weakness Panel */}
+        <div className="ihub-panel">
+          <div className="ihub-panel-header">
+            <div className="ihub-panel-header-left">
+              <BarChart3 size={15} color="#60a5fa" />
+              <h3 className="ihub-panel-title">Weak Topic Analysis</h3>
+            </div>
+            <Link to="/interview-analytics" className="ihub-panel-link">
+              Full Analytics <ChevronRight size={12} />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
+            </div>
+          ) : heatmap.length === 0 ? (
+            <div className="ihub-empty">
+              <div className="ihub-empty-icon">
+                <BarChart3 size={22} />
+              </div>
+              Complete your first interview session to unlock weakness analysis.
+            </div>
+          ) : (
+            <div>
+              {heatmap.map((item) => (
+                <div key={item.area} className="ihub-weakness-item">
+                  <span className="ihub-weakness-label">
+                    {item.area.replace(/_/g, ' ')}
+                  </span>
+                  <div className="ihub-weakness-bar-track">
+                    <div
+                      className="ihub-weakness-bar-fill"
+                      style={{
+                        width: `${item.score || 0}%`,
+                        background: getBarColor(item.score || 0),
+                      }}
+                    />
+                  </div>
+                  <span
+                    className="ihub-weakness-score"
+                    style={{ color: getBarColor(item.score || 0) }}
+                  >
+                    {item.score}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Sessions Panel */}
+        <div className="ihub-panel">
+          <div className="ihub-panel-header">
+            <div className="ihub-panel-header-left">
+              <Clock size={15} color="#c084fc" />
+              <h3 className="ihub-panel-title">Recent Sessions</h3>
+            </div>
+            <Link to="/interview-history" className="ihub-panel-link">
+              View All <ChevronRight size={12} />
+            </Link>
+          </div>
+
+          {loading ? (
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
+            </div>
+          ) : recentSessions.length === 0 ? (
+            <div className="ihub-empty">
+              <div className="ihub-empty-icon">
+                <History size={22} />
+              </div>
+              No sessions yet. Start an interview to see your progress here.
+            </div>
+          ) : (
+            <div>
+              {recentSessions.map((session, idx) => {
+                const SessIcon = getModeIcon(session.type || session.roundType);
+                const color = getModeColor(session.type || session.roundType);
+                const score = session.score ?? session.overallScore ?? null;
+                return (
+                  <div key={session._id || idx} className="ihub-session-row">
+                    <div className="ihub-session-icon" style={{ background: `${color}18`, color }}>
+                      <SessIcon size={16} />
+                    </div>
+                    <div className="ihub-session-info">
+                      <div className="ihub-session-name">
+                        {session.company || session.type || 'Interview Session'}
+                      </div>
+                      <div className="ihub-session-meta">
+                        {session.type || session.roundType || 'Mock'} · {
+                          session.createdAt
+                            ? new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                            : 'Recent'
+                        }
+                      </div>
+                    </div>
+                    {score != null && (
+                      <span className="ihub-session-score" style={{ color: getScoreColor(score) }}>
+                        {score}%
+                      </span>
+                    )}
+                    <Link to="/interview-history" className="ihub-session-replay">
+                      Replay
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -80,6 +80,9 @@ const InterviewSuite = lazy(() => import('./pages/InterviewSuite'));
 const LiveCodingCopilot = lazy(() => import('./pages/LiveCodingCopilot'));
 const DebuggingInterview = lazy(() => import('./pages/DebuggingInterview'));
 const CodeReviewInterview = lazy(() => import('./pages/CodeReviewInterview'));
+const ExamHub = lazy(() => import('./pages/ExamHub'));
+const ExamPractice = lazy(() => import('./pages/ExamPractice'));
+const LearningHub = lazy(() => import('./pages/LearningHub'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -258,6 +261,9 @@ function AppContent() {
             <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
             <Route path="/community" element={<CommunityHub />} />
             <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
+            <Route path="/exam-hub" element={<ExamHub />} />
+            <Route path="/exam-practice/:examId" element={<ExamPractice />} />
+            <Route path="/learning-hub" element={<LearningHub />} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />

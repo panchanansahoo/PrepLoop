@@ -8,8 +8,10 @@
         "start": "node index.js",
         "dev": "node --watch index.js",
         "setup": "node setup.js",
-        "lint": "node --check index.js && node --check diagnose.js && node --check test-startup.js",
-        "test": "node test-startup.js"
+        "lint": "node --check index.js && node --check scripts/testStartup.js && node --check scripts/smokeInterviewSuite.js && node --check scripts/runInterviewSuiteSmokeLocal.js",
+        "test": "node scripts/testStartup.js",
+        "smoke:interview-suite": "node scripts/smokeInterviewSuite.js",
+        "smoke:interview-suite:local": "node scripts/runInterviewSuiteSmokeLocal.js"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.95.3",

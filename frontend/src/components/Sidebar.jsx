@@ -30,6 +30,7 @@ const navSections = [
             { path: '/system-design-sim', label: 'Design Simulator', subtitle: 'Build architectures visually', icon: Network },
             { path: '/sql-problems', label: 'SQL Mastery', subtitle: 'Database & query challenges', icon: Database },
             { path: '/aptitude', label: 'Aptitude', subtitle: 'Quant, reasoning & verbal', icon: Calculator },
+            { path: '/exam-hub', label: 'Exam Practice', subtitle: 'TCS NQT, Cognizant & more', icon: GraduationCap },
             { path: '/daily-challenges', label: 'Daily Challenges', subtitle: 'Company-wise daily problems', icon: Trophy },
         ]
     },
@@ -43,29 +44,18 @@ const navSections = [
     {
         category: 'Learning',
         items: [
-            { path: '/dsa-path', label: 'DSA Learning Path', subtitle: 'DSA roadmap & patterns', icon: GraduationCap },
-            { path: '/technical-path', label: 'Technical Path', subtitle: 'CS & System Design', icon: Server },
-            { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
-            { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
+            { path: '/learning-hub', label: 'Learning Hub', subtitle: 'All learning paths', icon: GraduationCap },
             { path: '/ai-tutor', label: 'AI Tutor', subtitle: 'Guided DSA, SQL & aptitude', icon: Sparkles },
-            { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
+            { path: '/system-design', label: 'System Design', subtitle: 'Architecture & scaling', icon: Network },
         ]
     },
     {
         category: 'Interview',
         items: [
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
-            { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
-            { path: '/interview-suite', label: 'Interview Suite', subtitle: 'Unified AI prep workspace', icon: Sparkles },
+            { path: '/interview-suite', label: 'Interview Hub', subtitle: 'All modes, analytics & history', icon: Sparkles },
             { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
             { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
-
-            { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
-            { path: '/live-coding', label: 'Live Coding Copilot', subtitle: 'Real-time code scoring', icon: Eye },
-            { path: '/debugging-interview', label: 'Debugging Mode', subtitle: 'Find, fix & explain bugs', icon: Bug },
-            { path: '/code-review-interview', label: 'Code Review', subtitle: 'PR review simulation', icon: GitPullRequest },
-            { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
-            { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },
         ]
     },
     {

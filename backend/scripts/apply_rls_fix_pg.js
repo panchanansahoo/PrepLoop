@@ -17,7 +17,20 @@ if (!supabaseUrl || !supabasePassword) {
   process.exit(1);
 }
 
-const ref = supabaseUrl.split('//')[1].split('.')[0];
+let ref = '';
+try {
+  const parsedUrl = new URL(supabaseUrl);
+  ref = parsedUrl.hostname.split('.')[0];
+} catch {
+  console.error('Invalid SUPABASE_URL format in backend/.env');
+  process.exit(1);
+}
+
+if (!ref) {
+  console.error('Unable to extract Supabase project ref from SUPABASE_URL');
+  process.exit(1);
+}
+
 const host = `db.${ref}.supabase.co`;
 const encodedPassword = encodeURIComponent(supabasePassword);
 const connectionString = `postgres://postgres:${encodedPassword}@${host}:5432/postgres`;
@@ -25,11 +38,18 @@ const connectionString = `postgres://postgres:${encodedPassword}@${host}:5432/po
 const migrationPath = path.join(__dirname, '../db/migration_fix_rls_recursion.sql');
 const migrationSql = fs.readFileSync(migrationPath, 'utf8');
 
-const verifySql = `
+const verifyPoliciesSql = `
 SELECT schemaname, tablename, policyname
 FROM pg_policies
 WHERE tablename = 'profiles'
 ORDER BY policyname;
+`;
+
+const verifyRlsSql = `
+SELECT c.relrowsecurity AS rls_enabled
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname = 'profiles';
 `;
 
 const pool = new Pool({
@@ -49,13 +69,25 @@ async function run() {
     await client.query('COMMIT');
 
     console.log('Migration applied. Verifying profiles policies...');
-    const { rows } = await client.query(verifySql);
+    const { rows } = await client.query(verifyPoliciesSql);
+    const rlsResult = await client.query(verifyRlsSql);
+    const rlsEnabled = rlsResult.rows[0]?.rls_enabled;
 
-    if (!rows.length) {
-      console.log('SUCCESS: No policies remain on profiles table.');
-    } else {
+    if (rows.length) {
       console.log('WARNING: Policies still present on profiles:');
       console.log(JSON.stringify(rows, null, 2));
+    } else {
+      console.log('SUCCESS: No policies remain on profiles table.');
+    }
+
+    if (rlsEnabled === false) {
+      console.log('SUCCESS: RLS is disabled on profiles table.');
+    } else if (rlsEnabled === true) {
+      console.log('WARNING: RLS is still enabled on profiles table.');
+      process.exitCode = 1;
+    } else {
+      console.log('WARNING: Could not verify RLS state for profiles table.');
+      process.exitCode = 1;
     }
   } catch (error) {
     if (client) {

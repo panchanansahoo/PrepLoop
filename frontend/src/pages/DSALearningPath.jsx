@@ -2,24 +2,25 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Sparkles, Trophy, Zap, Target, Flame, ChevronRight, Clock,
-    GraduationCap, ChevronDown, Map, BarChart3
+    GraduationCap, ChevronDown, Map, BarChart3, ArrowRight
 } from 'lucide-react';
 import { DSA_STAGES, DSA_TOPICS, TIME_TRACKS, getDSATopicIds, getDSATopicsByStage } from '../data/dsaLearningPathData';
 import { getDSATopicProgress, getDSAOverallProgress, getDSASkillRadar } from '../data/dsaLearningProgress';
 import { useTheme } from '../context/ThemeContext';
+import './LearningPath.css';
 
 /* ─── Progress Ring ─── */
-function ProgressRing({ percent, size = 60, strokeWidth = 5, color, isLight = false }) {
+function ProgressRing({ percent, size = 52, strokeWidth = 4, color = '#818cf8' }) {
     const r = (size - strokeWidth) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percent / 100) * circ;
     return (
-        <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth={strokeWidth} />
+        <svg width={size} height={size} className="lp-progress-ring" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
             <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
                 strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
                 style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill={isLight ? '#1e293b' : '#fff'}
+            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill="#fff"
                 fontSize={size * 0.22} fontWeight="700" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}>
                 {percent}%
             </text>
@@ -81,7 +82,7 @@ function getMasteryBadge(p) {
 }
 
 /* ─── Topic Card ─── */
-function TopicCard({ topic, onClick, isLight = false }) {
+function TopicCard({ topic, onClick, glowClass }) {
     const progress = getDSATopicProgress(topic.id);
     const badge = getMasteryBadge(progress.masteryPercent);
     const steps = [
@@ -92,46 +93,35 @@ function TopicCard({ topic, onClick, isLight = false }) {
     ];
 
     return (
-        <div onClick={onClick} style={{
-            background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)', borderRadius: 16,
-            padding: 24, cursor: 'pointer', transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden'
-        }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = `${topic.color}40`; e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = `0 8px 32px ${topic.color}15`; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = 'none'; }}>
-            <div style={{ position: 'absolute', top: -40, right: -40, width: 120, height: 120, borderRadius: '50%', background: `${topic.color}08`, filter: 'blur(40px)', pointerEvents: 'none' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <div className={`lp-card ${glowClass || 'lp-card--indigo'}`} onClick={onClick}>
+            <div className="lp-card-top">
                 <div>
-                    <div style={{ fontSize: 28, marginBottom: 6 }}>{topic.icon}</div>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4, color: isLight ? '#1e293b' : '#fff' }}>{topic.title}</h3>
-                    <p style={{ fontSize: 12, color: isLight ? '#64748b' : '#71717a', margin: 0, lineHeight: 1.5, maxWidth: 220 }}>{topic.description}</p>
+                    <div style={{ fontSize: 26, marginBottom: 6 }}>{topic.icon}</div>
+                    <div className="lp-card-title">{topic.title}</div>
+                    <div className="lp-card-desc" style={{ maxWidth: 200 }}>{topic.description}</div>
                 </div>
-                <ProgressRing percent={progress.masteryPercent} color={topic.color} size={56} strokeWidth={4} isLight={isLight} />
+                <ProgressRing percent={progress.masteryPercent} color={topic.color} size={50} strokeWidth={4} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 14 }}>
+            <div className="lp-steps">
                 {steps.map((s, i) => (
-                    <div key={i} style={{
-                        textAlign: 'center', padding: '6px 4px', borderRadius: 8,
-                        background: s.done ? `${topic.color}12` : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${s.done ? `${topic.color}25` : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'}`
-                    }}>
-                        <div style={{ fontSize: 10, marginBottom: 2 }}>{s.done ? '✅' : '○'}</div>
-                        <div style={{ fontSize: 9, color: s.done ? topic.color : '#525252', fontWeight: 600 }}>{s.label}</div>
+                    <div key={i} className={`lp-step ${s.done ? 'lp-step--done' : ''}`}
+                        style={s.done ? { background: `${topic.color}12`, borderColor: `${topic.color}25` } : {}}>
+                        <div className="lp-step-icon">{s.done ? '✅' : '○'}</div>
+                        <div className="lp-step-label" style={s.done ? { color: topic.color } : {}}>{s.label}</div>
                     </div>
                 ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 11, color: badge.color, fontWeight: 600 }}>{badge.emoji} {badge.label}</span>
-                    <span style={{ fontSize: 10, color: isLight ? '#64748b' : '#3f3f46', padding: '2px 6px', borderRadius: 4, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.04)' }}>{topic.difficulty}</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Clock size={11} style={{ color: '#525252' }} />
-                    <span style={{ fontSize: 10, color: '#525252' }}>{topic.estimatedTime}</span>
-                    <ChevronRight size={14} style={{ color: '#525252' }} />
-                </div>
+            <div className="lp-card-meta">
+                <span className="lp-card-meta-item" style={{ color: badge.color, fontWeight: 600 }}>
+                    {badge.emoji} {badge.label}
+                </span>
+                <span className="lp-card-badge" style={{ background: `${topic.color}15`, color: topic.color }}>{topic.difficulty}</span>
+                <span className="lp-card-meta-item" style={{ marginLeft: 'auto' }}>
+                    <Clock size={11} /> {topic.estimatedTime}
+                    <ChevronRight size={13} />
+                </span>
             </div>
         </div>
     );
@@ -142,8 +132,6 @@ export default function DSALearningPath() {
     const navigate = useNavigate();
     const [expandedStages, setExpandedStages] = useState({ fundamentals: true, core: true, 'trees-graphs': true, optimization: true });
     const [selectedTrack, setSelectedTrack] = useState(60);
-    const { theme } = useTheme();
-    const isLight = theme === 'light';
 
     const topicIds = useMemo(() => getDSATopicIds(), []);
     const [overall, setOverall] = useState(() => getDSAOverallProgress(topicIds));
@@ -165,161 +153,159 @@ export default function DSALearningPath() {
     const track = TIME_TRACKS[selectedTrack];
 
     return (
-        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#030303', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
+        <div className="lp-container">
             {/* ─── Hero ─── */}
-            <section style={{ padding: '48px 24px 32px', maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-                <div style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 99,
-                    background: 'rgba(129,140,248,0.1)', border: '1px solid rgba(129,140,248,0.3)', fontSize: 13, color: '#a5b4fc', marginBottom: 20
-                }}>
-                    <Map size={14} /> DSA Mastery Path
-                </div>
-                <h1 style={{ fontSize: 'clamp(28px,4vw,48px)', fontWeight: 700, lineHeight: 1.1, marginBottom: 12, letterSpacing: '-0.02em' }}>
-                    DSA{' '}
-                    <span style={{ background: 'linear-gradient(135deg, #818cf8, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                        Learning Path
-                    </span>
-                </h1>
-                <p style={{ fontSize: 16, color: isLight ? '#64748b' : '#71717a', maxWidth: 600, margin: '0 auto 32px', lineHeight: 1.6 }}>
-                    Master 15 DSA topics with pattern-first learning. Concepts → Thinking Frameworks → Tricks → Practice.
-                </p>
+            <div className="lp-hero lp-hero--dsa">
+                <div className="lp-hero-content">
+                    <div className="lp-hero-badge">
+                        <Map size={14} /> DSA Mastery Path
+                    </div>
+                    <h1 className="lp-hero-title">
+                        <span className="lp-hero-title-icon" style={{ background: 'linear-gradient(135deg, #818cf8, #6366f1)' }}>
+                            <GraduationCap size={22} />
+                        </span>
+                        DSA Learning Path
+                    </h1>
+                    <p className="lp-hero-subtitle">
+                        Master 15 DSA topics with pattern-first learning. Concepts → Thinking Frameworks → Tricks → Practice.
+                    </p>
 
-                {/* Stats */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 12, maxWidth: 700, margin: '0 auto 40px' }}>
-                    {[
-                        { label: 'Avg Mastery', value: `${overall.avgMastery}%`, icon: <Target size={16} />, color: '#818cf8' },
-                        { label: 'Topics Mastered', value: overall.topicsMastered, icon: <Trophy size={16} />, color: '#facc15' },
-                        { label: 'Problems Solved', value: overall.totalSolved, icon: <Zap size={16} />, color: '#34d399' },
-                        { label: 'Topics Started', value: overall.topicsStarted, icon: <Flame size={16} />, color: '#f472b6' },
-                    ].map((s, i) => (
-                        <div key={i} style={{
-                            background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.03)', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
-                            borderRadius: 12, padding: '16px 12px', textAlign: 'center'
-                        }}>
-                            <div style={{ color: s.color, marginBottom: 6 }}>{s.icon}</div>
-                            <div style={{ fontSize: 24, fontWeight: 700 }}>{s.value}</div>
-                            <div style={{ fontSize: 11, color: isLight ? '#64748b' : '#71717a', marginTop: 2 }}>{s.label}</div>
-                        </div>
-                    ))}
+                    <div className="lp-stats">
+                        {[
+                            { label: 'Avg Mastery', value: `${overall.avgMastery}%`, icon: <Target size={14} />, color: '#818cf8' },
+                            { label: 'Mastered', value: overall.topicsMastered, icon: <Trophy size={14} />, color: '#facc15' },
+                            { label: 'Solved', value: overall.totalSolved, icon: <Zap size={14} />, color: '#34d399' },
+                            { label: 'Started', value: overall.topicsStarted, icon: <Flame size={14} />, color: '#f472b6' },
+                        ].map((s, i) => (
+                            <div key={i} className="lp-stat-pill">
+                                <div className="lp-stat-icon" style={{ background: `${s.color}18`, color: s.color }}>{s.icon}</div>
+                                <div>
+                                    <div className="lp-stat-value">{s.value}</div>
+                                    <div className="lp-stat-label">{s.label}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </section>
+            </div>
 
             {/* ─── Time Track Selector ─── */}
-            <section style={{ maxWidth: 1200, margin: '0 auto 36px', padding: '0 24px' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Clock size={20} style={{ color: '#818cf8' }} /> Choose Your Track
-                </h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                    {Object.entries(TIME_TRACKS).map(([days, t]) => (
-                        <div key={days} onClick={() => setSelectedTrack(Number(days))} style={{
-                            padding: '16px 20px', borderRadius: 14, cursor: 'pointer', transition: 'all 0.3s',
-                            background: selectedTrack === Number(days) ? 'rgba(129,140,248,0.12)' : isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)',
-                            border: `1px solid ${selectedTrack === Number(days) ? 'rgba(129,140,248,0.4)' : isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)'}`,
-                        }}>
-                            <div style={{ fontSize: 20, fontWeight: 700, color: selectedTrack === Number(days) ? '#a5b4fc' : isLight ? '#1e293b' : '#fff', marginBottom: 4 }}>
-                                {days} Days
-                            </div>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? '#64748b' : '#a1a1aa', marginBottom: 4 }}>{t.label}</div>
-                            <div style={{ fontSize: 11, color: '#52525b' }}>{t.desc}</div>
-                            <div style={{ fontSize: 10, color: '#71717a', marginTop: 6 }}>📝 {t.perDay}</div>
-                        </div>
-                    ))}
+            <div className="lp-section-header">
+                <div className="lp-section-icon" style={{ background: 'rgba(129,140,248,0.15)', color: '#a5b4fc' }}>
+                    <Clock size={16} />
                 </div>
-            </section>
+                <div>
+                    <h2 className="lp-section-title">Choose Your Track</h2>
+                    <p className="lp-section-subtitle">Select a pace that fits your schedule</p>
+                </div>
+            </div>
+
+            <div className="lp-tracks">
+                {Object.entries(TIME_TRACKS).map(([days, t]) => (
+                    <div key={days}
+                        className={`lp-track ${selectedTrack === Number(days) ? 'lp-track--active' : ''}`}
+                        onClick={() => setSelectedTrack(Number(days))}>
+                        <div className="lp-track-days">{days} Days</div>
+                        <div className="lp-track-label">{t.label}</div>
+                        <div className="lp-track-desc">{t.desc}</div>
+                        <div className="lp-track-per-day">📝 {t.perDay}</div>
+                    </div>
+                ))}
+            </div>
 
             {/* ─── Stage-based Roadmap ─── */}
-            <section style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <GraduationCap size={20} style={{ color: '#f472b6' }} /> Roadmap
-                </h2>
+            <div className="lp-section-header">
+                <div className="lp-section-icon" style={{ background: 'rgba(244,114,182,0.15)', color: '#f472b6' }}>
+                    <GraduationCap size={16} />
+                </div>
+                <div>
+                    <h2 className="lp-section-title">Roadmap</h2>
+                    <p className="lp-section-subtitle">Stage-based progression from basics to advanced</p>
+                </div>
+            </div>
 
-                {DSA_STAGES.map((stage, si) => {
-                    const topics = getDSATopicsByStage(stage.id);
-                    const expanded = expandedStages[stage.id];
-                    const stageTopicIds = topics.map(t => t.id);
-                    const stageProgress = getDSAOverallProgress(stageTopicIds);
-                    const isInTrack = track.topics === null || topics.some(t => track.topics.includes(t.id));
+            {DSA_STAGES.map((stage) => {
+                const topics = getDSATopicsByStage(stage.id);
+                const expanded = expandedStages[stage.id];
+                const stageTopicIds = topics.map(t => t.id);
+                const stageProgress = getDSAOverallProgress(stageTopicIds);
+                const isInTrack = track.topics === null || topics.some(t => track.topics.includes(t.id));
 
-                    return (
-                        <div key={stage.id} style={{ marginBottom: 20, opacity: isInTrack ? 1 : 0.45, transition: 'opacity 0.3s' }}>
-                            <div onClick={() => toggleStage(stage.id)} style={{
-                                display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px',
-                                borderRadius: expanded ? '14px 14px 0 0' : 14, cursor: 'pointer',
-                                background: `linear-gradient(135deg, ${stage.color}12, ${stage.color}06)`,
-                                border: `1px solid ${stage.color}25`, transition: 'all 0.3s'
-                            }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                    <span style={{ fontSize: 22 }}>{stage.icon}</span>
-                                    <div>
-                                        <div style={{ fontSize: 15, fontWeight: 700, color: isLight ? '#1e293b' : '#fff' }}>{stage.name}</div>
-                                        <div style={{ fontSize: 11, color: isLight ? '#64748b' : '#71717a' }}>{topics.length} topics · {stageProgress.avgMastery}% avg mastery</div>
-                                    </div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    {!isInTrack && <span style={{ fontSize: 10, color: isLight ? '#94a3b8' : '#525252', padding: '2px 8px', borderRadius: 6, background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)' }}>Not in {selectedTrack}-day track</span>}
-                                    <ChevronDown size={18} style={{ color: '#71717a', transition: 'transform 0.3s', transform: expanded ? 'rotate(180deg)' : 'rotate(0)' }} />
+                return (
+                    <div key={stage.id} className="lp-stage" style={{ opacity: isInTrack ? 1 : 0.4 }}>
+                        <button
+                            className={`lp-stage-header ${expanded ? 'lp-stage-header--open' : ''}`}
+                            onClick={() => toggleStage(stage.id)}
+                            style={{ background: `linear-gradient(135deg, ${stage.color}10, ${stage.color}05)`, borderColor: `${stage.color}20` }}>
+                            <div className="lp-stage-header-left">
+                                <span className="lp-stage-icon">{stage.icon}</span>
+                                <div>
+                                    <div className="lp-stage-name">{stage.name}</div>
+                                    <div className="lp-stage-info">{topics.length} topics · {stageProgress.avgMastery}% avg mastery</div>
                                 </div>
                             </div>
+                            <div className="lp-stage-header-right">
+                                {!isInTrack && <span className="lp-card-badge" style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.35)' }}>Not in {selectedTrack}-day track</span>}
+                                <ProgressRing percent={stageProgress.avgMastery} size={38} strokeWidth={3} color={stage.color} />
+                                <ChevronDown size={18} className={`lp-stage-chevron ${expanded ? 'lp-stage-chevron--open' : ''}`} />
+                            </div>
+                        </button>
 
-                            {expanded && (
-                                <div style={{
-                                    padding: 16, background: isLight ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.01)', borderRadius: '0 0 14px 14px',
-                                    border: `1px solid ${stage.color}15`, borderTop: 'none',
-                                    display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16
-                                }}>
-                                    {topics.map(topic => {
-                                        const inTrack = track.topics === null || track.topics.includes(topic.id);
-                                        return (
-                                            <div key={topic.id} style={{ opacity: inTrack ? 1 : 0.4, transition: 'opacity 0.3s' }}>
-                                                <TopicCard topic={topic} onClick={() => navigate(`/dsa-path/${topic.id}`)} isLight={isLight} />
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    );
-                })}
-            </section>
+                        {expanded && (
+                            <div className="lp-stage-body">
+                                {topics.map(topic => {
+                                    const inTrack = track.topics === null || track.topics.includes(topic.id);
+                                    return (
+                                        <div key={topic.id} style={{ opacity: inTrack ? 1 : 0.4 }}>
+                                            <TopicCard topic={topic} onClick={() => navigate(`/dsa-path/${topic.id}`)} />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
 
             {/* ─── Skill Radar ─── */}
-            <section style={{ maxWidth: 1200, margin: '48px auto 0', padding: '0 24px' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <BarChart3 size={20} style={{ color: '#22d3ee' }} /> Skill Radar
-                </h2>
-                <div style={{
-                    background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.02)', border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 16, padding: 32, display: 'flex', justifyContent: 'center'
-                }}>
-                    <SkillRadar data={radarData} />
+            <div className="lp-section-header" style={{ marginTop: 32 }}>
+                <div className="lp-section-icon" style={{ background: 'rgba(6,182,212,0.15)', color: '#22d3ee' }}>
+                    <BarChart3 size={16} />
                 </div>
-            </section>
+                <div>
+                    <h2 className="lp-section-title">Skill Radar</h2>
+                    <p className="lp-section-subtitle">Visual overview of your strengths</p>
+                </div>
+            </div>
+            <div className="lp-radar-wrap">
+                <SkillRadar data={radarData} />
+            </div>
 
             {/* ─── Methodology ─── */}
-            <section style={{ maxWidth: 1200, margin: '48px auto 0', padding: '0 24px' }}>
-                <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 20, textAlign: 'center' }}>🎯 4-Step Methodology</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
-                    {[
-                        { step: '1', title: 'Concept & Patterns', desc: 'Core theory, key invariants, pattern definitions', icon: <GraduationCap size={18} />, color: '#818cf8' },
-                        { step: '2', title: 'How to Solve', desc: 'Decision trees and thinking frameworks', icon: <Zap size={18} />, color: '#34d399' },
-                        { step: '3', title: 'Tricks & Pitfalls', desc: 'Speed tricks and common bug avoidance', icon: <Sparkles size={18} />, color: '#f472b6' },
-                        { step: '4', title: 'Practice', desc: 'Easy → Medium → Hard curated problems', icon: <Target size={18} />, color: '#facc15' },
-                    ].map(m => (
-                        <div key={m.step} style={{
-                            padding: 20, borderRadius: 14, background: isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)',
-                            border: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.06)', textAlign: 'center'
-                        }}>
-                            <div style={{
-                                width: 40, height: 40, borderRadius: 10, margin: '0 auto 10px',
-                                background: `${m.color}15`, color: m.color, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                            }}>{m.icon}</div>
-                            <div style={{ fontSize: 10, color: m.color, fontWeight: 700, marginBottom: 4 }}>STEP {m.step}</div>
-                            <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 6, color: isLight ? '#1e293b' : '#fff' }}>{m.title}</h3>
-                            <p style={{ fontSize: 12, color: isLight ? '#64748b' : '#71717a', margin: 0 }}>{m.desc}</p>
-                        </div>
-                    ))}
+            <div className="lp-section-header" style={{ marginTop: 32 }}>
+                <div className="lp-section-icon" style={{ background: 'rgba(250,204,21,0.15)', color: '#facc15' }}>
+                    <Target size={16} />
                 </div>
-            </section>
+                <div>
+                    <h2 className="lp-section-title">4-Step Methodology</h2>
+                    <p className="lp-section-subtitle">Our proven approach to mastering each topic</p>
+                </div>
+            </div>
+            <div className="lp-methodology">
+                {[
+                    { step: '1', title: 'Concept & Patterns', desc: 'Core theory, key invariants, pattern definitions', icon: <GraduationCap size={18} />, color: '#818cf8' },
+                    { step: '2', title: 'How to Solve', desc: 'Decision trees and thinking frameworks', icon: <Zap size={18} />, color: '#34d399' },
+                    { step: '3', title: 'Tricks & Pitfalls', desc: 'Speed tricks and common bug avoidance', icon: <Sparkles size={18} />, color: '#f472b6' },
+                    { step: '4', title: 'Practice', desc: 'Easy → Medium → Hard curated problems', icon: <Target size={18} />, color: '#facc15' },
+                ].map(m => (
+                    <div key={m.step} className="lp-methodology-card">
+                        <div className="lp-methodology-icon" style={{ background: `${m.color}15`, color: m.color }}>{m.icon}</div>
+                        <div className="lp-methodology-step" style={{ color: m.color }}>STEP {m.step}</div>
+                        <div className="lp-methodology-title">{m.title}</div>
+                        <p className="lp-methodology-desc">{m.desc}</p>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

@@ -1,87 +1,74 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useTheme } from '../context/ThemeContext';
-import { ArrowLeft, BookOpen, Layers, Cpu, Check, TerminalSquare, RefreshCw, Lightbulb } from 'lucide-react';
+import { ArrowLeft, BookOpen, Layers, Check, RefreshCw, Lightbulb, Clock } from 'lucide-react';
 import { TECHNICAL_TOPICS } from '../data/technicalLearningPathData';
 import { TECHNICAL_THEORY } from '../data/technicalTheoryData';
 import {
     getTechnicalTopicProgress, markTechTheoryRead, completeTechScenario, masterTechFlashcard
 } from '../data/technicalLearningProgress';
+import './LearningPath.css';
 
-function FlashcardWidget({ flashcards, masteredCards, onMaster, isLight }) {
+const TABS = [
+    { id: 'theory', label: 'Core Theory', icon: <BookOpen size={15} />, color: '#818cf8' },
+    { id: 'flashcards', label: 'Flashcards', icon: <RefreshCw size={15} />, color: '#3b82f6' },
+    { id: 'scenarios', label: 'Scenarios', icon: <Layers size={15} />, color: '#f59e0b' },
+];
+
+/* ─── Flashcard Widget ─── */
+function FlashcardWidget({ flashcards, masteredCards, onMaster }) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [flipped, setFlipped] = useState(false);
 
-    if (!flashcards || flashcards.length === 0) return <div>No flashcards for this topic.</div>;
+    if (!flashcards || flashcards.length === 0) return <div style={{ color: '#71717a', padding: 40, textAlign: 'center' }}>No flashcards for this topic.</div>;
 
     const card = flashcards[currentIndex];
     const isMastered = masteredCards.includes(currentIndex);
 
-    const nextCard = () => {
-        setFlipped(false);
-        setCurrentIndex((prev) => (prev + 1) % flashcards.length);
-    };
-    const prevCard = () => {
-        setFlipped(false);
-        setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length);
-    };
+    const nextCard = () => { setFlipped(false); setCurrentIndex((prev) => (prev + 1) % flashcards.length); };
+    const prevCard = () => { setFlipped(false); setCurrentIndex((prev) => (prev - 1 + flashcards.length) % flashcards.length); };
 
     return (
-        <div style={{
-            background: isLight ? 'rgba(255,255,255,0.9)' : 'rgba(20,20,25,0.8)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}`,
-            borderRadius: 16, padding: '30px', textAlign: 'center', position: 'relative'
-        }}>
-            <div style={{ position: 'absolute', top: 20, left: 20, fontSize: 12, color: isLight ? '#64748b' : '#a1a1aa' }}>
-                Card {currentIndex + 1} of {flashcards.length}
-            </div>
+        <div className="lp-topic-flashcard">
+            <div className="lp-topic-flashcard-counter">Card {currentIndex + 1} of {flashcards.length}</div>
             {isMastered && (
-                <div style={{ position: 'absolute', top: 20, right: 20, color: '#34d399', fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Check size={14} /> Mastered
-                </div>
+                <div className="lp-topic-flashcard-mastered"><Check size={14} /> Mastered</div>
             )}
 
-            <div
-                onClick={() => setFlipped(!flipped)}
-                style={{
-                    minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    background: flipped ? 'rgba(52,211,153,0.05)' : (isLight ? 'rgba(0,0,0,0.02)' : 'rgba(255,255,255,0.02)'),
-                    border: `2px dashed ${flipped ? 'rgba(52,211,153,0.3)' : (isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.1)')}`,
-                    borderRadius: 12, cursor: 'pointer', padding: 30, marginBottom: 24,
-                    transition: 'all 0.3s'
-                }}>
-                <h3 style={{ fontSize: 18, color: flipped ? '#059669' : (isLight ? '#1e293b' : '#fff'), fontWeight: flipped ? 500 : 700, lineHeight: 1.5 }}>
+            <div onClick={() => setFlipped(!flipped)}
+                className={`lp-topic-flashcard-area ${flipped ? 'lp-topic-flashcard-area--flipped' : ''}`}>
+                <h3 style={{ fontSize: 18, color: flipped ? '#059669' : '#fff', fontWeight: flipped ? 500 : 700, lineHeight: 1.5, margin: 0 }}>
                     {flipped ? card.a : card.q}
                 </h3>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-                <button onClick={prevCard} style={{ background: 'transparent', border: `1px solid ${isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}`, color: isLight ? '#1e293b' : '#fff', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}>Prev</button>
-                <button onClick={() => { setFlipped(!flipped); }} style={{ background: '#3b82f6', border: 'none', color: '#fff', padding: '8px 24px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Flip</button>
+            <div className="lp-topic-flashcard-controls">
+                <button onClick={prevCard} className="lp-topic-btn lp-topic-btn--ghost">Prev</button>
+                <button onClick={() => setFlipped(!flipped)}
+                    className="lp-topic-btn" style={{ background: '#3b82f6', color: '#fff' }}>Flip</button>
                 {!isMastered ? (
-                    <button onClick={() => onMaster(currentIndex)} style={{ background: '#10b981', border: 'none', color: '#000', padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>Got it!</button>
+                    <button onClick={() => onMaster(currentIndex)}
+                        className="lp-topic-btn lp-topic-btn--success">Got it!</button>
                 ) : (
-                    <button disabled style={{ background: 'rgba(16,185,129,0.2)', border: 'none', color: '#10b981', padding: '8px 16px', borderRadius: 8 }}>✅ Done</button>
+                    <button disabled className="lp-topic-btn" style={{ background: 'rgba(16,185,129,0.2)', color: '#10b981', cursor: 'default' }}>✅ Done</button>
                 )}
-                <button onClick={nextCard} style={{ background: 'transparent', border: `1px solid ${isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'}`, color: isLight ? '#1e293b' : '#fff', padding: '8px 16px', borderRadius: 8, cursor: 'pointer' }}>Next</button>
+                <button onClick={nextCard} className="lp-topic-btn lp-topic-btn--ghost">Next</button>
             </div>
         </div>
     );
 }
 
-function ScenarioWidget({ scenario, isCompleted, onComplete, color, isLight }) {
+/* ─── Scenario Widget ─── */
+function ScenarioWidget({ scenario, isCompleted, onComplete, color }) {
     const [expanded, setExpanded] = useState(false);
 
     return (
-        <div style={{
-            background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.4)', border: `1px solid ${color}40`,
-            borderRadius: 12, overflow: 'hidden', marginBottom: 16
-        }}>
-            <div
+        <div className="lp-topic-scenario" style={{ borderColor: `${color}40` }}>
+            <div className="lp-topic-scenario-header"
                 onClick={() => setExpanded(!expanded)}
-                style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: expanded ? `${color}10` : 'transparent' }}>
+                style={{ background: expanded ? `${color}10` : 'transparent' }}>
                 <div>
-                    <div style={{ fontSize: 11, color: color, fontWeight: 700, marginBottom: 4, textTransform: 'uppercase' }}>{scenario.type}</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: isLight ? '#1e293b' : '#fff' }}>{scenario.title}</div>
+                    <div className="lp-topic-scenario-type" style={{ color }}>{scenario.type}</div>
+                    <div className="lp-topic-scenario-title">{scenario.title}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     {isCompleted && <span style={{ fontSize: 12, color: '#34d399', display: 'flex', alignItems: 'center', gap: 4 }}><Check size={14} /> Completed</span>}
@@ -90,23 +77,22 @@ function ScenarioWidget({ scenario, isCompleted, onComplete, color, isLight }) {
             </div>
 
             {expanded && (
-                <div style={{ padding: '20px', borderTop: `1px solid ${color}20` }}>
+                <div className="lp-topic-scenario-body">
                     <p style={{ fontSize: 14, color: '#d4d4d8', marginBottom: 16, fontStyle: 'italic' }}>{scenario.context}</p>
 
                     <h4 style={{ fontSize: 13, color: '#fff', marginBottom: 12 }}>System Breakdown:</h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
                         {scenario.steps.map((s, i) => (
-                            <div key={i} style={{ display: 'flex', gap: 10, background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)', padding: 12, borderRadius: 8 }}>
-                                <span style={{ color: color, fontWeight: 700 }}>{i + 1}.</span>
-                                <span style={{ color: '#d4d4d8', fontSize: 13, lineHeight: 1.5 }}>{s}</span>
+                            <div key={i} className="lp-topic-step-item">
+                                <span className="lp-topic-step-num" style={{ background: `${color}15`, color }}>{i + 1}</span>
+                                <span className="lp-topic-step-text">{s}</span>
                             </div>
                         ))}
                     </div>
 
                     {!isCompleted && (
-                        <button onClick={() => onComplete(scenario.id)} style={{
-                            background: color, color: '#000', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 600, cursor: 'pointer'
-                        }}>
+                        <button onClick={() => onComplete(scenario.id)}
+                            className="lp-topic-btn" style={{ background: color, color: '#000' }}>
                             Mark Scenario Understood
                         </button>
                     )}
@@ -119,8 +105,7 @@ function ScenarioWidget({ scenario, isCompleted, onComplete, color, isLight }) {
 export default function TechnicalTopicLearning() {
     const { topicId } = useParams();
     const navigate = useNavigate();
-    const { theme } = useTheme();
-    const isLight = theme === 'light';
+    const [activeTab, setActiveTab] = useState('theory');
     const [refreshKey, setRefreshKey] = useState(0);
 
     const topic = useMemo(() => TECHNICAL_TOPICS.find(t => t.id === topicId), [topicId]);
@@ -130,125 +115,179 @@ export default function TechnicalTopicLearning() {
     const refresh = useCallback(() => setRefreshKey(k => k + 1), []);
 
     if (!topic) {
-        return <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? '#1e293b' : '#fff' }}><h2>Topic not found</h2></div>;
+        return (
+            <div className="lp-topic-not-found">
+                <h2 style={{ fontSize: 24, marginBottom: 16 }}>Topic not found</h2>
+                <button onClick={() => navigate('/technical-path')} className="lp-topic-btn lp-topic-btn--primary">
+                    Back to Technical Path
+                </button>
+            </div>
+        );
     }
 
     const { theoryRead, scenariosCompleted, flashcardsMastered, masteryPercent } = progress;
 
+    const steps = [
+        { label: 'Theory', done: theoryRead, tab: 'theory' },
+        { label: 'Cards', done: flashcardsMastered.length >= (topic.flashcards?.length || 1), tab: 'flashcards' },
+        { label: 'Scenarios', done: scenariosCompleted.length >= (theory?.scenarioBreakdown?.length || 1), tab: 'scenarios' },
+    ];
+
     return (
-        <div style={{ minHeight: '100vh', background: isLight ? '#f8fafc' : '#050505', color: isLight ? '#1e293b' : '#fff', paddingBottom: 80 }}>
-            {/* Header */}
-            <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 0' }}>
-                <button onClick={() => navigate('/technical-path')} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-                    color: '#71717a', cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0
-                }}>
+        <div className="lp-topic-page">
+            <div className="lp-topic-container">
+                <button onClick={() => navigate('/technical-path')} className="lp-topic-back">
                     <ArrowLeft size={16} /> Back to Blueprint
                 </button>
 
-                <div style={{
-                    background: `linear-gradient(135deg, ${topic.color}15, transparent)`,
-                    border: `1px solid ${topic.color}30`, borderRadius: 16, padding: '30px', marginBottom: 30,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                }}>
+                <div className="lp-topic-hero lp-topic-hero--tech">
                     <div>
-                        <div style={{ fontSize: 32, marginBottom: 12 }}>{topic.icon}</div>
-                        <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 8px', color: isLight ? '#1e293b' : '#fff' }}>{topic.title}</h1>
-                        <p style={{ fontSize: 14, color: isLight ? '#64748b' : '#a1a1aa', margin: 0 }}>{topic.description}</p>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: 36, fontWeight: 800, color: topic.color }}>{masteryPercent}%</div>
-                        <div style={{ fontSize: 11, color: '#71717a' }}>Mastery</div>
-                    </div>
-                </div>
-
-                {/* Main Content Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 32 }}>
-
-                    {/* LEFT COL: Core Theory nodes */}
-                    <div>
-                        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <BookOpen size={20} color={topic.color} /> Core Architecture Concepts
-                        </h2>
-                        {theory?.sections ? theory.sections.map((sec, i) => (
-                            <div key={i} style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(20,20,25,0.6)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.05)'}`, borderRadius: 12, padding: 24, marginBottom: 16 }}>
-                                <h3 style={{ fontSize: 16, color: isLight ? '#1e293b' : '#fff', marginBottom: 12 }}>{sec.title}</h3>
-                                <p style={{ fontSize: 14, color: '#d4d4d8', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{sec.content}</p>
-                                {sec.diagram && (
-                                    <div style={{ marginTop: 16, padding: 16, background: isLight ? '#f1f5f9' : '#000', borderRadius: 8, border: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}` }}>
-                                        <pre style={{ fontSize: 12, color: isLight ? '#047857' : '#6ee7b7', margin: 0, fontFamily: 'monospace' }}>{sec.diagram}</pre>
-                                    </div>
-                                )}
-                            </div>
-                        )) : <p>Theory data not available.</p>}
-
-                        {theory?.exampleAnswers && theory?.exampleAnswers.length > 0 && (
-                            <div style={{ marginTop: 24, marginBottom: 16, paddingTop: 24, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                                <h3 style={{ fontSize: 18, fontWeight: 700, color: isLight ? '#1e293b' : '#fff', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <Lightbulb size={18} color="#facc15" /> Perfect Answer Examples
-                                </h3>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                    {theory.exampleAnswers.map((ex, idx) => (
-                                        <div key={idx} style={{ background: isLight ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.4)', border: `1px solid ${isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)'}`, borderRadius: 12, padding: 20 }}>
-                                            <div style={{ fontSize: 15, fontWeight: 700, color: '#cbd5e1', marginBottom: 12 }}>Q: {ex.question}</div>
-                                            <div style={{ fontSize: 14, color: isLight ? '#1e293b' : '#fff', lineHeight: 1.6, marginBottom: 16, fontStyle: 'italic', paddingLeft: 12, borderLeft: `2px solid ${topic.color}` }}>
-                                                "{ex.answer}"
-                                            </div>
-                                            {ex.theory && (
-                                                <div style={{ marginBottom: 16, background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.2)', padding: '12px 16px', borderRadius: 8, fontSize: 13, color: '#d4d4d8' }}>
-                                                    <span style={{ fontWeight: 700, color: '#60a5fa', marginRight: 6 }}>Underlying Theory:</span>{ex.theory}
-                                                </div>
-                                            )}
-                                            <div style={{ background: `linear-gradient(90deg, ${topic.color}15, transparent)`, border: `1px solid ${topic.color}30`, padding: '12px 16px', borderRadius: 8, fontSize: 13, color: '#d4d4d8' }}>
-                                                <span style={{ fontWeight: 700, color: topic.color, marginRight: 6 }}>Why this works:</span>{ex.analysis}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        <div style={{ marginTop: 20 }}>
-                            <button onClick={() => { markTechTheoryRead(topicId); refresh(); }} disabled={theoryRead} style={{
-                                background: theoryRead ? 'rgba(52,211,153,0.15)' : `${topic.color}20`,
-                                color: theoryRead ? '#34d399' : topic.color,
-                                border: 'none', padding: '12px 24px', borderRadius: 8, fontWeight: 700, cursor: theoryRead ? 'default' : 'pointer'
-                            }}>
-                                {theoryRead ? 'Theory Completed ✓' : 'Mark Theory as Read'}
-                            </button>
+                        <div className="lp-topic-hero-icon">{topic.icon}</div>
+                        <h1 className="lp-topic-hero-title">{topic.title}</h1>
+                        <p className="lp-topic-hero-desc">{topic.description}</p>
+                        <div className="lp-topic-badges">
+                            <span className="lp-topic-badge" style={{ background: `${topic.color}15`, color: topic.color }}>Technical</span>
+                            <span className="lp-topic-badge lp-topic-badge--muted">
+                                <Clock size={11} /> 20-30 mins
+                            </span>
                         </div>
                     </div>
 
-                    {/* Interactive Flashcards */}
-                    <div style={{ paddingTop: 20, borderTop: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}` }}>
-                        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <RefreshCw size={20} color="#3b82f6" /> Rapid Recall Flashcards
-                        </h2>
-                        <FlashcardWidget
-                            flashcards={topic.flashcards}
-                            masteredCards={flashcardsMastered}
-                            isLight={isLight}
-                            onMaster={(idx) => { masterTechFlashcard(topicId, idx); refresh(); }}
-                        />
+                    <div className="lp-topic-mastery">
+                        <div className="lp-topic-mastery-value" style={{ color: topic.color }}>{masteryPercent}%</div>
+                        <div className="lp-topic-mastery-label">Mastery</div>
+                        <div className="lp-topic-steps">
+                            {steps.map((s, i) => (
+                                <div key={i} onClick={() => setActiveTab(s.tab)}
+                                    className={`lp-topic-step ${s.done ? 'lp-topic-step--done' : ''}`}
+                                    style={s.done ? { background: `${topic.color}12`, borderColor: `${topic.color}25` } : {}}>
+                                    <div className="lp-topic-step-icon">{s.done ? '✅' : '○'}</div>
+                                    <div className="lp-topic-step-label" style={s.done ? { color: topic.color } : {}}>{s.label}</div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
+                </div>
 
-                    {/* Architectural Scenarios */}
-                    <div style={{ paddingTop: 20, borderTop: `1px solid ${isLight ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'}` }}>
-                        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <Layers size={20} color="#f59e0b" /> Real-World Scenarios
-                        </h2>
-                        {theory?.scenarioBreakdown?.map((scen, idx) => (
-                            <ScenarioWidget
-                                key={idx}
-                                scenario={scen}
-                                isCompleted={scenariosCompleted.includes(scen.id)}
-                                color={topic.color}
-                                isLight={isLight}
-                                onComplete={(scenId) => { completeTechScenario(topicId, scenId); refresh(); }}
+                <div className="lp-topic-tabs">
+                    {TABS.map(tab => (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            className={`lp-topic-tab ${activeTab === tab.id ? 'lp-topic-tab--active' : ''}`}
+                            style={activeTab === tab.id ? { background: `${tab.color}15`, color: tab.color } : {}}>
+                            {tab.icon} {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div>
+                    {activeTab === 'theory' && (
+                        <div>
+                            {theory?.sections ? theory.sections.map((sec, i) => (
+                                <div key={i} className="lp-topic-section">
+                                    <div className="lp-topic-section-header" style={{ background: `linear-gradient(135deg, ${topic.color}08, transparent)` }}>
+                                        <h3 className="lp-topic-section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span className="lp-topic-section-number" style={{ background: `${topic.color}18`, color: topic.color }}>{i + 1}</span>
+                                            {sec.title}
+                                        </h3>
+                                    </div>
+                                    <div className="lp-topic-section-body">
+                                        <p style={{ fontSize: 14, color: '#d4d4d8', lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0 }}>{sec.content}</p>
+                                        {sec.diagram && (
+                                            <div style={{ marginTop: 16 }}>
+                                                <div className="lp-topic-visual-label">
+                                                    <span style={{ fontSize: 14 }}>🖼️</span>
+                                                    <span>Architecture Diagram</span>
+                                                </div>
+                                                <div className="lp-topic-visual">
+                                                    <pre>{sec.diagram}</pre>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )) : <p style={{ color: '#71717a', textAlign: 'center', padding: 40 }}>Theory data not available.</p>}
+
+                            {theory?.exampleAnswers && theory.exampleAnswers.length > 0 && (
+                                <div style={{ marginTop: 24, marginBottom: 16 }}>
+                                    <h3 className="lp-topic-heading">
+                                        <Lightbulb size={18} color="#facc15" /> Perfect Answer Examples
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                        {theory.exampleAnswers.map((ex, idx) => (
+                                            <div key={idx} className="lp-topic-example">
+                                                <div className="lp-topic-example-question">Q: {ex.question}</div>
+                                                <div className="lp-topic-example-answer" style={{ borderLeftColor: topic.color }}>
+                                                    "{ex.answer}"
+                                                </div>
+                                                {ex.theory && (
+                                                    <div className="lp-topic-example-info lp-topic-example-info--theory">
+                                                        <span style={{ fontWeight: 700, color: '#60a5fa', marginRight: 6 }}>Underlying Theory:</span>{ex.theory}
+                                                    </div>
+                                                )}
+                                                <div className="lp-topic-example-info lp-topic-example-info--analysis" style={{ background: `linear-gradient(90deg, ${topic.color}15, transparent)`, borderColor: `${topic.color}30` }}>
+                                                    <span style={{ fontWeight: 700, color: topic.color, marginRight: 6 }}>Why this works:</span>{ex.analysis}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="lp-topic-complete-wrap">
+                                <button onClick={() => { markTechTheoryRead(topicId); refresh(); }} disabled={theoryRead}
+                                    className={`lp-topic-complete-btn ${theoryRead ? 'lp-topic-complete-btn--done' : ''}`}
+                                    style={!theoryRead ? { background: `${topic.color}20`, color: topic.color, cursor: 'pointer' } : {}}>
+                                    {theoryRead ? <><Check size={16} /> Theory Completed</> : 'Mark Theory as Read'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'flashcards' && (
+                        <div>
+                            <div className="lp-topic-progress" style={{ marginBottom: 20 }}>
+                                <span className="lp-topic-progress-label">
+                                    {flashcardsMastered.length} / {topic.flashcards?.length || 0} mastered
+                                </span>
+                                <div className="lp-topic-progress-track">
+                                    <div className="lp-topic-progress-fill" style={{
+                                        background: '#3b82f6',
+                                        width: `${topic.flashcards?.length > 0 ? (flashcardsMastered.length / topic.flashcards.length) * 100 : 0}%`
+                                    }} />
+                                </div>
+                            </div>
+                            <FlashcardWidget
+                                flashcards={topic.flashcards}
+                                masteredCards={flashcardsMastered}
+                                onMaster={(idx) => { masterTechFlashcard(topicId, idx); refresh(); }}
                             />
-                        ))}
-                    </div>
+                        </div>
+                    )}
 
+                    {activeTab === 'scenarios' && (
+                        <div>
+                            <div className="lp-topic-progress" style={{ marginBottom: 20 }}>
+                                <span className="lp-topic-progress-label">
+                                    {scenariosCompleted.length} / {theory?.scenarioBreakdown?.length || 0} completed
+                                </span>
+                                <div className="lp-topic-progress-track">
+                                    <div className="lp-topic-progress-fill" style={{
+                                        background: '#f59e0b',
+                                        width: `${theory?.scenarioBreakdown?.length > 0 ? (scenariosCompleted.length / theory.scenarioBreakdown.length) * 100 : 0}%`
+                                    }} />
+                                </div>
+                            </div>
+                            {theory?.scenarioBreakdown?.map((scen, idx) => (
+                                <ScenarioWidget
+                                    key={idx}
+                                    scenario={scen}
+                                    isCompleted={scenariosCompleted.includes(scen.id)}
+                                    color={topic.color}
+                                    onComplete={(scenId) => { completeTechScenario(topicId, scenId); refresh(); }}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

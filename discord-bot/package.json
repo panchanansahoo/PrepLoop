@@ -8,7 +8,11 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "deploy": "node src/deploy-commands.js",
-    "check": "node --check src/index.js && node --check src/deploy-commands.js"
+    "bootstrap": "node src/bootstrap-server.js",
+    "setup-env": "node src/setup-env.js",
+    "doctor": "node src/doctor.js",
+    "prepare": "npm run setup-env && npm run doctor",
+    "check": "node --check src/index.js && node --check src/commands.js && node --check src/dailyPoster.js && node --check src/helpSla.js && node --check src/deploy-commands.js && node --check src/bootstrap-server.js && node --check src/doctor.js && node --check src/setup-env.js"
   },
   "dependencies": {
     "discord.js": "^14.19.3",

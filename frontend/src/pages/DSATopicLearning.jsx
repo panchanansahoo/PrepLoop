@@ -10,6 +10,7 @@ import {
     getDSATopicProgress, markDSAConceptComplete, markDSAThinkingComplete,
     markDSATricksComplete, recordDSAPracticeAttempt
 } from '../data/dsaLearningProgress';
+import './LearningPath.css';
 
 const TABS = [
     { id: 'concepts', label: 'Concept & Patterns', icon: <BookOpen size={15} />, color: '#818cf8' },
@@ -21,94 +22,46 @@ const TABS = [
 /* ─── Theory Section Renderer ─── */
 function TheorySection({ section, topic, index }) {
     return (
-        <div style={{
-            marginBottom: 24, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: 16, overflow: 'hidden'
-        }}>
-            {/* Header */}
-            <div style={{
-                padding: '18px 24px', background: `linear-gradient(135deg, ${topic.color}08, transparent)`,
-                borderBottom: '1px solid rgba(255,255,255,0.04)'
-            }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{
-                        width: 28, height: 28, borderRadius: 8, background: `${topic.color}18`, color: topic.color,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800
-                    }}>{index + 1}</span>
+        <div className="lp-topic-section">
+            <div className="lp-topic-section-header" style={{ background: `linear-gradient(135deg, ${topic.color}08, transparent)` }}>
+                <h3 className="lp-topic-section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span className="lp-topic-section-number" style={{ background: `${topic.color}18`, color: topic.color }}>{index + 1}</span>
                     {section.title}
                 </h3>
             </div>
-
-            <div style={{ padding: 24 }}>
-                {/* Step-by-step explanation */}
+            <div className="lp-topic-section-body">
                 {section.steps && (
                     <div style={{ marginBottom: section.visual || section.code ? 20 : 0 }}>
                         {section.steps.map((step, si) => (
-                            <div key={si} style={{
-                                display: 'flex', gap: 12, alignItems: 'flex-start', marginBottom: 10,
-                                padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)',
-                                border: '1px solid rgba(255,255,255,0.03)'
-                            }}>
-                                <span style={{
-                                    minWidth: 24, height: 24, borderRadius: '50%', background: `${topic.color}15`,
-                                    color: topic.color, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    fontSize: 11, fontWeight: 800, flexShrink: 0, marginTop: 1
-                                }}>{si + 1}</span>
-                                <span style={{ fontSize: 13, color: '#d4d4d8', lineHeight: 1.7 }}>{step}</span>
+                            <div key={si} className="lp-topic-step-item">
+                                <span className="lp-topic-step-num" style={{ background: `${topic.color}15`, color: topic.color }}>{si + 1}</span>
+                                <span className="lp-topic-step-text">{step}</span>
                             </div>
                         ))}
                     </div>
                 )}
-
-                {/* Visual diagram */}
                 {section.visual && (
                     <div style={{ marginBottom: section.code ? 20 : 0 }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8
-                        }}>
+                        <div className="lp-topic-visual-label">
                             <span style={{ fontSize: 14 }}>🖼️</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>Visual Diagram</span>
+                            <span>Visual Diagram</span>
                         </div>
-                        <div style={{
-                            padding: '18px 20px', borderRadius: 12, background: 'rgba(0,0,0,0.4)',
-                            border: '1px solid rgba(129,140,248,0.15)', overflow: 'auto'
-                        }}>
-                            <pre style={{
-                                margin: 0, fontSize: 12, lineHeight: 1.7, color: '#c4b5fd',
-                                fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-                                whiteSpace: 'pre', overflowX: 'auto'
-                            }}>{section.visual}</pre>
+                        <div className="lp-topic-visual">
+                            <pre>{section.visual}</pre>
                         </div>
                     </div>
                 )}
-
-                {/* Code example */}
                 {section.code && (
                     <div>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                            marginBottom: 8
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div className="lp-topic-code-header">
+                            <div className="lp-topic-code-title">
                                 <Code2 size={14} style={{ color: '#34d399' }} />
-                                <span style={{ fontSize: 12, fontWeight: 700, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>
-                                    {section.code.title}
-                                </span>
+                                <span>{section.code.title}</span>
                             </div>
-                            <span style={{
-                                fontSize: 10, padding: '2px 8px', borderRadius: 4,
-                                background: 'rgba(52,211,153,0.1)', color: '#34d399', fontWeight: 600
-                            }}>{section.code.language}</span>
+                            <span className="lp-topic-code-lang">{section.code.language}</span>
                         </div>
-                        <div style={{
-                            padding: '18px 20px', borderRadius: 12, background: 'rgba(0,0,0,0.5)',
-                            border: '1px solid rgba(52,211,153,0.12)', overflow: 'auto'
-                        }}>
-                            <pre style={{
-                                margin: 0, fontSize: 12, lineHeight: 1.6, color: '#a7f3d0',
-                                fontFamily: '"JetBrains Mono", "Fira Code", "Cascadia Code", monospace',
-                                whiteSpace: 'pre', overflowX: 'auto'
-                            }}>{section.code.code}</pre>
+                        <div className="lp-topic-code">
+                            <pre>{section.code.code}</pre>
                         </div>
                     </div>
                 )}
@@ -122,18 +75,12 @@ function ConceptsTab({ topic, progress, onComplete }) {
     const theory = DSA_THEORY[topic.id];
     return (
         <div>
-            {/* Deep Theory Sections */}
             {theory && theory.sections && (
                 <div style={{ marginBottom: 28 }}>
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
-                        padding: '10px 16px', borderRadius: 10,
-                        background: 'linear-gradient(135deg, rgba(129,140,248,0.08), rgba(244,114,182,0.05))',
-                        border: '1px solid rgba(129,140,248,0.15)'
-                    }}>
+                    <div className="lp-topic-banner lp-topic-banner--theory">
                         <BookOpen size={16} style={{ color: '#818cf8' }} />
-                        <span style={{ fontSize: 14, fontWeight: 700, color: '#a5b4fc' }}>📚 Deep Dive Theory</span>
-                        <span style={{ fontSize: 11, color: '#71717a', marginLeft: 'auto' }}>{theory.sections.length} lessons</span>
+                        <span className="lp-topic-banner-title" style={{ color: '#a5b4fc' }}>📚 Deep Dive Theory</span>
+                        <span className="lp-topic-banner-count">{theory.sections.length} lessons</span>
                     </div>
                     {theory.sections.map((section, si) => (
                         <TheorySection key={si} section={section} topic={topic} index={si} />
@@ -141,25 +88,15 @@ function ConceptsTab({ topic, progress, onComplete }) {
                 </div>
             )}
 
-            {/* Quick Reference — Concepts */}
-            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
-                ⚡ Quick Reference
-            </h3>
+            <h3 className="lp-topic-heading--sub">⚡ Quick Reference</h3>
             {topic.concepts.map((section, si) => (
-                <div key={si} style={{
-                    marginBottom: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 14, padding: 20
-                }}>
-                    <h4 style={{ fontSize: 15, fontWeight: 700, marginBottom: 10, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div key={si} className="lp-topic-ref-card">
+                    <h4 className="lp-topic-ref-title">
                         <BookOpen size={14} style={{ color: topic.color }} /> {section.title}
                     </h4>
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                         {section.points.map((p, pi) => (
-                            <li key={pi} style={{
-                                padding: '8px 12px', marginBottom: 4, borderRadius: 6, background: 'rgba(255,255,255,0.03)',
-                                fontSize: 12, color: '#d4d4d8', lineHeight: 1.6,
-                                display: 'flex', gap: 8, alignItems: 'flex-start'
-                            }}>
+                            <li key={pi} className="lp-topic-ref-item">
                                 <span style={{ color: topic.color, fontSize: 12, marginTop: 2 }}>▸</span>
                                 <span>{p}</span>
                             </li>
@@ -168,44 +105,27 @@ function ConceptsTab({ topic, progress, onComplete }) {
                 </div>
             ))}
 
-            {/* Invariants */}
             {topic.invariants && topic.invariants.length > 0 && (
-                <div style={{
-                    marginBottom: 20, background: `${topic.color}08`, border: `1px solid ${topic.color}20`,
-                    borderRadius: 14, padding: 24
-                }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div className="lp-topic-invariants" style={{ background: `${topic.color}08`, border: `1px solid ${topic.color}20` }}>
+                    <h3 className="lp-topic-heading--sub">
                         <Lightbulb size={16} style={{ color: '#facc15' }} /> Key Invariants & Formulas
                     </h3>
                     {topic.invariants.map((inv, i) => (
-                        <div key={i} style={{
-                            padding: '10px 16px', marginBottom: 8, borderRadius: 8, background: 'rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255,255,255,0.06)', fontSize: 13, color: '#a5b4fc',
-                            fontFamily: '"JetBrains Mono", "Fira Code", monospace', lineHeight: 1.6
-                        }}>
-                            {inv}
-                        </div>
+                        <div key={i} className="lp-topic-invariant">{inv}</div>
                     ))}
                 </div>
             )}
 
-            {/* Patterns */}
             {topic.concepts.filter(s => s.title.toLowerCase().includes('pattern')).length > 0 && (
-                <div style={{
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)',
-                    borderRadius: 14, padding: 24
-                }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14, color: '#fff' }}>📋 Pattern Summary</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                <div className="lp-topic-patterns">
+                    <h3 className="lp-topic-heading--sub">📋 Pattern Summary</h3>
+                    <div className="lp-topic-patterns-grid">
                         {topic.concepts.filter(s => s.title.toLowerCase().includes('pattern')).flatMap(s => s.points).map((p, i) => {
                             const [name, ...rest] = p.split(' — ');
                             return (
-                                <div key={i} style={{
-                                    padding: '14px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.06)'
-                                }}>
-                                    <div style={{ fontSize: 13, fontWeight: 700, color: topic.color, marginBottom: 4 }}>{name}</div>
-                                    {rest.length > 0 && <div style={{ fontSize: 12, color: '#71717a' }}>{rest.join(' — ')}</div>}
+                                <div key={i} className="lp-topic-pattern-card">
+                                    <div className="lp-topic-pattern-name" style={{ color: topic.color }}>{name}</div>
+                                    {rest.length > 0 && <div className="lp-topic-pattern-desc">{rest.join(' — ')}</div>}
                                 </div>
                             );
                         })}
@@ -213,14 +133,10 @@ function ConceptsTab({ topic, progress, onComplete }) {
                 </div>
             )}
 
-            {/* Mark Complete */}
-            <div style={{ textAlign: 'center', marginTop: 24 }}>
-                <button onClick={onComplete} disabled={progress.conceptComplete} style={{
-                    padding: '12px 32px', borderRadius: 10, border: 'none', cursor: progress.conceptComplete ? 'default' : 'pointer',
-                    background: progress.conceptComplete ? 'rgba(52,211,153,0.15)' : `${topic.color}20`,
-                    color: progress.conceptComplete ? '#34d399' : topic.color, fontWeight: 700, fontSize: 14,
-                    transition: 'all 0.3s', display: 'inline-flex', alignItems: 'center', gap: 8
-                }}>
+            <div className="lp-topic-complete-wrap">
+                <button onClick={onComplete} disabled={progress.conceptComplete}
+                    className={`lp-topic-complete-btn ${progress.conceptComplete ? 'lp-topic-complete-btn--done' : ''}`}
+                    style={!progress.conceptComplete ? { background: `${topic.color}20`, color: topic.color, cursor: 'pointer' } : {}}>
                     {progress.conceptComplete ? <><Check size={16} /> Completed</> : 'Mark as Learned ✓'}
                 </button>
             </div>
@@ -232,41 +148,26 @@ function ConceptsTab({ topic, progress, onComplete }) {
 function ThinkingTab({ topic, progress, onComplete }) {
     return (
         <div>
-            <div style={{
-                marginBottom: 20, background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)',
-                borderRadius: 14, padding: 24
-            }}>
-                <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 6, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="lp-topic-banner lp-topic-banner--thinking">
+                <h3 className="lp-topic-heading" style={{ marginBottom: 6 }}>
                     <Zap size={16} style={{ color: '#34d399' }} /> Decision Tree
                 </h3>
-                <p style={{ fontSize: 12, color: '#71717a', marginBottom: 16 }}>Use this framework to quickly identify the right approach:</p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <p style={{ fontSize: 12, color: '#71717a', marginBottom: 16, margin: 0 }}>Use this framework to quickly identify the right approach:</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
                     {topic.thinkingFramework.map((rule, i) => (
-                        <div key={i} style={{
-                            display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'center',
-                            padding: '12px 16px', borderRadius: 10, background: 'rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255,255,255,0.06)'
-                        }}>
-                            <div style={{ fontSize: 13, color: '#facc15', fontWeight: 600 }}>
-                                {rule.condition}
-                            </div>
-                            <ChevronRight size={16} style={{ color: '#525252' }} />
-                            <div style={{ fontSize: 13, color: '#34d399', fontWeight: 600 }}>
-                                {rule.action}
-                            </div>
+                        <div key={i} className="lp-topic-decision">
+                            <div className="lp-topic-decision-condition">{rule.condition}</div>
+                            <ChevronRight size={16} className="lp-topic-decision-arrow" />
+                            <div className="lp-topic-decision-action">{rule.action}</div>
                         </div>
                     ))}
                 </div>
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 24 }}>
-                <button onClick={onComplete} disabled={progress.thinkingComplete} style={{
-                    padding: '12px 32px', borderRadius: 10, border: 'none', cursor: progress.thinkingComplete ? 'default' : 'pointer',
-                    background: progress.thinkingComplete ? 'rgba(52,211,153,0.15)' : 'rgba(52,211,153,0.12)',
-                    color: progress.thinkingComplete ? '#34d399' : '#34d399', fontWeight: 700, fontSize: 14,
-                    transition: 'all 0.3s', display: 'inline-flex', alignItems: 'center', gap: 8
-                }}>
+            <div className="lp-topic-complete-wrap">
+                <button onClick={onComplete} disabled={progress.thinkingComplete}
+                    className={`lp-topic-complete-btn ${progress.thinkingComplete ? 'lp-topic-complete-btn--done' : ''}`}
+                    style={!progress.thinkingComplete ? { background: 'rgba(52,211,153,0.12)', color: '#34d399', cursor: 'pointer' } : {}}>
                     {progress.thinkingComplete ? <><Check size={16} /> Completed</> : 'Mark as Learned ✓'}
                 </button>
             </div>
@@ -278,58 +179,39 @@ function ThinkingTab({ topic, progress, onComplete }) {
 function TricksTab({ topic, progress, onComplete }) {
     return (
         <div>
-            {/* Tricks */}
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 className="lp-topic-heading">
                 <Sparkles size={16} style={{ color: '#f472b6' }} /> Tricks & Shortcuts
             </h3>
             <div style={{ display: 'grid', gap: 12, marginBottom: 24 }}>
                 {topic.tricks.map((trick, i) => (
-                    <div key={i} style={{
-                        padding: '18px 20px', borderRadius: 12, background: 'rgba(244,114,182,0.06)',
-                        border: '1px solid rgba(244,114,182,0.15)'
-                    }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#f472b6', marginBottom: 6 }}>{trick.name}</div>
-                        <div style={{ fontSize: 13, color: '#d4d4d8', lineHeight: 1.6, marginBottom: 8 }}>{trick.tip}</div>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                            <span style={{ fontSize: 11, color: '#34d399', padding: '3px 10px', borderRadius: 6, background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)' }}>
-                                ✓ When: {trick.when}
-                            </span>
+                    <div key={i} className="lp-topic-trick">
+                        <div className="lp-topic-trick-name">{trick.name}</div>
+                        <div className="lp-topic-trick-tip">{trick.tip}</div>
+                        <div className="lp-topic-trick-tags">
+                            <span className="lp-topic-trick-tag lp-topic-trick-tag--when">✓ When: {trick.when}</span>
                             {trick.avoid !== 'N/A' && (
-                                <span style={{ fontSize: 11, color: '#f87171', padding: '3px 10px', borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
-                                    ✕ Avoid: {trick.avoid}
-                                </span>
+                                <span className="lp-topic-trick-tag lp-topic-trick-tag--avoid">✕ Avoid: {trick.avoid}</span>
                             )}
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* Pitfalls */}
-            <h3 style={{ fontSize: 17, fontWeight: 700, marginBottom: 14, color: '#fff', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <h3 className="lp-topic-heading">
                 <AlertTriangle size={16} style={{ color: '#f59e0b' }} /> Common Pitfalls
             </h3>
-            <div style={{
-                padding: '18px 20px', borderRadius: 12, background: 'rgba(245,158,11,0.06)',
-                border: '1px solid rgba(245,158,11,0.15)'
-            }}>
+            <div className="lp-topic-banner lp-topic-banner--pitfalls">
                 {topic.pitfalls.map((pit, i) => (
-                    <div key={i} style={{
-                        padding: '8px 12px', marginBottom: i < topic.pitfalls.length - 1 ? 8 : 0,
-                        borderRadius: 8, background: 'rgba(0,0,0,0.2)', fontSize: 13, color: '#fbbf24',
-                        display: 'flex', alignItems: 'center', gap: 8
-                    }}>
+                    <div key={i} className="lp-topic-pitfall">
                         <AlertTriangle size={13} style={{ flexShrink: 0 }} /> {pit}
                     </div>
                 ))}
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: 24 }}>
-                <button onClick={onComplete} disabled={progress.tricksComplete} style={{
-                    padding: '12px 32px', borderRadius: 10, border: 'none', cursor: progress.tricksComplete ? 'default' : 'pointer',
-                    background: progress.tricksComplete ? 'rgba(52,211,153,0.15)' : 'rgba(244,114,182,0.12)',
-                    color: progress.tricksComplete ? '#34d399' : '#f472b6', fontWeight: 700, fontSize: 14,
-                    transition: 'all 0.3s', display: 'inline-flex', alignItems: 'center', gap: 8
-                }}>
+            <div className="lp-topic-complete-wrap">
+                <button onClick={onComplete} disabled={progress.tricksComplete}
+                    className={`lp-topic-complete-btn ${progress.tricksComplete ? 'lp-topic-complete-btn--done' : ''}`}
+                    style={!progress.tricksComplete ? { background: 'rgba(244,114,182,0.12)', color: '#f472b6', cursor: 'pointer' } : {}}>
                     {progress.tricksComplete ? <><Check size={16} /> Completed</> : 'Mark as Learned ✓'}
                 </button>
             </div>
@@ -354,49 +236,42 @@ function PracticeTab({ topic, progress }) {
 
     return (
         <div>
-            <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 13, color: '#71717a' }}>
+            <div className="lp-topic-progress">
+                <span className="lp-topic-progress-label">
                     {solved.size} / {topic.practiceProblems.length} solved
                 </span>
-                <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.06)' }}>
-                    <div style={{
-                        height: '100%', borderRadius: 2, background: topic.color, transition: 'width 0.5s',
+                <div className="lp-topic-progress-track">
+                    <div className="lp-topic-progress-fill" style={{
+                        background: topic.color,
                         width: `${topic.practiceProblems.length > 0 ? (solved.size / topic.practiceProblems.length) * 100 : 0}%`
                     }} />
                 </div>
             </div>
 
             {groups.map((group, gi) => (
-                <div key={gi} style={{ marginBottom: 20 }}>
-                    <h4 style={{ fontSize: 14, fontWeight: 700, color: group.color, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: group.color, display: 'inline-block' }} />
+                <div key={gi} className="lp-topic-diff-group">
+                    <h4 className="lp-topic-diff-title" style={{ color: group.color }}>
+                        <span className="lp-topic-diff-dot" style={{ background: group.color }} />
                         {group.label} ({group.problems.length})
                     </h4>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {group.problems.map((problem, pi) => {
                             const isSolved = solved.has(problem.id);
                             return (
-                                <Link key={pi} to={`/code-editor/${problem.id}`} style={{
-                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                    padding: '12px 16px', borderRadius: 10, textDecoration: 'none',
-                                    background: isSolved ? 'rgba(52,211,153,0.06)' : group.bg,
-                                    border: `1px solid ${isSolved ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)'}`,
-                                    transition: 'all 0.2s'
-                                }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Link key={pi} to={`/code-editor/${problem.id}`}
+                                    className={`lp-topic-problem ${isSolved ? 'lp-topic-problem--solved' : ''}`}
+                                    style={{ background: isSolved ? undefined : group.bg }}>
+                                    <div className="lp-topic-problem-info">
                                         {isSolved
                                             ? <CheckCircle2 size={16} style={{ color: '#34d399', flexShrink: 0 }} />
                                             : <Circle size={16} style={{ color: '#3f3f46', flexShrink: 0 }} />}
                                         <div>
-                                            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{problem.title}</div>
-                                            <div style={{ fontSize: 11, color: '#52525b' }}>{problem.pattern}</div>
+                                            <div className="lp-topic-problem-title">{problem.title}</div>
+                                            <div className="lp-topic-problem-pattern">{problem.pattern}</div>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <span style={{
-                                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 4,
-                                            color: group.color, background: `${group.color}15`
-                                        }}>{problem.difficulty}</span>
+                                    <div className="lp-topic-problem-meta">
+                                        <span className="lp-topic-problem-diff" style={{ color: group.color, background: `${group.color}15` }}>{problem.difficulty}</span>
                                         <Code2 size={14} style={{ color: '#525252' }} />
                                     </div>
                                 </Link>
@@ -428,11 +303,11 @@ export default function DSATopicLearning() {
 
     if (!topic) {
         return (
-            <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', color: '#fff' }}>
+            <div className="lp-topic-not-found">
                 <h2 style={{ fontSize: 24, marginBottom: 16 }}>Topic not found</h2>
-                <button onClick={() => navigate('/dsa-path')} style={{
-                    padding: '10px 24px', borderRadius: 8, background: '#818cf8', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600
-                }}>Back to DSA Path</button>
+                <button onClick={() => navigate('/dsa-path')} className="lp-topic-btn lp-topic-btn--primary">
+                    Back to DSA Path
+                </button>
             </div>
         );
     }
@@ -441,7 +316,6 @@ export default function DSATopicLearning() {
     const handleThinkingComplete = () => { markDSAThinkingComplete(topicId); refresh(); };
     const handleTricksComplete = () => { markDSATricksComplete(topicId); refresh(); };
 
-    // Mastery
     const mastery = progress.masteryPercent;
     const steps = [
         { label: 'Concepts', done: progress.conceptComplete, tab: 'concepts' },
@@ -451,76 +325,54 @@ export default function DSATopicLearning() {
     ];
 
     return (
-        <div style={{ minHeight: '100vh', background: '#030303', color: '#fff', paddingBottom: 80 }}>
-            {/* ─── Header ─── */}
-            <div style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px 0' }}>
-                <button onClick={() => navigate('/dsa-path')} style={{
-                    display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none',
-                    color: '#71717a', cursor: 'pointer', fontSize: 13, marginBottom: 20, padding: 0
-                }}>
+        <div className="lp-topic-page">
+            <div className="lp-topic-container">
+                <button onClick={() => navigate('/dsa-path')} className="lp-topic-back">
                     <ArrowLeft size={16} /> Back to DSA Path
                 </button>
 
-                <div style={{
-                    background: `linear-gradient(135deg, ${topic.color}10, ${topic.color}05)`,
-                    border: `1px solid ${topic.color}20`, borderRadius: 18, padding: '28px 32px', marginBottom: 28
-                }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
-                        <div>
-                            <div style={{ fontSize: 32, marginBottom: 8 }}>{topic.icon}</div>
-                            <h1 style={{ fontSize: 'clamp(24px,3vw,36px)', fontWeight: 700, marginBottom: 6 }}>{topic.title}</h1>
-                            <p style={{ fontSize: 14, color: '#71717a', margin: 0, maxWidth: 500 }}>{topic.description}</p>
-                            <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
-                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: `${topic.color}15`, color: topic.color, fontWeight: 600 }}>{topic.difficulty}</span>
-                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', color: '#71717a', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <Clock size={11} /> {topic.estimatedTime}
-                                </span>
-                                <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.04)', color: '#71717a' }}>
-                                    {topic.practiceProblems.length} problems
-                                </span>
-                            </div>
+                <div className="lp-topic-hero lp-topic-hero--dsa">
+                    <div>
+                        <div className="lp-topic-hero-icon">{topic.icon}</div>
+                        <h1 className="lp-topic-hero-title">{topic.title}</h1>
+                        <p className="lp-topic-hero-desc">{topic.description}</p>
+                        <div className="lp-topic-badges">
+                            <span className="lp-topic-badge" style={{ background: `${topic.color}15`, color: topic.color }}>{topic.difficulty}</span>
+                            <span className="lp-topic-badge lp-topic-badge--muted">
+                                <Clock size={11} /> {topic.estimatedTime}
+                            </span>
+                            <span className="lp-topic-badge lp-topic-badge--muted">
+                                {topic.practiceProblems.length} problems
+                            </span>
                         </div>
+                    </div>
 
-                        {/* Mastery + Steps */}
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: 36, fontWeight: 800, color: topic.color }}>{mastery}%</div>
-                            <div style={{ fontSize: 11, color: '#71717a', marginBottom: 10 }}>Mastery</div>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                                {steps.map((s, i) => (
-                                    <div key={i} onClick={() => setActiveTab(s.tab)} style={{
-                                        textAlign: 'center', padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
-                                        background: s.done ? `${topic.color}12` : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${s.done ? `${topic.color}25` : 'rgba(255,255,255,0.06)'}`,
-                                        transition: 'all 0.2s'
-                                    }}>
-                                        <div style={{ fontSize: 10 }}>{s.done ? '✅' : '○'}</div>
-                                        <div style={{ fontSize: 8, color: s.done ? topic.color : '#525252', fontWeight: 600 }}>{s.label}</div>
-                                    </div>
-                                ))}
-                            </div>
+                    <div className="lp-topic-mastery">
+                        <div className="lp-topic-mastery-value" style={{ color: topic.color }}>{mastery}%</div>
+                        <div className="lp-topic-mastery-label">Mastery</div>
+                        <div className="lp-topic-steps">
+                            {steps.map((s, i) => (
+                                <div key={i} onClick={() => setActiveTab(s.tab)}
+                                    className={`lp-topic-step ${s.done ? 'lp-topic-step--done' : ''}`}
+                                    style={s.done ? { background: `${topic.color}12`, borderColor: `${topic.color}25` } : {}}>
+                                    <div className="lp-topic-step-icon">{s.done ? '✅' : '○'}</div>
+                                    <div className="lp-topic-step-label" style={s.done ? { color: topic.color } : {}}>{s.label}</div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
 
-                {/* ─── Tab Navigation ─── */}
-                <div style={{
-                    display: 'flex', gap: 4, marginBottom: 28, background: 'rgba(255,255,255,0.02)',
-                    borderRadius: 12, padding: 4, border: '1px solid rgba(255,255,255,0.06)'
-                }}>
+                <div className="lp-topic-tabs">
                     {TABS.map(tab => (
-                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
-                            flex: 1, padding: '10px 12px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                            background: activeTab === tab.id ? `${tab.color}15` : 'transparent',
-                            color: activeTab === tab.id ? tab.color : '#71717a',
-                            fontWeight: activeTab === tab.id ? 700 : 500, fontSize: 12,
-                            transition: 'all 0.3s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6
-                        }}>
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                            className={`lp-topic-tab ${activeTab === tab.id ? 'lp-topic-tab--active' : ''}`}
+                            style={activeTab === tab.id ? { background: `${tab.color}15`, color: tab.color } : {}}>
                             {tab.icon} {tab.label}
                         </button>
                     ))}
                 </div>
 
-                {/* ─── Tab Content ─── */}
                 <div>
                     {activeTab === 'concepts' && <ConceptsTab topic={topic} progress={progress} onComplete={handleConceptComplete} />}
                     {activeTab === 'thinking' && <ThinkingTab topic={topic} progress={progress} onComplete={handleThinkingComplete} />}
