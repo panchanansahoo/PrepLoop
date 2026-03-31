@@ -1,0 +1,12 @@
+import type { Node, Schema } from "prosemirror-model";
+import { Transform } from "prosemirror-transform";
+import { BlockNoteSchema } from "../blocks/BlockNoteSchema.js";
+import type { BlockSchema } from "../schema/blocks/types.js";
+import type { InlineContentSchema } from "../schema/inlineContent/types.js";
+import type { StyleSchema } from "../schema/styles/types.js";
+export declare function getPmSchema(trOrNode: Transform | Node): Schema<any, any>;
+export declare function getBlockNoteSchema<BSchema extends BlockSchema, I extends InlineContentSchema, S extends StyleSchema>(schema: Schema): BlockNoteSchema<BSchema, I, S>;
+export declare function getBlockSchema<BSchema extends BlockSchema>(schema: Schema): BSchema;
+export declare function getInlineContentSchema<I extends InlineContentSchema>(schema: Schema): I;
+export declare function getStyleSchema<S extends StyleSchema>(schema: Schema): S;
+export declare function getBlockCache(schema: Schema): import("../index.js").BlockCache<any, any, any>;
