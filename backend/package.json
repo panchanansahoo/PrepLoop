@@ -15,7 +15,9 @@
         "smoke:ai-features": "node scripts/smokeAIFeatures.js",
         "test:coin:atomicity": "node scripts/test_coin_atomicity.js",
         "test:coin:integration": "node scripts/test_coin_integration.js",
-        "test:coins": "npm run test:coin:integration && npm run test:coin:atomicity"
+        "test:coins": "npm run test:coin:integration && npm run test:coin:atomicity",
+        "test:ai-features": "node scripts/test-ai-features.js",
+        "verify:migration": "node scripts/verify-ai-features-migration.js"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.95.3",

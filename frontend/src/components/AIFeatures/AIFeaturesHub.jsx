@@ -3,10 +3,24 @@ import CodeReviewComponent from './CodeReviewComponent';
 import InterviewComponent from './InterviewComponent';
 import PerformanceAnalyticsComponent from './PerformanceAnalyticsComponent';
 import { Code, MessageSquare, BarChart3, Home } from 'lucide-react';
+import LoadingAnimation from '../LoadingAnimation';
 
 const AIFeaturesHub = ({ userId, onNavigateHome }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedProblemId, setSelectedProblemId] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Loading...');
+
+  const handleTabChange = (tabId) => {
+    setIsLoading(true);
+    setLoadingMessage(`Loading ${tabs.find(t => t.id === tabId)?.label}...`);
+    
+    // Simulate loading time
+    setTimeout(() => {
+      setActiveTab(tabId);
+      setIsLoading(false);
+    }, 600);
+  };
 
   const tabs = [
     {
@@ -38,7 +52,7 @@ const AIFeaturesHub = ({ userId, onNavigateHome }) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <OverviewTab tabs={tabs} onSelectTab={setActiveTab} />;
+        return <OverviewTab tabs={tabs} onSelectTab={handleTabChange} />;
       case 'code-review':
         return (
           <CodeReviewComponent
@@ -53,7 +67,7 @@ const AIFeaturesHub = ({ userId, onNavigateHome }) => {
       case 'analytics':
         return <PerformanceAnalyticsComponent />;
       default:
-        return <OverviewTab tabs={tabs} onSelectTab={setActiveTab} />;
+        return <OverviewTab tabs={tabs} onSelectTab={handleTabChange} />;
     }
   };
 
@@ -83,7 +97,8 @@ const AIFeaturesHub = ({ userId, onNavigateHome }) => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
+                  disabled={isLoading}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg whitespace-nowrap transition ${
                     activeTab === tab.id
                       ? 'bg-blue-100 text-blue-700 font-semibold'
@@ -101,7 +116,13 @@ const AIFeaturesHub = ({ userId, onNavigateHome }) => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {renderContent()}
+          {isLoading ? (
+            <LoadingAnimation variant="default" message={loadingMessage} />
+          ) : (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+              {renderContent()}
+            </div>
+          )}
       </div>
     </div>
   );

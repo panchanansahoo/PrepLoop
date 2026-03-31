@@ -210,5 +210,194 @@ export const dailyChallenges = [
             { title: 'Top Competitors', difficulty: 'Medium', url: 'https://www.hackerrank.com/challenges/full-score/problem', internalId: 'sql-149', type: 'sql' },
             { title: 'The Blunder', difficulty: 'Easy', url: 'https://www.hackerrank.com/challenges/the-blunder/problem', internalId: 'sql-150', type: 'sql' },
         ]
+    },
+    {
+        id: 'meta',
+        name: 'Meta',
+        type: 'Product',
+        icon: Globe,
+        color: 'text-sky-500',
+        dsa: [
+            { title: 'Add Two Numbers', difficulty: 'Medium', url: 'https://leetcode.com/problems/add-two-numbers/', type: 'dsa' },
+            { title: 'Binary Tree Level Order Traversal', difficulty: 'Medium', url: 'https://leetcode.com/problems/binary-tree-level-order-traversal/', type: 'dsa' },
+            { title: 'Minimum Window Substring', difficulty: 'Hard', url: 'https://leetcode.com/problems/minimum-window-substring/', type: 'dsa' },
+            { title: 'Clone Graph', difficulty: 'Medium', url: 'https://leetcode.com/problems/clone-graph/', type: 'dsa' },
+            { title: 'Kth Largest Element in an Array', difficulty: 'Medium', url: 'https://leetcode.com/problems/kth-largest-element-in-an-array/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Customer Placing the Largest Number of Orders', difficulty: 'Easy', url: 'https://leetcode.com/problems/customer-placing-the-largest-number-of-orders/', internalId: 'sql-151', type: 'sql' },
+            { title: 'Immediate Food Delivery I', difficulty: 'Easy', url: 'https://leetcode.com/problems/immediate-food-delivery-i/', internalId: 'sql-152', type: 'sql' },
+            { title: 'Monthly Transactions I', difficulty: 'Medium', url: 'https://leetcode.com/problems/monthly-transactions-i/', internalId: 'sql-153', type: 'sql' },
+            { title: 'Confirmation Rate', difficulty: 'Medium', url: 'https://leetcode.com/problems/confirmation-rate/', internalId: 'sql-154', type: 'sql' },
+            { title: 'Managers with at Least 5 Direct Reports', difficulty: 'Medium', url: 'https://leetcode.com/problems/managers-with-at-least-5-direct-reports/', internalId: 'sql-155', type: 'sql' },
+        ]
+    },
+    {
+        id: 'apple',
+        name: 'Apple',
+        type: 'Product',
+        icon: Smartphone,
+        color: 'text-zinc-500',
+        dsa: [
+            { title: 'Product of Array Except Self', difficulty: 'Medium', url: 'https://leetcode.com/problems/product-of-array-except-self/', type: 'dsa' },
+            { title: 'Daily Temperatures', difficulty: 'Medium', url: 'https://leetcode.com/problems/daily-temperatures/', type: 'dsa' },
+            { title: 'Decode String', difficulty: 'Medium', url: 'https://leetcode.com/problems/decode-string/', type: 'dsa' },
+            { title: 'Word Search', difficulty: 'Medium', url: 'https://leetcode.com/problems/word-search/', type: 'dsa' },
+            { title: 'Find Median from Data Stream', difficulty: 'Hard', url: 'https://leetcode.com/problems/find-median-from-data-stream/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Average Time of Process per Machine', difficulty: 'Easy', url: 'https://leetcode.com/problems/average-time-of-process-per-machine/', internalId: 'sql-156', type: 'sql' },
+            { title: 'Employee Bonus', difficulty: 'Easy', url: 'https://leetcode.com/problems/employee-bonus/', internalId: 'sql-157', type: 'sql' },
+            { title: 'Students and Examinations', difficulty: 'Easy', url: 'https://leetcode.com/problems/students-and-examinations/', internalId: 'sql-158', type: 'sql' },
+            { title: 'Restaurant Growth', difficulty: 'Medium', url: 'https://leetcode.com/problems/restaurant-growth/', internalId: 'sql-159', type: 'sql' },
+            { title: 'Movie Rating', difficulty: 'Medium', url: 'https://leetcode.com/problems/movie-rating/', internalId: 'sql-160', type: 'sql' },
+        ]
+    },
+    {
+        id: 'netflix',
+        name: 'Netflix',
+        type: 'Product',
+        icon: Radio,
+        color: 'text-red-500',
+        dsa: [
+            { title: 'Longest Increasing Subsequence', difficulty: 'Medium', url: 'https://leetcode.com/problems/longest-increasing-subsequence/', type: 'dsa' },
+            { title: 'Course Schedule', difficulty: 'Medium', url: 'https://leetcode.com/problems/course-schedule/', type: 'dsa' },
+            { title: 'Course Schedule II', difficulty: 'Medium', url: 'https://leetcode.com/problems/course-schedule-ii/', type: 'dsa' },
+            { title: 'Serialize and Deserialize Binary Tree', difficulty: 'Hard', url: 'https://leetcode.com/problems/serialize-and-deserialize-binary-tree/', type: 'dsa' },
+            { title: 'Sliding Window Maximum', difficulty: 'Hard', url: 'https://leetcode.com/problems/sliding-window-maximum/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Product Sales Analysis III', difficulty: 'Medium', url: 'https://leetcode.com/problems/product-sales-analysis-iii/', internalId: 'sql-161', type: 'sql' },
+            { title: 'Project Employees II', difficulty: 'Easy', url: 'https://leetcode.com/problems/project-employees-ii/', internalId: 'sql-162', type: 'sql' },
+            { title: 'Article Views I', difficulty: 'Easy', url: 'https://leetcode.com/problems/article-views-i/', internalId: 'sql-163', type: 'sql' },
+            { title: 'Replace Employee ID With The Unique Identifier', difficulty: 'Easy', url: 'https://leetcode.com/problems/replace-employee-id-with-the-unique-identifier/', internalId: 'sql-164', type: 'sql' },
+            { title: 'Customers Who Bought All Products', difficulty: 'Medium', url: 'https://leetcode.com/problems/customers-who-bought-all-products/', internalId: 'sql-165', type: 'sql' },
+        ]
+    },
+    {
+        id: 'uber',
+        name: 'Uber',
+        type: 'Product',
+        icon: Cloud,
+        color: 'text-emerald-500',
+        dsa: [
+            { title: 'Number of Islands', difficulty: 'Medium', url: 'https://leetcode.com/problems/number-of-islands/', type: 'dsa' },
+            { title: 'Meeting Rooms II', difficulty: 'Medium', url: 'https://leetcode.com/problems/meeting-rooms-ii/', type: 'dsa' },
+            { title: 'Cheapest Flights Within K Stops', difficulty: 'Medium', url: 'https://leetcode.com/problems/cheapest-flights-within-k-stops/', type: 'dsa' },
+            { title: 'Trapping Rain Water', difficulty: 'Hard', url: 'https://leetcode.com/problems/trapping-rain-water/', type: 'dsa' },
+            { title: 'Alien Dictionary', difficulty: 'Hard', url: 'https://leetcode.com/problems/alien-dictionary/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Last Person to Fit in the Bus', difficulty: 'Medium', url: 'https://leetcode.com/problems/last-person-to-fit-in-the-bus/', internalId: 'sql-166', type: 'sql' },
+            { title: 'Fix Names in a Table', difficulty: 'Easy', url: 'https://leetcode.com/problems/fix-names-in-a-table/', internalId: 'sql-167', type: 'sql' },
+            { title: 'Invalid Tweets', difficulty: 'Easy', url: 'https://leetcode.com/problems/invalid-tweets/', internalId: 'sql-168', type: 'sql' },
+            { title: 'Employees Whose Manager Left the Company', difficulty: 'Easy', url: 'https://leetcode.com/problems/employees-whose-manager-left-the-company/', internalId: 'sql-169', type: 'sql' },
+            { title: 'Department Highest Salary', difficulty: 'Medium', url: 'https://leetcode.com/problems/department-highest-salary/', internalId: 'sql-170', type: 'sql' },
+        ]
+    },
+    {
+        id: 'adobe',
+        name: 'Adobe',
+        type: 'Product',
+        icon: PenTool,
+        color: 'text-red-400',
+        dsa: [
+            { title: 'String to Integer (atoi)', difficulty: 'Medium', url: 'https://leetcode.com/problems/string-to-integer-atoi/', type: 'dsa' },
+            { title: 'Subarray Sum Equals K', difficulty: 'Medium', url: 'https://leetcode.com/problems/subarray-sum-equals-k/', type: 'dsa' },
+            { title: 'Partition Equal Subset Sum', difficulty: 'Medium', url: 'https://leetcode.com/problems/partition-equal-subset-sum/', type: 'dsa' },
+            { title: 'Largest Rectangle in Histogram', difficulty: 'Hard', url: 'https://leetcode.com/problems/largest-rectangle-in-histogram/', type: 'dsa' },
+            { title: 'Edit Distance', difficulty: 'Hard', url: 'https://leetcode.com/problems/edit-distance/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Not Boring Movies', difficulty: 'Easy', url: 'https://leetcode.com/problems/not-boring-movies/', internalId: 'sql-171', type: 'sql' },
+            { title: 'Exchange Seats', difficulty: 'Medium', url: 'https://leetcode.com/problems/exchange-seats/', internalId: 'sql-172', type: 'sql' },
+            { title: 'Product Price at a Given Date', difficulty: 'Medium', url: 'https://leetcode.com/problems/product-price-at-a-given-date/', internalId: 'sql-173', type: 'sql' },
+            { title: 'Rearrange Products Table', difficulty: 'Easy', url: 'https://leetcode.com/problems/rearrange-products-table/', internalId: 'sql-174', type: 'sql' },
+            { title: 'Group Sold Products By The Date', difficulty: 'Easy', url: 'https://leetcode.com/problems/group-sold-products-by-the-date/', internalId: 'sql-175', type: 'sql' },
+        ]
+    },
+    {
+        id: 'airbnb',
+        name: 'Airbnb',
+        type: 'Product',
+        icon: Globe,
+        color: 'text-rose-500',
+        dsa: [
+            { title: 'Group Anagrams', difficulty: 'Medium', url: 'https://leetcode.com/problems/group-anagrams/', type: 'dsa' },
+            { title: 'Merge Intervals', difficulty: 'Medium', url: 'https://leetcode.com/problems/merge-intervals/', type: 'dsa' },
+            { title: 'Top K Frequent Elements', difficulty: 'Medium', url: 'https://leetcode.com/problems/top-k-frequent-elements/', type: 'dsa' },
+            { title: 'Word Break', difficulty: 'Medium', url: 'https://leetcode.com/problems/word-break/', type: 'dsa' },
+            { title: 'Find First and Last Position of Element in Sorted Array', difficulty: 'Medium', url: 'https://leetcode.com/problems/find-first-and-last-position-of-element-in-sorted-array/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Biggest Single Number', difficulty: 'Easy', url: 'https://leetcode.com/problems/biggest-single-number/', internalId: 'sql-176', type: 'sql' },
+            { title: 'Sales Person', difficulty: 'Easy', url: 'https://leetcode.com/problems/sales-person/', internalId: 'sql-177', type: 'sql' },
+            { title: 'Customers Who Never Order', difficulty: 'Easy', url: 'https://leetcode.com/problems/customers-who-never-order/', internalId: 'sql-178', type: 'sql' },
+            { title: 'Tree Node', difficulty: 'Medium', url: 'https://leetcode.com/problems/tree-node/', internalId: 'sql-179', type: 'sql' },
+            { title: 'Triangle Judgement', difficulty: 'Easy', url: 'https://leetcode.com/problems/triangle-judgement/', internalId: 'sql-180', type: 'sql' },
+        ]
+    },
+    {
+        id: 'nvidia',
+        name: 'Nvidia',
+        type: 'Product',
+        icon: Cpu,
+        color: 'text-lime-500',
+        dsa: [
+            { title: 'Longest Consecutive Sequence', difficulty: 'Medium', url: 'https://leetcode.com/problems/longest-consecutive-sequence/', type: 'dsa' },
+            { title: 'Graph Valid Tree', difficulty: 'Medium', url: 'https://leetcode.com/problems/graph-valid-tree/', type: 'dsa' },
+            { title: 'Minimum Cost to Connect Sticks', difficulty: 'Medium', url: 'https://leetcode.com/problems/minimum-cost-to-connect-sticks/', type: 'dsa' },
+            { title: 'Network Delay Time', difficulty: 'Medium', url: 'https://leetcode.com/problems/network-delay-time/', type: 'dsa' },
+            { title: 'Median of Two Sorted Arrays', difficulty: 'Hard', url: 'https://leetcode.com/problems/median-of-two-sorted-arrays/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Actors and Directors Who Cooperated At Least Three Times', difficulty: 'Easy', url: 'https://leetcode.com/problems/actors-and-directors-who-cooperated-at-least-three-times/', internalId: 'sql-181', type: 'sql' },
+            { title: 'Bank Account Summary II', difficulty: 'Easy', url: 'https://leetcode.com/problems/bank-account-summary-ii/', internalId: 'sql-182', type: 'sql' },
+            { title: 'Find Followers Count', difficulty: 'Easy', url: 'https://leetcode.com/problems/find-followers-count/', internalId: 'sql-183', type: 'sql' },
+            { title: 'Classes More Than 5 Students', difficulty: 'Easy', url: 'https://leetcode.com/problems/classes-more-than-5-students/', internalId: 'sql-184', type: 'sql' },
+            { title: 'Primary Department for Each Employee', difficulty: 'Easy', url: 'https://leetcode.com/problems/primary-department-for-each-employee/', internalId: 'sql-185', type: 'sql' },
+        ]
+    },
+    {
+        id: 'openai',
+        name: 'OpenAI',
+        type: 'Product',
+        icon: Cloud,
+        color: 'text-emerald-400',
+        dsa: [
+            { title: 'Implement Trie (Prefix Tree)', difficulty: 'Medium', url: 'https://leetcode.com/problems/implement-trie-prefix-tree/', type: 'dsa' },
+            { title: 'Design Add and Search Words Data Structure', difficulty: 'Medium', url: 'https://leetcode.com/problems/design-add-and-search-words-data-structure/', type: 'dsa' },
+            { title: 'Find All Anagrams in a String', difficulty: 'Medium', url: 'https://leetcode.com/problems/find-all-anagrams-in-a-string/', type: 'dsa' },
+            { title: 'Minimum Remove to Make Valid Parentheses', difficulty: 'Medium', url: 'https://leetcode.com/problems/minimum-remove-to-make-valid-parentheses/', type: 'dsa' },
+            { title: 'Word Ladder', difficulty: 'Hard', url: 'https://leetcode.com/problems/word-ladder/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Calculate Special Bonus', difficulty: 'Easy', url: 'https://leetcode.com/problems/calculate-special-bonus/', internalId: 'sql-186', type: 'sql' },
+            { title: 'The Number of Employees Which Report to Each Employee', difficulty: 'Easy', url: 'https://leetcode.com/problems/the-number-of-employees-which-report-to-each-employee/', internalId: 'sql-187', type: 'sql' },
+            { title: 'Users That Actively Request Confirmation Messages', difficulty: 'Easy', url: 'https://leetcode.com/problems/users-that-actively-request-confirmation-messages/', internalId: 'sql-188', type: 'sql' },
+            { title: 'Queries Quality and Percentage', difficulty: 'Medium', url: 'https://leetcode.com/problems/queries-quality-and-percentage/', internalId: 'sql-189', type: 'sql' },
+            { title: 'Number of Unique Subjects Taught by Each Teacher', difficulty: 'Easy', url: 'https://leetcode.com/problems/number-of-unique-subjects-taught-by-each-teacher/', internalId: 'sql-190', type: 'sql' },
+        ]
+    },
+    {
+        id: 'anthropic',
+        name: 'Anthropic',
+        type: 'Product',
+        icon: Shield,
+        color: 'text-violet-400',
+        dsa: [
+            { title: 'Minimum Size Subarray Sum', difficulty: 'Medium', url: 'https://leetcode.com/problems/minimum-size-subarray-sum/', type: 'dsa' },
+            { title: 'Find Peak Element', difficulty: 'Medium', url: 'https://leetcode.com/problems/find-peak-element/', type: 'dsa' },
+            { title: 'Pacific Atlantic Water Flow', difficulty: 'Medium', url: 'https://leetcode.com/problems/pacific-atlantic-water-flow/', type: 'dsa' },
+            { title: 'Longest Repeating Character Replacement', difficulty: 'Medium', url: 'https://leetcode.com/problems/longest-repeating-character-replacement/', type: 'dsa' },
+            { title: 'Distinct Subsequences', difficulty: 'Hard', url: 'https://leetcode.com/problems/distinct-subsequences/', type: 'dsa' },
+        ],
+        sql: [
+            { title: 'Average Selling Price', difficulty: 'Easy', url: 'https://leetcode.com/problems/average-selling-price/', internalId: 'sql-191', type: 'sql' },
+            { title: 'Percentage of Users Attended a Contest', difficulty: 'Easy', url: 'https://leetcode.com/problems/percentage-of-users-attended-a-contest/', internalId: 'sql-192', type: 'sql' },
+            { title: 'Investments in 2016', difficulty: 'Medium', url: 'https://leetcode.com/problems/investments-in-2016/', internalId: 'sql-193', type: 'sql' },
+            { title: 'User Activity for the Past 30 Days I', difficulty: 'Easy', url: 'https://leetcode.com/problems/user-activity-for-the-past-30-days-i/', internalId: 'sql-194', type: 'sql' },
+            { title: 'Second Highest Salary', difficulty: 'Medium', url: 'https://leetcode.com/problems/second-highest-salary/', internalId: 'sql-195', type: 'sql' },
+        ]
     }
 ];

@@ -838,6 +838,89 @@ export default function Home() {
       <GradientDivider />
 
       {/* ═══════════════════════════════════════════════ */}
+      {/*               LATEST JOB UPDATES                */}
+      {/* ═══════════════════════════════════════════════ */}
+      <JobUpdatesPreview />
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/*              TRUSTED BY / LOGO STRIP            */}
+      {/* ═══════════════════════════════════════════════ */}
+      <section style={{ padding: '40px 0 60px', position: 'relative', zIndex: 10, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              <Cpu size={14} color="var(--text-secondary)" />
+              Engineers from these companies trust PrepLoop
+            </div>
+          </div>
+          <div className="logo-marquee-track">
+            {[...Array(3)].flatMap((_, rep) =>
+              ['Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix', 'Uber', 'Flipkart', 'Adobe', 'Salesforce', 'Oracle', 'TCS', 'Infosys', 'Wipro', 'Deloitte', 'Goldman Sachs', 'JPMorgan', 'Samsung', 'PayPal', 'Stripe'].map((name, i) => (
+                <div key={`${rep}-${i}`} className="logo-marquee-item">{name}</div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      <GradientDivider />
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/*                  PRICING PLANS                  */}
+      {/* ═══════════════════════════════════════════════ */}
+      <section className="container" id="pricing" style={{ padding: '100px 40px' }}>
+        <div style={{ textAlign: 'center', marginBottom: 60 }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            padding: '6px 16px', border: '1px solid var(--border)',
+            borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+            background: 'var(--accent-glow)', marginBottom: '20px',
+            textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
+          }}>
+            <Sparkles size={12} /> Pricing
+          </div>
+          <h2 style={{ fontSize: '48px', marginBottom: '24px', lineHeight: 1.1 }}>
+            Pick the Path that <br />
+            <span className="text-gradient">Gets You Hired Faster</span>
+          </h2>
+          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto' }}>
+            AI-powered prep tailored to your timeline and career goals.
+          </p>
+        </div>
+
+        <div className="pricing-grid">
+          {pricingPlans.map((plan, i) => (
+            <div key={i} className={`pricing-card ${plan.popular ? 'popular' : ''} ${plan.popular ? 'glow-effect' : ''}`}>
+              {plan.popular && (
+                <div style={{
+                  position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
+                  background: 'var(--accent-primary)', color: 'var(--text-invert)',
+                  padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
+                  letterSpacing: '0.5px', boxShadow: '0 0 20px var(--accent-glow)',
+                  zIndex: 10, border: '1px solid var(--border)', whiteSpace: 'nowrap'
+                }}>MOST POPULAR</div>
+              )}
+              <h3>{plan.name}</h3>
+              <div className="price-tag">
+                {plan.price}<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 400 }}>{plan.pricePer}</span>
+              </div>
+              <div className="price-sub">{plan.priceSub}</div>
+              <ul className="feature-list">
+                {plan.features.map((f, j) => (
+                  <li key={j}><CheckCircle size={16} /> {f}</li>
+                ))}
+              </ul>
+              <Button asChild variant={plan.btnClass === 'btn-primary' ? 'default' : 'outline'} className="w-[calc(100%-3rem)] mx-auto mb-2">
+                <Link to={(plan.name === 'Pro' || plan.name === 'Premium') && (!user || user.isGuest) ? '/login' : plan.btnLink}>{plan.btnText}</Link>
+              </Button>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <GradientDivider />
+
+      {/* ═══════════════════════════════════════════════ */}
       {/*                  TESTIMONIALS                   */}
       {/* ═══════════════════════════════════════════════ */}
       <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }}>
@@ -931,87 +1014,6 @@ export default function Home() {
       </section>
 
       <GradientDivider />
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/*               LATEST JOB UPDATES                */}
-      {/* ═══════════════════════════════════════════════ */}
-      <JobUpdatesPreview />
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/*              TRUSTED BY / LOGO STRIP            */}
-      {/* ═══════════════════════════════════════════════ */}
-      <section style={{ padding: '40px 0 60px', position: 'relative', zIndex: 10, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              <Cpu size={14} color="var(--text-secondary)" />
-              Engineers from these companies trust PrepLoop
-            </div>
-          </div>
-          <div className="logo-marquee-track">
-            {[...Array(3)].flatMap((_, rep) =>
-              ['Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix', 'Uber', 'Flipkart', 'Adobe', 'Salesforce', 'Oracle', 'TCS', 'Infosys', 'Wipro', 'Deloitte', 'Goldman Sachs', 'JPMorgan', 'Samsung', 'PayPal', 'Stripe'].map((name, i) => (
-                <div key={`${rep}-${i}`} className="logo-marquee-item">{name}</div>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <GradientDivider />
-
-      {/* ═══════════════════════════════════════════════ */}
-      {/*                  PRICING PLANS                  */}
-      {/* ═══════════════════════════════════════════════ */}
-      <section className="container" id="pricing" style={{ padding: '100px 40px' }}>
-        <div style={{ textAlign: 'center', marginBottom: 60 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px', border: '1px solid var(--border)',
-            borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
-            background: 'var(--accent-glow)', marginBottom: '20px',
-            textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
-          }}>
-            <Sparkles size={12} /> Pricing
-          </div>
-          <h2 style={{ fontSize: '48px', marginBottom: '24px', lineHeight: 1.1 }}>
-            Pick the Path that <br />
-            <span className="text-gradient">Gets You Hired Faster</span>
-          </h2>
-          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto' }}>
-            AI-powered prep tailored to your timeline and career goals.
-          </p>
-        </div>
-
-        <div className="pricing-grid">
-          {pricingPlans.map((plan, i) => (
-            <div key={i} className={`pricing-card ${plan.popular ? 'popular' : ''} ${plan.popular ? 'glow-effect' : ''}`}>
-              {plan.popular && (
-                <div style={{
-                  position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                  background: 'var(--accent-primary)', color: 'var(--text-invert)',
-                  padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
-                  letterSpacing: '0.5px', boxShadow: '0 0 20px var(--accent-glow)',
-                  zIndex: 10, border: '1px solid var(--border)', whiteSpace: 'nowrap'
-                }}>MOST POPULAR</div>
-              )}
-              <h3>{plan.name}</h3>
-              <div className="price-tag">
-                {plan.price}<span style={{ fontSize: '16px', color: 'var(--text-muted)', fontWeight: 400 }}>{plan.pricePer}</span>
-              </div>
-              <div className="price-sub">{plan.priceSub}</div>
-              <ul className="feature-list">
-                {plan.features.map((f, j) => (
-                  <li key={j}><CheckCircle size={16} /> {f}</li>
-                ))}
-              </ul>
-              <Button asChild variant={plan.btnClass === 'btn-primary' ? 'default' : 'outline'} className="w-[calc(100%-3rem)] mx-auto mb-2">
-                <Link to={(plan.name === 'Pro' || plan.name === 'Premium') && (!user || user.isGuest) ? '/login' : plan.btnLink}>{plan.btnText}</Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </section>
 
       {/* ═══════════════════════════════════════════════ */}
       {/*                      FAQ                        */}
