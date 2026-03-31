@@ -25,10 +25,27 @@ router.get('/posts', optionalAuth, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
+    const postIds = (data || []).map((post) => post.id).filter((id) => id !== undefined && id !== null);
+    let replyCountMap = new Map();
+
+    if (postIds.length > 0) {
+      const { data: replyRows, error: replyError } = await supabaseAdmin
+        .from('community_replies')
+        .select('post_id')
+        .in('post_id', postIds);
+
+      if (replyError) throw replyError;
+
+      replyCountMap = (replyRows || []).reduce((acc, row) => {
+        acc.set(row.post_id, (acc.get(row.post_id) || 0) + 1);
+        return acc;
+      }, new Map());
+    }
+
     const posts = (data || []).map(p => ({
       ...p,
       author_name: p.profiles?.full_name || 'Anonymous',
-      reply_count: p.replies || 0,
+      reply_count: replyCountMap.get(p.id) ?? p.replies ?? 0,
       profiles: undefined,
     }));
 

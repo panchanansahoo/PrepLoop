@@ -12,6 +12,7 @@ import {
   getStatistics,
 } from "../data/allProblems.js";
 import { executeCode, buildTestWrapper, parseTestResults } from "../utils/executeCode.js";
+import { applyCoinTransaction } from "../utils/coinTransactions.js";
 
 const router = express.Router();
 const PROBLEM_SOLVE_COIN_REWARD = 10;
@@ -36,6 +37,26 @@ const isProfilesAccessBlocked = (error) => {
 
 const awardFirstSolveCoins = async ({ userId, problemId, problemTitle }) => {
   const description = `Problem solved: ${problemId} - ${problemTitle || 'Unknown Problem'}`.slice(0, 160);
+  const referenceKey = `problem_solve:${userId}:${problemId}`;
+
+  const atomicResult = await applyCoinTransaction({
+    userId,
+    amount: PROBLEM_SOLVE_COIN_REWARD,
+    type: 'earn',
+    description,
+    referenceKey,
+  });
+
+  if (atomicResult.handled) {
+    if (!atomicResult.success) {
+      throw new Error(atomicResult.error || 'Failed to award first solve coins');
+    }
+
+    return {
+      coinsAwarded: atomicResult.applied ? PROBLEM_SOLVE_COIN_REWARD : 0,
+      currentCoins: atomicResult.balance,
+    };
+  }
 
   const { data: existingReward } = await supabaseAdmin
     .from('coin_transactions')

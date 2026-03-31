@@ -9,12 +9,6 @@ const isSchemaMissingError = (error) => {
   return code === '42703' || code === '42P01';
 };
 
-const isProfilesAccessBlocked = (error) => {
-  const code = String(error?.code || '').toUpperCase();
-  const message = String(error?.message || '').toLowerCase();
-  return code === '42P17' || message.includes('infinite recursion detected in policy');
-};
-
 // Check and update streak on login/dashboard visit
 router.get('/check', authenticateToken, async (req, res) => {
   try {
@@ -107,7 +101,7 @@ router.get('/check', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error checking streak:', error);
-    if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
+    if (isSchemaMissingError(error)) {
       return res.json({
         streak: 0,
         bestStreak: 0,
@@ -139,7 +133,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching streak status:', error);
-    if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
+    if (isSchemaMissingError(error)) {
       return res.json({
         streak: 0,
         bestStreak: 0,

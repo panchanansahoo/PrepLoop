@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import Groq from 'groq-sdk';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
 
@@ -37,6 +38,20 @@ const SYSTEM_PROMPT = `You are PrepLoop AI Assistant — a friendly, expert codi
 Keep responses concise, practical, and encouraging. Use code examples when helpful. Format with markdown.`;
 
 const spendCoinsForChat = async (userId, cost) => {
+  const atomicResult = await applyCoinTransaction({
+    userId,
+    amount: cost,
+    type: 'spend',
+    description: 'AI assistant query',
+  });
+
+  if (atomicResult.handled) {
+    if (!atomicResult.success) {
+      return { ok: false, currentCoins: atomicResult.balance };
+    }
+    return { ok: true, newBalance: atomicResult.balance };
+  }
+
   const { data: profile, error: fetchError } = await supabaseAdmin
     .from('profiles')
     .select('coins')
@@ -69,6 +84,20 @@ const spendCoinsForChat = async (userId, cost) => {
 };
 
 const refundCoinsForChatFailure = async (userId, cost) => {
+  const atomicResult = await applyCoinTransaction({
+    userId,
+    amount: cost,
+    type: 'earn',
+    description: 'AI assistant refund (upstream failure)',
+  });
+
+  if (atomicResult.handled) {
+    if (!atomicResult.success) {
+      throw new Error(atomicResult.error || 'Failed to refund coins');
+    }
+    return atomicResult.balance;
+  }
+
   const { data: profile } = await supabaseAdmin
     .from('profiles')
     .select('coins')

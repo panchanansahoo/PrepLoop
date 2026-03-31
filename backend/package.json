@@ -11,7 +11,11 @@
         "lint": "node --check index.js && node --check scripts/testStartup.js && node --check scripts/smokeInterviewSuite.js && node --check scripts/runInterviewSuiteSmokeLocal.js",
         "test": "node scripts/testStartup.js",
         "smoke:interview-suite": "node scripts/smokeInterviewSuite.js",
-        "smoke:interview-suite:local": "node scripts/runInterviewSuiteSmokeLocal.js"
+        "smoke:interview-suite:local": "node scripts/runInterviewSuiteSmokeLocal.js",
+        "smoke:ai-features": "node scripts/smokeAIFeatures.js",
+        "test:coin:atomicity": "node scripts/test_coin_atomicity.js",
+        "test:coin:integration": "node scripts/test_coin_integration.js",
+        "test:coins": "npm run test:coin:integration && npm run test:coin:atomicity"
     },
     "dependencies": {
         "@supabase/supabase-js": "^2.95.3",

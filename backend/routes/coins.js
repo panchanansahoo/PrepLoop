@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
 
@@ -25,44 +26,6 @@ const toSafeAmount = (value) => {
 const sanitizeDescription = (value, fallback) => {
   const text = String(value || fallback || '').trim();
   return text.slice(0, 160);
-};
-
-const isMissingAtomicCoinFunction = (error) => {
-  const code = String(error?.code || '').toUpperCase();
-  const message = String(error?.message || '').toLowerCase();
-  return code === 'PGRST202' || message.includes('coin_apply_transaction');
-};
-
-const tryAtomicCoinTransaction = async (userId, amount, type, description) => {
-  const { data, error } = await supabaseAdmin.rpc('coin_apply_transaction', {
-    user_id_input: userId,
-    amount_input: amount,
-    txn_type_input: type,
-    description_input: description,
-  });
-
-  if (error) {
-    if (isMissingAtomicCoinFunction(error)) {
-      return { handled: false };
-    }
-    throw error;
-  }
-
-  const result = Array.isArray(data) ? data[0] : data;
-  if (!result?.success) {
-    return {
-      handled: true,
-      success: false,
-      error: result?.error || 'Failed to apply coin transaction',
-      balance: Number(result?.new_balance || 0),
-    };
-  }
-
-  return {
-    handled: true,
-    success: true,
-    balance: Number(result.new_balance || 0),
-  };
 };
 
 // Get coin balance
@@ -98,12 +61,22 @@ router.post('/earn', authenticateToken, async (req, res) => {
       });
     }
 
-    const atomicResult = await tryAtomicCoinTransaction(req.user.id, amount, 'earn', description);
+    const atomicResult = await applyCoinTransaction({
+      userId: req.user.id,
+      amount,
+      type: 'earn',
+      description,
+      referenceKey: req.body?.referenceKey,
+    });
     if (atomicResult.handled) {
       if (!atomicResult.success) {
         return res.status(400).json({ error: atomicResult.error, coins: atomicResult.balance });
       }
-      return res.json({ coins: atomicResult.balance, earned: amount });
+      return res.json({
+        coins: atomicResult.balance,
+        earned: atomicResult.applied ? amount : 0,
+        applied: atomicResult.applied,
+      });
     }
 
     // Get current balance
@@ -158,7 +131,13 @@ router.post('/spend', authenticateToken, async (req, res) => {
       });
     }
 
-    const atomicResult = await tryAtomicCoinTransaction(req.user.id, amount, 'spend', description);
+    const atomicResult = await applyCoinTransaction({
+      userId: req.user.id,
+      amount,
+      type: 'spend',
+      description,
+      referenceKey: req.body?.referenceKey,
+    });
     if (atomicResult.handled) {
       if (!atomicResult.success) {
         return res.status(400).json({
@@ -167,7 +146,11 @@ router.post('/spend', authenticateToken, async (req, res) => {
           required: amount,
         });
       }
-      return res.json({ coins: atomicResult.balance, spent: amount });
+      return res.json({
+        coins: atomicResult.balance,
+        spent: atomicResult.applied ? amount : 0,
+        applied: atomicResult.applied,
+      });
     }
 
     // Get current balance

@@ -2,8 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
-import { randomUUID } from 'crypto';
 import './config/env.js';
+import { requestIdMiddleware } from './middleware/requestId.js';
 
 let app;
 
@@ -14,6 +14,7 @@ async function initializeServer() {
     const dsaRoutes = (await import('./routes/dsa.js')).default;
     const practiceRoutes = (await import('./routes/practice.js')).default;
     const aiRoutes = (await import('./routes/ai.js')).default;
+    const aiFeaturesRoutes = (await import('./routes/ai-features.js')).default;
     const userRoutes = (await import('./routes/user.js')).default;
     const resumeRoutes = (await import('./routes/resume.js')).default;
     const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
@@ -69,24 +70,9 @@ async function initializeServer() {
     }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
     app.use('/api/auth', authLimiter);
     app.use('/api/', limiter);
-
-    const shouldLogRequests = process.env.LOG_REQUESTS === 'true' || process.env.NODE_ENV === 'development';
-    if (shouldLogRequests) {
-      app.use((req, res, next) => {
-        const startedAt = Date.now();
-        const requestId = randomUUID();
-        res.setHeader('x-request-id', requestId);
-
-        res.on('finish', () => {
-          const durationMs = Date.now() - startedAt;
-          console.log(`[REQ] ${requestId} ${req.method} ${req.originalUrl} ${res.statusCode} ${durationMs}ms`);
-        });
-
-        next();
-      });
-    }
 
     // Health check endpoint
     app.get('/health', (req, res) => {
@@ -98,6 +84,7 @@ async function initializeServer() {
     app.use('/api/dsa', dsaRoutes);
     app.use('/api/practice', practiceRoutes);
     app.use('/api/ai', aiRoutes);
+    app.use('/api/ai-features', aiFeaturesRoutes);
     app.use('/api/user', userRoutes);
     app.use('/api/resume', resumeRoutes);
     app.use('/api/system-design', systemDesignRoutes);
