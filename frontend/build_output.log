@@ -1,0 +1,27 @@
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+[32mΓ£ô[39m 1030 modules transformed.
+x Build failed in 1.56s
+error during build:
+[vite:esbuild] Transform failed with 1 error:
+C:/Users/panch/Desktop/Preploop/frontend/src/pages/DailyChallengesPage.jsx:445:17: ERROR: Expected identifier but found "/"
+file: C:/Users/panch/Desktop/Preploop/frontend/src/pages/DailyChallengesPage.jsx:445:17
+
+Expected identifier but found "/"
+443|  }
+444|  { idx + 1 }
+445|                  </span >
+   |                   ^
+446|                  <div style={{
+447|                      width: 1, height: 14, borderRadius: 1,
+
+    at failureErrorWithLog (C:\Users\panch\Desktop\Preploop\frontend\node_modules\esbuild\lib\main.js:1472:15)
+    at C:\Users\panch\Desktop\Preploop\frontend\node_modules\esbuild\lib\main.js:755:50
+    at responseCallbacks.<computed> (C:\Users\panch\Desktop\Preploop\frontend\node_modules\esbuild\lib\main.js:622:9)
+    at handleIncomingPacket (C:\Users\panch\Desktop\Preploop\frontend\node_modules\esbuild\lib\main.js:677:12)
+    at Socket.readFromStdout (C:\Users\panch\Desktop\Preploop\frontend\node_modules\esbuild\lib\main.js:600:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
