@@ -16,6 +16,182 @@ const isProfilesAccessBlocked = (error) => {
   return code === '42P17' || message.includes('infinite recursion detected in policy');
 };
 
+const buildProfileResponse = (req, profile) => {
+  const fullName = profile?.full_name || req.user.user_metadata?.full_name || '';
+  const subscriptionTier = profile?.subscription_tier || 'free';
+  const experienceLevel = profile?.experience_level || 'beginner';
+  const role = profile?.role || 'user';
+  const experienceSummary = profile?.experience_summary || '';
+  const experienceYears = profile?.experience_years ?? null;
+
+  const flatProfile = {
+    id: profile?.id || req.user.id,
+    email: req.user.email,
+    fullName,
+    full_name: fullName,
+    subscriptionTier,
+    subscription_tier: subscriptionTier,
+    experienceLevel,
+    experience_level: experienceLevel,
+    role,
+    created_at: profile?.created_at || null,
+    last_login: profile?.last_login || null,
+    bio: profile?.bio || '',
+    currentRole: profile?.designation || profile?.current_role || '',
+    skills: profile?.skills || '',
+    education: profile?.education || '',
+    experience: experienceSummary || (experienceYears != null ? String(experienceYears) : experienceLevel),
+    experienceSummary,
+    experienceYears,
+    company: profile?.company || '',
+    designation: profile?.designation || '',
+    avatar_url: profile?.avatar_url || '',
+  };
+
+  return {
+    user: {
+      id: flatProfile.id,
+      email: flatProfile.email,
+      full_name: flatProfile.full_name,
+      subscription_tier: flatProfile.subscription_tier,
+      experience_level: flatProfile.experience_level,
+      created_at: flatProfile.created_at,
+      last_login: flatProfile.last_login,
+      role: flatProfile.role,
+      bio: flatProfile.bio,
+      current_role: flatProfile.currentRole,
+      skills: flatProfile.skills,
+      education: flatProfile.education,
+      experience: flatProfile.experience,
+      experience_summary: flatProfile.experienceSummary,
+      experience_years: flatProfile.experienceYears,
+      company: flatProfile.company,
+      designation: flatProfile.designation,
+      avatar_url: flatProfile.avatar_url,
+    },
+    profile: flatProfile,
+    ...flatProfile,
+  };
+};
+
+const normalizeProfileUpdatePayload = (body = {}) => {
+  const updates = {};
+
+  const fullName = body.fullName || body.full_name;
+  const experienceLevel = body.experienceLevel || body.experience_level;
+  const currentRole = body.currentRole || body.current_role || body.designation;
+  const bio = body.bio;
+  const skills = body.skills;
+  const education = body.education;
+
+  if (fullName) updates.full_name = fullName;
+  if (experienceLevel) updates.experience_level = experienceLevel;
+  if (currentRole) updates.designation = currentRole;
+  if (bio !== undefined) updates.bio = bio;
+  if (skills !== undefined) updates.skills = skills;
+  if (education !== undefined) updates.education = education;
+
+  const experienceValue = body.experienceSummary || body.experience_summary || body.experience;
+  if (experienceValue !== undefined && experienceValue !== null && String(experienceValue).trim() !== '') {
+    const trimmed = String(experienceValue).trim();
+    const numericExperience = Number(trimmed);
+
+    if (Number.isFinite(numericExperience) && /^\d+(?:\.\d+)?$/.test(trimmed)) {
+      updates.experience_years = numericExperience;
+      updates.experience_summary = null;
+    } else {
+      updates.experience_summary = trimmed;
+    }
+  }
+
+  return updates;
+};
+
+const XP_BY_DIFFICULTY = {
+  easy: 10,
+  medium: 25,
+  hard: 50,
+};
+
+const LEVELS = [
+  { name: 'Novice', minXP: 0 },
+  { name: 'Apprentice', minXP: 100 },
+  { name: 'Intermediate', minXP: 350 },
+  { name: 'Advanced', minXP: 800 },
+  { name: 'Expert', minXP: 1800 },
+  { name: 'Master', minXP: 4000 },
+  { name: 'Grandmaster', minXP: 8000 },
+  { name: 'Legend', minXP: 15000 },
+];
+
+const getLevelInfo = (xp) => {
+  const safeXP = Number(xp) || 0;
+
+  for (let index = LEVELS.length - 1; index >= 0; index -= 1) {
+    if (safeXP >= LEVELS[index].minXP) {
+      return { ...LEVELS[index], index };
+    }
+  }
+
+  return { ...LEVELS[0], index: 0 };
+};
+
+const getLevelProgressInfo = (xp) => {
+  const totalXP = Number(xp) || 0;
+  const currentLevel = getLevelInfo(totalXP);
+  const nextLevel = LEVELS[currentLevel.index + 1] || null;
+
+  if (!nextLevel) {
+    return {
+      currentLevel,
+      currentXP: totalXP,
+      nextLevelXP: totalXP,
+      rank: currentLevel.name,
+    };
+  }
+
+  return {
+    currentLevel,
+    currentXP: totalXP - currentLevel.minXP,
+    nextLevelXP: nextLevel.minXP,
+    rank: currentLevel.name,
+  };
+};
+
+const getWeekRange = (offsetWeeks = 0) => {
+  const start = new Date();
+  start.setDate(start.getDate() - start.getDay() - (offsetWeeks * 7));
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+
+  return { start, end };
+};
+
+const buildWeeklyStats = (submissions, start, end) => {
+  const accepted = (submissions || []).filter((submission) => {
+    const submittedAt = new Date(submission.submitted_at);
+    return submission.status === 'accepted' && submittedAt >= start && submittedAt < end;
+  });
+
+  const totals = accepted.reduce((accumulator, submission) => {
+    const difficulty = String(submission.problems?.difficulty || '').toLowerCase();
+    const executionTime = Number(submission.execution_time) || 0;
+
+    accumulator.problems += 1;
+    accumulator.timeHours += executionTime / 3600;
+    accumulator.xp += XP_BY_DIFFICULTY[difficulty] || XP_BY_DIFFICULTY.easy;
+    return accumulator;
+  }, { problems: 0, timeHours: 0, xp: 0 });
+
+  return {
+    problems: totals.problems,
+    time: Number(totals.timeHours.toFixed(1)),
+    xp: totals.xp,
+  };
+};
+
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
@@ -26,14 +202,13 @@ router.get("/profile", authenticateToken, async (req, res) => {
 
     if (isProfilesAccessBlocked(error)) {
       return res.json({
-        user: {
+        ...buildProfileResponse(req, {
           id: req.user.id,
-          email: req.user.email,
           full_name: req.user.user_metadata?.full_name || '',
           subscription_tier: 'free',
           experience_level: 'beginner',
           role: 'user',
-        },
+        }),
         degraded: true,
       });
     }
@@ -42,30 +217,18 @@ router.get("/profile", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({
-      user: {
-        id: profile.id,
-        email: req.user.email,
-        full_name: profile.full_name,
-        subscription_tier: profile.subscription_tier,
-        experience_level: profile.experience_level,
-        created_at: profile.created_at,
-        last_login: profile.last_login,
-        role: profile.role || 'user',
-      },
-    });
+    res.json(buildProfileResponse(req, profile));
   } catch (error) {
     console.error("Error fetching profile:", error);
     if (isProfilesAccessBlocked(error)) {
       return res.json({
-        user: {
+        ...buildProfileResponse(req, {
           id: req.user.id,
-          email: req.user.email,
           full_name: req.user.user_metadata?.full_name || '',
           subscription_tier: 'free',
           experience_level: 'beginner',
           role: 'user',
-        },
+        }),
         degraded: true,
       });
     }
@@ -74,12 +237,8 @@ router.get("/profile", authenticateToken, async (req, res) => {
 });
 
 router.put("/profile", authenticateToken, async (req, res) => {
-  const { fullName, experienceLevel } = req.body;
-
   try {
-    const updates = {};
-    if (fullName) updates.full_name = fullName;
-    if (experienceLevel) updates.experience_level = experienceLevel;
+    const updates = normalizeProfileUpdatePayload(req.body);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No fields to update" });
@@ -94,15 +253,7 @@ router.put("/profile", authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
-      user: {
-        id: data.id,
-        email: req.user.email,
-        full_name: data.full_name,
-        subscription_tier: data.subscription_tier,
-        experience_level: data.experience_level,
-      },
-    });
+    res.json(buildProfileResponse(req, data));
   } catch (error) {
     console.error("Error updating profile:", error);
     if (isProfilesAccessBlocked(error)) {
@@ -129,7 +280,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     // ── 2) All submissions (for streak, heatmap, weekly) ──
     const { data: allSubmissions } = await supabaseAdmin
       .from("submissions")
-      .select("id, submitted_at, status, problem_id, problems(title, difficulty, tags)")
+      .select("id, submitted_at, status, problem_id, execution_time, problems(title, difficulty, tags)")
       .eq("user_id", userId)
       .order("submitted_at", { ascending: false });
 
@@ -204,8 +355,13 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       avgScore = Math.round(totalScore / completedInterviews.length);
     }
 
-    // ── 7) Total XP (derived) ──
-    const totalXP = solvedCount * 25 + completedInterviews.length * 50;
+    // ── 7) Total XP (derived from real activity) ──
+    const acceptedSubmissions = subs.filter((submission) => submission.status === 'accepted');
+    const totalProblemXP = acceptedSubmissions.reduce((sum, submission) => {
+      const difficulty = String(submission.problems?.difficulty || '').toLowerCase();
+      return sum + (XP_BY_DIFFICULTY[difficulty] || XP_BY_DIFFICULTY.easy);
+    }, 0);
+    const totalXP = totalProblemXP + (completedInterviews.length * 50);
 
     // ── 8) Heatmap data (last 365 days, only accepted submissions grouped by date) ──
     const heatmapData = {};
@@ -328,22 +484,13 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     const recentActivityFinal = recentActivity.slice(0, 6);
 
     // ── 12) Weekly goals data (solved this week by difficulty) ──
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    startOfWeek.setHours(0, 0, 0, 0);
-    const weekStart = startOfWeek.toISOString();
+    const thisWeekRange = getWeekRange(0);
+    const lastWeekRange = getWeekRange(1);
 
-    const thisWeekSubs = subs.filter(
-      (s) => s.status === "accepted" && new Date(s.submitted_at) >= new Date(weekStart)
-    );
+    const thisWeek = buildWeeklyStats(subs, thisWeekRange.start, thisWeekRange.end);
+    const lastWeek = buildWeeklyStats(subs, lastWeekRange.start, lastWeekRange.end);
 
-    const weeklyByDifficulty = { easy: 0, medium: 0, hard: 0 };
-    thisWeekSubs.forEach((s) => {
-      const diff = s.problems?.difficulty?.toLowerCase();
-      if (diff === "easy") weeklyByDifficulty.easy++;
-      else if (diff === "medium") weeklyByDifficulty.medium++;
-      else if (diff === "hard") weeklyByDifficulty.hard++;
-    });
+    const levelInfo = getLevelProgressInfo(totalXP);
 
     // ── 13) Readiness data ──
     const readinessData = {
@@ -373,6 +520,16 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       recentActivity: recentActivityFinal,
       weeklyGoals: weeklyByDifficulty,
       readinessData,
+      thisWeekProblems: thisWeek.problems,
+      lastWeekProblems: lastWeek.problems,
+      thisWeekTime: thisWeek.time,
+      lastWeekTime: lastWeek.time,
+      thisWeekXP: thisWeek.xp,
+      lastWeekXP: lastWeek.xp,
+      currentLevel: levelInfo.currentLevel.index + 1,
+      currentXP: levelInfo.currentXP,
+      nextLevelXP: levelInfo.nextLevelXP,
+      rank: levelInfo.rank,
     });
   } catch (error) {
     console.error("Error fetching dashboard:", error);

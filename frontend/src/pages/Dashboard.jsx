@@ -161,18 +161,18 @@ export default function Dashboard() {
             case 'weeklyStats':
                 return {
                     weeklyData: {
-                        thisWeek: { problems: dashboardData.thisWeekProblems || 5, time: dashboardData.thisWeekTime || 12, xp: dashboardData.thisWeekXP || 450 },
-                        lastWeek: { problems: dashboardData.lastWeekProblems || 3, time: dashboardData.lastWeekTime || 8, xp: dashboardData.lastWeekXP || 280 }
+                        thisWeek: { problems: dashboardData.thisWeekProblems ?? 0, time: dashboardData.thisWeekTime ?? 0, xp: dashboardData.thisWeekXP ?? 0 },
+                        lastWeek: { problems: dashboardData.lastWeekProblems ?? 0, time: dashboardData.lastWeekTime ?? 0, xp: dashboardData.lastWeekXP ?? 0 }
                     }
                 };
             case 'levelProgress':
                 return {
                     levelData: {
-                        currentLevel: dashboardData.currentLevel || 12,
-                        currentXP: dashboardData.currentXP || 3450,
-                        nextLevelXP: dashboardData.nextLevelXP || 5000,
-                        totalXP: dashboardData.totalXP || 48450,
-                        rank: dashboardData.rank || 'Expert'
+                        currentLevel: dashboardData.currentLevel ?? 0,
+                        currentXP: dashboardData.currentXP ?? 0,
+                        nextLevelXP: dashboardData.nextLevelXP ?? 0,
+                        totalXP: dashboardData.totalXP ?? 0,
+                        rank: dashboardData.rank ?? ''
                     }
                 };
             default:

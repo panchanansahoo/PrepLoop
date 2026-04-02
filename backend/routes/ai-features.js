@@ -480,6 +480,7 @@ router.get(
           return res.status(200).json({
             success: true,
             data: [],
+            trends: [],
             schemaMissing: true,
           });
         }
@@ -488,7 +489,8 @@ router.get(
 
       return res.status(200).json({
         success: true,
-        data: trends
+        data: trends,
+        trends,
       });
 
     } catch (error) {
@@ -536,7 +538,10 @@ router.get(
           codeReviewsSubmitted: codeReviewsCount || 0,
           interviewsStarted: interviewsCount || 0,
           interviewsCompleted: completedInterviewsCount || 0
-        }
+        },
+        codeReviewsCount: codeReviewsCount || 0,
+        interviewsCount: interviewsCount || 0,
+        completedInterviewsCount: completedInterviewsCount || 0,
       });
 
     } catch (error) {

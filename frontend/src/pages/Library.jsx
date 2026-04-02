@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { Search, BookOpen, Star, Loader } from 'lucide-react';
-import { getBooks, addToShelf } from '../api/libraryService';
+import { Search, BookOpen, Star, Loader, X } from 'lucide-react';
+import { getBooks, updateBook } from '../api/libraryService';
 
 export default function Library() {
     const { theme } = useTheme();
-    const { user, token } = useAuth();
+    const { user } = useAuth();
     const isLight = theme === 'light';
+    const isAdmin = user?.role === 'admin';
     
     const [searchTerm, setSearchTerm] = useState('');
     const [category, setCategory] = useState('');
@@ -17,7 +18,28 @@ export default function Library() {
     const [error, setError] = useState(null);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
-    const [addingToShelf, setAddingToShelf] = useState(null);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingBook, setEditingBook] = useState(null);
+    const [editSubmitting, setEditSubmitting] = useState(false);
+    const [editMessage, setEditMessage] = useState(null);
+    const [editFormData, setEditFormData] = useState({
+        title: '',
+        author: '',
+        isbn: '',
+        description: '',
+        category: 'Programming',
+        difficulty_level: 'Intermediate',
+        cover_url: '',
+        resource_url: '',
+        pages: '',
+        publisher: '',
+        subcategory: '',
+        publication_date: '',
+        edition: '',
+        amazon_url: '',
+        goodreads_url: '',
+        tags: ''
+    });
 
     // Fetch books from API
     useEffect(() => {
@@ -46,22 +68,85 @@ export default function Library() {
         return () => clearTimeout(debounceTimer);
     }, [searchTerm, category, difficulty, page]);
 
-    const handleAddToShelf = async (bookId, status = 'wishlist') => {
-        if (!user || !token) {
-            alert('Please log in to add books to your shelf');
+    const handleOpenBook = (book) => {
+        if (book.resource_url) {
+            window.open(book.resource_url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+
+        alert('No book link is available for this item yet.');
+    };
+
+    const handleEditBook = (book) => {
+        setEditingBook(book);
+        setEditMessage(null);
+        setEditFormData({
+            title: book.title || '',
+            author: book.author || '',
+            isbn: book.isbn || '',
+            description: book.description || '',
+            category: book.category || 'Programming',
+            difficulty_level: book.difficulty_level || 'Intermediate',
+            cover_url: book.cover_url || '',
+            resource_url: book.resource_url || '',
+            pages: book.pages || '',
+            publisher: book.publisher || '',
+            subcategory: book.subcategory || '',
+            publication_date: book.publication_date ? String(book.publication_date).slice(0, 10) : '',
+            edition: book.edition || '',
+            amazon_url: book.amazon_url || '',
+            goodreads_url: book.goodreads_url || '',
+            tags: Array.isArray(book.tags) ? book.tags.join(', ') : ''
+        });
+        setShowEditModal(true);
+    };
+
+    const handleEditInputChange = (e) => {
+        const { name, value } = e.target;
+        setEditFormData((prev) => ({
+            ...prev,
+            [name]: name === 'pages' ? (value === '' ? '' : parseInt(value, 10) || '') : value
+        }));
+    };
+
+    const handleEditSubmit = async (e) => {
+        e.preventDefault();
+
+        if (!editingBook) {
             return;
         }
 
         try {
-            setAddingToShelf(bookId);
-            await addToShelf(bookId, { status }, token);
-            alert('Book added to your shelf!');
+            setEditSubmitting(true);
+            setEditMessage(null);
+
+            const payload = {
+                ...editFormData,
+                tags: editFormData.tags
+                    ? editFormData.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
+                    : []
+            };
+
+            await updateBook(editingBook.id, payload, localStorage.getItem('token') || sessionStorage.getItem('token'));
+
+            setBooks((currentBooks) => currentBooks.map((book) => (
+                book.id === editingBook.id ? { ...book, ...payload } : book
+            )));
+            setEditMessage({ type: 'success', text: 'Book updated successfully.' });
+            setShowEditModal(false);
+            setEditingBook(null);
         } catch (err) {
-            console.error('Error adding to shelf:', err);
-            alert('Failed to add book to shelf');
+            console.error('Error updating book:', err);
+            setEditMessage({ type: 'error', text: err.message || 'Failed to update book.' });
         } finally {
-            setAddingToShelf(null);
+            setEditSubmitting(false);
         }
+    };
+
+    const handleCloseEditModal = () => {
+        setShowEditModal(false);
+        setEditingBook(null);
+        setEditMessage(null);
     };
 
     return (
@@ -368,26 +453,36 @@ export default function Library() {
                                         </div>
 
                                         <button
-                                            onClick={() => handleAddToShelf(book.id)}
-                                            disabled={addingToShelf === book.id}
+                                            onClick={() => handleOpenBook(book)}
                                             className="btn btn-primary"
                                             style={{
                                                 width: '100%',
                                                 justifyContent: 'center',
-                                                gap: '8px',
-                                                opacity: addingToShelf === book.id ? 0.7 : 1
+                                                gap: '8px'
                                             }}
                                         >
-                                            {addingToShelf === book.id ? (
-                                                <>
-                                                    <Loader size={16} className="animate-spin" /> Adding...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <BookOpen size={16} /> Add to Shelf
-                                                </>
-                                            )}
+                                            <>
+                                                <BookOpen size={16} /> Open Book
+                                            </>
                                         </button>
+
+                                        {isAdmin && (
+                                            <button
+                                                onClick={() => handleEditBook(book)}
+                                                className="btn"
+                                                style={{
+                                                    width: '100%',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    marginTop: '10px',
+                                                    border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
+                                                    background: isLight ? 'white' : '#1a1a1a',
+                                                    color: isLight ? '#1a1a2e' : 'white'
+                                                }}
+                                            >
+                                                Edit Book Photo
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -453,7 +548,205 @@ export default function Library() {
                         <p>Try adjusting your filters or search terms</p>
                     </div>
                 )}
+
+                {showEditModal && editingBook && (
+                    <div style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'rgba(0,0,0,0.6)',
+                        backdropFilter: 'blur(6px)',
+                        zIndex: 1000,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '20px'
+                    }}>
+                        <div style={{
+                            width: '100%',
+                            maxWidth: '840px',
+                            maxHeight: '90vh',
+                            overflowY: 'auto',
+                            background: isLight ? 'white' : '#111111',
+                            color: isLight ? '#1a1a2e' : 'white',
+                            border: isLight ? '1px solid #e5e7eb' : '1px solid var(--zinc-800)',
+                            borderRadius: '18px',
+                            padding: '24px'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', gap: '16px', marginBottom: '20px' }}>
+                                <div>
+                                    <h2 style={{ fontSize: '24px', fontWeight: 700, marginBottom: '6px' }}>Edit Book</h2>
+                                    <p style={{ color: 'var(--text-secondary)' }}>{editingBook.title}</p>
+                                </div>
+                                <button onClick={handleCloseEditModal} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'inherit' }}>
+                                    <X size={24} />
+                                </button>
+                            </div>
+
+                            {editMessage && (
+                                <div style={{
+                                    marginBottom: '16px',
+                                    padding: '12px 14px',
+                                    borderRadius: '10px',
+                                    background: editMessage.type === 'success' ? (isLight ? '#dcfce7' : '#14532d') : (isLight ? '#fee2e2' : '#7f1d1d'),
+                                    color: editMessage.type === 'success' ? (isLight ? '#166534' : '#bbf7d0') : (isLight ? '#991b1b' : '#fecaca')
+                                }}>
+                                    {editMessage.text}
+                                </div>
+                            )}
+
+                            <form onSubmit={handleEditSubmit} style={{ display: 'grid', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '16px', alignItems: 'start' }}>
+                                    <div style={{
+                                        width: '160px',
+                                        height: '220px',
+                                        borderRadius: '14px',
+                                        overflow: 'hidden',
+                                        border: isLight ? '1px solid #e5e7eb' : '1px solid var(--zinc-800)',
+                                        background: isLight ? '#f3f4f6' : '#0a0a0a',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        {(editFormData.cover_url || editingBook.cover_url) ? (
+                                            <img
+                                                src={editFormData.cover_url || editingBook.cover_url}
+                                                alt={`${editingBook.title} cover preview`}
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '16px', fontSize: '14px' }}>
+                                                Add a cover URL to preview the book photo here.
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label style={labelStyle}>Cover Photo URL</label>
+                                        <input
+                                            name="cover_url"
+                                            value={editFormData.cover_url}
+                                            onChange={handleEditInputChange}
+                                            style={inputStyle(isLight)}
+                                            placeholder="https://..."
+                                        />
+                                        <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                            Paste a new image URL to update the book cover.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="Title *" name="title" value={editFormData.title} onChange={handleEditInputChange} isLight={isLight} required />
+                                    <Field label="Author *" name="author" value={editFormData.author} onChange={handleEditInputChange} isLight={isLight} required />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="ISBN" name="isbn" value={editFormData.isbn} onChange={handleEditInputChange} isLight={isLight} />
+                                    <Field label="Resource URL" name="resource_url" value={editFormData.resource_url} onChange={handleEditInputChange} isLight={isLight} />
+                                </div>
+
+                                <div>
+                                    <label style={labelStyle}>Description</label>
+                                    <textarea name="description" value={editFormData.description} onChange={handleEditInputChange} rows="4" style={inputStyle(isLight, true)} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <SelectField label="Category" name="category" value={editFormData.category} onChange={handleEditInputChange} isLight={isLight} options={['DSA', 'System Design', 'Programming', 'Web Development', 'Interview Prep', 'Career', 'AI/ML', 'Database']} />
+                                    <SelectField label="Difficulty" name="difficulty_level" value={editFormData.difficulty_level} onChange={handleEditInputChange} isLight={isLight} options={['Beginner', 'Intermediate', 'Advanced']} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="Pages" name="pages" type="number" value={editFormData.pages} onChange={handleEditInputChange} isLight={isLight} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="Publisher" name="publisher" value={editFormData.publisher} onChange={handleEditInputChange} isLight={isLight} />
+                                    <Field label="Subcategory" name="subcategory" value={editFormData.subcategory} onChange={handleEditInputChange} isLight={isLight} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="Publication Date" name="publication_date" type="date" value={editFormData.publication_date} onChange={handleEditInputChange} isLight={isLight} />
+                                    <Field label="Edition" name="edition" value={editFormData.edition} onChange={handleEditInputChange} isLight={isLight} />
+                                </div>
+
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                    <Field label="Amazon URL" name="amazon_url" value={editFormData.amazon_url} onChange={handleEditInputChange} isLight={isLight} />
+                                    <Field label="Goodreads URL" name="goodreads_url" value={editFormData.goodreads_url} onChange={handleEditInputChange} isLight={isLight} />
+                                </div>
+
+                                <div>
+                                    <label style={labelStyle}>Tags (comma-separated)</label>
+                                    <input name="tags" value={editFormData.tags} onChange={handleEditInputChange} style={inputStyle(isLight)} placeholder="algorithms, dsa, interview" />
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                    <button type="button" onClick={handleCloseEditModal} disabled={editSubmitting} style={secondaryButtonStyle(isLight, editSubmitting)}>
+                                        Cancel
+                                    </button>
+                                    <button type="submit" disabled={editSubmitting} className="btn btn-primary" style={{ minWidth: '160px' }}>
+                                        {editSubmitting ? <><Loader size={16} className="animate-spin" /> Saving...</> : 'Save Changes'}
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
+}
+
+function Field({ label, name, value, onChange, isLight, required = false, type = 'text' }) {
+    return (
+        <div>
+            <label style={labelStyle}>{label}</label>
+            <input
+                type={type}
+                name={name}
+                value={value}
+                onChange={onChange}
+                required={required}
+                style={inputStyle(isLight)}
+            />
+        </div>
+    );
+}
+
+function SelectField({ label, name, value, onChange, isLight, options }) {
+    return (
+        <div>
+            <label style={labelStyle}>{label}</label>
+            <select name={name} value={value} onChange={onChange} style={inputStyle(isLight)}>
+                {options.map((option) => <option key={option} value={option}>{option}</option>)}
+            </select>
+        </div>
+    );
+}
+
+const labelStyle = { display: 'block', marginBottom: '8px', fontWeight: 600 };
+
+function inputStyle(isLight, textarea = false) {
+    return {
+        width: '100%',
+        padding: '10px',
+        borderRadius: '8px',
+        border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
+        background: isLight ? '#f9f9f9' : '#0a0a0a',
+        color: isLight ? '#1a1a2e' : 'white',
+        fontSize: '14px',
+        fontFamily: textarea ? 'inherit' : 'inherit',
+        resize: textarea ? 'vertical' : 'none'
+    };
+}
+
+function secondaryButtonStyle(isLight, disabled) {
+    return {
+        padding: '10px 16px',
+        borderRadius: '8px',
+        border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
+        background: isLight ? '#f9f9f9' : '#0a0a0a',
+        color: isLight ? '#1a1a2e' : 'white',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.7 : 1
+    };
 }

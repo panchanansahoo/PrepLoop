@@ -107,6 +107,273 @@ const getFallbackQuestions = (type, difficulty) => {
   return questions;
 };
 
+  function buildInterviewAnalytics(interviews = []) {
+    const totalInterviews = interviews.length;
+
+    if (totalInterviews === 0) {
+      return {
+        totalInterviews: 0,
+        averageOverallScore: 0,
+        averageCommunicationScore: 0,
+        averageTechnicalScore: 0,
+        averageProblemSolvingScore: 0,
+        bestScore: 0,
+        currentStreak: 0,
+        bestStreak: 0,
+        consistency: 0,
+        byType: {},
+        byDifficulty: {},
+        scoreTrend: 0,
+        recentTrend: [],
+        averageScores: {
+          overall: 0,
+          communication: 0,
+          technical: 0,
+          problemSolving: 0,
+        },
+        scoresByType: {},
+        scoresByDifficulty: {},
+      };
+    }
+
+    const scores = interviews.map((interview) => interview.overall_score || 0);
+    const averageOverallScore = Math.round(scores.reduce((sum, score) => sum + score, 0) / totalInterviews);
+    const averageCommunicationScore = Math.round(
+      interviews.reduce((sum, interview) => sum + (interview.communication_score || 0), 0) / totalInterviews
+    );
+    const averageTechnicalScore = Math.round(
+      interviews.reduce((sum, interview) => sum + (interview.technical_score || 0), 0) / totalInterviews
+    );
+    const averageProblemSolvingScore = Math.round(
+      interviews.reduce((sum, interview) => sum + (interview.problem_solving_score || 0), 0) / totalInterviews
+    );
+
+    const bestScore = Math.max(...scores);
+    const mean = scores.reduce((sum, score) => sum + score, 0) / totalInterviews;
+    const variance = scores.reduce((sum, score) => sum + ((score - mean) ** 2), 0) / totalInterviews;
+    const consistency = Math.max(0, Math.min(100, Math.round(100 - Math.sqrt(variance))));
+
+    const collectBreakdown = (field) => {
+      const breakdown = {};
+
+      interviews.forEach((interview) => {
+        const group = interview[field] || 'unknown';
+
+        if (!breakdown[group]) {
+          breakdown[group] = { count: 0, total: 0 };
+        }
+
+        breakdown[group].count += 1;
+        breakdown[group].total += interview.overall_score || 0;
+      });
+
+      Object.keys(breakdown).forEach((group) => {
+        breakdown[group].avg = Math.round(breakdown[group].total / breakdown[group].count);
+        breakdown[group].average = breakdown[group].avg;
+        delete breakdown[group].total;
+      });
+
+      return breakdown;
+    };
+
+    const byType = collectBreakdown('interview_type');
+    const byDifficulty = collectBreakdown('difficulty');
+
+    const completedDates = [...new Set(
+      interviews
+        .filter((interview) => interview.completed_at)
+        .map((interview) => new Date(interview.completed_at).toISOString().split('T')[0])
+    )].sort().reverse();
+
+    let currentStreak = 0;
+    let bestStreak = 0;
+
+    if (completedDates.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+      if (completedDates[0] === today || completedDates[0] === yesterday) {
+        currentStreak = 1;
+
+        for (let index = 1; index < completedDates.length; index++) {
+          const previous = new Date(completedDates[index - 1]);
+          const current = new Date(completedDates[index]);
+          const diffDays = Math.round((previous - current) / 86400000);
+
+          if (diffDays === 1) {
+            currentStreak += 1;
+          } else {
+            break;
+          }
+        }
+      }
+
+      let tempStreak = 1;
+      const allDates = [...completedDates].sort();
+
+      for (let index = 1; index < allDates.length; index++) {
+        const previous = new Date(allDates[index - 1]);
+        const current = new Date(allDates[index]);
+        const diffDays = Math.round((current - previous) / 86400000);
+
+        if (diffDays === 1) {
+          tempStreak += 1;
+        } else {
+          bestStreak = Math.max(bestStreak, tempStreak);
+          tempStreak = 1;
+        }
+      }
+
+      bestStreak = Math.max(bestStreak, tempStreak);
+    }
+
+    const firstWindow = scores.slice(0, Math.min(5, scores.length));
+    const lastWindow = scores.slice(-Math.min(5, scores.length));
+    const firstAverage = firstWindow.reduce((sum, score) => sum + score, 0) / firstWindow.length;
+    const lastAverage = lastWindow.reduce((sum, score) => sum + score, 0) / lastWindow.length;
+    const scoreTrend = scores.length > 1 ? Math.round(lastAverage - firstAverage) : 0;
+
+    const recentTrend = interviews.slice(0, 10).reverse().map((interview) => ({
+      date: interview.completed_at,
+      score: interview.overall_score || 0,
+      type: interview.interview_type,
+      difficulty: interview.difficulty,
+    }));
+
+    return {
+      totalInterviews,
+      averageOverallScore,
+      averageCommunicationScore,
+      averageTechnicalScore,
+      averageProblemSolvingScore,
+      bestScore,
+      currentStreak,
+      bestStreak,
+      consistency,
+      byType,
+      byDifficulty,
+      scoreTrend,
+      recentTrend,
+      averageScores: {
+        overall: averageOverallScore,
+        communication: averageCommunicationScore,
+        technical: averageTechnicalScore,
+        problemSolving: averageProblemSolvingScore,
+      },
+      scoresByType: Object.fromEntries(
+        Object.entries(byType).map(([key, value]) => [key, { count: value.count, average: value.avg }])
+      ),
+      scoresByDifficulty: Object.fromEntries(
+        Object.entries(byDifficulty).map(([key, value]) => [key, { count: value.count, average: value.avg }])
+      ),
+    };
+  }
+
+  export async function getInterviewAnalytics(req, res) {
+    try {
+      const { data: interviews, error } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('overall_score, communication_score, technical_score, problem_solving_score, interview_type, difficulty, completed_at')
+        .eq('user_id', req.user.id)
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+
+      res.json(buildInterviewAnalytics(interviews || []));
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      res.status(500).json({ error: 'Failed to fetch analytics' });
+    }
+  }
+
+  export async function getInterviewRecommendations(req, res) {
+    try {
+      const { data: interviews, error } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('communication_score, technical_score, problem_solving_score, interview_type, difficulty')
+        .eq('user_id', req.user.id)
+        .order('completed_at', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+
+      const recommendations = [];
+
+      if (!interviews || interviews.length === 0) {
+        return res.json({
+          recommendations: [
+            { type: 'general', message: 'Complete your first mock interview to get personalized recommendations!' },
+            { type: 'system-design', message: 'Try a System Design interview to practice architectural thinking.' },
+            { type: 'behavioral', message: 'Practice Behavioral interviews to master the STAR method.' }
+          ]
+        });
+      }
+
+      const avgComm = interviews.reduce((sum, interview) => sum + (interview.communication_score || 0), 0) / interviews.length;
+      const avgTech = interviews.reduce((sum, interview) => sum + (interview.technical_score || 0), 0) / interviews.length;
+      const avgProblem = interviews.reduce((sum, interview) => sum + (interview.problem_solving_score || 0), 0) / interviews.length;
+
+      const typeCount = {};
+      interviews.forEach((interview) => {
+        typeCount[interview.interview_type] = (typeCount[interview.interview_type] || 0) + 1;
+      });
+
+      const types = ['technical', 'behavioral', 'system-design', 'coding'];
+      const leastPracticed = types.sort((a, b) => (typeCount[a] || 0) - (typeCount[b] || 0))[0];
+
+      if (avgComm < 65) {
+        recommendations.push({
+          type: 'communication',
+          priority: 'high',
+          message: 'Focus on improving communication clarity. Practice speaking slowly and structuring your thoughts better.',
+          tips: ['Use the STAR method for behavioral questions', 'Explain your thought process out loud', 'Practice with a friend for feedback']
+        });
+      }
+
+      if (avgTech < 65) {
+        recommendations.push({
+          type: 'technical',
+          priority: 'high',
+          message: 'Your technical scores need improvement. Review fundamentals and practice more coding problems.',
+          tips: ['Solve 5-10 LeetCode problems daily', 'Review system design patterns', 'Learn about trade-offs and scaling']
+        });
+      }
+
+      if (avgProblem < 65) {
+        recommendations.push({
+          type: 'problem-solving',
+          priority: 'high',
+          message: 'Improve your problem-solving approach. Think through problems step by step.',
+          tips: ['Clarify requirements before solving', 'Consider edge cases', 'Discuss your approach before coding']
+        });
+      }
+
+      recommendations.push({
+        type: 'practice',
+        priority: 'medium',
+        message: `Practice more ${leastPracticed} interviews. You've focused mainly on other types.`,
+        suggestedType: leastPracticed
+      });
+
+      const easyCount = interviews.filter((interview) => interview.difficulty === 'easy').length;
+      const hardCount = interviews.filter((interview) => interview.difficulty === 'hard').length;
+
+      if (hardCount === 0 && easyCount > 3) {
+        recommendations.push({
+          type: 'difficulty',
+          priority: 'medium',
+          message: 'Time to level up! Try medium or hard difficulty interviews to challenge yourself.',
+          suggestion: 'Move to medium difficulty'
+        });
+      }
+
+      res.json({ recommendations });
+    } catch (error) {
+      console.error('Error fetching recommendations:', error);
+      res.status(500).json({ error: 'Failed to fetch recommendations' });
+    }
+  }
+
 const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
   if (!groq) return null;
 
@@ -422,183 +689,10 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
 });
 
 // Get interview analytics
-router.get('/analytics/overview', authenticateToken, async (req, res) => {
-  try {
-    const { data: interviews, error } = await supabaseAdmin
-      .from('mock_interviews')
-      .select('overall_score, communication_score, technical_score, problem_solving_score, interview_type, difficulty, completed_at')
-      .eq('user_id', req.user.id)
-      .order('completed_at', { ascending: false });
-
-    if (error) throw error;
-
-    if (!interviews || interviews.length === 0) {
-      return res.json({
-        totalInterviews: 0,
-        averageScore: 0,
-        scoresByType: {},
-        scoresByDifficulty: {},
-        recentTrend: []
-      });
-    }
-
-    // Calculate aggregates
-    const totalInterviews = interviews.length;
-    const avgOverall = Math.round(interviews.reduce((s, i) => s + (i.overall_score || 0), 0) / totalInterviews);
-    const avgComm = Math.round(interviews.reduce((s, i) => s + (i.communication_score || 0), 0) / totalInterviews);
-    const avgTech = Math.round(interviews.reduce((s, i) => s + (i.technical_score || 0), 0) / totalInterviews);
-    const avgProblem = Math.round(interviews.reduce((s, i) => s + (i.problem_solving_score || 0), 0) / totalInterviews);
-
-    // Group by type
-    const scoresByType = {};
-    interviews.forEach(i => {
-      if (!scoresByType[i.interview_type]) {
-        scoresByType[i.interview_type] = { scores: [], count: 0 };
-      }
-      scoresByType[i.interview_type].scores.push(i.overall_score || 0);
-      scoresByType[i.interview_type].count += 1;
-    });
-
-    Object.keys(scoresByType).forEach(type => {
-      const scores = scoresByType[type].scores;
-      scoresByType[type].average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-      delete scoresByType[type].scores;
-    });
-
-    // Group by difficulty
-    const scoresByDifficulty = {};
-    interviews.forEach(i => {
-      if (!scoresByDifficulty[i.difficulty]) {
-        scoresByDifficulty[i.difficulty] = { scores: [], count: 0 };
-      }
-      scoresByDifficulty[i.difficulty].scores.push(i.overall_score || 0);
-      scoresByDifficulty[i.difficulty].count += 1;
-    });
-
-    Object.keys(scoresByDifficulty).forEach(diff => {
-      const scores = scoresByDifficulty[diff].scores;
-      scoresByDifficulty[diff].average = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
-      delete scoresByDifficulty[diff].scores;
-    });
-
-    // Recent trend (last 10)
-    const recentTrend = interviews.slice(0, 10).reverse().map(i => ({
-      date: new Date(i.completed_at).toLocaleDateString(),
-      score: i.overall_score,
-      type: i.interview_type
-    }));
-
-    res.json({
-      totalInterviews,
-      averageScores: {
-        overall: avgOverall,
-        communication: avgComm,
-        technical: avgTech,
-        problemSolving: avgProblem
-      },
-      scoresByType,
-      scoresByDifficulty,
-      recentTrend
-    });
-  } catch (error) {
-    console.error('Error fetching analytics:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics' });
-  }
-});
+router.get('/analytics/overview', authenticateToken, getInterviewAnalytics);
 
 // Get personalized recommendations
-router.get('/recommendations', authenticateToken, async (req, res) => {
-  try {
-    const { data: interviews, error } = await supabaseAdmin
-      .from('mock_interviews')
-      .select('communication_score, technical_score, problem_solving_score, interview_type, difficulty')
-      .eq('user_id', req.user.id)
-      .order('completed_at', { ascending: false })
-      .limit(20);
-
-    if (error) throw error;
-
-    const recommendations = [];
-
-    if (!interviews || interviews.length === 0) {
-      return res.json({
-        recommendations: [
-          { type: 'general', message: 'Complete your first mock interview to get personalized recommendations!' },
-          { type: 'system-design', message: 'Try a System Design interview to practice architectural thinking.' },
-          { type: 'behavioral', message: 'Practice Behavioral interviews to master the STAR method.' }
-        ]
-      });
-    }
-
-    // Analyze weak areas
-    const avgComm = interviews.reduce((s, i) => s + (i.communication_score || 0), 0) / interviews.length;
-    const avgTech = interviews.reduce((s, i) => s + (i.technical_score || 0), 0) / interviews.length;
-    const avgProblem = interviews.reduce((s, i) => s + (i.problem_solving_score || 0), 0) / interviews.length;
-
-    // Find least practiced types
-    const typeCount = {};
-    interviews.forEach(i => {
-      typeCount[i.interview_type] = (typeCount[i.interview_type] || 0) + 1;
-    });
-
-    const types = ['technical', 'behavioral', 'system-design', 'coding'];
-    const leastPracticed = types.sort((a, b) => (typeCount[a] || 0) - (typeCount[b] || 0))[0];
-
-    // Generate recommendations
-    if (avgComm < 65) {
-      recommendations.push({
-        type: 'communication',
-        priority: 'high',
-        message: 'Focus on improving communication clarity. Practice speaking slowly and structuring your thoughts better.',
-        tips: ['Use the STAR method for behavioral questions', 'Explain your thought process out loud', 'Practice with a friend for feedback']
-      });
-    }
-
-    if (avgTech < 65) {
-      recommendations.push({
-        type: 'technical',
-        priority: 'high',
-        message: 'Your technical scores need improvement. Review fundamentals and practice more coding problems.',
-        tips: ['Solve 5-10 LeetCode problems daily', 'Review system design patterns', 'Learn about trade-offs and scaling']
-      });
-    }
-
-    if (avgProblem < 65) {
-      recommendations.push({
-        type: 'problem-solving',
-        priority: 'high',
-        message: 'Improve your problem-solving approach. Think through problems step by step.',
-        tips: ['Clarify requirements before solving', 'Consider edge cases', 'Discuss your approach before coding']
-      });
-    }
-
-    recommendations.push({
-      type: 'practice',
-      priority: 'medium',
-      message: `Practice more ${leastPracticed} interviews. You've focused mainly on other types.`,
-      suggestedType: leastPracticed
-    });
-
-    // Check difficulty progression
-    const easyCount = interviews.filter(i => i.difficulty === 'easy').length;
-    const mediumCount = interviews.filter(i => i.difficulty === 'medium').length;
-    const hardCount = interviews.filter(i => i.difficulty === 'hard').length;
-
-    if (hardCount === 0 && easyCount > 3) {
-      recommendations.push({
-        type: 'difficulty',
-        priority: 'medium',
-        message: 'Time to level up! Try medium or hard difficulty interviews to challenge yourself.',
-        suggestion: 'Move to medium difficulty'
-      });
-    }
-
-    res.json({ recommendations });
-  } catch (error) {
-    console.error('Error fetching recommendations:', error);
-    res.status(500).json({ error: 'Failed to fetch recommendations' });
-  }
-});
+router.get('/recommendations', authenticateToken, getInterviewRecommendations);
 
 // Transcribe audio (if audio file is sent)
 router.post('/transcribe', authenticateToken, async (req, res) => {
