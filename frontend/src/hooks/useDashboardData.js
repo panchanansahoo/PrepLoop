@@ -14,6 +14,16 @@ const EMPTY_DATA = {
     recentActivity: [],
     weeklyGoals: { easy: 0, medium: 0, hard: 0 },
     readinessData: { practiceCount: 0, mockCount: 0, streak: 0, timedSessions: 0 },
+    thisWeekProblems: 0,
+    lastWeekProblems: 0,
+    thisWeekTime: 0,
+    lastWeekTime: 0,
+    thisWeekXP: 0,
+    lastWeekXP: 0,
+    currentLevel: 0,
+    currentXP: 0,
+    nextLevelXP: 0,
+    rank: '',
 };
 
 export default function useDashboardData() {

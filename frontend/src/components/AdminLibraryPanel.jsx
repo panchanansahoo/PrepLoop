@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Loader, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -6,6 +7,7 @@ import { addBook, updateBook, deleteBook, getBooks } from '../api/libraryService
 
 export default function AdminLibraryPanel() {
     const { user, token } = useAuth();
+    const location = useLocation();
     const { theme } = useTheme();
     const isLight = theme === 'light';
 
@@ -17,6 +19,7 @@ export default function AdminLibraryPanel() {
     const [submitting, setSubmitting] = useState(false);
     const [message, setMessage] = useState(null);
     const [searchFilter, setSearchFilter] = useState('');
+    const selectedBookId = new URLSearchParams(location.search).get('book');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -36,6 +39,17 @@ export default function AdminLibraryPanel() {
     useEffect(() => {
         fetchAdminBooks();
     }, []);
+
+    useEffect(() => {
+        if (!selectedBookId || adminBooks.length === 0 || editingBook) {
+            return;
+        }
+
+        const selectedBook = adminBooks.find((book) => book.id === selectedBookId);
+        if (selectedBook) {
+            handleEdit(selectedBook);
+        }
+    }, [selectedBookId, adminBooks, editingBook]);
 
     const fetchAdminBooks = async () => {
         try {
@@ -330,6 +344,59 @@ export default function AdminLibraryPanel() {
                             </div>
 
                             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {editingBook && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '16px', alignItems: 'start' }}>
+                                        <div style={{
+                                            width: '160px',
+                                            height: '220px',
+                                            borderRadius: '12px',
+                                            overflow: 'hidden',
+                                            border: isLight ? '1px solid #e5e7eb' : '1px solid var(--zinc-800)',
+                                            background: isLight ? '#f3f4f6' : '#0a0a0a',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}>
+                                            {formData.cover_url ? (
+                                                <img
+                                                    src={formData.cover_url}
+                                                    alt={`${editingBook.title} cover preview`}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
+                                            ) : (
+                                                <div style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: '16px', fontSize: '14px' }}>
+                                                    Add a cover URL to preview the book photo here.
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div>
+                                            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
+                                                Cover Photo URL
+                                            </label>
+                                            <input
+                                                type="url"
+                                                name="cover_url"
+                                                value={formData.cover_url}
+                                                onChange={handleInputChange}
+                                                placeholder="https://..."
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '10px',
+                                                    borderRadius: '8px',
+                                                    border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
+                                                    background: isLight ? '#f9f9f9' : '#0a0a0a',
+                                                    color: isLight ? '#1a1a2e' : 'white',
+                                                    fontSize: '14px'
+                                                }}
+                                            />
+                                            <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                                                Paste a new image URL to update the book cover.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Title */}
                                 <div>
                                     <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
@@ -483,28 +550,6 @@ export default function AdminLibraryPanel() {
 
                                 {/* Cover URL & Pages - Two columns */}
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
-                                    <div>
-                                        <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
-                                            Cover URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            name="cover_url"
-                                            value={formData.cover_url}
-                                            onChange={handleInputChange}
-                                            placeholder="https://..."
-                                            style={{
-                                                width: '100%',
-                                                padding: '10px',
-                                                borderRadius: '8px',
-                                                border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
-                                                background: isLight ? '#f9f9f9' : '#0a0a0a',
-                                                color: isLight ? '#1a1a2e' : 'white',
-                                                fontSize: '14px'
-                                            }}
-                                        />
-                                    </div>
-
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Pages
@@ -715,7 +760,7 @@ export default function AdminLibraryPanel() {
                                             opacity: submitting ? 0.7 : 1
                                         }}
                                     >
-                                        <Edit2 size={16} /> Edit
+                                        <Edit2 size={16} /> Edit Cover
                                     </button>
                                     <button
                                         onClick={() => handleDelete(book.id)}

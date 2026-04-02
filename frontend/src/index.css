@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-@theme {
+:root {
   /* Colors */
   --color-bg-primary: #030303;
   --color-bg-secondary: #0a0a0a;
@@ -55,15 +55,26 @@
 
 @layer utilities {
   .glass-panel {
-    @apply bg-bg-card backdrop-blur-xl border border-white/10;
+    background: var(--color-bg-card);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .navbar {
-    @apply fixed top-0 left-0 right-0 z-50 transition-all duration-300 ease-in-out border-b border-transparent;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    transition: all 300ms ease-in-out;
+    border-bottom: 1px solid transparent;
   }
 
   .navbar.scrolled {
-    @apply bg-bg-glass/80 backdrop-blur-md border-white/10 shadow-lg;
+    background: rgba(5, 5, 5, 0.56);
+    backdrop-filter: blur(12px);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
     padding-top: 12px;
     padding-bottom: 12px;
   }

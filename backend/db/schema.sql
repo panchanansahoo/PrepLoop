@@ -21,6 +21,10 @@ CREATE TABLE profiles (
   full_name VARCHAR(255),
   subscription_tier VARCHAR(50) DEFAULT 'free',
   experience_level VARCHAR(50) DEFAULT 'beginner',
+  experience_summary TEXT,
+  bio TEXT,
+  skills TEXT,
+  education TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_login TIMESTAMP WITH TIME ZONE
 );

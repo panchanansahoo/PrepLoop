@@ -20,7 +20,9 @@ async function initializeServer() {
     const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
     const communityRoutes = (await import('./routes/community.js')).default;
     const coachRoutes = (await import('./routes/coach.js')).default;
-    const interviewRoutes = (await import('./routes/interview.js')).default;
+    const interviewModule = await import('./routes/interview.js');
+    const interviewRoutes = interviewModule.default;
+    const { getInterviewAnalytics, getInterviewRecommendations } = interviewModule;
     const interviewEnhancedRoutes = (await import('./routes/interview-enhanced.js')).default;
     const interviewSuiteRoutes = (await import('./routes/interview-suite.js')).default;
     const contactRoutes = (await import('./routes/contact.js')).default;
@@ -40,6 +42,8 @@ async function initializeServer() {
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
     
+    const { authenticateToken } = await import('./middleware/auth.js');
+
     console.log('✅ Routes loaded successfully');
 
     app = express();
@@ -92,7 +96,10 @@ async function initializeServer() {
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
+    app.use('/api/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
+    app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
+    app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
     app.use('/api/interview-suite', interviewSuiteRoutes);
     app.use('/api/contact', contactRoutes);
     app.use('/api/blog', blogRoutes);
