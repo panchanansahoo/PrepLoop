@@ -6,6 +6,8 @@ PrepLoop is a full-stack interview preparation platform that combines DSA practi
 
 - `frontend/` - React + Vite app
 - `backend/` - Node.js + Express API server
+- `discord-bot/` - community bot (commands, onboarding, moderation helpers)
+- `docs/` - architecture and API references
 - `scripts/` - content/data generation helpers
 - `Company_Interview/` - company-specific interview datasets
 - `Dsa_pattern/` - DSA pattern resources
@@ -202,30 +204,45 @@ npm run dev
 - `node backend/diagnose.js` - diagnostic route/module check (non-server mode)
 - `node backend/diagnose.js --start` - run diagnostics and then boot server
 
-## CI/CD
+## Project Documentation
 
-- GitHub Actions workflow: `.github/workflows/ci.yml`
-- On push/PR, CI runs lint, test, and build checks.
-- On push to `main`/`master`, CI also runs production dependency audit.
-- Dependabot updates are configured in `.github/dependabot.yml`.
-
-## Collaboration Workflow
-
-- PR template: `.github/pull_request_template.md`
-- Issue templates:
-  - `.github/ISSUE_TEMPLATE/bug_report.yml`
-  - `.github/ISSUE_TEMPLATE/feature_request.yml`
-  - `.github/ISSUE_TEMPLATE/docs_request.yml`
-  - `.github/ISSUE_TEMPLATE/config.yml`
-- Code ownership routing: `.github/CODEOWNERS`
-- Contributor guide: `CONTRIBUTING.md`
-- Release guide: `RELEASE.md`
+- Main docs index: `docs/README.md`
+- System architecture: `docs/ARCHITECTURE.md`
+- Backend API quick reference: `docs/BACKEND_API_QUICK_REFERENCE.md`
+- AI features API: `docs/AI_FEATURES_API.md`
+- Interview suite API: `docs/INTERVIEW_SUITE_API.md`
+- Library API and admin guides:
+  - `docs/LIBRARY_API.md`
+  - `docs/ADMIN_LIBRARY_GUIDE.md`
+- Email verification guide: `docs/EMAIL_VERIFICATION_GUIDE.md`
+- Discord bot command spec: `docs/DISCORD_BOT_COMMAND_SPEC.md`
+- Discord community blueprint: `docs/DISCORD_COMMUNITY_BLUEPRINT.md`
+- Observability deployment quick guide: `QUICK_START.md`
 - Changelog: `CHANGELOG.md`
+- Contribution guide: `CONTRIBUTING.md`
 
 ## Architecture
 
 - System architecture overview: `docs/ARCHITECTURE.md`
 - Documentation index: `docs/README.md`
+
+## Discord Bot Commands
+
+From repository root:
+
+```bash
+npm run discord:install
+npm run discord:setup-env
+npm run discord:bootstrap
+npm run discord:dev
+```
+
+Additional commands:
+
+- `npm run discord:start` - start bot without watch mode
+- `npm run discord:deploy` - register/deploy slash commands
+- `npm run discord:doctor` - environment and runtime diagnostics
+- `npm run discord:check` - quick validation checks
 
 ## API Overview
 

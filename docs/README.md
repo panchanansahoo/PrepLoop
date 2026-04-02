@@ -8,7 +8,6 @@
 - Discord bot starter setup: `discord-bot/README.md`
 - Main project guide: `README.md`
 - Contribution guide: `CONTRIBUTING.md`
-- Release process: `RELEASE.md`
 - Changelog: `CHANGELOG.md`
 
 ## Setup Commands
