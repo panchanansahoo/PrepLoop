@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase } from '../db/index.js';
+import { supabaseAdmin } from '../db/index.js';
 import { body, validationResult, param } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import { CodeReviewService, InterviewSimulatorService } from '../services/aiService.js';
@@ -87,7 +87,7 @@ router.get(
       const { reviewId } = req.params;
       const userId = req.user.id;
 
-      const { data: review, error } = await supabase
+      const { data: review, error } = await supabaseAdmin
         .from('code_review_sessions')
         .select('*')
         .eq('id', reviewId)
@@ -129,7 +129,7 @@ router.get(
       const { problemId } = req.params;
       const userId = req.user.id;
 
-      const { data: reviews, error } = await supabase
+      const { data: reviews, error } = await supabaseAdmin
         .from('code_review_sessions')
         .select('*')
         .eq('problem_id', problemId)
@@ -170,7 +170,7 @@ router.get(
       const limit = Math.min(50, parseInt(req.query.limit) || 10);
       const offset = (page - 1) * limit;
 
-      const { data: reviews, error, count } = await supabase
+      const { data: reviews, error, count } = await supabaseAdmin
         .from('code_review_sessions')
         .select('*', { count: 'exact' })
         .eq('user_id', userId)
@@ -365,7 +365,7 @@ router.get(
       const { sessionId } = req.params;
       const userId = req.user.id;
 
-      const { data: interview, error } = await supabase
+      const { data: interview, error } = await supabaseAdmin
         .from('interview_sessions')
         .select('*')
         .eq('id', sessionId)
@@ -409,7 +409,7 @@ router.get(
       const offset = (page - 1) * limit;
       const status = req.query.status; // Filter by status (completed, in_progress, abandoned)
 
-      let query = supabase
+      let query = supabaseAdmin
         .from('interview_sessions')
         .select('*', { count: 'exact' })
         .eq('user_id', userId);
@@ -459,7 +459,7 @@ router.get(
       const userId = req.user.id;
       const interviewType = req.query.type; // Optional filter by type
 
-      let query = supabase
+      let query = supabaseAdmin
         .from('interview_performance_trends')
         .select('*')
         .eq('user_id', userId);
@@ -514,17 +514,17 @@ router.get(
     try {
       const userId = req.user.id;
 
-      const { count: codeReviewsCount } = await supabase
+      const { count: codeReviewsCount } = await supabaseAdmin
         .from('code_review_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
 
-      const { count: interviewsCount } = await supabase
+      const { count: interviewsCount } = await supabaseAdmin
         .from('interview_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId);
 
-      const { count: completedInterviewsCount } = await supabase
+      const { count: completedInterviewsCount } = await supabaseAdmin
         .from('interview_sessions')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', userId)

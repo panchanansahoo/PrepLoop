@@ -1,7 +1,7 @@
 import Groq from 'groq-sdk';
 import { randomUUID } from 'crypto';
 import { createLogger } from '../utils/structuredLogger.js';
-import { supabase } from '../db/index.js';
+import { supabaseAdmin } from '../db/index.js';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
@@ -118,7 +118,7 @@ export class CodeReviewService {
       
       // 3. Save to database
       let reviewRecord = null;
-      const { data: persistedReview, error: saveError } = await supabase
+      const { data: persistedReview, error: saveError } = await supabaseAdmin
         .from('code_review_sessions')
         .insert({
           user_id: userId,
@@ -309,7 +309,7 @@ Please provide your analysis in the following JSON format (return ONLY valid JSO
 
   static async _logAIServiceUsage(userId, featureType, sessionId, usage, latencyMs, requestId) {
     try {
-      await supabase
+      await supabaseAdmin
         .from('ai_service_logs')
         .insert({
           feature_type: featureType,
@@ -383,7 +383,7 @@ export class InterviewSimulatorService {
       ];
 
       for (const payload of payloadCandidates) {
-        ({ data: sessionData, error: sessionError } = await supabase
+        ({ data: sessionData, error: sessionError } = await supabaseAdmin
           .from('interview_sessions')
           .insert(payload)
           .select()
@@ -438,7 +438,7 @@ export class InterviewSimulatorService {
       // Update session with problem
       let updatedSession = null;
       let updateError = null;
-      ({ data: updatedSession, error: updateError } = await supabase
+      ({ data: updatedSession, error: updateError } = await supabaseAdmin
         .from('interview_sessions')
         .update({
           problem_statement: problem.statement,
@@ -499,7 +499,7 @@ export class InterviewSimulatorService {
       });
 
       // Get current session
-      const { data: persistedSession, error: fetchError } = await supabase
+      const { data: persistedSession, error: fetchError } = await supabaseAdmin
         .from('interview_sessions')
         .select('*')
         .eq('id', sessionId)
@@ -593,7 +593,7 @@ export class InterviewSimulatorService {
 
       let updatedSession = null;
       let updateError = null;
-      ({ data: updatedSession, error: updateError } = await supabase
+      ({ data: updatedSession, error: updateError } = await supabaseAdmin
         .from('interview_sessions')
         .update(updatePayload)
         .eq('id', sessionId)
@@ -650,7 +650,7 @@ export class InterviewSimulatorService {
       logger.info('Completing interview', { sessionId, userId, requestId });
 
       // Get final session data
-      const { data: session, error: fetchError } = await supabase
+      const { data: session, error: fetchError } = await supabaseAdmin
         .from('interview_sessions')
         .select('*')
         .eq('id', sessionId)
@@ -671,7 +671,7 @@ export class InterviewSimulatorService {
       await this._updatePerformanceTrend(userId, session.interview_type, session.company_focus, scores);
 
       // Update session with final analysis
-      const { data: completedSession, error: updateError } = await supabase
+      const { data: completedSession, error: updateError } = await supabaseAdmin
         .from('interview_sessions')
         .update({
           status: 'completed',
@@ -854,7 +854,7 @@ Generate a JSON response:
     let existing = null;
     let selectError = null;
 
-    ({ data: existing, error: selectError } = await supabase
+    ({ data: existing, error: selectError } = await supabaseAdmin
       .from('interview_performance_trends')
       .select('*')
       .eq('user_id', userId)
@@ -863,7 +863,7 @@ Generate a JSON response:
       .single());
 
     if (selectError && isMissingColumnError(selectError, 'company_focus')) {
-      ({ data: existing } = await supabase
+      ({ data: existing } = await supabaseAdmin
         .from('interview_performance_trends')
         .select('*')
         .eq('user_id', userId)
@@ -873,7 +873,7 @@ Generate a JSON response:
 
     if (existing) {
       // Update existing trend
-      await supabase
+      await supabaseAdmin
         .from('interview_performance_trends')
         .update({
           interview_count: (existing.interview_count || 0) + 1,
@@ -884,7 +884,7 @@ Generate a JSON response:
     } else {
       // Create new trend
       let insertError = null;
-      ({ error: insertError } = await supabase
+      ({ error: insertError } = await supabaseAdmin
         .from('interview_performance_trends')
         .insert({
           user_id: userId,
@@ -896,7 +896,7 @@ Generate a JSON response:
         }));
 
       if (insertError && isMissingColumnError(insertError, 'company_focus')) {
-        await supabase
+        await supabaseAdmin
           .from('interview_performance_trends')
           .insert({
             user_id: userId,

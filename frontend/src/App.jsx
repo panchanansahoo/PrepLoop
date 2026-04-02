@@ -46,6 +46,8 @@ const InterviewPlatform = lazy(() => import('./components/InterviewPlatform'));
 const AptitudeHub = lazy(() => import('./pages/AptitudeHub'));
 const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
 const AptitudeResults = lazy(() => import('./pages/AptitudeResults'));
+const ExamHub = lazy(() => import('./pages/ExamHub'));
+const ExamPractice = lazy(() => import('./pages/ExamPractice'));
 const ProblemExplorer = lazy(() => import('./pages/ProblemExplorer'));
 const AlgorithmPlayground = lazy(() => import('./pages/AlgorithmPlayground'));
 const LearningPath = lazy(() => import('./pages/LearningPath'));
@@ -227,6 +229,8 @@ function AppContent() {
             <Route path="/aptitude" element={<AptitudeHub />} />
             <Route path="/aptitude/practice/:category" element={<AptitudePractice />} />
             <Route path="/aptitude/results" element={<AptitudeResults />} />
+            <Route path="/exam-hub" element={<ExamHub />} />
+            <Route path="/exam-practice/:examId" element={<ExamPractice />} />
             <Route path="/learning-path" element={<LearningPath />} />
             <Route path="/advanced-learning-path" element={<AdvancedLearningPathPage />} />
             <Route path="/learning-path/:topicId" element={<TopicLearning />} />

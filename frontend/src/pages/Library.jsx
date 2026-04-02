@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { Search, BookOpen, Star, ArrowRight, Library as LibraryIcon, Loader } from 'lucide-react';
+import { Search, BookOpen, Star, Loader } from 'lucide-react';
 import { getBooks, addToShelf } from '../api/libraryService';
 
 export default function Library() {
@@ -103,7 +103,7 @@ export default function Library() {
                         gap: '24px'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '48px', fontWeight: 'bold', marginBottom: '16px' }}>
+                            <h1 style={{ fontSize: 'clamp(2rem, 6vw, 3rem)', fontWeight: 'bold', marginBottom: '16px', lineHeight: 1.1 }}>
                                 Resource <span className="text-gradient">Library</span>
                             </h1>
                             <p style={{ color: 'var(--text-secondary)', fontSize: '18px', maxWidth: '600px' }}>
@@ -140,7 +140,7 @@ export default function Library() {
                                     transition: 'all 0.2s'
                                 }}
                                 onFocus={(e) => e.target.style.borderColor = 'var(--primary-color)'}
-                                onBlur={(e) => e.target.style.borderColor = 'var(--zinc-800)'}
+                                onBlur={(e) => e.target.style.borderColor = isLight ? '#e0e0e0' : 'var(--zinc-800)'}
                             />
                         </div>
                     </div>
@@ -156,6 +156,7 @@ export default function Library() {
                             value={category}
                             onChange={(e) => { setCategory(e.target.value); setPage(1); }}
                             style={{
+                                flex: '1 1 180px',
                                 padding: '8px 12px',
                                 borderRadius: '8px',
                                 border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
@@ -177,6 +178,7 @@ export default function Library() {
                             value={difficulty}
                             onChange={(e) => { setDifficulty(e.target.value); setPage(1); }}
                             style={{
+                                flex: '1 1 180px',
                                 padding: '8px 12px',
                                 borderRadius: '8px',
                                 border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
@@ -191,6 +193,12 @@ export default function Library() {
                             <option value="Advanced">Advanced</option>
                         </select>
                     </div>
+
+                    {!loading && (
+                        <p style={{ marginTop: '10px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                            Showing {books.length} results
+                        </p>
+                    )}
                 </div>
 
                 {/* Loading State */}
@@ -316,10 +324,21 @@ export default function Library() {
                                             )}
                                         </div>
 
-                                        <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', lineHeight: '1.4', color: isLight ? '#1a1a2e' : 'white' }}>
+                                        <h3 style={{
+                                            fontSize: '18px',
+                                            fontWeight: '600',
+                                            marginBottom: '8px',
+                                            lineHeight: '1.4',
+                                            color: isLight ? '#1a1a2e' : 'white',
+                                            minHeight: '50px',
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 2,
+                                            WebkitBoxOrient: 'vertical',
+                                            overflow: 'hidden'
+                                        }}>
                                             {book.title}
                                         </h3>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px' }}>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '14px', marginBottom: '16px', minHeight: '20px' }}>
                                             by {book.author}
                                         </p>
 
@@ -381,6 +400,7 @@ export default function Library() {
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 gap: '12px',
+                                flexWrap: 'wrap',
                                 marginTop: '40px'
                             }}>
                                 <button

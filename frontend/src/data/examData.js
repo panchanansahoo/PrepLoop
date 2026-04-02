@@ -24,23 +24,46 @@ const VERBAL_POOL  = flattenBank(verbalQuestions);
 const TECH_POOL    = flattenBank(technicalQuestions);
 const COMPANY_POOL = flattenBank(companyQuestions);
 
-/** deterministic-ish sample (seeded by exam id + section idx) */
-const sampleQuestions = (pool, count, seed = 0) => {
-  const shuffled = [...pool].sort((a, b) => {
-    const ha = hashStr(a.id + seed);
-    const hb = hashStr(b.id + seed);
-    return ha - hb;
-  });
-  return shuffled.slice(0, Math.min(count, shuffled.length));
-};
-
-function hashStr(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+/** 
+ * Random sample that remembers seen questions via localStorage 
+ * so users see all pool questions without repeating until exhausted. 
+ */
+const sampleQuestions = (pool, count, poolName = 'default') => {
+  let seenIds = [];
+  try {
+    const stored = localStorage.getItem(`seen_questions_${poolName}`);
+    if (stored) seenIds = JSON.parse(stored);
+  } catch (e) {
+    // Ignore localStorage errors
   }
-  return h;
-}
+
+  const seenSet = new Set(seenIds);
+  let unseenPool = pool.filter(q => !seenSet.has(q.id));
+
+  // If we don't have enough unseen questions, reset the seen list
+  if (unseenPool.length < count) {
+    seenIds = [];
+    unseenPool = [...pool];
+  }
+
+  // Fisher-Yates shuffle unseenPool
+  for (let i = unseenPool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [unseenPool[i], unseenPool[j]] = [unseenPool[j], unseenPool[i]];
+  }
+
+  const selected = unseenPool.slice(0, Math.min(count, unseenPool.length));
+
+  // Update seen
+  selected.forEach(q => seenIds.push(q.id));
+  try {
+    localStorage.setItem(`seen_questions_${poolName}`, JSON.stringify(seenIds));
+  } catch (e) {
+    // Ignore
+  }
+
+  return selected;
+};
 
 // ── Exam Definitions ─────────────────────────────────────────────────────────
 
@@ -616,6 +639,225 @@ export const EXAM_CATALOG = [
         description: 'Algorithm-based coding MCQs, output tracing'
       }
     ]
+  },
+
+  // ━━━━━━━━━━ Capgemini ━━━━━━━━━━━
+  {
+    id: 'capgemini-exceller',
+    company: 'Capgemini',
+    title: 'Capgemini Exceller',
+    subtitle: 'Analyst / Engineer campus hiring',
+    badge: 'Standard',
+    badgeColor: '#0ea5e9',
+    icon: '🧭',
+    color: '#0ea5e9',
+    gradient: 'linear-gradient(135deg, #0ea5e9, #0284c7)',
+    tier: 'Exceller',
+    totalTime: 90,
+    totalQuestions: 70,
+    negativeMarking: false,
+    passingPercent: 50,
+    description: 'Capgemini Exceller pattern with aptitude, reasoning, verbal, technical and coding MCQ simulation.',
+    sections: [
+      {
+        id: 'quant-cap',
+        title: 'Quantitative Aptitude',
+        icon: '🔢',
+        color: '#818cf8',
+        questionCount: 18,
+        timeLimit: 20,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'quant',
+        description: 'Percentages, profit and loss, averages, SI/CI, time-work'
+      },
+      {
+        id: 'reasoning-cap',
+        title: 'Logical Reasoning',
+        icon: '🧩',
+        color: '#f472b6',
+        questionCount: 16,
+        timeLimit: 18,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'reasoning',
+        description: 'Series, coding-decoding, blood relations, syllogisms'
+      },
+      {
+        id: 'verbal-cap',
+        title: 'Verbal Ability',
+        icon: '📝',
+        color: '#34d399',
+        questionCount: 16,
+        timeLimit: 18,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'verbal',
+        description: 'Grammar, RC, vocabulary, sentence improvement'
+      },
+      {
+        id: 'tech-cap',
+        title: 'Technical MCQ',
+        icon: '💻',
+        color: '#38bdf8',
+        questionCount: 10,
+        timeLimit: 14,
+        marksPerQuestion: 2,
+        negativePerWrong: 0,
+        pool: 'technical',
+        description: 'OOPS, DBMS, OS, CN and core CS fundamentals'
+      },
+      {
+        id: 'coding-cap',
+        title: 'Coding Logic',
+        icon: '⚡',
+        color: '#a855f7',
+        questionCount: 10,
+        timeLimit: 20,
+        marksPerQuestion: 2,
+        negativePerWrong: 0,
+        pool: 'technical',
+        description: 'Programming logic and algorithmic MCQ practice'
+      }
+    ]
+  },
+
+  // ━━━━━━━━━━ HCLTech ━━━━━━━━━━━
+  {
+    id: 'hcltech-freshers',
+    company: 'HCLTech',
+    title: 'HCLTech Fresher Assessment',
+    subtitle: 'Graduate Engineer Trainee screening',
+    badge: 'Entry',
+    badgeColor: '#22c55e',
+    icon: '🟢',
+    color: '#22c55e',
+    gradient: 'linear-gradient(135deg, #22c55e, #16a34a)',
+    tier: 'GET',
+    totalTime: 75,
+    totalQuestions: 60,
+    negativeMarking: false,
+    passingPercent: 50,
+    description: 'HCLTech-style fresher test focusing on aptitude, verbal, reasoning, and basic technical proficiency.',
+    sections: [
+      {
+        id: 'quant-hcl',
+        title: 'Quantitative Aptitude',
+        icon: '🔢',
+        color: '#818cf8',
+        questionCount: 18,
+        timeLimit: 20,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'quant',
+        description: 'Ratio, percentages, time-distance, simplification'
+      },
+      {
+        id: 'reasoning-hcl',
+        title: 'Logical Reasoning',
+        icon: '🧩',
+        color: '#f472b6',
+        questionCount: 16,
+        timeLimit: 18,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'reasoning',
+        description: 'Puzzles, coding-decoding, statement-assumption, analogies'
+      },
+      {
+        id: 'verbal-hcl',
+        title: 'Verbal Ability',
+        icon: '📝',
+        color: '#34d399',
+        questionCount: 16,
+        timeLimit: 17,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'verbal',
+        description: 'Reading comprehension, grammar, error spotting'
+      },
+      {
+        id: 'tech-hcl',
+        title: 'Technical Fundamentals',
+        icon: '💻',
+        color: '#38bdf8',
+        questionCount: 10,
+        timeLimit: 20,
+        marksPerQuestion: 2,
+        negativePerWrong: 0,
+        pool: 'technical',
+        description: 'Programming basics, OOPS, DBMS, and CS fundamentals'
+      }
+    ]
+  },
+
+  // ━━━━━━━━━━ Tech Mahindra ━━━━━━━━━━━
+  {
+    id: 'techmahindra-campus',
+    company: 'Tech Mahindra',
+    title: 'Tech Mahindra Campus Test',
+    subtitle: 'Graduate campus recruitment assessment',
+    badge: 'Standard',
+    badgeColor: '#f97316',
+    icon: '🟠',
+    color: '#f97316',
+    gradient: 'linear-gradient(135deg, #f97316, #ea580c)',
+    tier: 'Campus',
+    totalTime: 70,
+    totalQuestions: 56,
+    negativeMarking: false,
+    passingPercent: 50,
+    description: 'Tech Mahindra pattern with aptitude, logical reasoning, verbal and technical rounds.',
+    sections: [
+      {
+        id: 'quant-techm',
+        title: 'Quantitative Aptitude',
+        icon: '🔢',
+        color: '#818cf8',
+        questionCount: 16,
+        timeLimit: 18,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'quant',
+        description: 'Arithmetic, averages, percentages, time-work'
+      },
+      {
+        id: 'reasoning-techm',
+        title: 'Logical Reasoning',
+        icon: '🧩',
+        color: '#f472b6',
+        questionCount: 14,
+        timeLimit: 16,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'reasoning',
+        description: 'Analytical reasoning, series, patterns, arrangements'
+      },
+      {
+        id: 'verbal-techm',
+        title: 'English Ability',
+        icon: '📝',
+        color: '#34d399',
+        questionCount: 16,
+        timeLimit: 16,
+        marksPerQuestion: 1,
+        negativePerWrong: 0,
+        pool: 'verbal',
+        description: 'Grammar, comprehension, vocabulary and communication skills'
+      },
+      {
+        id: 'tech-techm',
+        title: 'Technical Aptitude',
+        icon: '💻',
+        color: '#38bdf8',
+        questionCount: 10,
+        timeLimit: 20,
+        marksPerQuestion: 2,
+        negativePerWrong: 0,
+        pool: 'technical',
+        description: 'Programming and computer science aptitude'
+      }
+    ]
   }
 ];
 
@@ -638,7 +880,7 @@ export const getExamSectionQuestions = (examId, sectionId) => {
   const section = exam.sections.find(s => s.id === sectionId);
   if (!section) return [];
   const pool = POOL_MAP[section.pool] || QUANT_POOL;
-  return sampleQuestions(pool, section.questionCount, hashStr(examId + sectionId));
+  return sampleQuestions(pool, section.questionCount, section.pool);
 };
 
 /**
@@ -649,7 +891,7 @@ export const getFullExamQuestions = (examId) => {
   if (!exam) return { sections: [], questions: [] };
   const sections = exam.sections.map(s => {
     const pool = POOL_MAP[s.pool] || QUANT_POOL;
-    const qs = sampleQuestions(pool, s.questionCount, hashStr(examId + s.id));
+    const qs = sampleQuestions(pool, s.questionCount, s.pool);
     return { ...s, questions: qs };
   });
   return { exam, sections };

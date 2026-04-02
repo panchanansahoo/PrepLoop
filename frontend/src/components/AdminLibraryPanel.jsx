@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, X, Loader, AlertCircle, CheckCircle } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Loader, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { addBook, updateBook, deleteBook, getBooks } from '../api/libraryService';
 
 export default function AdminLibraryPanel() {
     const { user, token } = useAuth();
-    const { isLight } = useTheme();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     // State Management
     const [showAddForm, setShowAddForm] = useState(false);
@@ -218,10 +219,10 @@ export default function AdminLibraryPanel() {
                         gap: '20px'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '42px', fontWeight: 'bold', marginBottom: '8px' }}>
+                            <h1 style={{ fontSize: 'clamp(1.9rem, 5.5vw, 2.6rem)', fontWeight: 'bold', marginBottom: '8px', lineHeight: 1.1 }}>
                                 Library <span className="text-gradient">Management</span>
                             </h1>
-                            <p style={{ color: 'var(--text-secondary)' }}>
+                            <p style={{ color: 'var(--text-secondary)', fontSize: '16px' }}>
                                 Add, edit, and manage books in the library
                             </p>
                         </div>
@@ -427,7 +428,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Category & Difficulty - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Category
@@ -481,7 +482,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Cover URL & Pages - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Cover URL
@@ -528,7 +529,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Published Year & Tags - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Published Year
@@ -606,6 +607,7 @@ export default function AdminLibraryPanel() {
                                             borderRadius: '8px',
                                             border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
                                             background: isLight ? '#f9f9f9' : '#0a0a0a',
+                                            color: isLight ? '#1a1a2e' : 'white',
                                             cursor: submitting ? 'not-allowed' : 'pointer',
                                             opacity: submitting ? 0.7 : 1
                                         }}
@@ -620,22 +622,33 @@ export default function AdminLibraryPanel() {
 
                 {/* Search Filter */}
                 <div style={{ marginBottom: '24px' }}>
-                    <input
-                        type="text"
-                        placeholder="Search by title, author, or ISBN..."
-                        value={searchFilter}
-                        onChange={(e) => setSearchFilter(e.target.value)}
-                        style={{
-                            width: '100%',
-                            maxWidth: '400px',
-                            padding: '10px 14px',
-                            borderRadius: '8px',
-                            border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
-                            background: isLight ? 'white' : '#1a1a1a',
-                            color: isLight ? '#1a1a2e' : 'white',
-                            fontSize: '14px'
-                        }}
-                    />
+                    <div style={{ position: 'relative', width: '100%', maxWidth: '420px' }}>
+                        <Search size={16} style={{
+                            position: 'absolute',
+                            left: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            color: 'var(--text-secondary)'
+                        }} />
+                        <input
+                            type="text"
+                            placeholder="Search by title, author, or ISBN..."
+                            value={searchFilter}
+                            onChange={(e) => setSearchFilter(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '10px 14px 10px 36px',
+                                borderRadius: '8px',
+                                border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
+                                background: isLight ? 'white' : '#1a1a1a',
+                                color: isLight ? '#1a1a2e' : 'white',
+                                fontSize: '14px'
+                            }}
+                        />
+                    </div>
+                    <p style={{ marginTop: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                        Showing {filteredBooks.length} of {adminBooks.length} books
+                    </p>
                 </div>
 
                 {/* Books List */}
@@ -675,7 +688,7 @@ export default function AdminLibraryPanel() {
                                     <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                                         by {book.author}
                                     </p>
-                                    <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                    <div style={{ display: 'flex', gap: '12px', fontSize: '13px', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                                         <span>ISBN: {book.isbn}</span>
                                         <span>{book.category}</span>
                                         <span>{book.difficulty_level}</span>
@@ -683,15 +696,17 @@ export default function AdminLibraryPanel() {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                     <button
                                         onClick={() => handleEdit(book)}
                                         disabled={submitting}
                                         style={{
                                             padding: '8px 16px',
+                                            minWidth: '98px',
                                             borderRadius: '8px',
                                             border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',
                                             background: isLight ? 'white' : '#1a1a1a',
+                                            color: isLight ? '#1a1a2e' : 'white',
                                             cursor: submitting ? 'not-allowed' : 'pointer',
                                             display: 'flex',
                                             alignItems: 'center',
@@ -707,6 +722,7 @@ export default function AdminLibraryPanel() {
                                         disabled={submitting}
                                         style={{
                                             padding: '8px 16px',
+                                            minWidth: '98px',
                                             borderRadius: '8px',
                                             border: '1px solid #dc2626',
                                             background: 'rgba(220, 38, 38, 0.1)',

@@ -83,6 +83,16 @@ function normalizeSkillLevel(value = 'intermediate') {
   return 'intermediate';
 }
 
+function isMissingRelationError(error) {
+  const message = asString(error?.message || error?.details || '').toLowerCase();
+  return (
+    error?.code === '42P01'
+    || message.includes('does not exist')
+    || message.includes('could not find the table')
+    || message.includes('in the schema cache')
+  );
+}
+
 function scoreTextSimilarity(base, candidate) {
   const a = new Set(asString(base).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
   const b = new Set(asString(candidate).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
@@ -221,8 +231,7 @@ function aggregateWeaknessFromSessions(sessions = []) {
   });
 
   sessions.forEach((session) => {
-    const summary = session.summary_data || {};
-    const detailed = summary.detailedBreakdown || summary.categoryScores || {};
+    const detailed = session.performance_metrics || {};
 
     Object.entries(detailed).forEach(([key, value]) => {
       const area = asString(key).toLowerCase().replace(/\s+/g, '_');
@@ -232,10 +241,11 @@ function aggregateWeaknessFromSessions(sessions = []) {
       }
     });
 
-    if (Number.isFinite(Number(session.overall_score))) {
-      scoresByArea.communication.push(clamp(Number(session.overall_score) - 4, 0, 100));
-      scoresByArea.problem_solving.push(clamp(Number(session.overall_score) - 2, 0, 100));
-      scoresByArea.confidence.push(clamp(Number(session.overall_score) - 6, 0, 100));
+    const overallScore = Number(session.interview_score);
+    if (Number.isFinite(overallScore)) {
+      scoresByArea.communication.push(clamp(overallScore - 4, 0, 100));
+      scoresByArea.problem_solving.push(clamp(overallScore - 2, 0, 100));
+      scoresByArea.confidence.push(clamp(overallScore - 6, 0, 100));
     }
   });
 
@@ -475,7 +485,7 @@ router.get('/replay/:sessionId', authenticateToken, async (req, res) => {
     const { sessionId } = req.params;
     const { data: session, error } = await supabaseAdmin
       .from('interview_sessions')
-      .select('id, user_id, conversation, created_at, completed_at')
+      .select('id, user_id, transcript, created_at, completed_at')
       .eq('id', sessionId)
       .eq('user_id', req.user.id)
       .single();
@@ -488,7 +498,7 @@ router.get('/replay/:sessionId', authenticateToken, async (req, res) => {
       ? Math.max(60, Math.round((new Date(session.completed_at).getTime() - new Date(session.created_at).getTime()) / 1000))
       : null;
 
-    const transcript = buildReplayTranscript(session.conversation || [], session.created_at, duration);
+    const transcript = buildReplayTranscript(session.transcript || [], session.created_at, duration);
     const markers = buildMistakeMarkers(transcript);
 
     res.json({
@@ -509,7 +519,7 @@ router.get('/weakness/heatmap', authenticateToken, async (req, res) => {
     const limit = clamp(Number(req.query.limit) || 30, 5, 100);
     const { data: sessions, error } = await supabaseAdmin
       .from('interview_sessions')
-      .select('overall_score, summary_data, scores, stage, company, role, completed_at')
+      .select('interview_score, performance_metrics, interview_type, company_focus, status, created_at, completed_at')
       .eq('user_id', req.user.id)
       .order('completed_at', { ascending: false })
       .limit(limit);
@@ -904,7 +914,13 @@ router.get('/mentor/slots', optionalAuth, async (req, res) => {
     if (skillBand) query = query.eq('skill_band', normalizeSkillLevel(skillBand));
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error)) {
+        console.warn('mentor_mock_slots table missing; returning empty slots list');
+        return res.json({ slots: [] });
+      }
+      throw error;
+    }
 
     res.json({ slots: data || [] });
   } catch (error) {
@@ -1019,7 +1035,13 @@ router.get('/doubts', optionalAuth, async (req, res) => {
     if (targetId) query = query.eq('target_id', targetId);
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error)) {
+        console.warn('doubt_threads table missing; returning empty thread list');
+        return res.json({ threads: [] });
+      }
+      throw error;
+    }
 
     res.json({ threads: data || [] });
   } catch (error) {
@@ -1077,7 +1099,13 @@ router.get('/doubts/:threadId/replies', optionalAuth, async (req, res) => {
       .eq('thread_id', threadId)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      if (isMissingRelationError(error)) {
+        console.warn('doubt_replies table missing; returning empty reply list');
+        return res.json({ replies: [] });
+      }
+      throw error;
+    }
     res.json({ replies: data || [] });
   } catch (error) {
     console.error('List doubt replies error:', error.message);

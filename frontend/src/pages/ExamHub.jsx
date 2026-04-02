@@ -14,6 +14,9 @@ const COMPANY_META = {
   Infosys: { icon: '🔵', color: '#38bdf8', desc: 'Infosys Limited' },
   Wipro: { icon: '🟣', color: '#a855f7', desc: 'Wipro Limited' },
   Accenture: { icon: '🔶', color: '#f59e0b', desc: 'Accenture PLC' },
+  Capgemini: { icon: '🧭', color: '#0ea5e9', desc: 'Capgemini' },
+  HCLTech: { icon: '🟢', color: '#22c55e', desc: 'HCLTech' },
+  'Tech Mahindra': { icon: '🟠', color: '#f97316', desc: 'Tech Mahindra' },
 };
 
 export default function ExamHub() {

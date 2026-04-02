@@ -6,7 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 
 export default function AdminLibrary() {
     const { user } = useAuth();
-    const { isLight } = useTheme();
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
 
     // Check if user is admin
     if (!user || user.role !== 'admin') {
