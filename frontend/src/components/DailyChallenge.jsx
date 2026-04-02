@@ -2,88 +2,40 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
-import { ExternalLink, Code2, Database, ArrowRight, Trophy, ChevronRight } from 'lucide-react';
+import { Code2, Database, ArrowRight } from 'lucide-react';
+
+const DIFFICULTY_COLORS = {
+    Easy: { text: '#6ee7b7', bg: 'rgba(110,231,183,0.1)', border: 'rgba(110,231,183,0.2)' },
+    Medium: { text: '#fbbf24', bg: 'rgba(251,191,36,0.1)', border: 'rgba(251,191,36,0.2)' },
+    Hard: { text: '#f87171', bg: 'rgba(248,113,113,0.1)', border: 'rgba(248,113,113,0.2)' },
+};
+
+function getDailyChallengeIndex(date = new Date()) {
+    if (!Array.isArray(dailyChallenges) || dailyChallenges.length === 0) return -1;
+
+    const seed = date.getDate() + date.getMonth() * 31 + date.getFullYear() * 366;
+    return seed % dailyChallenges.length;
+}
 
 const DailyChallenge = () => {
-    const [challenge, setChallenge] = useState(null);
+    const [todayStamp, setTodayStamp] = useState(() => new Date().toDateString());
     const { theme } = useTheme();
     const isLight = theme === 'light';
 
     useEffect(() => {
-        // Keep a deterministic challenge for the current day.
-        const date = new Date();
-        const seed = date.getDate() + date.getMonth() * 31 + date.getFullYear() * 366;
-        const index = seed % dailyChallenges.length;
-        setChallenge(dailyChallenges[index]);
-    }, []);
+        const now = new Date();
+        const nextMidnight = new Date(now);
+        nextMidnight.setHours(24, 0, 0, 0);
 
-    const difficultyClass = (difficulty) => {
-        if (difficulty === 'Easy') {
-            return isLight
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-        }
-        if (difficulty === 'Medium') {
-            return isLight
-                ? 'bg-amber-50 text-amber-700 border-amber-200'
-                : 'bg-amber-500/10 text-amber-300 border-amber-500/30';
-        }
-        return isLight
-            ? 'bg-rose-50 text-rose-700 border-rose-200'
-            : 'bg-rose-500/10 text-rose-300 border-rose-500/30';
-    };
+        const timeoutId = setTimeout(() => {
+            setTodayStamp(new Date().toDateString());
+        }, Math.max(1000, nextMidnight.getTime() - now.getTime()));
 
-    const renderQuestionRow = (q, idx, isSql = false) => {
-        const route = q.internalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
-        const Wrapper = route ? Link : 'a';
-        const wrapperProps = route
-            ? { to: route }
-            : { href: q.url, target: '_blank', rel: 'noopener noreferrer' };
+        return () => clearTimeout(timeoutId);
+    }, [todayStamp]);
 
-        return (
-            <Wrapper
-                key={`${q.title}-${idx}`}
-                {...wrapperProps}
-                className={`group/item flex items-center justify-between rounded-2xl border px-3 py-2.5 transition-all duration-200 ${
-                    isLight
-                        ? 'bg-white border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/30'
-                        : 'bg-white/[0.02] border-white/10 hover:border-white/20 hover:bg-white/[0.05]'
-                }`}
-                style={{ textDecoration: 'none' }}
-            >
-                <div className="min-w-0 flex items-center gap-3">
-                    <span className={`w-3 text-[12px] font-mono ${isLight ? 'text-slate-500' : 'text-zinc-500'}`}>
-                        {idx + 1}
-                    </span>
-                    <span className={`h-3.5 w-px ${isLight ? 'bg-slate-300' : 'bg-white/15'}`} />
-                    <span className={`truncate text-[15px] font-semibold ${isLight ? 'text-slate-800' : 'text-zinc-200'}`}>
-                        {q.title}
-                    </span>
-                </div>
-
-                <div className="ml-3 flex shrink-0 items-center gap-2">
-                    <span className={`rounded-lg border px-2.5 py-0.5 text-[11px] font-bold ${difficultyClass(q.difficulty)}`}>
-                        {q.difficulty}
-                    </span>
-                    {route ? (
-                        <ArrowRight
-                            size={13}
-                            className={`${
-                                isLight ? 'text-indigo-600/80' : 'text-violet-300/80'
-                            } opacity-70 transition-all group-hover/item:translate-x-0.5 group-hover/item:opacity-100`}
-                        />
-                    ) : (
-                        <ExternalLink
-                            size={13}
-                            className={`${
-                                isLight ? 'text-slate-500' : 'text-zinc-400'
-                            } opacity-70 transition-opacity group-hover/item:opacity-100`}
-                        />
-                    )}
-                </div>
-            </Wrapper>
-        );
-    };
+    const challengeIndex = getDailyChallengeIndex(new Date(todayStamp));
+    const challenge = challengeIndex >= 0 ? dailyChallenges[challengeIndex] : null;
 
     if (!challenge) {
         return null;
@@ -91,117 +43,268 @@ const DailyChallenge = () => {
 
     const Icon = challenge.icon;
 
-    return (
-        <div className="px-4 md:px-0">
-            <div
-                className={`overflow-hidden rounded-[28px] border ${
-                    isLight
-                        ? 'bg-white border-slate-200 shadow-[0_20px_60px_-30px_rgba(15,23,42,0.35)]'
-                        : 'bg-[#07090f] border-white/10 shadow-[0_24px_64px_-36px_rgba(0,0,0,0.9)]'
-                }`}
-            >
-                <div className={`border-b px-5 py-6 md:px-8 ${isLight ? 'border-slate-200' : 'border-white/10'}`}>
-                    <div className="flex items-center justify-between gap-4">
-                        <div className="flex min-w-0 items-center gap-4">
-                            <div
-                                className={`grid h-12 w-12 place-items-center rounded-2xl border ${
-                                    isLight ? 'border-slate-200 bg-slate-50' : 'border-white/10 bg-white/5'
-                                }`}
-                            >
-                                <Icon className={challenge.color} size={20} />
-                            </div>
+    if (!Icon) {
+        return null;
+    }
 
-                            <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h3
-                                        className={`truncate text-[30px] leading-none font-extrabold tracking-tight md:text-[38px] ${
-                                            isLight ? 'text-slate-900' : 'text-white'
-                                        }`}
-                                    >
-                                        {challenge.name}
-                                    </h3>
-                                    <span
-                                        className={`rounded-md border px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${
-                                            challenge.type === 'Product'
-                                                ? isLight
-                                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                                    : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                                                : isLight
-                                                    ? 'border-blue-200 bg-blue-50 text-blue-700'
-                                                    : 'border-blue-500/30 bg-blue-500/10 text-blue-300'
-                                        }`}
-                                    >
-                                        {challenge.type}
-                                    </span>
+    const renderQuestionRow = (q, idx, isSql = false) => {
+        const route = q.internalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
+        const Wrapper = route ? Link : 'a';
+        const wrapperProps = route
+            ? { to: route }
+            : { href: q.url, target: '_blank', rel: 'noopener noreferrer' };
+        
+        const dc = DIFFICULTY_COLORS[q.difficulty] || DIFFICULTY_COLORS.Easy;
+
+        // Premium row styling with smooth transitions
+        const baseBg = isLight ? 'rgba(248,250,252,0.8)' : 'rgba(30,41,59,0.4)';
+        const hoverBg = isLight ? '#f1f5f9' : 'rgba(51,65,85,0.6)';
+        const baseBorder = isLight ? 'rgba(203,213,225,0.4)' : 'rgba(148,163,184,0.1)';
+        const hoverBorder = isLight ? 'rgba(203,213,225,0.8)' : 'rgba(148,163,184,0.3)';
+
+        const handleMouseEnter = (e) => {
+            e.currentTarget.style.background = hoverBg;
+            e.currentTarget.style.borderColor = hoverBorder;
+            e.currentTarget.style.transform = 'translateX(4px)';
+        };
+
+        const handleMouseLeave = (e) => {
+            e.currentTarget.style.background = baseBg;
+            e.currentTarget.style.borderColor = baseBorder;
+            e.currentTarget.style.transform = 'translateX(0)';
+        };
+
+        return (
+            <Wrapper
+                key={`${q.title}-${idx}`}
+                {...wrapperProps}
+                className="group/item flex items-center justify-between rounded-xl border px-4 py-3 transition-all duration-200 cursor-pointer"
+                style={{ 
+                    textDecoration: 'none', 
+                    background: baseBg, 
+                    borderColor: baseBorder,
+                    backdropFilter: 'blur(10px)'
+                }}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
+            >
+                <div className="min-w-0 flex items-center gap-3">
+                    <span
+                        style={{
+                            fontSize: 13,
+                            fontWeight: 500,
+                            width: 24,
+                            textAlign: 'center',
+                            color: isLight ? 'rgba(100,116,139,0.6)' : 'rgba(203,213,225,0.4)',
+                        }}
+                    >
+                        {idx + 1}
+                    </span>
+
+                    <span
+                        className="truncate"
+                        style={{
+                            fontSize: 14,
+                            fontWeight: 500,
+                            color: isLight ? '#1e293b' : 'rgba(255,255,255,0.85)',
+                        }}
+                    >
+                        {q.title}
+                    </span>
+                </div>
+
+                <div className="ml-3 flex shrink-0 items-center gap-3">
+                    <span
+                        style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '4px 12px',
+                            borderRadius: 6,
+                            color: dc.text,
+                            backgroundColor: dc.bg,
+                            border: `1px solid ${dc.border}`,
+                        }}
+                    >
+                        {q.difficulty}
+                    </span>
+                    <ArrowRight
+                        size={16}
+                        style={{
+                            color: isLight ? 'rgba(100,116,139,0.5)' : 'rgba(148,163,184,0.4)',
+                            transition: 'all 0.2s',
+                        }}
+                    />
+                </div>
+            </Wrapper>
+        );
+    };
+
+    return (
+        <div className="w-full pb-8 relative">
+            {/* Ambient background gradient */}
+            <div className="absolute inset-0 pointer-events-none" style={{ 
+                background: isLight 
+                    ? 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.04), transparent 60%)'
+                    : 'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(251,191,36,0.08), transparent 60%)',
+                borderRadius: '24px'
+            }} />
+
+            <style>{`
+                @keyframes shimmer-bg { 
+                    0% { background-position: 0% 50%; } 
+                    50% { background-position: 100% 50%; } 
+                    100% { background-position: 0% 50%; } 
+                }
+                @keyframes pulse-star { 
+                    0%, 100% { transform: scale(1); opacity: 0.7; } 
+                    50% { transform: scale(1.15); opacity: 1; } 
+                }
+                @keyframes fade-up { 
+                    from { opacity: 0; transform: translateY(12px); } 
+                    to { opacity: 1; transform: translateY(0); } 
+                }
+            `}</style>
+
+            <div className="relative z-10 overflow-hidden border rounded-[24px]" style={{
+                background: isLight
+                    ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))'
+                    : 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(20,30,50,0.7))',
+                borderColor: isLight ? 'rgba(203,213,225,0.5)' : 'rgba(148,163,184,0.15)',
+                boxShadow: isLight
+                    ? '0 1px 3px rgba(0,0,0,0.08), 0 10px 40px rgba(0,0,0,0.06)'
+                    : '0 20px 70px -40px rgba(0,0,0,0.95), 0 1px 2px rgba(148,163,184,0.1)',
+                backdropFilter: 'blur(20px)'
+            }}>
+                {/* Header with Trophy Icon */}
+                <div style={{
+                    padding: isLight ? '24px 28px' : '24px 28px',
+                    borderBottom: isLight ? '1px solid rgba(203,213,225,0.4)' : '1px solid rgba(148,163,184,0.1)',
+                    background: isLight
+                        ? 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(139,92,246,0.04))'
+                        : 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.06))',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    {/* Shimmer effect */}
+                    <div style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(90deg, transparent, rgba(251,191,36,0.04), transparent)',
+                        backgroundSize: '200% 100%',
+                        animation: 'shimmer-bg 4s ease infinite',
+                        pointerEvents: 'none',
+                    }} />
+
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexDirection: 'column' }}>
+                        <div style={{ textAlign: 'center' }}>
+                            <div style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: 1.5,
+                                color: '#fbbf24',
+                                marginBottom: 4,
+                            }}>
+                                Today's Challenge
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+                                <div style={{
+                                    fontSize: 24,
+                                    fontWeight: 800,
+                                    letterSpacing: '-0.02em',
+                                    color: isLight ? '#1e293b' : '#ffffff',
+                                }}>
+                                    {challenge.name}
                                 </div>
-                                <p className={`mt-1 text-[16px] font-semibold ${isLight ? 'text-slate-500' : 'text-zinc-400'}`}>
-                                    {challenge.dsa.length} DSA + {challenge.sql.length} SQL questions
-                                </p>
+                                {/* Type Badge */}
+                                <div style={{
+                                    padding: '6px 14px',
+                                    borderRadius: 8,
+                                    background: isLight
+                                        ? 'rgba(16,185,129,0.1)'
+                                        : 'rgba(16,185,129,0.15)',
+                                    border: isLight
+                                        ? '1px solid rgba(16,185,129,0.2)'
+                                        : '1px solid rgba(16,185,129,0.3)',
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    color: isLight ? '#059669' : '#6ee7b7',
+                                    textTransform: 'uppercase',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    {challenge.type || 'Product'}
+                                </div>
                             </div>
                         </div>
-
-                        <Link
-                            to="/daily-challenges"
-                            className={`hidden items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all md:flex ${
-                                isLight
-                                    ? 'border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:text-indigo-700'
-                                    : 'border-white/15 bg-white/5 text-zinc-300 hover:border-white/25 hover:text-white'
-                            }`}
-                        >
-                            <Trophy size={14} />
-                            View All
-                            <ChevronRight size={14} />
-                        </Link>
                     </div>
                 </div>
 
-                <div className={`grid grid-cols-1 lg:grid-cols-2 ${isLight ? 'divide-slate-200' : 'divide-white/10'} lg:divide-x`}>
-                    <div className="px-5 py-6 md:px-8 md:py-7">
-                        <div
-                            className={`mb-5 flex items-center gap-2 text-[20px] font-bold ${
-                                isLight ? 'text-indigo-700' : 'text-indigo-300'
-                            }`}
-                        >
-                            <span className={`grid h-7 w-7 place-items-center rounded-xl ${isLight ? 'bg-indigo-100' : 'bg-indigo-500/15'}`}>
-                                <Code2 size={14} />
+                {/* Questions Grid */}
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                    gap: 0,
+                }}>
+                    {/* DSA Section */}
+                    <div style={{
+                        padding: '24px 28px',
+                        borderRight: isLight ? '1px solid rgba(203,213,225,0.4)' : '1px solid rgba(148,163,184,0.1)',
+                    }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            marginBottom: 18,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: isLight ? '#6366f1' : '#a78bfa',
+                        }}>
+                            <span style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                background: isLight ? 'rgba(99,102,241,0.1)' : 'rgba(167,139,250,0.1)',
+                            }}>
+                                <Code2 size={16} strokeWidth={2.5} />
                             </span>
-                            Data Structures &amp; Algorithms
+                            Data Structures
                         </div>
-                        <div className="space-y-2.5">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {challenge.dsa.map((q, idx) => renderQuestionRow(q, idx, false))}
                         </div>
                     </div>
 
-                    <div className="px-5 py-6 md:px-8 md:py-7">
-                        <div
-                            className={`mb-5 flex items-center gap-2 text-[20px] font-bold ${
-                                isLight ? 'text-fuchsia-700' : 'text-fuchsia-300'
-                            }`}
-                        >
-                            <span className={`grid h-7 w-7 place-items-center rounded-xl ${isLight ? 'bg-fuchsia-100' : 'bg-fuchsia-500/15'}`}>
-                                <Database size={14} />
+                    {/* SQL Section */}
+                    <div style={{ padding: '24px 28px' }}>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            marginBottom: 18,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            color: isLight ? '#ec4899' : '#f472b6',
+                        }}>
+                            <span style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: 32,
+                                height: 32,
+                                borderRadius: 8,
+                                background: isLight ? 'rgba(236,72,153,0.1)' : 'rgba(244,114,182,0.1)',
+                            }}>
+                                <Database size={16} strokeWidth={2.5} />
                             </span>
-                            SQL &amp; Database
+                            SQL & Database
                         </div>
-                        <div className="space-y-2.5">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                             {challenge.sql.map((q, idx) => renderQuestionRow(q, idx, true))}
                         </div>
                     </div>
-                </div>
-
-                <div className={`border-t px-5 py-4 md:px-8 ${isLight ? 'border-slate-200' : 'border-white/10'} md:hidden`}>
-                    <Link
-                        to="/daily-challenges"
-                        className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold uppercase tracking-wider transition-all ${
-                            isLight
-                                ? 'border-slate-200 bg-slate-50 text-slate-700 hover:border-indigo-300 hover:text-indigo-700'
-                                : 'border-white/15 bg-white/5 text-zinc-300 hover:border-white/25 hover:text-white'
-                        }`}
-                    >
-                        <Trophy size={14} />
-                        View All Company Challenges
-                        <ChevronRight size={14} />
-                    </Link>
                 </div>
             </div>
         </div>

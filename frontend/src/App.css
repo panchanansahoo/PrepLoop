@@ -1218,7 +1218,7 @@ h3 {
 /* Feature Grid */
 .home-features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   gap: 24px;
 }
 
@@ -3564,7 +3564,7 @@ h3 {
 /* Pricing Grid */
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: 32px;
   margin-top: 48px;
 }
@@ -9093,6 +9093,7 @@ h3 {
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.9);
   display: -webkit-box;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -10004,6 +10005,7 @@ h3 {
 
   .ti-interviewer-question-text {
     font-size: 11.5px;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
   }
 
@@ -12092,8 +12094,6 @@ h3 {
   align-items: center;
   gap: 14px;
 }
-
-.rs-compact-gauge {}
 
 .rs-compact-info {
   display: flex;

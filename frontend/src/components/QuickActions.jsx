@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Mic, Code2, Database, Sparkles,
+    Mic, Code2, Database,
     Building2, Calculator, CalendarDays
 } from 'lucide-react';
 
@@ -29,14 +29,6 @@ const actions = [
         color: '#34d399',
         glow: 'rgba(52, 211, 153, 0.12)',
         path: '/sql-problems'
-    },
-    {
-        label: 'AI Tutor',
-        description: 'Guided learning',
-        icon: Sparkles,
-        color: '#f59e0b',
-        glow: 'rgba(245, 158, 11, 0.12)',
-        path: '/ai-tutor'
     },
     {
         label: 'Advanced Planner',

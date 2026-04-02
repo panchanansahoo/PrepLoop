@@ -53,6 +53,8 @@ import DailyChallenge from '../components/DailyChallenge';
 import UpcomingContests from '../components/UpcomingContests';
 import CalendarWidget from '../components/CalendarWidget';
 import PomodoroTimer from '../components/PomodoroTimer';
+import WeeklyStats from '../components/WeeklyStats';
+import LevelProgress from '../components/LevelProgress';
 
 import TodoList from '../components/TodoList';
 
@@ -71,6 +73,8 @@ const WIDGET_REGISTRY = [
     { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
 
     { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
+    { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
+    { id: 'levelProgress', name: 'Level Progress', component: LevelProgress, defaultVisible: true, premium: false, layout: '2col-right', description: 'Your level, rank & XP progression' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -154,6 +158,23 @@ export default function Dashboard() {
                 return { activities: dashboardData.recentActivity };
             case 'weeklyGoals':
                 return { weeklyData: dashboardData.weeklyGoals };
+            case 'weeklyStats':
+                return {
+                    weeklyData: {
+                        thisWeek: { problems: dashboardData.thisWeekProblems || 5, time: dashboardData.thisWeekTime || 12, xp: dashboardData.thisWeekXP || 450 },
+                        lastWeek: { problems: dashboardData.lastWeekProblems || 3, time: dashboardData.lastWeekTime || 8, xp: dashboardData.lastWeekXP || 280 }
+                    }
+                };
+            case 'levelProgress':
+                return {
+                    levelData: {
+                        currentLevel: dashboardData.currentLevel || 12,
+                        currentXP: dashboardData.currentXP || 3450,
+                        nextLevelXP: dashboardData.nextLevelXP || 5000,
+                        totalXP: dashboardData.totalXP || 48450,
+                        rank: dashboardData.rank || 'Expert'
+                    }
+                };
             default:
                 return {};
         }
@@ -191,7 +212,11 @@ export default function Dashboard() {
         const dailyChallenge = visible.find(w => w.id === 'dailyChallenge');
         if (dailyChallenge) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(dailyChallenge)}</div>);
 
-        // Upcoming Contests (right after Daily Challenge)
+        // Weekly Stats (right after daily challenge)
+        const weeklyStats = visible.find(w => w.id === 'weeklyStats');
+        if (weeklyStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(weeklyStats)}</div>);
+
+        // Upcoming Contests (right after Weekly Stats)
         const upcomingContests = visible.find(w => w.id === 'upcomingContests');
         if (upcomingContests) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(upcomingContests)}</div>);
 
@@ -227,8 +252,8 @@ export default function Dashboard() {
             );
         }
 
-        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, streakHeatmap)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'streakHeatmap');
+        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, streakHeatmap, weeklyStats)
+        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'streakHeatmap' && w.id !== 'weeklyStats');
         remainingFull.forEach(w => {
             rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
         });
@@ -275,11 +300,6 @@ export default function Dashboard() {
                             Customize
                             <span className="dash-customize-count">{visibleCount}/{totalCount}</span>
                         </button>
-                        <Link to="/advanced-learning-path" className="dash-hero-cta dash-hero-cta-secondary">
-                            <Sparkles size={18} />
-                            Open Advanced Planner
-                            <ArrowRight size={16} />
-                        </Link>
                         <Link to="/company-interview" className="dash-hero-cta">
                             <Sparkles size={18} />
                             Start Mock Interview

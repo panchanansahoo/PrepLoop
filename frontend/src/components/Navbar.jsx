@@ -204,7 +204,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         <div className="container nav-content">
           <Link to="/" className="nav-brand">
             <div className="brand-logo">
-              <img src={logo} alt="PrepLoop" className="h-8 w-8 object-contain" />
+              <img src={logo} alt="PrepLoop" className="h-8 w-8 object-contain" style={{ width: '32px', height: '32px' }} />
             </div>
             <span className="brand-text">PrepLoop</span>
           </Link>
@@ -212,11 +212,10 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           {/* Desktop Nav */}
           <div className="nav-links desktop-only">
             <a href="/#features" className="nav-link">Features</a>
-            <Link to="/library" className="nav-link">Library</Link>
-            <Link to="/job-updates" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
             <Link to="/dashboard" className="nav-link">Dashboard</Link>
-            <a href="/#pricing" className="nav-link">Pricing</a>
-            <a href="/#faq" className="nav-link">FAQ</a>
+            <Link to="/problems" className="nav-link">Problem Explorer</Link>
+            <Link to="/company-interview" className="nav-link">AI Mock</Link>
+            <Link to="/job-updates" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
             <Link to="/blog" className="nav-link">Blog</Link>
           </div>
 
@@ -253,11 +252,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         {mobileMenuOpen && (
           <div className="mobile-menu">
             <a href="/#features" className="mobile-link">Features</a>
-            <Link to="/library" className="mobile-link">Library</Link>
-            <Link to="/job-updates" className="mobile-link">Job Updates</Link>
             <Link to="/dashboard" className="mobile-link">Dashboard</Link>
-            <a href="/#pricing" className="mobile-link">Pricing</a>
-            <a href="/#faq" className="mobile-link">FAQ</a>
+            <Link to="/problems" className="mobile-link">Problem Explorer</Link>
+            <Link to="/company-interview" className="mobile-link">AI Mock</Link>
+            <Link to="/job-updates" className="mobile-link">Job Updates</Link>
+            <Link to="/blog" className="mobile-link">Blog</Link>
             {user ? (
               <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Go to Dashboard</Link>
             ) : (

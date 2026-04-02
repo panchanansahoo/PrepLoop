@@ -38,6 +38,7 @@ async function initializeServer() {
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const streakRoutes = (await import('./routes/streak.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
+    const libraryRoutes = (await import('./routes/library.js')).default;
     
     console.log('✅ Routes loaded successfully');
 
@@ -108,6 +109,7 @@ async function initializeServer() {
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/streak', streakRoutes);
     app.use('/api/hr', hrRoutes);
+    app.use('/api/library', libraryRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {

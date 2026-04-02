@@ -413,7 +413,7 @@ function JobUpdatesPreview() {
         </div>
 
         {jobs.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '16px', marginBottom: '48px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))', gap: '16px', marginBottom: '48px' }}>
             {jobs.map((job, i) => {
               const grad = gradients[i % gradients.length];
               const initials = (job.company || 'C').split(/[\s&]+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
@@ -788,7 +788,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '24px' }}>
             {features.map((f, i) => (
               <Link to={f.link} key={i} className="card feature-card-hover" style={{
                 background: 'var(--bg-card)',

@@ -1,0 +1,104 @@
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+function resolveToken(explicitToken) {
+	if (explicitToken) return explicitToken;
+	return localStorage.getItem('token') || sessionStorage.getItem('token');
+}
+
+function buildQuery(params = {}) {
+	const query = new URLSearchParams();
+
+	Object.entries(params).forEach(([key, value]) => {
+		if (value === undefined || value === null || value === '') return;
+		query.append(key, value);
+	});
+
+	const queryString = query.toString();
+	return queryString ? `?${queryString}` : '';
+}
+
+async function request(endpoint, { method = 'GET', body, token } = {}) {
+	const authToken = resolveToken(token);
+	const headers = {
+		'Content-Type': 'application/json'
+	};
+
+	if (authToken) {
+		headers.Authorization = `Bearer ${authToken}`;
+	}
+
+	const response = await fetch(`${API_BASE_URL}/library${endpoint}`, {
+		method,
+		headers,
+		body: body ? JSON.stringify(body) : undefined
+	});
+
+	const data = await response.json().catch(() => ({}));
+
+	if (!response.ok) {
+		throw new Error(data.error || `Library API error (${response.status})`);
+	}
+
+	return data;
+}
+
+export async function getBooks(params = {}) {
+	return request(`/books${buildQuery(params)}`);
+}
+
+export async function getBookById(bookId) {
+	return request(`/books/${bookId}`);
+}
+
+export async function addBook(bookData, token) {
+	return request('/admin/books', {
+		method: 'POST',
+		body: bookData,
+		token
+	});
+}
+
+export async function updateBook(bookId, bookData, token) {
+	return request(`/admin/books/${bookId}`, {
+		method: 'PUT',
+		body: bookData,
+		token
+	});
+}
+
+export async function deleteBook(bookId, token) {
+	return request(`/admin/books/${bookId}`, {
+		method: 'DELETE',
+		token
+	});
+}
+
+export async function addReview(reviewData, token) {
+	return request('/reviews', {
+		method: 'POST',
+		body: reviewData,
+		token
+	});
+}
+
+export async function addToShelf(bookId, shelfData = {}, token) {
+	return request('/shelf', {
+		method: 'POST',
+		body: {
+			book_id: bookId,
+			...shelfData
+		},
+		token
+	});
+}
+
+export async function getShelf(params = {}, token) {
+	return request(`/shelf${buildQuery(params)}`, { token });
+}
+
+export async function removeFromShelf(bookId, token) {
+	return request(`/shelf/${bookId}`, {
+		method: 'DELETE',
+		token
+	});
+}

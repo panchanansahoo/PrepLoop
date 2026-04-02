@@ -19,6 +19,7 @@ const navSections = [
         category: 'Overview',
         items: [
             { path: '/dashboard', label: 'Dashboard', subtitle: 'Overview & quick start', icon: LayoutDashboard },
+            { path: '/library', label: 'Library', subtitle: 'Books, solutions & resources', icon: BookOpen },
         ]
     },
     {
@@ -110,7 +111,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 <div className="sidebar-header">
                     <Link to="/" className="sidebar-brand">
                         <span className="brand-icon">
-                            <img src={logo} alt="PrepLoop" className="h-6 w-6 object-contain" />
+                            <img src={logo} alt="PrepLoop" className="h-6 w-6 object-contain" style={{ width: '24px', height: '24px' }} />
                         </span>
                         {!collapsed && <span>PrepLoop</span>}
                     </Link>

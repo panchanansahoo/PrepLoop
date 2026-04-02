@@ -66,23 +66,18 @@ const CompanyInterview = lazy(() => import('./pages/CompanyInterview'));
 const MultiRoundInterview = lazy(() => import('./pages/MultiRoundInterview'));
 const InterviewAnalytics = lazy(() => import('./pages/InterviewAnalytics'));
 const InterviewHistory = lazy(() => import('./pages/InterviewHistory'));
+const InterviewSuite = lazy(() => import('./pages/InterviewSuite'));
+const DebuggingInterview = lazy(() => import('./pages/DebuggingInterview'));
+const CodeReviewInterview = lazy(() => import('./pages/CodeReviewInterview'));
 const CodingPlayground = lazy(() => import('./pages/CodingPlayground'));
 const DailyChallengesPage = lazy(() => import('./pages/DailyChallengesPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const AdminLibrary = lazy(() => import('./pages/AdminLibrary'));
 const JobUpdates = lazy(() => import('./pages/JobUpdates'));
 const RealInterview = lazy(() => import('./pages/RealInterview'));
 const InterviewScheduler = lazy(() => import('./pages/InterviewScheduler'));
 const HRLogin = lazy(() => import('./pages/HRLogin'));
 const HRDashboard = lazy(() => import('./pages/HRDashboard'));
-const ResumeAnalyzer = lazy(() => import('./pages/ResumeAnalyzer'));
-const CommunityHub = lazy(() => import('./pages/CommunityHub'));
-const InterviewSuite = lazy(() => import('./pages/InterviewSuite'));
-const LiveCodingCopilot = lazy(() => import('./pages/LiveCodingCopilot'));
-const DebuggingInterview = lazy(() => import('./pages/DebuggingInterview'));
-const CodeReviewInterview = lazy(() => import('./pages/CodeReviewInterview'));
-const ExamHub = lazy(() => import('./pages/ExamHub'));
-const ExamPractice = lazy(() => import('./pages/ExamPractice'));
-const LearningHub = lazy(() => import('./pages/LearningHub'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -247,23 +242,18 @@ function AppContent() {
             <Route path="/ai-tutor" element={<AITutorHub />} />
             <Route path="/company-prep" element={<CompanyPrep />} />
             <Route path="/company-interview" element={<CompanyInterview />} />
+            <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
             <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
             <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
-            <Route path="/live-coding" element={<PrivateRoute><LiveCodingCopilot /></PrivateRoute>} />
-            <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
-            <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
 
             <Route path="/playground" element={<CodingPlayground />} />
+            <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
+            <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
+            <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
             <Route path="/daily-challenges" element={<DailyChallengesPage />} />
             <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
-            <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
-            <Route path="/community" element={<CommunityHub />} />
-            <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
-            <Route path="/exam-hub" element={<ExamHub />} />
-            <Route path="/exam-practice/:examId" element={<ExamPractice />} />
-            <Route path="/learning-hub" element={<LearningHub />} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<Payment />} />
@@ -288,6 +278,7 @@ function AppContent() {
             <Route path="/hr/login" element={<HRLogin />} />
             <Route path="/hr/dashboard" element={<HRDashboard />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+            <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
 
           </Routes>
           </Suspense>
