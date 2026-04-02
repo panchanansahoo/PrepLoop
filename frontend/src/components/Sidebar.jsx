@@ -7,8 +7,7 @@ import {
     CalendarDays, BarChart3, Clock, Settings, User,
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase,
-    MessageCircle, Heart, Bug, GitPullRequest, Eye
+    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -19,7 +18,6 @@ const navSections = [
         category: 'Overview',
         items: [
             { path: '/dashboard', label: 'Dashboard', subtitle: 'Overview & quick start', icon: LayoutDashboard },
-            { path: '/library', label: 'Library', subtitle: 'Books, solutions & resources', icon: BookOpen },
         ]
     },
     {
@@ -31,7 +29,7 @@ const navSections = [
             { path: '/system-design-sim', label: 'Design Simulator', subtitle: 'Build architectures visually', icon: Network },
             { path: '/sql-problems', label: 'SQL Mastery', subtitle: 'Database & query challenges', icon: Database },
             { path: '/aptitude', label: 'Aptitude', subtitle: 'Quant, reasoning & verbal', icon: Calculator },
-            { path: '/exam-hub', label: 'Exam Practice', subtitle: 'TCS NQT, Cognizant & more', icon: GraduationCap },
+            { path: '/exam-hub', label: 'Exam Practice', subtitle: 'TCS NQT, Cognizant & more', icon: FileText },
             { path: '/daily-challenges', label: 'Daily Challenges', subtitle: 'Company-wise daily problems', icon: Trophy },
         ]
     },
@@ -45,31 +43,32 @@ const navSections = [
     {
         category: 'Learning',
         items: [
-            { path: '/learning-hub', label: 'Learning Hub', subtitle: 'All learning paths', icon: GraduationCap },
+            { path: '/dsa-path', label: 'DSA Learning Path', subtitle: 'DSA roadmap & patterns', icon: GraduationCap },
+            { path: '/technical-path', label: 'Technical Path', subtitle: 'CS & System Design', icon: Server },
+            { path: '/library', label: 'Library', subtitle: 'Books, guides & resources', icon: BookOpen },
+            { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
+            { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
             { path: '/ai-tutor', label: 'AI Tutor', subtitle: 'Guided DSA, SQL & aptitude', icon: Sparkles },
-            { path: '/system-design', label: 'System Design', subtitle: 'Architecture & scaling', icon: Network },
+            { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
         ]
     },
     {
         category: 'Interview',
         items: [
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
-            { path: '/interview-suite', label: 'Interview Hub', subtitle: 'All modes, analytics & history', icon: Sparkles },
+            { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
             { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
             { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
+
+            { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
+            { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
+            { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },
         ]
     },
     {
         category: 'Career',
         items: [
-            { path: '/resume-analyzer', label: 'Resume Analyzer', subtitle: 'AI-powered ATS scoring', icon: FileText },
             { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
-        ]
-    },
-    {
-        category: 'Community',
-        items: [
-            { path: '/community', label: 'Community Hub', subtitle: 'Groups, events & discussions', icon: Heart },
         ]
     },
     {
@@ -97,6 +96,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             category: 'Admin',
             items: [
                 { path: '/admin', label: 'Admin Dashboard', subtitle: 'Manage users & content', icon: ShieldCheck },
+                { path: '/admin/library', label: 'Library Manager', subtitle: 'Manage library books', icon: BookOpen },
             ]
         });
     }
@@ -111,7 +111,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 <div className="sidebar-header">
                     <Link to="/" className="sidebar-brand">
                         <span className="brand-icon">
-                            <img src={logo} alt="PrepLoop" className="h-6 w-6 object-contain" style={{ width: '24px', height: '24px' }} />
+                            <img src={logo} alt="PrepLoop" className="h-8 w-8 object-contain" />
                         </span>
                         {!collapsed && <span>PrepLoop</span>}
                     </Link>
