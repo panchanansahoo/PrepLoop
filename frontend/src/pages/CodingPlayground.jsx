@@ -177,140 +177,64 @@ const mergeAndDedupeErrors = (...groups) => {
 
 // ─── Default starter code per language ───
 const DEFAULT_CODE = {
-    python: `# 🐍 Python Playground
-# Write any Python code here and experiment freely!
+    python: `# Write your code here
 
-def hello():
-    print("Hello from PrepLoop Playground!")
-    
-    # Try out data structures
-    nums = [3, 1, 4, 1, 5, 9, 2, 6]
-    print(f"Original: {nums}")
-    print(f"Sorted:   {sorted(nums)}")
-    print(f"Sum:      {sum(nums)}")
+def main():
+    print("Hello, World!")
 
-hello()
+
+if __name__ == "__main__":
+    main()
 `,
-    javascript: `// ⚡ JavaScript Playground
-// Write any JavaScript code here and experiment freely!
+    javascript: `// Write your code here
 
-function hello() {
-  console.log("Hello from PrepLoop Playground!");
-  
-  // Try out data structures
-  const nums = [3, 1, 4, 1, 5, 9, 2, 6];
-  console.log("Original:", nums);
-  console.log("Sorted:  ", [...nums].sort((a, b) => a - b));
-  console.log("Sum:     ", nums.reduce((a, b) => a + b, 0));
+function main() {
+  console.log("Hello, World!");
 }
 
-hello();
+main();
 `,
-    c: `// 🧩 C Playground
-// Write any C code here and experiment freely!
+    c: `// Write your code here
 
 #include <stdio.h>
 
 int main(void) {
-    printf("Hello from PrepLoop Playground!\\n");
-
-    // Try out arrays
-    int nums[] = {3, 1, 4, 1, 5, 9, 2, 6};
-    int n = sizeof(nums) / sizeof(nums[0]);
-    int sum = 0;
-
-    printf("Original: ");
-    for (int i = 0; i < n; i++) {
-        printf("%d ", nums[i]);
-        sum += nums[i];
-    }
-    printf("\\nSum:      %d\\n", sum);
-
+    printf("Hello, World!\\n");
     return 0;
 }
 `,
-    cpp: `// ⚙️ C++ Playground
-// Write any C++ code here and experiment freely!
+    cpp: `// Write your code here
 
 #include <iostream>
-#include <vector>
-#include <algorithm>
-#include <numeric>
 using namespace std;
 
 int main() {
-    cout << "Hello from PrepLoop Playground!" << endl;
-    
-    // Try out data structures
-    vector<int> nums = {3, 1, 4, 1, 5, 9, 2, 6};
-    
-    cout << "Original: ";
-    for (int n : nums) cout << n << " ";
-    cout << endl;
-    
-    sort(nums.begin(), nums.end());
-    cout << "Sorted:   ";
-    for (int n : nums) cout << n << " ";
-    cout << endl;
-    
-    cout << "Sum:      " << accumulate(nums.begin(), nums.end(), 0) << endl;
-    
+    cout << "Hello, World!" << endl;
     return 0;
 }
 `,
-    java: `// ☕ Java Playground
-// Write any Java code here and experiment freely!
-
-import java.util.*;
-import java.util.stream.*;
+    java: `// Write your code here
 
 public class Main {
     public static void main(String[] args) {
-        System.out.println("Hello from PrepLoop Playground!");
-        
-        // Try out data structures
-        int[] nums = {3, 1, 4, 1, 5, 9, 2, 6};
-        
-        System.out.println("Original: " + Arrays.toString(nums));
-        
-        int[] sorted = nums.clone();
-        Arrays.sort(sorted);
-        System.out.println("Sorted:   " + Arrays.toString(sorted));
-        
-        int sum = IntStream.of(nums).sum();
-        System.out.println("Sum:      " + sum);
+        System.out.println("Hello, World!");
     }
 }
 `,
-    go: `// 🔷 Go Playground
-// Write any Go code here and experiment freely!
+    go: `// Write your code here
 
 package main
 
-import (
-    "fmt"
-    "sort"
-)
+import "fmt"
 
 func main() {
-    fmt.Println("Hello from PrepLoop Playground!")
-    
-    // Try out data structures
-    nums := []int{3, 1, 4, 1, 5, 9, 2, 6}
-    fmt.Println("Original:", nums)
-    
-    sorted := make([]int, len(nums))
-    copy(sorted, nums)
-    sort.Ints(sorted)
-    fmt.Println("Sorted:  ", sorted)
-    
-    sum := 0
-    for _, n := range nums {
-        sum += n
-    }
-    fmt.Println("Sum:     ", sum)
+    fmt.Println("Hello, World!")
 }
 `,
+};
+
+const isLegacyPythonStarter = (value = '') => {
+    return value.includes('Hello from PrepLoop Playground!') && value.includes('def hello():');
 };
 
 let prettierRuntimePromise = null;
@@ -546,6 +470,7 @@ export default function CodingPlayground() {
     const [showSidebar] = useState(true);
     const [showMobileConsole, setShowMobileConsole] = useState(false);
     const [showMobileSidebar, setShowMobileSidebar] = useState(false);
+    const [isMobileView, setIsMobileView] = useState(() => window.innerWidth <= 768);
     const [sidebarTab, setSidebarTab] = useState('errors');
     const [liveErrors, setLiveErrors] = useState([]);
     const [liveLintPending, setLiveLintPending] = useState(false);
@@ -575,7 +500,18 @@ export default function CodingPlayground() {
     // ─── Load saved code or default ───
     useEffect(() => {
         const saved = localStorage.getItem(`playground-code-${language}`);
-        setCode(saved || DEFAULT_CODE[language] || '');
+        if (saved) {
+            if (language === 'python' && isLegacyPythonStarter(saved)) {
+                const nextCode = DEFAULT_CODE.python || '';
+                setCode(nextCode);
+                localStorage.setItem(`playground-code-${language}`, nextCode);
+                return;
+            }
+            setCode(saved);
+            return;
+        }
+
+        setCode(DEFAULT_CODE[language] || '');
     }, [language]);
 
     // ─── Auto-save ───
@@ -1083,6 +1019,58 @@ export default function CodingPlayground() {
         return () => window.removeEventListener('keydown', handler);
     }, [handleCancelRun, handleRun, running]);
 
+    useEffect(() => {
+        const handleResize = () => {
+            const mobile = window.innerWidth <= 768;
+            setIsMobileView(mobile);
+            if (!mobile) {
+                setShowMobileConsole(false);
+                setShowMobileSidebar(false);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    useEffect(() => {
+        if (!isMobileView) return;
+
+        const shouldLock = showMobileConsole || showMobileSidebar || showLangMenu;
+        document.body.style.overflow = shouldLock ? 'hidden' : '';
+
+        return () => {
+            document.body.style.overflow = '';
+        };
+    }, [isMobileView, showMobileConsole, showMobileSidebar, showLangMenu]);
+
+    const toggleMobileConsole = () => {
+        setShowMobileConsole((open) => {
+            const next = !open;
+            if (next) setShowMobileSidebar(false);
+            return next;
+        });
+    };
+
+    const toggleMobileSidebar = () => {
+        setShowMobileSidebar((open) => {
+            const next = !open;
+            if (next) setShowMobileConsole(false);
+            return next;
+        });
+    };
+
+    const toggleMobileLangMenu = () => {
+        setShowLangMenu((open) => {
+            const next = !open;
+            if (next) {
+                setShowMobileConsole(false);
+                setShowMobileSidebar(false);
+            }
+            return next;
+        });
+    };
+
     // ─── Monaco editor setup ───
     const handleBeforeMount = (monaco) => {
         registerAllThemes(monaco);
@@ -1160,6 +1148,9 @@ export default function CodingPlayground() {
         return consoleOutput.filter((line) => line.type === consoleFilter);
     }, [consoleFilter, consoleOutput]);
 
+    const isMobileOverlayOpen = isMobileView && (showMobileSidebar || showMobileConsole || showLangMenu);
+    const isSidebarVisible = isMobileView ? showMobileSidebar : showSidebar;
+
     const consoleCounts = useMemo(() => ({
         all: consoleOutput.length,
         output: consoleOutput.filter((line) => line.type === 'output').length,
@@ -1172,8 +1163,8 @@ export default function CodingPlayground() {
     return (
         <div className="pg-root" ref={rootRef}>
             {/* Mobile sidebar drawer overlay */}
-            {showMobileSidebar && (
-                <div className="pg-mobile-overlay" onClick={() => setShowMobileSidebar(false)} />
+            {isMobileOverlayOpen && (
+                <div className="pg-mobile-overlay" onClick={() => { setShowMobileSidebar(false); setShowMobileConsole(false); setShowLangMenu(false); }} />
             )}
             {/* ─── Top Bar ─── */}
             <div className="pg-topbar">
@@ -1191,7 +1182,7 @@ export default function CodingPlayground() {
                     </div>
                 </div>
 
-                <div className="pg-topbar-center">
+                <div className="pg-topbar-center pg-topbar-tools">
                     {/* Language Selector */}
                     <div className="pg-lang-wrap">
                         <button className="pg-lang-btn" onClick={() => setShowLangMenu(s => !s)}>
@@ -1294,7 +1285,7 @@ export default function CodingPlayground() {
                 </div>
 
                 {/* Centered Run Button */}
-                <div className="pg-topbar-center">
+                <div className="pg-topbar-center pg-topbar-run">
                     <button className="pg-run-btn" onClick={handleRun} disabled={running} style={{ padding: '8px 24px', fontSize: '13px', borderRadius: '10px' }}>
                         <Play size={16} style={{ fill: 'currentColor' }} />
                         <span>{running ? `Running (${runPhaseLabel})...` : 'Run Code'}</span>
@@ -1424,7 +1415,7 @@ export default function CodingPlayground() {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className={`pg-sidebar ${(!showSidebar && !showMobileSidebar) ? 'pg-sidebar-collapsed' : ''} ${(showSidebar || showMobileSidebar) ? 'pg-sidebar-mobile-open' : ''}`}>
+                <div className={`pg-sidebar ${!isSidebarVisible ? 'pg-sidebar-collapsed' : ''} ${isSidebarVisible ? 'pg-sidebar-mobile-open' : ''}`}>
                     <div className="pg-sidebar-tabs" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingBottom: '16px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                             {sidebarTabs.map(tab => (
@@ -1774,7 +1765,7 @@ export default function CodingPlayground() {
                 </button>
                 <button
                     className="pg-mobile-bar-btn pg-mobile-bar-lang"
-                    onClick={() => setShowLangMenu(s => !s)}
+                    onClick={toggleMobileLangMenu}
                 >
                     <span>{langInfo.icon}</span>
                     <span>{langInfo.label}</span>
@@ -1789,19 +1780,46 @@ export default function CodingPlayground() {
                 </button>
                 <button
                     className={`pg-mobile-bar-btn ${showMobileConsole ? 'pg-mobile-bar-active' : ''}`}
-                    onClick={() => setShowMobileConsole(s => !s)}
+                    onClick={toggleMobileConsole}
                 >
                     <Terminal size={18} />
                     <span>Console</span>
                 </button>
                 <button
                     className={`pg-mobile-bar-btn ${showMobileSidebar ? 'pg-mobile-bar-active' : ''}`}
-                    onClick={() => setShowMobileSidebar(s => !s)}
+                    onClick={toggleMobileSidebar}
                 >
                     <PanelRightOpen size={18} />
                     <span>Panel</span>
                 </button>
             </div>
+
+            {isMobileView && showLangMenu && (
+                <div className="pg-mobile-lang-sheet" role="dialog" aria-modal="true" aria-label="Select language">
+                    <div className="pg-mobile-lang-sheet-header">
+                        <span>Choose Language</span>
+                        <button type="button" onClick={() => setShowLangMenu(false)}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                    <div className="pg-mobile-lang-sheet-list">
+                        {LANGUAGES.map((l) => (
+                            <button
+                                key={l.id}
+                                className={`pg-mobile-lang-item ${language === l.id ? 'active' : ''}`}
+                                onClick={() => {
+                                    handleLanguageChange(l.id);
+                                    setShowLangMenu(false);
+                                }}
+                            >
+                                <span>{l.icon}</span>
+                                <span>{l.label}</span>
+                                {language === l.id ? <Check size={14} /> : null}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Status Bar */}
             <div className="pg-status-bar">

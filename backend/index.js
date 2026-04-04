@@ -69,9 +69,31 @@ async function initializeServer() {
 
     // Middleware setup
     app.use(helmet());
+    const configuredOrigins = [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://localhost:4173',
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:5174',
+      'http://127.0.0.1:4173',
+    ].filter(Boolean);
+
     app.use(cors({
-      origin: [process.env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:5174'].filter(Boolean),
-      credentials: true
+      origin(origin, callback) {
+        // Allow server-side requests and explicit configured origins.
+        if (!origin || configuredOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        // Allow local development origins on localhost/127.0.0.1 with any port.
+        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(new Error(`Not allowed by CORS: ${origin}`));
+      },
+      credentials: true,
     }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));

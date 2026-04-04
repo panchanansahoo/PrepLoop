@@ -1,5 +1,53 @@
 @import "tailwindcss";
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+}
+
+html,
+body {
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+}
+
+img,
+video,
+canvas,
+svg,
+iframe {
+  max-width: 100%;
+  height: auto;
+}
+
+pre,
+table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.app-layout,
+.main-content,
+.page-content {
+  min-width: 0;
+}
+
+.main-content > *,
+.page-content > * {
+  min-width: 0;
+}
+
 :root {
   /* Colors */
   --color-bg-primary: #030303;
@@ -108,4 +156,12 @@
 .custom-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.4) transparent;
+}
+
+@media (max-width: 768px) {
+  .chat-panel,
+  .orb-chat-panel,
+  .copilot-panel {
+    max-width: calc(100vw - 16px);
+  }
 }

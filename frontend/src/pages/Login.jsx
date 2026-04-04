@@ -15,21 +15,21 @@ const styles = {
   },
   // Animated background orbs
   orb1: {
-    position: 'fixed', top: '-15%', left: '-10%', width: '600px', height: '600px',
+    position: 'fixed', top: '-15%', left: '-10%', width: 'min(62vw, 600px)', height: 'min(62vw, 600px)',
     background: 'radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, transparent 70%)',
     borderRadius: '50%', filter: 'blur(60px)',
     animation: 'float1 15s ease-in-out infinite',
     pointerEvents: 'none', zIndex: 0,
   },
   orb2: {
-    position: 'fixed', bottom: '-20%', right: '-5%', width: '500px', height: '500px',
+    position: 'fixed', bottom: '-20%', right: '-5%', width: 'min(52vw, 500px)', height: 'min(52vw, 500px)',
     background: 'radial-gradient(circle, rgba(217, 70, 239, 0.12) 0%, transparent 70%)',
     borderRadius: '50%', filter: 'blur(80px)',
     animation: 'float2 18s ease-in-out infinite',
     pointerEvents: 'none', zIndex: 0,
   },
   orb3: {
-    position: 'fixed', top: '40%', right: '30%', width: '300px', height: '300px',
+    position: 'fixed', top: '40%', right: '30%', width: 'min(38vw, 300px)', height: 'min(38vw, 300px)',
     background: 'radial-gradient(circle, rgba(192, 132, 252, 0.08) 0%, transparent 70%)',
     borderRadius: '50%', filter: 'blur(40px)',
     animation: 'float3 12s ease-in-out infinite',
@@ -45,14 +45,14 @@ const styles = {
   rightPanel: {
     flex: '1 1 50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '40px', position: 'relative', zIndex: 1,
+    padding: 'clamp(16px, 4vw, 40px)', position: 'relative', zIndex: 1,
   },
   formCard: {
     width: '100%', maxWidth: '440px',
     background: 'rgba(255,255,255,0.03)',
     border: '1px solid rgba(255,255,255,0.06)',
     borderRadius: '24px',
-    padding: '40px 36px',
+    padding: 'clamp(22px, 3.6vw, 40px) clamp(18px, 3vw, 36px)',
     backdropFilter: 'blur(20px)',
     WebkitBackdropFilter: 'blur(20px)',
     boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
@@ -242,6 +242,10 @@ const keyframes = `
     .auth-left-panel { display: none !important; }
     .auth-right-panel { flex: 1 1 100% !important; }
   }
+  @media (max-width: 560px) {
+    .auth-social-row { flex-direction: column !important; }
+    .auth-brand-title { font-size: 2rem !important; }
+  }
 `;
 
 export default function Login() {
@@ -307,7 +311,7 @@ export default function Login() {
             <span style={styles.logoText}>PrepLoop</span>
           </Link>
 
-          <h2 style={styles.heading}>
+          <h2 className="auth-brand-title" style={styles.heading}>
             Ace Your Next<br />
             <span style={styles.headingAccent}>Technical Interview</span>
           </h2>
@@ -365,7 +369,7 @@ export default function Login() {
               >
                 <Chrome size={18} /> Continue with Google
               </button>
-              <div style={styles.socialBtnRow}>
+              <div className="auth-social-row" style={styles.socialBtnRow}>
                 <button
                   onClick={() => handleSocialLogin('GitHub', loginWithGithub)}
                   style={getHoverStyle('github', styles.socialBtnSecondary)}

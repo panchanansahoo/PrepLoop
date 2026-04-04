@@ -359,25 +359,19 @@ router.post(
 router.get(
   '/interview/:sessionId',
   authenticateToken,
+  (req, res, next) => {
+    if (req.params.sessionId === 'history') {
+      return next('route');
+    }
+    return next();
+  },
   param('sessionId').isUUID(),
   async (req, res) => {
     try {
       const { sessionId } = req.params;
       const userId = req.user.id;
 
-      const { data: interview, error } = await supabaseAdmin
-        .from('interview_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .eq('user_id', userId)
-        .single();
-
-      if (error || !interview) {
-        return res.status(404).json({
-          success: false,
-          message: 'Interview session not found'
-        });
-      }
+      const interview = await InterviewSimulatorService.getInterviewSession(sessionId, userId);
 
       return res.status(200).json({
         success: true,
@@ -385,6 +379,12 @@ router.get(
       });
 
     } catch (error) {
+      if (error.message === 'Interview session not found') {
+        return res.status(404).json({
+          success: false,
+          message: 'Interview session not found'
+        });
+      }
       logger.error('Fetch interview error', { error: error.message });
       return res.status(500).json({
         success: false,

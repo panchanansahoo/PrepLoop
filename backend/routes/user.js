@@ -124,6 +124,54 @@ const LEVELS = [
   { name: 'Legend', minXP: 15000 },
 ];
 
+const DASHBOARD_PATTERN_CACHE_TTL_MS = 10 * 60 * 1000;
+let dashboardPatternCatalogCache = {
+  fetchedAt: 0,
+  patternMap: new Map(),
+  problemCountByPatternId: new Map(),
+};
+
+const getDashboardPatternCatalog = async () => {
+  const now = Date.now();
+  if (
+    dashboardPatternCatalogCache.fetchedAt &&
+    now - dashboardPatternCatalogCache.fetchedAt < DASHBOARD_PATTERN_CACHE_TTL_MS
+  ) {
+    return dashboardPatternCatalogCache;
+  }
+
+  const [patternsResult, problemsResult] = await Promise.all([
+    supabaseAdmin.from("patterns").select("id, name"),
+    supabaseAdmin.from("problems").select("pattern_id"),
+  ]);
+
+  if (patternsResult.error) throw patternsResult.error;
+  if (problemsResult.error) throw problemsResult.error;
+
+  const patternMap = new Map();
+  (patternsResult.data || []).forEach((pattern) => {
+    patternMap.set(pattern.id, pattern);
+  });
+
+  const problemCountByPatternId = new Map();
+  (problemsResult.data || []).forEach((problem) => {
+    const patternId = problem.pattern_id;
+    if (!patternId) return;
+    problemCountByPatternId.set(
+      patternId,
+      (problemCountByPatternId.get(patternId) || 0) + 1,
+    );
+  });
+
+  dashboardPatternCatalogCache = {
+    fetchedAt: now,
+    patternMap,
+    problemCountByPatternId,
+  };
+
+  return dashboardPatternCatalogCache;
+};
+
 const getLevelInfo = (xp) => {
   const safeXP = Number(xp) || 0;
 
@@ -267,40 +315,42 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    // ── 1) User progress (solved problems) ──
-    const { data: progress } = await supabaseAdmin
-      .from("user_progress")
-      .select("problem_id, status")
-      .eq("user_id", userId);
+    const [progressResult, submissionsResult, interviewsResult, resumesResult] = await Promise.all([
+      supabaseAdmin
+        .from("user_progress")
+        .select("problem_id, status")
+        .eq("user_id", userId),
+      supabaseAdmin
+        .from("submissions")
+        .select("submitted_at, status, problem_id, execution_time, problems(title, difficulty)")
+        .eq("user_id", userId)
+        .order("submitted_at", { ascending: false }),
+      supabaseAdmin
+        .from("mock_interviews")
+        .select("id, interview_type, overall_score, communication_score, technical_score, problem_solving_score, started_at, completed_at")
+        .eq("user_id", userId)
+        .order("started_at", { ascending: false }),
+      supabaseAdmin
+        .from("resume_analyses")
+        .select("id")
+        .eq("user_id", userId),
+    ]);
+
+    if (progressResult.error) throw progressResult.error;
+    if (submissionsResult.error) throw submissionsResult.error;
+    if (interviewsResult.error) throw interviewsResult.error;
+    if (resumesResult.error) throw resumesResult.error;
+
+    const progress = progressResult.data || [];
+    const subs = submissionsResult.data || [];
+    const interviews = interviewsResult.data || [];
+    const resumes = resumesResult.data || [];
 
     const solvedCount = (progress || []).filter(
       (p) => p.status === "solved",
     ).length;
 
-    // ── 2) All submissions (for streak, heatmap, weekly) ──
-    const { data: allSubmissions } = await supabaseAdmin
-      .from("submissions")
-      .select("id, submitted_at, status, problem_id, execution_time, problems(title, difficulty, tags)")
-      .eq("user_id", userId)
-      .order("submitted_at", { ascending: false });
-
-    const subs = allSubmissions || [];
-
-    // ── 3) Mock interviews ──
-    const { data: allInterviews } = await supabaseAdmin
-      .from("mock_interviews")
-      .select("id, interview_type, overall_score, communication_score, technical_score, problem_solving_score, started_at, completed_at")
-      .eq("user_id", userId)
-      .order("started_at", { ascending: false });
-
-    const interviews = allInterviews || [];
     const completedInterviews = interviews.filter((i) => i.completed_at);
-
-    // ── 4) Resume analyses ──
-    const { data: resumes } = await supabaseAdmin
-      .from("resume_analyses")
-      .select("id")
-      .eq("user_id", userId);
 
     // ── 5) Streak calculation (consecutive days ending today) ──
     const submissionDates = [...new Set(
@@ -390,18 +440,9 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       (progress || []).filter((p) => p.status === "solved").map((p) => p.problem_id)
     );
 
-    // Fetch problem details for solved problems to categorize
     let skillBreakdown = { dsa: 0, sql: 0, aptitude: 0, systemDesign: 0, behavioral: 0 };
-    if (solvedProblemIds.size > 0) {
-      const { data: solvedProblems } = await supabaseAdmin
-        .from("problems")
-        .select("id, tags, difficulty")
-        .in("id", [...solvedProblemIds]);
-
-      const totalProblems = solvedProblems?.length || 0;
-      // DSA score based on the number of solved problems  
-      skillBreakdown.dsa = totalProblems > 0 ? Math.min(100, Math.round((totalProblems / 100) * 100)) : 0;
-    }
+    // DSA score based on solved count
+    skillBreakdown.dsa = solvedCount > 0 ? Math.min(100, solvedCount) : 0;
     // SQL, aptitude from mock interview types
     const sqlInterviews = completedInterviews.filter((i) =>
       i.interview_type?.toLowerCase().includes("sql")
@@ -430,30 +471,43 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     }
 
     // ── 10) Topic progress (solved per pattern/category) ──
-    const { data: allPatterns } = await supabaseAdmin
-      .from("patterns")
-      .select("id, name, category");
-
-    const { data: allProblems } = await supabaseAdmin
-      .from("problems")
-      .select("id, pattern_id, difficulty");
-
     const topicProgressMap = {};
     const patternColors = [
       '#a78bfa', '#38bdf8', '#22c55e', '#f59e0b', '#fb923c',
       '#ec4899', '#14b8a6', '#ef4444', '#8b5cf6', '#06b6d4'
     ];
-    (allPatterns || []).forEach((pattern, idx) => {
-      const patternProblems = (allProblems || []).filter((p) => p.pattern_id === pattern.id);
-      const patternSolved = patternProblems.filter((p) => solvedProblemIds.has(p.id)).length;
-      if (patternProblems.length > 0) {
-        topicProgressMap[pattern.name] = {
-          name: pattern.name,
-          solved: patternSolved,
-          total: patternProblems.length,
-          color: patternColors[idx % patternColors.length],
-        };
-      }
+    const [catalog, solvedProblemPatternsResult] = await Promise.all([
+      getDashboardPatternCatalog(),
+      solvedProblemIds.size > 0
+        ? supabaseAdmin
+          .from("problems")
+          .select("id, pattern_id")
+          .in("id", [...solvedProblemIds])
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (solvedProblemPatternsResult.error) throw solvedProblemPatternsResult.error;
+
+    const solvedCountByPatternId = new Map();
+    (solvedProblemPatternsResult.data || []).forEach((problem) => {
+      const patternId = problem.pattern_id;
+      if (!patternId) return;
+      solvedCountByPatternId.set(
+        patternId,
+        (solvedCountByPatternId.get(patternId) || 0) + 1,
+      );
+    });
+
+    Array.from(catalog.patternMap.values()).forEach((pattern, idx) => {
+      const total = catalog.problemCountByPatternId.get(pattern.id) || 0;
+      if (total === 0) return;
+
+      topicProgressMap[pattern.name] = {
+        name: pattern.name,
+        solved: solvedCountByPatternId.get(pattern.id) || 0,
+        total,
+        color: patternColors[idx % patternColors.length],
+      };
     });
 
     const topicProgress = Object.values(topicProgressMap);
@@ -486,6 +540,19 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     // ── 12) Weekly goals data (solved this week by difficulty) ──
     const thisWeekRange = getWeekRange(0);
     const lastWeekRange = getWeekRange(1);
+
+    const thisWeekAccepted = subs.filter((submission) => {
+      const submittedAt = new Date(submission.submitted_at);
+      return submission.status === 'accepted' && submittedAt >= thisWeekRange.start && submittedAt < thisWeekRange.end;
+    });
+
+    const weeklyByDifficulty = thisWeekAccepted.reduce((accumulator, submission) => {
+      const difficulty = String(submission.problems?.difficulty || '').toLowerCase();
+      if (difficulty === 'hard') accumulator.hard += 1;
+      else if (difficulty === 'medium') accumulator.medium += 1;
+      else accumulator.easy += 1;
+      return accumulator;
+    }, { easy: 0, medium: 0, hard: 0 });
 
     const thisWeek = buildWeeklyStats(subs, thisWeekRange.start, thisWeekRange.end);
     const lastWeek = buildWeeklyStats(subs, lastWeekRange.start, lastWeekRange.end);

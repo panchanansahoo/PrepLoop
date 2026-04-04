@@ -32,6 +32,7 @@ function AnimatedCounter({ end, duration = 1200, suffix = '' }) {
 
 export default function QuickStats({ data }) {
     const stats = data || { streak: 0, problemsSolved: 0, avgScore: 0, totalXP: 0 };
+    const hasActivity = [stats.streak, stats.problemsSolved, stats.avgScore, stats.totalXP].some((value) => value > 0);
 
     const cards = [
         {
@@ -41,7 +42,9 @@ export default function QuickStats({ data }) {
             color: '#f59e0b',
             gradient: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.03))',
             borderGlow: 'rgba(245, 158, 11, 0.2)',
-            suffix: ''
+            suffix: '',
+            activeHint: 'Keep it alive today',
+            emptyHint: 'Your streak starts with one solve'
         },
         {
             label: 'Problems Solved',
@@ -50,7 +53,9 @@ export default function QuickStats({ data }) {
             color: '#22c55e',
             gradient: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.03))',
             borderGlow: 'rgba(34, 197, 94, 0.2)',
-            suffix: ''
+            suffix: '',
+            activeHint: 'Practice sessions completed',
+            emptyHint: 'No sessions logged yet'
         },
         {
             label: 'Avg Score',
@@ -59,7 +64,9 @@ export default function QuickStats({ data }) {
             color: '#a78bfa',
             gradient: 'linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.03))',
             borderGlow: 'rgba(167, 139, 250, 0.2)',
-            suffix: '%'
+            suffix: '%',
+            activeHint: 'Your rolling performance average',
+            emptyHint: 'Score appears after your first review'
         },
         {
             label: 'Total XP',
@@ -68,28 +75,42 @@ export default function QuickStats({ data }) {
             color: '#38bdf8',
             gradient: 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(56,189,248,0.03))',
             borderGlow: 'rgba(56, 189, 248, 0.2)',
-            suffix: ''
+            suffix: '',
+            activeHint: 'XP earned from practice and reviews',
+            emptyHint: 'Complete a mock to unlock XP'
         }
     ];
 
     return (
-        <div className="quick-stats-grid">
+        <section className="quick-stats-shell">
+            <div className="quick-stats-grid">
             {cards.map((card) => {
                 const Icon = card.icon;
+                const isEmpty = !hasActivity && card.value === 0;
+                const displayValue = card.suffix === '%' ? `${card.value}%` : card.value;
                 return (
-                    <div key={card.label} className="quick-stat-card" style={{ background: card.gradient, borderColor: card.borderGlow }}>
+                    <div
+                        key={card.label}
+                        className={`quick-stat-card ${isEmpty ? 'quick-stat-card-empty' : ''}`}
+                        style={{ background: card.gradient, borderColor: card.borderGlow }}
+                    >
                         <div className="quick-stat-top-row">
                             <div className="quick-stat-icon" style={{ background: `${card.color}20` }}>
                                 <Icon size={20} style={{ color: card.color }} />
                             </div>
                             <div className="quick-stat-label">{card.label}</div>
                         </div>
-                        <div className="quick-stat-value" style={{ color: card.color }}>
-                            <AnimatedCounter end={card.value} suffix={card.suffix} />
+                        <div className={`quick-stat-value ${isEmpty ? 'quick-stat-value-empty' : ''}`} style={{ color: card.color }}>
+                            {card.value > 0 ? (
+                                <AnimatedCounter end={card.value} suffix={card.suffix} />
+                            ) : (
+                                <span>{displayValue}</span>
+                            )}
                         </div>
                     </div>
                 );
             })}
-        </div>
+            </div>
+        </section>
     );
 }

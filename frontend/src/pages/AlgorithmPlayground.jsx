@@ -3,7 +3,8 @@ import {
     Play, Pause, SkipForward, SkipBack, RotateCcw,
     ChevronRight, ChevronLeft, Zap, Clock, Cpu,
     FastForward, Rewind, Settings2, Info, Search,
-    ArrowLeft, Filter, Sparkles, Maximize2, ChevronDown
+    ArrowLeft, Filter, Sparkles, Maximize2, ChevronDown,
+    Lightbulb, BookOpen, Keyboard, HardDrive
 } from 'lucide-react';
 import { ALGORITHMS, generateSteps } from '../data/algorithmVisualizations';
 import { ALGORITHM_CODES } from '../data/algorithmCodes';
@@ -228,6 +229,7 @@ function VisualizerView({ algorithm, onBack }) {
     const [showSpeedMenu, setShowSpeedMenu] = useState(false);
     const [selectedLanguage, setSelectedLanguage] = useState('javascript');
     const [showLangMenu, setShowLangMenu] = useState(false);
+    const [showAlgoInfo, setShowAlgoInfo] = useState(false);
     const intervalRef = useRef(null);
 
     const regenerateSteps = useCallback(() => {
@@ -286,6 +288,26 @@ function VisualizerView({ algorithm, onBack }) {
         setIsPlaying(p => !p);
     };
 
+    // ─── Keyboard shortcuts ───
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            switch (e.key) {
+                case ' ':
+                case 'k': e.preventDefault(); togglePlay(); break;
+                case 'ArrowRight':
+                case 'l': e.preventDefault(); stepForward(); break;
+                case 'ArrowLeft':
+                case 'j': e.preventDefault(); stepBack(); break;
+                case 'r': e.preventDefault(); reset(); break;
+                case 'ArrowUp': e.preventDefault(); setSpeed(s => Math.min(s + 1, SPEED_OPTIONS.length - 1)); break;
+                case 'ArrowDown': e.preventDefault(); setSpeed(s => Math.max(s - 1, 0)); break;
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [steps.length, currentStep, isPlaying]);
+
     const currentFrame = steps[currentStep] || {};
     const progress = steps.length > 1 ? (currentStep / (steps.length - 1)) * 100 : 0;
     const isGraphAlgo = selectedAlgo.category === 'graph' || selectedAlgo.id === 'topological-sort';
@@ -297,16 +319,58 @@ function VisualizerView({ algorithm, onBack }) {
     const activeLine = (multiCode?.stepToLine || codeData?.stepToLine)?.(currentFrame) ?? -1;
     const currentLangInfo = CODE_LANGUAGES.find(l => l.id === selectedLanguage) || CODE_LANGUAGES[0];
 
+    // Determine step phase type for message styling
+    const getStepPhase = () => {
+        if (!currentFrame.message) return 'idle';
+        if (currentFrame.message.includes('✅') || currentFrame.message.includes('Found')) return 'success';
+        if (currentFrame.message.includes('❌')) return 'failure';
+        if (currentFrame.swapping) return 'swap';
+        if (currentFrame.comparing) return 'compare';
+        return 'info';
+    };
+    const stepPhase = getStepPhase();
+
     return (
         <div className="viz-page">
             {/* ─── Top Bar ─── */}
             <div className="viz-topbar">
                 <button onClick={onBack} className="viz-back-btn">
                     <ArrowLeft size={16} />
-                    <span>Back to All Animations</span>
+                    <span>Back</span>
                 </button>
-                <h1 className="viz-title">{selectedAlgo.name}</h1>
+                <div className="viz-topbar-center">
+                    <span className="viz-algo-icon">{selectedAlgo.icon}</span>
+                    <h1 className="viz-title">{selectedAlgo.name}</h1>
+                </div>
+                <div className="viz-topbar-meta">
+                    <span className="viz-meta-pill" title="Time Complexity">
+                        <Clock size={10} /> {selectedAlgo.complexity.time}
+                    </span>
+                    <span className="viz-meta-pill" title="Space Complexity">
+                        <HardDrive size={10} /> {selectedAlgo.complexity.space}
+                    </span>
+                    <button className="viz-info-toggle" onClick={() => setShowAlgoInfo(s => !s)} title="Algorithm Info">
+                        <Lightbulb size={14} />
+                    </button>
+                </div>
             </div>
+
+            {/* ─── Algorithm Info Panel ─── */}
+            {showAlgoInfo && (
+                <div className="viz-info-panel">
+                    <div className="viz-info-panel-inner">
+                        <BookOpen size={16} />
+                        <p>{selectedAlgo.description}</p>
+                    </div>
+                    <div className="viz-info-shortcuts">
+                        <Keyboard size={12} />
+                        <span><kbd>Space</kbd> Play/Pause</span>
+                        <span><kbd>←</kbd><kbd>→</kbd> Step</span>
+                        <span><kbd>↑</kbd><kbd>↓</kbd> Speed</span>
+                        <span><kbd>R</kbd> Reset</span>
+                    </div>
+                </div>
+            )}
 
             {/* ─── Split Screen Content ─── */}
             <div className="viz-split">
@@ -477,10 +541,8 @@ function VisualizerView({ algorithm, onBack }) {
                         </div>
                     </div>
 
-                    {/* Dry Run Variables — auto-extracted from step frame */}
+                    {/* ─── Watch Window (debugger-style) ─── */}
                     {(() => {
-                        // If the step generator provides explicit variables, use those.
-                        // Otherwise, auto-extract meaningful state from the step frame.
                         const SKIP_KEYS = new Set([
                             'array', 'highlights', 'sorted', 'message', 'comparing', 'swapping',
                             'nodes', 'edges', 'intervals', 'result', 'current', 'ranges',
@@ -497,31 +559,55 @@ function VisualizerView({ algorithm, onBack }) {
                                 else if (typeof v === 'boolean') vars[k] = v;
                                 else if (typeof v === 'string' && v.length < 30) vars[k] = v;
                                 else if (Array.isArray(v) && v.length <= 12 && v.every(x => typeof x === 'number' || typeof x === 'string'))
-                                    vars[k] = `[${v.join(',')}]`;
+                                    vars[k] = `[${v.join(', ')}]`;
                             }
                         }
-                        if (!vars || Object.keys(vars).length === 0) return null;
+                        const entries = vars ? Object.entries(vars) : [];
+                        if (entries.length === 0) return null;
+
+                        const getTypeClass = (v) => {
+                            if (typeof v === 'number') return 'watch-num';
+                            if (typeof v === 'boolean') return 'watch-bool';
+                            if (typeof v === 'string' && v.startsWith('[')) return 'watch-arr';
+                            return 'watch-str';
+                        };
+
                         return (
-                            <div className="viz-dryrun">
-                                <span className="viz-dryrun-label">Variables</span>
-                                <div className="viz-dryrun-chips">
-                                    {Object.entries(vars).map(([k, v]) => (
-                                        <span key={k} className="viz-dryrun-chip">
-                                            <span className="viz-dryrun-key">{k}</span>
-                                            <span className="viz-dryrun-eq">=</span>
-                                            <span className="viz-dryrun-val">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-                                        </span>
+                            <div className="watch-window">
+                                <div className="watch-header">
+                                    <Cpu size={11} />
+                                    <span>Watch</span>
+                                    <span className="watch-count">{entries.length}</span>
+                                </div>
+                                <div className="watch-body">
+                                    {entries.map(([k, v]) => (
+                                        <div key={k} className="watch-row">
+                                            <span className="watch-name">{k}</span>
+                                            <span className={`watch-value ${getTypeClass(v)}`}>
+                                                {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                            </span>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
                         );
                     })()}
 
-                    {/* Step explanation */}
-                    <div className="viz-step-msg">
+                    {/* ─── Step Explanation Panel ─── */}
+                    <div className={`viz-step-msg viz-step-${stepPhase}`}>
                         <span className="viz-step-num">{currentStep}</span>
-                        <span className="viz-step-text">
-                            {currentFrame.message || 'Ready to begin...'}
+                        <div className="viz-step-content">
+                            <span className="viz-step-text">
+                                {currentFrame.message || '▶️ Press Play or use Arrow Keys to step through the algorithm'}
+                            </span>
+                            {currentStep === 0 && steps.length > 1 && (
+                                <span className="viz-step-hint">
+                                    💡 Tip: Use <kbd>Space</kbd> to play and <kbd>←</kbd> <kbd>→</kbd> to step through
+                                </span>
+                            )}
+                        </div>
+                        <span className="viz-step-progress">
+                            {Math.round(progress)}%
                         </span>
                     </div>
                 </div>

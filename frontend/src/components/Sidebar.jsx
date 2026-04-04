@@ -85,6 +85,7 @@ const navSections = [
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
     const location = useLocation();
     const { user, isAdmin } = useAuth();
+    const isCollapsed = collapsed && !mobileOpen;
     const userName = user?.fullName || user?.name || 'Engineer';
     const userEmail = user?.email || '';
 
@@ -107,20 +108,20 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 className={`sidebar-overlay ${mobileOpen ? 'visible' : ''}`}
                 onClick={onMobileClose}
             />
-            <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+            <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-header">
                     <Link to="/" className="sidebar-brand">
                         <span className="brand-icon">
                             <img src={logo} alt="PrepLoop" className="h-8 w-8 object-contain" />
                         </span>
-                        {!collapsed && <span>PrepLoop</span>}
+                        {!isCollapsed && <span>PrepLoop</span>}
                     </Link>
-                    {!collapsed && (
+                    {!isCollapsed && (
                         <button className="sidebar-toggle desktop-only" onClick={onToggle} title="Collapse Sidebar">
                             <PanelLeftClose size={20} />
                         </button>
                     )}
-                    {collapsed && (
+                    {isCollapsed && (
                         <button className="sidebar-toggle desktop-only" onClick={onToggle} title="Expand Sidebar" style={{ marginLeft: 0 }}>
                             <PanelLeftOpen size={20} />
                         </button>
@@ -135,10 +136,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 <nav className="sidebar-nav">
                     {sections.map((section, sIdx) => (
                         <div key={section.category} className="sidebar-section">
-                            {(!collapsed || mobileOpen) && (
+                            {(!isCollapsed || mobileOpen) && (
                                 <div className="sidebar-section-label">{section.category}</div>
                             )}
-                            {collapsed && !mobileOpen && sIdx > 0 && (
+                            {isCollapsed && !mobileOpen && sIdx > 0 && (
                                 <div className="sidebar-section-divider" />
                             )}
                             {section.items.map(item => {
@@ -155,13 +156,13 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                         key={item.path}
                                         to={item.path}
                                         className={`nav-item ${isActive ? 'active' : ''}`}
-                                        title={collapsed ? item.label : undefined}
+                                        title={isCollapsed ? item.label : undefined}
                                         onClick={() => mobileOpen && onMobileClose()}
                                     >
                                         <span className="nav-icon">
                                             <Icon size={20} />
                                         </span>
-                                        {(!collapsed || mobileOpen) && (
+                                        {(!isCollapsed || mobileOpen) && (
                                             <div>
                                                 <div className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                                     {item.label}

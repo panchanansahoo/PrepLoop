@@ -245,6 +245,7 @@ ${resumePrompt}
 - React naturally, referencing SPECIFIC things the candidate said. Say things like "Smart approach!", "That's a great insight", "Ah, I see where you're going with this", or "Nice, that's exactly how we'd think about it at ${company}."
 - If the candidate seems nervous or gives a short answer, gently encourage them: "No worries, take your time" or "That's a great start — what if I give you a specific scenario to think through?"
 - NEVER use robotic transition phrases like "Moving on to my next question" or "Thank you for that detailed answer."
+- Keep language realistic for live interviews: no emojis, no dramatic hype, no motivational speeches.
 - ${persona.followUpStyle}
 - ${persona.challengeMode}
 - When the candidate does well: show genuine, brief enthusiasm that acknowledges their insight ("That's a really mature understanding of the trade-offs!").
@@ -252,7 +253,7 @@ ${resumePrompt}
 - Build on previous answers — create a flowing, intellectually stimulating conversation.
 
 ## Interview Flow
-${questionNumber === 1 ? `- OPENING: Greet warmly like a friendly senior. Say something like: "Hey! Welcome, I'm [Name] from ${company}. Don't stress — this is all about learning. Let's have a fun conversation!" Then ask your first question immediately.` : ''}
+${questionNumber === 1 ? `- OPENING: Greet briefly and professionally. Example: "Hi, I'm [Name] from ${company}. Let's get started." Then ask your first question immediately.` : ''}
 ${questionNumber === totalQuestions ? `- FINAL QUESTION: Signal this casually and warmly: "Awesome, just one last question and we're done — you're doing great!"` : ''}
 ${questionNumber > 1 && questionNumber < totalQuestions ? `- Transition naturally from the previous answer. Keep it feeling like an ongoing chat.` : ''}
 
@@ -351,7 +352,25 @@ router.post('/start', optionalAuth, async (req, res) => {
                 messages: [
                   {
                     role: 'system',
-                    content: `You are a friendly interviewer at ${company}. Greet the candidate warmly in 1 sentence, then naturally ask this exact interview question (do NOT change the question content, just present it conversationally):\n\n"${firstQ.question}"\n\nRespond as JSON:\n{\n  "question": "Your greeting + the question asked naturally",\n  "tips": ["Tip 1", "Tip 2"],\n  "thinkTime": 30,\n  "interviewerReaction": "greeting"\n}`
+                    content: `You are a senior interviewer at ${company}. Speak naturally like a real person in a live interview.
+
+Rules:
+- One short greeting sentence, then ask this exact interview question.
+- Do not alter the core meaning of the question.
+- Keep spoken output under 35 words.
+- Use contractions where natural. Avoid hype, emojis, and robotic phrases.
+- Ask exactly one question.
+
+Question to ask:
+"${firstQ.question}"
+
+Respond as JSON:
+{
+  "question": "Natural spoken greeting + exact question",
+  "tips": ["Tip 1", "Tip 2"],
+  "thinkTime": 30,
+  "interviewerReaction": "greeting"
+}`
                   }
                 ],
                 response_format: { type: 'json_object' },
@@ -468,22 +487,80 @@ Respond as JSON:
 });
 
 // ─── Adaptive Difficulty Engine ───
-function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores) {
+function getCompanyChallengeProfile(company = '', stage = '') {
+  const id = String(company || '').toLowerCase();
+  const isFaang = ['google', 'amazon', 'meta', 'microsoft', 'apple', 'netflix'].includes(id);
+  const isStartup = ['flipkart', 'paytm', 'swiggy', 'zomato', 'razorpay', 'cred', 'meesho'].includes(id);
+  const isBig4 = ['deloitte', 'kpmg', 'ey', 'pwc'].includes(id);
+  const isIndianIT = ['tcs', 'infosys', 'wipro', 'hcl', 'techmahindra', 'cognizant'].includes(id);
+
+  if (isFaang) {
+    return {
+      highThreshold: 78,
+      lowThreshold: 58,
+      styleNote: 'FAANG-style rigor: push depth early and probe trade-offs aggressively.',
+    };
+  }
+
+  if (isStartup) {
+    return {
+      highThreshold: 74,
+      lowThreshold: 56,
+      styleNote: 'Startup-style pragmatism: prioritize shipping decisions, constraints, and impact.',
+    };
+  }
+
+  if (isBig4) {
+    return {
+      highThreshold: 76,
+      lowThreshold: 57,
+      styleNote: 'Consulting-style structure: reward clarity and framework-based thinking.',
+    };
+  }
+
+  if (isIndianIT) {
+    return {
+      highThreshold: 72,
+      lowThreshold: 54,
+      styleNote: 'Fundamentals-first interview bar: reinforce core concepts before advanced probing.',
+    };
+  }
+
+  if (String(stage || '').toLowerCase().includes('hr') || String(stage || '').toLowerCase().includes('behavioral')) {
+    return {
+      highThreshold: 70,
+      lowThreshold: 52,
+      styleNote: 'People-focused round: prioritize clarity, ownership, and concrete examples.',
+    };
+  }
+
+  return {
+    highThreshold: 75,
+    lowThreshold: 55,
+    styleNote: 'Balanced interview curve: calibrate pressure based on response quality.',
+  };
+}
+
+function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company = '', stage = '') {
   if (!lastScore && !averageScore) return '';
 
   const trend = cumulativeScores && cumulativeScores.length >= 2
     ? (cumulativeScores[cumulativeScores.length - 1] - cumulativeScores[cumulativeScores.length - 2])
     : 0;
+  const profile = getCompanyChallengeProfile(company, stage);
+  const highThreshold = profile.highThreshold;
+  const lowThreshold = profile.lowThreshold;
 
   let adaptiveInstruction = '\n## Adaptive Difficulty (IMPORTANT)\n';
+  adaptiveInstruction += `Company challenge profile: ${profile.styleNote}\n`;
 
-  if (averageScore >= 80 || lastScore >= 85) {
+  if (averageScore >= highThreshold || lastScore >= highThreshold + 5) {
     adaptiveInstruction += `The candidate is performing EXCELLENTLY (last: ${lastScore}/100, avg: ${averageScore}/100, trend: ${trend > 0 ? 'improving' : 'stable'}).
 - INCREASE difficulty significantly. Ask harder, more nuanced questions.
 - Probe for edge cases, system-level thinking, and trade-off analysis.
 - Challenge assumptions. Push for optimal solutions.
 - Set "difficultyLevel": "hard", "adaptiveNote": brief explanation of why you're increasing difficulty.`;
-  } else if (averageScore >= 60 || lastScore >= 60) {
+  } else if (averageScore >= lowThreshold + 5 || lastScore >= lowThreshold + 5) {
     adaptiveInstruction += `The candidate is performing MODERATELY (last: ${lastScore}/100, avg: ${averageScore}/100, trend: ${trend > 0 ? 'improving' : trend < 0 ? 'declining' : 'stable'}).
 - Keep difficulty STEADY at current level.
 - Ask clarifying follow-ups that test depth on the same topic.
@@ -498,6 +575,85 @@ function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores) 
   }
 
   return adaptiveInstruction;
+}
+
+function buildInterviewMemoryPrompt(conversationHistory = [], previousQuestion = '', userAnswer = '') {
+  const recentTurns = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
+  const recentCandidate = recentTurns.filter((t) => t.role === 'candidate').slice(-2);
+  const recentFeedback = recentTurns.filter((t) => t.role === 'feedback').slice(-2);
+
+  const candidateSummaries = recentCandidate.map((t, idx) => `Candidate_${idx + 1}: ${String(t.content || '').slice(0, 180)}`);
+  const feedbackSummaries = recentFeedback.map((t, idx) => `Feedback_${idx + 1}: strengths=${(t.strengths || []).join(', ') || 'n/a'}; improvements=${(t.improvements || []).join(', ') || 'n/a'}`);
+
+  return `
+
+## Interview Continuity Memory
+- Previous question: ${String(previousQuestion || '').slice(0, 220) || 'n/a'}
+- Latest answer snapshot: ${String(userAnswer || '').slice(0, 220) || 'n/a'}
+${candidateSummaries.length > 0 ? `- Recent candidate turns:\n${candidateSummaries.join('\n')}` : '- Recent candidate turns: n/a'}
+${feedbackSummaries.length > 0 ? `- Recent coaching feedback:\n${feedbackSummaries.join('\n')}` : '- Recent coaching feedback: n/a'}
+
+Memory usage rules:
+- Reference exactly one specific detail from recent context when asking the next question.
+- Do not repeat the same probe category twice in a row unless the candidate still missed it.
+- If recent feedback flagged an improvement area, prioritize it in the next follow-up.
+`;
+}
+
+function buildFocusSignal(previousQuestion = '', userAnswer = '') {
+  const questionText = String(previousQuestion || '').toLowerCase();
+  const answerText = String(userAnswer || '').toLowerCase().trim();
+  const answerWords = answerText.split(/\s+/).filter(Boolean);
+
+  if (!answerText) {
+    return {
+      label: 'empty',
+      note: 'Candidate did not provide an answer. Ask a simpler re-entry question and offer one concrete prompt.',
+    };
+  }
+
+  if (answerWords.length < 14) {
+    return {
+      label: 'under-answered',
+      note: 'Candidate answer is too short. Ask one focused probing follow-up with a gentle cue.',
+    };
+  }
+
+  const questionKeywords = new Set(
+    questionText
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 5)
+  );
+
+  const answerKeywords = new Set(
+    answerText
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 5)
+  );
+
+  const overlap = [...questionKeywords].filter((w) => answerKeywords.has(w)).length;
+  const overlapRatio = questionKeywords.size > 0 ? overlap / questionKeywords.size : 1;
+
+  if (answerWords.length > 180) {
+    return {
+      label: 'over-verbose',
+      note: 'Candidate answer is too long. Politely interrupt and narrow to one concrete aspect.',
+    };
+  }
+
+  if (overlapRatio < 0.12) {
+    return {
+      label: 'possibly-off-topic',
+      note: 'Candidate may be drifting from the question. Refocus to original prompt with one concise clarifier.',
+    };
+  }
+
+  return {
+    label: 'on-track',
+    note: 'Candidate is broadly on track. Continue natural probing.',
+  };
 }
 
 // ─── Follow-up with realistic interviewer behavior ───
@@ -638,6 +794,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     }
 
     const isLastQuestion = questionNumber >= totalQuestions;
+    const focusSignal = buildFocusSignal(previousQuestion, userAnswer);
 
     // Build code review context if code was submitted
     const codeContext = code ? `
@@ -655,7 +812,23 @@ Evaluate this code as part of your response:
 - Suggest an optimized version if applicable
 Include your evaluation in "codeFeedback" in the JSON response.` : '';
 
-    const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores);
+    const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company, stage);
+    const memoryPrompt = buildInterviewMemoryPrompt(conversationHistory, previousQuestion, userAnswer);
+
+    const focusPrompt = `
+
+  ## Candidate Response Focus Signal
+  - Signal: ${focusSignal.label}
+  - Guidance: ${focusSignal.note}
+
+  If signal is "over-verbose" or "possibly-off-topic":
+  - Start with a polite redirect phrase like "Let me pause you there" or "Let's narrow that down".
+  - Ask one specific question tied directly to the original prompt.
+
+  If signal is "under-answered" or "empty":
+  - Ask one simpler anchor question.
+  - Offer one short cue, then stop talking.
+  `;
 
     // Build reference answer context if using real questions
     const referenceContext = referenceAnswer ? `
@@ -675,7 +848,7 @@ Do NOT generate a different question. Transitions should be natural.` : '';
     const messages = [
       {
         role: 'system',
-        content: getInterviewerPersona(company, role, stage, difficulty, questionNumber, totalQuestions, normalizedAdvanced, resumeContext) + adaptivePrompt + codeContext + referenceContext + realQuestionInstruction + `
+        content: getInterviewerPersona(company, role, stage, difficulty, questionNumber, totalQuestions, normalizedAdvanced, resumeContext) + adaptivePrompt + memoryPrompt + codeContext + referenceContext + realQuestionInstruction + `
 
 The candidate just answered a question. You must:
 1. React naturally to their answer (say something like "Makes sense", "Got it")
@@ -686,6 +859,13 @@ The candidate just answered a question. You must:
 6. Suggest think time in seconds
 
 IMPORTANT: The "followUpQuestion" and "closingRemark" must sound like a real human speaking on a Zoom call. No robotic transitions. Keep it under 3 sentences.
+NATURAL SPEECH CONSTRAINTS:
+- No generic filler like "Great question" or "Moving to the next question".
+- Do not mention being AI.
+- Keep tone professional but conversational.
+- Use one focused question, not a list.
+- Avoid repeating the candidate's full answer back.
+` + focusPrompt + `
 
 Respond as JSON:
 {

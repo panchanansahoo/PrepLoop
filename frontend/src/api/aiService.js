@@ -58,6 +58,7 @@ function mapInterviewStart(raw) {
     interviewer: raw.interviewer || raw.interviewerGreeting || 'AI Interviewer',
     initial_question:
       raw.initial_question ||
+      raw.initialQuestion ||
       raw.problem?.statement ||
       raw.problem_statement ||
       'Let us begin. Walk me through your approach to the problem.'
@@ -70,12 +71,45 @@ function mapInterviewResponse(raw) {
   return {
     ...raw,
     follow_up: raw.follow_up || raw.interviewerMessage || raw.message || null,
-    current_scores: currentScores
+    current_scores: currentScores,
+    adaptive_update: raw.adaptive_update || null
   };
+}
+
+function mapInterviewTranscript(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      const role = item?.role || item?.type || 'system';
+      const content = item?.text || item?.content || '';
+      const timestamp = item?.timestamp ? new Date(item.timestamp) : new Date();
+
+      if (!content) return null;
+
+      return {
+        type: role === 'candidate' ? 'user' : role === 'interviewer' ? 'interviewer' : 'system',
+        content,
+        timestamp,
+      };
+    })
+    .filter(Boolean);
 }
 
 function mapInterviewCompletion(raw) {
   if (!raw || typeof raw !== 'object') return raw;
+
+  const hasFinalScore = typeof raw.interview_score === 'number' && !Number.isNaN(raw.interview_score);
+  const transcript = mapInterviewTranscript(raw.transcript);
+
+  if (!hasFinalScore) {
+    return {
+      ...raw,
+      session_id: raw.session_id || raw.id,
+      transcript,
+      final_scores: null,
+      scores: raw.interview_context?.currentScores || null
+    };
+  }
 
   const overall = toTenScale(raw.interview_score);
   const finalScores = {
@@ -88,6 +122,8 @@ function mapInterviewCompletion(raw) {
 
   return {
     ...raw,
+    session_id: raw.session_id || raw.id,
+    transcript,
     final_scores: finalScores,
     scores: finalScores
   };

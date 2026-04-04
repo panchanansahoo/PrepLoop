@@ -323,11 +323,12 @@ function ActivityTicker() {
       color: 'var(--text-secondary)',
       backdropFilter: 'blur(10px)',
       overflow: 'hidden',
-      minWidth: '320px',
+      width: 'min(100%, 420px)',
+      maxWidth: '100%',
       height: '38px'
     }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', flexShrink: 0, animation: 'pulse-dot 2s infinite' }} />
-      <span className="ticker-text" key={currentIndex} style={{ whiteSpace: 'nowrap', animation: 'fadeSlideUp 0.4s ease' }}>
+      <span className="ticker-text" key={currentIndex} style={{ whiteSpace: 'nowrap', animation: 'fadeSlideUp 0.4s ease', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {activity.icon} {activity.text}
       </span>
       <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>{activity.time}</span>
@@ -619,7 +620,7 @@ export default function Home() {
       background: 'var(--bg-primary)',
       color: 'var(--text-primary)',
       minHeight: '100vh',
-      width: '100vw'
+      width: '100%'
     }}>
 
       {/* Ambient gradient orbs */}
@@ -651,12 +652,12 @@ export default function Home() {
                 <ActivityTicker />
               </div>
 
-              <h1 style={{ fontSize: 'clamp(48px, 4vw, 80px)', lineHeight: '1.05', fontWeight: '600', marginBottom: '32px', letterSpacing: '-0.03em' }}>
+              <h1 style={{ fontSize: 'clamp(34px, 8vw, 80px)', lineHeight: '1.05', fontWeight: '600', marginBottom: '32px', letterSpacing: '-0.03em' }}>
                 Accelerate Your <br />
                 <span className="text-gradient">Career Growth</span>
               </h1>
 
-              <p style={{ fontSize: '20px', lineHeight: '1.6', color: 'var(--zinc-400)', maxWidth: '540px', marginBottom: '48px' }}>
+              <p style={{ fontSize: 'clamp(16px, 3.8vw, 20px)', lineHeight: '1.6', color: 'var(--zinc-400)', maxWidth: '540px', marginBottom: '48px' }}>
                 Highly personalized interview preparation, expertly curated
                 to meet your objectives and drive your engineering career forward.
               </p>
@@ -715,7 +716,7 @@ export default function Home() {
             }}>
               <Rocket size={12} /> How It Works
             </div>
-            <h2 style={{ fontSize: '44px', marginBottom: '16px', fontWeight: '700', letterSpacing: '-0.02em' }}>
+            <h2 style={{ fontSize: 'clamp(30px, 6vw, 44px)', marginBottom: '16px', fontWeight: '700', letterSpacing: '-0.02em' }}>
               From Zero to <span className="text-gradient">Interview Ready</span>
             </h2>
             <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto', lineHeight: '1.7' }}>
@@ -780,7 +781,7 @@ export default function Home() {
             }}>
               <Layers size={12} /> Platform Features
             </div>
-            <h2 style={{ fontSize: '40px', marginBottom: '16px', fontWeight: 'bold' }}>
+            <h2 style={{ fontSize: 'clamp(28px, 5.5vw, 40px)', marginBottom: '16px', fontWeight: 'bold' }}>
               Everything you need to <span className="text-gradient">Crack the Interview</span>
             </h2>
             <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
@@ -868,7 +869,7 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════ */}
       {/*                  PRICING PLANS                  */}
       {/* ═══════════════════════════════════════════════ */}
-      <section className="container" id="pricing" style={{ padding: '100px 40px' }}>
+      <section className="container" id="pricing" style={{ padding: 'clamp(64px, 10vw, 100px) clamp(16px, 4vw, 40px)' }}>
         <div style={{ textAlign: 'center', marginBottom: 60 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
@@ -879,7 +880,7 @@ export default function Home() {
           }}>
             <Sparkles size={12} /> Pricing
           </div>
-          <h2 style={{ fontSize: '48px', marginBottom: '24px', lineHeight: 1.1 }}>
+          <h2 style={{ fontSize: 'clamp(32px, 7vw, 48px)', marginBottom: '24px', lineHeight: 1.1 }}>
             Pick the Path that <br />
             <span className="text-gradient">Gets You Hired Faster</span>
           </h2>
@@ -949,7 +950,7 @@ export default function Home() {
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
               borderRadius: '24px',
-              padding: '48px',
+              padding: 'clamp(24px, 5vw, 48px)',
               backdropFilter: 'blur(20px)',
               position: 'relative',
               minHeight: '260px',
@@ -1029,7 +1030,7 @@ export default function Home() {
           }}>
             <MessageSquare size={12} /> FAQ
           </div>
-          <h2 style={{ fontSize: '36px' }}>Frequently Asked Questions</h2>
+          <h2 style={{ fontSize: 'clamp(28px, 5.2vw, 36px)' }}>Frequently Asked Questions</h2>
         </div>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           {faqs.map((faq, i) => (
@@ -1069,7 +1070,7 @@ export default function Home() {
           <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
             <Crown size={32} color="#a78bfa" />
           </div>
-          <h2 style={{ fontSize: '40px', marginBottom: '16px' }}>Ready to get started?</h2>
+          <h2 style={{ fontSize: 'clamp(30px, 6vw, 40px)', marginBottom: '16px' }}>Ready to get started?</h2>
           <p style={{ maxWidth: '500px', margin: '0 auto 32px', fontSize: '18px' }}>Join thousands of engineers who are crushing technical interviews. Start for free, upgrade when you're ready.</p>
           <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <Button asChild size="lg" className="px-10 py-6 text-lg">

@@ -3,11 +3,11 @@
 /**
  * AI Features - Database Migration Verification Script
  * Checks if all required tables and indexes exist in Supabase
- * Usage: node backend/scripts/verify-migration.js
+ * Usage: npm run verify:migration
  */
 
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: './backend/.env' });
+import { createClient } from '@supabase/supabase-js';
+import '../config/env.js';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;

@@ -554,7 +554,9 @@ export default function CompanyInterview() {
                 throw new Error(data.error || 'Failed to upload CV');
             }
 
-            setResumeContext(data.resumeProfile || null);
+            const profile = data.resumeProfile || {};
+            profile.ats_score = data.analysis?.atsScore || data.analysis?.ats_score;
+            setResumeContext(profile);
             setUseResumeContext(true);
         } catch (error) {
             console.error('CV upload failed:', error);
@@ -577,7 +579,9 @@ export default function CompanyInterview() {
                 throw new Error(data.error || 'Failed to load latest CV');
             }
 
-            setResumeContext(data.resumeProfile || null);
+            const profile = data.resumeProfile || {};
+            profile.ats_score = data.analysis?.ats_score || data.analysis?.atsScore;
+            setResumeContext(profile);
             setResumeFileName('Latest saved CV');
             setUseResumeContext(true);
         } catch (error) {
@@ -740,18 +744,62 @@ export default function CompanyInterview() {
     const utteranceRef = useRef(null);
     const audioPlayerRef = useRef(null);
 
+    const sanitizeForSpeech = (rawText) => {
+        const text = String(rawText || '')
+            .replace(/```[\s\S]*?```/g, ' ')
+            .replace(/[`*_#]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        if (!text) return '';
+
+        // Add tiny pauses after punctuation to make TTS cadence feel less robotic.
+        return text
+            .replace(/([.,!?;:])(\s+|$)/g, '$1 ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    };
+
+    const getVoicePersona = () => {
+        const companyId = String(config.company || '').toLowerCase();
+        const isFaangLike = ['google', 'amazon', 'meta', 'microsoft', 'apple', 'netflix'].includes(companyId);
+        const isStartupLike = ['flipkart', 'paytm', 'swiggy', 'zomato', 'razorpay', 'cred', 'meesho'].includes(companyId);
+
+        if (interviewerReaction === 'challenging' || config.stage === 'System Design' || config.stage === 'Technical') {
+            return 'analytical';
+        }
+        if (config.stage === 'HR' || config.stage === 'Behavioral') {
+            return 'friendly';
+        }
+        if (isStartupLike) {
+            return 'casual';
+        }
+        if (isFaangLike && config.stage === 'DSA / Coding') {
+            return 'analytical';
+        }
+        if (interviewerReaction === 'neutral' && config.stage === 'DSA / Coding') {
+            return 'formal';
+        }
+        return 'friendly';
+    };
+
     const speakText = async (text, onComplete) => {
         setAiSpeaking(true);
 
-        // Always use friendly persona for warm, approachable voice
-        const persona = 'friendly';
+        const persona = getVoicePersona();
+        const spokenText = sanitizeForSpeech(text);
+        if (!spokenText) {
+            setAiSpeaking(false);
+            if (onComplete) onComplete();
+            return;
+        }
 
         // Try high-quality backend TTS first
         try {
             const res = await fetch(`${API_URL}/api/voice/tts`, {
                 method: 'POST',
                 headers: getAuthHeaders(),
-                body: JSON.stringify({ text, persona })
+                body: JSON.stringify({ text: spokenText, persona })
             });
 
             if (res.ok) {
@@ -776,7 +824,7 @@ export default function CompanyInterview() {
                 audio.onerror = (e) => {
                     if (!isMountedRef.current || phaseRef.current !== 'interview') return;
                     console.warn('Audio playback error, falling back to browser TTS', e);
-                    fallbackSpeakText(text, onComplete);
+                    fallbackSpeakText(spokenText, persona, onComplete);
                 };
 
                 if (!isMountedRef.current || phaseRef.current !== 'interview') return;
@@ -790,10 +838,10 @@ export default function CompanyInterview() {
         }
 
         // Fast Fallback: built-in browser TTS
-        fallbackSpeakText(text, onComplete);
+        fallbackSpeakText(spokenText, persona, onComplete);
     };
 
-    const fallbackSpeakText = (text, onComplete) => {
+    const fallbackSpeakText = (text, persona = 'friendly', onComplete) => {
         if (!window.speechSynthesis) {
             if (onComplete) onComplete();
             return;
@@ -805,9 +853,23 @@ export default function CompanyInterview() {
             const voice = getBestVoice();
             if (voice) utterance.voice = voice;
 
-            // Natural conversational parameters
-            utterance.rate = 0.95;     // natural conversational pace
-            utterance.pitch = 1.08;    // warmer, friendlier tone
+            // Dynamic parameters tuned for realistic interviewer cadence
+            const fastRounds = config.stage === 'DSA / Coding' || config.stage === 'Technical';
+            const paceAdjust = fastRounds ? 0.02 : 0;
+
+            if (persona === 'analytical') {
+                utterance.rate = 0.92 + paceAdjust;
+                utterance.pitch = 1.0;
+            } else if (persona === 'formal') {
+                utterance.rate = 0.9 + paceAdjust;
+                utterance.pitch = 0.98;
+            } else if (persona === 'casual') {
+                utterance.rate = 0.96;
+                utterance.pitch = 1.07;
+            } else {
+                utterance.rate = 0.95;
+                utterance.pitch = 1.06;
+            }
             utterance.volume = 0.95;   // not blasting, feels natural
 
             utterance.onstart = () => {
@@ -1766,7 +1828,7 @@ export default function CompanyInterview() {
                                 </div>
                                 {resumeContext && (
                                     <div className="ti-resume-preview">
-                                        <div className="ti-resume-preview-title">{resumeContext.candidateHeadline || 'Resume profile ready'}</div>
+                                        <div className="ti-resume-preview-title">{resumeContext.ats_score != null ? `ATS Score: ${resumeContext.ats_score}` : 'Resume profile ready'}</div>
                                         <div className="ti-resume-preview-copy">{resumeContext.summary}</div>
                                         {Array.isArray(resumeContext.coreSkills) && resumeContext.coreSkills.length > 0 && (
                                             <div className="ti-resume-skill-list">

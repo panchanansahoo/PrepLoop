@@ -12,12 +12,18 @@ import {
   CheckCircle,
   Clock,
   TrendingUp,
-  Volume2,
-  Copy,
-  RefreshCw
+  Copy
 } from 'lucide-react';
 
-const InterviewComponent = ({ userId, onInterviewCompleted }) => {
+const DIFFICULTY_STYLE_MAP = {
+  easy: 'border-green-600 bg-green-50',
+  medium: 'border-yellow-600 bg-yellow-50',
+  hard: 'border-red-600 bg-red-50'
+};
+
+const INTERVIEW_RESUME_KEY = 'ai_interview_active_session';
+
+const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
   const [step, setStep] = useState('setup'); // setup, in-progress, completed
   const [sessionId, setSessionId] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -25,7 +31,9 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [scores, setScores] = useState(null);
+  const [finalFeedback, setFinalFeedback] = useState(null);
   const [interviewer, setInterviewer] = useState(null);
+  const [copyStatus, setCopyStatus] = useState('idle');
   const [interviewStart, setInterviewStart] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -35,6 +43,63 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
     difficulty: 'medium',
     companyFocus: ''
   });
+
+  const persistActiveSession = (activeSessionId) => {
+    if (!activeSessionId) {
+      sessionStorage.removeItem(INTERVIEW_RESUME_KEY);
+      return;
+    }
+    sessionStorage.setItem(INTERVIEW_RESUME_KEY, activeSessionId);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const hydrateSession = async () => {
+      const savedSessionId = sessionStorage.getItem(INTERVIEW_RESUME_KEY);
+      if (!savedSessionId) return;
+
+      setLoading(true);
+      try {
+        const existing = await getInterviewSession(savedSessionId);
+        if (cancelled) return;
+
+        const restoredMessages = Array.isArray(existing.transcript) ? existing.transcript : [];
+
+        setSessionId(existing.session_id || savedSessionId);
+        setMessages(restoredMessages);
+        setInterviewer(existing.interviewer || existing.interviewerGreeting || null);
+        setScores(existing.scores || existing.final_scores || null);
+
+        const startedAt = existing.started_at || existing.created_at;
+        if (startedAt) {
+          setInterviewStart(new Date(startedAt));
+        }
+
+        if (existing.status === 'completed') {
+          setFinalFeedback(existing);
+          setStep('completed');
+          persistActiveSession(null);
+        } else {
+          setStep('in-progress');
+        }
+      } catch {
+        if (!cancelled) {
+          persistActiveSession(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    hydrateSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -57,7 +122,9 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
       );
 
       setSessionId(result.session_id);
+      persistActiveSession(result.session_id);
       setInterviewer(result.interviewer);
+      setFinalFeedback(null);
       setMessages([
         {
           type: 'interviewer',
@@ -94,14 +161,22 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
       const result = await submitInterviewResponse(sessionId, currentResponse);
 
       // Add interviewer response
-      setMessages((prev) => [
-        ...prev,
-        {
+      setMessages((prev) => {
+        const nextMessages = [...prev];
+        if (result.adaptive_update?.changed) {
+          nextMessages.push({
+            type: 'system',
+            content: `Difficulty adjusted: ${result.adaptive_update.previousDifficulty} -> ${result.adaptive_update.newDifficulty}. ${result.adaptive_update.reason || ''}`.trim(),
+            timestamp: new Date()
+          });
+        }
+        nextMessages.push({
           type: 'interviewer',
           content: result.follow_up || result.feedback || 'Thank you for your response.',
           timestamp: new Date()
-        }
-      ]);
+        });
+        return nextMessages;
+      });
 
       // Update scores if provided
       if (result.current_scores) {
@@ -124,7 +199,9 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
     try {
       const result = await completeInterview(sessionId);
       setScores(result.final_scores || result.scores);
+      setFinalFeedback(result);
       setStep('completed');
+      persistActiveSession(null);
       onInterviewCompleted?.(result);
 
       // Store final feedback
@@ -143,11 +220,17 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
     }
   };
 
-  const handleCopyQuestion = () => {
-    if (messages.length > 0) {
-      const lastQuestion = messages[messages.length - 1]?.content || '';
-      navigator.clipboard.writeText(lastQuestion);
-      alert('Question copied to clipboard!');
+  const handleCopyQuestion = async () => {
+    if (messages.length === 0) return;
+
+    const lastQuestion = messages[messages.length - 1]?.content || '';
+    try {
+      await navigator.clipboard.writeText(lastQuestion);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 1500);
+    } catch {
+      setCopyStatus('failed');
+      setTimeout(() => setCopyStatus('idle'), 1500);
     }
   };
 
@@ -222,7 +305,7 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
                   }
                   className={`p-3 rounded-lg border-2 font-semibold transition ${
                     setupForm.difficulty === diff.value
-                      ? `border-${diff.color}-600 bg-${diff.color}-50`
+                      ? DIFFICULTY_STYLE_MAP[diff.value]
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -282,6 +365,9 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold">Interview in Progress</h2>
+            {interviewer && (
+              <p className="text-xs text-blue-100 mt-1">Interviewer: {interviewer}</p>
+            )}
             <div className="flex gap-4 mt-2 text-sm">
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
@@ -296,11 +382,17 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
           <button
             onClick={handleCopyQuestion}
             className="p-2 hover:bg-blue-600 rounded transition"
-            title="Copy question"
+            title={copyStatus === 'copied' ? 'Copied' : 'Copy question'}
           >
             <Copy className="w-5 h-5" />
           </button>
         </div>
+
+        {copyStatus !== 'idle' && (
+          <p className="px-4 pb-2 text-xs text-blue-100">
+            {copyStatus === 'copied' ? 'Latest prompt copied.' : 'Could not copy prompt.'}
+          </p>
+        )}
 
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -430,10 +522,29 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
               <h3 className="font-semibold text-gray-900">Feedback & Recommendations</h3>
               <div className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
                 <p className="text-gray-700 text-sm">
-                  Great effort! Continue practicing similar problems to solidify your problem-solving skills. 
-                  Focus on edge cases and optimizing your solutions further.
+                  {finalFeedback?.recommendations || 'Great effort. Keep sharpening structure, edge-case coverage, and communication clarity.'}
                 </p>
               </div>
+              {Array.isArray(finalFeedback?.strengths) && finalFeedback.strengths.length > 0 && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <p className="text-sm font-semibold text-green-800 mb-2">Strengths</p>
+                  <ul className="space-y-1 text-sm text-green-900 list-disc pl-5">
+                    {finalFeedback.strengths.slice(0, 4).map((item, idx) => (
+                      <li key={`${item}-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {Array.isArray(finalFeedback?.areas_for_improvement) && finalFeedback.areas_for_improvement.length > 0 && (
+                <div className="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                  <p className="text-sm font-semibold text-amber-800 mb-2">Focus Next</p>
+                  <ul className="space-y-1 text-sm text-amber-900 list-disc pl-5">
+                    {finalFeedback.areas_for_improvement.slice(0, 4).map((item, idx) => (
+                      <li key={`${item}-${idx}`}>{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             {/* Chat History */}
@@ -461,7 +572,11 @@ const InterviewComponent = ({ userId, onInterviewCompleted }) => {
               setMessages([]);
               setCurrentResponse('');
               setScores(null);
+              setFinalFeedback(null);
+              setCopyStatus('idle');
               setError(null);
+              setInterviewStart(null);
+              persistActiveSession(null);
             }}
             className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-semibold"
           >

@@ -402,13 +402,26 @@ export default function ChatAssistant() {
           cursor: not-allowed;
         }
 
-        @media (max-width: 480px) {
+        @media (max-width: 768px) {
+          .chat-fab {
+            right: 12px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+          }
+
           .chat-panel {
             right: 8px;
             left: 8px;
             width: auto;
-            bottom: 80px;
-            max-height: 70vh;
+            bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+            max-height: min(70vh, 540px);
+          }
+
+          .chat-panel-messages {
+            min-height: 220px;
+          }
+
+          .chat-msg-content {
+            max-width: min(100%, calc(100vw - 120px));
           }
         }
       `}</style>

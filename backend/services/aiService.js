@@ -335,6 +335,26 @@ Please provide your analysis in the following JSON format (return ONLY valid JSO
  * Conducts realistic technical interviews with follow-ups and scoring
  */
 export class InterviewSimulatorService {
+  static async getInterviewSession(sessionId, userId) {
+    const virtualSession = virtualInterviewSessions.get(sessionId);
+    if (virtualSession && virtualSession.user_id === userId) {
+      return virtualSession;
+    }
+
+    const { data: persistedSession, error } = await supabaseAdmin
+      .from('interview_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .eq('user_id', userId)
+      .single();
+
+    if (!error && persistedSession) {
+      return persistedSession;
+    }
+
+    throw new Error('Interview session not found');
+  }
+
   static async initializeInterview(userId, interviewType = 'dsa', difficulty = 'medium', companyFocus = null, requestId = null) {
     try {
       logger.info('Interview session initialized', {
@@ -473,6 +493,7 @@ export class InterviewSimulatorService {
           statement: problem.statement,
           requirements: problem.requirements
         },
+        initialQuestion: this._composeInitialInterviewQuestion(problem, interviewType, difficulty, companyFocus),
         interviewerGreeting: this._generateInterviewerGreeting(interviewType, companyFocus)
       };
 
@@ -499,22 +520,25 @@ export class InterviewSimulatorService {
       });
 
       // Get current session
-      const { data: persistedSession, error: fetchError } = await supabaseAdmin
-        .from('interview_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .eq('user_id', userId)
-        .single();
+      const session = await this.getInterviewSession(sessionId, userId);
+      const currentContext = session.interview_context || {};
+      const responseSignals = this._extractResponseSignals(candidateResponse);
+      const mergedMissingAreas = Array.from(
+        new Set([
+          ...(Array.isArray(currentContext.missingAreas) ? currentContext.missingAreas : []),
+          ...(!responseSignals.hasComplexity ? ['complexity analysis'] : []),
+          ...(!responseSignals.hasEdgeCases ? ['edge cases'] : []),
+          ...(!responseSignals.hasTradeoffs ? ['trade-off discussion'] : []),
+        ])
+      );
 
-      let session = persistedSession;
-      if (fetchError || !session) {
-        const virtualSession = virtualInterviewSessions.get(sessionId);
-        if (virtualSession && virtualSession.user_id === userId) {
-          session = virtualSession;
-        } else {
-          throw new Error('Interview session not found');
-        }
-      }
+      const interviewContext = {
+        ...currentContext,
+        turns: (currentContext.turns || 0) + 1,
+        lastCandidateSummary: candidateResponse.slice(0, 220),
+        lastSignals: responseSignals,
+        missingAreas: mergedMissingAreas,
+      };
 
       // Add candidate response to transcript
       const updatedTranscript = [
@@ -533,7 +557,8 @@ export class InterviewSimulatorService {
           session.problem_statement,
           session.transcript || [],
           candidateResponse,
-          session.interview_type
+          session.interview_type,
+          interviewContext
         );
       } catch (error) {
         logger.warn('Falling back to local interviewer follow-up', {
@@ -565,7 +590,8 @@ export class InterviewSimulatorService {
         analysis = await this._analyzeInterviewResponse(
           candidateResponse,
           session.problem_statement,
-          session.interview_type
+          session.interview_type,
+          interviewContext
         );
       } catch (error) {
         logger.warn('Falling back to local interview analysis', {
@@ -583,11 +609,27 @@ export class InterviewSimulatorService {
       }
 
       // Update session
+      const currentScores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type);
+      const currentDifficulty =
+        interviewContext.currentDifficulty ||
+        session.difficulty_level ||
+        session.difficulty ||
+        'medium';
+      const adaptiveUpdate = this._deriveAdaptiveDifficulty(currentDifficulty, currentScores.overall, interviewContext.turns || 1);
+
       const updatePayload = {
         transcript: updatedTranscript,
         questions_asked: (session.questions_asked || 0) + 1,
         follow_ups_count: (session.follow_ups_count || 0) + (followUp.isFollowUp ? 1 : 0),
         candidate_got_stuck: analysis.candidateStuck || session.candidate_got_stuck,
+        interview_context: {
+          ...interviewContext,
+          currentDifficulty: adaptiveUpdate.newDifficulty,
+          adaptiveReason: adaptiveUpdate.reason,
+          currentScores,
+          lastInterviewerPrompt: followUp.message,
+          missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])),
+        },
         updated_at: new Date().toISOString()
       };
 
@@ -631,7 +673,9 @@ export class InterviewSimulatorService {
         clarifications: followUp.clarifications,
         hints: followUp.hints,
         encouragement: followUp.encouragement,
-        continueInterview: followUp.continueInterview
+        continueInterview: followUp.continueInterview,
+        current_scores: currentScores,
+        adaptive_update: adaptiveUpdate,
       };
 
     } catch (error) {
@@ -650,50 +694,60 @@ export class InterviewSimulatorService {
       logger.info('Completing interview', { sessionId, userId, requestId });
 
       // Get final session data
-      const { data: session, error: fetchError } = await supabaseAdmin
-        .from('interview_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError || !session) {
-        throw new Error('Interview session not found');
-      }
+      const session = await this.getInterviewSession(sessionId, userId);
 
       // Generate comprehensive performance analysis
       const analysis = await this._generatePerformanceAnalysis(session);
 
       // Calculate overall scores
-      const scores = this._calculateScores(analysis, session.transcript);
+      const scores = this._calculateScores(analysis, session.transcript, session.interview_type);
 
       // Get or create performance trend
       await this._updatePerformanceTrend(userId, session.interview_type, session.company_focus, scores);
 
+      const startedAt = new Date(session.started_at || session.created_at || Date.now());
+      const totalDurationSeconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+
       // Update session with final analysis
-      const { data: completedSession, error: updateError } = await supabaseAdmin
+      const completionPayload = {
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        total_duration_seconds: totalDurationSeconds,
+        performance_metrics: analysis.metrics,
+        strengths: analysis.strengths,
+        areas_for_improvement: analysis.areasForImprovement,
+        critical_mistakes: analysis.criticalMistakes,
+        interview_score: scores.interviewScore,
+        communication_clarity_score: scores.communicationScore,
+        problem_solving_score: scores.problemSolvingScore,
+        technical_depth_score: scores.technicalDepthScore,
+        recommendations: analysis.recommendations,
+        follow_up_practice_problems: analysis.followUpProblems
+      };
+
+      let completedSession = null;
+      let updateError = null;
+      ({ data: completedSession, error: updateError } = await supabaseAdmin
         .from('interview_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-          total_duration_seconds: Math.floor((new Date() - new Date(session.started_at)) / 1000),
-          performance_metrics: analysis.metrics,
-          strengths: analysis.strengths,
-          areas_for_improvement: analysis.areasForImprovement,
-          critical_mistakes: analysis.criticalMistakes,
-          interview_score: scores.interviewScore,
-          communication_clarity_score: scores.communicationScore,
-          problem_solving_score: scores.problemSolvingScore,
-          technical_depth_score: scores.technicalDepthScore,
-          recommendations: analysis.recommendations,
-          follow_up_practice_problems: analysis.followUpProblems
-        })
+        .update(completionPayload)
         .eq('id', sessionId)
         .select()
-        .single();
+        .single());
 
       if (updateError) {
-        throw new Error(`Failed to complete interview: ${updateError.message}`);
+        if (!isInterviewSchemaCompatibilityError(updateError)) {
+          throw new Error(`Failed to complete interview: ${updateError.message}`);
+        }
+
+        completedSession = {
+          ...session,
+          ...completionPayload,
+          id: sessionId,
+          user_id: userId,
+        };
+        virtualInterviewSessions.set(sessionId, completedSession);
+      } else {
+        virtualInterviewSessions.delete(sessionId);
       }
 
       logger.info('Interview completed', {
@@ -718,19 +772,41 @@ export class InterviewSimulatorService {
 
   static _generateInterviewerGreeting(interviewType, companyFocus) {
     const greetings = {
-      dsa: `Hi! I'm your AI interviewer. Today we'll be working through a Data Structures & Algorithms problem. Take your time to think through the problem, and please walk me through your approach. Feel free to ask clarifying questions if needed!`,
-      system_design: `Welcome! We'll be doing a system design interview today. I'll describe a problem, and I'd like you to design a solution. Think about scalability, trade-offs, and architecture. Let's dive in!`,
-      behavioral: `Hello! Thanks for being here. We'll be discussing your background, experiences, and how you approach problems. Be authentic and specific with examples. Ready?`,
-      mixed: `Hi there! Today's interview will be a mix of technical problem-solving, system design thinking, and behavioral questions. We'll cover multiple aspects. Let's get started!`
+      dsa: `Thanks for joining. I will run this like a real technical screen. Think out loud, ask clarifying questions, and explain trade-offs as you go.`,
+      system_design: `Great to meet you. This will be a realistic system design round. I care about scope, constraints, architecture choices, and trade-offs.`,
+      behavioral: `Thanks for being here. We will run this like a structured behavioral interview. Use concrete examples and focus on impact.`,
+      mixed: `Welcome. This will be a blended interview with coding, design, and behavioral prompts, similar to an onsite loop.`
     };
 
     const greeting = greetings[interviewType] || greetings.dsa;
     
     if (companyFocus) {
-      return `${greeting} (This is a ${companyFocus}-style interview)`;
+      return `${greeting} I will also calibrate style to a ${companyFocus} interview bar.`;
     }
     
     return greeting;
+  }
+
+  static _composeInitialInterviewQuestion(problem, interviewType, difficulty, companyFocus) {
+    const difficultyTone = {
+      easy: 'Start by outlining a straightforward approach, then we can refine.',
+      medium: 'Start with your baseline approach and then discuss optimizations.',
+      hard: 'Start with assumptions and constraints, then propose a robust approach.'
+    };
+
+    const focusLine = companyFocus
+      ? `Assume interviewer expectations are aligned with ${companyFocus}.`
+      : 'Assume this is a standard top-tier technical interview.';
+
+    if (interviewType === 'behavioral') {
+      return `${focusLine} Tell me about a high-pressure project where priorities changed midstream. What was the context, what actions did you take, and what was the measurable outcome?`;
+    }
+
+    if (interviewType === 'system_design') {
+      return `${focusLine} Let's design a production-ready solution for this prompt: ${problem.statement} Start by clarifying scale, users, and non-functional requirements before diving into architecture.`;
+    }
+
+    return `${focusLine} Here is your problem: ${problem.statement} ${difficultyTone[difficulty] || difficultyTone.medium}`;
   }
 
   static async _generateProblemStatement(interviewType, difficulty, companyFocus) {
@@ -762,14 +838,29 @@ export class InterviewSimulatorService {
     };
   }
 
-  static async _generateInterviewerFollowUp(problemStatement, transcript, candidateResponse, interviewType) {
-    const prompt = `You are an expert technical interviewer. Based on the interview so far, generate a realistic follow-up.
+  static async _generateInterviewerFollowUp(problemStatement, transcript, candidateResponse, interviewType, interviewContext = {}) {
+    const missingAreas = (interviewContext.missingAreas || []).slice(0, 3);
+    const prompt = `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
 
 PROBLEM: ${problemStatement}
 CANDIDATE JUST SAID: "${candidateResponse}"
 
 INTERVIEW HISTORY (last 2 exchanges):
 ${transcript.slice(-4).map(t => `${t.role}: ${t.text}`).join('\n')}
+
+INTERVIEW CONTEXT:
+- Type: ${interviewType}
+- Turns completed: ${interviewContext.turns || 0}
+- Candidate likely missing: ${missingAreas.join(', ') || 'none'}
+- Last candidate summary: ${interviewContext.lastCandidateSummary || 'n/a'}
+
+VOICE AND STYLE RULES:
+- Keep the interviewer message concise: 1-2 sentences, max 38 words.
+- Sound human, direct, and calm. Avoid robotic phrases.
+- Ask exactly one primary question per turn.
+- If needed, add one brief coaching cue, not a full explanation.
+- Do not use markdown, bullets, or labels in the message.
+- Match realistic interview cadence: probe depth, then narrow scope.
 
 Generate a JSON response:
 {
@@ -792,61 +883,242 @@ Generate a JSON response:
       return JSON.parse(jsonMatch?.[0] || '{}');
     } catch {
       return {
-        message: 'That\'s a good start. Can you walk me through your approach more?',
+        message: 'Good start. What is your time and space complexity, and what edge case would break this approach first?',
         isFollowUp: true,
         clarifications: [],
         hints: [],
-        encouragement: 'Good thinking!',
+        encouragement: 'You are on the right track. Keep it structured.',
         continueInterview: true
       };
     }
   }
 
-  static async _analyzeInterviewResponse(response, problemStatement, interviewType) {
-    // Simplified analysis - would be more sophisticated in production
+  static _extractResponseSignals(response) {
+    const text = String(response || '');
+    const lower = text.toLowerCase();
+    const wordCount = lower.split(/\s+/).filter(Boolean).length;
+    const hasComplexity = /o\s*\(|time complexity|space complexity/.test(lower);
+    const hasEdgeCases = /edge case|boundary|empty|null|duplicate|single/.test(lower);
+    const hasTradeoffs = /trade.?off|pros?|cons?|cost|latency|memory/.test(lower);
+    const hasStructure = /(first|then|next|finally|because|therefore)/.test(lower);
+    const hasExample = /for example|e\.g\.|let\s+us\s+say|suppose/.test(lower);
+    const candidateStuck = wordCount < 14 || /i\s+don\'t\s+know|stuck|not sure|blanking/.test(lower);
+
     return {
-      score: 70 + Math.random() * 20,
-      candidateStuck: response.length < 20 || response.toLowerCase().includes('stuck'),
-      feedback: 'Good approach, think about edge cases',
-      strengths: ['Clear thinking', 'Good communication']
+      wordCount,
+      hasComplexity,
+      hasEdgeCases,
+      hasTradeoffs,
+      hasStructure,
+      hasExample,
+      candidateStuck,
+    };
+  }
+
+  static _buildTypeRubric(interviewType) {
+    const defaults = {
+      communication: 0.34,
+      decomposition: 0.33,
+      technical: 0.33,
+    };
+
+    if (interviewType === 'system_design') {
+      return { communication: 0.25, decomposition: 0.35, technical: 0.40 };
+    }
+    if (interviewType === 'behavioral') {
+      return { communication: 0.45, decomposition: 0.35, technical: 0.20 };
+    }
+    if (interviewType === 'mixed') {
+      return { communication: 0.35, decomposition: 0.33, technical: 0.32 };
+    }
+
+    return defaults;
+  }
+
+  static _calculateRollingScores(analysis, transcript, interviewType = 'dsa') {
+    const metrics = analysis.metrics || {};
+    const rubric = this._buildTypeRubric(interviewType);
+    const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry.role === 'candidate').length;
+    const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
+
+    const communication = Math.max(0, Math.min(100, Number(metrics.communication || 65)));
+    const problemSolving = Math.max(0, Math.min(100, Number(metrics.problemDecomposition || 65)));
+    const technicalDepth = Math.max(0, Math.min(100, Number(metrics.efficiency || 65)));
+
+    const overall100 = Math.max(
+      0,
+      Math.min(
+        100,
+        Number(
+          (
+            communication * rubric.communication +
+            problemSolving * rubric.decomposition +
+            technicalDepth * rubric.technical +
+            engagementBonus
+          ).toFixed(1)
+        )
+      )
+    );
+
+    return {
+      overall: Number((overall100 / 10).toFixed(1)),
+      communication: Number((communication / 10).toFixed(1)),
+      problem_solving: Number((problemSolving / 10).toFixed(1)),
+      technical_depth: Number((technicalDepth / 10).toFixed(1)),
+      performance_level: overall100 >= 90 ? 'Excellent' : overall100 >= 75 ? 'Good' : overall100 >= 60 ? 'Fair' : 'Needs Work',
+    };
+  }
+
+  static _deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns) {
+    const current = String(currentDifficulty || 'medium').toLowerCase();
+    const overall = Number(rollingOverallTen || 0);
+    const safeTurns = Number(turns || 0);
+
+    if (safeTurns >= 3 && overall >= 8.2) {
+      if (current === 'easy') {
+        return { changed: true, previousDifficulty: 'easy', newDifficulty: 'medium', reason: 'Strong consistency, escalating challenge.' };
+      }
+      if (current === 'medium') {
+        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'hard', reason: 'High performance, moving to hard-level probing.' };
+      }
+    }
+
+    if (safeTurns >= 2 && overall <= 5.5) {
+      if (current === 'hard') {
+        return { changed: true, previousDifficulty: 'hard', newDifficulty: 'medium', reason: 'Reducing complexity to rebuild momentum.' };
+      }
+      if (current === 'medium') {
+        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'easy', reason: 'Switching to foundational depth before scaling up.' };
+      }
+    }
+
+    return { changed: false, previousDifficulty: current, newDifficulty: current, reason: 'Difficulty remains stable.' };
+  }
+
+  static async _analyzeInterviewResponse(response, problemStatement, interviewType, interviewContext = {}) {
+    const signals = this._extractResponseSignals(response);
+    let score = 50;
+
+    score += Math.min(20, Math.floor(signals.wordCount / 8));
+    if (signals.hasStructure) score += 8;
+    if (signals.hasComplexity) score += 8;
+    if (signals.hasEdgeCases) score += 7;
+    if (signals.hasTradeoffs) score += 5;
+    if (signals.hasExample) score += 4;
+    if (signals.candidateStuck) score -= 18;
+
+    const boundedScore = Math.max(0, Math.min(100, score));
+    const nextFocus = [];
+    if (!signals.hasComplexity) nextFocus.push('complexity analysis');
+    if (!signals.hasEdgeCases) nextFocus.push('edge cases');
+    if (!signals.hasTradeoffs) nextFocus.push('trade-off discussion');
+
+    const strengths = [];
+    if (signals.hasStructure) strengths.push('Clear step-by-step structure');
+    if (signals.hasExample) strengths.push('Used concrete examples');
+    if (signals.hasComplexity) strengths.push('Included complexity reasoning');
+
+    const feedbackSegments = [];
+    if (signals.hasStructure) feedbackSegments.push('Good structure in your explanation');
+    if (!signals.hasComplexity) feedbackSegments.push('add explicit time and space complexity');
+    if (!signals.hasEdgeCases) feedbackSegments.push('cover key edge cases before concluding');
+    if (!signals.hasTradeoffs) feedbackSegments.push('mention trade-offs of your approach');
+
+    const responseLower = String(response || '').toLowerCase();
+    const hasScalability = /scale|shard|partition|replica|cache|throughput|availability/.test(responseLower);
+    const hasStarSignals = /(situation|task|action|result)/.test(responseLower);
+
+    const communicationMetric = Math.max(45, Math.min(95, 55 + (signals.hasStructure ? 15 : 0) + (signals.hasExample ? 10 : 0) + Math.min(10, Math.floor(signals.wordCount / 25)) + (hasStarSignals ? 8 : 0)));
+    const decompositionMetric = Math.max(45, Math.min(95, 52 + (signals.hasStructure ? 18 : 0) + (signals.hasEdgeCases ? 10 : 0) + (hasScalability ? 7 : 0)));
+    const efficiencyMetric = Math.max(40, Math.min(95, 50 + (signals.hasComplexity ? 18 : 0) + (signals.hasTradeoffs ? 12 : 0) + (hasScalability ? 10 : 0)));
+
+    const rubric = this._buildTypeRubric(interviewType);
+    const weightedScore = Number((
+      communicationMetric * rubric.communication +
+      decompositionMetric * rubric.decomposition +
+      efficiencyMetric * rubric.technical
+    ).toFixed(1));
+
+    return {
+      score: Number(((boundedScore + weightedScore) / 2).toFixed(1)),
+      candidateStuck: signals.candidateStuck,
+      feedback: `${feedbackSegments.join('; ') || 'Solid response. Keep refining precision and confidence.'}.`,
+      strengths,
+      nextFocus,
+      metrics: {
+        clarity: communicationMetric,
+        problemDecomposition: decompositionMetric,
+        communication: communicationMetric,
+        efficiency: efficiencyMetric,
+      },
+      contextTurn: interviewContext.turns || 0,
     };
   }
 
   static async _generatePerformanceAnalysis(session) {
+    const transcript = Array.isArray(session.transcript) ? session.transcript : [];
+    const candidateTurns = transcript.filter((entry) => entry.role === 'candidate');
+    const candidateTexts = candidateTurns.map((entry) => String(entry.text || ''));
+    const totalWords = candidateTexts
+      .join(' ')
+      .split(/\s+/)
+      .filter(Boolean)
+      .length;
+    const avgWordsPerTurn = candidateTurns.length > 0 ? totalWords / candidateTurns.length : 0;
+    const allCandidateText = candidateTexts.join(' ').toLowerCase();
+
+    const mentionComplexity = /o\s*\(|time complexity|space complexity/.test(allCandidateText);
+    const mentionEdgeCases = /edge case|boundary|empty|null|duplicate|single/.test(allCandidateText);
+    const mentionTradeoffs = /trade.?off|pros?|cons?|latency|memory/.test(allCandidateText);
+
+    const clarity = Math.max(45, Math.min(95, 55 + Math.min(25, Math.floor(avgWordsPerTurn / 4))));
+    const decomposition = Math.max(45, Math.min(95, 52 + (mentionEdgeCases ? 16 : 4) + (candidateTurns.length >= 3 ? 8 : 0)));
+    const communication = Math.max(45, Math.min(95, 56 + Math.min(16, candidateTurns.length * 2)));
+    const efficiency = Math.max(40, Math.min(95, 50 + (mentionComplexity ? 20 : 0) + (mentionTradeoffs ? 12 : 0)));
+
+    const strengths = [];
+    if (avgWordsPerTurn >= 35) strengths.push('Detailed verbal walkthroughs under interview pressure');
+    if (mentionComplexity) strengths.push('Good complexity awareness and algorithmic rigor');
+    if (mentionEdgeCases) strengths.push('Proactive attention to boundary conditions');
+    if (mentionTradeoffs) strengths.push('Balanced trade-off reasoning');
+
+    const areasForImprovement = [];
+    if (!mentionComplexity) areasForImprovement.push('State time and space complexity explicitly for each approach');
+    if (!mentionEdgeCases) areasForImprovement.push('Call out edge cases early before implementation details');
+    if (!mentionTradeoffs) areasForImprovement.push('Compare alternatives with concrete trade-offs');
+    if (avgWordsPerTurn < 20) areasForImprovement.push('Expand explanations to improve interviewer signal quality');
+
     return {
       metrics: {
-        clarity: 75,
-        problemDecomposition: 80,
-        communication: 78,
-        efficiency: 72
+        clarity,
+        problemDecomposition: decomposition,
+        communication,
+        efficiency,
       },
-      strengths: [
-        'Good problem decomposition',
-        'Clear communication of approach',
-        'Handled edge cases well'
-      ],
-      areasForImprovement: [
-        'Optimize time complexity',
-        'Consider space-time trade-offs',
-        'Explain thinking process more explicitly'
-      ],
+      strengths: strengths.length > 0 ? strengths : ['Maintained a coherent structure through the interview'],
+      areasForImprovement: areasForImprovement.length > 0 ? areasForImprovement : ['Increase precision when discussing optimization choices'],
       criticalMistakes: [],
-      recommendations: 'Focus on optimization techniques and edge case coverage',
+      recommendations: areasForImprovement.length > 0
+        ? `Next session focus: ${areasForImprovement.slice(0, 2).join(' and ')}.`
+        : 'Great consistency. Keep practicing under timed constraints to sustain this level.',
       followUpProblems: [
         { problem_id: 1, title: 'Similar but harder variant', reason: 'Builds on your approach' }
       ]
     };
   }
 
-  static _calculateScores(analysis, transcript) {
-    const baseScore = 70;
-    const questionCount = Math.ceil(transcript.length / 2); // Rough estimate
+  static _calculateScores(analysis, transcript, interviewType = 'dsa') {
+    const rolling = this._calculateRollingScores(analysis, transcript, interviewType);
+    const communicationScore = Math.round((rolling.communication || 0) * 10);
+    const problemSolvingScore = Math.round((rolling.problem_solving || 0) * 10);
+    const technicalDepthScore = Math.round((rolling.technical_depth || 0) * 10);
+    const interviewScore = Math.round((rolling.overall || 0) * 10);
     
     return {
-      interviewScore: baseScore + (analysis.metrics.clarity + analysis.metrics.communication) / 4,
-      communicationScore: analysis.metrics.communication,
-      problemSolvingScore: analysis.metrics.problemDecomposition,
-      technicalDepthScore: analysis.metrics.efficiency
+      interviewScore,
+      communicationScore,
+      problemSolvingScore,
+      technicalDepthScore,
     };
   }
 

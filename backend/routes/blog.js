@@ -15,6 +15,11 @@ const isBlogPostsTableMissing = (error) => {
   return code === '42P01' || message.includes('relation') && message.includes('blog_posts');
 };
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
 // Get all published blogs
 router.get('/', async (req, res) => {
   try {
@@ -142,27 +147,41 @@ export default router;
   // GET /api/blog/admin/posts - List all admin blog posts
   router.get('/admin/posts', authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const { status, page = 1, limit = 10 } = req.query;
-      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const { status } = req.query;
+      const page = parsePositiveInt(req.query.page, 1);
+      const limit = parsePositiveInt(req.query.limit, 10);
+      const offset = (page - 1) * limit;
 
-      let query = supabaseAdmin.from('blog_posts').select('*');
+      let query = supabaseAdmin.from('blog_posts').select('*', { count: 'exact' });
       if (status) query = query.eq('status', status);
 
       const { data, error, count } = await query
         .order('created_at', { ascending: false })
-        .range(offset, offset + parseInt(limit, 10) - 1);
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
       res.json({
         posts: data || [],
         pagination: {
-          page: parseInt(page, 10),
-          limit: parseInt(limit, 10),
+          page,
+          limit,
           total: count || 0,
-          totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+          totalPages: Math.ceil((count || 0) / limit),
         },
       });
     } catch (error) {
+      if (isBlogPostsTableMissing(error)) {
+        return res.json({
+          posts: [],
+          pagination: {
+            page: parsePositiveInt(req.query.page, 1),
+            limit: parsePositiveInt(req.query.limit, 10),
+            total: 0,
+            totalPages: 0,
+          },
+          warning: 'blog_posts table is not available yet. Run migration_blog_posts.sql.',
+        });
+      }
       console.error('Failed to fetch blog posts:', error);
       res.status(500).json({ error: 'Failed to fetch blog posts' });
     }
@@ -372,24 +391,25 @@ export default router;
   // GET /api/blog/public/posts - List published admin blog posts (public)
   router.get('/public/posts', async (req, res) => {
     try {
-      const { page = 1, limit = 10 } = req.query;
-      const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+      const page = parsePositiveInt(req.query.page, 1);
+      const limit = parsePositiveInt(req.query.limit, 10);
+      const offset = (page - 1) * limit;
 
       const { data, error, count } = await supabaseAdmin
         .from('blog_posts')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('status', 'published')
         .order('published_at', { ascending: false })
-        .range(offset, offset + parseInt(limit, 10) - 1);
+        .range(offset, offset + limit - 1);
 
       if (error) throw error;
       res.json({
         posts: data || [],
         pagination: {
-          page: parseInt(page, 10),
-          limit: parseInt(limit, 10),
+          page,
+          limit,
           total: count || 0,
-          totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+          totalPages: Math.ceil((count || 0) / limit),
         },
       });
     } catch (error) {
@@ -397,8 +417,8 @@ export default router;
         return res.json({
           posts: [],
           pagination: {
-            page: parseInt(req.query.page || 1, 10),
-            limit: parseInt(req.query.limit || 10, 10),
+            page: parsePositiveInt(req.query.page, 1),
+            limit: parsePositiveInt(req.query.limit, 10),
             total: 0,
             totalPages: 0,
           },

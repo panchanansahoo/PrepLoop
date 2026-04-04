@@ -133,6 +133,19 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
     setIsNotifOpen(false);
   }, [location.pathname]);
 
+  // Prevent background scroll when public mobile menu is open.
+  useEffect(() => {
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -243,7 +256,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           </div>
 
           {/* Mobile Menu Toggle */}
-          <button className="mobile-toggle mobile-only" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+          <button
+            className="mobile-toggle mobile-only"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileMenuOpen}
+          >
             {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
           </button>
         </div>
@@ -251,18 +269,18 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="mobile-menu">
-            <a href="/#features" className="mobile-link">Features</a>
-            <Link to="/dashboard" className="mobile-link">Dashboard</Link>
-            <Link to="/problems" className="mobile-link">Problem Explorer</Link>
-            <Link to="/company-interview" className="mobile-link">AI Mock</Link>
-            <Link to="/job-updates" className="mobile-link">Job Updates</Link>
-            <Link to="/blog" className="mobile-link">Blog</Link>
+            <a href="/#features" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Features</a>
+            <Link to="/dashboard" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+            <Link to="/problems" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Problem Explorer</Link>
+            <Link to="/company-interview" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>AI Mock</Link>
+            <Link to="/job-updates" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Job Updates</Link>
+            <Link to="/blog" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Blog</Link>
             {user ? (
-              <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Go to Dashboard</Link>
+              <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMobileMenuOpen(false)}>Go to Dashboard</Link>
             ) : (
               <>
-                <Link to="/login" className="mobile-link">Sign In</Link>
-                <Link to="/signup" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }}>Get Started</Link>
+                <Link to="/login" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
+                <Link to="/signup" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
               </>
             )}
           </div>
@@ -365,7 +383,9 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           </div>
 
           {/* Coin Balance */}
-          <CoinDisplay />
+          <div className="desktop-only">
+            <CoinDisplay />
+          </div>
 
           {/* Theme Toggle */}
           <button
