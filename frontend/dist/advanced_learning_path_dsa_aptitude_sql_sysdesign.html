@@ -10,11 +10,11 @@
     --sql: #185FA5; --sql-l: #E6F1FB; --sql-d: #042C53;
     --sys: #533AB7; --sys-l: #EEEDFE; --sys-d: #26215C;
     --spark: #E84F2E;
-    --bg: var(--color-background-primary, #FFFFFF);
-    --bg2: var(--color-background-secondary, #F7F8FA);
+    --bg: var(--color-bg-primary, var(--color-background-primary, #FFFFFF));
+    --bg2: var(--color-bg-secondary, var(--color-background-secondary, #F7F8FA));
     --text: var(--color-text-primary, #0F172A);
     --muted: var(--color-text-secondary, #64748B);
-    --border: var(--color-border-tertiary, #DDE3EA);
+    --border: var(--color-border-tertiary, var(--color-bg-tertiary, #DDE3EA));
     --surface-soft: color-mix(in srgb, var(--bg2) 78%, transparent);
     --glow: 0 12px 36px rgba(0, 0, 0, 0.07);
   }

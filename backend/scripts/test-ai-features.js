@@ -6,23 +6,23 @@
  * Usage: npm run test:ai-features
  */
 
-const http = require('http');
-const assert = require('assert');
+import http from 'node:http';
+import assert from 'node:assert/strict';
+import '../config/env.js';
 
-// Configuration
 const API_BASE = process.env.API_URL || 'http://localhost:5000/api';
-const TEST_AUTH_TOKEN = process.env.TEST_TOKEN || 'test-bearer-token-123';
-const TIMEOUT = 30000; // 30 seconds
+const TEST_AUTH_TOKEN = process.env.TEST_TOKEN || null;
+const HAS_TEST_AUTH_TOKEN = Boolean(TEST_AUTH_TOKEN);
+const TIMEOUT = 30000;
+const AUTHENTICATED_TEST_COUNT = 15;
 
-// Test tracking
-let testResults = {
+const testResults = {
   passed: 0,
   failed: 0,
   skipped: 0,
   tests: [],
 };
 
-// Color codes for terminal output
 const colors = {
   reset: '\x1b[0m',
   green: '\x1b[32m',
@@ -31,69 +31,67 @@ const colors = {
   blue: '\x1b[34m',
 };
 
-/**
- * Make HTTP request with proper error handling
- */
 async function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
   return new Promise((resolve, reject) => {
     const url = new URL(`${API_BASE}${path}`);
-    const options = {
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname + url.search,
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+    const headers = { 'Content-Type': 'application/json' };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const req = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname + url.search,
+        method,
+        headers,
+        timeout: TIMEOUT,
       },
-      timeout: TIMEOUT,
-    };
-
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      res.on('end', () => {
-        try {
-          const parsed = data ? JSON.parse(data) : {};
-          resolve({
-            status: res.statusCode,
-            headers: res.headers,
-            body: parsed,
-            rawBody: data,
-          });
-        } catch (e) {
-          resolve({
-            status: res.statusCode,
-            headers: res.headers,
-            body: null,
-            rawBody: data,
-            parseError: e.message,
-          });
-        }
-      });
-    });
-
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => {
+          try {
+            const parsed = data ? JSON.parse(data) : {};
     req.on('error', (error) => {
-      reject(error);
+      resolve({
+        status: 0,
+        headers: {},
+        body: null,
+        rawBody: '',
+        requestError: error.message,
+        requestErrorCode: error.code,
+      });
     });
 
     req.on('timeout', () => {
       req.destroy();
-      reject(new Error('Request timeout'));
+      resolve({
+        status: 0,
+        headers: {},
+        body: null,
+        rawBody: '',
+        requestError: 'Request timeout',
+        requestErrorCode: 'ETIMEDOUT',
+      });
     });
 
-    if (body) {
-      req.write(JSON.stringify(body));
-    }
+            resolve({ status: res.statusCode, headers: res.headers, body: parsed, rawBody: data });
+          } catch (error) {
+            resolve({ status: res.statusCode, headers: res.headers, body: null, rawBody: data, parseError: error.message });
+          }
+        });
+      },
+    );
+
     req.end();
   });
 }
 
-/**
- * Test runner
- */
 async function test(name, testFn) {
   try {
     await testFn();
@@ -108,188 +106,161 @@ async function test(name, testFn) {
   }
 }
 
-/**
- * Test suite execution
- */
 async function runTests() {
   console.log(`\n${colors.blue}=== AI Features - Endpoint Test Suite ===${colors.reset}\n`);
   console.log(`Testing API at: ${API_BASE}\n`);
 
-  // ============================================================
-  // CODE REVIEW TESTS (4 endpoints)
-  // ============================================================
-  console.log(`${colors.blue}Code Review Endpoints:${colors.reset}`);
+  if (!HAS_TEST_AUTH_TOKEN) {
+    console.log(`${colors.yellow}No TEST_TOKEN provided; skipping authenticated endpoint coverage.${colors.reset}`);
+    testResults.skipped += AUTHENTICATED_TEST_COUNT;
+  } else {
+    console.log(`${colors.blue}Code Review Endpoints:${colors.reset}`);
 
-  let reviewId;
+    let reviewId;
 
-  await test('POST /code-review - Submit code for review', async () => {
-    const response = await makeRequest('POST', '/ai-features/code-review', {
-      problemId: 123,
-      code: 'function add(a, b) { return a + b; }',
-      language: 'javascript',
+    await test('POST /code-review - Submit code for review', async () => {
+      const response = await makeRequest('POST', '/ai-features/code-review', {
+        problemId: 123,
+        code: 'function add(a, b) { return a + b; }',
+        language: 'javascript',
+      });
+
+      assert.strictEqual(response.status, 201, `Expected 201, got ${response.status}`);
+      assert(response.body.reviewId, 'Response should include reviewId');
+      assert(response.body.scores, 'Response should include scores');
+
+      reviewId = response.body.reviewId;
     });
 
-    assert.strictEqual(response.status, 201, `Expected 201, got ${response.status}`);
-    assert(response.body.reviewId, 'Response should include reviewId');
-    assert(response.body.scores, 'Response should include scores');
-
-    reviewId = response.body.reviewId;
-  });
-
-  await test('POST /code-review - Missing required fields (400)', async () => {
-    const response = await makeRequest('POST', '/ai-features/code-review', {
-      problemId: 123,
-      // missing 'code' field
+    await test('POST /code-review - Missing required fields (400)', async () => {
+      const response = await makeRequest('POST', '/ai-features/code-review', { problemId: 123 });
+      assert.strictEqual(response.status, 400, `Expected 400, got ${response.status}`);
     });
 
-    assert.strictEqual(response.status, 400, `Expected 400, got ${response.status}`);
-  });
+    await test('GET /code-review/:reviewId - Fetch specific review', async () => {
+      if (!reviewId) {
+        throw new Error('Skip: No reviewId from previous test');
+      }
 
-  await test('GET /code-review/:reviewId - Fetch specific review', async () => {
-    if (!reviewId) {
-      throw new Error('Skip: No reviewId from previous test');
-    }
+      const response = await makeRequest('GET', `/ai-features/code-review/${reviewId}`);
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
+      assert.strictEqual(response.body.reviewId, reviewId, 'ReviewId should match');
+    });
 
-    const response = await makeRequest('GET', `/ai-features/code-review/${reviewId}`);
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert.strictEqual(response.body.reviewId, reviewId, 'ReviewId should match');
-  });
+    await test('GET /code-review/:reviewId - Invalid ID (404)', async () => {
+      const response = await makeRequest('GET', '/ai-features/code-review/invalid-id-99999');
+      assert.strictEqual(response.status, 404, `Expected 404, got ${response.status}`);
+    });
 
-  await test('GET /code-review/:reviewId - Invalid ID (404)', async () => {
-    const response = await makeRequest('GET', `/ai-features/code-review/invalid-id-99999`);
-    assert.strictEqual(response.status, 404, `Expected 404, got ${response.status}`);
-  });
+    await test('GET /code-review/problem/:problemId - Get reviews by problem', async () => {
+      const response = await makeRequest('GET', '/ai-features/code-review/problem/123');
+      assert([200, 404].includes(response.status), `Expected 200 or 404, got ${response.status}`);
+      if (response.status === 200) {
+        assert(Array.isArray(response.body.reviews), 'Should return reviews array');
+      }
+    });
 
-  await test('GET /code-review/problem/:problemId - Get reviews by problem', async () => {
-    const response = await makeRequest('GET', `/ai-features/code-review/problem/123`);
-    assert(
-      [200, 404].includes(response.status),
-      `Expected 200 or 404, got ${response.status}`
-    );
-    if (response.status === 200) {
+    await test('GET /code-review/history - Get user review history', async () => {
+      const response = await makeRequest('GET', '/ai-features/code-review/history?page=1&limit=10');
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
       assert(Array.isArray(response.body.reviews), 'Should return reviews array');
-    }
-  });
-
-  await test('GET /code-review/history - Get user review history', async () => {
-    const response = await makeRequest('GET', `/ai-features/code-review/history?page=1&limit=10`);
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert(Array.isArray(response.body.reviews), 'Should return reviews array');
-    assert('pagination' in response.body, 'Should include pagination info');
-  });
-
-  // ============================================================
-  // INTERVIEW SIMULATION TESTS (5 endpoints)
-  // ============================================================
-  console.log(`\n${colors.blue}Interview Simulation Endpoints:${colors.reset}`);
-
-  let sessionId;
-
-  await test('POST /interview/start - Initialize new interview', async () => {
-    const response = await makeRequest('POST', '/ai-features/interview/start', {
-      interviewType: 'DSA',
-      difficulty: 'Medium',
-      companyFocus: 'Google',
+      assert('pagination' in response.body, 'Should include pagination info');
     });
 
-    assert.strictEqual(response.status, 201, `Expected 201, got ${response.status}`);
-    assert(response.body.sessionId, 'Response should include sessionId');
-    assert(response.body.problem, 'Response should include problem statement');
-    assert(response.body.greeting, 'Response should include interviewer greeting');
+    console.log(`\n${colors.blue}Interview Simulation Endpoints:${colors.reset}`);
 
-    sessionId = response.body.sessionId;
-  });
+    let sessionId;
 
-  await test('POST /interview/start - Missing fields (400)', async () => {
-    const response = await makeRequest('POST', '/ai-features/interview/start', {
-      interviewType: 'DSA',
-      // missing difficulty
+    await test('POST /interview/start - Initialize new interview', async () => {
+      const response = await makeRequest('POST', '/ai-features/interview/start', {
+        interviewType: 'DSA',
+        difficulty: 'Medium',
+        companyFocus: 'Google',
+      });
+
+      assert.strictEqual(response.status, 201, `Expected 201, got ${response.status}`);
+      assert(response.body.sessionId, 'Response should include sessionId');
+      assert(response.body.problem, 'Response should include problem statement');
+      assert(response.body.greeting, 'Response should include interviewer greeting');
+
+      sessionId = response.body.sessionId;
     });
 
-    assert.strictEqual(response.status, 400, `Expected 400, got ${response.status}`);
-  });
-
-  await test('POST /interview/:sessionId/respond - Submit response', async () => {
-    if (!sessionId) {
-      throw new Error('Skip: No sessionId from initialization');
-    }
-
-    const response = await makeRequest('POST', `/ai-features/interview/${sessionId}/respond`, {
-      response: 'I would use a hash map to track elements we have seen...',
+    await test('POST /interview/start - Missing fields (400)', async () => {
+      const response = await makeRequest('POST', '/ai-features/interview/start', { interviewType: 'DSA' });
+      assert.strictEqual(response.status, 400, `Expected 400, got ${response.status}`);
     });
 
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert(response.body.followUp, 'Should include interviewer follow-up');
-    assert('hints' in response.body, 'Should include hints array');
-  });
+    await test('POST /interview/:sessionId/respond - Submit response', async () => {
+      if (!sessionId) {
+        throw new Error('Skip: No sessionId from initialization');
+      }
 
-  await test('POST /interview/:sessionId/respond - Invalid session (404)', async () => {
-    const response = await makeRequest('POST', '/ai-features/interview/invalid-session-99999/respond', {
-      response: 'some response',
+      const response = await makeRequest('POST', `/ai-features/interview/${sessionId}/respond`, {
+        response: 'I would use a hash map to track elements we have seen...',
+      });
+
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
+      assert(response.body.followUp, 'Should include interviewer follow-up');
+      assert('hints' in response.body, 'Should include hints array');
     });
 
-    assert.strictEqual(response.status, 404, `Expected 404, got ${response.status}`);
-  });
+    await test('POST /interview/:sessionId/respond - Invalid session (404)', async () => {
+      const response = await makeRequest('POST', '/ai-features/interview/invalid-session-99999/respond', {
+        response: 'some response',
+      });
 
-  await test('GET /interview/:sessionId - Get session details', async () => {
-    if (!sessionId) {
-      throw new Error('Skip: No sessionId');
-    }
+      assert.strictEqual(response.status, 404, `Expected 404, got ${response.status}`);
+    });
 
-    const response = await makeRequest('GET', `/ai-features/interview/${sessionId}`);
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert.strictEqual(response.body.sessionId, sessionId, 'SessionId should match');
-    assert(response.body.transcript, 'Should include transcript');
-  });
+    await test('GET /interview/:sessionId - Get session details', async () => {
+      if (!sessionId) {
+        throw new Error('Skip: No sessionId');
+      }
 
-  await test('POST /interview/:sessionId/complete - Complete interview', async () => {
-    if (!sessionId) {
-      throw new Error('Skip: No sessionId');
-    }
+      const response = await makeRequest('GET', `/ai-features/interview/${sessionId}`);
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
+      assert.strictEqual(response.body.sessionId, sessionId, 'SessionId should match');
+      assert(response.body.transcript, 'Should include transcript');
+    });
 
-    const response = await makeRequest('POST', `/ai-features/interview/${sessionId}/complete`, {});
+    await test('POST /interview/:sessionId/complete - Complete interview', async () => {
+      if (!sessionId) {
+        throw new Error('Skip: No sessionId');
+      }
 
-    assert(
-      [200, 202].includes(response.status),
-      `Expected 200 or 202, got ${response.status}`
-    );
-    assert('scores' in response.body, 'Should include scores');
-    assert(response.body.finalAnalysis, 'Should include final analysis');
-  });
+      const response = await makeRequest('POST', `/ai-features/interview/${sessionId}/complete`, {});
 
-  await test('GET /interview/history - Get user interview history', async () => {
-    const response = await makeRequest('GET', `/ai-features/interview/history?page=1&limit=10`);
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert(Array.isArray(response.body.sessions), 'Should return sessions array');
-    assert('pagination' in response.body, 'Should include pagination info');
-  });
+      assert([200, 202].includes(response.status), `Expected 200 or 202, got ${response.status}`);
+      assert('scores' in response.body, 'Should include scores');
+      assert(response.body.finalAnalysis, 'Should include final analysis');
+    });
 
-  // ============================================================
-  // ANALYTICS TESTS (2 endpoints)
-  // ============================================================
-  console.log(`\n${colors.blue}Analytics Endpoints:${colors.reset}`);
+    await test('GET /interview/history - Get user interview history', async () => {
+      const response = await makeRequest('GET', '/ai-features/interview/history?page=1&limit=10');
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
+      assert(Array.isArray(response.body.sessions), 'Should return sessions array');
+      assert('pagination' in response.body, 'Should include pagination info');
+    });
 
-  await test('GET /performance-trends - Get performance analytics', async () => {
-    const response = await makeRequest('GET', `/ai-features/performance-trends?type=dsa`);
-    assert(
-      [200, 404].includes(response.status),
-      `Expected 200 or 404, got ${response.status}`
-    );
-    if (response.status === 200) {
-      assert('trends' in response.body, 'Should include trends data');
-    }
-  });
+    console.log(`\n${colors.blue}Analytics Endpoints:${colors.reset}`);
 
-  await test('GET /stats - Get usage statistics', async () => {
-    const response = await makeRequest('GET', `/ai-features/stats`);
-    assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
-    assert('codeReviewsCount' in response.body, 'Should include codeReviewsCount');
-    assert('interviewsCount' in response.body, 'Should include interviewsCount');
-  });
+    await test('GET /performance-trends - Get performance analytics', async () => {
+      const response = await makeRequest('GET', '/ai-features/performance-trends?type=dsa');
+      assert([200, 404].includes(response.status), `Expected 200 or 404, got ${response.status}`);
+      if (response.status === 200) {
+        assert('trends' in response.body, 'Should include trends data');
+      }
+    });
 
-  // ============================================================
-  // AUTHENTICATION TESTS
-  // ============================================================
+    await test('GET /stats - Get usage statistics', async () => {
+      const response = await makeRequest('GET', '/ai-features/stats');
+      assert.strictEqual(response.status, 200, `Expected 200, got ${response.status}`);
+      assert('codeReviewsCount' in response.body, 'Should include codeReviewsCount');
+      assert('interviewsCount' in response.body, 'Should include interviewsCount');
+    });
+  }
+
   console.log(`\n${colors.blue}Authentication Tests:${colors.reset}`);
 
   await test('Missing auth token (401)', async () => {
@@ -302,14 +273,11 @@ async function runTests() {
     assert.strictEqual(response.status, 403, `Expected 403, got ${response.status}`);
   });
 
-  // ============================================================
-  // RESULTS SUMMARY
-  // ============================================================
   console.log(`\n${colors.blue}=== Test Results ===${colors.reset}\n`);
   console.log(`${colors.green}Passed: ${testResults.passed}${colors.reset}`);
   console.log(`${colors.red}Failed: ${testResults.failed}${colors.reset}`);
   console.log(`${colors.yellow}Skipped: ${testResults.skipped}${colors.reset}`);
-  console.log(`Total: ${testResults.passed + testResults.failed}\n`);
+  console.log(`Total: ${testResults.passed + testResults.failed + testResults.skipped}\n`);
 
   if (testResults.failed > 0) {
     console.log(`${colors.red}Failed tests:${colors.reset}`);
@@ -324,8 +292,8 @@ async function runTests() {
   process.exit(testResults.failed > 0 ? 1 : 0);
 }
 
-// Run tests
 runTests().catch((error) => {
   console.error(`${colors.red}Test suite error: ${error.message}${colors.reset}`);
   process.exit(1);
 });
+// Run tests

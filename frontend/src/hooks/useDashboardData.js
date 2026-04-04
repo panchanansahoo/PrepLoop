@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
+const DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
+const DASHBOARD_REQUEST_TIMEOUT_MS = 12000;
+const dashboardMemoryCache = new Map();
+
 const EMPTY_DATA = {
     stats: { problemsSolved: 0, totalSubmissions: 0, mockInterviews: 0, resumesAnalyzed: 0 },
     streak: 0,
@@ -31,29 +35,71 @@ export default function useDashboardData() {
     const [data, setData] = useState(EMPTY_DATA);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const userId = user?.id || null;
+    const isGuest = Boolean(user?.isGuest);
 
     useEffect(() => {
-        if (!user || user.isGuest) {
+        if (!userId || isGuest) {
             setData(EMPTY_DATA);
             setLoading(false);
             return;
         }
 
         let cancelled = false;
+        const cacheKey = `dashboard:${userId}`;
+        const now = Date.now();
+
+        const fromMemory = dashboardMemoryCache.get(cacheKey);
+        let hasFreshCache = false;
+
+        if (fromMemory && now - fromMemory.timestamp < DASHBOARD_CACHE_TTL_MS) {
+            setData(fromMemory.data);
+            setLoading(false);
+            hasFreshCache = true;
+        } else {
+            try {
+                const raw = sessionStorage.getItem(cacheKey);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed?.data && now - (parsed.timestamp || 0) < DASHBOARD_CACHE_TTL_MS) {
+                        setData(parsed.data);
+                        setLoading(false);
+                        dashboardMemoryCache.set(cacheKey, parsed);
+                        hasFreshCache = true;
+                    }
+                }
+            } catch {
+                // Ignore corrupt session cache and refetch from API.
+            }
+        }
+
+        const controller = new AbortController();
 
         const fetchDashboard = async () => {
             try {
-                setLoading(true);
+                if (!hasFreshCache) setLoading(true);
                 setError(null);
-                const res = await axios.get('/api/user/dashboard');
+                const res = await axios.get('/api/user/dashboard', {
+                    timeout: DASHBOARD_REQUEST_TIMEOUT_MS,
+                    signal: controller.signal,
+                });
                 if (!cancelled) {
-                    setData({ ...EMPTY_DATA, ...res.data });
+                    const nextData = { ...EMPTY_DATA, ...res.data };
+                    const payload = { data: nextData, timestamp: Date.now() };
+                    setData(nextData);
+                    dashboardMemoryCache.set(cacheKey, payload);
+                    sessionStorage.setItem(cacheKey, JSON.stringify(payload));
                 }
             } catch (err) {
+                if (axios.isCancel(err) || err?.code === 'ERR_CANCELED') {
+                    return;
+                }
                 console.error('Dashboard fetch error:', err);
                 if (!cancelled) {
                     setError(err.message || 'Failed to load dashboard');
-                    setData(EMPTY_DATA);
+                    if (!hasFreshCache) {
+                        setData(EMPTY_DATA);
+                    }
                 }
             } finally {
                 if (!cancelled) setLoading(false);
@@ -62,8 +108,11 @@ export default function useDashboardData() {
 
         fetchDashboard();
 
-        return () => { cancelled = true; };
-    }, [user]);
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
+    }, [userId, isGuest]);
 
     return { data, loading, error };
 }

@@ -5,8 +5,9 @@ import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
-import ChatAssistant from './components/ChatAssistant';
+import AIAssistantOrb from './components/AIAssistantOrb';
 import StreakNotification from './components/StreakNotification';
+import LoadingScreen from './components/LoadingScreen';
 import { Code2 } from 'lucide-react';
 
 const Home = lazy(() => import('./pages/Home'));
@@ -141,6 +142,33 @@ function AppContent() {
     }
   }, [location.pathname]);
 
+  // Reset mobile sidebar state when leaving mobile viewport.
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 768) {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Prevent background scroll when mobile sidebar drawer is open.
+  useEffect(() => {
+    const isMobileViewport = window.innerWidth <= 768;
+
+    if (mobileSidebarOpen && isMobileViewport) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileSidebarOpen]);
+
   // Public pages that don't show sidebar
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
@@ -161,7 +189,7 @@ function AppContent() {
   return (
     <div className="app-layout">
       <StreakNotification />
-      <ChatAssistant />
+      <AIAssistantOrb />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -347,11 +375,14 @@ function Footer() {
 }
 
 function App() {
+  const [appReady, setAppReady] = useState(false);
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
           <CoinProvider>
+            {!appReady && <LoadingScreen onFinished={() => setAppReady(true)} />}
             <Router>
               <AppContent />
             </Router>

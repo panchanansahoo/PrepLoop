@@ -39,8 +39,10 @@ const DAILY_QUOTES = [
     { text: "Deleted code is debugged code.", author: "Jeff Sickel" },
 ];
 
-function getRandomQuote() {
-    return DAILY_QUOTES[Math.floor(Math.random() * DAILY_QUOTES.length)];
+function getDailyQuote(date = new Date()) {
+    const yearStart = new Date(date.getFullYear(), 0, 0);
+    const dayOfYear = Math.floor((date - yearStart) / 86400000);
+    return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
 }
 
 import QuickStats from '../components/QuickStats';
@@ -96,6 +98,7 @@ export default function Dashboard() {
     const { user } = useAuth();
     const { data: dashboardData, loading: dashLoading } = useDashboardData();
     const userName = user?.fullName?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Engineer';
+    const dailyQuote = useMemo(() => getDailyQuote(), []);
     const [widgetVisibility, setWidgetVisibility] = useState(getInitialVisibility);
     const [showCustomize, setShowCustomize] = useState(false);
 
@@ -289,7 +292,7 @@ export default function Dashboard() {
                                 return 'Good evening';
                             })()}, <span className="dash-hero-name">{userName}</span> 👋
                         </h1>
-                        <p className="dash-hero-sub">"{getRandomQuote().text}" — <em>{getRandomQuote().author}</em></p>
+                        <p className="dash-hero-sub">"{dailyQuote.text}" — <em>{dailyQuote.author}</em></p>
                     </div>
                     <div className="dash-hero-actions">
                         <button
@@ -308,15 +311,15 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* ── Loading State ── */}
+                {/* ── Loading State (non-blocking) ── */}
                 {dashLoading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-                        <Loader2 size={32} className="dash-spinner" style={{ color: '#a78bfa', animation: 'spin 1s linear infinite' }} />
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 18px' }}>
+                        <Loader2 size={20} className="dash-spinner" style={{ color: '#a78bfa', animation: 'spin 1s linear infinite' }} />
                     </div>
                 )}
 
                 {/* ── Dashboard Widgets ── */}
-                {!dashLoading && renderRows()}
+                {renderRows()}
 
             </div>
 

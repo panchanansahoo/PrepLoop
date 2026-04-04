@@ -351,19 +351,20 @@ export const ALGORITHMS = [
 export function generateBubbleSortSteps(arr) {
   const a = [...arr];
   const n = a.length;
-  const steps = [{ array: [...a], highlights: [], sorted: [], message: 'Starting Bubble Sort — we\'ll compare adjacent pairs and swap if needed.', variables: { n, pass: 0 } }];
+  const steps = [{ array: [...a], highlights: [], sorted: [], message: '🫧 Bubble Sort works by comparing neighbors — if the left is bigger, we swap. After each pass, the largest unsorted value "bubbles" to the end.', variables: { n, pass: 0 } }];
 
   for (let i = 0; i < n - 1; i++) {
+    steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: i }, (_, k) => n - 1 - k), message: `── Pass ${i + 1} of ${n - 1} ── Scanning from left to right to bubble up the next largest value.`, variables: { pass: i + 1, comparisons: n - i - 1 } });
     for (let j = 0; j < n - i - 1; j++) {
-      steps.push({ array: [...a], highlights: [j, j + 1], comparing: true, sorted: Array.from({ length: i }, (_, k) => n - 1 - k), message: `Comparing ${a[j]} and ${a[j + 1]}`, variables: { i, j, 'arr[j]': a[j], 'arr[j+1]': a[j + 1], swapped: false } });
+      steps.push({ array: [...a], highlights: [j, j + 1], comparing: true, sorted: Array.from({ length: i }, (_, k) => n - 1 - k), message: `Is ${a[j]} > ${a[j + 1]}? ${a[j] > a[j + 1] ? `Yes! ${a[j]} is bigger, so we need to swap.` : `No, ${a[j]} ≤ ${a[j + 1]} — they're already in order. Move on.`}`, variables: { i, j, left: a[j], right: a[j + 1] } });
       if (a[j] > a[j + 1]) {
         [a[j], a[j + 1]] = [a[j + 1], a[j]];
-        steps.push({ array: [...a], highlights: [j, j + 1], swapping: true, sorted: Array.from({ length: i }, (_, k) => n - 1 - k), message: `Swapped! ${a[j + 1]} > ${a[j]} → moved ${a[j + 1]} right`, variables: { i, j, 'arr[j]': a[j], 'arr[j+1]': a[j + 1], swapped: true } });
+        steps.push({ array: [...a], highlights: [j, j + 1], swapping: true, sorted: Array.from({ length: i }, (_, k) => n - 1 - k), message: `🔄 Swapped! [${a[j]}, ${a[j + 1]}] — the larger value (${a[j + 1]}) moves one step closer to the end.`, variables: { i, j, left: a[j], right: a[j + 1], swapped: true } });
       }
     }
-    steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: i + 1 }, (_, k) => n - 1 - k), message: `Pass ${i + 1} complete — ${a[n - 1 - i]} is in its final position`, variables: { pass: i + 1, sorted: i + 1 } });
+    steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: i + 1 }, (_, k) => n - 1 - k), message: `✅ Pass ${i + 1} done! ${a[n - 1 - i]} has bubbled to position ${n - 1 - i}. ${i + 1} element${i > 0 ? 's' : ''} sorted so far.`, variables: { pass: i + 1, sorted: i + 1 } });
   }
-  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '✅ Array is fully sorted!', variables: { sorted: n } });
+  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '🎉 Bubble Sort complete! All elements are in ascending order. Total passes: ' + (n - 1), variables: { sorted: n, totalPasses: n - 1 } });
   return steps;
 }
 
@@ -371,24 +372,27 @@ export function generateBubbleSortSteps(arr) {
 export function generateSelectionSortSteps(arr) {
   const a = [...arr];
   const n = a.length;
-  const steps = [{ array: [...a], highlights: [], sorted: [], message: 'Starting Selection Sort — find the minimum in unsorted portion and place it at the beginning.', variables: { n, sorted: 0 } }];
+  const steps = [{ array: [...a], highlights: [], sorted: [], message: '👆 Selection Sort finds the smallest element and places it first, then the second smallest, and so on. Simple but illustrates the "select and place" pattern.', variables: { n, sorted: 0 } }];
 
   for (let i = 0; i < n - 1; i++) {
     let minIdx = i;
-    steps.push({ array: [...a], highlights: [i], minIndex: i, sorted: Array.from({ length: i }, (_, k) => k), message: `Looking for minimum starting from index ${i}`, variables: { i, minIdx, 'arr[minIdx]': a[minIdx] } });
+    steps.push({ array: [...a], highlights: [i], minIndex: i, sorted: Array.from({ length: i }, (_, k) => k), message: `── Round ${i + 1} ── Position ${i} needs the ${i === 0 ? 'smallest' : `${i + 1}th smallest`} element. Starting with ${a[i]} as our candidate.`, variables: { round: i + 1, minIdx, candidate: a[minIdx] } });
     for (let j = i + 1; j < n; j++) {
-      steps.push({ array: [...a], highlights: [j, minIdx], comparing: true, minIndex: minIdx, sorted: Array.from({ length: i }, (_, k) => k), message: `Comparing ${a[j]} with current min ${a[minIdx]}`, variables: { i, j, minIdx, 'arr[j]': a[j], 'min': a[minIdx] } });
-      if (a[j] < a[minIdx]) {
+      const isBetter = a[j] < a[minIdx];
+      steps.push({ array: [...a], highlights: [j, minIdx], comparing: true, minIndex: minIdx, sorted: Array.from({ length: i }, (_, k) => k), message: `Is ${a[j]} < ${a[minIdx]} (our current min)? ${isBetter ? `Yes! ${a[j]} is smaller — updating our min.` : `No, ${a[minIdx]} is still the smallest we've found.`}`, variables: { j, checking: a[j], currentMin: a[minIdx], minIdx } });
+      if (isBetter) {
         minIdx = j;
-        steps.push({ array: [...a], highlights: [minIdx], minIndex: minIdx, sorted: Array.from({ length: i }, (_, k) => k), message: `New minimum found: ${a[minIdx]} at index ${minIdx}`, variables: { i, j, minIdx, 'newMin': a[minIdx] } });
+        steps.push({ array: [...a], highlights: [minIdx], minIndex: minIdx, sorted: Array.from({ length: i }, (_, k) => k), message: `📌 New minimum = ${a[minIdx]} (at index ${minIdx}). Keep scanning to see if anything smaller exists.`, variables: { minIdx, newMin: a[minIdx] } });
       }
     }
     if (minIdx !== i) {
       [a[i], a[minIdx]] = [a[minIdx], a[i]];
-      steps.push({ array: [...a], highlights: [i, minIdx], swapping: true, sorted: Array.from({ length: i + 1 }, (_, k) => k), message: `Swapped ${a[minIdx]} and ${a[i]} — position ${i} is now correct`, variables: { i, minIdx, swapped: true } });
+      steps.push({ array: [...a], highlights: [i, minIdx], swapping: true, sorted: Array.from({ length: i + 1 }, (_, k) => k), message: `🔄 Placing ${a[i]} into position ${i} (swapped with ${a[minIdx]}). Position ${i} is now final!`, variables: { placed: a[i], position: i } });
+    } else {
+      steps.push({ array: [...a], highlights: [i], sorted: Array.from({ length: i + 1 }, (_, k) => k), message: `${a[i]} was already in the correct position — no swap needed.`, variables: { placed: a[i], position: i } });
     }
   }
-  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '✅ Array is fully sorted!', variables: { sorted: n } });
+  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '🎉 Selection Sort complete! Each position now holds its correct value.', variables: { sorted: n } });
   return steps;
 }
 
@@ -396,21 +400,23 @@ export function generateSelectionSortSteps(arr) {
 export function generateInsertionSortSteps(arr) {
   const a = [...arr];
   const n = a.length;
-  const steps = [{ array: [...a], highlights: [], sorted: [0], message: 'Starting Insertion Sort — first element is already "sorted". Insert each next element into correct position.', variables: { n, sorted: 1 } }];
+  const steps = [{ array: [...a], highlights: [], sorted: [0], message: '📥 Insertion Sort works like sorting cards in your hand — take each new card and slide it into the right spot among your already-sorted cards.', variables: { n, sorted: 1 } }];
 
   for (let i = 1; i < n; i++) {
     const key = a[i];
     let j = i - 1;
-    steps.push({ array: [...a], highlights: [i], sorted: Array.from({ length: i }, (_, k) => k), message: `Picking ${key} — inserting into sorted portion [0..${i - 1}]`, variables: { i, key, j: j + 1 } });
+    steps.push({ array: [...a], highlights: [i], sorted: Array.from({ length: i }, (_, k) => k), message: `── Picking up ${key} (index ${i}) ── Now inserting it into the sorted portion [${a.slice(0, i).join(', ')}].`, variables: { card: key, sortedPortion: i } });
+    let shifted = 0;
     while (j >= 0 && a[j] > key) {
       a[j + 1] = a[j];
-      steps.push({ array: [...a], highlights: [j, j + 1], comparing: true, sorted: Array.from({ length: i }, (_, k) => k), message: `${a[j]} > ${key} — shifting ${a[j]} right`, variables: { i, key, j, 'arr[j]': a[j], shifting: true } });
+      shifted++;
+      steps.push({ array: [...a], highlights: [j, j + 1], comparing: true, sorted: Array.from({ length: i }, (_, k) => k), message: `${a[j]} > ${key} — shifting ${a[j]} one position right to make room.`, variables: { key, shifting: a[j], from: j, to: j + 1 } });
       j--;
     }
     a[j + 1] = key;
-    steps.push({ array: [...a], highlights: [j + 1], sorted: Array.from({ length: i + 1 }, (_, k) => k), message: `Inserted ${key} at index ${j + 1}`, variables: { i, key, insertAt: j + 1 } });
+    steps.push({ array: [...a], highlights: [j + 1], sorted: Array.from({ length: i + 1 }, (_, k) => k), message: shifted > 0 ? `✅ Placed ${key} at index ${j + 1} after shifting ${shifted} element${shifted > 1 ? 's' : ''}. Sorted: [${a.slice(0, i + 1).join(', ')}]` : `✅ ${key} is already in the right spot — no shifting needed!`, variables: { key, insertedAt: j + 1, shifted } });
   }
-  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '✅ Array is fully sorted!', variables: { sorted: n } });
+  steps.push({ array: [...a], highlights: [], sorted: Array.from({ length: n }, (_, k) => k), message: '🎉 Insertion Sort complete! Like a sorted hand of cards — each element found its place.', variables: { sorted: n } });
   return steps;
 }
 

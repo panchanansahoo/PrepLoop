@@ -13,7 +13,7 @@
         "smoke:interview-suite": "node scripts/smokeInterviewSuite.js",
         "smoke:interview-suite:local": "node scripts/runInterviewSuiteSmokeLocal.js",
         "smoke:ai-features": "node scripts/smokeAIFeatures.js",
-        "test:blog:admin": "node ../test-admin-blog.js",
+        "test:blog:admin": "node scripts/testAdminBlog.js",
         "test:coin:atomicity": "node scripts/test_coin_atomicity.js",
         "test:coin:integration": "node scripts/test_coin_integration.js",
         "test:coins": "npm run test:coin:integration && npm run test:coin:atomicity",
