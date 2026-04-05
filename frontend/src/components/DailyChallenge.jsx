@@ -17,7 +17,7 @@ function getDailyChallengeIndex(date = new Date()) {
     return seed % dailyChallenges.length;
 }
 
-const DailyChallenge = () => {
+const DailyChallenge = ({ challengeData = null }) => {
     const [todayStamp, setTodayStamp] = useState(() => new Date().toDateString());
     const { theme } = useTheme();
     const isLight = theme === 'light';
@@ -35,17 +35,15 @@ const DailyChallenge = () => {
     }, [todayStamp]);
 
     const challengeIndex = getDailyChallengeIndex(new Date(todayStamp));
-    const challenge = challengeIndex >= 0 ? dailyChallenges[challengeIndex] : null;
+    const challenge = challengeData || (challengeIndex >= 0 ? dailyChallenges[challengeIndex] : null);
 
     if (!challenge) {
         return null;
     }
 
-    const Icon = challenge.icon;
-
-    if (!Icon) {
-        return null;
-    }
+    const Icon = challenge.icon || Code2;
+    const dsaQuestions = Array.isArray(challenge.dsa) ? challenge.dsa : [];
+    const sqlQuestions = Array.isArray(challenge.sql) ? challenge.sql : [];
 
     const renderQuestionRow = (q, idx, isSql = false) => {
         const route = q.internalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
@@ -273,7 +271,11 @@ const DailyChallenge = () => {
                             Data Structures
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {challenge.dsa.map((q, idx) => renderQuestionRow(q, idx, false))}
+                            {dsaQuestions.length > 0 ? dsaQuestions.map((q, idx) => renderQuestionRow(q, idx, false)) : (
+                                <div style={{ fontSize: 13, color: isLight ? '#64748b' : 'rgba(255,255,255,0.55)' }}>
+                                    No DSA recommendations available yet.
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -302,7 +304,11 @@ const DailyChallenge = () => {
                             SQL & Database
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                            {challenge.sql.map((q, idx) => renderQuestionRow(q, idx, true))}
+                            {sqlQuestions.length > 0 ? sqlQuestions.map((q, idx) => renderQuestionRow(q, idx, true)) : (
+                                <div style={{ fontSize: 13, color: isLight ? '#64748b' : 'rgba(255,255,255,0.55)' }}>
+                                    No SQL recommendations in your DB yet.
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

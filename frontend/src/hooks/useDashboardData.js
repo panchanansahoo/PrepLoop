@@ -28,6 +28,9 @@ const EMPTY_DATA = {
     currentXP: 0,
     nextLevelXP: 0,
     rank: '',
+    dailyChallenge: { name: '', type: '', dsa: [], sql: [] },
+    upcomingContests: [],
+    pomodoroStats: { sessionsToday: 0, sessionsByDate: {} },
 };
 
 export default function useDashboardData() {

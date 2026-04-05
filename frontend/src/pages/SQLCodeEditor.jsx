@@ -18,6 +18,7 @@ const getAuthHeaders = () => {
 };
 
 const diffColors = { Easy: '#10b981', Medium: '#f59e0b', Hard: '#ef4444' };
+const getSQLSolutionUnlockKey = (id) => `sql-solution-unlocked-${String(id ?? '').trim()}`;
 
 export default function SQLCodeEditor() {
   const { problemId } = useParams();
@@ -35,6 +36,9 @@ export default function SQLCodeEditor() {
   const [execTime, setExecTime] = useState(null);
   const [showHints, setShowHints] = useState(false);
   const [hintLevel, setHintLevel] = useState(0);
+  const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
+    return localStorage.getItem(getSQLSolutionUnlockKey(problemId)) === 'true';
+  });
   const [focusMode, setFocusMode] = useState(false);
   const [leftWidth, setLeftWidth] = useState(22);
   const [bottomHeight, setBottomHeight] = useState(250);
@@ -87,6 +91,10 @@ export default function SQLCodeEditor() {
     }
   }, [problemId]);
 
+  useEffect(() => {
+    setSolutionUnlocked(localStorage.getItem(getSQLSolutionUnlockKey(problemId)) === 'true');
+  }, [problemId]);
+
   // Timer
   useEffect(() => {
     timerRef.current = setInterval(() => setTimer(t => t + 1), 1000);
@@ -133,8 +141,11 @@ export default function SQLCodeEditor() {
   }, [code, running]);
 
   const handleSubmit = useCallback(() => {
+    const unlockKey = getSQLSolutionUnlockKey(problemId);
+    setSolutionUnlocked(true);
+    localStorage.setItem(unlockKey, 'true');
     handleRun();
-  }, [handleRun]);
+  }, [handleRun, problemId]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -341,6 +352,7 @@ export default function SQLCodeEditor() {
               expectedOutput={problem?.expectedQuery ? { columns: ['Expected Query'], rows: [[problem.expectedQuery]] } : null}
               status={status}
               executionTime={execTime}
+              solutionUnlocked={solutionUnlocked}
             />
           </div>
         </div>
@@ -373,7 +385,7 @@ export default function SQLCodeEditor() {
             {/* Solution */}
             <div style={{ marginTop: 20, borderTop: `1px solid ${c.panelBorder}`, paddingTop: 16 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: c.labelColor, marginBottom: 8 }}>SOLUTION</div>
-              {hintLevel >= problem.hints.length ? (
+              {solutionUnlocked ? (
                 <>
                   <pre style={{ background: c.solutionBg, border: `1px solid ${c.solutionBorder}`, borderRadius: 8, padding: 12, fontSize: 12, color: c.solutionColor, overflow: 'auto', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>{problem.expectedQuery}</pre>
                   {problem.explanation && (
@@ -381,12 +393,9 @@ export default function SQLCodeEditor() {
                   )}
                 </>
               ) : (
-                <button
-                  onClick={() => setHintLevel(problem.hints.length)}
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 8, background: c.lockedBg, border: `1px solid ${c.lockedBorder}`, color: c.lockedColor, fontSize: 13, cursor: 'pointer' }}
-                >
-                  🔒 Reveal all hints first, then view solution
-                </button>
+                <div style={{ padding: '12px 14px', borderRadius: 8, background: c.lockedBg, border: `1px solid ${c.lockedBorder}`, color: c.lockedColor, fontSize: 13, lineHeight: 1.5 }}>
+                  🔒 Submit your first solution to reveal the answer
+                </div>
               )}
             </div>
           </div>

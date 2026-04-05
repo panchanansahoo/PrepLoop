@@ -8,7 +8,7 @@ import {
     Braces, Hash, FileCode, Layers, Sparkles, X,
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
-    Type, ChevronUp, Link2,
+    Type, ChevronUp, Link2, Volume2,
     PanelRightOpen, Settings, Info,
     Bot, Send, MessageSquare, Eraser,
     ClipboardCheck, RefreshCw, FileCode2, AlertTriangle
@@ -474,6 +474,21 @@ export default function CodingPlayground() {
     const [sidebarTab, setSidebarTab] = useState('errors');
     const [liveErrors, setLiveErrors] = useState([]);
     const [liveLintPending, setLiveLintPending] = useState(false);
+    const [voiceErrorsEnabled, setVoiceErrorsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-enabled') === '1');
+    const [voiceRate, setVoiceRate] = useState(() => {
+        const raw = Number(localStorage.getItem('pg-voice-errors-rate'));
+        if (Number.isFinite(raw) && raw >= 0.7 && raw <= 1.6) return raw;
+        return 1;
+    });
+    const [voiceVolume, setVoiceVolume] = useState(() => {
+        const raw = Number(localStorage.getItem('pg-voice-errors-volume'));
+        if (Number.isFinite(raw) && raw >= 0 && raw <= 1) return raw;
+        return 0.9;
+    });
+    const [voiceWarningsEnabled, setVoiceWarningsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-warnings') === '1');
+    const [voiceName, setVoiceName] = useState(() => localStorage.getItem('pg-voice-errors-name') || '');
+    const [voiceOptions, setVoiceOptions] = useState([]);
+    const [voiceSupported, setVoiceSupported] = useState(false);
     const [runPhase, setRunPhase] = useState('idle');
     const [lastExecutionMeta, setLastExecutionMeta] = useState(null);
     const [consoleFilter, setConsoleFilter] = useState('all');
@@ -496,6 +511,10 @@ export default function CodingPlayground() {
     const runPhaseTimeoutsRef = useRef([]);
     const runAbortRef = useRef(null);
     const runTokenRef = useRef(0);
+    const lintRequestSeqRef = useRef(0);
+    const voiceTimerRef = useRef(null);
+    const voiceInitializedRef = useRef(false);
+    const lastVoiceSignatureRef = useRef('');
 
     // ─── Load saved code or default ───
     useEffect(() => {
@@ -852,7 +871,7 @@ export default function CodingPlayground() {
         aiEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [aiMessages, aiLoading]);
 
-    // ─── Real-time editor diagnostics ───
+    // ─── Real-time local diagnostics (instant) ───
     useEffect(() => {
         if (!editorRef.current || !monacoRef.current) return;
         const editor = editorRef.current;
@@ -860,31 +879,49 @@ export default function CodingPlayground() {
         const model = editor.getModel();
         if (!model) return;
 
-        const timer = setTimeout(() => {
-            const nextLocalErrors = getRealtimeErrors(code, language);
-            setLiveErrors(nextLocalErrors);
+        const nextLocalErrors = getRealtimeErrors(code, language);
+        setLiveErrors(nextLocalErrors);
 
-            const markers = nextLocalErrors.map((error) => ({
-                startLineNumber: error.line,
-                startColumn: error.col,
-                endLineNumber: error.line,
-                endColumn: error.col + 1,
-                message: error.message,
-                severity: monaco.MarkerSeverity.Error,
-            }));
+        const markers = nextLocalErrors.map((error) => ({
+            startLineNumber: error.line,
+            startColumn: error.col,
+            endLineNumber: error.line,
+            endColumn: error.col + 1,
+            message: error.message,
+            severity: error.severity === 'warning' ? monaco.MarkerSeverity.Warning : monaco.MarkerSeverity.Error,
+        }));
 
-            monaco.editor.setModelMarkers(model, 'playground-live', markers);
+        monaco.editor.setModelMarkers(model, 'playground-live', markers);
+    }, [code, language]);
 
-            const serverLintSupportedLanguages = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
-            if (!serverLintSupportedLanguages.has(language)) {
-                setLiveLintPending(false);
-                return;
-            }
-
-            setLiveLintPending(true);
+    // ─── Server lint diagnostics (debounced) ───
+    useEffect(() => {
+        const serverLintSupportedLanguages = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
+        if (!serverLintSupportedLanguages.has(language) || !String(code || '').trim()) {
             lintAbortRef.current?.abort();
-            const controller = new AbortController();
-            lintAbortRef.current = controller;
+            setLiveLintPending(false);
+            return;
+        }
+
+        if (!editorRef.current || !monacoRef.current) return;
+        const editor = editorRef.current;
+        const monaco = monacoRef.current;
+        const model = editor.getModel();
+        if (!model) return;
+
+        lintAbortRef.current?.abort();
+        const controller = new AbortController();
+        lintAbortRef.current = controller;
+        const requestSeq = lintRequestSeqRef.current + 1;
+        lintRequestSeqRef.current = requestSeq;
+        let pendingIndicatorTimer = null;
+
+        const timer = setTimeout(() => {
+            pendingIndicatorTimer = setTimeout(() => {
+                if (!controller.signal.aborted && requestSeq === lintRequestSeqRef.current) {
+                    setLiveLintPending(true);
+                }
+            }, 150);
 
             fetch(`${API_URL}/api/practice/lint`, {
                 method: 'POST',
@@ -894,9 +931,10 @@ export default function CodingPlayground() {
             })
                 .then((res) => res.json().catch(() => ({})))
                 .then((data) => {
-                    if (controller.signal.aborted) return;
+                    if (controller.signal.aborted || requestSeq !== lintRequestSeqRef.current) return;
                     const serverErrors = Array.isArray(data?.errors) ? data.errors : [];
-                    const mergedErrors = mergeAndDedupeErrors(nextLocalErrors, serverErrors);
+                    const latestLocalErrors = getRealtimeErrors(code, language);
+                    const mergedErrors = mergeAndDedupeErrors(latestLocalErrors, serverErrors);
                     setLiveErrors(mergedErrors);
 
                     const mergedMarkers = mergedErrors.map((error) => ({
@@ -913,12 +951,24 @@ export default function CodingPlayground() {
                     // Ignore lint network errors for realtime UX.
                 })
                 .finally(() => {
-                    if (!controller.signal.aborted) setLiveLintPending(false);
+                    if (pendingIndicatorTimer) {
+                        clearTimeout(pendingIndicatorTimer);
+                        pendingIndicatorTimer = null;
+                    }
+                    if (!controller.signal.aborted && requestSeq === lintRequestSeqRef.current) {
+                        setLiveLintPending(false);
+                    }
                 });
-        }, 220);
+        }, 120);
 
         return () => {
             clearTimeout(timer);
+            if (pendingIndicatorTimer) {
+                clearTimeout(pendingIndicatorTimer);
+                pendingIndicatorTimer = null;
+            }
+            setLiveLintPending(false);
+            controller.abort();
         };
     }, [code, language]);
 
@@ -931,10 +981,145 @@ export default function CodingPlayground() {
     }, [liveErrors.length]);
 
     useEffect(() => {
+        const supported = typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+        setVoiceSupported(supported);
+    }, []);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-enabled', voiceErrorsEnabled ? '1' : '0');
+    }, [voiceErrorsEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-rate', String(voiceRate));
+    }, [voiceRate]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-volume', String(voiceVolume));
+    }, [voiceVolume]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-warnings', voiceWarningsEnabled ? '1' : '0');
+    }, [voiceWarningsEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-name', voiceName);
+    }, [voiceName]);
+
+    useEffect(() => {
+        if (!voiceSupported || typeof window === 'undefined') return;
+
+        const hydrateVoices = () => {
+            const list = window.speechSynthesis.getVoices() || [];
+            setVoiceOptions(list);
+            if (!list.length) return;
+            if (voiceName && list.some((voice) => voice.name === voiceName)) return;
+            const preferred = list.find((voice) => /en/i.test(voice.lang)) || list[0];
+            if (preferred) setVoiceName(preferred.name);
+        };
+
+        hydrateVoices();
+        window.speechSynthesis.addEventListener('voiceschanged', hydrateVoices);
+        return () => {
+            window.speechSynthesis.removeEventListener('voiceschanged', hydrateVoices);
+        };
+    }, [voiceName, voiceSupported]);
+
+    useEffect(() => {
+        if (!voiceSupported || !voiceErrorsEnabled) {
+            if (voiceTimerRef.current) {
+                clearTimeout(voiceTimerRef.current);
+                voiceTimerRef.current = null;
+            }
+            if (voiceSupported && typeof window !== 'undefined') {
+                window.speechSynthesis.cancel();
+            }
+            return;
+        }
+
+        if (!voiceInitializedRef.current) {
+            voiceInitializedRef.current = true;
+            return;
+        }
+
+        const normalized = (liveErrors || []).map((error) => ({
+            line: error.line || 1,
+            col: error.col || 1,
+            message: String(error.message || 'Error').trim(),
+            severity: error.severity === 'warning' ? 'warning' : 'error',
+        }));
+
+        const announceable = voiceWarningsEnabled
+            ? normalized
+            : normalized.filter((error) => error.severity === 'error');
+
+        if (announceable.length === 0) {
+            lastVoiceSignatureRef.current = '';
+            if (voiceTimerRef.current) {
+                clearTimeout(voiceTimerRef.current);
+                voiceTimerRef.current = null;
+            }
+            window.speechSynthesis.cancel();
+            return;
+        }
+
+        const priority = [...announceable].sort((a, b) => {
+            if (a.severity !== b.severity) return a.severity === 'error' ? -1 : 1;
+            if (a.line !== b.line) return a.line - b.line;
+            return a.col - b.col;
+        }).slice(0, 2);
+
+        const signature = JSON.stringify(priority);
+        if (signature === lastVoiceSignatureRef.current) return;
+        lastVoiceSignatureRef.current = signature;
+
+        if (voiceTimerRef.current) {
+            clearTimeout(voiceTimerRef.current);
+            voiceTimerRef.current = null;
+        }
+
+        voiceTimerRef.current = setTimeout(() => {
+            const prefix = priority.length === 1 ? 'New error.' : `${priority.length} errors found.`;
+            const body = priority
+                .map((error) => `Line ${error.line}, column ${error.col}. ${error.message}`)
+                .join(' ');
+            const utterance = new SpeechSynthesisUtterance(`${prefix} ${body}`);
+            utterance.rate = voiceRate;
+            utterance.volume = voiceVolume;
+            const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName);
+            if (selectedVoice) utterance.voice = selectedVoice;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        }, 420);
+
+        return () => {
+            if (voiceTimerRef.current) {
+                clearTimeout(voiceTimerRef.current);
+                voiceTimerRef.current = null;
+            }
+        };
+    }, [
+        liveErrors,
+        voiceErrorsEnabled,
+        voiceName,
+        voiceOptions,
+        voiceRate,
+        voiceSupported,
+        voiceVolume,
+        voiceWarningsEnabled,
+    ]);
+
+    useEffect(() => {
         return () => {
             runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
             runAbortRef.current?.abort();
             lintAbortRef.current?.abort();
+            if (voiceTimerRef.current) {
+                clearTimeout(voiceTimerRef.current);
+                voiceTimerRef.current = null;
+            }
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
             if (!editorRef.current || !monacoRef.current) return;
             const model = editorRef.current.getModel();
             if (model) {
@@ -1109,6 +1294,17 @@ export default function CodingPlayground() {
         editorRef.current.setPosition({ lineNumber: error.line, column: error.col || 1 });
         editorRef.current.focus();
     };
+
+    const handleVoiceTest = useCallback(() => {
+        if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+        const utterance = new SpeechSynthesisUtterance('Voice error readout is enabled. This is a sample diagnostic message for line 12.');
+        utterance.rate = voiceRate;
+        utterance.volume = voiceVolume;
+        const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName);
+        if (selectedVoice) utterance.voice = selectedVoice;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }, [voiceName, voiceOptions, voiceRate, voiceVolume]);
 
     const sidebarTabs = useMemo(() => ([
         { id: 'errors', icon: <AlertTriangle size={16} />, label: `Errors${liveErrors.length ? ` (${liveErrors.length})` : ''}` },
@@ -1466,6 +1662,87 @@ export default function CodingPlayground() {
                                     <AlertTriangle size={14} />
                                     <span>Live Errors</span>
                                     <span className="pg-sidebar-badge">{liveErrors.length}</span>
+                                </div>
+                                <div style={{ display: 'grid', gap: '8px', marginBottom: '10px', padding: '8px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', cursor: voiceSupported ? 'pointer' : 'not-allowed', opacity: voiceSupported ? 1 : 0.55 }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                            <Volume2 size={12} />
+                                            Voice error readout
+                                        </span>
+                                        <input
+                                            type="checkbox"
+                                            checked={voiceErrorsEnabled}
+                                            disabled={!voiceSupported}
+                                            onChange={(e) => setVoiceErrorsEnabled(e.target.checked)}
+                                        />
+                                    </label>
+                                    {!voiceSupported && (
+                                        <div style={{ fontSize: '11px', opacity: 0.75 }}>
+                                            Voice readout is not available in this browser/device.
+                                        </div>
+                                    )}
+                                    {voiceErrorsEnabled && voiceSupported && (
+                                        <>
+                                            <label style={{ display: 'grid', gridTemplateColumns: '56px 1fr', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
+                                                <span>Warn</span>
+                                                <input type="checkbox" checked={voiceWarningsEnabled} onChange={(e) => setVoiceWarningsEnabled(e.target.checked)} />
+                                            </label>
+                                            <label style={{ display: 'grid', gridTemplateColumns: '56px 1fr', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
+                                                <span>Voice</span>
+                                                <select
+                                                    value={voiceName}
+                                                    onChange={(e) => setVoiceName(e.target.value)}
+                                                    style={{
+                                                        background: 'rgba(255,255,255,0.06)',
+                                                        border: '1px solid rgba(255,255,255,0.2)',
+                                                        borderRadius: '8px',
+                                                        color: 'inherit',
+                                                        fontSize: '11px',
+                                                        padding: '4px 6px',
+                                                    }}
+                                                >
+                                                    {voiceOptions.map((voice) => (
+                                                        <option key={`${voice.name}-${voice.lang}`} value={voice.name}>
+                                                            {voice.name} ({voice.lang})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </label>
+                                            <label style={{ display: 'grid', gridTemplateColumns: '44px 1fr 38px', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
+                                                <span>Rate</span>
+                                                <input type="range" min="0.7" max="1.6" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(Number(e.target.value))} />
+                                                <span>{voiceRate.toFixed(1)}x</span>
+                                            </label>
+                                            <label style={{ display: 'grid', gridTemplateColumns: '44px 1fr 38px', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
+                                                <span>Vol</span>
+                                                <input type="range" min="0" max="1" step="0.1" value={voiceVolume} onChange={(e) => setVoiceVolume(Number(e.target.value))} />
+                                                <span>{Math.round(voiceVolume * 100)}%</span>
+                                            </label>
+                                            <button
+                                                className="pg-console-clear"
+                                                type="button"
+                                                onClick={handleVoiceTest}
+                                                disabled={!voiceOptions.length}
+                                                style={{ justifySelf: 'start' }}
+                                            >
+                                                <Volume2 size={11} />
+                                                <span>Test voice</span>
+                                            </button>
+                                            <button
+                                                className="pg-console-clear"
+                                                type="button"
+                                                onClick={() => {
+                                                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                                                        window.speechSynthesis.cancel();
+                                                    }
+                                                }}
+                                                style={{ justifySelf: 'start' }}
+                                            >
+                                                <X size={11} />
+                                                <span>Stop voice</span>
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                                 {liveLintPending && (
                                     <div style={{ fontSize: '11px', opacity: 0.75, marginBottom: '8px' }}>

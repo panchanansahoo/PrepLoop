@@ -15,8 +15,44 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+const LANGUAGE_ALIASES = {
+  python: ['python', 'py'],
+  javascript: ['javascript', 'js', 'typescript', 'ts'],
+  cpp: ['cpp', 'c++', 'cxx'],
+  java: ['java'],
+  go: ['go', 'golang'],
+};
+
+const SOLUTION_LANGUAGE_ORDER = ['python', 'javascript', 'cpp', 'java', 'go'];
+
+function getSolutionText(solution, language) {
+  if (typeof solution === 'string') {
+    return solution.trim();
+  }
+
+  if (!solution || typeof solution !== 'object') {
+    return '';
+  }
+
+  const requestedLanguage = String(language || '').toLowerCase();
+  const candidateKeys = [
+    ...(LANGUAGE_ALIASES[requestedLanguage] || [requestedLanguage]),
+    ...SOLUTION_LANGUAGE_ORDER,
+  ];
+
+  for (const key of candidateKeys) {
+    const value = solution[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  const firstAvailableValue = Object.values(solution).find((value) => typeof value === 'string' && value.trim());
+  return firstAvailableValue ? firstAvailableValue.trim() : '';
+}
+
 export default function ProblemDescriptionPanel({
-  problem, problemId, onShowHints, showHints = false, allProblems = [], navigate
+  problem, problemId, onShowHints, showHints = false, allProblems = [], navigate, language = 'python', hasSubmitted = false
 }) {
   const [activeTopTab, setActiveTopTab] = useState('problem');
   const [activeSubTab, setActiveSubTab] = useState('description');
@@ -131,6 +167,8 @@ export default function ProblemDescriptionPanel({
     return 'No explanation available yet.';
   }, [problem?.explanation, problem?.description, problem?.hints]);
 
+  const displayedSolution = useMemo(() => getSolutionText(solutionCode, language), [solutionCode, language]);
+
   // ─── Related Questions ───
   const relatedProblems = useMemo(() => {
     if (!problem || !allProblems.length) return [];
@@ -155,23 +193,33 @@ export default function ProblemDescriptionPanel({
 
   // Resolve numeric problem ID for API calls
   const resolvedId = problemId || problem?.id;
+  const solutionIdentifier = useMemo(() => {
+    if (problem?.title) return problem.title;
+    return resolvedId;
+  }, [problem?.title, resolvedId]);
+
+  useEffect(() => {
+    setSolutionCode(null);
+    setSolutionError(null);
+    setLoadingSolution(false);
+  }, [resolvedId]);
 
   // Fetch solution when Solution tab is activated
   useEffect(() => {
-    if (activeTopTab !== 'solution' || !resolvedId || solutionCode !== null) return;
+    if (activeTopTab !== 'solution' || !solutionIdentifier || !hasSubmitted || solutionCode !== null) return;
     setLoadingSolution(true);
     setSolutionError(null);
-    fetch(`${API_URL}/api/dsa/problems/${resolvedId}/solution`, { headers: getAuthHeaders() })
+    fetch(`${API_URL}/api/dsa/problems/${encodeURIComponent(solutionIdentifier)}/solution`, { headers: getAuthHeaders() })
       .then(r => r.json())
       .then(data => {
-        setSolutionCode(data.solution || '');
+        setSolutionCode(data.solution ?? null);
       })
       .catch(err => {
         console.error('Error fetching solution:', err);
         setSolutionError('Could not load solution');
       })
       .finally(() => setLoadingSolution(false));
-  }, [activeTopTab, resolvedId, solutionCode]);
+  }, [activeTopTab, solutionIdentifier, hasSubmitted, solutionCode]);
 
   // Fetch submission history when History tab is activated
   useEffect(() => {
@@ -660,7 +708,12 @@ export default function ProblemDescriptionPanel({
       {/* ═══ SOLUTION TAB ═══ */}
       {activeTopTab === 'solution' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-          {loadingSolution ? (
+          {!hasSubmitted ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)' }}>
+              <Code2 size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
+              <p style={{ fontSize: 12, fontWeight: 600 }}>Submit your first solution to reveal the answer</p>
+            </div>
+          ) : loadingSolution ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'rgba(255,255,255,0.3)' }}>
               <div style={{
                 width: 32, height: 32, border: '3px solid rgba(139,92,246,0.2)',
@@ -675,12 +728,12 @@ export default function ProblemDescriptionPanel({
               <AlertCircle size={28} style={{ marginBottom: 10, opacity: 0.4 }} />
               <p style={{ fontSize: 12, fontWeight: 600 }}>{solutionError}</p>
             </div>
-          ) : solutionCode ? (
+          ) : displayedSolution ? (
             <>
               <div style={{
                 fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
                 textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12,
-              }}>Editorial Solution</div>
+              }}>Editorial Solution · {String(language || 'python').toUpperCase()}</div>
               <div style={{
                 padding: 16, borderRadius: 10,
                 background: 'rgba(0,0,0,0.3)',
@@ -690,7 +743,7 @@ export default function ProblemDescriptionPanel({
                 color: '#e2e8f0', overflowX: 'auto',
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               }}>
-                {solutionCode}
+                {displayedSolution}
               </div>
             </>
           ) : (

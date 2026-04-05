@@ -31,8 +31,8 @@ function AnimatedCounter({ end, duration = 1200, suffix = '' }) {
 }
 
 export default function QuickStats({ data }) {
-    const stats = data || { streak: 0, problemsSolved: 0, avgScore: 0, totalXP: 0 };
-    const hasActivity = [stats.streak, stats.problemsSolved, stats.avgScore, stats.totalXP].some((value) => value > 0);
+    const stats = data || { streak: 0, problemsSolved: 0, avgScore: 0, attendInterview: 0 };
+    const hasActivity = [stats.streak, stats.problemsSolved, stats.avgScore, stats.attendInterview].some((value) => value > 0);
 
     const cards = [
         {
@@ -69,15 +69,15 @@ export default function QuickStats({ data }) {
             emptyHint: 'Score appears after your first review'
         },
         {
-            label: 'Total XP',
-            value: stats.totalXP,
+            label: 'Attend Interview',
+            value: stats.attendInterview,
             icon: Zap,
             color: '#38bdf8',
             gradient: 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(56,189,248,0.03))',
             borderGlow: 'rgba(56, 189, 248, 0.2)',
             suffix: '',
-            activeHint: 'XP earned from practice and reviews',
-            emptyHint: 'Complete a mock to unlock XP'
+            activeHint: 'Completed mock interviews',
+            emptyHint: 'Start your first mock interview'
         }
     ];
 

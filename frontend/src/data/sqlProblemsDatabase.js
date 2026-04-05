@@ -1020,7 +1020,19 @@ export const SQL_PROBLEMS = [
 ];
 
 // ═══ Helper Functions ═══
-export const getSQLProblemById = (id) => SQL_PROBLEMS.find(p => p.id === id);
+const normalizeSQLProblemId = (id) => {
+  const raw = String(id ?? '').trim().toLowerCase();
+  if (!raw) return '';
+  return raw.startsWith('sql-') ? raw : `sql-${raw}`;
+};
+
+export const getSQLProblemById = (id) => {
+  const normalizedId = normalizeSQLProblemId(id);
+  return SQL_PROBLEMS.find((problem) => {
+    const problemId = String(problem.id ?? '').trim().toLowerCase();
+    return problemId === normalizedId || problemId === String(id ?? '').trim().toLowerCase();
+  });
+};
 export const getSQLProblemsByCategory = (cat) => SQL_PROBLEMS.filter(p => p.category === cat);
 export const getSQLProblemsByDifficulty = (diff) => SQL_PROBLEMS.filter(p => p.difficulty === diff);
 export const getSQLProblemsBySchema = (schemaId) => SQL_PROBLEMS.filter(p => p.schemaId === schemaId);

@@ -79,9 +79,10 @@ const S = {
     transition: 'all 0.15s ease',
   }),
   caseTabs: {
-    display: 'flex', alignItems: 'center', gap: 0,
-    padding: '0 12px', borderBottom: '1px solid rgba(255,255,255,0.04)',
-    overflowX: 'auto',
+    display: 'flex', alignItems: 'center', alignContent: 'flex-start', gap: 0,
+    padding: '0 12px 6px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+    flexWrap: 'wrap',
+    overflowX: 'hidden',
   },
   caseTab: (active) => ({
     padding: '7px 16px', cursor: 'pointer',

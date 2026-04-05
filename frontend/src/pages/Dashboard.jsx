@@ -56,7 +56,6 @@ import UpcomingContests from '../components/UpcomingContests';
 import CalendarWidget from '../components/CalendarWidget';
 import PomodoroTimer from '../components/PomodoroTimer';
 import WeeklyStats from '../components/WeeklyStats';
-import LevelProgress from '../components/LevelProgress';
 
 import TodoList from '../components/TodoList';
 
@@ -76,7 +75,6 @@ const WIDGET_REGISTRY = [
 
     { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
     { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
-    { id: 'levelProgress', name: 'Level Progress', component: LevelProgress, defaultVisible: true, premium: false, layout: '2col-right', description: 'Your level, rank & XP progression' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -142,7 +140,7 @@ export default function Dashboard() {
                         streak: dashboardData.streak,
                         problemsSolved: dashboardData.stats.problemsSolved,
                         avgScore: dashboardData.avgScore,
-                        totalXP: dashboardData.totalXP,
+                        attendInterview: dashboardData.stats.mockInterviews,
                     }
                 };
             case 'streakHeatmap':
@@ -159,6 +157,12 @@ export default function Dashboard() {
                 return { data: dashboardData.skillBreakdown };
             case 'recentActivity':
                 return { activities: dashboardData.recentActivity };
+            case 'dailyChallenge':
+                return { challengeData: dashboardData.dailyChallenge };
+            case 'upcomingContests':
+                return { contests: dashboardData.upcomingContests };
+            case 'pomodoroTimer':
+                return { stats: dashboardData.pomodoroStats };
             case 'weeklyGoals':
                 return { weeklyData: dashboardData.weeklyGoals };
             case 'weeklyStats':
@@ -166,16 +170,6 @@ export default function Dashboard() {
                     weeklyData: {
                         thisWeek: { problems: dashboardData.thisWeekProblems ?? 0, time: dashboardData.thisWeekTime ?? 0, xp: dashboardData.thisWeekXP ?? 0 },
                         lastWeek: { problems: dashboardData.lastWeekProblems ?? 0, time: dashboardData.lastWeekTime ?? 0, xp: dashboardData.lastWeekXP ?? 0 }
-                    }
-                };
-            case 'levelProgress':
-                return {
-                    levelData: {
-                        currentLevel: dashboardData.currentLevel ?? 0,
-                        currentXP: dashboardData.currentXP ?? 0,
-                        nextLevelXP: dashboardData.nextLevelXP ?? 0,
-                        totalXP: dashboardData.totalXP ?? 0,
-                        rank: dashboardData.rank ?? ''
                     }
                 };
             default:

@@ -78,12 +78,13 @@ function getLastRefreshLabel(timestamp) {
 
 // ── Main component ──
 
-export default function UpcomingContests() {
+export default function UpcomingContests({ contests: contestsFromDashboard }) {
     const [contests, setContests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [lastRefresh, setLastRefresh] = useState(null);
     const { theme } = useTheme();
     const isLight = theme === 'light';
+    const hasDashboardContests = Array.isArray(contestsFromDashboard) && contestsFromDashboard.length > 0;
 
     const fetchAll = useCallback(async (force = false) => {
         if (!force) {
@@ -111,15 +112,26 @@ export default function UpcomingContests() {
     }, []);
 
     useEffect(() => {
+        if (hasDashboardContests) {
+            setContests(contestsFromDashboard.map((item) => ({
+                ...item,
+                date: item.date instanceof Date ? item.date : new Date(item.date),
+            })));
+            setLoading(false);
+            setLastRefresh(Date.now());
+            return undefined;
+        }
+
         fetchAll();
         const interval = setInterval(() => {
             const cache = getCachedContests();
             if (!cache) fetchAll(true);
         }, 60 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [fetchAll]);
+    }, [fetchAll, hasDashboardContests, contestsFromDashboard]);
 
     const handleRefresh = () => {
+        if (hasDashboardContests) return;
         localStorage.removeItem(CACHE_KEY);
         fetchAll(true);
     };
@@ -197,7 +209,7 @@ export default function UpcomingContests() {
                 </div>
                 <button
                     onClick={handleRefresh}
-                    disabled={loading}
+                    disabled={loading || hasDashboardContests}
                     title="Refresh contests"
                     style={{
                         background: colors.btnBg, border: colors.btnBorder,
@@ -205,11 +217,11 @@ export default function UpcomingContests() {
                         color: colors.btnColor, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5,
                         transition: 'all 0.2s',
                     }}
-                    onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = colors.btnHoverBg; e.currentTarget.style.color = colors.btnHoverColor; } }}
+                    onMouseEnter={e => { if (!loading && !hasDashboardContests) { e.currentTarget.style.background = colors.btnHoverBg; e.currentTarget.style.color = colors.btnHoverColor; } }}
                     onMouseLeave={e => { e.currentTarget.style.background = colors.btnBg; e.currentTarget.style.color = colors.btnColor; }}
                 >
                     <span style={{ display: 'inline-block', animation: loading ? 'spin 1s linear infinite' : 'none' }}>🔄</span>
-                    {loading ? 'Updating…' : 'Refresh'}
+                    {hasDashboardContests ? 'DB Data' : (loading ? 'Updating…' : 'Refresh')}
                 </button>
             </div>
 
@@ -235,13 +247,57 @@ export default function UpcomingContests() {
                 }}>
                     {contests.map((contest, i) => {
                         const meta = PLATFORM_META[contest.platform] || { color: '#94a3b8', icon: '📌', link: '#' };
-                        return (
-                            <a key={i} href={contest.link} target="_blank" rel="noreferrer" style={{
+                        const contestRowStyle = {
                                 display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px',
                                 borderRadius: 12, background: colors.itemBg,
                                 border: colors.itemBorder, textDecoration: 'none',
                                 transition: 'all 0.2s', cursor: 'pointer', flexShrink: 0,
-                            }}
+                            };
+
+                        const onEnter = (e) => { e.currentTarget.style.background = colors.itemHoverBg; e.currentTarget.style.borderColor = colors.itemHoverBorder; };
+                        const onLeave = (e) => { e.currentTarget.style.background = colors.itemBg; e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); };
+
+                        if (!contest.link) {
+                            return (
+                                <div key={i} style={contestRowStyle} onMouseEnter={onEnter} onMouseLeave={onLeave}>
+                                    {/* Platform Icon */}
+                                    <div style={{
+                                        width: 40, height: 40, borderRadius: 10, display: 'flex',
+                                        alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                                        background: `${meta.color}15`, flexShrink: 0,
+                                    }}>{meta.icon}</div>
+
+                                    {/* Info */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{
+                                            fontSize: 13, fontWeight: 600, color: colors.nameColor, marginBottom: 2,
+                                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                        }}>
+                                            {contest.name}
+                                            {contest.live && (
+                                                <span style={{
+                                                    fontSize: 8, fontWeight: 700, padding: '1px 5px', borderRadius: 4,
+                                                    background: colors.apiBg, color: colors.apiColor, letterSpacing: 0.3,
+                                                }}>API</span>
+                                            )}
+                                        </div>
+                                        <div style={{ fontSize: 11, color: colors.metaColor }}>
+                                            {contest.platform} · {contest.duration} · {formatTime(contest.date)}
+                                        </div>
+                                    </div>
+
+                                    {/* Countdown */}
+                                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{getDaysUntil(contest.date)}</div>
+                                        <div style={{ fontSize: 10, color: colors.dateColor, marginTop: 1 }}>{formatDate(contest.date)}</div>
+                                    </div>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <a key={i} href={contest.link} target="_blank" rel="noreferrer" style={contestRowStyle}
                                 onMouseEnter={e => { e.currentTarget.style.background = colors.itemHoverBg; e.currentTarget.style.borderColor = colors.itemHoverBorder; }}
                                 onMouseLeave={e => { e.currentTarget.style.background = colors.itemBg; e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); }}
                             >
