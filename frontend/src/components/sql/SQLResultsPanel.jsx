@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CheckCircle, XCircle, Clock, ArrowUpDown } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 
-export default function SQLResultsPanel({ results, expectedOutput, status, executionTime }) {
+export default function SQLResultsPanel({ results, expectedOutput, status, executionTime, solutionUnlocked = false }) {
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const [activeTab, setActiveTab] = useState('results');
@@ -30,7 +30,7 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
 
     const tabs = [
         { id: 'results', label: 'Results' },
-        { id: 'expected', label: 'Expected Output' },
+        { id: 'solution', label: 'Solution' },
     ];
 
     const statusBadge = () => {
@@ -131,7 +131,13 @@ export default function SQLResultsPanel({ results, expectedOutput, status, execu
             </div>
 
             {/* Content */}
-            {renderTable(currentData)}
+            {activeTab === 'solution' && !solutionUnlocked ? (
+                <div style={{ padding: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', color: c.emptyColor, fontSize: 13, textAlign: 'center' }}>
+                    Submit your first solution to reveal the answer
+                </div>
+            ) : (
+                renderTable(currentData)
+            )}
         </div>
     );
 }

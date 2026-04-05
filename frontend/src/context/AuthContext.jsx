@@ -20,6 +20,7 @@ export function AuthProvider({ children }) {
 
           if (session) {
             const token = session.access_token;
+            localStorage.removeItem('isGuest');
             localStorage.setItem('token', token);
             localStorage.setItem('refreshToken', session.refresh_token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -101,6 +102,7 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_IN' && session) {
           // ... logic to update user ...
           const token = session.access_token;
+          localStorage.removeItem('isGuest');
           localStorage.setItem('token', token);
           localStorage.setItem('refreshToken', session.refresh_token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -134,7 +136,9 @@ export function AuthProvider({ children }) {
           if (mounted) {
             setUser(null);
             localStorage.removeItem('token');
+            localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
+            localStorage.removeItem('isGuest');
           }
         }
       });
@@ -151,6 +155,7 @@ export function AuthProvider({ children }) {
     const response = await axios.post('/api/auth/login', { email, password });
     const { token, refreshToken, user } = response.data;
 
+    localStorage.removeItem('isGuest');
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));

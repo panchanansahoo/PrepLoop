@@ -35,6 +35,24 @@ function loadSettings() {
     } catch { return { focus: 25, break: 5, longBreak: 15, autoStart: false, sound: true }; }
 }
 
+function buildInitialPomodoroState(stats) {
+    const hasServerStats = stats && typeof stats === 'object' && stats.sessionsByDate;
+    if (hasServerStats) {
+        return {
+            sessions: Number(stats.sessionsToday) || 0,
+            history: stats.sessionsByDate || {},
+            fromServer: true,
+        };
+    }
+
+    const history = loadHistory();
+    return {
+        sessions: history[todayKey()] || 0,
+        history,
+        fromServer: false,
+    };
+}
+
 function todayKey() {
     return new Date().toISOString().split('T')[0];
 }
@@ -78,20 +96,28 @@ function playBeep() {
     } catch {}
 }
 
-export default function PomodoroTimer() {
+export default function PomodoroTimer({ stats }) {
+    const initialRef = useRef(buildInitialPomodoroState(stats));
+    const [historyMap, setHistoryMap] = useState(initialRef.current.history);
+    const [useServerStats, setUseServerStats] = useState(initialRef.current.fromServer);
     const [settings, setSettings] = useState(loadSettings);
     const [mode, setMode] = useState('focus');
     const [timeLeft, setTimeLeft] = useState(settings.focus * 60);
     const [isRunning, setIsRunning] = useState(false);
-    const [sessions, setSessions] = useState(() => {
-        const h = loadHistory();
-        return h[todayKey()] || 0;
-    });
+    const [sessions, setSessions] = useState(initialRef.current.sessions);
     const [showSettings, setShowSettings] = useState(false);
     const [showHistory, setShowHistory] = useState(false);
     const [consecutiveSessions, setConsecutiveSessions] = useState(0);
     const [quoteIdx, setQuoteIdx] = useState(Math.floor(Math.random() * QUOTES.length));
     const intervalRef = useRef(null);
+
+    useEffect(() => {
+        if (stats && typeof stats === 'object' && stats.sessionsByDate) {
+            setUseServerStats(true);
+            setHistoryMap(stats.sessionsByDate || {});
+            setSessions(Number(stats.sessionsToday) || 0);
+        }
+    }, [stats]);
 
     const totalTime = mode === 'focus'
         ? settings.focus * 60
@@ -128,9 +154,11 @@ export default function PomodoroTimer() {
                 setQuoteIdx(Math.floor(Math.random() * QUOTES.length));
 
                 // Save to history
-                const history = loadHistory();
-                history[todayKey()] = newSessions;
-                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+                const nextHistory = { ...historyMap, [todayKey()]: newSessions };
+                setHistoryMap(nextHistory);
+                if (!useServerStats) {
+                    localStorage.setItem(HISTORY_KEY, JSON.stringify(nextHistory));
+                }
 
                 // Long break every 4 sessions
                 if ((consecutiveSessions + 1) % 4 === 0) {
@@ -153,7 +181,7 @@ export default function PomodoroTimer() {
             }
         }
         return () => clearInterval(intervalRef.current);
-    }, [isRunning, timeLeft]);
+    }, [isRunning, timeLeft, sessions, settings, mode, consecutiveSessions, historyMap, useServerStats]);
 
     const toggle = useCallback(() => setIsRunning(r => !r), []);
 
@@ -187,16 +215,15 @@ export default function PomodoroTimer() {
 
     // History chart data
     const historyData = useMemo(() => {
-        const history = loadHistory();
         const days = getLast7Days();
-        const max = Math.max(1, ...days.map(d => history[d] || 0));
+        const max = Math.max(1, ...days.map(d => historyMap[d] || 0));
         return days.map(d => ({
             key: d,
             label: new Date(d + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' }).charAt(0),
-            count: history[d] || 0,
-            height: ((history[d] || 0) / max) * 100,
+            count: historyMap[d] || 0,
+            height: ((historyMap[d] || 0) / max) * 100,
         }));
-    }, [sessions, showHistory]);
+    }, [historyMap, showHistory]);
 
     return (
         <div className="pomo-widget pomo-advanced">

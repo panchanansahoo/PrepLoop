@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { Code2, X, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 import './CodeEditorPanel.css';
@@ -33,31 +33,37 @@ export default function CodeEditorPanel({
     loading
 }) {
     const [lineCount, setLineCount] = useState(1);
+    const activeTemplate = BOILERPLATE[language] || BOILERPLATE.python;
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (isOpen && !code) {
+            onCodeChange(activeTemplate);
+        }
+    }, [activeTemplate, code, isOpen, onCodeChange]);
+
+    useEffect(() => {
+        setLineCount(code ? code.split('\n').length : 1);
+    }, [code]);
 
     const handleEditorMount = (editor) => {
-        editor.onDidChangeModelContent(() => {
-            const model = editor.getModel();
-            if (model) setLineCount(model.getLineCount());
-        });
+        const model = editor.getModel();
+        if (model) {
+            setLineCount(model.getLineCount());
+        }
     };
 
     const handleReset = () => {
-        onCodeChange(BOILERPLATE[language] || BOILERPLATE.python);
+        onCodeChange(activeTemplate);
     };
 
     const handleLanguageChange = (newLang) => {
         onLanguageChange(newLang);
-        if (!code || code.trim() === '' || code === BOILERPLATE[language]) {
+        if (!code || code.trim() === '' || code === activeTemplate) {
             onCodeChange(BOILERPLATE[newLang] || BOILERPLATE.python);
         }
     };
 
-    // Initialize with boilerplate if empty
-    if (!code) {
-        onCodeChange(BOILERPLATE[language] || BOILERPLATE.python);
-    }
+    if (!isOpen) return null;
 
     return (
         <div className="code-editor-panel">

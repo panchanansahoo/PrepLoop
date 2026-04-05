@@ -22,6 +22,8 @@ const getAuthHeaders = () => {
   return headers;
 };
 
+const getSolutionUnlockKey = (id) => `dsa-solution-unlocked-${String(id ?? '').trim()}`;
+
 // ─── Starter code per language ───
 const STARTER_CODE = {
   python: (name) => `class Solution:
@@ -89,6 +91,9 @@ export default function DSACodeEditor() {
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
+    return localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true';
+  });
 
   // UI state
   const [showHints, setShowHints] = useState(false);
@@ -188,6 +193,10 @@ export default function DSACodeEditor() {
       });
       setLoading(false);
     }
+  }, [problemId]);
+
+  useEffect(() => {
+    setSolutionUnlocked(localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true');
   }, [problemId]);
 
   // ─── Fetch DB problem for examples/constraints ───
@@ -474,6 +483,10 @@ export default function DSACodeEditor() {
 
     try {
       const resolvedProblemId = problem?.id || problemId;
+      const unlockKey = getSolutionUnlockKey(resolvedProblemId);
+      setSolutionUnlocked(true);
+      localStorage.setItem(unlockKey, 'true');
+
       const res = await fetch(`${API_URL}/api/practice/submit`, {
         method: 'POST',
         headers: getAuthHeaders(),
@@ -657,6 +670,8 @@ export default function DSACodeEditor() {
                 showHints={showHints}
                 allProblems={PROBLEMS}
                 navigate={navigate}
+                language={language}
+                hasSubmitted={solutionUnlocked}
               />
             </div>
 
