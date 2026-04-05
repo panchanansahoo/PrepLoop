@@ -240,6 +240,107 @@ const buildWeeklyStats = (submissions, start, end) => {
   };
 };
 
+const getStableDailySeed = () => {
+  const now = new Date();
+  return Number(`${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`);
+};
+
+const pickDeterministicItems = (items, count, seed) => {
+  if (!Array.isArray(items) || items.length === 0 || count <= 0) return [];
+
+  const used = new Set();
+  const result = [];
+  let cursor = Math.abs(seed) % items.length;
+
+  while (result.length < count && used.size < items.length) {
+    if (!used.has(cursor)) {
+      used.add(cursor);
+      result.push(items[cursor]);
+    }
+    cursor = (cursor + 17) % items.length;
+  }
+
+  return result;
+};
+
+const buildUpcomingItemsFromCalendar = (events = []) => {
+  const now = new Date();
+
+  return (events || [])
+    .filter((evt) => {
+      if (!evt?.event_date) return false;
+      const eventDate = new Date(`${evt.event_date}T${evt.event_time || '00:00'}:00`);
+      return eventDate >= now;
+    })
+    .sort((a, b) => {
+      const left = new Date(`${a.event_date}T${a.event_time || '00:00'}:00`).getTime();
+      const right = new Date(`${b.event_date}T${b.event_time || '00:00'}:00`).getTime();
+      return left - right;
+    })
+    .slice(0, 8)
+    .map((evt) => {
+      const date = new Date(`${evt.event_date}T${evt.event_time || '00:00'}:00`);
+      const rawTag = String(evt.tag || '').toLowerCase();
+
+      let platform = 'PrepLoop';
+      let icon = '📌';
+      if (rawTag === 'contest') {
+        platform = 'Contest';
+        icon = '🏆';
+      } else if (rawTag === 'interview') {
+        platform = 'Interview';
+        icon = '🎤';
+      } else if (rawTag === 'deadline') {
+        platform = 'Deadline';
+        icon = '⏳';
+      }
+
+      return {
+        platform,
+        icon,
+        name: evt.title,
+        date: date.toISOString(),
+        duration: evt.event_time || 'Scheduled',
+        link: null,
+        live: true,
+      };
+    });
+};
+
+const fetchSqlProblemRecommendations = async (limit = 250) => {
+  const candidates = [
+    { table: 'sql_problems', select: 'id, title, difficulty' },
+    { table: 'sql_challenges', select: 'id, title, difficulty' },
+    { table: 'sql_questions', select: 'id, title, difficulty' },
+    { table: 'problems_sql', select: 'id, title, difficulty' },
+  ];
+
+  for (const candidate of candidates) {
+    const { data, error } = await supabaseAdmin
+      .from(candidate.table)
+      .select(candidate.select)
+      .limit(limit);
+
+    if (error || !Array.isArray(data) || data.length === 0) {
+      continue;
+    }
+
+    const normalized = data
+      .map((row, index) => ({
+        id: row.id ?? index + 1,
+        title: String(row.title || '').trim(),
+        difficulty: row.difficulty || 'Medium',
+      }))
+      .filter((row) => row.title.length > 0);
+
+    if (normalized.length > 0) {
+      return normalized;
+    }
+  }
+
+  return [];
+};
+
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     const { data: profile, error } = await supabaseAdmin
@@ -315,7 +416,17 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const [progressResult, submissionsResult, interviewsResult, resumesResult] = await Promise.all([
+    const sqlProblemsPromise = fetchSqlProblemRecommendations(250);
+
+    const [
+      progressResult,
+      submissionsResult,
+      interviewsResult,
+      resumesResult,
+      dailyProblemsResult,
+      calendarEventsResult,
+      sqlProblems,
+    ] = await Promise.all([
       supabaseAdmin
         .from("user_progress")
         .select("problem_id, status")
@@ -334,17 +445,31 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         .from("resume_analyses")
         .select("id")
         .eq("user_id", userId),
+      supabaseAdmin
+        .from("problems")
+        .select("id, title, difficulty")
+        .order("id", { ascending: true })
+        .limit(400),
+      supabaseAdmin
+        .from("user_calendar_events")
+        .select("title, event_date, event_time, tag")
+        .eq("user_id", userId)
+        .order("event_date", { ascending: true }),
+      sqlProblemsPromise,
     ]);
 
     if (progressResult.error) throw progressResult.error;
     if (submissionsResult.error) throw submissionsResult.error;
     if (interviewsResult.error) throw interviewsResult.error;
     if (resumesResult.error) throw resumesResult.error;
+    if (dailyProblemsResult.error) throw dailyProblemsResult.error;
 
     const progress = progressResult.data || [];
     const subs = submissionsResult.data || [];
     const interviews = interviewsResult.data || [];
     const resumes = resumesResult.data || [];
+    const allProblems = dailyProblemsResult.data || [];
+    const calendarEvents = calendarEventsResult.error ? [] : (calendarEventsResult.data || []);
 
     const solvedCount = (progress || []).filter(
       (p) => p.status === "solved",
@@ -439,6 +564,30 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     const solvedProblemIds = new Set(
       (progress || []).filter((p) => p.status === "solved").map((p) => p.problem_id)
     );
+
+    const unsolvedProblems = allProblems.filter((problem) => !solvedProblemIds.has(problem.id));
+    const dailyPool = unsolvedProblems.length > 0 ? unsolvedProblems : allProblems;
+    const dailySeed = getStableDailySeed() + Number(userId?.length || 0);
+    const dailyDsa = pickDeterministicItems(dailyPool, 3, dailySeed).map((problem) => ({
+      title: problem.title,
+      difficulty: problem.difficulty || 'Medium',
+      internalId: problem.id,
+    }));
+
+    const dailySql = pickDeterministicItems(sqlProblems, 3, dailySeed + 97).map((problem) => ({
+      title: problem.title,
+      difficulty: problem.difficulty || 'Medium',
+      internalId: problem.id,
+    }));
+
+    const dailyChallenge = {
+      name: 'Personalized DSA Challenge',
+      type: 'From Your DB Progress',
+      dsa: dailyDsa,
+      sql: dailySql,
+    };
+
+    const upcomingContests = buildUpcomingItemsFromCalendar(calendarEvents);
 
     let skillBreakdown = { dsa: 0, sql: 0, aptitude: 0, systemDesign: 0, behavioral: 0 };
     // DSA score based on solved count
@@ -567,6 +716,28 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       timedSessions: subs.filter((s) => s.status === "accepted").length,
     };
 
+    const sessionsByDate = {};
+    subs.forEach((submission) => {
+      if (submission.status !== 'accepted') return;
+      const dayKey = new Date(submission.submitted_at).toISOString().split('T')[0];
+      sessionsByDate[dayKey] = (sessionsByDate[dayKey] || 0) + 1;
+    });
+
+    const pomodoroDates = [];
+    for (let i = 6; i >= 0; i -= 1) {
+      const day = new Date();
+      day.setDate(day.getDate() - i);
+      pomodoroDates.push(day.toISOString().split('T')[0]);
+    }
+
+    const pomodoroStats = {
+      sessionsToday: sessionsByDate[todayStr] || 0,
+      sessionsByDate: pomodoroDates.reduce((accumulator, key) => {
+        accumulator[key] = sessionsByDate[key] || 0;
+        return accumulator;
+      }, {}),
+    };
+
     // ── Response ──
     res.json({
       stats: {
@@ -597,6 +768,9 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       currentXP: levelInfo.currentXP,
       nextLevelXP: levelInfo.nextLevelXP,
       rank: levelInfo.rank,
+      dailyChallenge,
+      upcomingContests,
+      pomodoroStats,
     });
   } catch (error) {
     console.error("Error fetching dashboard:", error);

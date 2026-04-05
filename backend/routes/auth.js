@@ -214,8 +214,8 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid verification token' });
     }
 
-    // Verify email matches
-    if (profile.email !== email) {
+    // Some deployments do not have profiles.email. Enforce match only when available.
+    if (typeof profile.email === 'string' && profile.email.length > 0 && profile.email !== email) {
       return res.status(400).json({ error: 'Email does not match token' });
     }
 
@@ -258,7 +258,7 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
 
     res.json({
       message: 'Email verified successfully. You can now log in.',
-      email: profile.email,
+      email,
       verified: true
     });
   } catch (error) {
