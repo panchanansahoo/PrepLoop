@@ -1,38 +1,91 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import useDashboardData from '../hooks/useDashboardData';
 import {
-  User, Mail, Briefcase, Award, Code2, Settings, LogOut, Shield,
-  Trophy, Star, Flame, Zap, Crown, Target, Sparkles, Medal,
-  TrendingUp, ChevronRight, Lock
+  User, Briefcase, Award, LogOut, Shield
 } from 'lucide-react';
-import { useGamification } from '../hooks/useGamification';
-import { BADGES, BADGE_TIERS, MOCK_LEADERBOARD, getLevel, getLevelProgress, LEVELS } from '../data/gamificationData';
-import StreakHeatmap from '../components/StreakHeatmap';
-import XPNotification from '../components/XPNotification';
+import { StreakHeatmap } from '../components/QuickStats';
 
-export default function Profile() {
-  const { user, logout } = useAuth();
-  const gam = useGamification();
-  const [profile, setProfile] = useState({
+const PROFILE_FIELDS = [
+  { label: 'Full Name', key: 'fullName', icon: User, hint: 'Display name across PrepLoop' },
+  { label: 'Current Role', key: 'currentRole', icon: Briefcase, hint: 'What you are preparing for' },
+  { label: 'Experience', key: 'experience', icon: Award, hint: 'Years, level, or current stage' },
+  { label: 'Education', key: 'education', icon: Shield, hint: 'Degree, institute, or certification' }
+];
+
+function buildInitialProfile(user) {
+  return {
     fullName: user?.fullName || '',
+    full_name: user?.fullName || '',
     email: user?.email || '',
     bio: '',
     currentRole: '',
+    designation: '',
     experience: '',
+    experienceLevel: '',
+    experience_level: '',
     skills: '',
     education: ''
+  };
+}
+
+function normalizeProfileData(data) {
+  return {
+    fullName: data?.fullName ?? data?.full_name ?? '',
+    full_name: data?.full_name ?? data?.fullName ?? '',
+    email: data?.email ?? '',
+    bio: data?.bio ?? '',
+    currentRole: data?.currentRole ?? data?.designation ?? data?.role_title ?? '',
+    designation: data?.designation ?? data?.currentRole ?? '',
+    experience: data?.experience ?? data?.experienceLevel ?? data?.experience_level ?? '',
+    experienceLevel: data?.experienceLevel ?? data?.experience_level ?? '',
+    experience_level: data?.experience_level ?? data?.experienceLevel ?? '',
+    skills: data?.skills ?? '',
+    education: data?.education ?? ''
+  };
+}
+
+function buildProfilePayload(profile) {
+  const trimmedFullName = profile.fullName?.trim() || '';
+  const trimmedCurrentRole = profile.currentRole?.trim() || '';
+  const trimmedExperience = profile.experience?.trim() || '';
+
+  return {
+    ...profile,
+    fullName: trimmedFullName,
+    full_name: trimmedFullName,
+    currentRole: trimmedCurrentRole,
+    designation: trimmedCurrentRole,
+    experience: trimmedExperience,
+    experienceLevel: trimmedExperience,
+    experience_level: trimmedExperience,
+    skills: profile.skills?.trim() || '',
+    education: profile.education?.trim() || '',
+    bio: profile.bio?.trim() || ''
+  };
+}
+
+function countFilledProfileFields(profile) {
+  const values = [profile.fullName, profile.currentRole, profile.experience, profile.skills, profile.education, profile.bio];
+  return values.filter((value) => Boolean(String(value || '').trim())).length;
+}
+
+export default function Profile() {
+  const { user, logout } = useAuth();
+  const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
+  const [profile, setProfile] = useState({
+    ...buildInitialProfile(user)
   });
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeGamTab, setActiveGamTab] = useState('overview');
-  const [leaderboardPeriod, setLeaderboardPeriod] = useState('weekly');
+  const [status, setStatus] = useState('idle');
 
-  const level = getLevel(gam.totalXP);
-  const progress = getLevelProgress(gam.totalXP);
-  const earnedBadgeSet = new Set(gam.earnedBadges);
-  const earnedBadges = BADGES.filter(b => earnedBadgeSet.has(b.id));
-  const lockedBadges = BADGES.filter(b => !earnedBadgeSet.has(b.id));
+  useEffect(() => {
+    if (status !== 'saved') return undefined;
+    const timer = window.setTimeout(() => setStatus('idle'), 2600);
+    return () => window.clearTimeout(timer);
+  }, [status]);
 
   useEffect(() => {
     fetchProfile();
@@ -44,479 +97,264 @@ export default function Profile() {
       const res = await fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) {
         const data = await res.json();
-        setProfile(prev => ({ ...prev, ...data }));
+        setProfile((prev) => ({
+          ...prev,
+          ...normalizeProfileData(data),
+          ...normalizeProfileData(data?.user)
+        }));
       }
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setStatus('idle');
     try {
       const token = localStorage.getItem('token');
-      await fetch('/api/user/profile', {
+      const payload = buildProfilePayload(profile);
+      const res = await fetch('/api/user/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(profile)
+        body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        throw new Error('Failed to save profile');
+      }
       setEditing(false);
-    } catch (err) { alert('Failed to save'); }
+      setStatus('saved');
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+    }
     setSaving(false);
   };
 
-  const gamTabs = [
-    { id: 'overview', label: 'Overview', icon: Sparkles },
-    { id: 'badges', label: 'Badges', icon: Award },
-    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    { id: 'activity', label: 'Activity', icon: Flame },
-  ];
+  const filledFields = countFilledProfileFields(profile);
+  const completion = Math.round((filledFields / 6) * 100);
+  const displayName = profile.fullName || user?.fullName || 'User';
+  const initial = (displayName || user?.email || '?').charAt(0).toUpperCase();
+  const roleLabel = profile.currentRole || profile.designation || 'Role not set';
+  const experienceLabel = profile.experience || profile.experienceLevel || 'Experience not set';
+  const skillsLabel = profile.skills || 'No skills added yet';
+  const educationLabel = profile.education || 'Education not set';
+  const heatmapData = dashboardData?.heatmapData || {};
+  const currentStreak = dashboardData?.streak || 0;
+  const bestStreak = dashboardData?.bestStreak || 0;
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <XPNotification notification={gam.notification} onDismiss={gam.dismissNotification} />
-
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 30 }}>Profile</h1>
-
-      {/* Profile Card */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 32, border: '1px solid var(--border)', marginBottom: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 24, fontWeight: 700, color: 'white'
-            }}>
-              {(user?.fullName || user?.email || '?')[0].toUpperCase()}
-            </div>
-            <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700 }}>{profile.fullName || 'User'}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>{profile.email}</p>
-            </div>
+    <div className="account-page profile-page">
+      <div className="account-hero">
+        <div className="account-hero-copy">
+          <p className="account-kicker">Account</p>
+          <h1>Profile</h1>
+          <p>
+            Keep your prep identity, resume context, and interview-ready details aligned in one place.
+          </p>
+          <div className="account-chip-row">
+            <span className="account-chip">{completion}% complete</span>
+            <span className="account-chip">{editing ? 'Editing' : 'Review mode'}</span>
+            <span className="account-chip">{status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed' : 'Synced to account'}</span>
           </div>
-          <button onClick={() => editing ? handleSave() : setEditing(true)} className="btn-hero-primary" style={{ border: 'none', cursor: 'pointer', padding: '10px 20px', fontSize: 14 }}>
+        </div>
+        <div className="account-hero-actions">
+          <button
+            onClick={() => {
+              if (!editing) setStatus('idle');
+              editing ? handleSave() : setEditing(true);
+            }}
+            className="btn-hero-primary account-hero-button"
+            style={{ border: 'none', cursor: 'pointer' }}
+          >
             {saving ? 'Saving...' : editing ? 'Save Changes' : 'Edit Profile'}
           </button>
+          {editing && (
+            <button
+              type="button"
+              className="account-secondary-button"
+              onClick={() => {
+                setEditing(false);
+                fetchProfile();
+              }}
+            >
+              Discard
+            </button>
+          )}
         </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {[
-            { label: 'Full Name', key: 'fullName', icon: <User size={14} /> },
-            { label: 'Current Role', key: 'currentRole', icon: <Briefcase size={14} /> },
-            { label: 'Experience', key: 'experience', icon: <Award size={14} /> },
-            { label: 'Education', key: 'education', icon: <Shield size={14} /> }
-          ].map((field, i) => (
-            <div key={i}>
-              <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {field.icon} {field.label}
-              </label>
-              {editing ? (
-                <input
-                  value={profile[field.key] || ''}
-                  onChange={e => setProfile({ ...profile, [field.key]: e.target.value })}
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14 }}
-                />
-              ) : (
-                <div style={{ color: profile[field.key] ? 'var(--text-primary)' : 'var(--text-muted)', fontSize: 14, padding: '10px 0' }}>
-                  {profile[field.key] || 'Not set'}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {editing && (
-          <div style={{ marginTop: 16 }}>
-            <label style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-muted)', marginBottom: 6, display: 'block' }}>Bio</label>
-            <textarea
-              value={profile.bio || ''}
-              onChange={e => setProfile({ ...profile, bio: e.target.value })}
-              rows={3}
-              placeholder="Tell us about yourself..."
-              style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text-primary)', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
-            />
-          </div>
-        )}
       </div>
 
-      {/* Gamification Section */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 28, border: '1px solid var(--border)', marginBottom: 20 }}>
-        {/* XP Progress Card */}
-        <div style={{
-          background: 'rgba(255,255,255,0.03)', borderRadius: 16, padding: 24, marginBottom: 20,
-          border: '1px solid rgba(255,255,255,0.06)',
-          backgroundImage: `radial-gradient(ellipse at top left, ${level.color}10, transparent 60%)`,
-        }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 24 }}>
-            {/* Level Ring */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-              <div style={{ position: 'relative', width: 80, height: 80 }}>
-                <svg width="80" height="80" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
-                  <circle cx="40" cy="40" r="34" fill="none" stroke={level.color} strokeWidth="6"
-                    strokeDasharray={`${2 * Math.PI * 34}`}
-                    strokeDashoffset={`${2 * Math.PI * 34 * (1 - progress.progress / 100)}`}
-                    strokeLinecap="round"
-                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 1s ease' }} />
-                </svg>
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>
-                  {level.icon}
-                </div>
+      {status === 'saved' && (
+        <div className="account-status-message success" role="status" aria-live="polite">
+          Profile changes saved successfully.
+        </div>
+      )}
+      {status === 'error' && (
+        <div className="account-status-message error" role="alert">
+          Could not save profile right now. Please try again.
+        </div>
+      )}
+
+      <div className="account-stat-grid">
+        <article className="account-stat-card">
+          <span className="account-stat-label">Identity</span>
+          <strong className="account-stat-value">{displayName}</strong>
+          <span className="account-stat-meta">{profile.email || user?.email || 'No email available'}</span>
+        </article>
+        <article className="account-stat-card">
+          <span className="account-stat-label">Profile depth</span>
+          <strong className="account-stat-value">{filledFields}/6 fields</strong>
+          <span className="account-stat-meta">Add role, experience, and skills for better personalization</span>
+        </article>
+        <article className="account-stat-card">
+          <span className="account-stat-label">Plan</span>
+          <strong className="account-stat-value">Starter</strong>
+          <span className="account-stat-meta">Free forever with core practice tools</span>
+        </article>
+      </div>
+
+      <div className="account-grid">
+        <aside className="account-stack">
+          <section className="account-panel account-profile-summary">
+            <div className="account-profile-avatar">{initial}</div>
+            <div className="account-profile-copy">
+              <h2>{displayName}</h2>
+              <p>{profile.email || user?.email || 'Email not set'}</p>
+            </div>
+            <div className="account-profile-lines">
+              <div>
+                <span>Current role</span>
+                <strong>{roleLabel}</strong>
               </div>
               <div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: '#fff' }}>{gam.totalXP.toLocaleString()} <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>XP</span></div>
-                <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)' }}>
-                  {progress.nextLevel ? `${progress.xpToNext} XP to ${progress.nextLevel.icon} ${progress.nextLevel.name}` : 'Max level reached!'}
-                </div>
+                <span>Experience</span>
+                <strong>{experienceLabel}</strong>
+              </div>
+              <div>
+                <span>Skills</span>
+                <strong>{skillsLabel}</strong>
+              </div>
+              <div>
+                <span>Education</span>
+                <strong>{educationLabel}</strong>
               </div>
             </div>
+          </section>
 
-            {/* Stats Row */}
-            <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-              {[
-                { label: 'Problems', value: gam.problemsSolved, color: '#6ee7b7' },
-                { label: 'Streak', value: `${gam.currentStreak}🔥`, color: '#f59e0b' },
-                { label: 'Badges', value: earnedBadges.length, color: '#a78bfa' },
-              ].map((stat, i) => (
-                <div key={i} style={{ textAlign: 'center', minWidth: 70 }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>{stat.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* XP Progress Bar */}
-          <div style={{ marginTop: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{level.icon} {level.name}</span>
-              {progress.nextLevel && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{progress.nextLevel.icon} {progress.nextLevel.name}</span>}
-            </div>
-            <div style={{ height: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', borderRadius: 8,
-                background: `linear-gradient(90deg, ${level.color}, ${level.color}88)`,
-                width: `${progress.progress}%`,
-                transition: 'width 1s ease',
-                boxShadow: `0 0 12px ${level.color}40`,
-              }} />
-            </div>
-            <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginTop: 4, textAlign: 'right' }}>{progress.progress}%</div>
-          </div>
-        </div>
-
-        {/* Gamification Tabs */}
-        <div style={{ display: 'flex', gap: 4, marginBottom: 20, background: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 4, border: '1px solid rgba(255,255,255,0.06)' }}>
-          {gamTabs.map(tab => {
-            const Icon = tab.icon;
-            const active = activeGamTab === tab.id;
-            return (
-              <button key={tab.id} onClick={() => setActiveGamTab(tab.id)} style={{
-                flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                background: active ? 'rgba(139,92,246,0.15)' : 'transparent',
-                color: active ? '#c084fc' : 'rgba(255,255,255,0.4)',
-                fontWeight: active ? 700 : 500, fontSize: 13, transition: 'all 0.2s',
-                fontFamily: 'inherit',
-              }}>
-                <Icon size={16} />
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Tab Content */}
-        {activeGamTab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
-              {[
-                { label: 'Easy Solved', value: gam.easySolved, color: '#6ee7b7', bg: 'rgba(16,185,129,0.08)' },
-                { label: 'Medium Solved', value: gam.mediumSolved, color: '#fbbf24', bg: 'rgba(251,191,36,0.08)' },
-                { label: 'Hard Solved', value: gam.hardSolved, color: '#f87171', bg: 'rgba(248,113,113,0.08)' },
-                { label: 'Best Streak', value: `${gam.bestStreak} days`, color: '#f59e0b', bg: 'rgba(245,158,11,0.08)' },
-                { label: 'Daily Challenges', value: gam.dailyChallengesCompleted, color: '#a78bfa', bg: 'rgba(167,139,250,0.08)' },
-                { label: 'Streak Freezes', value: gam.streakFreezes, color: '#67e8f9', bg: 'rgba(103,232,249,0.08)' },
-              ].map((s, i) => (
-                <div key={i} style={{
-                  background: s.bg, borderRadius: 14, padding: '14px 16px',
-                  border: '1px solid rgba(255,255,255,0.05)',
-                }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1, marginBottom: 4 }}>{s.value}</div>
-                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Level Roadmap */}
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 20,
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 14 }}>Level Roadmap</div>
-              <div style={{ display: 'flex', gap: 0, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 4 }}>
-                {LEVELS.map((lvl, i) => {
-                  const isCurrent = level.index === i;
-                  const isUnlocked = level.index >= i;
-                  return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                      <div style={{
-                        width: 48, height: 48, borderRadius: 12,
-                        background: isCurrent ? `linear-gradient(135deg, ${lvl.color}30, ${lvl.color}10)` : isUnlocked ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.02)',
-                        border: isCurrent ? `2px solid ${lvl.color}` : '1px solid rgba(255,255,255,0.05)',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                        opacity: isUnlocked ? 1 : 0.4,
-                      }}>
-                        <span style={{ fontSize: 16 }}>{lvl.icon}</span>
-                        <span style={{ fontSize: 7, color: isUnlocked ? lvl.color : 'rgba(255,255,255,0.3)', fontWeight: 700 }}>{lvl.name}</span>
-                      </div>
-                      {i < LEVELS.length - 1 && (
-                        <div style={{
-                          width: 20, height: 2,
-                          background: level.index > i ? lvl.color : 'rgba(255,255,255,0.08)',
-                          transition: 'background 0.3s',
-                        }} />
-                      )}
-                    </div>
-                  );
-                })}
+          <section className="account-panel">
+            <div className="account-panel-header">
+              <div>
+                <p className="account-panel-eyebrow">Progress tracking</p>
+                <h3>Streak heatmap</h3>
               </div>
             </div>
+            <p className="account-panel-copy">
+              Your solve rhythm is mapped across the last 365 days so you can spot consistency gaps quickly.
+            </p>
+            {dashboardLoading && Object.keys(heatmapData).length === 0 ? (
+              <p className="account-panel-copy" style={{ marginTop: 16 }}>Loading streak heatmap...</p>
+            ) : (
+              <div style={{ marginTop: 16 }}>
+                <StreakHeatmap
+                  heatmapData={heatmapData}
+                  streak={currentStreak}
+                  bestStreak={bestStreak}
+                  title="Streak Heatmap"
+                  subtitle="A glanceable record of your daily problem-solving rhythm."
+                />
+              </div>
+            )}
+          </section>
 
-            {/* Recent Badges */}
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 20,
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>Recent Badges</div>
-                <button onClick={() => setActiveGamTab('badges')} style={{
-                  background: 'none', border: 'none', color: '#a78bfa', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-                  display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'inherit',
-                }}>View All <ChevronRight size={14} /></button>
+          <section className="account-panel">
+            <div className="account-panel-header">
+              <div>
+                <p className="account-panel-eyebrow">Subscription</p>
+                <h3>Starter plan</h3>
               </div>
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', scrollbarWidth: 'none' }}>
-                {(earnedBadges.length > 0 ? earnedBadges.slice(-6).reverse() : BADGES.slice(0, 6)).map((badge, i) => {
-                  const Icon = badge.icon;
-                  const tier = BADGE_TIERS[badge.tier];
-                  const earned = earnedBadgeSet.has(badge.id);
-                  return (
-                    <div key={i} style={{
-                      width: 90, flexShrink: 0, textAlign: 'center', padding: 10, borderRadius: 12,
-                      background: earned ? `${tier.color}10` : 'rgba(255,255,255,0.02)',
-                      border: earned ? `1px solid ${tier.color}30` : '1px solid rgba(255,255,255,0.05)',
-                      opacity: earned ? 1 : 0.4,
-                    }}>
-                      <div style={{
-                        width: 36, height: 36, borderRadius: 10, margin: '0 auto 6px',
-                        background: earned ? `linear-gradient(135deg, ${tier.color}40, ${tier.color}15)` : 'rgba(255,255,255,0.05)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: earned ? `0 0 16px ${tier.glow}` : 'none',
-                      }}>
-                        {earned ? <Icon size={16} color={tier.color} /> : <Lock size={12} color="rgba(255,255,255,0.2)" />}
-                      </div>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: earned ? '#fff' : 'rgba(255,255,255,0.3)', lineHeight: 1.2 }}>{badge.name}</div>
-                    </div>
-                  );
-                })}
-              </div>
+              <span className="account-pill">Free forever</span>
             </div>
-          </div>
-        )}
+            <p className="account-panel-copy">Limited features, full access to your prep workspace.</p>
+            <Link to="/pricing" className="account-link-action">
+              View upgrade options
+            </Link>
+          </section>
+        </aside>
 
-        {activeGamTab === 'badges' && (
-          <div>
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Award size={16} color="#fbbf24" /> Earned ({earnedBadges.length})
+        <section className="account-stack">
+          <div className="account-panel">
+            <div className="account-panel-header">
+              <div>
+                <p className="account-panel-eyebrow">Details</p>
+                <h3>Profile fields</h3>
               </div>
-              {earnedBadges.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 32, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-                  No badges earned yet. Start solving problems to unlock your first badge!
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-                  {earnedBadges.map((badge, i) => <BadgeCard key={i} badge={badge} earned />)}
-                </div>
-              )}
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: 'rgba(255,255,255,0.5)', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Lock size={16} /> Locked ({lockedBadges.length})
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-                {lockedBadges.map((badge, i) => <BadgeCard key={i} badge={badge} earned={false} />)}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeGamTab === 'leaderboard' && (
-          <div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 4, width: 'fit-content', border: '1px solid rgba(255,255,255,0.06)' }}>
-              {['weekly', 'monthly', 'alltime'].map(p => (
-                <button key={p} onClick={() => setLeaderboardPeriod(p)} style={{
-                  padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-                  background: leaderboardPeriod === p ? 'rgba(139,92,246,0.15)' : 'transparent',
-                  color: leaderboardPeriod === p ? '#c084fc' : 'rgba(255,255,255,0.4)',
-                  fontWeight: 600, fontSize: 12, textTransform: 'capitalize', fontFamily: 'inherit',
-                }}>{p === 'alltime' ? 'All Time' : p}</button>
-              ))}
+              <span className="account-panel-note">{editing ? 'Editing enabled' : 'Read only'}</span>
             </div>
 
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)',
-              overflow: 'hidden',
-            }}>
-              {MOCK_LEADERBOARD.map((entry, i) => {
-                const rankColors = ['#fbbf24', '#C0C0C0', '#CD7F32'];
-                const isTop3 = i < 3;
+            <div className="account-field-grid">
+              {PROFILE_FIELDS.map((field) => {
+                const FieldIcon = field.icon;
                 return (
-                  <div key={i} style={{
-                    display: 'flex', alignItems: 'center', gap: 14, padding: '12px 18px',
-                    borderBottom: i < MOCK_LEADERBOARD.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                    background: isTop3 ? `${rankColors[i]}05` : 'transparent',
-                    transition: 'background 0.2s',
-                  }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
-                    onMouseLeave={e => e.currentTarget.style.background = isTop3 ? `${rankColors[i]}05` : 'transparent'}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: isTop3 ? `${rankColors[i]}15` : 'rgba(255,255,255,0.04)',
-                      color: isTop3 ? rankColors[i] : 'rgba(255,255,255,0.4)',
-                      fontWeight: 800, fontSize: 13,
-                    }}>
-                      {isTop3 ? ['🥇', '🥈', '🥉'][i] : entry.rank}
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 20 }}>{entry.avatar}</span>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{entry.name}</div>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)' }}>{entry.level}</div>
+                  <div key={field.key} className="account-field">
+                    <label className="account-field-label">
+                      <FieldIcon size={14} />
+                      <span>{field.label}</span>
+                    </label>
+                    <span className="account-field-hint">{field.hint}</span>
+                    {editing ? (
+                      <input
+                        value={profile[field.key] || ''}
+                        onChange={(event) => setProfile({ ...profile, [field.key]: event.target.value })}
+                        className="account-input"
+                        placeholder={field.label}
+                      />
+                    ) : (
+                      <div className="account-field-display">
+                        {profile[field.key] || 'Not set'}
                       </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 18 }}>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#a78bfa' }}>{entry.xp.toLocaleString()}</div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>XP</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#6ee7b7' }}>{entry.solved}</div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>Solved</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#f59e0b' }}>{entry.streak}🔥</div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>Streak</div>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
-        )}
 
-        {activeGamTab === 'activity' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <StreakHeatmap
-              activityHistory={gam.activityHistory}
-              currentStreak={gam.currentStreak}
-              bestStreak={gam.bestStreak}
-            />
-
-            <div style={{
-              background: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 20,
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 14 }}>Recent Activity</div>
-              {gam.xpLog.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 24, color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>
-                  No activity yet. Start solving problems!
-                </div>
+            <div className="account-field account-field-full">
+              <label className="account-field-label">
+                <Shield size={14} />
+                <span>Bio</span>
+              </label>
+              <span className="account-field-hint">Keep it concise and interview-focused.</span>
+              {editing ? (
+                <textarea
+                  value={profile.bio || ''}
+                  onChange={(event) => setProfile({ ...profile, bio: event.target.value })}
+                  rows={4}
+                  placeholder="Tell us about yourself..."
+                  className="account-textarea"
+                />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {gam.xpLog.slice().reverse().slice(0, 15).map((log, i) => (
-                    <div key={i} style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)',
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Zap size={14} color="#fbbf24" />
-                        <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)' }}>{log.action.replace(/_/g, ' ')}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#6ee7b7' }}>+{log.xp} XP</span>
-                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.2)' }}>{new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="account-field-display account-field-display-multiline">
+                  {profile.bio || 'No bio added yet.'}
                 </div>
               )}
             </div>
           </div>
-        )}
-      </div>
 
-      {/* Subscription */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 24, border: '1px solid var(--border)', marginBottom: 20 }}>
-        <h3 style={{ fontSize: 16, marginBottom: 12 }}>Subscription</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span style={{ background: 'rgba(108,92,231,0.15)', color: 'var(--accent)', padding: '4px 12px', borderRadius: 6, fontSize: 13, fontWeight: 600 }}>
-              Starter Plan
-            </span>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>Free forever · Limited features</p>
+          <div className="account-panel account-danger-panel">
+            <div className="account-panel-header">
+              <div>
+                <p className="account-panel-eyebrow">Danger zone</p>
+                <h3>Account access</h3>
+              </div>
+            </div>
+            <div className="account-danger-row">
+              <p>Log out of your account on this device.</p>
+              <button onClick={logout} className="account-danger-button">
+                <LogOut size={14} /> Sign Out
+              </button>
+            </div>
           </div>
-          <Link to="/pricing" style={{ color: 'var(--accent)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
-            Upgrade →
-          </Link>
-        </div>
-      </div>
-
-      {/* Danger Zone */}
-      <div style={{ background: 'var(--bg-card)', borderRadius: 16, padding: 24, border: '1px solid var(--border)' }}>
-        <h3 style={{ fontSize: 16, marginBottom: 12, color: 'var(--red)' }}>Danger Zone</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Log out of your account</p>
-          </div>
-          <button onClick={logout} style={{
-            background: 'rgba(255,71,87,0.1)', color: 'var(--red)',
-            border: '1px solid var(--red)', padding: '8px 20px',
-            borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'inherit'
-          }}>
-            <LogOut size={14} /> Sign Out
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BadgeCard({ badge, earned }) {
-  const Icon = badge.icon;
-  const tier = BADGE_TIERS[badge.tier];
-  return (
-    <div style={{
-      padding: 14, borderRadius: 12,
-      background: earned ? `${tier.color}08` : 'rgba(255,255,255,0.02)',
-      border: earned ? `1px solid ${tier.color}25` : '1px solid rgba(255,255,255,0.05)',
-      display: 'flex', alignItems: 'center', gap: 12,
-      opacity: earned ? 1 : 0.5,
-      transition: 'all 0.2s',
-      cursor: 'default',
-    }}>
-      <div style={{
-        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-        background: earned ? `linear-gradient(135deg, ${tier.color}30, ${tier.color}10)` : 'rgba(255,255,255,0.04)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        boxShadow: earned ? `0 0 20px ${tier.glow}` : 'none',
-      }}>
-        {earned ? <Icon size={18} color={tier.color} /> : <Lock size={14} color="rgba(255,255,255,0.2)" />}
-      </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: earned ? '#fff' : 'rgba(255,255,255,0.4)', marginBottom: 2 }}>{badge.name}</div>
-        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', lineHeight: 1.3 }}>{badge.desc}</div>
-        <div style={{ fontSize: 8, fontWeight: 700, color: tier.color, marginTop: 3, textTransform: 'uppercase', letterSpacing: 0.5 }}>{tier.label}</div>
+        </section>
       </div>
     </div>
   );

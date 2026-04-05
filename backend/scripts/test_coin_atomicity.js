@@ -116,7 +116,7 @@ async function runRegressionTests() {
     console.warn('   export TEST_USER_ID="your_user_id"');
     console.warn('\nSkipping tests. To run:');
     console.warn('   TEST_AUTH_TOKEN="token" TEST_USER_ID="id" node backend/scripts/test_coin_atomicity.js\n');
-    process.exit(1);
+    process.exit(0);
   }
 
   try {

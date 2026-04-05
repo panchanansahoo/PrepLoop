@@ -4,7 +4,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../services/companyQuestionService.js';
@@ -304,7 +304,7 @@ ${stage === 'Managerial' ? `- For students: focus on leadership in college activ
 };
 
 // ─── Start Interview ───
-router.post('/start', optionalAuth, async (req, res) => {
+router.post('/start', authenticateToken, async (req, res) => {
   const {
     company,
     role,
@@ -657,7 +657,7 @@ function buildFocusSignal(previousQuestion = '', userAnswer = '') {
 }
 
 // ─── Follow-up with realistic interviewer behavior ───
-router.post('/follow-up', optionalAuth, async (req, res) => {
+router.post('/follow-up', authenticateToken, async (req, res) => {
   const { company, role, stage, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext } = req.body;
   const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
   const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
@@ -942,7 +942,7 @@ Respond as JSON:
 });
 
 // ─── Get a hint for current question ───
-router.post('/hint', optionalAuth, async (req, res) => {
+router.post('/hint', authenticateToken, async (req, res) => {
   const { company, role, stage, currentQuestion, conversationHistory } = req.body;
 
   try {
@@ -994,7 +994,7 @@ Respond as JSON:
 });
 
 // ─── Real-time nudge for AICopilot NudgeBar ───
-router.post('/nudge', optionalAuth, async (req, res) => {
+router.post('/nudge', authenticateToken, async (req, res) => {
   const { currentQuestion, partialAnswer, stage, company, role } = req.body;
 
   try {
@@ -1507,7 +1507,7 @@ Return valid JSON with this shape:
   }
 }
 
-router.post('/evaluate', optionalAuth, async (req, res) => {
+router.post('/evaluate', authenticateToken, async (req, res) => {
   const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
 
   try {
@@ -1520,7 +1520,7 @@ router.post('/evaluate', optionalAuth, async (req, res) => {
 });
 
 // ─── Detailed per-question report ───
-router.post('/detailed-report', optionalAuth, async (req, res) => {
+router.post('/detailed-report', authenticateToken, async (req, res) => {
   const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
 
   try {
@@ -1533,7 +1533,7 @@ router.post('/detailed-report', optionalAuth, async (req, res) => {
 });
 
 // ─── Analyze speech for pace, fillers, clarity ───
-router.post('/speech-feedback', optionalAuth, async (req, res) => {
+router.post('/speech-feedback', authenticateToken, async (req, res) => {
   const { transcript, duration } = req.body;
 
   try {
@@ -1591,7 +1591,7 @@ router.post('/speech-feedback', optionalAuth, async (req, res) => {
 });
 
 // ─── AI Copilot suggestions ───
-router.post('/copilot-suggest', optionalAuth, async (req, res) => {
+router.post('/copilot-suggest', authenticateToken, async (req, res) => {
   const { company, role, stage, currentQuestion, partialAnswer, jobDescription } = req.body;
 
   try {
@@ -1653,7 +1653,7 @@ Respond strictly in this JSON format:
 });
 
 // ─── Text-to-Speech (Orpheus TTS) ───
-router.post('/tts', optionalAuth, async (req, res) => {
+router.post('/tts', authenticateToken, async (req, res) => {
   const { text, persona } = req.body;
 
   if (!text || text.trim().length === 0) {
@@ -1724,7 +1724,7 @@ router.post('/tts', optionalAuth, async (req, res) => {
 });
 
 // ─── Speech-to-Text (Whisper) ───
-router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
+router.post('/stt', authenticateToken, upload.single('audio'), async (req, res) => {
   const filePath = req.file?.path;
 
   try {
@@ -1758,7 +1758,7 @@ router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
 });
 
 // ─── Save Interview Session ───
-router.post('/save-session', optionalAuth, async (req, res) => {
+router.post('/save-session', authenticateToken, async (req, res) => {
   const userId = req.user?.id;
   if (!userId) return res.status(200).json({ message: 'Guest session not saved' });
 

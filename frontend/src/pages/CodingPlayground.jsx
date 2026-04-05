@@ -8,7 +8,7 @@ import {
     Braces, Hash, FileCode, Layers, Sparkles, X,
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
-    Type, ChevronUp, Link2, Volume2,
+    Type, Link2, Volume2,
     PanelRightOpen, Settings, Info,
     Bot, Send, MessageSquare, Eraser,
     ClipboardCheck, RefreshCw, FileCode2, AlertTriangle
@@ -157,16 +157,48 @@ const getRealtimeErrors = (source = '', language = '') => {
 };
 
 const mergeAndDedupeErrors = (...groups) => {
+    const normalizeErrorMessage = (message = '') => {
+        const raw = String(message || '').trim();
+        const lower = raw.toLowerCase();
+
+        // Collapse equivalent parser and bracket-checker messages.
+        if (lower.includes("'(' was never closed") || lower.includes("unclosed '('") || lower.includes('unclosed (')) {
+            return 'unclosed-parenthesis';
+        }
+        if (lower.includes("'[' was never closed") || lower.includes("unclosed '['") || lower.includes('unclosed [')) {
+            return 'unclosed-bracket';
+        }
+        if (lower.includes("'{' was never closed") || lower.includes("unclosed '{'") || lower.includes('unclosed {')) {
+            return 'unclosed-brace';
+        }
+
+        return lower
+            .replace(/^syntaxerror:\s*/i, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
     const seen = new Set();
     const merged = [];
     for (const group of groups) {
         for (const error of group || []) {
-            const key = `${error.line || 1}:${error.col || 1}:${error.message || 'Error'}`;
+            const line = error.line || 1;
+            const col = error.col || 1;
+            const normalizedMessage = normalizeErrorMessage(error.message || 'Error');
+            const isUnclosedBracketFamily = normalizedMessage === 'unclosed-parenthesis'
+                || normalizedMessage === 'unclosed-bracket'
+                || normalizedMessage === 'unclosed-brace';
+
+            // Only collapse cross-source duplicates for bracket-family parser messages.
+            // Keep column-aware keys for all other errors so separate issues remain visible.
+            const key = isUnclosedBracketFamily
+                ? `${line}:${normalizedMessage}`
+                : `${line}:${col}:${normalizedMessage}`;
             if (seen.has(key)) continue;
             seen.add(key);
             merged.push({
-                line: error.line || 1,
-                col: error.col || 1,
+                line,
+                col,
                 message: error.message || 'Error',
                 severity: error.severity || 'error',
             });
@@ -487,8 +519,14 @@ export default function CodingPlayground() {
     });
     const [voiceWarningsEnabled, setVoiceWarningsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-warnings') === '1');
     const [voiceName, setVoiceName] = useState(() => localStorage.getItem('pg-voice-errors-name') || '');
+    const [voiceAnnouncementLang, setVoiceAnnouncementLang] = useState(() => {
+        const saved = localStorage.getItem('pg-voice-errors-lang');
+        return saved === 'hi' ? 'hi' : 'en';
+    });
     const [voiceOptions, setVoiceOptions] = useState([]);
     const [voiceSupported, setVoiceSupported] = useState(false);
+    const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+    const [showAdvancedVoiceSettings, setShowAdvancedVoiceSettings] = useState(false);
     const [runPhase, setRunPhase] = useState('idle');
     const [lastExecutionMeta, setLastExecutionMeta] = useState(null);
     const [consoleFilter, setConsoleFilter] = useState('all');
@@ -514,7 +552,10 @@ export default function CodingPlayground() {
     const lintRequestSeqRef = useRef(0);
     const voiceTimerRef = useRef(null);
     const voiceInitializedRef = useRef(false);
+    const prevVoiceEnabledRef = useRef(voiceErrorsEnabled);
     const lastVoiceSignatureRef = useRef('');
+    const voiceAudioRef = useRef(null);
+    const voiceFetchAbortRef = useRef(null);
 
     // ─── Load saved code or default ───
     useEffect(() => {
@@ -990,6 +1031,10 @@ export default function CodingPlayground() {
     }, [voiceErrorsEnabled]);
 
     useEffect(() => {
+        prevVoiceEnabledRef.current = voiceErrorsEnabled;
+    }, [voiceErrorsEnabled, voiceSupported]);
+
+    useEffect(() => {
         localStorage.setItem('pg-voice-errors-rate', String(voiceRate));
     }, [voiceRate]);
 
@@ -1004,6 +1049,10 @@ export default function CodingPlayground() {
     useEffect(() => {
         localStorage.setItem('pg-voice-errors-name', voiceName);
     }, [voiceName]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-voice-errors-lang', voiceAnnouncementLang);
+    }, [voiceAnnouncementLang]);
 
     useEffect(() => {
         if (!voiceSupported || typeof window === 'undefined') return;
@@ -1024,15 +1073,212 @@ export default function CodingPlayground() {
         };
     }, [voiceName, voiceSupported]);
 
+    const stopVoicePlayback = useCallback(() => {
+        if (voiceTimerRef.current) {
+            clearTimeout(voiceTimerRef.current);
+            voiceTimerRef.current = null;
+        }
+        voiceFetchAbortRef.current?.abort();
+        voiceFetchAbortRef.current = null;
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        if (voiceAudioRef.current) {
+            try {
+                voiceAudioRef.current.pause();
+                const src = voiceAudioRef.current.src;
+                if (src?.startsWith('blob:')) URL.revokeObjectURL(src);
+            } catch {
+                // Ignore cleanup errors.
+            }
+            voiceAudioRef.current = null;
+        }
+    }, []);
+
+    const hasHindiVoice = useMemo(
+        () => voiceOptions.some((voice) => /^hi(-|$)/i.test(voice.lang) || /hindi/i.test(voice.name)),
+        [voiceOptions],
+    );
+
+    const speakViaCloud = useCallback(async (text, language) => {
+        try {
+            if (!text || !String(text).trim()) return false;
+
+            voiceFetchAbortRef.current?.abort();
+            const controller = new AbortController();
+            voiceFetchAbortRef.current = controller;
+
+            const response = await fetch(`${API_URL}/api/voice/tts`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    text: String(text).trim().slice(0, 550),
+                    persona: 'friendly',
+                    language: language || voiceAnnouncementLang,
+                }),
+                signal: controller.signal,
+            });
+
+            if (controller.signal.aborted) return false;
+            const contentType = (response.headers.get('content-type') || '').toLowerCase();
+            if (contentType.includes('application/json')) {
+                await response.json().catch(() => ({}));
+                return false;
+            }
+
+            const blob = await response.blob();
+            if (!blob || blob.size < 128) return false;
+
+            if (voiceAudioRef.current) {
+                try {
+                    const src = voiceAudioRef.current.src;
+                    voiceAudioRef.current.pause();
+                    if (src?.startsWith('blob:')) URL.revokeObjectURL(src);
+                } catch {
+                    // Ignore cleanup errors.
+                }
+            }
+
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.volume = voiceVolume;
+            audio.playbackRate = voiceRate;
+            audio.onended = () => {
+                URL.revokeObjectURL(url);
+                if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
+            };
+            audio.onerror = () => {
+                URL.revokeObjectURL(url);
+                if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
+            };
+
+            voiceAudioRef.current = audio;
+            await audio.play();
+            return true;
+        } catch {
+            return false;
+        }
+    }, [voiceAnnouncementLang, voiceRate, voiceVolume]);
+
+    const playVoiceAnnouncement = useCallback(async (announcement, language) => {
+        const text = String(announcement || '').trim();
+        if (!text) return false;
+
+        if ((language === 'hi' || !language) && !hasHindiVoice) {
+            const usedCloud = await speakViaCloud(text, language);
+            if (usedCloud) return true;
+        }
+
+        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+            return false;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = language === 'hi' ? Math.min(voiceRate, 0.95) : voiceRate;
+        utterance.volume = voiceVolume;
+        utterance.pitch = language === 'hi' ? 0.98 : 1.08;
+        utterance.lang = language === 'hi' ? 'hi-IN' : 'en-US';
+
+        const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName)
+            || voiceOptions.find((voice) => {
+                if (language === 'hi') return /^hi(-|$)/i.test(voice.lang) || /hindi/i.test(voice.name);
+                return /^en(-|$)/i.test(voice.lang);
+            });
+
+        const friendlyBrowserVoice = voiceOptions.find((voice) => {
+            const name = String(voice.name || '').toLowerCase();
+            const lang = String(voice.lang || '').toLowerCase();
+            if (language === 'hi') return /^hi(-|$)/i.test(lang) || /hindi/.test(name) || /india/.test(name);
+            return /^en(-|$)/i.test(lang) && (/female|aria|samantha|victoria|zira|alloy|nova|luna|vega|rachel|susan|google uk english female|microsoft aria|microsoft jenny|natural/i.test(name) || voice.default);
+        });
+
+        if (selectedVoice) {
+            utterance.voice = selectedVoice;
+        } else if (friendlyBrowserVoice) {
+            utterance.voice = friendlyBrowserVoice;
+        }
+
+        if (voiceAudioRef.current) {
+            try {
+                voiceAudioRef.current.pause();
+            } catch {
+                // Ignore pause errors.
+            }
+        }
+
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+        return true;
+    }, [hasHindiVoice, speakViaCloud, voiceName, voiceOptions, voiceRate, voiceVolume]);
+
+    const toSpokenErrorMessage = useCallback((message, language) => {
+        const isHindi = language === 'hi';
+
+        const symbolName = (symbol) => {
+            const names = {
+                ':': isHindi ? 'कोलन' : 'colon',
+                ';': isHindi ? 'सेमी कोलन' : 'semicolon',
+                ',': isHindi ? 'कॉमा' : 'comma',
+                '.': isHindi ? 'डॉट' : 'dot',
+                '(': isHindi ? 'ओपन पैरेंथेसिस' : 'open parenthesis',
+                ')': isHindi ? 'क्लोज पैरेंथेसिस' : 'close parenthesis',
+                '[': isHindi ? 'ओपन ब्रैकेट' : 'open bracket',
+                ']': isHindi ? 'क्लोज ब्रैकेट' : 'close bracket',
+                '{': isHindi ? 'ओपन ब्रेस' : 'open brace',
+                '}': isHindi ? 'क्लोज ब्रेस' : 'close brace',
+            };
+            return names[symbol] || symbol;
+        };
+
+        return String(message || '')
+            .replace(/expected\s+['"`]?([:;,.()\[\]{}])['"`]?/gi, (match, symbol) => {
+                return `expected ${symbolName(symbol)}`;
+            })
+            .replace(/['"`]?([:;,.()\[\]{}])['"`]?(\s+was\s+never\s+closed)/gi, (match, symbol, suffix) => {
+                return `${symbolName(symbol)}${suffix}`;
+            });
+    }, []);
+
+    const buildVoiceAnnouncement = useCallback((items, language) => {
+        const prioritized = [...(items || [])].sort((a, b) => {
+            if (a.severity !== b.severity) return a.severity === 'error' ? -1 : 1;
+            if (a.line !== b.line) return a.line - b.line;
+            return a.col - b.col;
+        });
+
+        if (prioritized.length === 0) return '';
+
+        const isHindi = language === 'hi';
+        const body = prioritized
+            .map((error) => {
+                const shortType = error.severity === 'warning' ? (isHindi ? 'चेतावनी' : 'Warning') : (isHindi ? 'त्रुटि' : 'Error');
+                const spokenMessage = toSpokenErrorMessage(error.message, language);
+                if (isHindi) return `लाइन ${error.line}, कॉलम ${error.col}. ${shortType}: ${spokenMessage}`;
+                return `Line ${error.line}, column ${error.col}. ${shortType}: ${spokenMessage}`;
+            })
+            .join(' ');
+
+        return body.trim();
+    }, [toSpokenErrorMessage]);
+
+    const handleVoiceTest = useCallback(async () => {
+        const sample = buildVoiceAnnouncement(
+            liveErrors.length > 0
+                ? liveErrors
+                : [{ line: 1, col: 1, message: voiceAnnouncementLang === 'hi' ? 'यह सिर्फ़ एक छोटा सा वॉयस प्रीव्यू है।' : 'This is just a quick voice preview.', severity: 'error' }],
+            voiceAnnouncementLang,
+        ) || (
+            voiceAnnouncementLang === 'hi'
+                ? 'एक छोटा वॉयस प्रीव्यू।'
+                : 'Quick voice preview.'
+        );
+
+        await playVoiceAnnouncement(sample, voiceAnnouncementLang);
+    }, [buildVoiceAnnouncement, liveErrors, playVoiceAnnouncement, voiceAnnouncementLang]);
+
     useEffect(() => {
         if (!voiceSupported || !voiceErrorsEnabled) {
-            if (voiceTimerRef.current) {
-                clearTimeout(voiceTimerRef.current);
-                voiceTimerRef.current = null;
-            }
-            if (voiceSupported && typeof window !== 'undefined') {
-                window.speechSynthesis.cancel();
-            }
+            stopVoicePlayback();
             return;
         }
 
@@ -1054,21 +1300,11 @@ export default function CodingPlayground() {
 
         if (announceable.length === 0) {
             lastVoiceSignatureRef.current = '';
-            if (voiceTimerRef.current) {
-                clearTimeout(voiceTimerRef.current);
-                voiceTimerRef.current = null;
-            }
-            window.speechSynthesis.cancel();
+            stopVoicePlayback();
             return;
         }
 
-        const priority = [...announceable].sort((a, b) => {
-            if (a.severity !== b.severity) return a.severity === 'error' ? -1 : 1;
-            if (a.line !== b.line) return a.line - b.line;
-            return a.col - b.col;
-        }).slice(0, 2);
-
-        const signature = JSON.stringify(priority);
+        const signature = JSON.stringify(announceable);
         if (signature === lastVoiceSignatureRef.current) return;
         lastVoiceSignatureRef.current = signature;
 
@@ -1078,17 +1314,9 @@ export default function CodingPlayground() {
         }
 
         voiceTimerRef.current = setTimeout(() => {
-            const prefix = priority.length === 1 ? 'New error.' : `${priority.length} errors found.`;
-            const body = priority
-                .map((error) => `Line ${error.line}, column ${error.col}. ${error.message}`)
-                .join(' ');
-            const utterance = new SpeechSynthesisUtterance(`${prefix} ${body}`);
-            utterance.rate = voiceRate;
-            utterance.volume = voiceVolume;
-            const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName);
-            if (selectedVoice) utterance.voice = selectedVoice;
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.speak(utterance);
+            const announcement = buildVoiceAnnouncement(announceable, voiceAnnouncementLang);
+            if (!announcement) return;
+            playVoiceAnnouncement(announcement, voiceAnnouncementLang);
         }, 420);
 
         return () => {
@@ -1100,6 +1328,10 @@ export default function CodingPlayground() {
     }, [
         liveErrors,
         voiceErrorsEnabled,
+        stopVoicePlayback,
+        buildVoiceAnnouncement,
+        voiceAnnouncementLang,
+        playVoiceAnnouncement,
         voiceName,
         voiceOptions,
         voiceRate,
@@ -1113,20 +1345,14 @@ export default function CodingPlayground() {
             runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
             runAbortRef.current?.abort();
             lintAbortRef.current?.abort();
-            if (voiceTimerRef.current) {
-                clearTimeout(voiceTimerRef.current);
-                voiceTimerRef.current = null;
-            }
-            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-            }
+            stopVoicePlayback();
             if (!editorRef.current || !monacoRef.current) return;
             const model = editorRef.current.getModel();
             if (model) {
                 monacoRef.current.editor.setModelMarkers(model, 'playground-live', []);
             }
         };
-    }, []);
+    }, [stopVoicePlayback]);
 
     // ─── Insert snippet ───
     const insertSnippet = (snippetCode) => {
@@ -1294,17 +1520,6 @@ export default function CodingPlayground() {
         editorRef.current.setPosition({ lineNumber: error.line, column: error.col || 1 });
         editorRef.current.focus();
     };
-
-    const handleVoiceTest = useCallback(() => {
-        if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-        const utterance = new SpeechSynthesisUtterance('Voice error readout is enabled. This is a sample diagnostic message for line 12.');
-        utterance.rate = voiceRate;
-        utterance.volume = voiceVolume;
-        const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName);
-        if (selectedVoice) utterance.voice = selectedVoice;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-    }, [voiceName, voiceOptions, voiceRate, voiceVolume]);
 
     const sidebarTabs = useMemo(() => ([
         { id: 'errors', icon: <AlertTriangle size={16} />, label: `Errors${liveErrors.length ? ` (${liveErrors.length})` : ''}` },
@@ -1663,85 +1878,137 @@ export default function CodingPlayground() {
                                     <span>Live Errors</span>
                                     <span className="pg-sidebar-badge">{liveErrors.length}</span>
                                 </div>
-                                <div style={{ display: 'grid', gap: '8px', marginBottom: '10px', padding: '8px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)' }}>
-                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', cursor: voiceSupported ? 'pointer' : 'not-allowed', opacity: voiceSupported ? 1 : 0.55 }}>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <div style={{ display: 'grid', gap: '10px', marginBottom: '10px', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowVoiceSettings((value) => !value)}
+                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: 'none', background: 'transparent', color: 'inherit', padding: 0, cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                                        >
                                             <Volume2 size={12} />
-                                            Voice error readout
-                                        </span>
-                                        <input
-                                            type="checkbox"
-                                            checked={voiceErrorsEnabled}
-                                            disabled={!voiceSupported}
-                                            onChange={(e) => setVoiceErrorsEnabled(e.target.checked)}
-                                        />
-                                    </label>
+                                            Friendly voice
+                                            <ChevronDown size={12} style={{ transform: showVoiceSettings ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                                        </button>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: voiceSupported ? 'pointer' : 'not-allowed', opacity: voiceSupported ? 1 : 0.55 }}>
+                                            <span>On</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={voiceErrorsEnabled}
+                                                disabled={!voiceSupported}
+                                                onChange={(e) => setVoiceErrorsEnabled(e.target.checked)}
+                                            />
+                                        </label>
+                                    </div>
                                     {!voiceSupported && (
                                         <div style={{ fontSize: '11px', opacity: 0.75 }}>
                                             Voice readout is not available in this browser/device.
                                         </div>
                                     )}
-                                    {voiceErrorsEnabled && voiceSupported && (
-                                        <>
-                                            <label style={{ display: 'grid', gridTemplateColumns: '56px 1fr', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
-                                                <span>Warn</span>
-                                                <input type="checkbox" checked={voiceWarningsEnabled} onChange={(e) => setVoiceWarningsEnabled(e.target.checked)} />
+                                    {voiceSupported && voiceErrorsEnabled && (
+                                        <div style={{ fontSize: '12px', color: 'rgba(248,250,252,0.82)' }}>
+                                            Live errors are read aloud in a friendly voice while you type.
+                                        </div>
+                                    )}
+
+                                    {showVoiceSettings && voiceSupported && (
+                                        <div style={{ display: 'grid', gap: '10px', paddingTop: '4px' }}>
+                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                                                <span>Choose language</span>
+                                                <select
+                                                    value={voiceAnnouncementLang}
+                                                    onChange={(e) => setVoiceAnnouncementLang(e.target.value)}
+                                                    style={{ width: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(15,23,42,0.95)', color: 'inherit', padding: '8px 10px' }}
+                                                >
+                                                    <option value="en">English</option>
+                                                    <option value="hi">Hindi</option>
+                                                </select>
                                             </label>
-                                            <label style={{ display: 'grid', gridTemplateColumns: '56px 1fr', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
-                                                <span>Voice</span>
+
+                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                                                <span>Choose voice</span>
                                                 <select
                                                     value={voiceName}
                                                     onChange={(e) => setVoiceName(e.target.value)}
-                                                    style={{
-                                                        background: 'rgba(255,255,255,0.06)',
-                                                        border: '1px solid rgba(255,255,255,0.2)',
-                                                        borderRadius: '8px',
-                                                        color: 'inherit',
-                                                        fontSize: '11px',
-                                                        padding: '4px 6px',
-                                                    }}
+                                                    style={{ width: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(15,23,42,0.95)', color: 'inherit', padding: '8px 10px' }}
                                                 >
+                                                    {voiceOptions.length === 0 && <option value="">Default browser voice</option>}
                                                     {voiceOptions.map((voice) => (
-                                                        <option key={`${voice.name}-${voice.lang}`} value={voice.name}>
-                                                            {voice.name} ({voice.lang})
+                                                        <option key={voice.name} value={voice.name}>
+                                                            {voice.name} {voice.lang ? `(${voice.lang})` : ''}
                                                         </option>
                                                     ))}
                                                 </select>
                                             </label>
-                                            <label style={{ display: 'grid', gridTemplateColumns: '44px 1fr 38px', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
-                                                <span>Rate</span>
-                                                <input type="range" min="0.7" max="1.6" step="0.1" value={voiceRate} onChange={(e) => setVoiceRate(Number(e.target.value))} />
-                                                <span>{voiceRate.toFixed(1)}x</span>
+
+                                            <div style={{ display: 'grid', gap: '8px' }}>
+                                                <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                                                    <span>Talk speed: {voiceRate.toFixed(1)}x</span>
+                                                    <input
+                                                        type="range"
+                                                        min="0.7"
+                                                        max="1.6"
+                                                        step="0.1"
+                                                        value={voiceRate}
+                                                        onChange={(e) => setVoiceRate(Number(e.target.value))}
+                                                    />
+                                                </label>
+                                                <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                                                    <span>Sound level: {Math.round(voiceVolume * 100)}%</span>
+                                                    <input
+                                                        type="range"
+                                                        min="0"
+                                                        max="1"
+                                                        step="0.05"
+                                                        value={voiceVolume}
+                                                        onChange={(e) => setVoiceVolume(Number(e.target.value))}
+                                                    />
+                                                </label>
+                                            </div>
+
+                                            <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '12px', cursor: 'pointer' }}>
+                                                <span>Include warnings</span>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={voiceWarningsEnabled}
+                                                    onChange={(e) => setVoiceWarningsEnabled(e.target.checked)}
+                                                />
                                             </label>
-                                            <label style={{ display: 'grid', gridTemplateColumns: '44px 1fr 38px', alignItems: 'center', gap: '8px', fontSize: '11px', opacity: 0.9 }}>
-                                                <span>Vol</span>
-                                                <input type="range" min="0" max="1" step="0.1" value={voiceVolume} onChange={(e) => setVoiceVolume(Number(e.target.value))} />
-                                                <span>{Math.round(voiceVolume * 100)}%</span>
-                                            </label>
-                                            <button
-                                                className="pg-console-clear"
-                                                type="button"
-                                                onClick={handleVoiceTest}
-                                                disabled={!voiceOptions.length}
-                                                style={{ justifySelf: 'start' }}
-                                            >
-                                                <Volume2 size={11} />
-                                                <span>Test voice</span>
-                                            </button>
-                                            <button
-                                                className="pg-console-clear"
-                                                type="button"
-                                                onClick={() => {
-                                                    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                                                        window.speechSynthesis.cancel();
-                                                    }
-                                                }}
-                                                style={{ justifySelf: 'start' }}
-                                            >
-                                                <X size={11} />
-                                                <span>Stop voice</span>
-                                            </button>
-                                        </>
+
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleVoiceTest}
+                                                    className="pg-btn"
+                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                                                >
+                                                    Try it
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={stopVoicePlayback}
+                                                    className="pg-btn"
+                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                                                >
+                                                    Stop speaking
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAdvancedVoiceSettings((value) => !value)}
+                                                    className="pg-btn"
+                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                                                >
+                                                    More options
+                                                </button>
+                                            </div>
+
+                                            {showAdvancedVoiceSettings && (
+                                                <div style={{ display: 'grid', gap: '8px', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px', lineHeight: 1.5, color: 'rgba(248,250,252,0.78)' }}>
+                                                    <div>Selected language: {voiceAnnouncementLang === 'hi' ? 'Hindi' : 'English'}</div>
+                                                    <div>Available voices: {voiceOptions.length}</div>
+                                                    <div>{hasHindiVoice ? 'A Hindi voice is available in this browser.' : 'No Hindi voice was found, so the cloud voice may be used when needed.'}</div>
+                                                </div>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                                 {liveLintPending && (

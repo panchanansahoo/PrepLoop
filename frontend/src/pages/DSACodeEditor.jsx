@@ -435,6 +435,16 @@ export default function DSACodeEditor() {
         headers: getAuthHeaders(),
         body: JSON.stringify({ code, language, problemId: resolvedProblemId }),
       });
+
+      if (res.status === 401 || res.status === 403) {
+        setOutput({
+          success: false,
+          output: '',
+          message: 'Please sign in with a registered account to run code.',
+        });
+        return;
+      }
+
       const data = await res.json();
 
       if (data.testResults && Array.isArray(data.testResults)) {
@@ -483,9 +493,6 @@ export default function DSACodeEditor() {
 
     try {
       const resolvedProblemId = problem?.id || problemId;
-      const unlockKey = getSolutionUnlockKey(resolvedProblemId);
-      setSolutionUnlocked(true);
-      localStorage.setItem(unlockKey, 'true');
 
       const res = await fetch(`${API_URL}/api/practice/submit`, {
         method: 'POST',
@@ -493,28 +500,21 @@ export default function DSACodeEditor() {
         body: JSON.stringify({ problemId: resolvedProblemId, code, language }),
       });
 
-      if (res.status === 401) {
-        // Fall back to execute for guests who can't fully submit
-        const execRes = await fetch(`${API_URL}/api/practice/execute`, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ code, language, input: '' }),
-        });
-        const execData = await execRes.json();
-        const execOutput = (execData.output || '').trim();
-        const execError = (execData.error || '').trim();
+      if (res.status === 401 || res.status === 403) {
         setOutput({
-          success: execData.success,
-          output: execOutput || execError || '',
-          message: execData.success
-            ? 'Code executed (sign in to submit and track progress)'
-            : `Error: ${execError || 'Unknown error'}`,
+          success: false,
+          output: '',
+          message: 'Please sign in with a registered account to submit solutions.',
         });
         setRunning(false);
         return;
       }
 
       const data = await res.json();
+      const unlockKey = getSolutionUnlockKey(resolvedProblemId);
+      setSolutionUnlocked(true);
+      localStorage.setItem(unlockKey, 'true');
+
       const accepted = data.submission?.status === 'accepted';
       setOutput({
         success: accepted,

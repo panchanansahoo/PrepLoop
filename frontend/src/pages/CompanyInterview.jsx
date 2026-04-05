@@ -14,7 +14,6 @@ import { Link } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
 import EmotionDetector from '../components/EmotionDetector';
 import AICopilot from '../components/AICopilot';
-import InterviewBadges from '../components/InterviewBadges';
 import CodeEditorPanel from '../components/CodeEditorPanel';
 import ProctoringManager from '../components/ProctoringManager';
 import DetailedReport from '../components/interview/DetailedReport';
@@ -500,8 +499,20 @@ export default function CompanyInterview() {
     const companyColor = companyObj.color;
 
     const getAuthHeaders = () => {
-        const token = user?.access_token || localStorage.getItem('access_token');
-        return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+        const token =
+            user?.access_token ||
+            user?.token ||
+            localStorage.getItem('token') ||
+            sessionStorage.getItem('token') ||
+            localStorage.getItem('access_token') ||
+            sessionStorage.getItem('access_token') ||
+            localStorage.getItem('auth_token') ||
+            sessionStorage.getItem('auth_token');
+
+        return {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        };
     };
 
     const formatTime = (secs) => {
@@ -2157,16 +2168,6 @@ export default function CompanyInterview() {
                         </Link>
                     </div>
 
-                    {/* Gamification Badges */}
-                    <InterviewBadges
-                        sessionStats={{
-                            score: summaryData.overallScore || 70,
-                            totalFillers: speechFeedback?.totalFillers || 0,
-                            eyeContact: emotionMetrics?.eyeContact || 0,
-                            confidenceScore: speechFeedback?.confidenceScore || summaryData.overallScore || 70,
-                            interviewCount: parseInt(localStorage.getItem('pl_interview_count') || '0') + 1
-                        }}
-                    />
                 </div>
             </div>
         );

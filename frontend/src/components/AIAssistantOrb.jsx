@@ -1,10 +1,27 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Send, Trash2, Sparkles, Bot, User } from 'lucide-react';
+import { X, Send, Trash2, Sparkles, Bot, User, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const CHAT_QUERY_COST = 5;
+const VOICE_MODE_STORAGE_KEY = 'pg-ai-assistant-voice-enabled';
+const VOICE_AUTO_SEND_STORAGE_KEY = 'pg-ai-assistant-voice-auto-send';
+const WAKE_WORD_MODE_STORAGE_KEY = 'pg-ai-assistant-wake-word-enabled';
+const WAKE_WORD_LIST = ['hi prep', 'hey prep', 'hello prep'];
+const WAKE_WORD_PREFIX_REGEX = /^\s*(hi|hey|hello)\s+prep\s*/i;
+const readVoiceModeDefault = () => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(VOICE_MODE_STORAGE_KEY) === '1';
+};
+const readVoiceAutoSendDefault = () => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(VOICE_AUTO_SEND_STORAGE_KEY) === '1';
+};
+const readWakeWordDefault = () => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(WAKE_WORD_MODE_STORAGE_KEY) === '1';
+};
 
 export default function AIAssistantOrb() {
   const { user } = useAuth();
@@ -14,11 +31,22 @@ export default function AIAssistantOrb() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(readVoiceModeDefault);
+  const [voiceAutoSend, setVoiceAutoSend] = useState(readVoiceAutoSendDefault);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(readWakeWordDefault);
+  const [wakeWordArmed, setWakeWordArmed] = useState(false);
+  const [wakeWordStatus, setWakeWordStatus] = useState('');
+  const [wakeWordBlocked, setWakeWordBlocked] = useState(false);
+  const [wakeNeedsTap, setWakeNeedsTap] = useState(false);
+  const [speechInputSupported, setSpeechInputSupported] = useState(false);
+  const [speechOutputSupported, setSpeechOutputSupported] = useState(false);
   const [hovered, setHovered] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const wakeRecognitionRef = useRef(null);
 
   const getHeaders = () => {
     const token = localStorage.getItem('token');
@@ -44,6 +72,99 @@ export default function AIAssistantOrb() {
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 200);
   }, [open]);
+
+  useEffect(() => {
+    const hasSpeechOutput = typeof window !== 'undefined'
+      && 'speechSynthesis' in window
+      && 'SpeechSynthesisUtterance' in window;
+    const hasSpeechInput = typeof window !== 'undefined'
+      && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
+    setSpeechOutputSupported(hasSpeechOutput);
+    setSpeechInputSupported(hasSpeechInput);
+
+    return () => {
+      if (hasSpeechOutput) {
+        window.speechSynthesis.cancel();
+      }
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch {
+          // no-op
+        }
+      }
+      if (wakeRecognitionRef.current) {
+        try {
+          wakeRecognitionRef.current.stop();
+        } catch {
+          // no-op
+        }
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(VOICE_MODE_STORAGE_KEY, voiceEnabled ? '1' : '0');
+    if (!voiceEnabled && speechOutputSupported) {
+      window.speechSynthesis.cancel();
+    }
+  }, [voiceEnabled, speechOutputSupported]);
+
+  useEffect(() => {
+    localStorage.setItem(VOICE_AUTO_SEND_STORAGE_KEY, voiceAutoSend ? '1' : '0');
+  }, [voiceAutoSend]);
+
+  useEffect(() => {
+    localStorage.setItem(WAKE_WORD_MODE_STORAGE_KEY, wakeWordEnabled ? '1' : '0');
+  }, [wakeWordEnabled]);
+
+  const stopWakeWordRecognition = () => {
+    if (wakeRecognitionRef.current) {
+      try {
+        wakeRecognitionRef.current.onend = null;
+        wakeRecognitionRef.current.stop();
+      } catch {
+        // no-op
+      }
+      wakeRecognitionRef.current = null;
+    }
+    setWakeWordArmed(false);
+    setWakeWordStatus('');
+    setWakeWordBlocked(false);
+    setWakeNeedsTap(false);
+  };
+
+  const primeWakeWordPermission = async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      return true;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      return true;
+    } catch {
+      setWakeWordBlocked(true);
+      setWakeWordStatus('Allow microphone access to use "Hi Prep" wake mode.');
+      return false;
+    }
+  };
+
+  const speakAssistantResponse = (text) => {
+    if (!voiceEnabled || !speechOutputSupported || !text?.trim() || wakeWordEnabled) return;
+
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text.trim());
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      window.speechSynthesis.speak(utterance);
+    } catch {
+      // Gracefully degrade if browser voice playback fails.
+    }
+  };
 
   // Canvas animation for the orb's inner glow
   useEffect(() => {
@@ -112,13 +233,24 @@ export default function AIAssistantOrb() {
     }
   };
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input.trim();
-    setInput('');
+  const sendUserMessage = async (userMsg, { clearInput = true } = {}) => {
+    if (!userMsg?.trim() || loading) return;
+
+    if (clearInput) {
+      setInput('');
+    }
+
     setMessages(prev => [...prev, { role: 'user', content: userMsg }]);
     setLoading(true);
-    setIsListening(true);
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // no-op
+      }
+      setIsListening(false);
+    }
 
     try {
       const res = await fetch(`${API_URL}/api/chat/message`, {
@@ -129,6 +261,7 @@ export default function AIAssistantOrb() {
       if (res.ok) {
         const data = await res.json();
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        speakAssistantResponse(data.response);
         refreshBalance();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -141,8 +274,232 @@ export default function AIAssistantOrb() {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.' }]);
     } finally {
       setLoading(false);
-      setTimeout(() => setIsListening(false), 500);
     }
+  };
+
+  const sendMessage = async () => {
+    await sendUserMessage(input.trim(), { clearInput: true });
+  };
+
+  const handleWakeWordResult = (transcriptRaw) => {
+    const transcript = (transcriptRaw || '').toLowerCase().trim();
+    if (!transcript) return;
+
+    const matchedWake = WAKE_WORD_LIST.some((phrase) => transcript.includes(phrase));
+    const cleanedImmediateCommand = (transcriptRaw || '')
+      .replace(WAKE_WORD_PREFIX_REGEX, '')
+      .replace(/^\s*prep\s*/i, '')
+      .trim();
+
+    if (!wakeWordArmed && matchedWake) {
+      if (cleanedImmediateCommand) {
+        setOpen(true);
+        setWakeWordStatus('Sending your request...');
+        sendUserMessage(cleanedImmediateCommand, { clearInput: true });
+        setTimeout(() => {
+          setWakeWordStatus(wakeWordEnabled ? 'Listening for "Hi Prep"...' : '');
+        }, 1200);
+        return;
+      }
+
+      setWakeWordArmed(true);
+      setWakeWordStatus('Prep is listening...');
+      setOpen(true);
+      return;
+    }
+
+    if (!wakeWordArmed) return;
+
+    const cleaned = transcriptRaw
+      .replace(WAKE_WORD_PREFIX_REGEX, '')
+      .replace(/^\s*prep\s*/i, '')
+      .trim();
+
+    if (!cleaned) {
+      setWakeWordStatus('Say your command for Prep.');
+      return;
+    }
+
+    setWakeWordStatus('Sending your request...');
+    sendUserMessage(cleaned, { clearInput: true });
+    setWakeWordArmed(false);
+    setTimeout(() => {
+      setWakeWordStatus(wakeWordEnabled ? 'Listening for "Hi Prep"...' : '');
+    }, 1200);
+  };
+
+  const startWakeWordRecognition = () => {
+    if (!speechInputSupported || !wakeWordEnabled || wakeWordBlocked) return;
+    if (wakeRecognitionRef.current) return;
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = true;
+
+    recognition.onstart = () => {
+      setWakeWordStatus('Listening for "Hi Prep"...');
+    };
+
+    recognition.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) {
+          handleWakeWordResult(event.results[i][0].transcript || '');
+        }
+      }
+    };
+
+    recognition.onerror = (event) => {
+      const code = event?.error || '';
+      if (code === 'no-speech' || code === 'aborted') {
+        return;
+      }
+
+      if (code === 'not-allowed' || code === 'service-not-allowed') {
+        setWakeWordBlocked(true);
+        setWakeWordStatus('Wake mode blocked. Please allow microphone access.');
+        return;
+      }
+
+      if (code === 'network') {
+        setWakeWordStatus('Wake mode temporary network issue. Retrying...');
+      } else {
+        setWakeWordStatus('Wake mode unavailable. Retrying...');
+      }
+    };
+
+    recognition.onend = () => {
+      wakeRecognitionRef.current = null;
+      if (!wakeWordEnabled || wakeWordBlocked) return;
+      // Keep wake-word mode alive after natural pauses.
+      setTimeout(() => {
+        if (wakeWordEnabled && !wakeWordBlocked) {
+          startWakeWordRecognition();
+        }
+      }, 300);
+    };
+
+    wakeRecognitionRef.current = recognition;
+    try {
+      recognition.start();
+      setWakeNeedsTap(false);
+    } catch {
+      wakeRecognitionRef.current = null;
+      setWakeNeedsTap(true);
+      setWakeWordStatus('Tap wake button again to start listening.');
+    }
+  };
+
+  const startWakeWordFlow = async () => {
+    setWakeWordBlocked(false);
+    const granted = await primeWakeWordPermission();
+    if (granted) {
+      startWakeWordRecognition();
+    }
+  };
+
+  const toggleWakeWordMode = () => {
+    if (wakeWordEnabled) {
+      setWakeWordEnabled(false);
+      stopWakeWordRecognition();
+      return;
+    }
+
+    // Wake mode implies voice interaction intent.
+    setVoiceEnabled(true);
+    setWakeWordEnabled(true);
+    startWakeWordFlow();
+  };
+
+  useEffect(() => {
+    if (!wakeWordEnabled) {
+      stopWakeWordRecognition();
+      return;
+    }
+
+    if (!speechInputSupported) {
+      setWakeWordStatus('Wake word needs browser speech input support.');
+      return;
+    }
+
+    // Stop manual recognition when wake mode is enabled.
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {
+        // no-op
+      }
+    }
+
+    if (speechOutputSupported) {
+      window.speechSynthesis.cancel();
+    }
+
+    startWakeWordFlow();
+
+    return () => {
+      stopWakeWordRecognition();
+    };
+  }, [wakeWordEnabled, speechInputSupported]);
+
+  const toggleSpeechInput = () => {
+    if (!speechInputSupported) return;
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // no-op
+      }
+      setIsListening(false);
+      return;
+    }
+
+    const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new Recognition();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      if (speechOutputSupported) {
+        window.speechSynthesis.cancel();
+      }
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event) => {
+      let transcript = '';
+      let hasFinalResult = false;
+
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        transcript += event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          hasFinalResult = true;
+        }
+      }
+
+      const cleaned = transcript.trim();
+      setInput(cleaned);
+
+      if (voiceEnabled && voiceAutoSend && hasFinalResult && cleaned && !loading) {
+        sendUserMessage(cleaned, { clearInput: true });
+      }
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
   };
 
   const clearChat = async () => {
@@ -213,10 +570,31 @@ export default function AIAssistantOrb() {
               <div className="orb-chat-title-icon">
                 <Sparkles size={14} />
               </div>
-              <span>PrepLoop AI</span>
+              <span>Prep</span>
               <span className="orb-chat-cost">{CHAT_QUERY_COST} coins</span>
             </div>
             <div className="orb-chat-actions">
+              <button
+                className={`orb-chat-action-btn ${voiceEnabled ? 'active' : ''}`}
+                onClick={() => setVoiceEnabled(prev => !prev)}
+                title={voiceEnabled ? 'Voice mode on (click to disable)' : 'Voice mode off (click to enable)'}
+              >
+                {voiceEnabled ? <Volume2 size={14} /> : <VolumeX size={14} />}
+              </button>
+              <button
+                className={`orb-chat-action-btn ${voiceAutoSend ? 'active' : ''}`}
+                onClick={() => setVoiceAutoSend(prev => !prev)}
+                title={voiceAutoSend ? 'Auto-send after speech is on' : 'Auto-send after speech is off'}
+              >
+                <Send size={14} />
+              </button>
+              <button
+                className={`orb-chat-action-btn ${wakeWordEnabled ? 'active' : ''}`}
+                onClick={toggleWakeWordMode}
+                title={wakeWordEnabled ? 'Wake phrase "Hi Prep" is on' : 'Wake phrase "Hi Prep" is off'}
+              >
+                <Bot size={14} />
+              </button>
               <button className="orb-chat-action-btn" onClick={clearChat} title="Clear chat">
                 <Trash2 size={14} />
               </button>
@@ -233,7 +611,7 @@ export default function AIAssistantOrb() {
                 <div className="orb-chat-empty-icon">
                   <Bot size={36} />
                 </div>
-                <p className="orb-chat-empty-title">Hi! I'm your AI assistant.</p>
+                <p className="orb-chat-empty-title">Hi! I'm Prep, your AI assistant.</p>
                 <p className="orb-chat-empty-sub">Ask me about DSA, interview tips, or coding help.</p>
               </div>
             )}
@@ -270,12 +648,36 @@ export default function AIAssistantOrb() {
               disabled={loading}
             />
             <button
+              className={`orb-chat-mic ${isListening ? 'active' : ''}`}
+              onClick={toggleSpeechInput}
+              disabled={!speechInputSupported || loading || wakeWordEnabled}
+              title={speechInputSupported ? (isListening ? 'Stop voice input' : 'Use voice input') : 'Voice input not supported on this browser'}
+            >
+              {isListening ? <MicOff size={15} /> : <Mic size={15} />}
+            </button>
+            <button
               className="orb-chat-send"
               onClick={sendMessage}
               disabled={!input.trim() || loading}
             >
               <Send size={15} />
             </button>
+          </div>
+          <div className="orb-chat-voice-status" aria-live="polite">
+            {wakeWordEnabled && wakeWordStatus
+              ? wakeWordStatus
+              : wakeWordEnabled
+              ? (wakeNeedsTap ? 'Tap wake button again to start listening.' : 'Wake mode on. Listening for "Hi Prep"...')
+              : !speechInputSupported || !speechOutputSupported
+              ? 'Voice features are limited in this browser.'
+              : isListening
+                ? 'Listening... Speak now.'
+                : voiceEnabled
+                  ? `Voice mode enabled${voiceAutoSend ? ' (auto-send on).' : '.'}`
+                  : 'Voice mode disabled.'}
+          </div>
+          <div className="orb-chat-wake-hint">
+            Tip: enable wake phrase and say "Hi Prep" to activate voice commands.
           </div>
         </div>
       )}
@@ -603,6 +1005,10 @@ export default function AIAssistantOrb() {
           background: rgba(255, 255, 255, 0.06);
           color: rgba(255, 255, 255, 0.8);
         }
+        .orb-chat-action-btn.active {
+          color: #a78bfa;
+          background: rgba(139, 92, 246, 0.15);
+        }
 
         /* ── MESSAGES ── */
         .orb-chat-messages {
@@ -781,6 +1187,50 @@ export default function AIAssistantOrb() {
           opacity: 0.3;
           cursor: not-allowed;
           box-shadow: none;
+        }
+
+        .orb-chat-voice-status {
+          padding: 0 16px 12px;
+          color: rgba(255, 255, 255, 0.5);
+          font-size: 11px;
+          line-height: 1.4;
+          text-align: left;
+        }
+
+        .orb-chat-wake-hint {
+          padding: 0 16px 14px;
+          color: rgba(255, 255, 255, 0.38);
+          font-size: 10px;
+          line-height: 1.4;
+        }
+
+        .orb-chat-mic {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(255, 255, 255, 0.06);
+          color: rgba(255, 255, 255, 0.85);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.2s ease;
+        }
+        .orb-chat-mic:hover:not(:disabled) {
+          border-color: rgba(139, 92, 246, 0.5);
+          color: #c4b5fd;
+        }
+        .orb-chat-mic.active {
+          color: #fca5a5;
+          border-color: rgba(248, 113, 113, 0.55);
+          background: rgba(248, 113, 113, 0.1);
+          box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.15);
+        }
+        .orb-chat-mic:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
         }
 
         /* ── RESPONSIVE ── */

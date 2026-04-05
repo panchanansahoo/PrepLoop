@@ -13,6 +13,10 @@
 5. Click "Run"
 6. Wait for success ✅
 
+7. Apply real-data balance reconciliation migration:
+  - Option A (recommended): run `npm --prefix backend run migrate:coin:real-data`
+  - Option B: run `backend/db/migration_coin_real_data_sync.sql` in Supabase SQL Editor
+
 **Verify it worked:**
 ```sql
 SELECT column_name FROM information_schema.columns 

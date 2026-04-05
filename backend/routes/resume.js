@@ -61,66 +61,74 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
     let analysisData;
     let resumeProfile;
 
+    const buildStaticAnalysis = () => ({
+      atsScore: 75,
+      strengths: [
+        'Clear work experience section',
+        'Relevant technical skills listed',
+        'Quantifiable achievements included'
+      ],
+      weaknesses: [
+        'Missing action verbs in some bullet points',
+        'Could include more keywords relevant to target roles',
+        'Summary section could be more impactful'
+      ],
+      suggestions: [
+        'Add more industry-specific keywords',
+        'Use stronger action verbs like "architected", "implemented", "optimized"',
+        'Include metrics and numbers to demonstrate impact',
+        'Ensure consistent formatting throughout'
+      ],
+      keywordMatch: {
+        technical: ['Python', 'JavaScript', 'React', 'Node.js'],
+        soft: ['Leadership', 'Communication', 'Problem-solving'],
+        missing: ['Cloud computing', 'CI/CD', 'Agile']
+      }
+    });
+
     if (!groq) {
-      analysisData = {
-        atsScore: 75,
-        strengths: [
-          'Clear work experience section',
-          'Relevant technical skills listed',
-          'Quantifiable achievements included'
-        ],
-        weaknesses: [
-          'Missing action verbs in some bullet points',
-          'Could include more keywords relevant to target roles',
-          'Summary section could be more impactful'
-        ],
-        suggestions: [
-          'Add more industry-specific keywords',
-          'Use stronger action verbs like "architected", "implemented", "optimized"',
-          'Include metrics and numbers to demonstrate impact',
-          'Ensure consistent formatting throughout'
-        ],
-        keywordMatch: {
-          technical: ['Python', 'JavaScript', 'React', 'Node.js'],
-          soft: ['Leadership', 'Communication', 'Problem-solving'],
-          missing: ['Cloud computing', 'CI/CD', 'Agile']
-        }
-      };
+      analysisData = buildStaticAnalysis();
       resumeProfile = buildFallbackResumeProfile(resumeText, analysisData);
     } else {
-      const completion = await aiCallWithRetry({
-        operation: () => groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert resume analyst and ATS specialist. 
-              Analyze the resume and provide:
-              1. ATS score (0-100)
-              2. Strengths (array of strings)
-              3. Weaknesses (array of strings)
-              4. Specific suggestions for improvement (array of strings)
-              5. Keyword analysis (object with technical, soft, and missing keywords)
-              6. Interview-ready candidate profile for a mock interviewer
-              
-              Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch, interviewProfile.
-              interviewProfile must include: candidateHeadline, coreSkills (array), projectHighlights (array), likelyQuestionAreas (array), summary.
-              Keep interviewProfile concise and useful for generating personalized interview questions.
-              Respond ONLY with valid JSON.`
-            },
-            {
-              role: 'user',
-              content: `Analyze this resume:\n\n${resumeText}`
-            }
-          ],
-          response_format: { type: 'json_object' }
-        }),
-        timeoutMs: 12000,
-        maxRetries: 2,
-        baseDelayMs: 250
-      });
+      try {
+        const completion = await aiCallWithRetry({
+          operation: () => groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert resume analyst and ATS specialist. 
+                Analyze the resume and provide:
+                1. ATS score (0-100)
+                2. Strengths (array of strings)
+                3. Weaknesses (array of strings)
+                4. Specific suggestions for improvement (array of strings)
+                5. Keyword analysis (object with technical, soft, and missing keywords)
+                6. Interview-ready candidate profile for a mock interviewer
+                
+                Format as JSON with fields: atsScore, strengths, weaknesses, suggestions, keywordMatch, interviewProfile.
+                interviewProfile must include: candidateHeadline, coreSkills (array), projectHighlights (array), likelyQuestionAreas (array), summary.
+                Keep interviewProfile concise and useful for generating personalized interview questions.
+                Respond ONLY with valid JSON.`
+              },
+              {
+                role: 'user',
+                content: `Analyze this resume:\n\n${resumeText}`
+              }
+            ],
+            response_format: { type: 'json_object' }
+          }),
+          timeoutMs: 12000,
+          maxRetries: 2,
+          baseDelayMs: 250
+        });
 
-      analysisData = JSON.parse(completion.choices[0].message.content);
+        analysisData = JSON.parse(completion.choices[0].message.content);
+      } catch (aiError) {
+        console.warn('Resume AI analysis failed, using fallback profile:', aiError?.message || aiError);
+        analysisData = buildStaticAnalysis();
+      }
+
       resumeProfile = analysisData.interviewProfile || buildFallbackResumeProfile(resumeText, analysisData);
     }
 

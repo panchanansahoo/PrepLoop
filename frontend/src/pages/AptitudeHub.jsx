@@ -92,7 +92,7 @@ export default function AptitudeHub() {
                     {[
                         { label: 'Total Problems', value: overallStats.total, icon: <Target size={18} />, color: '#818cf8' },
                         { label: 'Categories', value: overallStats.categories, icon: <BarChart3 size={18} />, color: '#f472b6' },
-                        { label: 'Total XP', value: overallStats.totalXP, icon: <Zap size={18} />, color: '#facc15' },
+                        { label: 'Total Points', value: overallStats.totalXP, icon: <Zap size={18} />, color: '#facc15' },
                         { label: 'Difficulty Levels', value: '3', icon: <Trophy size={18} />, color: '#34d399' }
                     ].map((s, i) => (
                         <div key={i} style={{
@@ -209,7 +209,7 @@ export default function AptitudeHub() {
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 18, fontWeight: 700, color: '#facc15' }}>{cat.stats.totalXP}</div>
-                                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>XP</div>
+                                                <div style={{ fontSize: 11, color: isLight ? '#6b7280' : '#71717a' }}>Points</div>
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: 18, fontWeight: 700 }}>{subcatEntries.length}</div>

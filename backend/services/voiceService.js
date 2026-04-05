@@ -61,28 +61,51 @@ export function getAvailableProviders() {
  * @param {string} text - Text to synthesize
  * @param {string} persona - Voice persona (friendly, analytical, formal, casual)
  * @param {string} preferredProvider - Force a specific provider
+ * @param {string} language - Requested announcement language
  * @returns {{ audio: Buffer, contentType: string } | { fallback: true }}
  */
-export async function textToSpeech(text, persona = 'friendly', preferredProvider = null) {
+export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, language = 'en') {
     if (!text || text.trim().length === 0) {
         throw new Error('Text is required for TTS');
     }
 
     // Truncate text — Orpheus has 200 char max per request
     const truncatedText = text.length > 190 ? text.substring(0, 190) : text;
+    const normalizedLanguage = String(language || 'en').toLowerCase();
+    const requiresMultilingualSupport = normalizedLanguage !== 'en' && normalizedLanguage !== 'en-us';
 
-    // Try ElevenLabs first (if available and not forced to another provider)
-    if (providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs')) {
+    // Try ElevenLabs first for multilingual output, or for the default English path.
+    if (providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs' || requiresMultilingualSupport)) {
         try {
-            const result = await elevenLabsTTS(truncatedText, persona);
+            const result = await elevenLabsTTS(truncatedText, persona, normalizedLanguage);
             if (result) return result;
         } catch (err) {
             console.warn('ElevenLabs TTS failed:', err.message?.substring(0, 150));
         }
     }
 
-    // Try Groq Orpheus
-    if (providers.groq && (!preferredProvider || preferredProvider === 'groq')) {
+    // Groq PlayAI is our fallback for multilingual requests when ElevenLabs is unavailable.
+    if (providers.groq && requiresMultilingualSupport && (!preferredProvider || preferredProvider === 'groq')) {
+        try {
+            const result = await groqPlayAITTS(truncatedText);
+            if (result) return result;
+        } catch (err) {
+            console.warn('Groq PlayAI TTS failed:', err.message?.substring(0, 150));
+        }
+    }
+
+    // Last-resort multilingual fallback that works without any API key.
+    if (requiresMultilingualSupport && (!preferredProvider || preferredProvider === 'browser')) {
+        try {
+            const result = await googleTranslateTTS(truncatedText, normalizedLanguage);
+            if (result) return result;
+        } catch (err) {
+            console.warn('Google Translate TTS failed:', err.message?.substring(0, 150));
+        }
+    }
+
+    // Groq Orpheus is English-only, so avoid it for Hindi requests.
+    if (!requiresMultilingualSupport && providers.groq && (!preferredProvider || preferredProvider === 'groq')) {
         try {
             const result = await groqOrpheusTTS(truncatedText, persona);
             if (result) return result;
@@ -140,9 +163,13 @@ export function getDeepgramToken() {
 
 // ─── Provider Implementations ───
 
-async function elevenLabsTTS(text, persona) {
+async function elevenLabsTTS(text, persona, language = 'en') {
     const voiceId = ELEVENLABS_VOICES[persona] || ELEVENLABS_VOICES.default;
     const apiKey = process.env.ELEVENLABS_API_KEY;
+    const normalizedLanguage = String(language || 'en').toLowerCase();
+    const modelId = normalizedLanguage !== 'en' && normalizedLanguage !== 'en-us'
+        ? 'eleven_multilingual_v2'
+        : 'eleven_multilingual_v2';
 
     const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
         method: 'POST',
@@ -153,7 +180,7 @@ async function elevenLabsTTS(text, persona) {
         },
         body: JSON.stringify({
             text,
-            model_id: 'eleven_multilingual_v2',
+            model_id: modelId,
             voice_settings: {
                 stability: 0.65,
                 similarity_boost: 0.8,
@@ -206,6 +233,33 @@ async function groqPlayAITTS(text) {
     if (buffer.length < 100) throw new Error('PlayAI returned empty audio');
 
     return { audio: buffer, contentType: 'audio/wav', provider: 'groq-playai' };
+}
+
+async function googleTranslateTTS(text, language) {
+    const voiceLanguage = /^hi/i.test(language) ? 'hi' : 'en';
+    const query = new URLSearchParams({
+        ie: 'UTF-8',
+        client: 'tw-ob',
+        tl: voiceLanguage,
+        q: text,
+    });
+
+    const response = await fetch(`https://translate.google.com/translate_tts?${query.toString()}`, {
+        method: 'GET',
+        headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': 'https://translate.google.com/',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Google TTS API error: ${response.status}`);
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (buffer.length < 100) throw new Error('Google TTS returned empty audio');
+
+    return { audio: buffer, contentType: 'audio/mpeg', provider: 'google-translate' };
 }
 
 async function deepgramSTT(filePath) {

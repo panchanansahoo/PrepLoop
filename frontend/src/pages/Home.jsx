@@ -82,7 +82,7 @@ const howItWorks = [
     step: '01',
     icon: <UserCheck size={28} />,
     title: 'Set Your Goal',
-    desc: 'Tell us your target company, role, and timeline. Our AI builds a personalized roadmap just for you.',
+    desc: 'Tell us your target company, role, and timeline, and our AI will build a personalized roadmap for you.',
     gradient: 'linear-gradient(135deg, #a78bfa, #7c3aed)',
     glowColor: 'rgba(139, 92, 246, 0.15)',
     borderColor: 'rgba(139, 92, 246, 0.3)'

@@ -204,6 +204,13 @@ async function apiRequest(endpoint, options = {}) {
   const data = await response.json();
 
   if (!response.ok) {
+    if (
+      data?.error === 'Insufficient coins' &&
+      typeof data?.required === 'number' &&
+      typeof data?.coins === 'number'
+    ) {
+      throw new Error(`Insufficient coins. You need ${data.required} coins, but you have ${data.coins}.`);
+    }
     throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`);
   }
 
