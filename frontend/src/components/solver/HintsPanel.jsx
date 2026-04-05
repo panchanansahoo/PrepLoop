@@ -252,7 +252,7 @@ function HintsTab({ hints, unlockedLevels, animatingLevel, onUnlock }) {
                                         fontSize: 9, fontWeight: 700, color: meta.color, opacity: 0.8,
                                         background: `${meta.color}15`, padding: '2px 6px', borderRadius: 4,
                                     }}>
-                                        -{meta.xpCost} XP
+                                        -{meta.xpCost} points
                                     </span>
                                 )}
                                 {isUnlocked ? (

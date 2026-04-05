@@ -23,7 +23,7 @@ export default function BottomNav() {
         if (['/company-prep', '/company-interview']
             .some(p => path.startsWith(p))) return '/company-interview';
         // Account / Progress section
-        if (['/gamification', '/dashboard/analytics', '/history', '/profile', '/dashboard/settings']
+        if (['/dashboard/analytics', '/history', '/profile', '/dashboard/settings']
             .some(p => path.startsWith(p))) return '/profile';
         // Home
         return '/dashboard';

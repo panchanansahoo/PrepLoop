@@ -38,7 +38,6 @@ async function initializeServer() {
     const chatRoutes = (await import('./routes/chat.js')).default;
     const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
-    const streakRoutes = (await import('./routes/streak.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
     
@@ -137,7 +136,6 @@ async function initializeServer() {
     app.use('/api/chat', chatRoutes);
     app.use('/api/real-interview', realInterviewRoutes);
     app.use('/api/schedule', scheduleRoutes);
-    app.use('/api/streak', streakRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);
 

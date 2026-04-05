@@ -3,9 +3,102 @@ import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const INTERVIEW_START_COIN_COST = Number(process.env.AI_INTERVIEW_COIN_COST || 5);
+
+const spendCoinsForInterviewStart = async (userId, cost, referenceKey = null) => {
+  const atomicResult = await applyCoinTransaction({
+    userId,
+    amount: cost,
+    type: 'spend',
+    description: 'AI interview session start',
+    referenceKey,
+  });
+
+  if (atomicResult.handled) {
+    if (!atomicResult.success) {
+      return { ok: false, currentCoins: atomicResult.balance };
+    }
+    return { ok: true, newBalance: atomicResult.balance };
+  }
+
+  const { data: profile, error: fetchError } = await supabaseAdmin
+    .from('profiles')
+    .select('coins')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const currentCoins = profile?.coins || 0;
+  if (currentCoins < cost) {
+    return { ok: false, currentCoins };
+  }
+
+  const newBalance = currentCoins - cost;
+  const { error: updateError } = await supabaseAdmin
+    .from('profiles')
+    .update({ coins: newBalance })
+    .eq('id', userId);
+
+  if (updateError) throw updateError;
+
+  await supabaseAdmin.from('coin_transactions').insert({
+    user_id: userId,
+    amount: cost,
+    type: 'spend',
+    description: 'AI interview session start',
+  });
+
+  return { ok: true, newBalance };
+};
+
+const refundCoinsForInterviewStartFailure = async (userId, cost, referenceKey = null) => {
+  const atomicResult = await applyCoinTransaction({
+    userId,
+    amount: cost,
+    type: 'earn',
+    description: 'AI interview refund (start failed)',
+    referenceKey,
+  });
+
+  if (atomicResult.handled) {
+    if (!atomicResult.success) {
+      throw new Error(atomicResult.error || 'Failed to refund interview coins');
+    }
+    return atomicResult.balance;
+  }
+
+  const { data: profile, error: fetchError } = await supabaseAdmin
+    .from('profiles')
+    .select('coins')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const currentCoins = profile?.coins || 0;
+  const refundedBalance = currentCoins + cost;
+
+  const { error: updateError } = await supabaseAdmin
+    .from('profiles')
+    .update({ coins: refundedBalance })
+    .eq('id', userId);
+
+  if (updateError) throw updateError;
+
+  await supabaseAdmin.from('coin_transactions').insert({
+    user_id: userId,
+    amount: cost,
+    type: 'earn',
+    description: 'AI interview refund (start failed)',
+  });
+
+  return refundedBalance;
+};
 
 const getFallbackQuestions = (type, difficulty) => {
   const questionSets = {
@@ -411,8 +504,24 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
 };
 
 router.post('/start', authenticateToken, async (req, res) => {
+  let didCharge = false;
   try {
     const { type, difficulty, duration } = req.body;
+
+    const spendResult = await spendCoinsForInterviewStart(
+      req.user.id,
+      INTERVIEW_START_COIN_COST,
+      req.id ? `interview-start:${req.id}` : null
+    );
+
+    if (!spendResult.ok) {
+      return res.status(400).json({
+        error: 'Insufficient coins',
+        required: INTERVIEW_START_COIN_COST,
+        coins: spendResult.currentCoins,
+      });
+    }
+    didCharge = true;
 
     // Try to get AI question first
     const aiQuestion = await generateAIQuestion(type, difficulty);
@@ -433,6 +542,17 @@ router.post('/start', authenticateToken, async (req, res) => {
       res.json({ questions: selectedQuestions });
     }
   } catch (error) {
+    if (didCharge) {
+      try {
+        await refundCoinsForInterviewStartFailure(
+          req.user?.id,
+          INTERVIEW_START_COIN_COST,
+          req.id ? `interview-refund:${req.id}` : null
+        );
+      } catch (refundError) {
+        console.error('Interview coin refund error:', refundError);
+      }
+    }
     console.error('Error starting interview:', error);
     res.status(500).json({ error: 'Failed to start interview' });
   }

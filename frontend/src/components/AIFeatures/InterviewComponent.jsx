@@ -348,6 +348,9 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         </form>
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-sm text-blue-900 mb-2">
+            <strong>Coins:</strong> Each AI interview start costs 5 coins.
+          </p>
           <p className="text-sm text-blue-900">
             <strong>💡 Tip:</strong> The AI interviewer will ask you questions and evaluate your 
             responses based on technical knowledge, communication, and problem-solving skills.

@@ -121,6 +121,16 @@ export default function SQLCodeEditor() {
         headers: getAuthHeaders(),
         body: JSON.stringify({ code, language: 'sql', input: '' }),
       });
+
+      if (res.status === 401 || res.status === 403) {
+        setResults({
+          columns: ['Access denied'],
+          rows: [['Please sign in with a registered account to run SQL queries.']],
+        });
+        setStatus('error');
+        return;
+      }
+
       const data = await res.json();
       const execTimeMs = data.executionTime || Math.floor(Math.random() * 50) + 10;
       setResults({
@@ -141,9 +151,12 @@ export default function SQLCodeEditor() {
   }, [code, running]);
 
   const handleSubmit = useCallback(() => {
-    const unlockKey = getSQLSolutionUnlockKey(problemId);
-    setSolutionUnlocked(true);
-    localStorage.setItem(unlockKey, 'true');
+    const token = localStorage.getItem('token');
+    if (token) {
+      const unlockKey = getSQLSolutionUnlockKey(problemId);
+      setSolutionUnlocked(true);
+      localStorage.setItem(unlockKey, 'true');
+    }
     handleRun();
   }, [handleRun, problemId]);
 

@@ -6,7 +6,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
 import AIAssistantOrb from './components/AIAssistantOrb';
-import StreakNotification from './components/StreakNotification';
 import LoadingScreen from './components/LoadingScreen';
 import { Code2 } from 'lucide-react';
 
@@ -36,6 +35,8 @@ const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Profile = lazy(() => import('./pages/Profile'));
 const History = lazy(() => import('./pages/History'));
+const CoinWallet = lazy(() => import('./pages/CoinWallet'));
+const ResumeAnalyzer = lazy(() => import('./pages/ResumeAnalyzer'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const Settings = lazy(() => import('./pages/Settings'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
@@ -188,7 +189,6 @@ function AppContent() {
 
   return (
     <div className="app-layout">
-      <StreakNotification />
       <AIAssistantOrb />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
@@ -238,17 +238,6 @@ function AppContent() {
               element={<ProblemRedirect />}
             />
 
-
-
-
-
-
-
-
-
-
-
-            <Route path="/gamification" element={<Navigate to="/profile" replace />} />
             <Route path="/problems" element={<ProblemExplorer />} />
             <Route path="/code-editor/:problemId" element={<DSACodeEditor />} />
             <Route path="/sql-problems" element={<SQLProblemExplorer />} />
@@ -301,6 +290,8 @@ function AppContent() {
             <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
+            <Route path="/wallet" element={<PrivateRoute><CoinWallet /></PrivateRoute>} />
+            <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
             <Route path="/dashboard/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
 

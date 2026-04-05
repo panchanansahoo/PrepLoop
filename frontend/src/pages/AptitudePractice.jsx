@@ -390,7 +390,7 @@ export default function AptitudePractice() {
                                     color: currentQ.difficulty === 'easy' ? '#34d399' : currentQ.difficulty === 'medium' ? '#facc15' : '#f87171'
                                 }}>{currentQ.difficulty}</span>
                                 <span style={{ fontSize: 12, color: '#facc15', display: 'flex', alignItems: 'center', gap: 4 }}>
-                                    <Zap size={12} /> {currentQ.xp} XP
+                                    <Zap size={12} /> {currentQ.xp} points
                                 </span>
                             </div>
                             <button

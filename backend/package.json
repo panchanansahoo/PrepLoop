@@ -18,6 +18,8 @@
         "test:coin:atomicity": "node scripts/test_coin_atomicity.js",
         "test:coin:integration": "node scripts/test_coin_integration.js",
         "test:coins": "npm run test:coin:integration && npm run test:coin:atomicity",
+        "migrate:coin:real-data": "node scripts/apply_coin_real_data_sync_migration.js",
+        "coins:reconcile": "node scripts/reconcile_coin_balances_via_api.js",
         "test:ai-features": "node scripts/test-ai-features.js",
         "verify:migration": "node scripts/verify-ai-features-migration.js"
     },

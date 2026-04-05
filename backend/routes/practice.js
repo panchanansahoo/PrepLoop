@@ -800,7 +800,7 @@ router.get("/submissions", authenticateToken, async (req, res) => {
   }
 });
 
-router.post("/run", optionalAuth, async (req, res) => {
+router.post("/run", authenticateToken, async (req, res) => {
   const { code, language, problemId } = req.body;
 
   if (!language || typeof language !== "string") {
@@ -901,7 +901,7 @@ router.post("/run", optionalAuth, async (req, res) => {
   }
 });
 
-router.post("/execute", optionalAuth, async (req, res) => {
+router.post("/execute", authenticateToken, async (req, res) => {
   const { code, language } = req.body;
 
   if (!language || typeof language !== "string") {
@@ -930,7 +930,7 @@ router.post("/execute", optionalAuth, async (req, res) => {
   }
 });
 
-router.post("/lint", optionalAuth, async (req, res) => {
+router.post("/lint", authenticateToken, async (req, res) => {
   const { code, language } = req.body;
 
   if (!language || typeof language !== "string") {

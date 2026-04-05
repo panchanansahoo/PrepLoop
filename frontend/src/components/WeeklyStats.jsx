@@ -7,8 +7,8 @@ export default function WeeklyStats({ weeklyData }) {
     const isLight = theme === 'light';
     
     const data = weeklyData || {
-        thisWeek: { problems: 5, time: 12, xp: 450 },
-        lastWeek: { problems: 3, time: 8, xp: 280 }
+        thisWeek: { problems: 5, time: 12, points: 450 },
+        lastWeek: { problems: 3, time: 8, points: 280 }
     };
 
     const calcChange = (current, previous) => {
@@ -19,7 +19,7 @@ export default function WeeklyStats({ weeklyData }) {
 
     const problemsChange = calcChange(data.thisWeek.problems, data.lastWeek.problems);
     const timeChange = calcChange(data.thisWeek.time, data.lastWeek.time);
-    const xpChange = calcChange(data.thisWeek.xp, data.lastWeek.xp);
+    const pointsChange = calcChange(data.thisWeek.points, data.lastWeek.points);
 
     const StatComparison = ({ label, current, previous, change, unit }) => {
         const TrendIcon = change.positive ? TrendingUp : TrendingDown;
@@ -72,7 +72,7 @@ export default function WeeklyStats({ weeklyData }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
                 <StatComparison label="Problems Solved" current={data.thisWeek.problems} previous={data.lastWeek.problems} change={problemsChange} unit="" />
                 <StatComparison label="Study Time" current={data.thisWeek.time} previous={data.lastWeek.time} change={timeChange} unit="h" />
-                <StatComparison label="XP Earned" current={data.thisWeek.xp} previous={data.lastWeek.xp} change={xpChange} unit="" />
+                <StatComparison label="Points Earned" current={data.thisWeek.points} previous={data.lastWeek.points} change={pointsChange} unit="" />
             </div>
         </div>
     );

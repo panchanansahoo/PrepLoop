@@ -35,7 +35,8 @@ const DailyChallenge = ({ challengeData = null }) => {
     }, [todayStamp]);
 
     const challengeIndex = getDailyChallengeIndex(new Date(todayStamp));
-    const challenge = challengeData || (challengeIndex >= 0 ? dailyChallenges[challengeIndex] : null);
+    const localCompanyChallenge = challengeIndex >= 0 ? dailyChallenges[challengeIndex] : null;
+    const challenge = localCompanyChallenge || challengeData;
 
     if (!challenge) {
         return null;
@@ -46,7 +47,8 @@ const DailyChallenge = ({ challengeData = null }) => {
     const sqlQuestions = Array.isArray(challenge.sql) ? challenge.sql : [];
 
     const renderQuestionRow = (q, idx, isSql = false) => {
-        const route = q.internalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
+        const hasNumericInternalId = /^\d+$/.test(String(q.internalId ?? ''));
+        const route = hasNumericInternalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
         const Wrapper = route ? Link : 'a';
         const wrapperProps = route
             ? { to: route }

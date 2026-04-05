@@ -125,11 +125,11 @@ const UPCOMING_EVENTS = [
 ];
 
 const LEADERBOARD = [
-  { rank: 1, name: 'CodeNinja42', xp: 12840, solved: 482, streak: 45, avatar: '🥇' },
-  { rank: 2, name: 'AlgoQueen', xp: 11250, solved: 420, streak: 38, avatar: '🥈' },
-  { rank: 3, name: 'StackMaster', xp: 10680, solved: 398, streak: 31, avatar: '🥉' },
-  { rank: 4, name: 'ByteCrusher', xp: 9420, solved: 355, streak: 28, avatar: '4️⃣' },
-  { rank: 5, name: 'RecursiveRaj', xp: 8900, solved: 340, streak: 22, avatar: '5️⃣' },
+  { rank: 1, name: 'CodeNinja42', points: 12840, solved: 482, streak: 45, avatar: '🥇' },
+  { rank: 2, name: 'AlgoQueen', points: 11250, solved: 420, streak: 38, avatar: '🥈' },
+  { rank: 3, name: 'StackMaster', points: 10680, solved: 398, streak: 31, avatar: '🥉' },
+  { rank: 4, name: 'ByteCrusher', points: 9420, solved: 355, streak: 28, avatar: '4️⃣' },
+  { rank: 5, name: 'RecursiveRaj', points: 8900, solved: 340, streak: 22, avatar: '5️⃣' },
 ];
 
 const DISCUSSIONS = [
@@ -399,7 +399,7 @@ export default function CommunityHub() {
               padding: '10px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
               fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5,
             }}>
-              <div>Rank</div><div>Engineer</div><div style={{ textAlign: 'right' }}>XP</div>
+              <div>Rank</div><div>Engineer</div><div style={{ textAlign: 'right' }}>Points</div>
               <div style={{ textAlign: 'right' }}>Solved</div><div style={{ textAlign: 'right' }}>Streak</div>
             </div>
             {LEADERBOARD.map((entry, i) => {
@@ -425,7 +425,7 @@ export default function CommunityHub() {
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{entry.name}</div>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#a78bfa' }}>{entry.xp.toLocaleString()}</div>
+                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#a78bfa' }}>{entry.points.toLocaleString()}</div>
                   <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#6ee7b7' }}>{entry.solved}</div>
                   <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#f59e0b' }}>{entry.streak}🔥</div>
                 </div>

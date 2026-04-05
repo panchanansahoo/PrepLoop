@@ -35,6 +35,7 @@ const PAGE_TITLES = {
   '/job-updates': 'Job Updates',
   '/profile': 'Profile',
   '/history': 'History',
+  '/wallet': 'Coin Wallet',
 };
 
 function getPageTitle(pathname) {

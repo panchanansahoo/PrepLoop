@@ -30,7 +30,7 @@ export default function AptitudeResults() {
     } = state || {};
     const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
     const score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
-    const totalXP = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + q.xp, 0);
+    const totalPoints = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + q.xp, 0);
     const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
     const skipped = total - attempted;
 
@@ -107,7 +107,7 @@ export default function AptitudeResults() {
                         {[
                             { label: 'Accuracy', value: `${accuracy}%`, icon: <Target size={16} />, color: '#818cf8' },
                             { label: 'Time', value: formatTime(totalTime), icon: <Clock size={16} />, color: '#22d3ee' },
-                            { label: 'XP Earned', value: `+${totalXP}`, icon: <Zap size={16} />, color: '#facc15' },
+                            { label: 'Points Earned', value: `+${totalPoints}`, icon: <Zap size={16} />, color: '#facc15' },
                             { label: 'Attempted', value: `${attempted}/${total}`, icon: <BarChart3 size={16} />, color: '#34d399' },
                             { label: 'Skipped', value: skipped, icon: <ArrowRight size={16} />, color: '#f87171' },
                             { label: 'Avg Time', value: formatTime(avgTime), icon: <TrendingUp size={16} />, color: '#a78bfa' }

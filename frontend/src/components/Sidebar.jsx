@@ -57,6 +57,7 @@ const navSections = [
         items: [
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
+            { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
             { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
             { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
 

@@ -46,9 +46,9 @@ function getDailyQuote(date = new Date()) {
 }
 
 import QuickStats from '../components/QuickStats';
+import { StreakHeatmap } from '../components/QuickStats';
 import QuickActions from '../components/QuickActions';
 import ReadinessScore from '../components/ReadinessScore';
-import StreakHeatmap from '../components/StreakHeatmap';
 import RecentActivity from '../components/RecentActivity';
 import SkillRadar from '../components/SkillRadar';
 import DailyChallenge from '../components/DailyChallenge';
@@ -61,12 +61,12 @@ import TodoList from '../components/TodoList';
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
-    { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & XP' },
+    { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
+    { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
     { id: 'quickActions', name: 'Quick Actions', component: QuickActions, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
     { id: 'readinessScore', name: 'Interview Readiness', component: ReadinessScore, defaultVisible: true, premium: true, layout: '2col-left', description: 'Overall interview readiness gauge' },
     { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadar, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
     { id: 'recentActivity', name: 'Recent Activity', component: RecentActivity, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
-    { id: 'streakHeatmap', name: 'Activity Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: 'GitHub-style solving heatmap' },
 
     { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
     { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
@@ -145,11 +145,9 @@ export default function Dashboard() {
                 };
             case 'streakHeatmap':
                 return {
-                    activityHistory: dashboardData.heatmapData,
-                    currentStreak: dashboardData.streak,
+                    heatmapData: dashboardData.heatmapData,
+                    streak: dashboardData.streak,
                     bestStreak: dashboardData.bestStreak,
-                    totalSolvedYear: dashboardData.totalSolvedYear || 0,
-                    todaySolved: dashboardData.todaySolved || 0,
                 };
             case 'readinessScore':
                 return { data: dashboardData.readinessData };
@@ -168,8 +166,8 @@ export default function Dashboard() {
             case 'weeklyStats':
                 return {
                     weeklyData: {
-                        thisWeek: { problems: dashboardData.thisWeekProblems ?? 0, time: dashboardData.thisWeekTime ?? 0, xp: dashboardData.thisWeekXP ?? 0 },
-                        lastWeek: { problems: dashboardData.lastWeekProblems ?? 0, time: dashboardData.lastWeekTime ?? 0, xp: dashboardData.lastWeekXP ?? 0 }
+                        thisWeek: { problems: dashboardData.thisWeekProblems ?? 0, time: dashboardData.thisWeekTime ?? 0, points: dashboardData.thisWeekXP ?? 0 },
+                        lastWeek: { problems: dashboardData.lastWeekProblems ?? 0, time: dashboardData.lastWeekTime ?? 0, points: dashboardData.lastWeekXP ?? 0 }
                     }
                 };
             default:
@@ -249,15 +247,15 @@ export default function Dashboard() {
             );
         }
 
-        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, streakHeatmap, weeklyStats)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'streakHeatmap' && w.id !== 'weeklyStats');
+        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, weeklyStats)
+        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats');
         remainingFull.forEach(w => {
             rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
         });
 
-        // Activity Heatmap (always last)
-        const heatmap = visible.find(w => w.id === 'streakHeatmap');
-        if (heatmap) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(heatmap)}</div>);
+        // Streak heatmap goes last
+        const streakHeatmap = visible.find(w => w.id === 'streakHeatmap');
+        if (streakHeatmap) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(streakHeatmap)}</div>);
 
         return rows;
     };
