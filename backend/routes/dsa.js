@@ -1,8 +1,11 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { all425Problems } from '../data/allProblems.js';
+import Groq from 'groq-sdk';
 
 const router = express.Router();
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 const slugifyProblemTitle = (value = '') =>
   value
@@ -32,6 +35,21 @@ const resolveProblemId = async (problemIdentifier) => {
   const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
   const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim().toLowerCase();
 
+   const staticProblemMatch =
+    all425Problems.find((problem) => String(problem.id) === rawIdentifier) ||
+    all425Problems.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
+    all425Problems.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
+    all425Problems.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+    null;
+
+  const titleSlugsToMatch = new Set([normalizedIdentifier]);
+  const titlesToMatch = new Set([rawIdentifier.toLowerCase(), titleFromSlug]);
+
+  if (staticProblemMatch?.title) {
+    titleSlugsToMatch.add(slugifyProblemTitle(staticProblemMatch.title));
+    titlesToMatch.add(String(staticProblemMatch.title).toLowerCase());
+  }
+
   const { data: candidates } = await supabaseAdmin
     .from('problems')
     .select('id, title')
@@ -40,12 +58,56 @@ const resolveProblemId = async (problemIdentifier) => {
   if (!Array.isArray(candidates) || candidates.length === 0) return null;
 
   const matched =
-    candidates.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
-    candidates.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
-    candidates.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+    candidates.find((problem) => titleSlugsToMatch.has(slugifyProblemTitle(problem.title))) ||
+    candidates.find((problem) => titlesToMatch.has(problem.title?.toLowerCase())) ||
     null;
 
   return matched?.id || null;
+};
+
+const FALLBACK_SOLUTIONS = {
+  'two sum': {
+    python: `class Solution:\n    def twoSum(self, nums, target):\n        seen = {}\n        for index, num in enumerate(nums):\n            complement = target - num\n            if complement in seen:\n                return [seen[complement], index]\n            seen[num] = index\n        return []`,
+    javascript: `class Solution {\n  twoSum(nums, target) {\n    const seen = new Map();\n    for (let index = 0; index < nums.length; index++) {\n      const complement = target - nums[index];\n      if (seen.has(complement)) {\n        return [seen.get(complement), index];\n      }\n      seen.set(nums[index], index);\n    }\n    return [];\n  }\n}`,
+    cpp: `class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        unordered_map<int, int> seen;\n        for (int index = 0; index < nums.size(); index++) {\n            int complement = target - nums[index];\n            if (seen.count(complement)) {\n                return {seen[complement], index};\n            }\n            seen[nums[index]] = index;\n        }\n        return {};\n    }\n};`,
+    java: `class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        Map<Integer, Integer> seen = new HashMap<>();\n        for (int index = 0; index < nums.length; index++) {\n            int complement = target - nums[index];\n            if (seen.containsKey(complement)) {\n                return new int[] { seen.get(complement), index };\n            }\n            seen.put(nums[index], index);\n        }\n        return new int[0];\n    }\n}`,
+  },
+};
+
+const isCompleteSolution = (solution) => {
+  if (!solution || typeof solution !== 'object') return false;
+  return ['python', 'javascript', 'cpp', 'java'].every((language) => {
+    const value = solution[language];
+    return typeof value === 'string' && value.trim().length > 0;
+  });
+};
+
+const buildFallbackSolution = async (problem) => {
+  const fallback = FALLBACK_SOLUTIONS[String(problem?.title || '').toLowerCase()];
+  if (fallback) return fallback;
+
+  if (!groq) return null;
+
+  const prompt = `
+You are an expert algorithm software engineer.
+Write the optimal solution to the following DSA problem in 4 languages: Python, JavaScript, C++, and Java.
+Do NOT include any test runner code, just the function or class definition.
+For Python, write classical \`class Solution:\` with \`def functionName(self, ...):\`.
+Return the output ONLY as a minified valid JSON object containing exactly 4 keys: "python", "javascript", "cpp", "java", where each value is a raw string of the raw code.
+Do NOT include any extra text. Make sure the JSON is totally valid.
+
+Problem Title: ${problem?.title || ''}
+Problem Description:
+${String(problem?.description || '').substring(0, 1500)}
+`;
+
+  const completion = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+  });
+
+  return JSON.parse(completion.choices[0].message.content);
 };
 
 router.get('/patterns', optionalAuth, async (req, res) => {
@@ -224,12 +286,25 @@ router.get('/problems/:id/solution', optionalAuth, async (req, res) => {
 
     const { data: problem, error } = await supabaseAdmin
       .from('problems')
-      .select('solution_code')
+      .select('id, title, description, solution_code')
       .eq('id', canonicalProblemId)
       .single();
 
     if (error || !problem) {
       return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    if (!isCompleteSolution(problem.solution_code)) {
+      const fallbackSolution = await buildFallbackSolution(problem);
+
+      if (fallbackSolution) {
+        await supabaseAdmin
+          .from('problems')
+          .update({ solution_code: fallbackSolution })
+          .eq('id', canonicalProblemId);
+
+        return res.json({ solution: fallbackSolution });
+      }
     }
 
     res.json({ solution: problem.solution_code });
