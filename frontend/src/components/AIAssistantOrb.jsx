@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
-const CHAT_QUERY_COST = 5;
+const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
 const VOICE_MODE_STORAGE_KEY = 'pg-ai-assistant-voice-enabled';
 const VOICE_AUTO_SEND_STORAGE_KEY = 'pg-ai-assistant-voice-auto-send';
 const WAKE_WORD_MODE_STORAGE_KEY = 'pg-ai-assistant-wake-word-enabled';
@@ -402,6 +402,11 @@ export default function AIAssistantOrb() {
 
   const toggleWakeWordMode = () => {
     if (wakeWordEnabled) {
+      if (wakeNeedsTap || wakeWordBlocked || !wakeRecognitionRef.current) {
+        startWakeWordFlow();
+        return;
+      }
+
       setWakeWordEnabled(false);
       stopWakeWordRecognition();
       return;
@@ -437,12 +442,15 @@ export default function AIAssistantOrb() {
       window.speechSynthesis.cancel();
     }
 
-    startWakeWordFlow();
+    if (!wakeRecognitionRef.current && !wakeWordBlocked) {
+      setWakeNeedsTap(true);
+      setWakeWordStatus('Wake mode on. Tap wake button to start listening.');
+    }
 
     return () => {
       stopWakeWordRecognition();
     };
-  }, [wakeWordEnabled, speechInputSupported]);
+  }, [wakeWordEnabled, speechInputSupported, speechOutputSupported]);
 
   const toggleSpeechInput = () => {
     if (!speechInputSupported) return;
@@ -571,7 +579,7 @@ export default function AIAssistantOrb() {
                 <Sparkles size={14} />
               </div>
               <span>Prep</span>
-              <span className="orb-chat-cost">{CHAT_QUERY_COST} coins</span>
+              <span className="orb-chat-cost">{CHAT_QUERY_COST > 0 ? `${CHAT_QUERY_COST} coins` : 'Free'}</span>
             </div>
             <div className="orb-chat-actions">
               <button
@@ -591,7 +599,11 @@ export default function AIAssistantOrb() {
               <button
                 className={`orb-chat-action-btn ${wakeWordEnabled ? 'active' : ''}`}
                 onClick={toggleWakeWordMode}
-                title={wakeWordEnabled ? 'Wake phrase "Hi Prep" is on' : 'Wake phrase "Hi Prep" is off'}
+                title={wakeWordEnabled
+                  ? (wakeNeedsTap || wakeWordBlocked || !wakeRecognitionRef.current
+                    ? 'Wake phrase "Hi Prep" is on (tap to start listening)'
+                    : 'Wake phrase "Hi Prep" is on (tap to turn off)')
+                  : 'Wake phrase "Hi Prep" is off'}
               >
                 <Bot size={14} />
               </button>
@@ -677,7 +689,7 @@ export default function AIAssistantOrb() {
                   : 'Voice mode disabled.'}
           </div>
           <div className="orb-chat-wake-hint">
-            Tip: enable wake phrase and say "Hi Prep" to activate voice commands.
+            Tip: enable wake phrase, tap once to arm listening, then say "Hi Prep".
           </div>
         </div>
       )}
@@ -937,7 +949,7 @@ export default function AIAssistantOrb() {
             0 0 80px rgba(139, 92, 246, 0.08),
             inset 0 1px 0 rgba(255, 255, 255, 0.05);
           animation: orbChatSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-          overflow: hidden;
+          overflow: visible;
         }
 
         @keyframes orbChatSlideUp {
@@ -953,6 +965,7 @@ export default function AIAssistantOrb() {
           padding: 14px 18px;
           border-bottom: 1px solid rgba(255, 255, 255, 0.06);
           background: rgba(255, 255, 255, 0.02);
+          overflow: visible;
         }
 
         .orb-chat-title {
@@ -962,6 +975,8 @@ export default function AIAssistantOrb() {
           font-weight: 700;
           font-size: 14px;
           color: #f0e6ff;
+          min-width: 0;
+          flex: 1;
         }
 
         .orb-chat-title-icon {
@@ -988,6 +1003,15 @@ export default function AIAssistantOrb() {
         .orb-chat-actions {
           display: flex;
           gap: 4px;
+          flex-shrink: 0;
+          overflow-x: auto;
+          overflow-y: visible;
+          scrollbar-width: none;
+          max-width: 52%;
+          padding-bottom: 2px;
+        }
+        .orb-chat-actions::-webkit-scrollbar {
+          display: none;
         }
 
         .orb-chat-action-btn {
@@ -1000,6 +1024,9 @@ export default function AIAssistantOrb() {
           display: flex;
           align-items: center;
           transition: all 0.2s;
+          flex-shrink: 0;
+          position: relative;
+          z-index: 2;
         }
         .orb-chat-action-btn:hover {
           background: rgba(255, 255, 255, 0.06);
@@ -1235,6 +1262,14 @@ export default function AIAssistantOrb() {
 
         /* ── RESPONSIVE ── */
         @media (max-width: 768px) {
+          .orb-chat-header {
+            gap: 8px;
+          }
+
+          .orb-chat-actions {
+            max-width: 58%;
+          }
+
           .orb-chat-panel {
             right: 8px;
             left: 8px;

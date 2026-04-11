@@ -73,7 +73,7 @@ router.get('/:slug', async (req, res) => {
 
 
 // Create new blog
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { title, content, category, cover_image, start_date } = req.body; // start_date mapped to created_at if needed, or just let DB default
 

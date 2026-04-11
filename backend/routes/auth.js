@@ -80,7 +80,8 @@ router.post('/signup', async (req, res) => {
       // Send verification email
       try {
         const transporter = nodemailer.createTransport({
-          service: 'gmail',
+          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+          port: process.env.SMTP_PORT || 587,
           auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -90,9 +91,9 @@ router.post('/signup', async (req, res) => {
         const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
 
         await transporter.sendMail({
-          from: `"PrepLoop" <${process.env.SMTP_USER}>`,
+          from: `"PrepLoop" <support@preploop.me>`,
           to: email,
-          subject: 'Verify your PrepLoop email address',
+          subject: 'Confirm Your Email - PrepLoop',
           html: getVerificationEmailHTML(verificationUrl, email)
         });
 
@@ -316,7 +317,8 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
     // Send verification email
     try {
       const transporter = nodemailer.createTransport({
-        service: 'gmail',
+        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+        port: process.env.SMTP_PORT || 587,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
@@ -326,9 +328,9 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
 
       await transporter.sendMail({
-        from: `"PrepLoop" <${process.env.SMTP_USER}>`,
+        from: `"PrepLoop" <support@preploop.me>`,
         to: email,
-        subject: 'Verify your PrepLoop email address',
+        subject: 'Confirm Your Email - PrepLoop',
         html: getVerificationEmailHTML(verificationUrl, email)
       });
 
@@ -435,7 +437,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     // Send the email ourselves using Nodemailer
     const nodemailer = (await import('nodemailer')).default;
     const transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+      port: process.env.SMTP_PORT || 587,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
@@ -445,18 +448,40 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     const resetLink = data?.properties?.action_link;
 
     await transporter.sendMail({
-      from: `"PrepLoop" <${process.env.SMTP_USER}>`,
+      from: `"PrepLoop" <support@preploop.me>`,
       to: email,
       subject: 'Reset your PrepLoop password',
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 30px; background: #0a0a1a; border-radius: 16px; color: #f1f5f9;">
-          <h2 style="color: #c084fc; margin-bottom: 16px;">Reset your password</h2>
-          <p style="color: #94a3b8; line-height: 1.6;">We received a request to reset the password for your PrepLoop account.</p>
-          <p style="color: #94a3b8; line-height: 1.6;">Click the button below to set a new password:</p>
-          <a href="${resetLink}" style="display: inline-block; margin: 20px 0; padding: 14px 28px; background: linear-gradient(135deg, #a855f7, #c026d3); color: white; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 15px;">Reset Password</a>
-          <p style="color: #64748b; font-size: 13px; margin-top: 20px;">This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 24px 0;" />
-          <p style="color: #475569; font-size: 12px;">PrepLoop - AI Interview Prep Platform</p>
+        <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border-radius: 12px; border: 1px solid #1e293b; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
+            <!-- Logo / Brand Header -->
+            <div style="padding: 32px 32px 0 32px; text-align: center;">
+              <h1 style="margin: 0; color: #f8fafc; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">PrepLoop</h1>
+            </div>
+            
+            <!-- Content -->
+            <div style="padding: 32px;">
+              <h2 style="margin: 0 0 16px; color: #f8fafc; font-size: 18px; font-weight: 600;">Reset your password</h2>
+              <p style="margin: 0 0 24px; color: #94a3b8; font-size: 15px; line-height: 1.6;">
+                We received a request to reset the password for your PrepLoop account. Click the button below to set a new password.
+              </p>
+              
+              <!-- CTA Button -->
+              <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 24px; width: 100%;">
+                <tr>
+                  <td align="center">
+                    <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background-color: #9333ea; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; line-height: 100%;">Reset Password</a>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            
+            <!-- Footer -->
+            <div style="padding: 24px 32px; background-color: #020617; border-top: 1px solid #1e293b; text-align: center;">
+              <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">This link will expire in 1 hour.</p>
+              <p style="margin: 0; color: #475569; font-size: 12px;">If you didn't request a password reset, you can safely ignore this email.</p>
+            </div>
+          </div>
         </div>
       `
     });

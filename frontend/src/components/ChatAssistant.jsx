@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
-const CHAT_QUERY_COST = 5;
+const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
 
 export default function ChatAssistant() {
   const { user } = useAuth();
@@ -122,7 +122,9 @@ export default function ChatAssistant() {
             <div className="chat-panel-title">
               <Sparkles size={16} />
               <span>PrepLoop AI</span>
-              <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>Cost: {CHAT_QUERY_COST} coins</span>
+              <span style={{ marginLeft: 8, fontSize: 11, color: '#fbbf24' }}>
+                Cost: {CHAT_QUERY_COST > 0 ? `${CHAT_QUERY_COST} coins` : 'Free'}
+              </span>
             </div>
             <div style={{ display: 'flex', gap: 4 }}>
               <button className="chat-clear-btn" onClick={clearChat} title="Clear chat">

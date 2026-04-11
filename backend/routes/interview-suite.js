@@ -241,7 +241,9 @@ function aggregateWeaknessFromSessions(sessions = []) {
       }
     });
 
-    const overallScore = Number(session.interview_score);
+    const overallScore = Number(
+      session.overall_score ?? session.interview_score,
+    );
     if (Number.isFinite(overallScore)) {
       scoresByArea.communication.push(clamp(overallScore - 4, 0, 100));
       scoresByArea.problem_solving.push(clamp(overallScore - 2, 0, 100));
@@ -517,12 +519,18 @@ router.get('/replay/:sessionId', authenticateToken, async (req, res) => {
 router.get('/weakness/heatmap', authenticateToken, async (req, res) => {
   try {
     const limit = clamp(Number(req.query.limit) || 30, 5, 100);
-    const { data: sessions, error } = await supabaseAdmin
+    const querySessions = async (scoreColumn) => supabaseAdmin
       .from('interview_sessions')
-      .select('interview_score, performance_metrics, interview_type, company_focus, status, created_at, completed_at')
+      .select(scoreColumn)
       .eq('user_id', req.user.id)
-      .order('completed_at', { ascending: false })
       .limit(limit);
+
+    let { data: sessions, error } = await querySessions('overall_score');
+
+    // Backward compatibility for older schema that used interview_score.
+    if (error && String(error.message || '').includes('overall_score')) {
+      ({ data: sessions, error } = await querySessions('interview_score'));
+    }
 
     if (error) throw error;
 

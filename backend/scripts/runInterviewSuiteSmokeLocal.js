@@ -1,8 +1,9 @@
 import process from 'process';
 import { spawn } from 'child_process';
 import { URL } from 'url';
+import { isHealthReady, resolveLocalBaseUrl } from './utils/resolveBaseUrl.js';
 
-const BASE_URL = process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000';
+const DEFAULT_BASE_URL = process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000';
 
 function isLocalBaseUrl(value) {
   try {
@@ -17,46 +18,27 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function requestJson(path) {
-  const response = await fetch(`${BASE_URL}${path}`);
-  let json = null;
-
-  try {
-    json = await response.json();
-  } catch {
-    json = null;
-  }
-
-  return { status: response.status, json };
-}
-
-async function isHealthReady() {
-  try {
-    const health = await requestJson('/health');
-    return health.status === 200 && health.json?.status === 'ok';
-  } catch {
-    return false;
-  }
-}
-
-async function waitForHealth(timeoutMs = 45000) {
+async function waitForHealth(baseUrl, timeoutMs = 45000) {
   const start = Date.now();
 
   while (Date.now() - start < timeoutMs) {
-    if (await isHealthReady()) return true;
+    if (await isHealthReady(baseUrl)) return true;
     await sleep(1000);
   }
 
   return false;
 }
 
-function runSmokeScript() {
+function runSmokeScript(baseUrl) {
   return new Promise((resolve, reject) => {
-    const child = spawn('node', ['scripts/smokeInterviewSuite.js'], {
+    const child = spawn('node', ['backend/scripts/smokeInterviewSuite.js'], {
       cwd: process.cwd(),
       stdio: 'inherit',
       shell: false,
-      env: process.env,
+      env: {
+        ...process.env,
+        INTERVIEW_SUITE_BASE_URL: baseUrl,
+      },
     });
 
     child.on('error', (error) => reject(error));
@@ -70,10 +52,18 @@ function runSmokeScript() {
   });
 }
 
+async function resolveBaseUrl() {
+  return resolveLocalBaseUrl({
+    envVarName: 'INTERVIEW_SUITE_BASE_URL',
+    fallback: DEFAULT_BASE_URL,
+  });
+}
+
 async function main() {
   let serverProcess = null;
   let startedServer = false;
   const serverLogs = [];
+  let baseUrl = DEFAULT_BASE_URL;
 
   const appendLog = (chunk, stream) => {
     const text = chunk.toString('utf8').trim();
@@ -83,9 +73,10 @@ async function main() {
   };
 
   try {
-    const healthy = await isHealthReady();
-    if (!healthy && isLocalBaseUrl(BASE_URL)) {
-      serverProcess = spawn('node', ['index.js'], {
+    baseUrl = await resolveBaseUrl();
+    const healthy = await isHealthReady(baseUrl);
+    if (!healthy && isLocalBaseUrl(baseUrl)) {
+      serverProcess = spawn('node', ['backend/index.js'], {
         cwd: process.cwd(),
         stdio: ['ignore', 'pipe', 'pipe'],
         shell: false,
@@ -95,7 +86,7 @@ async function main() {
       serverProcess.stdout.on('data', (chunk) => appendLog(chunk, 'stdout'));
       serverProcess.stderr.on('data', (chunk) => appendLog(chunk, 'stderr'));
 
-      const ready = await waitForHealth();
+      const ready = await waitForHealth(baseUrl);
       if (!ready) {
         const logTail = serverLogs.slice(-8).join('\n');
         const detail = logTail ? `\nRecent backend logs:\n${logTail}` : '';
@@ -103,13 +94,13 @@ async function main() {
       }
 
       console.log('Local smoke helper started backend server.');
-    } else if (!healthy && !isLocalBaseUrl(BASE_URL)) {
-      throw new Error(`Backend is not healthy at ${BASE_URL}. Auto-start is only supported for localhost.`);
+    } else if (!healthy && !isLocalBaseUrl(baseUrl)) {
+      throw new Error(`Backend is not healthy at ${baseUrl}. Auto-start is only supported for localhost.`);
     } else {
-      console.log('Using existing running backend server.');
+      console.log(`Using existing running backend server at ${baseUrl}.`);
     }
 
-    await runSmokeScript();
+    await runSmokeScript(baseUrl);
     console.log('Local Interview Suite smoke passed.');
   } catch (error) {
     console.error(`Local Interview Suite smoke failed: ${error.message}`);

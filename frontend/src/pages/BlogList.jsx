@@ -12,6 +12,7 @@ export default function BlogList() {
     const { user } = useAuth();
     const { theme } = useTheme();
     const isLight = theme === 'light';
+    const isAdmin = user?.role === 'admin';
 
     useEffect(() => {
         fetchBlogs();
@@ -101,7 +102,7 @@ export default function BlogList() {
             </section>
 
             {/* Create Button (Author only - for now just logged in) */}
-            {user && !user?.isGuest && (
+            {isAdmin && (
                 <div className="container" style={{ marginBottom: '40px', textAlign: 'right', position: 'relative', zIndex: 10 }}>
                     <Link to="/blog/new" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                         Write Article <ArrowRight size={16} />

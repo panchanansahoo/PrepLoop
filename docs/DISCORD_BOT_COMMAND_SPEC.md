@@ -111,8 +111,7 @@ Backend mapping:
 - `POST /api/chat/message`
 
 Notes:
-- Backend charges coins (`AI_CHAT_COIN_COST` default 5).
-- Handle insufficient coin response cleanly.
+ AI features are now free (no coin cost).
 
 ## 4.8 `/leaderboard`
 Show weekly standings.

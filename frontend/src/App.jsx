@@ -20,7 +20,6 @@ const ProblemSolver = lazy(() => import('./pages/ProblemSolver'));
 const LanguageRoadmap = lazy(() => import('./pages/LanguageRoadmap'));
 const SystemDesignRoadmap = lazy(() => import('./pages/SystemDesignRoadmap'));
 const WebDevRoadmap = lazy(() => import('./pages/WebDevRoadmap'));
-const RoadmapIndex = lazy(() => import('./pages/RoadmapIndex'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const Payment = lazy(() => import('./pages/Payment'));
 const BlogList = lazy(() => import('./pages/BlogList'));
@@ -31,7 +30,8 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const About = lazy(() => import('./pages/About'));
 const Library = lazy(() => import('./pages/Library'));
 const Contact = lazy(() => import('./pages/Contact'));
-const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
+const CheckEmail = lazy(() => import('./pages/VerifyEmail'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Profile = lazy(() => import('./pages/Profile'));
 const History = lazy(() => import('./pages/History'));
@@ -51,6 +51,7 @@ const AptitudeResults = lazy(() => import('./pages/AptitudeResults'));
 const ExamHub = lazy(() => import('./pages/ExamHub'));
 const ExamPractice = lazy(() => import('./pages/ExamPractice'));
 const ProblemExplorer = lazy(() => import('./pages/ProblemExplorer'));
+const QuizArena = lazy(() => import('./pages/QuizArena'));
 const AlgorithmPlayground = lazy(() => import('./pages/AlgorithmPlayground'));
 const LearningPath = lazy(() => import('./pages/LearningPath'));
 const TopicLearning = lazy(() => import('./pages/TopicLearning'));
@@ -66,7 +67,7 @@ const SystemDesignTopicLearning = lazy(() => import('./pages/SystemDesignTopicLe
 const SystemDesignSimulator = lazy(() => import('./pages/SystemDesignSimulator'));
 const AITutorHub = lazy(() => import('./pages/AITutorHub'));
 const CompanyPrep = lazy(() => import('./pages/CompanyPrep'));
-const CompanyInterview = lazy(() => import('./pages/CompanyInterview'));
+
 const MultiRoundInterview = lazy(() => import('./pages/MultiRoundInterview'));
 const InterviewAnalytics = lazy(() => import('./pages/InterviewAnalytics'));
 const InterviewHistory = lazy(() => import('./pages/InterviewHistory'));
@@ -82,6 +83,7 @@ const RealInterview = lazy(() => import('./pages/RealInterview'));
 const InterviewScheduler = lazy(() => import('./pages/InterviewScheduler'));
 const HRLogin = lazy(() => import('./pages/HRLogin'));
 const HRDashboard = lazy(() => import('./pages/HRDashboard'));
+const AIInterviewPage = lazy(() => import('./pages/AIInterviewPage'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -171,8 +173,9 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
+  const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
 
@@ -180,12 +183,11 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  const isRoadmapRoute = location.pathname.startsWith('/roadmap');
-  const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute;
+  const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
   const isPublicPage = publicPaths.includes(location.pathname);
-  const showSidebar = (user && !isPublicPage) || isRoadmapRoute;
-  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute;
-  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute;
+  const showSidebar = user && !isPublicPage;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
+  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
 
   return (
     <div className="app-layout">
@@ -223,8 +225,6 @@ function AppContent() {
               path="/overview"
               element={<PrivateRoute><Overview /></PrivateRoute>}
             />
-            <Route path="/roadmap" element={<RoadmapIndex />} />
-            <Route path="/roadmap/dsa" element={<DSAPatterns />} />
             <Route path="/roadmap/language" element={<LanguageRoadmap />} />
             <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
             <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
@@ -239,6 +239,7 @@ function AppContent() {
             />
 
             <Route path="/problems" element={<ProblemExplorer />} />
+            <Route path="/quiz-arena" element={<QuizArena />} />
             <Route path="/code-editor/:problemId" element={<DSACodeEditor />} />
             <Route path="/sql-problems" element={<SQLProblemExplorer />} />
             <Route path="/sql-editor/:problemId" element={<SQLCodeEditor />} />
@@ -262,7 +263,9 @@ function AppContent() {
             <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
             <Route path="/ai-tutor" element={<AITutorHub />} />
             <Route path="/company-prep" element={<CompanyPrep />} />
-            <Route path="/company-interview" element={<CompanyInterview />} />
+            <Route path="/company-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+            <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+            <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
             <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
             <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
@@ -286,7 +289,8 @@ function AppContent() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
+            <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />

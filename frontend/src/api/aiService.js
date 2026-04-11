@@ -55,6 +55,8 @@ function mapInterviewStart(raw) {
   return {
     ...raw,
     session_id: raw.session_id || raw.sessionId,
+    interviewMode: raw.interviewMode || raw.interview_mode || 'hybrid_rollout',
+    runtime: raw.runtime || null,
     interviewer: raw.interviewer || raw.interviewerGreeting || 'AI Interviewer',
     initial_question:
       raw.initial_question ||
@@ -71,8 +73,22 @@ function mapInterviewResponse(raw) {
   return {
     ...raw,
     follow_up: raw.follow_up || raw.interviewerMessage || raw.message || null,
+    interviewMode: raw.interviewMode || raw.interview_mode || 'hybrid_rollout',
+    runtime: raw.runtime || null,
     current_scores: currentScores,
     adaptive_update: raw.adaptive_update || null
+  };
+}
+
+function mapInterviewModes(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+
+  return {
+    defaultMode: raw.defaultMode || 'hybrid_rollout',
+    supportedModes: Array.isArray(raw.supportedModes)
+      ? raw.supportedModes
+      : ['hybrid_rollout', 'full_realtime'],
+    description: raw.description || {}
   };
 }
 
@@ -217,6 +233,30 @@ async function apiRequest(endpoint, options = {}) {
   return data.data || data;
 }
 
+async function apiRequestAbsolute(endpoint, options = {}) {
+  const token = getAuthToken();
+
+  if (!token) {
+    throw new Error('Authentication required. Please log in first.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.message || data?.error || `API Error: ${response.status} ${response.statusText}`);
+  }
+
+  return data.data || data;
+}
+
 // ============== CODE REVIEW ENDPOINTS ==============
 
 /**
@@ -292,10 +332,10 @@ export async function getCodeReviewHistory(page = 1, limit = 10) {
  * @param {string} companyFocus - Optional company name (e.g., 'Google', 'Amazon')
  * @returns {promise} Session ID and initial problem statement
  */
-export async function startInterview(interviewType, difficulty, companyFocus = null) {
+export async function startInterview(interviewType, difficulty, companyFocus = null, interviewMode = null) {
   const result = await apiRequest('/interview/start', {
     method: 'POST',
-    body: JSON.stringify({ interviewType, difficulty, companyFocus })
+    body: JSON.stringify({ interviewType, difficulty, companyFocus, interviewMode })
   });
   return mapInterviewStart(result);
 }
@@ -306,12 +346,33 @@ export async function startInterview(interviewType, difficulty, companyFocus = n
  * @param {string} response - Candidate's response
  * @returns {promise} Interviewer follow-up, feedback, and current scores
  */
-export async function submitInterviewResponse(sessionId, response) {
+export async function submitInterviewResponse(sessionId, response, interviewMode = null) {
   const result = await apiRequest(`/interview/${sessionId}/respond`, {
     method: 'POST',
-    body: JSON.stringify({ response })
+    body: JSON.stringify({ response, interviewMode })
   });
   return mapInterviewResponse(result);
+}
+
+/**
+ * Get supported interview runtime modes
+ * @returns {promise} Default mode, available modes, and descriptions
+ */
+export async function getInterviewModes() {
+  const result = await apiRequest('/interview/modes');
+  return mapInterviewModes(result);
+}
+
+/**
+ * Create a Pipecat bridge session descriptor for full realtime interview mode.
+ * @param {{ interviewMode: string, interviewSessionId?: string, interviewType?: string, difficulty?: string }} payload
+ * @returns {promise} Session descriptor including websocket URL and runtime metadata
+ */
+export async function createPipecatSession(payload) {
+  return apiRequestAbsolute('/pipecat/session', {
+    method: 'POST',
+    body: JSON.stringify(payload || {})
+  });
 }
 
 /**

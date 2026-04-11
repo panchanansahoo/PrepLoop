@@ -220,7 +220,7 @@ export default function InterviewSuite() {
                 Interview Hub
               </h1>
               <p className="ihub-hero-subtitle">
-                Your unified command center for interview mastery — mock interviews, live coding, 
+                Your unified command center for interview mastery — mock interviews, live coding,
                 debugging challenges, code reviews, and performance analytics all in one place.
               </p>
             </div>
@@ -281,14 +281,14 @@ export default function InterviewSuite() {
           return (
             <Link key={mode.id} to={mode.path} className="ihub-mode-card">
               <div className="ihub-mode-top">
-                <div 
-                  className="ihub-mode-icon" 
+                <div
+                  className="ihub-mode-icon"
                   style={{ background: `${mode.accent}18`, color: mode.accent }}
                 >
                   <Icon size={22} />
                 </div>
-                <span 
-                  className="ihub-mode-badge" 
+                <span
+                  className="ihub-mode-badge"
                   style={{ background: mode.badgeBg, color: mode.badgeColor }}
                 >
                   {mode.badge}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { Loader2, CheckCircle2, XCircle, MailCheck, AlertCircle, ArrowRight, RefreshCw } from 'lucide-react';
 
 /**
  * Email Verification Page Component
@@ -12,7 +13,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('verifying'); // verifying, success, error
+  const [status, setStatus] = useState('verifying'); // verifying, success, error, info
   const [message, setMessage] = useState('Verifying your email...');
   const [email, setEmail] = useState('');
   const [canResend, setCanResend] = useState(false);
@@ -43,9 +44,9 @@ export default function VerifyEmailPage() {
 
         if (response.ok) {
           setStatus('success');
-          setMessage(data.message);
-          // Redirect to login after 3 seconds
-          setTimeout(() => navigate('/login'), 3000);
+          setMessage(data.message || 'Your email has been successfully verified.');
+          // Redirect to login after 4 seconds
+          setTimeout(() => navigate('/login'), 4000);
         } else {
           setStatus('error');
           setMessage(data.error || 'Failed to verify email');
@@ -93,112 +94,137 @@ export default function VerifyEmailPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-4">
-      <div className="max-w-md w-full">
-        {/* Verifying State */}
-        {status === 'verifying' && (
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-500/10 border border-purple-500/30 mb-6">
-              <div className="animate-spin">
-                <div className="w-8 h-8 border-2 border-purple-200 border-t-purple-500 rounded-full"></div>
+    <div className="relative min-h-screen flex items-center justify-center bg-[#030303] overflow-hidden p-4">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div className="absolute top-1/4 left-1/4 w-[40rem] h-[40rem] bg-indigo-600/20 rounded-full mix-blend-screen filter blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-[35rem] h-[35rem] bg-purple-600/20 rounded-full mix-blend-screen filter blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[50rem] h-[50rem] bg-emerald-500/10 rounded-full mix-blend-screen filter blur-[150px]"></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="glass-panel rounded-3xl p-8 shadow-2xl flex flex-col items-center text-center transform transition-all duration-500 hover:scale-[1.01]">
+          
+          {/* Verifying State */}
+          {status === 'verifying' && (
+            <div className="flex flex-col items-center w-full transition-opacity duration-500">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-indigo-500/10 border border-indigo-500/20 mb-6 group">
+                <div className="absolute inset-0 rounded-full bg-indigo-500/20 animate-ping"></div>
+                <Loader2 className="w-10 h-10 text-indigo-400 animate-spin" />
               </div>
+              <h1 className="text-3xl font-extrabold text-white mb-3 tracking-tight">Verifying Email</h1>
+              <p className="text-zinc-400 text-lg">{message}</p>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Verifying Email</h1>
-            <p className="text-slate-400">{message}</p>
-          </div>
-        )}
+          )}
 
-        {/* Success State */}
-        {status === 'success' && (
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-6">
-              <svg className="w-8 h-8 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Email Verified!</h1>
-            <p className="text-slate-300 mb-6">{message}</p>
-            <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 mb-6">
-              <p className="text-slate-400 text-sm">Redirecting to login page...</p>
-            </div>
-            <Link
-              to="/login"
-              className="inline-block w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg text-white font-medium transition transform hover:scale-105"
-            >
-              Go to Login
-            </Link>
-          </div>
-        )}
-
-        {/* Error State */}
-        {status === 'error' && (
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 mb-6">
-              <svg className="w-8 h-8 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Verification Failed</h1>
-            <p className="text-slate-300 mb-6">{message}</p>
-
-            <div className="space-y-3">
-              {canResend && email && (
-                <button
-                  onClick={handleResendEmail}
-                  disabled={resendLoading}
-                  className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-purple-600/50 disabled:cursor-not-allowed rounded-lg text-white font-medium transition transform hover:scale-105"
-                >
-                  {resendLoading ? 'Sending...' : 'Resend Verification Email'}
-                </button>
-              )}
-
-              <Link
-                to="/signup"
-                className="block w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition text-center"
-              >
-                Back to Signup
-              </Link>
+          {/* Success State */}
+          {status === 'success' && (
+            <div className="flex flex-col items-center w-full transition-opacity duration-500">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/20 mb-6">
+                <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-pulse"></div>
+                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              </div>
+              <h1 className="text-3xl font-extrabold text-white mb-3 tracking-tight">Email Verified!</h1>
+              <p className="text-zinc-400 text-lg mb-8">{message}</p>
+              
+              <div className="w-full bg-white/5 border border-white/10 rounded-xl p-4 mb-8 flex items-center justify-center space-x-3">
+                <Loader2 className="w-4 h-4 text-zinc-400 animate-spin" />
+                <span className="text-zinc-300 font-medium tracking-wide">Redirecting to login...</span>
+              </div>
 
               <Link
                 to="/login"
-                className="block w-full px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white font-medium transition text-center"
+                className="group relative flex w-full justify-center items-center px-4 py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-all focus:outline-none focus:ring-2 focus:ring-white/50 active:scale-95"
               >
-                Go to Login
+                Go to Login manually
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
+          )}
 
-            {email && !canResend && (
-              <p className="text-slate-500 text-sm mt-4">
-                Please wait before requesting another verification email
-              </p>
-            )}
-          </div>
-        )}
+          {/* Error State */}
+          {status === 'error' && (
+            <div className="flex flex-col items-center w-full transition-opacity duration-500">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 mb-6">
+                <div className="absolute inset-0 rounded-full bg-red-500/10 animate-pulse"></div>
+                <XCircle className="w-10 h-10 text-red-500" />
+              </div>
+              <h1 className="text-3xl font-extrabold text-white mb-3 tracking-tight">Verification Failed</h1>
+              <p className="text-zinc-400 text-lg mb-8">{message}</p>
 
-        {/* Info State */}
-        {status === 'info' && (
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-500/10 border border-blue-500/30 mb-6">
-              <svg className="w-8 h-8 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 5v8a2 2 0 01-2 2h-5l-5 4v-4H4a2 2 0 01-2-2V5a2 2 0 012-2h12a2 2 0 012 2zm-11-1a1 1 0 11-2 0 1 1 0 012 0z" clipRule="evenodd" />
-              </svg>
+              <div className="w-full space-y-4">
+                {canResend && email && (
+                  <button
+                    onClick={handleResendEmail}
+                    disabled={resendLoading}
+                    className="group relative flex w-full justify-center items-center px-4 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
+                  >
+                    {resendLoading ? (
+                      <>
+                        <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="mr-2 w-5 h-5 group-hover:-rotate-180 transition-transform duration-500" />
+                        Resend Verification Email
+                      </>
+                    )}
+                  </button>
+                )}
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Link
+                    to="/signup"
+                    className="flex justify-center items-center px-4 py-3.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl transition-colors border border-white/5 hover:border-white/10 active:scale-95"
+                  >
+                    Back to Signup
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="flex justify-center items-center px-4 py-3.5 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl transition-colors border border-white/5 hover:border-white/10 active:scale-95"
+                  >
+                    Go to Login
+                  </Link>
+                </div>
+              </div>
+
+              {email && !canResend && (
+                <div className="mt-6 inline-flex items-center justify-center bg-white/5 border border-white/10 py-2.5 px-5 rounded-full">
+                  <AlertCircle className="w-4 h-4 mr-2 text-zinc-400" />
+                  <span className="text-zinc-400 text-sm font-medium">Please wait before requesting again</span>
+                </div>
+              )}
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Check Your Email</h1>
-            <p className="text-slate-300 mb-6">{message}</p>
-            <Link
-              to="/login"
-              className="inline-block w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 rounded-lg text-white font-medium transition transform hover:scale-105"
-            >
-              Back to Login
-            </Link>
-          </div>
-        )}
+          )}
+
+          {/* Info State (Resent) */}
+          {status === 'info' && (
+            <div className="flex flex-col items-center w-full transition-opacity duration-500">
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-blue-500/10 border border-blue-500/20 mb-6 text-blue-400">
+                <div className="absolute inset-0 rounded-full bg-blue-500/20 animate-pulse"></div>
+                <MailCheck className="w-10 h-10" />
+              </div>
+              <h1 className="text-3xl font-extrabold text-white mb-3 tracking-tight">Check Your Inbox</h1>
+              <p className="text-zinc-400 text-lg mb-8">{message}</p>
+              
+              <Link
+                to="/login"
+                className="group flex w-full justify-center items-center px-4 py-3.5 bg-white text-black font-semibold rounded-xl hover:bg-zinc-200 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/50"
+              >
+                Go to Login
+                <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          )}
+
+        </div>
 
         {/* Footer Help Text */}
-        <div className="mt-8 text-center text-slate-500 text-sm">
-          <p>
-            Having trouble?{' '}
-            <Link to="/help" className="text-purple-400 hover:text-purple-300 transition">
+        <div className="mt-8 text-center text-zinc-500 text-sm">
+          <p className="flex items-center justify-center">
+            <span className="mr-2">Having trouble?</span>
+            <Link to="/help" className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium hover:underline underline-offset-4">
               Contact support
             </Link>
           </p>

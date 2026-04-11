@@ -155,7 +155,34 @@ Retrieve user's code review history with pagination.
 
 ## Interview Simulation Endpoints
 
-### 5. Start Interview Session
+### Runtime Modes
+- `hybrid_rollout`: Keeps current API request/response flow with realtime-ready metadata and safe fallbacks.
+- `full_realtime`: Optimizes prompts and responses for realtime voice orchestration (for example Pipecat).
+- `full_realtime`: Optimizes prompts and responses for realtime voice orchestration (for example Pipecat).
+
+When `full_realtime` is selected, clients can create a Pipecat bridge session descriptor first and then start the interview as usual.
+
+### 5. List Supported Interview Modes
+**GET** `/api/ai-features/interview/modes`
+
+Returns the default mode and the currently supported modes.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "defaultMode": "hybrid_rollout",
+    "supportedModes": ["hybrid_rollout", "full_realtime"],
+    "description": {
+      "hybrid_rollout": "Uses current API flow with realtime-ready metadata and safe fallback behavior.",
+      "full_realtime": "Optimizes prompts and responses for realtime voice runtimes such as Pipecat."
+    }
+  }
+}
+```
+
+### 6. Start Interview Session
 **POST** `/api/ai-features/interview/start`
 
 Initialize a new interview session with a problem statement and greeting from the interviewer.
@@ -165,7 +192,8 @@ Initialize a new interview session with a problem statement and greeting from th
 {
   "interviewType": "dsa",  // "dsa", "system_design", "behavioral", or "mixed"
   "difficulty": "medium",  // Optional: "easy", "medium", or "hard", defaults to "medium"
-  "companyFocus": "Google"  // Optional: specific company focus
+  "companyFocus": "Google",  // Optional: specific company focus
+  "interviewMode": "hybrid_rollout" // Optional: "hybrid_rollout" or "full_realtime"
 }
 ```
 
@@ -179,6 +207,12 @@ Initialize a new interview session with a problem statement and greeting from th
     "interview_type": "dsa",
     "difficulty": "medium",
     "company_focus": "Google",
+    "interviewMode": "hybrid_rollout",
+    "runtime": {
+      "mode": "hybrid_rollout",
+      "realtime": false,
+      "strategy": "http_pipeline_with_realtime_bridge"
+    },
     "problem_statement": "Design a system to handle...",
     "interviewer_greeting": "Hello! Let's start with a system design question...",
     "status": "in_progress",
@@ -195,7 +229,7 @@ Initialize a new interview session with a problem statement and greeting from th
 
 ---
 
-### 6. Submit Interview Response
+### 7. Submit Interview Response
 **POST** `/api/ai-features/interview/:sessionId/respond`
 
 Process the candidate's response and generate interviewer's follow-up or next round.
@@ -206,7 +240,8 @@ Process the candidate's response and generate interviewer's follow-up or next ro
 **Request Body:**
 ```json
 {
-  "response": "I would approach this by first understanding the requirements..."
+  "response": "I would approach this by first understanding the requirements...",
+  "interviewMode": "full_realtime" // Optional override per turn
 }
 ```
 
@@ -219,6 +254,12 @@ Process the candidate's response and generate interviewer's follow-up or next ro
     "round": 1,
     "candidate_response": "I would approach this by...",
     "interviewer_message": "Good start! Can you elaborate on the scalability aspect?",
+    "interviewMode": "full_realtime",
+    "runtime": {
+      "mode": "full_realtime",
+      "realtime": true,
+      "strategy": "pipecat_realtime"
+    },
     "feedback": "You provided a solid high-level overview. Your approach shows understanding of common patterns.",
     "response_quality_score": 72,
     "communication_score": 75,
@@ -238,7 +279,7 @@ Process the candidate's response and generate interviewer's follow-up or next ro
 
 ---
 
-### 7. Complete Interview Session
+### 8. Complete Interview Session
 **POST** `/api/ai-features/interview/:sessionId/complete`
 
 End the interview and generate final performance analysis with scores.
@@ -356,6 +397,79 @@ Retrieve user's interview history with pagination and optional status filtering.
 
 **Error Responses:**
 - `500`: Server error
+
+---
+
+## Pipecat Bridge Endpoints (Runtime Helper)
+
+These endpoints are prefixed with `/api/pipecat` and require authentication.
+
+### 11. Pipecat Bridge Health
+**GET** `/api/pipecat/health`
+
+Returns whether a bridge is configured and runtime helper metadata.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "configured": false,
+    "bridgeBaseUrl": null,
+    "hasWsTemplate": false,
+    "activeSessionCount": 0,
+    "sessionTtlMinutes": 30,
+    "modeSupport": ["full_realtime"]
+  }
+}
+```
+
+### 12. Create Pipecat Session Descriptor
+**POST** `/api/pipecat/session`
+
+Creates an ephemeral session descriptor for `full_realtime` mode.
+
+**Request Body:**
+```json
+{
+  "interviewMode": "full_realtime",
+  "interviewType": "dsa",
+  "difficulty": "medium",
+  "interviewSessionId": "optional-uuid"
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "uuid",
+    "status": "bridge_configured",
+    "transport": "websocket",
+    "websocketUrl": "wss://bridge.example/ws?sessionId=...",
+    "expiresAt": "2026-04-08T12:00:00.000Z",
+    "runtime": {
+      "mode": "full_realtime",
+      "realtime": true,
+      "strategy": "pipecat_realtime",
+      "bridgeConfigured": true
+    }
+  }
+}
+```
+
+If bridge configuration is missing, `status` will be `bridge_pending_configuration` and `websocketUrl` may be null. Clients should continue with hybrid-compatible behavior.
+
+### 15. Get Pipecat Session Descriptor
+**GET** `/api/pipecat/session/:sessionId`
+
+Returns the current session descriptor for the authenticated user.
+
+### 16. Close Pipecat Session Descriptor
+**DELETE** `/api/pipecat/session/:sessionId`
+
+Closes the ephemeral descriptor in backend memory.
 
 ---
 

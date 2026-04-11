@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import DOMPurify from 'dompurify';
 import NotionViewer from '../components/editor/NotionViewer';
 
 
@@ -11,6 +12,12 @@ export default function BlogPost() {
     const [loading, setLoading] = useState(true);
     const { theme } = useTheme();
     const isLight = theme === 'light';
+    const sanitizedHtml = useMemo(() => {
+        if (!blog?.content || !blog.content.trim()) return '';
+        return DOMPurify.sanitize(blog.content, {
+            USE_PROFILES: { html: true },
+        });
+    }, [blog?.content]);
 
     useEffect(() => {
         fetchBlog();
@@ -96,7 +103,7 @@ export default function BlogPost() {
                     <div
                         className="blog-content"
                         style={{ fontSize: '18px', lineHeight: 1.8, color: isLight ? '#444' : 'var(--zinc-300)' }}
-                        dangerouslySetInnerHTML={{ __html: blog.content }}
+                        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
                     >
                     </div>
                 )}

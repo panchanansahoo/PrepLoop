@@ -24,6 +24,7 @@ const navSections = [
         category: 'Practice',
         items: [
             { path: '/problems', label: 'Problem Explorer', subtitle: 'Browse & filter problems', icon: ListFilter },
+            { path: '/quiz-arena', label: 'Quiz Arena', subtitle: 'Topic quizzes and leaderboard', icon: Trophy },
             { path: '/playground', label: 'Playground', subtitle: 'Free-form coding sandbox', icon: Terminal },
             { path: '/visualizer', label: 'Algorithm Visualizer', subtitle: 'Watch algorithms in action', icon: Play },
             { path: '/system-design-sim', label: 'Design Simulator', subtitle: 'Build architectures visually', icon: Network },
@@ -34,9 +35,8 @@ const navSections = [
         ]
     },
     {
-        category: 'Roadmap',
+        category: 'AI Features',
         items: [
-            { path: '/roadmap', label: 'Roadmaps', subtitle: 'All learning paths', icon: Map },
             { path: '/advanced-learning-path', label: 'AI Advanced Roadmap', subtitle: 'Timeline planner & exports', icon: Sparkles },
         ]
     },
@@ -60,7 +60,6 @@ const navSections = [
             { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
             { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
             { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
-
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
             { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },

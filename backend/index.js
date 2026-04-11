@@ -40,6 +40,7 @@ async function initializeServer() {
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
+    const pipecatRoutes = (await import('./routes/pipecat.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
 
@@ -94,6 +95,7 @@ async function initializeServer() {
       },
       credentials: true,
     }));
+    app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
@@ -138,6 +140,7 @@ async function initializeServer() {
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);
+    app.use('/api/pipecat', pipecatRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {

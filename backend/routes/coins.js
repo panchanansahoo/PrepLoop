@@ -138,9 +138,9 @@ router.get('/balance', authenticateToken, async (req, res) => {
 // Earn coins (called after solving a problem)
 router.post('/earn', authenticateToken, async (req, res) => {
   try {
-    const rawAmount = req.body?.amount ?? 10;
-    const amount = toSafeAmount(rawAmount);
     const source = String(req.body?.source || 'manual').trim().toLowerCase();
+    const rawAmount = req.body?.amount ?? (source === 'problem_solved' ? 5 : 10);
+    const amount = toSafeAmount(rawAmount);
     const sourceRef = String(req.body?.sourceRef || '').trim();
     const fallbackDescription = source === 'problem_solved'
       ? 'Problem solved'

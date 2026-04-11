@@ -15,7 +15,7 @@ import { executeCode, buildTestWrapper, parseTestResults } from "../utils/execut
 import { applyCoinTransaction } from "../utils/coinTransactions.js";
 
 const router = express.Router();
-const PROBLEM_SOLVE_COIN_REWARD = 10;
+const PROBLEM_SOLVE_COIN_REWARD = 5;
 
 const isSchemaMissingError = (error) => {
   const code = String(error?.code || '').toUpperCase();

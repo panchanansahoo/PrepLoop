@@ -34,7 +34,7 @@ export function CoinProvider({ children }) {
     }
   }, [user]);
 
-  const earnCoins = useCallback(async (amount = 10, description = 'Problem solved') => {
+  const earnCoins = useCallback(async (amount = 5, description = 'Problem solved') => {
     if (!user) return null;
     setLoading(true);
     try {

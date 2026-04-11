@@ -2,6 +2,7 @@
 // All problems synced from backend pattern-based dataset
 
 import { getTestCasesForProblem } from './problemTestCases';
+import { TOP_INTERVIEW_150_SLUGS } from './topInterview150Slugs';
 
 export const COMPANIES = [
   { id: 'google', name: 'Google', color: '#4285F4' },
@@ -513,6 +514,36 @@ const RAW_PROBLEMS = [
   { id: 442, title: 'Isomorphic Strings', difficulty: 'Easy', topics: ["Strings","Hashing"], patterns: ["char-counting"], companies: ["amazon","google"], frequency: 'medium', acceptance: 68, timeEstimate: 15, description: 'Given two strings s and t, determine if they are isomorphic. Two strings are isomorphic if characters can be replaced to get the other string.', examples: [{"input":"s = \"egg\", t = \"add\"","output":"true"},{"input":"s = \"foo\", t = \"bar\"","output":"false"}], constraints: '1 <= s.length <= 5*10^4, s.length == t.length', hints: ["Map each character in s to corresponding character in t","Ensure no two characters map to the same character","Use two hashmaps for bidirectional mapping"] },
   { id: 443, title: 'Power of Three', difficulty: 'Easy', topics: ["Math"], patterns: ["prefix-sum"], companies: ["tcs","wipro"], frequency: 'medium', acceptance: 72, timeEstimate: 10, description: 'Given an integer n, return true if it is a power of three. Otherwise, return false.', examples: [{"input":"n = 27","output":"true"},{"input":"n = 0","output":"false"}], constraints: '-2^31 <= n <= 2^31 - 1', hints: ["Repeatedly divide by 3","Check if n is positive first","Use logarithm approach for O(1)"] },
   { id: 444, title: 'Merge k Sorted Lists', difficulty: 'Hard', topics: ["Linked List","Heap"], patterns: ["k-way-merge"], companies: ["google","amazon","meta","microsoft"], frequency: 'high', acceptance: 38, timeEstimate: 35, description: 'You are given an array of k linked-lists, each sorted in ascending order. Merge all linked-lists into one sorted linked-list and return it.', examples: [{"input":"lists = [[1,4,5],[1,3,4],[2,6]]","output":"[1,1,2,3,4,4,5,6]"}], constraints: 'k == lists.length, 0 <= k <= 10^4, 0 <= lists[i].length <= 500', hints: ["Use a min-heap to track the smallest element across all lists","Always extract the minimum and advance that list","Consider divide and conquer approach merging pairs"] },
+  { id: 445, title: 'H-Index', difficulty: 'Medium', topics: ["Arrays","Sorting"], patterns: ["greedy"], companies: ["google","amazon"], frequency: 'high', acceptance: 53, timeEstimate: 25, description: 'Given an array of citations, return the researcher\'s h-index.', examples: [{"input":"citations = [3,0,6,1,5]","output":"3"}], constraints: '1 <= citations.length <= 5000', hints: ["Sort citations","Find max h where at least h papers have >= h citations"] },
+  { id: 446, title: 'Insert Delete GetRandom O1', difficulty: 'Medium', topics: ["Design","Hashing"], patterns: ["prefix-sum"], companies: ["amazon","meta"], frequency: 'high', acceptance: 47, timeEstimate: 30, description: 'Design a data structure that supports insert, remove, and getRandom in average O(1) time.', examples: [{"input":"insert(1), remove(2), insert(2), getRandom()","output":"random from {1,2}"}], constraints: 'At most 2 * 10^5 calls', hints: ["Combine array + hashmap","Swap-with-last on delete"] },
+  { id: 447, title: 'Roman to Integer', difficulty: 'Easy', topics: ["Strings","Math"], patterns: ["char-counting"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 66, timeEstimate: 15, description: 'Convert a Roman numeral string to an integer.', examples: [{"input":"s = \"MCMXCIV\"","output":"1994"}], constraints: '1 <= s.length <= 15', hints: ["Handle subtractive pairs like IV, IX, XL, XC, CD, CM"] },
+  { id: 448, title: 'Integer to Roman', difficulty: 'Medium', topics: ["Strings","Math"], patterns: ["greedy"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 59, timeEstimate: 20, description: 'Convert an integer to a Roman numeral.', examples: [{"input":"num = 1994","output":"\"MCMXCIV\""}], constraints: '1 <= num <= 3999', hints: ["Use descending value-symbol pairs","Greedily append symbols"] },
+  { id: 449, title: 'Longest Common Prefix', difficulty: 'Easy', topics: ["Strings"], patterns: ["two-pointers"], companies: ["amazon","google"], frequency: 'high', acceptance: 74, timeEstimate: 10, description: 'Find the longest common prefix string among an array of strings.', examples: [{"input":"strs = [\"flower\",\"flow\",\"flight\"]","output":"\"fl\""}], constraints: '1 <= strs.length <= 200', hints: ["Compare char by char across all strings"] },
+  { id: 450, title: 'Zigzag Conversion', difficulty: 'Medium', topics: ["Strings"], patterns: ["matrix-traversal"], companies: ["amazon","google"], frequency: 'high', acceptance: 49, timeEstimate: 25, description: 'Rearrange a string in zigzag pattern over numRows and read row-by-row.', examples: [{"input":"s = \"PAYPALISHIRING\", numRows = 3","output":"\"PAHNAPLSIIGYIR\""}], constraints: '1 <= s.length <= 1000', hints: ["Simulate row movement with direction toggle"] },
+  { id: 451, title: 'Find the Index of the First Occurrence in a String', difficulty: 'Easy', topics: ["Strings"], patterns: ["two-pointers"], companies: ["amazon","google"], frequency: 'high', acceptance: 71, timeEstimate: 10, description: 'Return the index of the first occurrence of needle in haystack, or -1 if absent.', examples: [{"input":"haystack = \"sadbutsad\", needle = \"sad\"","output":"0"}], constraints: '1 <= haystack.length, needle.length <= 10^4', hints: ["Sliding compare or built-in find semantics"] },
+  { id: 452, title: 'Text Justification', difficulty: 'Hard', topics: ["Strings"], patterns: ["greedy"], companies: ["google","amazon"], frequency: 'low', acceptance: 41, timeEstimate: 35, description: 'Format text so each line has exactly maxWidth characters and is fully justified.', examples: [{"input":"words = [\"This\",\"is\",\"an\",\"example\"], maxWidth = 16","output":"justified lines"}], constraints: '1 <= words.length <= 300', hints: ["Pack words per line then distribute spaces"] },
+  { id: 453, title: 'Ransom Note', difficulty: 'Easy', topics: ["Strings","Hashing"], patterns: ["char-counting"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 72, timeEstimate: 10, description: 'Return true if ransomNote can be constructed using letters from magazine.', examples: [{"input":"ransomNote = \"aa\", magazine = \"aab\"","output":"true"}], constraints: '1 <= ransomNote.length, magazine.length <= 10^5', hints: ["Count letters and compare needed vs available"] },
+  { id: 454, title: 'Word Pattern', difficulty: 'Easy', topics: ["Strings","Hashing"], patterns: ["char-counting"], companies: ["amazon","google"], frequency: 'high', acceptance: 53, timeEstimate: 15, description: 'Check if a space-separated string follows the same pattern mapping as the pattern string.', examples: [{"input":"pattern = \"abba\", s = \"dog cat cat dog\"","output":"true"}], constraints: '1 <= pattern.length <= 300', hints: ["Use bijection mapping both directions"] },
+  { id: 455, title: 'Summary Ranges', difficulty: 'Easy', topics: ["Arrays"], patterns: ["two-pointers"], companies: ["amazon"], frequency: 'high', acceptance: 64, timeEstimate: 15, description: 'Given a sorted unique integer array, return summary ranges.', examples: [{"input":"nums = [0,1,2,4,5,7]","output":"[\"0->2\",\"4->5\",\"7\"]"}], constraints: '0 <= nums.length <= 20', hints: ["Expand each consecutive streak with two pointers"] },
+  { id: 456, title: 'Construct Binary Tree from Preorder and Inorder Traversal', difficulty: 'Medium', topics: ["Trees"], patterns: ["dfs"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 63, timeEstimate: 30, description: 'Build a binary tree from preorder and inorder traversal arrays.', examples: [{"input":"preorder = [3,9,20,15,7], inorder = [9,3,15,20,7]","output":"[3,9,20,null,null,15,7]"}], constraints: '1 <= preorder.length <= 3000', hints: ["Root is first in preorder; split inorder by root index"] },
+  { id: 457, title: 'Construct Binary Tree from Inorder and Postorder Traversal', difficulty: 'Medium', topics: ["Trees"], patterns: ["dfs"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 57, timeEstimate: 30, description: 'Build a binary tree from inorder and postorder traversal arrays.', examples: [{"input":"inorder = [9,3,15,20,7], postorder = [9,15,7,20,3]","output":"[3,9,20,null,null,15,7]"}], constraints: '1 <= inorder.length <= 3000', hints: ["Root is last in postorder; split inorder by root index"] },
+  { id: 458, title: 'Populating Next Right Pointers in Each Node II', difficulty: 'Medium', topics: ["Trees"], patterns: ["bfs"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 52, timeEstimate: 25, description: 'Connect each node to its next right node in a non-perfect binary tree.', examples: [{"input":"root = [1,2,3,4,5,null,7]","output":"level next pointers set"}], constraints: 'Number of nodes in tree <= 6000', hints: ["Use level-order traversal or O(1) next-level linking"] },
+  { id: 459, title: 'Lowest Common Ancestor of a Binary Tree', difficulty: 'Medium', topics: ["Trees"], patterns: ["dfs"], companies: ["amazon","meta"], frequency: 'high', acceptance: 53, timeEstimate: 25, description: 'Find lowest common ancestor of nodes p and q in a binary tree.', examples: [{"input":"root = [3,5,1,6,2,0,8,null,null,7,4], p=5, q=1","output":"3"}], constraints: '2 <= number of nodes <= 10^5', hints: ["DFS returns if subtree contains p or q"] },
+  { id: 460, title: 'Binary Tree Zigzag Level Order Traversal', difficulty: 'Medium', topics: ["Trees"], patterns: ["bfs"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 57, timeEstimate: 20, description: 'Return level-order traversal of a binary tree alternating left-right and right-left by level.', examples: [{"input":"root = [3,9,20,null,null,15,7]","output":"[[3],[20,9],[15,7]]"}], constraints: '0 <= number of nodes <= 2000', hints: ["BFS by level and reverse alternate levels"] },
+  { id: 461, title: 'Minimum Absolute Difference in BST', difficulty: 'Easy', topics: ["Trees","Binary Search"], patterns: ["dfs"], companies: ["amazon"], frequency: 'high', acceptance: 70, timeEstimate: 15, description: 'Find the minimum absolute difference between values of any two nodes in a BST.', examples: [{"input":"root = [4,2,6,1,3]","output":"1"}], constraints: '2 <= number of nodes <= 10^4', hints: ["Inorder traversal gives sorted values"] },
+  { id: 462, title: 'Kth Smallest Element in a BST', difficulty: 'Medium', topics: ["Trees","Binary Search"], patterns: ["dfs"], companies: ["amazon","google"], frequency: 'high', acceptance: 64, timeEstimate: 20, description: 'Return the kth smallest value in a BST.', examples: [{"input":"root = [3,1,4,null,2], k = 1","output":"1"}], constraints: '1 <= k <= n <= 10^4', hints: ["Inorder traversal in BST is sorted"] },
+  { id: 463, title: 'Snakes and Ladders', difficulty: 'Medium', topics: ["Graphs"], patterns: ["bfs"], companies: ["amazon","google"], frequency: 'high', acceptance: 44, timeEstimate: 30, description: 'Given an n x n board, return the least number of moves to reach n^2 using die rolls, snakes, and ladders.', examples: [{"input":"board = [[-1,-1,-1],[-1,9,8],[-1,8,9]]","output":"1"}], constraints: '2 <= n <= 20', hints: ["Model board cells as graph nodes and run BFS"] },
+  { id: 464, title: 'Convert Sorted Array to Binary Search Tree', difficulty: 'Easy', topics: ["Trees","Binary Search"], patterns: ["dfs"], companies: ["amazon"], frequency: 'high', acceptance: 75, timeEstimate: 15, description: 'Convert sorted integer array to a height-balanced BST.', examples: [{"input":"nums = [-10,-3,0,5,9]","output":"balanced BST"}], constraints: '1 <= nums.length <= 10^4', hints: ["Use middle element as root recursively"] },
+  { id: 465, title: 'Construct Quad Tree', difficulty: 'Medium', topics: ["Divide & Conquer","Matrix"], patterns: ["dfs"], companies: ["amazon"], frequency: 'high', acceptance: 56, timeEstimate: 25, description: 'Build a quad tree from an n x n binary matrix.', examples: [{"input":"grid = [[0,1],[1,0]]","output":"quad tree"}], constraints: 'n == 2^x, 0 <= x <= 6', hints: ["Recursively split until region values are uniform"] },
+  { id: 466, title: 'Maximum Sum Circular Subarray', difficulty: 'Medium', topics: ["Arrays","Dynamic Programming"], patterns: ["dp-fibonacci"], companies: ["amazon","google"], frequency: 'high', acceptance: 47, timeEstimate: 25, description: 'Find maximum possible sum of a non-empty subarray in a circular array.', examples: [{"input":"nums = [1,-2,3,-2]","output":"3"}], constraints: '1 <= nums.length <= 3*10^4', hints: ["Combine Kadane max-subarray and min-subarray logic"] },
+  { id: 467, title: 'Find First and Last Position of Element in Sorted Array', difficulty: 'Medium', topics: ["Binary Search"], patterns: ["binary-search"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 45, timeEstimate: 20, description: 'Find starting and ending position of target in sorted array.', examples: [{"input":"nums = [5,7,7,8,8,10], target = 8","output":"[3,4]"}], constraints: '0 <= nums.length <= 10^5', hints: ["Run binary search twice: left boundary and right boundary"] },
+  { id: 468, title: 'Add Binary', difficulty: 'Easy', topics: ["Strings","Math"], patterns: ["two-pointers"], companies: ["amazon"], frequency: 'high', acceptance: 64, timeEstimate: 15, description: 'Given two binary strings, return their sum as a binary string.', examples: [{"input":"a = \"11\", b = \"1\"","output":"\"100\""}], constraints: '1 <= a.length, b.length <= 10^4', hints: ["Add from right to left with carry"] },
+  { id: 469, title: 'Reverse Bits', difficulty: 'Easy', topics: ["Bit Manipulation"], patterns: ["bit-manipulation"], companies: ["amazon","microsoft"], frequency: 'high', acceptance: 65, timeEstimate: 15, description: 'Reverse bits of a given 32-bit unsigned integer.', examples: [{"input":"n = 00000010100101000001111010011100","output":"964176192"}], constraints: 'Input must be a binary string of length 32', hints: ["Shift and build result bit by bit"] },
+  { id: 470, title: 'Number of 1 Bits', difficulty: 'Easy', topics: ["Bit Manipulation"], patterns: ["bit-manipulation"], companies: ["amazon"], frequency: 'high', acceptance: 77, timeEstimate: 10, description: 'Return number of set bits in an unsigned integer.', examples: [{"input":"n = 11","output":"3"}], constraints: 'Input is treated as unsigned 32-bit integer', hints: ["Use n &= (n - 1) to drop lowest set bit"] },
+  { id: 471, title: 'Single Number II', difficulty: 'Medium', topics: ["Bit Manipulation","Arrays"], patterns: ["xor-tricks"], companies: ["amazon","google"], frequency: 'high', acceptance: 62, timeEstimate: 25, description: 'Every element appears three times except one, find that one.', examples: [{"input":"nums = [2,2,3,2]","output":"3"}], constraints: '1 <= nums.length <= 3*10^4', hints: ["Count bits by position modulo 3"] },
+  { id: 472, title: 'Bitwise AND of Numbers Range', difficulty: 'Medium', topics: ["Bit Manipulation","Math"], patterns: ["bit-manipulation"], companies: ["amazon"], frequency: 'high', acceptance: 53, timeEstimate: 20, description: 'Return bitwise AND of all numbers in range [left, right].', examples: [{"input":"left = 5, right = 7","output":"4"}], constraints: '0 <= left <= right <= 2^31 - 1', hints: ["Find common high-order prefix"] },
+  { id: 473, title: 'Sqrtx', difficulty: 'Easy', topics: ["Binary Search","Math"], patterns: ["binary-search"], companies: ["amazon"], frequency: 'high', acceptance: 67, timeEstimate: 15, description: 'Given a non-negative integer x, return the integer square root of x.', examples: [{"input":"x = 8","output":"2"}], constraints: '0 <= x <= 2^31 - 1', hints: ["Binary search for largest m where m*m <= x"] },
+  { id: 474, title: 'Max Points on a Line', difficulty: 'Hard', topics: ["Math","Hashing"], patterns: ["char-counting"], companies: ["google","amazon"], frequency: 'low', acceptance: 33, timeEstimate: 35, description: 'Given points on a 2D plane, return maximum number of points that lie on the same straight line.', examples: [{"input":"points = [[1,1],[2,2],[3,3]]","output":"3"}], constraints: '1 <= points.length <= 300', hints: ["Fix one point, normalize slopes with gcd"] },
 ];
 
 function buildProblemExplanation(problem) {
@@ -710,16 +741,52 @@ function normalizeConstraints(problem) {
   return buildDefaultConstraints(problem);
 }
 
-export const PROBLEMS = RAW_PROBLEMS.map((problem) => {
+const TOP_INTERVIEW_150_SLUG_SET = new Set(TOP_INTERVIEW_150_SLUGS);
+
+function buildStudyPlans(problem, assignedTop150Slugs) {
+  const plans = new Set(Array.isArray(problem.studyPlans) ? problem.studyPlans : []);
+  const slug = getProblemSlug(problem.title);
+
+  // Tag only one local problem per official Top 150 slug to avoid duplicate counting.
+  if (TOP_INTERVIEW_150_SLUG_SET.has(slug) && !assignedTop150Slugs.has(slug)) {
+    plans.add('top-interview-150');
+    assignedTop150Slugs.add(slug);
+  } else {
+    plans.delete('top-interview-150');
+  }
+
+  return Array.from(plans);
+}
+
+const assignedTop150Slugs = new Set();
+
+function dedupeProblemsBySlug(problems) {
+  const seen = new Set();
+  const deduped = [];
+
+  for (const problem of problems) {
+    const slug = getProblemSlug(problem.title);
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    deduped.push(problem);
+  }
+
+  return deduped;
+}
+
+const normalizedProblems = RAW_PROBLEMS.map((problem) => {
   const description = normalizeDescription(problem);
   return {
     ...problem,
+    studyPlans: buildStudyPlans(problem, assignedTop150Slugs),
     description,
     examples: normalizeExamples(problem),
     constraints: normalizeConstraints(problem),
     explanation: buildProblemExplanation({ ...problem, description }),
   };
 });
+
+export const PROBLEMS = dedupeProblemsBySlug(normalizedProblems);
 
 export const getDifficultyCounts = () => {
   const counts = { Easy: 0, Medium: 0, Hard: 0 };

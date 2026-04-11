@@ -2,7 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import {
     Mic, Code2, Database,
-    Building2, Calculator, CalendarDays
+    Building2, Calculator, CalendarDays, Trophy,
+    FileText, GraduationCap
 } from 'lucide-react';
 
 const actions = [
@@ -31,6 +32,14 @@ const actions = [
         path: '/sql-problems'
     },
     {
+        label: 'Quiz Arena',
+        description: 'Topic quiz battle',
+        icon: Trophy,
+        color: '#f59e0b',
+        glow: 'rgba(245, 158, 11, 0.12)',
+        path: '/quiz-arena'
+    },
+    {
         label: 'Advanced Planner',
         description: 'Date-wise roadmap',
         icon: CalendarDays,
@@ -53,6 +62,22 @@ const actions = [
         color: '#f472b6',
         glow: 'rgba(244, 114, 182, 0.12)',
         path: '/aptitude'
+    },
+    {
+        label: 'Resume Analysis',
+        description: 'AI-driven ATS check',
+        icon: FileText,
+        color: '#10b981',
+        glow: 'rgba(16, 185, 129, 0.12)',
+        path: '/resume-analyzer'
+    },
+    {
+        label: 'Exam Practice',
+        description: 'Mock tests & papers',
+        icon: GraduationCap,
+        color: '#06b6d4',
+        glow: 'rgba(6, 182, 212, 0.12)',
+        path: '/exam-hub'
     }
 ];
 

@@ -1,0 +1,1601 @@
+/* ═══════════════════════════════════════════════════
+   CompanyInterview.css — Interview Phase Styles
+   Premium dark video-call layout (Indigo/Purple theme)
+   ═══════════════════════════════════════════════════ */
+
+/* ── Full Page Layout ── */
+.ci-interview-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #07070e;
+  color: #fff;
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.ci-interview-page::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 0%, rgba(99, 102, 241, 0.06) 0%, transparent 100%),
+    radial-gradient(ellipse 40% 30% at 80% 100%, rgba(139, 92, 246, 0.04) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══════════════ TOPBAR ═══════════════ */
+.ci-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(10, 10, 18, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.ci-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ci-company-logo {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.ci-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.ci-breadcrumb-company {
+  font-weight: 700;
+  color: #fff;
+}
+
+.ci-breadcrumb-sep {
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.ci-breadcrumb-info {
+  color: rgba(255, 255, 255, 0.45);
+  font-weight: 500;
+}
+
+.ci-topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ci-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #c4b5fd;
+  letter-spacing: 0.2px;
+}
+
+.ci-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.ci-timer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* ── Progress Dots ── */
+.ci-progress-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.ci-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ci-progress-dot.completed {
+  background: #6366f1;
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.3);
+}
+
+.ci-progress-dot.active {
+  background: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.6);
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.4);
+  animation: ciDotPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ciDotPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+.ci-score-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ci-difficulty-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.ci-user-avatar-topbar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(139, 92, 246, 0.15));
+  border: 1.5px solid rgba(99, 102, 241, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #c4b5fd;
+}
+
+.ci-topbar-icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.ci-topbar-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+/* ═══════════════ STATUS BAR ═══════════════ */
+.ci-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 7px 16px;
+  background: rgba(99, 102, 241, 0.05);
+  border-bottom: 1px solid rgba(99, 102, 241, 0.08);
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(196, 181, 253, 0.8);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+}
+
+.ci-status-text {
+  animation: ciFadeIn 0.3s ease;
+}
+
+@keyframes ciFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════ MAIN CONTENT ═══════════════ */
+.ci-main-content {
+  flex: 1;
+  display: flex;
+  gap: 0;
+  overflow: hidden;
+  min-height: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Interview Panel (left area) ── */
+.ci-interview-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 10px;
+  min-width: 0;
+  position: relative;
+}
+
+/* ── AI Tile ── */
+.ci-tile {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(135deg, rgba(8, 8, 20, 0.95) 0%, rgba(14, 14, 30, 0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  border: 1.5px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+.ci-tile::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 55%, rgba(99, 102, 241, 0.04) 0%, transparent 65%);
+  pointer-events: none;
+  transition: all 0.5s;
+}
+
+.ci-tile.speaking {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45), 0 0 40px rgba(99, 102, 241, 0.1);
+}
+
+.ci-tile.speaking::before {
+  background: radial-gradient(circle at 50% 55%, rgba(99, 102, 241, 0.1) 0%, transparent 60%);
+}
+
+.ci-tile-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── Interviewer Avatar ── */
+.ci-interviewer-avatar {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+  border: 2px solid rgba(99, 102, 241, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: all 0.5s;
+}
+
+.ci-tile.speaking .ci-interviewer-avatar {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 30px rgba(99, 102, 241, 0.15), 0 0 60px rgba(99, 102, 241, 0.06);
+}
+
+.ci-avatar-placeholder {
+  font-size: 42px;
+  line-height: 1;
+}
+
+/* ── Question Card ── */
+.ci-question-card {
+  width: 100%;
+  max-width: 580px;
+  background: rgba(5, 8, 20, 0.7);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  border-radius: 14px;
+  padding: 14px 18px;
+  animation: ciSlideUp 0.4s ease;
+}
+
+@keyframes ciSlideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ci-question-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: rgba(165, 180, 252, 0.85);
+  margin-bottom: 6px;
+}
+
+.ci-question-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 500;
+}
+
+/* ── Tile Nameplate ── */
+.ci-tile-nameplate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.1) 100%);
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  position: relative;
+  z-index: 2;
+}
+
+.ci-speaking-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  display: inline-block;
+  animation: ciPulseDot 1.2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes ciPulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.75); }
+}
+
+/* ═══════════════ CAPTIONS OVERLAY ═══════════════ */
+.ci-captions-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 20;
+  animation: ciFadeIn 0.3s ease;
+}
+
+.ci-captions-bar {
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 16px;
+  backdrop-filter: blur(12px);
+}
+
+.ci-captions-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #ef4444;
+  margin-bottom: 6px;
+}
+
+.ci-captions-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: ciPulseDot 1s infinite;
+}
+
+.ci-captions-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.9);
+  max-height: 80px;
+  overflow-y: auto;
+}
+
+.ci-captions-final {
+  color: #fff;
+}
+
+.ci-captions-interim {
+  color: rgba(196, 181, 253, 0.65);
+  font-style: italic;
+}
+
+.ci-captions-autosend {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+.ci-autosend-ring {
+  width: 32px;
+  height: 32px;
+}
+
+.ci-captions-autosend span {
+  min-width: 20px;
+  text-align: center;
+}
+
+/* ── AI Speech Captions ── */
+.ci-ai-caption-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 19;
+  animation: ciFadeIn 0.3s ease;
+}
+
+.ci-ai-caption-bar {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 14px;
+  padding: 10px 16px;
+  backdrop-filter: blur(12px);
+}
+
+.ci-ai-caption-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #818cf8;
+  margin-bottom: 6px;
+}
+
+.ci-ai-caption-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.85);
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+/* ── Status Bar Progress Badge ── */
+.ci-status-progress {
+  margin-left: auto;
+  padding: 2px 10px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #a5b4fc;
+  letter-spacing: 0.3px;
+}
+
+/* ── Verbal feedback (immersion mode) ── */
+.ci-fb-verbal {
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ── Controls Progress ── */
+.ci-controls-progress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(196, 181, 253, 0.7);
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+@keyframes ciAutoSendPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ═══════════════ RIGHT SIDEBAR ═══════════════ */
+.ci-sidebar-right {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 10px 10px 0;
+  flex-shrink: 0;
+}
+
+/* ── Profile Card ── */
+.ci-profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  transition: all 0.3s;
+}
+
+.ci-profile-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.ci-profile-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
+  border: 2px solid rgba(99, 102, 241, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: all 0.4s;
+  position: relative;
+}
+
+.ci-profile-avatar.speaking {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+}
+
+.ci-profile-avatar.listening {
+  border-color: rgba(34, 197, 94, 0.5);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.12);
+}
+
+.ci-profile-avatar-placeholder {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.ci-profile-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+
+.ci-profile-role {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  text-align: center;
+}
+
+/* ── Speaking Wave ── */
+.ci-speaking-wave {
+  display: flex;
+  gap: 3px;
+  align-items: center;
+  justify-content: center;
+  height: 16px;
+}
+
+.ci-speaking-wave span {
+  display: block;
+  width: 3px;
+  height: 6px;
+  border-radius: 2px;
+  background: #818cf8;
+  animation: ciWave 0.8s ease-in-out infinite;
+}
+
+.ci-speaking-wave span:nth-child(1) { animation-delay: 0s; }
+.ci-speaking-wave span:nth-child(2) { animation-delay: 0.1s; }
+.ci-speaking-wave span:nth-child(3) { animation-delay: 0.2s; }
+.ci-speaking-wave span:nth-child(4) { animation-delay: 0.3s; }
+.ci-speaking-wave span:nth-child(5) { animation-delay: 0.4s; }
+
+@keyframes ciWave {
+  0%, 100% { height: 4px; opacity: 0.4; }
+  50% { height: 16px; opacity: 1; }
+}
+
+/* ═══════════════ CHAT PANEL ═══════════════ */
+.ci-chat-panel {
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 8, 16, 0.95);
+  flex-shrink: 0;
+}
+
+.ci-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ci-chat-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* ── Chat Messages ── */
+.ci-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+.ci-chat-messages::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ci-chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ci-chat-messages::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.ci-chat-msg {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  animation: ciSlideUp 0.3s ease;
+  max-width: 92%;
+}
+
+.ci-chat-msg.interviewer {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.04));
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  align-self: flex-start;
+}
+
+.ci-chat-msg.candidate {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  align-self: flex-end;
+}
+
+.ci-chat-msg.feedback {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.06), rgba(34, 197, 94, 0.03));
+  border: 1px solid rgba(52, 211, 153, 0.12);
+  align-self: flex-start;
+}
+
+.ci-msg-sender {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ci-msg-sender.you {
+  color: rgba(167, 139, 250, 0.7);
+}
+
+.ci-msg-time {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.2);
+  margin-left: auto;
+  font-size: 10px;
+}
+
+.ci-msg-text {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.85);
+  word-break: break-word;
+}
+
+.ci-msg-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.ci-msg-tip {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+/* ── Feedback styling in chat ── */
+.ci-reaction-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ci-fb-score {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.ci-fb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.ci-fb-good {
+  font-size: 11px;
+  color: rgba(74, 222, 128, 0.85);
+}
+
+.ci-fb-improve {
+  font-size: 11px;
+  color: rgba(251, 191, 36, 0.85);
+}
+
+/* ── Chat Input Area ── */
+.ci-chat-input-area {
+  padding: 12px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ci-think-timer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(196, 181, 253, 0.7);
+  font-weight: 500;
+}
+
+.ci-think-bar {
+  flex: 1;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ci-think-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #a78bfa);
+  border-radius: 2px;
+  transition: width 1s linear;
+}
+
+.ci-speech-feedback {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.ci-speech-feedback span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Hint Card ── */
+.ci-hint-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-radius: 10px;
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.ci-hint-btn:hover {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.ci-hint-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ci-hint-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.02));
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  border-radius: 12px;
+  padding: 12px 14px;
+  animation: ciSlideUp 0.3s ease;
+}
+
+.ci-hint-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #fbbf24;
+  margin-bottom: 8px;
+}
+
+.ci-hint-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.ci-hint-close:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ci-hint-text {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.ci-hint-approach {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.7);
+}
+
+.ci-hint-topics {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ci-hint-topic {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.12);
+  color: rgba(251, 191, 36, 0.75);
+}
+
+/* ── Chat Input Row ── */
+.ci-chat-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.ci-chat-mic-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+
+.ci-chat-mic-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.ci-chat-mic-btn.active {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #f87171;
+  animation: ciMicPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ciMicPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+.ci-chat-input-row textarea {
+  flex: 1;
+  min-height: 38px;
+  max-height: 100px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.ci-chat-input-row textarea::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.ci-chat-input-row textarea:focus {
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+.ci-chat-send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s;
+  flex-shrink: 0;
+}
+
+.ci-chat-send-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
+}
+
+.ci-chat-send-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Chat Complete ── */
+.ci-chat-complete {
+  padding: 20px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ci-chat-end-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6366f1, #7c3aed);
+  border: none;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  font-family: inherit;
+}
+
+.ci-chat-end-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.3);
+}
+
+/* ── Typing Indicator ── */
+.ci-typing-indicator {
+  display: flex;
+  gap: 5px;
+  padding: 10px 16px;
+  align-self: flex-start;
+}
+
+.ci-typing-indicator span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.4);
+  animation: ciTyping 1.2s ease-in-out infinite;
+}
+
+.ci-typing-indicator span:nth-child(2) { animation-delay: 0.15s; }
+.ci-typing-indicator span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ciTyping {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+
+/* ═══════════════ BOTTOM CONTROLS BAR ═══════════════ */
+.ci-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  background: rgba(10, 10, 18, 0.95);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.ci-controls-left,
+.ci-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 140px;
+}
+
+.ci-controls-right {
+  justify-content: flex-end;
+}
+
+.ci-controls-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.ci-controls-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.ci-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Control Buttons ── */
+.ci-ctrl-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Mic / Camera buttons */
+.ci-ctrl-btn.mic,
+.ci-ctrl-btn.camera {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.ci-ctrl-btn.mic:hover,
+.ci-ctrl-btn.camera:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: scale(1.08);
+}
+
+.ci-ctrl-btn.mic.muted,
+.ci-ctrl-btn.camera.off {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.ci-ctrl-btn.mic.muted:hover,
+.ci-ctrl-btn.camera.off:hover {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+/* Secondary buttons */
+.ci-ctrl-btn.secondary {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.5);
+  width: 44px;
+  height: 44px;
+}
+
+.ci-ctrl-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.ci-ctrl-btn.secondary.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.1));
+  color: #a78bfa;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+/* End call button */
+.ci-ctrl-btn.end-call {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);
+}
+
+.ci-ctrl-btn.end-call:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(239, 68, 68, 0.45);
+}
+
+.ci-ctrl-btn.end-call:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.ci-ctrl-label-bottom {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.2);
+  font-weight: 500;
+}
+
+/* ── Controls Score ── */
+.ci-controls-score {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ═══════════════ RESPONSIVE ═══════════════ */
+@media (max-width: 1024px) {
+  .ci-sidebar-right {
+    width: 160px;
+  }
+
+  .ci-chat-panel {
+    width: 300px;
+  }
+
+  .ci-profile-avatar {
+    width: 56px;
+    height: 56px;
+  }
+}
+
+@media (max-width: 768px) {
+  .ci-topbar {
+    padding: 8px 14px;
+  }
+
+  .ci-breadcrumb-info {
+    display: none;
+  }
+
+  .ci-mode-badge {
+    display: none;
+  }
+
+  .ci-sidebar-right {
+    display: none;
+  }
+
+  .ci-chat-panel {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 70px;
+    top: 100px;
+    width: auto;
+    border-left: none;
+    z-index: 20;
+  }
+
+  .ci-controls-bar {
+    padding: 10px 16px;
+  }
+
+  .ci-ctrl-btn {
+    width: 42px;
+    height: 42px;
+  }
+
+  .ci-ctrl-btn.secondary {
+    width: 38px;
+    height: 38px;
+  }
+
+  .ci-controls-left,
+  .ci-controls-right {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .ci-topbar-left .ci-breadcrumb {
+    display: none;
+  }
+
+  .ci-progress-dots {
+    display: none;
+  }
+
+  .ci-controls-group {
+    gap: 6px;
+  }
+}
+
+/* ═══════════════ PHASE 3 ENHANCEMENTS ═══════════════ */
+
+/* ── Recording Badge ── */
+.ci-recording-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ci-rec-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: ciRecPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ciRecPulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { opacity: 0.4; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
+}
+
+/* ── Connection Quality Badge ── */
+.ci-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.08);
+  border: 1px solid rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* ── Participants Badge ── */
+.ci-participants-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* ── Avatar State Indicator ── */
+.ci-avatar-state {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.ci-avatar-state span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(12px);
+  animation: ciStateFadeIn 0.3s ease-out;
+}
+
+@keyframes ciStateFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ci-state-speaking {
+  background: rgba(99, 102, 241, 0.18);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+}
+
+.ci-state-thinking {
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fcd34d;
+}
+
+.ci-state-listening {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  color: #86efac;
+}
+
+/* ── Avatar thinking animation ── */
+.ci-interviewer-avatar {
+  position: relative;
+}
+
+.ci-interviewer-avatar.thinking {
+  animation: ciAvatarThink 2s ease-in-out infinite;
+}
+
+@keyframes ciAvatarThink {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+/* ── Thinking Indicator (typing dots) ── */
+.ci-thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 12px 16px;
+}
+
+.ci-thinking-indicator > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.5);
+  animation: ciBounceDot 1.4s ease-in-out infinite;
+}
+
+.ci-thinking-indicator > span:nth-child(2) { animation-delay: 0.15s; }
+.ci-thinking-indicator > span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes ciBounceDot {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-6px); }
+}
+
+.ci-thinking-label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
+  margin-left: 6px;
+  animation: ciFadeInSoft 0.5s ease;
+}
+
+@keyframes ciFadeInSoft {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ── Question Card Shimmer (loading state) ── */
+.ci-question-card.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.ci-question-card.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(99, 102, 241, 0.05) 30%,
+    rgba(139, 92, 246, 0.08) 50%,
+    rgba(99, 102, 241, 0.05) 70%,
+    transparent 100%
+  );
+  animation: ciShimmer 2s ease-in-out infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+@keyframes ciShimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ── Tab Focus Warning ── */
+.ci-tab-warning {
+  color: #fbbf24;
+  font-weight: 600;
+  animation: ciTabWarn 1s ease-in-out infinite;
+}
+
+@keyframes ciTabWarn {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── Keyboard Shortcuts Label ── */
+.ci-ctrl-label-bottom {
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.25);
+  margin-top: 4px;
+  letter-spacing: 0.03em;
+  transition: color 0.3s;
+}
+
+.ci-ctrl-label-bottom span {
+  transition: all 0.3s ease;
+}
+
+/* ── Topbar Right Group ── */
+.ci-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── Question Transition Animation ── */
+.ci-question-card {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.ci-question-card.question-transition {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* ── Interview Progress Bar ── */
+.ci-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #a78bfa, #c4b5fd);
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0 1px 0 0;
+}
+
+/* ── Enhanced Speaking Animation ── */
+.ci-tile.speaking .ci-tile-content {
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4);
+  animation: ciSpeakPulse 2s ease-in-out infinite;
+}
+
+@keyframes ciSpeakPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 0 20px rgba(99, 102, 241, 0.1); }
+}
+
+/* ── Ambient/Typing Visual Indicator ── */
+.ci-ambient-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.ci-ambient-indicator .ci-pen-icon {
+  animation: ciPenScribble 1.5s ease-in-out infinite;
+}
+
+@keyframes ciPenScribble {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg) translateX(-1px); }
+  50% { transform: rotate(3deg) translateX(1px); }
+  75% { transform: rotate(-3deg); }
+}
+
+/* ── Time Nudge Highlight ── */
+.ci-time-nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.08);
+  padding: 2px 8px;
+  border-radius: 8px;
+  animation: ciNudgeFadeIn 0.6s ease-out;
+}
+
+@keyframes ciNudgeFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Rephrase Badge ── */
+.ci-rephrase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #818cf8;
+  background: rgba(129, 140, 248, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+}

@@ -56,7 +56,7 @@ export default function CoinGate({ cost = 5, onProceed, children, description = 
             </p>
             <div className="coin-gate-modal-tip">
               <Coins size={14} />
-              <span>Earn coins by solving problems (+10 each) and daily streaks!</span>
+              <span>Earn coins by solving problems (+5 each) and daily streaks!</span>
             </div>
             <div className="coin-gate-modal-actions">
               <Link to="/problems" className="btn btn-primary" onClick={() => setShowModal(false)}>

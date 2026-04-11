@@ -4,102 +4,12 @@ import { body, validationResult, param } from 'express-validator';
 import { authenticateToken } from '../middleware/auth.js';
 import { CodeReviewService, InterviewSimulatorService } from '../services/aiService.js';
 import { createLogger } from '../utils/structuredLogger.js';
-import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
 const logger = createLogger('AI-Features-Routes');
-const INTERVIEW_START_COIN_COST = Number(process.env.AI_INTERVIEW_COIN_COST || 5);
+// AI assistant features are now free - no coin requirement
 
-const spendCoinsForInterviewStart = async (userId, cost, referenceKey = null) => {
-  const atomicResult = await applyCoinTransaction({
-    userId,
-    amount: cost,
-    type: 'spend',
-    description: 'AI interview session start',
-    referenceKey,
-  });
-
-  if (atomicResult.handled) {
-    if (!atomicResult.success) {
-      return { ok: false, currentCoins: atomicResult.balance };
-    }
-    return { ok: true, newBalance: atomicResult.balance };
-  }
-
-  const { data: profile, error: fetchError } = await supabaseAdmin
-    .from('profiles')
-    .select('coins')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const currentCoins = profile?.coins || 0;
-  if (currentCoins < cost) {
-    return { ok: false, currentCoins };
-  }
-
-  const newBalance = currentCoins - cost;
-  const { error: updateError } = await supabaseAdmin
-    .from('profiles')
-    .update({ coins: newBalance })
-    .eq('id', userId);
-
-  if (updateError) throw updateError;
-
-  await supabaseAdmin.from('coin_transactions').insert({
-    user_id: userId,
-    amount: cost,
-    type: 'spend',
-    description: 'AI interview session start',
-  });
-
-  return { ok: true, newBalance };
-};
-
-const refundCoinsForInterviewStartFailure = async (userId, cost, referenceKey = null) => {
-  const atomicResult = await applyCoinTransaction({
-    userId,
-    amount: cost,
-    type: 'earn',
-    description: 'AI interview refund (start failed)',
-    referenceKey,
-  });
-
-  if (atomicResult.handled) {
-    if (!atomicResult.success) {
-      throw new Error(atomicResult.error || 'Failed to refund interview coins');
-    }
-    return atomicResult.balance;
-  }
-
-  const { data: profile, error: fetchError } = await supabaseAdmin
-    .from('profiles')
-    .select('coins')
-    .eq('id', userId)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const currentCoins = profile?.coins || 0;
-  const refundedBalance = currentCoins + cost;
-
-  const { error: updateError } = await supabaseAdmin
-    .from('profiles')
-    .update({ coins: refundedBalance })
-    .eq('id', userId);
-
-  if (updateError) throw updateError;
-
-  await supabaseAdmin.from('coin_transactions').insert({
-    user_id: userId,
-    amount: cost,
-    type: 'earn',
-    description: 'AI interview refund (start failed)',
-  });
-
-  return refundedBalance;
-};
+const INTERVIEW_MODES = ['hybrid_rollout', 'full_realtime'];
 
 const isMissingPerformanceTrendSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -298,9 +208,31 @@ router.get(
 // ============ INTERVIEW SIMULATION ENDPOINTS ============
 
 /**
+ * GET /api/ai/interview/modes
+ * Return supported interview runtime modes
+ */
+router.get(
+  '/interview/modes',
+  authenticateToken,
+  async (_req, res) => {
+    return res.status(200).json({
+      success: true,
+      data: {
+        defaultMode: process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+        supportedModes: INTERVIEW_MODES,
+        description: {
+          hybrid_rollout: 'Uses current API flow with realtime-ready metadata and safe fallback behavior.',
+          full_realtime: 'Optimizes prompts and responses for realtime voice runtimes such as Pipecat.',
+        },
+      },
+    });
+  }
+);
+
+/**
  * POST /api/ai/interview/start
  * Initialize a new interview session
- * Body: { interviewType, difficulty, companyFocus? }
+ * Body: { interviewType, difficulty, companyFocus?, interviewMode? }
  */
 router.post(
   '/interview/start',
@@ -308,16 +240,20 @@ router.post(
   body('interviewType').isIn(['dsa', 'system_design', 'behavioral', 'mixed']),
   body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
   body('companyFocus').optional().isString().trim(),
+  body('interviewMode').optional().isIn(INTERVIEW_MODES),
   async (req, res) => {
-    let didCharge = false;
-    let spendResult = { ok: true, newBalance: null };
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { interviewType, difficulty = 'medium', companyFocus } = req.body;
+      const {
+        interviewType,
+        difficulty = 'medium',
+        companyFocus,
+        interviewMode = process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+      } = req.body;
       const userId = req.user.id;
       const requestId = req.id;
 
@@ -326,54 +262,25 @@ router.post(
         interviewType,
         difficulty,
         companyFocus,
+        interviewMode,
         requestId
       });
-
-      spendResult = await spendCoinsForInterviewStart(
-        userId,
-        INTERVIEW_START_COIN_COST,
-        requestId ? `ai-interview-start:${requestId}` : null
-      );
-
-      if (!spendResult.ok) {
-        return res.status(400).json({
-          success: false,
-          message: 'Insufficient coins',
-          error: 'Insufficient coins',
-          required: INTERVIEW_START_COIN_COST,
-          coins: spendResult.currentCoins,
-        });
-      }
-      didCharge = true;
 
       const interview = await InterviewSimulatorService.initializeInterview(
         userId,
         interviewType,
         difficulty,
         companyFocus,
-        requestId
+        requestId,
+        interviewMode
       );
 
       return res.status(200).json({
         success: true,
-        data: {
-          ...interview,
-          coinsRemaining: spendResult.newBalance,
-        }
+        data: interview
       });
 
     } catch (error) {
-      if (didCharge) {
-        try {
-          await refundCoinsForInterviewStartFailure(
-            req.user?.id,
-            INTERVIEW_START_COIN_COST,
-            req.id ? `ai-interview-refund:${req.id}` : null
-          );
-        } catch (refundError) {
-          logger.error('Interview refund error', { error: refundError.message, requestId: req.id });
-        }
-      }
       logger.error('Interview start error', { error: error.message });
       return res.status(500).json({
         success: false,
@@ -387,13 +294,14 @@ router.post(
 /**
  * POST /api/ai/interview/:sessionId/respond
  * Process candidate response in interview
- * Body: { response }
+ * Body: { response, interviewMode? }
  */
 router.post(
   '/interview/:sessionId/respond',
   authenticateToken,
   param('sessionId').isUUID(),
   body('response').isString().notEmpty().trim(),
+  body('interviewMode').optional().isIn(INTERVIEW_MODES),
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -402,13 +310,17 @@ router.post(
       }
 
       const { sessionId } = req.params;
-      const { response } = req.body;
+      const {
+        response,
+        interviewMode = process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+      } = req.body;
       const userId = req.user.id;
       const requestId = req.id;
 
       logger.info('Interview response', {
         userId,
         sessionId,
+        interviewMode,
         responseLength: response.length,
         requestId
       });
@@ -417,7 +329,8 @@ router.post(
         sessionId,
         userId,
         response,
-        requestId
+        requestId,
+        interviewMode
       );
 
       return res.status(200).json({

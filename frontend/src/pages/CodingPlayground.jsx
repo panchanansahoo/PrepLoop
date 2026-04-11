@@ -157,49 +157,21 @@ const getRealtimeErrors = (source = '', language = '') => {
 };
 
 const mergeAndDedupeErrors = (...groups) => {
-    const normalizeErrorMessage = (message = '') => {
-        const raw = String(message || '').trim();
-        const lower = raw.toLowerCase();
-
-        // Collapse equivalent parser and bracket-checker messages.
-        if (lower.includes("'(' was never closed") || lower.includes("unclosed '('") || lower.includes('unclosed (')) {
-            return 'unclosed-parenthesis';
-        }
-        if (lower.includes("'[' was never closed") || lower.includes("unclosed '['") || lower.includes('unclosed [')) {
-            return 'unclosed-bracket';
-        }
-        if (lower.includes("'{' was never closed") || lower.includes("unclosed '{'") || lower.includes('unclosed {')) {
-            return 'unclosed-brace';
-        }
-
-        return lower
-            .replace(/^syntaxerror:\s*/i, '')
-            .replace(/\s+/g, ' ')
-            .trim();
-    };
-
     const seen = new Set();
     const merged = [];
     for (const group of groups) {
         for (const error of group || []) {
             const line = error.line || 1;
             const col = error.col || 1;
-            const normalizedMessage = normalizeErrorMessage(error.message || 'Error');
-            const isUnclosedBracketFamily = normalizedMessage === 'unclosed-parenthesis'
-                || normalizedMessage === 'unclosed-bracket'
-                || normalizedMessage === 'unclosed-brace';
-
-            // Only collapse cross-source duplicates for bracket-family parser messages.
-            // Keep column-aware keys for all other errors so separate issues remain visible.
-            const key = isUnclosedBracketFamily
-                ? `${line}:${normalizedMessage}`
-                : `${line}:${col}:${normalizedMessage}`;
+            const message = String(error.message || 'Error').trim();
+            // Remove only exact duplicates so unresolved errors stay visible.
+            const key = `${line}:${col}:${error.severity || 'error'}:${message}`;
             if (seen.has(key)) continue;
             seen.add(key);
             merged.push({
                 line,
                 col,
-                message: error.message || 'Error',
+                message,
                 severity: error.severity || 'error',
             });
         }
@@ -518,6 +490,15 @@ export default function CodingPlayground() {
         return 0.9;
     });
     const [voiceWarningsEnabled, setVoiceWarningsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-warnings') === '1');
+    const [attentionSoundEnabled, setAttentionSoundEnabled] = useState(() => {
+        const saved = localStorage.getItem('pg-error-attention-sound-enabled');
+        return saved === null ? true : saved === '1';
+    });
+    const [attentionSoundVolume, setAttentionSoundVolume] = useState(() => {
+        const saved = Number(localStorage.getItem('pg-error-attention-sound-volume'));
+        if (Number.isFinite(saved) && saved >= 0 && saved <= 1) return saved;
+        return 0.55;
+    });
     const [voiceName, setVoiceName] = useState(() => localStorage.getItem('pg-voice-errors-name') || '');
     const [voiceAnnouncementLang, setVoiceAnnouncementLang] = useState(() => {
         const saved = localStorage.getItem('pg-voice-errors-lang');
@@ -556,6 +537,9 @@ export default function CodingPlayground() {
     const lastVoiceSignatureRef = useRef('');
     const voiceAudioRef = useRef(null);
     const voiceFetchAbortRef = useRef(null);
+    const attentionAudioContextRef = useRef(null);
+    const attentionTimerRef = useRef(null);
+    const lastAttentionSignatureRef = useRef('');
 
     // ─── Load saved code or default ───
     useEffect(() => {
@@ -1047,6 +1031,14 @@ export default function CodingPlayground() {
     }, [voiceWarningsEnabled]);
 
     useEffect(() => {
+        localStorage.setItem('pg-error-attention-sound-enabled', attentionSoundEnabled ? '1' : '0');
+    }, [attentionSoundEnabled]);
+
+    useEffect(() => {
+        localStorage.setItem('pg-error-attention-sound-volume', String(attentionSoundVolume));
+    }, [attentionSoundVolume]);
+
+    useEffect(() => {
         localStorage.setItem('pg-voice-errors-name', voiceName);
     }, [voiceName]);
 
@@ -1062,7 +1054,9 @@ export default function CodingPlayground() {
             setVoiceOptions(list);
             if (!list.length) return;
             if (voiceName && list.some((voice) => voice.name === voiceName)) return;
-            const preferred = list.find((voice) => /en/i.test(voice.lang)) || list[0];
+            const preferred = list.find((voice) => /heera/i.test(voice.name))
+                || list.find((voice) => /en/i.test(voice.lang))
+                || list[0];
             if (preferred) setVoiceName(preferred.name);
         };
 
@@ -1115,6 +1109,7 @@ export default function CodingPlayground() {
                     text: String(text).trim().slice(0, 550),
                     persona: 'friendly',
                     language: language || voiceAnnouncementLang,
+                    provider: 'groq-orpheus'
                 }),
                 signal: controller.signal,
             });
@@ -1211,6 +1206,44 @@ export default function CodingPlayground() {
         return true;
     }, [hasHindiVoice, speakViaCloud, voiceName, voiceOptions, voiceRate, voiceVolume]);
 
+    const playAttentionPing = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+
+        const ensureCtx = () => {
+            if (!attentionAudioContextRef.current) {
+                attentionAudioContextRef.current = new AudioCtx();
+            }
+            return attentionAudioContextRef.current;
+        };
+
+        const ctx = ensureCtx();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        const master = ctx.createGain();
+        master.gain.setValueAtTime(Math.max(0, Math.min(1, attentionSoundVolume)) * 0.18, now);
+        master.connect(ctx.destination);
+
+        const scheduleTone = (startOffset, frequency, duration) => {
+            const oscillator = ctx.createOscillator();
+            const toneGain = ctx.createGain();
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(frequency, now + startOffset);
+            toneGain.gain.setValueAtTime(0.0001, now + startOffset);
+            toneGain.gain.exponentialRampToValueAtTime(1, now + startOffset + 0.01);
+            toneGain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
+            oscillator.connect(toneGain);
+            toneGain.connect(master);
+            oscillator.start(now + startOffset);
+            oscillator.stop(now + startOffset + duration + 0.02);
+        };
+
+        scheduleTone(0, 740, 0.12);
+        scheduleTone(0.16, 988, 0.15);
+    }, [attentionSoundVolume]);
+
     const toSpokenErrorMessage = useCallback((message, language) => {
         const isHindi = language === 'hi';
 
@@ -1249,28 +1282,37 @@ export default function CodingPlayground() {
         if (prioritized.length === 0) return '';
 
         const isHindi = language === 'hi';
+        const opener = isHindi
+            ? 'दोस्ताना अपडेट: मुझे कुछ चीज़ें मिली हैं जिन्हें ठीक करना है।'
+            : 'Friendly heads-up: I found a couple of things to fix.';
+        const closer = isHindi
+            ? 'आप बहुत अच्छा कर रहे हैं, छोटे-छोटे बदलाव से यह ठीक हो जाएगा।'
+            : 'You are doing great, a few small tweaks should fix this.';
+
         const body = prioritized
             .map((error) => {
-                const shortType = error.severity === 'warning' ? (isHindi ? 'चेतावनी' : 'Warning') : (isHindi ? 'त्रुटि' : 'Error');
+                const shortType = error.severity === 'warning'
+                    ? (isHindi ? 'ध्यान दें' : 'Quick note')
+                    : (isHindi ? 'ध्यान दें' : 'Heads up');
                 const spokenMessage = toSpokenErrorMessage(error.message, language);
                 if (isHindi) return `लाइन ${error.line}, कॉलम ${error.col}. ${shortType}: ${spokenMessage}`;
                 return `Line ${error.line}, column ${error.col}. ${shortType}: ${spokenMessage}`;
             })
             .join(' ');
 
-        return body.trim();
+        return `${opener} ${body} ${closer}`.trim();
     }, [toSpokenErrorMessage]);
 
     const handleVoiceTest = useCallback(async () => {
         const sample = buildVoiceAnnouncement(
             liveErrors.length > 0
                 ? liveErrors
-                : [{ line: 1, col: 1, message: voiceAnnouncementLang === 'hi' ? 'यह सिर्फ़ एक छोटा सा वॉयस प्रीव्यू है।' : 'This is just a quick voice preview.', severity: 'error' }],
+                : [{ line: 1, col: 1, message: voiceAnnouncementLang === 'hi' ? 'लगता है यहाँ कोलन या ब्रैकेट मिस हो सकता है, एक बार चेक करें।' : 'Looks like a colon or bracket may be missing here, please take a quick look.', severity: 'error' }],
             voiceAnnouncementLang,
         ) || (
             voiceAnnouncementLang === 'hi'
-                ? 'एक छोटा वॉयस प्रीव्यू।'
-                : 'Quick voice preview.'
+                ? 'दोस्ताना वॉयस प्रीव्यू तैयार है।'
+                : 'Friendly voice preview is ready.'
         );
 
         await playVoiceAnnouncement(sample, voiceAnnouncementLang);
@@ -1341,11 +1383,68 @@ export default function CodingPlayground() {
     ]);
 
     useEffect(() => {
+        if (!attentionSoundEnabled) {
+            if (attentionTimerRef.current) {
+                clearTimeout(attentionTimerRef.current);
+                attentionTimerRef.current = null;
+            }
+            return;
+        }
+
+        const onlyErrors = (liveErrors || [])
+            .filter((entry) => entry.severity !== 'warning')
+            .map((entry) => ({
+                line: entry.line || 1,
+                col: entry.col || 1,
+                message: String(entry.message || 'Error').trim(),
+            }));
+
+        if (!onlyErrors.length) {
+            lastAttentionSignatureRef.current = '';
+            if (attentionTimerRef.current) {
+                clearTimeout(attentionTimerRef.current);
+                attentionTimerRef.current = null;
+            }
+            return;
+        }
+
+        const signature = JSON.stringify(onlyErrors);
+        if (signature === lastAttentionSignatureRef.current) return;
+        lastAttentionSignatureRef.current = signature;
+
+        if (attentionTimerRef.current) {
+            clearTimeout(attentionTimerRef.current);
+            attentionTimerRef.current = null;
+        }
+
+        attentionTimerRef.current = setTimeout(() => {
+            playAttentionPing();
+        }, 160);
+
+        return () => {
+            if (attentionTimerRef.current) {
+                clearTimeout(attentionTimerRef.current);
+                attentionTimerRef.current = null;
+            }
+        };
+    }, [attentionSoundEnabled, liveErrors, playAttentionPing]);
+
+    useEffect(() => {
         return () => {
             runPhaseTimeoutsRef.current.forEach((id) => clearTimeout(id));
             runAbortRef.current?.abort();
             lintAbortRef.current?.abort();
             stopVoicePlayback();
+            if (attentionTimerRef.current) {
+                clearTimeout(attentionTimerRef.current);
+                attentionTimerRef.current = null;
+            }
+            if (attentionAudioContextRef.current) {
+                attentionAudioContextRef.current.close().catch(() => {
+                    // Ignore context close errors.
+                });
+                attentionAudioContextRef.current = null;
+            }
             if (!editorRef.current || !monacoRef.current) return;
             const model = editorRef.current.getModel();
             if (model) {
@@ -1898,6 +1997,37 @@ export default function CodingPlayground() {
                                                 onChange={(e) => setVoiceErrorsEnabled(e.target.checked)}
                                             />
                                         </label>
+                                    </div>
+                                    <div style={{ display: 'grid', gap: '8px', padding: '8px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.01)' }}>
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', cursor: 'pointer' }}>
+                                            <span>Attention sound</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={attentionSoundEnabled}
+                                                onChange={(e) => setAttentionSoundEnabled(e.target.checked)}
+                                            />
+                                        </label>
+                                        {attentionSoundEnabled && (
+                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
+                                                <span>Alert loudness: {Math.round(attentionSoundVolume * 100)}%</span>
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="1"
+                                                    step="0.05"
+                                                    value={attentionSoundVolume}
+                                                    onChange={(e) => setAttentionSoundVolume(Number(e.target.value))}
+                                                />
+                                            </label>
+                                        )}
+                                        <button
+                                            type="button"
+                                            className="pg-btn"
+                                            style={{ padding: '8px 12px', fontSize: '12px', justifySelf: 'start' }}
+                                            onClick={playAttentionPing}
+                                        >
+                                            Test attention ping
+                                        </button>
                                     </div>
                                     {!voiceSupported && (
                                         <div style={{ fontSize: '11px', opacity: 0.75 }}>
