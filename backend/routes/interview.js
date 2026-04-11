@@ -527,7 +527,11 @@ router.post('/start', authenticateToken, async (req, res) => {
     const aiQuestion = await generateAIQuestion(type, difficulty);
 
     if (aiQuestion) {
-      res.json({ questions: [aiQuestion] });
+      res.json({
+        questions: [aiQuestion],
+        firstQuestion: aiQuestion,
+        question: aiQuestion,
+      });
     } else {
       // Fallback to static questions
       const questions = getFallbackQuestions(type, difficulty);
@@ -539,7 +543,11 @@ router.post('/start', authenticateToken, async (req, res) => {
         selectedQuestions.push(questions[randomIndex]);
       }
 
-      res.json({ questions: selectedQuestions });
+      res.json({
+        questions: selectedQuestions,
+        firstQuestion: selectedQuestions[0] || null,
+        question: selectedQuestions[0] || null,
+      });
     }
   } catch (error) {
     if (didCharge) {

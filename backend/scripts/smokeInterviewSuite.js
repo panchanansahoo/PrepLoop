@@ -1,6 +1,7 @@
 import process from 'process';
+import { resolveLocalBaseUrl } from './utils/resolveBaseUrl.js';
 
-const BASE_URL = process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000';
+let BASE_URL = process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000';
 const TOKEN = process.env.INTERVIEW_SUITE_SMOKE_TOKEN || '';
 
 function buildHeaders() {
@@ -123,6 +124,10 @@ async function runHealthCheck() {
 
 async function main() {
   try {
+    BASE_URL = await resolveLocalBaseUrl({
+      envVarName: 'INTERVIEW_SUITE_BASE_URL',
+      fallback: BASE_URL,
+    });
     console.log(`Smoke test target: ${BASE_URL}`);
     console.log(TOKEN ? 'Mode: AUTHENTICATED' : 'Mode: UNAUTHENTICATED');
 

@@ -89,6 +89,85 @@ const DEFAULT_ADVANCED_OPTIONS = {
   questionCount: 8,
 };
 
+const INTERVIEW_RUNTIME_MODES = ['hybrid_rollout', 'full_realtime'];
+
+function normalizeInterviewRuntimeMode(mode) {
+  const normalized = String(mode || '').trim().toLowerCase();
+  if (INTERVIEW_RUNTIME_MODES.includes(normalized)) return normalized;
+
+  const envMode = String(process.env.AI_INTERVIEW_MODE || '').trim().toLowerCase();
+  if (INTERVIEW_RUNTIME_MODES.includes(envMode)) return envMode;
+
+  return 'hybrid_rollout';
+}
+
+function buildInterviewRuntime(mode) {
+  if (mode === 'full_realtime') {
+    return {
+      mode,
+      realtime: true,
+      strategy: 'pipecat_realtime',
+      transport: 'websocket',
+      bargeInEnabled: true,
+      targetFirstAudioMs: 800,
+    };
+  }
+
+  return {
+    mode: 'hybrid_rollout',
+    realtime: false,
+    strategy: 'http_pipeline_with_realtime_bridge',
+    transport: 'http',
+    bargeInEnabled: false,
+    targetFirstAudioMs: 1500,
+  };
+}
+
+const STAGE_ALIASES = {
+  hr: 'HR',
+  behavioral: 'Behavioral',
+  behaviour: 'Behavioral',
+  technical: 'Technical',
+  dsa: 'DSA / Coding',
+  coding: 'DSA / Coding',
+  'dsa / coding': 'DSA / Coding',
+  systemdesign: 'System Design',
+  'system design': 'System Design',
+  oa: 'OA',
+  managerial: 'Managerial',
+};
+
+function resolveInterviewStage(...candidates) {
+  for (const value of candidates) {
+    const raw = String(value || '').trim();
+    if (!raw) continue;
+
+    const lower = raw.toLowerCase();
+    if (STAGE_ALIASES[lower]) return STAGE_ALIASES[lower];
+
+    const compact = lower.replace(/[_-]/g, '').replace(/\s+/g, '');
+    if (STAGE_ALIASES[compact]) return STAGE_ALIASES[compact];
+
+    return raw;
+  }
+
+  return 'Technical';
+}
+
+function resolveResumeInterviewModeForExperience(normalizedAdvanced, experienceLevel, resumeContext) {
+  const normalizedLevel = String(experienceLevel || '').toLowerCase();
+  const hasResumeContext = Boolean(resumeContext && typeof resumeContext === 'object');
+
+  if (normalizedLevel === 'experienced' && hasResumeContext && normalizedAdvanced.resumeInterviewMode === 'balanced') {
+    return {
+      ...normalizedAdvanced,
+      resumeInterviewMode: 'project-deep-dive',
+    };
+  }
+
+  return normalizedAdvanced;
+}
+
 function normalizeAdvancedOptions(input = {}) {
   const intensity = ['supportive', 'balanced', 'challenging'].includes(input?.interviewerIntensity)
     ? input.interviewerIntensity
@@ -104,7 +183,7 @@ function normalizeAdvancedOptions(input = {}) {
 
   const realInterviewerMode = Boolean(input?.realInterviewerMode);
 
-  const resumeInterviewMode = ['balanced', 'walkthrough', 'project-deep-dive'].includes(input?.resumeInterviewMode)
+  const resumeInterviewMode = ['balanced', 'walkthrough', 'project-deep-dive', 'fresher-hr-tech'].includes(input?.resumeInterviewMode)
     ? input.resumeInterviewMode
     : DEFAULT_ADVANCED_OPTIONS.resumeInterviewMode;
 
@@ -166,8 +245,482 @@ STRICT resume usage rules:
 `;
 }
 
+const FRESHER_INTERVIEW_TOTAL_QUESTIONS = 12;
+const HR_CLOSING_MESSAGE = 'Thank you for your time today. It was a pleasure getting to know you and your background. We will review everything and our recruitment team will be in touch with you shortly. Have a great day!';
+
+const STATIC_INTERVIEW_QUESTIONS = {
+  HR: [
+    'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I’ll be conducting your HR discussion today. We’ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+    'What attracted you to this role and to our company in particular?',
+    'Can you tell me about a project or achievement that you’re most proud of, and why?',
+    'Describe a time when you faced a difficult problem or challenge. How did you handle it?',
+    'Tell me about a time you had to work closely with someone whose working style was very different from yours.',
+    'How do you usually handle stress or pressure, for example during exams, deadlines, or multiple tasks?',
+    'What are your key strengths, and how will they help you succeed in this role?',
+    'What is one area you’re actively trying to improve, and what are you doing about it?',
+    'Imagine you are assigned to a technology or location you did not expect. How would you approach that situation?',
+    'Do you have any questions for me about the role, team, or company?',
+  ],
+  Technical: [
+    'Can you explain the difference between an abstract class and an interface? When would you pick one over the other?',
+    'How does garbage collection work in your preferred language? What are the different algorithms?',
+    'What is the difference between concurrency and parallelism? Can you give a real-world example?',
+    'Explain how a hash map works internally. What happens during a collision?',
+    'What are SOLID principles? Can you walk me through each one with a quick example?',
+    'How would you debug a production issue where the application is running slow but CPU usage is normal?',
+    'What is the CAP theorem? How does it apply to database selection?',
+    'Explain the event loop in Node.js. How does it handle asynchronous operations?',
+  ],
+};
+
+const STATIC_INTERVIEW_CLOSINGS = {
+  HR: HR_CLOSING_MESSAGE,
+  Technical: 'Thank you for your time today. We will review your technical discussion and get back to you with next steps soon.',
+};
+
+// Fresher Technical Interview Fixed Questions
+
+// Fresher HR Interview Fixed Questions
+// Q1: Fixed intro question
+// Q2-Q10: AI-generated from behavioral topics (different each interview)
+// Q11: Fixed wrap-up
+// Q12: Fixed conclusion (YES/NO branching)
+
+const FRESHER_HR_FIXED = {
+  Q1: 'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+  Q11: 'Do you have any questions for me about the role, the team, or our company?',
+};
+
+// AI Prompt Templates for Fresher HR Q2-Q10 (Behavioral Topics)
+const FRESHER_HR_TOPICS = {
+  2: { topic: 'Role Interest & Motivation', prompt: 'Ask the candidate what attracted them to this role and to your company in particular. Focus on their genuine interest and alignment with company values.' },
+  3: { topic: 'Project & Achievement', prompt: 'Ask the candidate to describe a project or achievement they\'re most proud of, and why. Push them to explain their specific contribution and impact.' },
+  4: { topic: 'Problem-Solving & Challenges', prompt: 'Ask the candidate to describe a time when they faced a difficult problem or challenge and how they handled it. Focus on their approach, learning, and outcome.' },
+  5: { topic: 'Teamwork & Collaboration', prompt: 'Ask the candidate to tell you about a time they had to work closely with someone whose working style was very different from theirs. Explore how they adapted and the result.' },
+  6: { topic: 'Stress Management', prompt: 'Ask the candidate how they usually handle stress or pressure, for example during exams, deadlines, or multiple simultaneous tasks. Listen for their coping strategies and resilience.' },
+  7: { topic: 'Strengths & Fit', prompt: 'Ask the candidate to share their key strengths and explain how they will help them succeed in this specific role. Encourage them to give concrete examples.' },
+  8: { topic: 'Growth & Development', prompt: 'Ask the candidate what is one area they\'re actively trying to improve and what concrete steps they\'re taking to develop in that area. Look for self-awareness and commitment.' },
+  9: { topic: 'Adaptability & Flexibility', prompt: 'Ask the candidate to imagine they are assigned to a technology or location they did not expect. How would they approach that situation? Explore their flexibility and positive attitude.' },
+  10: { topic: 'Culture & Fit', prompt: 'Ask the candidate how they define a positive work environment and what aspects of our company culture (mission, values, team dynamics) appeal to them most. Probe their values alignment.' },
+};
+const FRESHER_HR_CLOSINGS = {
+  YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
+  NO: 'Thank you so much for your time today! You\'ve given some really thoughtful answers. We\'ll review our discussion and be in touch soon. Best of luck!',
+};
+
+const FRESHER_TECHNICAL_FIXED = {
+  Q1: 'Good afternoon, my name is Abhishek Sen, I work as a technical lead with Preploop, and I\'ll be conducting your technical discussion today. We\'ll cover fundamentals in databases, OOP, and web concepts. To begin with, could you introduce yourself and walk me through your background, including your technical interests?',
+  Q11: 'Do you have any questions for me about the role, the team, or our company?',
+  Q12_YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
+  Q12_NO: 'Thank you so much for your time today! You\'ve given some really thoughtful technical answers. We\'ll review our discussion and be in touch soon. Best of luck!',
+};
+
+// AI Prompt Templates for Fresher Technical Q2-Q10
+const FRESHER_TECHNICAL_TOPICS = {
+  2: { topic: 'Resume & Projects', prompt: 'Ask the candidate to elaborate on a specific project from their resume. Focus on their role, the tech stack used, and what they learned. Keep it conversational and encouraging.' },
+  3: { topic: 'Top Skill', prompt: 'Ask the candidate about the programming language or framework they are most confident in, and ask them to explain a concept they recently learned or used practically.' },
+  4: { topic: 'OOP Fundamentals', prompt: 'Ask the candidate to explain one or two foundational OOP concepts (e.g., encapsulation, inheritance, polymorphism, or abstraction) with a real-world example they can think of.' },
+  5: { topic: 'Interface vs Abstract Class', prompt: 'Ask the candidate to compare interfaces and abstract classes: What is the difference? When would they use one over the other? Keep the question clear and focused.' },
+  6: { topic: 'Primary Key vs Foreign Key', prompt: 'Ask the candidate to explain the difference between primary keys and foreign keys in a database. Ask them to give a simple table example to illustrate.' },
+  7: { topic: 'Database Normalization', prompt: 'Ask the candidate what database normalization is and why it matters. Ask them to describe one or two normal forms (1NF, 2NF, 3NF) they\'ve heard of.' },
+  8: { topic: 'Language Strengths', prompt: 'Ask the candidate to explain a core concept or strength of their preferred programming language (e.g., memory management, type system, async model). Keep it practical.' },
+  9: { topic: 'GET vs POST', prompt: 'Ask the candidate to explain the difference between HTTP GET and POST requests. Push them to mention when to use each and any security implications.' },
+  10: { topic: 'Process vs Thread', prompt: 'Ask the candidate to compare processes and threads: What are the key differences? When would you use one over the other? Ask for a clear, straightforward answer.' },
+};
+
+function getStaticInterviewQuestions(stage = '') {
+  return STATIC_INTERVIEW_QUESTIONS[String(stage || '').trim()] || [];
+}
+
+function getStaticInterviewQuestion(stage = '', questionNumber = 1) {
+  const questions = getStaticInterviewQuestions(stage);
+  const index = Number(questionNumber) - 1;
+  if (!Number.isFinite(index) || index < 0 || index >= questions.length) return '';
+  return questions[index];
+}
+
+function getStaticInterviewClosing(stage = '') {
+  return STATIC_INTERVIEW_CLOSINGS[String(stage || '').trim()] || 'Thank you for your time today. We will review everything and follow up soon.';
+}
+
+function getFresherTechnicalQuestion(qNum) {
+  if (qNum === 1) return FRESHER_TECHNICAL_FIXED.Q1;
+  if (qNum === 11) return FRESHER_TECHNICAL_FIXED.Q11;
+  return null; // Q2-Q10 and Q12 require AI or special handling
+}
+
+function getFresherTechnicalAIPrompt(qNum) {
+  return FRESHER_TECHNICAL_TOPICS[qNum];
+}
+
+
+function getFresherHRQuestion(qNum) {
+  if (qNum === 1) return FRESHER_HR_FIXED.Q1;
+  if (qNum === 11) return FRESHER_HR_FIXED.Q11;
+  return null; // Q2-Q10 require AI generation
+}
+
+function getFresherHRAIPrompt(qNum) {
+  return FRESHER_HR_TOPICS[qNum];
+}
+
+async function generateFresherHRQuestion(qNum, resumeContext = null) {
+  if (qNum === 1) return FRESHER_HR_FIXED.Q1;
+  if (qNum === 11) return FRESHER_HR_FIXED.Q11;
+  if (qNum === 12) return null; // Handled separately
+
+  if (!groq || qNum < 2 || qNum > 10) return null;
+
+  const topicData = FRESHER_HR_TOPICS[qNum];
+  if (!topicData) return null;
+
+  try {
+    const resumeContext_ = resumeContext || {};
+    const contextStr = resumeContext_.summary ? `Candidate context: ${resumeContext_.summary}. ` : '';
+    const systemPrompt = `You are a friendly HR interviewer conducting a fresher-level HR interview. ${topicData.prompt}`;
+    const userPrompt = `${contextStr}Generate a single, clear HR behavioral interview question for Q${qNum} on the topic: ${topicData.topic}. The question should be appropriate for a fresher (recent grad) and encourage them to share a real example or anecdote. Return ONLY the question, no numbering or explanation.`;
+
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+    });
+
+    return completion?.choices?.[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    console.error(`Error generating fresher-HR Q${qNum}:`, err.message);
+    return null;
+  }
+}
+function getFresherHRClosing(hasQuestions) {
+  return hasQuestions ? FRESHER_HR_CLOSINGS.YES : FRESHER_HR_CLOSINGS.NO;
+}
+
+async function generateFresherTechnicalQuestion(qNum, resumeContext = null) {
+  if (qNum === 1) return FRESHER_TECHNICAL_FIXED.Q1;
+  if (qNum === 11) return FRESHER_TECHNICAL_FIXED.Q11;
+  if (qNum === 12) return null; // Handled separately
+
+  if (!groq || qNum < 2 || qNum > 10) return null;
+
+  const topicData = FRESHER_TECHNICAL_TOPICS[qNum];
+  if (!topicData) return null;
+
+  try {
+    const resumeContext_ = resumeContext || {};
+    const contextStr = resumeContext_.summary ? `Candidate context: ${resumeContext_.summary}. ` : '';
+    const systemPrompt = `You are a friendly technical interviewer conducting a fresher-level interview. ${topicData.prompt}`;
+    const userPrompt = `${contextStr}Generate a single, clear technical interview question for Q${qNum} on the topic: ${topicData.topic}. The question should be appropriate for a fresher (recent grad). Return ONLY the question, no numbering or explanation.`;
+
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 150,
+        }),
+    });
+
+    return completion?.choices?.[0]?.message?.content?.trim() || null;
+  } catch (err) {
+    console.error(`Error generating fresher-technical Q${qNum}:`, err.message);
+    return null;
+  }
+}
+
+const INTERVIEWER_NAMES = [
+  'Abhishek Sen',
+  'Riya Sharma',
+  'Ananya Rao',
+  'Neha Kapoor',
+  'Rahul Verma',
+  'Karan Malhotra',
+  'Priya Nair',
+  'Arjun Mehta',
+  'Sanya Gupta',
+  'Vikram Iyer',
+];
+
+function pickFallbackInterviewerName() {
+  return INTERVIEWER_NAMES[Math.floor(Math.random() * INTERVIEWER_NAMES.length)];
+}
+
+async function generateInterviewerName(company = '') {
+  if (!groq) return pickFallbackInterviewerName();
+
+  try {
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            {
+              role: 'system',
+              content: `Generate one realistic professional Indian HR name for a ${company || 'tech'} interview. Return ONLY JSON as {"name":"First Last"}. No titles, no extra text.`,
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.5,
+        }),
+      timeoutMs: 9000,
+      maxRetries: 1,
+      baseDelayMs: 200,
+    });
+
+    const parsed = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+    const name = String(parsed?.name || '').trim();
+    if (!name || name.split(/\s+/).length < 2) return pickFallbackInterviewerName();
+    return name;
+  } catch {
+    return pickFallbackInterviewerName();
+  }
+}
+
+function getResumeProjectPrompt(resumeContext) {
+  return 'Tell me about one project from your resume that you are most proud of. What problem were you solving, and what was your specific contribution?';
+}
+
+function getTopSkillPrompt(resumeContext) {
+  return 'Which technical skill mentioned in your resume are you most confident in, and where have you applied it practically?';
+}
+
+function buildHrResponseSnippet(candidateQuestion = '', company = '') {
+  const q = String(candidateQuestion || '').trim();
+  if (!q) {
+    return `That's a great question! In ${company}, we look for learning agility, ownership, and clear communication during the early months.`;
+  }
+
+  if (/team|culture|work environment|manager/i.test(q)) {
+    return `That's a great question! The team culture is collaborative and feedback-driven, and new hires receive strong mentorship from peers and leads.`;
+  }
+
+  if (/growth|learn|career|promotion|roadmap/i.test(q)) {
+    return `That's a great question! We set clear growth goals, run regular feedback check-ins, and provide opportunities to take increasing ownership.`;
+  }
+
+  if (/tech|stack|project|role|responsibilit/i.test(q)) {
+    return `That's a great question! The role involves shipping real features end-to-end, collaborating closely with engineers, and learning production best practices.`;
+  }
+
+  return `That's a great question! We value curiosity, structured problem-solving, and communication, and we support freshers with onboarding and guidance.`;
+}
+
+function getFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer = '') {
+  if (questionNumber === 2) return getResumeProjectPrompt(resumeContext);
+  if (questionNumber === 3) return getTopSkillPrompt(resumeContext);
+  if (questionNumber === 4) return 'Can you explain the four main OOP principles with one real example from your projects?';
+  if (questionNumber === 5) return 'How would you compare an interface and an abstract class, and when would you pick one over the other?';
+  if (questionNumber === 6) return 'In SQL, how do a primary key and a foreign key differ in practice?';
+  if (questionNumber === 7) return 'Why is database normalization useful, and what problem does it solve in table design?';
+  if (questionNumber === 8) return 'Which programming language do you prefer for problem solving, and what makes it strong for you?';
+  if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you use each one?';
+  if (questionNumber === 10) return 'Can you explain process vs thread with a practical example from what you have learned?';
+  if (questionNumber === 11) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 12) {
+    const snippet = buildHrResponseSnippet(userAnswer, company);
+    return `${snippet} Are there any other questions you have before we wrap up?`;
+  }
+  return '';
+}
+
+function getFresherQuestionTopic(questionNumber) {
+  if (questionNumber === 2) return 'Resume project deep-dive';
+  if (questionNumber === 3) return 'Top technical skill from resume';
+  if (questionNumber === 4) return 'OOP fundamentals with examples';
+  if (questionNumber === 5) return 'Interface vs abstract class';
+  if (questionNumber === 6) return 'Primary key vs foreign key';
+  if (questionNumber === 7) return 'Database normalization';
+  if (questionNumber === 8) return 'Preferred language strengths';
+  if (questionNumber === 9) return 'HTTP GET vs POST';
+  if (questionNumber === 10) return 'Process vs thread';
+  return '';
+}
+
+function getFresherFallbackQuestion(questionNumber, company, resumeContext, userAnswer = '') {
+  if (questionNumber === 2) return getResumeProjectPrompt(resumeContext);
+  if (questionNumber === 3) return 'Which technical skill from your resume are you most comfortable talking about, and how have you used it in practice?';
+  if (questionNumber === 4) return 'Can you explain OOP principles using one of your own projects as an example?';
+  if (questionNumber === 5) return 'How would you distinguish an interface from an abstract class in a real codebase?';
+  if (questionNumber === 6) return 'How do primary keys and foreign keys work together in SQL when you design tables?';
+  if (questionNumber === 7) return 'Why do developers normalize databases, and what problem does it help solve?';
+  if (questionNumber === 8) return 'What programming language do you prefer, and why does it help you solve problems well?';
+  if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you choose one over the other?';
+  if (questionNumber === 10) return 'Can you explain process vs thread with a simple practical example from what you know?';
+  if (questionNumber === 11) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 12) {
+    const snippet = buildHrResponseSnippet(userAnswer, company);
+    return `${snippet} Are there any other questions you have before we wrap up?`;
+  }
+
+  return '';
+}
+
+async function generateFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer = '') {
+  const topic = getFresherQuestionTopic(questionNumber);
+  if (!topic) return getFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer);
+
+  const resumePrompt = formatResumeContext(resumeContext);
+  const runSeed = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
+  const topicAngles = {
+    2: [
+      'Ask about the most impactful project and the candidate\'s exact role.',
+      'Focus on what problem the project solved and how it was built.',
+      'Ask for the architecture/implementation story behind one resume project.',
+    ],
+    3: [
+      'Ask how the skill was used in a real project or assignment.',
+      'Ask why they consider it their strongest skill and how they proved it.',
+      'Ask for one example where that skill helped them solve a problem.',
+    ],
+    4: [
+      'Ask for the four principles and one example from their own work.',
+      'Ask them to explain OOP using a simple project scenario.',
+      'Ask how OOP helps them organize code in practice.',
+    ],
+    5: [
+      'Ask for the core difference and one practical use case for each.',
+      'Ask when they would choose one over the other in a project.',
+      'Ask them to compare both using a coding example.',
+    ],
+    6: [
+      'Ask what each key does in a database table design.',
+      'Ask how primary and foreign keys help relate tables.',
+      'Ask for a practical example of using both keys together.',
+    ],
+    7: [
+      'Ask why normalization matters for data consistency.',
+      'Ask what issue normalization solves in a database schema.',
+      'Ask how they would explain normalization in simple terms.',
+    ],
+    8: [
+      'Ask which language they prefer and why it fits their problem-solving style.',
+      'Ask what makes their preferred language practical for coding tasks.',
+      'Ask how they would describe the strengths of their favorite language.',
+    ],
+    9: [
+      'Ask the difference between GET and POST with a real API example.',
+      'Ask when they would choose GET over POST and why.',
+      'Ask how request semantics differ between GET and POST.',
+    ],
+    10: [
+      'Ask for a practical example that shows process vs thread.',
+      'Ask how a process and a thread differ in execution and memory.',
+      'Ask why the distinction matters in real systems.',
+    ],
+  };
+  const chosenAngleList = topicAngles[questionNumber] || [];
+  const chosenAngle = chosenAngleList.length > 0
+    ? chosenAngleList[Math.floor(Math.random() * chosenAngleList.length)]
+    : 'Ask the topic naturally and keep it fresher-friendly.';
+
+  const styleHints = [
+    'Keep it natural, warm, and concise.',
+    'Make it sound like a real HR interviewer on a video call.',
+    'Do not repeat the exact same wording used in previous runs.',
+    'Ask only one focused question.',
+  ];
+
+  const userPrompt = `
+Generate the next fresher interview question for question ${questionNumber} of 12 at ${company}.
+
+Topic: ${topic}
+Angle to use this run: ${chosenAngle}
+Run seed: ${runSeed}
+${resumePrompt}
+
+Requirements:
+- Keep the question to 1-2 sentences max.
+- Preserve the topic exactly, but vary the wording each interview.
+- Use the angle above, but paraphrase it naturally.
+- For resume-based topics, ask about the candidate's resume/project/skill in a conversational way.
+- For fundamentals topics, ask a clear fresher-friendly question with a practical angle.
+- Do not mention that you are generating a question.
+- Return ONLY JSON: {"question":"..."}
+
+${styleHints.join('\n')}
+`;
+
+  try {
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You generate concise, realistic fresher interview questions. Return only JSON.',
+            },
+            { role: 'user', content: userPrompt },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.9,
+        }),
+      timeoutMs: 10000,
+      maxRetries: 1,
+      baseDelayMs: 200,
+    });
+
+    const parsed = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+    const question = String(parsed?.question || '').trim();
+    if (question) return question;
+  } catch {
+    // fall through to the deterministic backup below
+  }
+
+  return getFresherFallbackQuestion(questionNumber, company, resumeContext, userAnswer);
+}
+
+function isFinalNoAnswer(userAnswer = '') {
+  const normalized = String(userAnswer || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!normalized) return false;
+
+  const directNoPatterns = [
+    'no',
+    'nope',
+    'nah',
+    'none',
+    'nothing',
+    'no questions',
+    'no more questions',
+    'not really',
+    'thats all',
+    'that is all',
+    'all good',
+    'no thats all',
+    'no that is all',
+    'no thanks',
+    'no thank you'
+  ];
+
+  if (directNoPatterns.some((pattern) => normalized === pattern)) {
+    return true;
+  }
+
+  if (normalized.startsWith('no ') || normalized.startsWith('nah ') || normalized.startsWith('nope ')) {
+    return true;
+  }
+
+  return /\b(no|none|nothing|no questions|no more questions|not really|that(?: is|\'s)? all)\b/.test(normalized);
+}
+
 // ─── Enhanced Interviewer Persona System ───
-const getInterviewerPersona = (company, role, stage, difficulty, questionNumber, totalQuestions, advancedOptions = {}, resumeContext = null) => {
+const getInterviewerPersona = (company, role, stage, difficulty, questionNumber, totalQuestions, advancedOptions = {}, resumeContext = null, experienceLevel = 'fresher') => {
   const category = getCompanyCategory(company);
   const persona = PERSONA_PROFILES[category] || PERSONA_PROFILES.general;
   const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
@@ -202,17 +755,17 @@ const getInterviewerPersona = (company, role, stage, difficulty, questionNumber,
     ? 'Operate like a real onsite interviewer: ask one focused question at a time, avoid over-helping, and only provide hints when explicitly requested.'
     : 'You may use a coaching tone when it helps confidence and learning momentum.';
 
+  const normalizedExperience = String(experienceLevel || '').toLowerCase();
+  const candidateContext = normalizedExperience === 'experienced'
+    ? `The candidate is an EXPERIENCED professional.\n- Assume real production/project ownership and ask depth on architecture, trade-offs, failures, and impact metrics.\n- Probe resume-backed decisions, scale, and team collaboration across delivered work.\n- Keep standards higher on practical judgment and execution details.`
+    : `The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus placements or their first job.\n- They may have LIMITED or NO professional work experience.\n- Their experience comes from: college projects, hackathons, internships, coursework, open-source contributions, personal side projects, competitive programming, or academic research.\n- They might be nervous — this could be one of their first mock interviews.\n- Frame questions around their LEARNING journey, not their professional career.\n- NEVER assume they have had a full-time job before. Use "project" or "experience" instead of "at work" or "in production".`;
+
   return `
 You are a senior interviewer at ${company} conducting a ${stage} round interview for a ${role} position.
 Difficulty level: ${difficulty}. This is question ${questionNumber} of ${totalQuestions}.
 
 ## IMPORTANT — Candidate Context
-The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus placements or their first job.
-- They may have LIMITED or NO professional work experience.
-- Their experience comes from: college projects, hackathons, internships, coursework, open-source contributions, personal side projects, competitive programming, or academic research.
-- They might be nervous — this could be one of their first mock interviews.
-- Frame questions around their LEARNING journey, not their professional career.
-- NEVER assume they have had a full-time job before. Use "project" or "experience" instead of "at work" or "in production".
+${candidateContext}
 
 ## Your Interviewer Profile
 - **Role**: ${persona.name} at ${company}
@@ -308,124 +861,191 @@ router.post('/start', authenticateToken, async (req, res) => {
   const {
     company,
     role,
-    stage,
+    stage: rawStage,
+    interviewMode,
+    interviewRuntimeMode,
+    interviewType,
     difficulty,
     totalQuestions = 8,
+    experienceLevel = 'fresher',
     useRealQuestions = false,
     advancedOptions,
     resumeContext,
   } = req.body;
-  const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
+  const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
+  const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
+  const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+  const withRuntime = (payload) => ({
+    ...payload,
+    interviewRuntimeMode: resolvedRuntimeMode,
+    runtime,
+  });
+  const normalizedAdvanced = resolveResumeInterviewModeForExperience(
+    normalizeAdvancedOptions(advancedOptions),
+    experienceLevel,
+    resumeContext
+  );
+  const fresherScriptMode = normalizedAdvanced.resumeInterviewMode === 'fresher-hr-tech';
   const requestedCount = Number(totalQuestions);
   const resolvedTotalQuestions = Number.isFinite(requestedCount) && requestedCount >= 4 && requestedCount <= 12
     ? Math.round(requestedCount)
     : normalizedAdvanced.questionCount;
+  const interviewTotalQuestions = fresherScriptMode ? FRESHER_INTERVIEW_TOTAL_QUESTIONS : resolvedTotalQuestions;
   const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
+  const staticQuestions = getStaticInterviewQuestions(stage);
+  const isFresherTechnical = fresherScriptMode && stage === 'Technical';
+  const isFresherHR = fresherScriptMode && stage === 'HR';
 
-  // If useRealQuestions, pre-load a question set from the company bank
+  // Fresher-HR Fixed Mode: Q1-Q10 fixed behavioral, Q11 wrap-up, Q12 conclusion
+  if (isFresherHR) {
+    const interviewerName = await generateInterviewerName(company);
+    const openingQuestion = getFresherHRQuestion(1);
+    return res.json(withRuntime({
+      question: openingQuestion,
+      context: {
+        company,
+        role,
+        stage: 'Fresher-HR',
+        difficulty: 'medium',
+        totalQuestions: 12,
+        advancedOptions: { ...normalizedAdvanced, questionCount: 12 },
+        interviewRuntimeMode: resolvedRuntimeMode,
+      },
+      tips: ['Introduce your background clearly and keep your answer structured.', 'Use one concrete example when possible.'],
+      interviewerReaction: 'greeting',
+      thinkTime: 30,
+      questionSource: 'fresher-hr-fixed',
+      questionMeta: { id: 'fresher-hr-q-1', track: 'fresher-hr', sequence: 1, interviewerName },
+    }));
+  }
+
+  // Fresher-Technical Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated, Q11-Q12 fixed
+  if (isFresherTechnical) {
+    const interviewerName = await generateInterviewerName(company);
+    const openingQuestion = getFresherTechnicalQuestion(1);
+    return res.json(withRuntime({
+      question: openingQuestion,
+      context: {
+        company,
+        role,
+        stage: 'Fresher-Technical',
+        difficulty: 'medium',
+        totalQuestions: FRESHER_INTERVIEW_TOTAL_QUESTIONS,
+        advancedOptions: { ...normalizedAdvanced, questionCount: FRESHER_INTERVIEW_TOTAL_QUESTIONS },
+        interviewRuntimeMode: resolvedRuntimeMode,
+      },
+      tips: ['Introduce your background, core strengths, and one project highlight.', 'Keep your response clear and structured.'],
+      interviewerReaction: 'greeting',
+      thinkTime: 30,
+      questionSource: 'fresher-technical-hybrid',
+      questionMeta: { id: 'fresher-technical-q-1', track: 'fresher-technical', sequence: 1, interviewerName },
+    }));
+  }
+
+  if (staticQuestions.length > 0) {
+    const interviewerName = await generateInterviewerName(company);
+    const openingQuestion = getStaticInterviewQuestion(stage, 1);
+    return res.json(withRuntime({
+      question: openingQuestion,
+      context: {
+        company,
+        role,
+        stage,
+        difficulty,
+        totalQuestions: staticQuestions.length,
+        advancedOptions: { ...normalizedAdvanced, questionCount: staticQuestions.length },
+        interviewRuntimeMode: resolvedRuntimeMode,
+      },
+      tips: stage === 'HR'
+        ? ['Introduce yourself clearly and keep your answer structured.', 'Use one concrete example when possible.']
+        : ['Start with a direct answer, then explain your reasoning.', 'Mention trade-offs and edge cases where relevant.'],
+      interviewerReaction: 'greeting',
+      thinkTime: 30,
+      questionSource: 'scripted',
+      questionMeta: { id: `${String(stage).toLowerCase()}-q-1`, track: String(stage).toLowerCase(), sequence: 1, interviewerName },
+    }));
+  }
+
   let questionBank = [];
   let questionSource = 'ai';
-  if (useRealQuestions) {
-    questionBank = getRandomQuestionSet(company, role, stage, difficulty, resolvedTotalQuestions);
+  if (useRealQuestions && !fresherScriptMode) {
+    questionBank = getRandomQuestionSet(company, role, stage, difficulty, interviewTotalQuestions);
     if (questionBank.length > 0) {
       questionSource = 'database';
-      console.log(`📋 Loaded ${questionBank.length} real questions for ${company} (${stage}/${role}/${difficulty})`);
-    } else {
-      console.log(`⚠️ No real questions found for ${company} ${stage}/${role}/${difficulty}, falling back to AI`);
     }
   }
 
   try {
-    // If we have real questions, use the first one with AI-generated greeting
+    if (fresherScriptMode) {
+      const interviewerName = await generateInterviewerName(company);
+      return res.json(withRuntime({
+        question: `Good afternoon, my name is ${interviewerName}, I work as an HR executive with ${company}, and I'll be conducting your HR discussion today. We'll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?`,
+        context: {
+          company,
+          role,
+          stage,
+          difficulty,
+          totalQuestions: interviewTotalQuestions,
+          advancedOptions: { ...normalizedAdvanced, questionCount: FRESHER_INTERVIEW_TOTAL_QUESTIONS },
+          interviewRuntimeMode: resolvedRuntimeMode,
+        },
+        tips: ['Introduce your background, core strengths, and one project highlight.', 'Keep your response clear and structured.'],
+        interviewerReaction: 'greeting',
+        thinkTime: 30,
+        questionSource: 'ai-scripted',
+        questionMeta: { id: 'fresher-q-1', track: 'fresher-hr-tech', sequence: 1, interviewerName },
+      }));
+    }
+
     if (questionSource === 'database' && questionBank.length > 0) {
       const firstQ = questionBank[0];
-      const greeting = `Hi! Welcome to your ${stage} interview at ${company}. I'm excited to get started! Here's your first question:`;
-      const questionText = `${greeting}\n\n${firstQ.question}`;
-
-      // If groq is available, generate a natural greeting wrapping the real question
-      if (groq) {
-        try {
-          const completion = await aiCallWithRetry({
-            operation: () =>
-              groq.chat.completions.create({
-                model: 'llama-3.1-8b-instant',
-                messages: [
-                  {
-                    role: 'system',
-                    content: `You are a senior interviewer at ${company}. Speak naturally like a real person in a live interview.
-
-Rules:
-- One short greeting sentence, then ask this exact interview question.
-- Do not alter the core meaning of the question.
-- Keep spoken output under 35 words.
-- Use contractions where natural. Avoid hype, emojis, and robotic phrases.
-- Ask exactly one question.
-
-Question to ask:
-"${firstQ.question}"
-
-Respond as JSON:
-{
-  "question": "Natural spoken greeting + exact question",
-  "tips": ["Tip 1", "Tip 2"],
-  "thinkTime": 30,
-  "interviewerReaction": "greeting"
-}`
-                  }
-                ],
-                response_format: { type: 'json_object' },
-                temperature: 0.7
-              }),
-            timeoutMs: 12000,
-            maxRetries: 2,
-            baseDelayMs: 250,
-          });
-          const result = JSON.parse(completion.choices[0].message.content);
-          return res.json({
-            ...result,
-            context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
-            thinkTime: result.thinkTime || 30,
-            interviewerReaction: 'greeting',
-            questionSource: 'database',
-            questionMeta: { id: firstQ.id, tags: firstQ.tags, difficulty: firstQ.difficulty, frequencyScore: firstQ.frequencyScore },
-            questionBank: questionBank.map(q => q.id), // Send IDs so frontend can track which questions to request
-          });
-        } catch (e) {
-          // Fall through to use raw question
-        }
-      }
-
-      return res.json({
-        question: questionText,
-        context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
+      return res.json(withRuntime({
+        question: `Hi! Welcome to your ${stage} interview at ${company}. Here's your first question: ${firstQ.question}`,
+        context: {
+          company,
+          role,
+          stage,
+          difficulty,
+          totalQuestions: interviewTotalQuestions,
+          advancedOptions: normalizedAdvanced,
+          interviewRuntimeMode: resolvedRuntimeMode,
+        },
         tips: firstQ.hints?.length > 0 ? firstQ.hints : ['Take a moment to collect your thoughts', 'Structure your answer clearly'],
         interviewerReaction: 'greeting',
         thinkTime: 30,
         questionSource: 'database',
         questionMeta: { id: firstQ.id, tags: firstQ.tags, difficulty: firstQ.difficulty, frequencyScore: firstQ.frequencyScore },
-        questionBank: questionBank.map(q => q.id),
-      });
+        questionBank: questionBank.map((q) => q.id),
+      }));
     }
 
     if (!groq) {
-      // Stage-specific fallback questions
       const fallbackQuestions = {
-        'HR': `Hey! Welcome to your HR interview at ${company}. I'm really excited to get to know you! Let's start simple — tell me a bit about yourself, what you're studying, and what excites you about this ${role} role at ${company}?`,
-        'Behavioral': `Hey! Welcome to your behavioral interview. I'd love to hear about your experiences. Can you tell me about a challenging project or assignment you worked on — maybe in college or during an internship?`,
-        'DSA / Coding': `Hey! Welcome to your coding round. Let's start with a classic problem — given an array of integers, can you walk me through how you'd find two numbers that add up to a target sum? Think about both approach and time complexity.`,
-        'System Design': `Hey! Welcome to your system design round at ${company}. Let's start with something fun — how would you design a URL shortening service like bit.ly? Don't worry about getting it perfect, just think out loud!`,
-        'Technical': `Hey! Welcome to your technical interview. Let's start — can you explain the difference between a process and a thread? You might have covered this in your OS course!`,
-        'OA': `Welcome to your online assessment simulation. Here's your first problem: Given a string, find the length of the longest substring without repeating characters. Take your time to think about your approach.`,
-        'Managerial': `Hey! Welcome to the managerial round. I'd like to understand how you work with others. Can you tell me about a time you led or coordinated a team project — maybe in college or a hackathon?`,
+        HR: `Hey! Welcome to your HR interview at ${company}. Tell me about yourself and what excites you about this role.`,
+        Behavioral: `Hey! Welcome to your behavioral interview. Tell me about a challenging project and how you handled it.`,
+        'DSA / Coding': 'Given an array of integers, how would you find two numbers that sum to a target?',
+        'System Design': 'How would you design a URL shortening service?',
+        Technical: 'Can you explain the difference between a process and a thread?',
+        OA: 'Given a string, find the length of the longest substring without repeating characters.',
+        Managerial: 'Tell me about a time you coordinated a team project.',
       };
-      return res.json({
-        question: fallbackQuestions[stage] || `Hey! Great to have you here for this ${stage} interview at ${company}. Let's start easy — tell me about a project you've worked on that you're proud of!`,
-        context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
-        tips: ['Take a moment to collect your thoughts', 'Structure your answer: context → approach → result'],
+
+      return res.json(withRuntime({
+        question: fallbackQuestions[stage] || `Welcome! Tell me about a project you're proud of.`,
+        context: {
+          company,
+          role,
+          stage,
+          difficulty,
+          totalQuestions: interviewTotalQuestions,
+          advancedOptions: normalizedAdvanced,
+          interviewRuntimeMode: resolvedRuntimeMode,
+        },
+        tips: ['Take a moment to collect your thoughts', 'Structure your answer clearly'],
         interviewerReaction: 'greeting',
         thinkTime: 30,
         questionSource: personalizedQuestionSource,
-      });
+      }));
     }
 
     const completion = await aiCallWithRetry({
@@ -435,20 +1055,20 @@ Respond as JSON:
           messages: [
             {
               role: 'system',
-              content: getInterviewerPersona(company, role, stage, difficulty, 1, resolvedTotalQuestions, normalizedAdvanced, resumeContext) + `
+              content: getInterviewerPersona(company, role, stage, difficulty, 1, interviewTotalQuestions, normalizedAdvanced, resumeContext, experienceLevel) + `
 
 Respond as JSON:
 {
-  "question": "Your opening greeting + first question (Extremely natural, max 2-3 sentences total)",
+  "question": "Your opening greeting + first question",
   "tips": ["Tip 1", "Tip 2"],
   "thinkTime": 30,
   "interviewerReaction": "greeting"
-}`
+}`,
             },
-            { role: 'user', content: `Start the ${stage} interview for ${role} at ${company}. Greet warmly first.` }
+            { role: 'user', content: `Start the ${stage} interview for ${role} at ${company}.` },
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.8
+          temperature: 0.8,
         }),
       timeoutMs: 12000,
       maxRetries: 2,
@@ -456,33 +1076,40 @@ Respond as JSON:
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
-    res.json({
+    return res.json(withRuntime({
       ...result,
-      context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
+      context: {
+        company,
+        role,
+        stage,
+        difficulty,
+        totalQuestions: interviewTotalQuestions,
+        advancedOptions: normalizedAdvanced,
+        interviewRuntimeMode: resolvedRuntimeMode,
+      },
       thinkTime: result.thinkTime || 30,
       interviewerReaction: result.interviewerReaction || 'greeting',
       questionSource: personalizedQuestionSource,
-    });
+      questionMeta: null,
+    }));
   } catch (error) {
     console.error('Interview start error:', error.message?.substring(0, 200));
-    // Graceful fallback — serve stage-specific opening question
-    const fallbackQuestions = {
-      'HR': `Hey! Welcome to your HR interview at ${company}. I'm really excited to get to know you! Tell me about yourself — what are you studying and what excites you about this ${role} role at ${company}?`,
-      'Behavioral': `Hey! Welcome to your behavioral round. I'd love to hear about your experiences. Tell me about a challenging project or assignment you worked on and how you handled it.`,
-      'DSA / Coding': `Hey! Welcome to your coding round. Let's start — given an array of integers, how would you find two numbers that add up to a target sum? Walk me through your approach and time complexity.`,
-      'System Design': `Hey! Welcome to your system design interview at ${company}. How would you design a URL shortening service? Think about key components and storage — don't worry about getting it perfect!`,
-      'Technical': `Hey! Welcome to your technical interview. Let's start — can you explain the difference between a process and a thread? You might remember this from your OS class!`,
-      'OA': `Welcome to your online assessment. Your first problem: Given a string, find the length of the longest substring without repeating characters. Take your time to think carefully!`,
-      'Managerial': `Hey! Welcome to the managerial round. Tell me about a time you led or coordinated a group project in college. How did you handle it?`,
-    };
-    res.json({
-      question: fallbackQuestions[stage] || `Hey! Great to have you here for this ${stage} interview at ${company}. Tell me about a project you've worked on that you're proud of!`,
-      context: { company, role, stage, difficulty, totalQuestions: resolvedTotalQuestions, advancedOptions: normalizedAdvanced },
+    return res.json(withRuntime({
+      question: `Hi! Welcome to your ${stage} interview at ${company}. Tell me about yourself and your background.`,
+      context: {
+        company,
+        role,
+        stage,
+        difficulty,
+        totalQuestions: interviewTotalQuestions,
+        advancedOptions: normalizedAdvanced,
+        interviewRuntimeMode: resolvedRuntimeMode,
+      },
       tips: ['Take a moment to collect your thoughts', 'Structure your answer clearly'],
       interviewerReaction: 'greeting',
       thinkTime: 30,
       questionSource: personalizedQuestionSource,
-    });
+    }));
   }
 });
 
@@ -658,15 +1285,235 @@ function buildFocusSignal(previousQuestion = '', userAnswer = '') {
 
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', authenticateToken, async (req, res) => {
-  const { company, role, stage, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext } = req.body;
-  const normalizedAdvanced = normalizeAdvancedOptions(advancedOptions);
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher' } = req.body;
+  const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
+  const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
+  const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+  const withRuntime = (payload) => ({
+    ...payload,
+    interviewRuntimeMode: resolvedRuntimeMode,
+    runtime,
+  });
+  const normalizedAdvanced = resolveResumeInterviewModeForExperience(
+    normalizeAdvancedOptions(advancedOptions),
+    experienceLevel,
+    resumeContext
+  );
+  const fresherScriptMode = normalizedAdvanced.resumeInterviewMode === 'fresher-hr-tech';
   const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
+  const isFresherTechnical = fresherScriptMode && stage === 'Technical';
+  const isFresherHR = fresherScriptMode && stage === 'HR';
+  const staticQuestions = getStaticInterviewQuestions(stage);
+  const parsedQuestionNumber = Number(questionNumber);
+  const safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
+    ? Math.floor(parsedQuestionNumber)
+    : 2;
+  const parsedTotalQuestions = Number(totalQuestions);
+  const safeTotalQuestions = Number.isFinite(parsedTotalQuestions) && parsedTotalQuestions >= 1
+    ? Math.floor(parsedTotalQuestions)
+    : 8;
+
+  // Fresher-HR Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated (different each interview), Q11 wrap-up, Q12 closing
+    if (isFresherHR) {
+      const qNum = safeQuestionNumber;
+      const isQ11 = qNum === 11;
+      const isQ12 = qNum === 12;
+      const isQ2To10 = qNum >= 2 && qNum <= 10;
+      const isQ1 = qNum === 1;
+      const isLastQuestion = qNum > 12;
+
+      let feedbackMessage = 'Thank you for that response!';
+      const feedbackOptions = [
+        'That\'s great to hear! Thank you for sharing that.',
+        'I appreciate your openness and clear example there.',
+        'That shows real self-awareness and growth mindset.',
+        'Wonderful! You gave a thoughtful and genuine answer.',
+        'Excellent! You\'ve demonstrated great interpersonal awareness.',
+        'That\'s really thoughtful. I like how you framed that.',
+      ];
+      feedbackMessage = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
+
+      let followUpQuestion = '';
+      let closingRemark = undefined;
+      let isComplete = false;
+
+      if (isLastQuestion) {
+        isComplete = true;
+        closingRemark = FRESHER_HR_CLOSINGS.NO;
+      } else if (isQ12) {
+        // Q12: Check if candidate had questions; if yes, provide closing; if no, show default closing
+        const hasQuestions = userAnswer && userAnswer.toLowerCase().includes('yes');
+        closingRemark = getFresherHRClosing(hasQuestions);
+        isComplete = true;
+      } else if (isQ11) {
+        // Q11: Ask fixed wrap-up question
+        followUpQuestion = FRESHER_HR_FIXED.Q11 || 'Do you have any questions for me about the role, the team, or our company?';
+      } else if (isQ1) {
+        // Safety fallback: if caller sends qNum=1, return opening question
+        const aiQuestion = await generateFresherHRQuestion(1, resumeContext);
+        followUpQuestion = aiQuestion || 'Let\'s start with a behavioral question.';
+      } else if (isQ2To10) {
+        // Q2-Q10: Generate the exact next question requested by qNum
+        const aiQuestion = await generateFresherHRQuestion(qNum, resumeContext);
+        followUpQuestion = aiQuestion || 'Let\'s continue to the next question.';
+      } else {
+        // Should not reach here
+        followUpQuestion = 'Do you have any questions for me?';
+      }
+
+      const nextQNumForMeta = isComplete ? null : qNum;
+      const isNextQuestionAIGenerated = nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 10;
+
+      return res.json(withRuntime({
+        feedback: feedbackMessage,
+        followUpQuestion: isComplete ? '' : followUpQuestion,
+        closingRemark: isComplete ? closingRemark : undefined,
+        complete: isComplete,
+        score: 78 + Math.floor(Math.random() * 15),
+        strengths: [['Clear communication'], ['Genuine engagement'], ['Good self-awareness']][Math.floor(Math.random() * 3)],
+        improvements: [['Add one concrete example'], ['Relate to team dynamics'], ['Show growth mindset']][Math.floor(Math.random() * 3)],
+        interviewerReaction: isComplete ? 'encouraging' : 'probing',
+        thinkTime: 20,
+        hint: 'Answer naturally and relate your response to your experience and values.',
+        difficultyLevel: 'medium',
+        adaptiveNote: `Fresher-HR Q${Math.min(qNum, 12)} of 12 (AI-generated behavioral sequence).`,
+        questionSource: 'fresher-hr-dynamic',
+        questionMeta: {
+          id: nextQNumForMeta === null ? null : `fresher-hr-q-${nextQNumForMeta}`,
+          track: 'fresher-hr',
+          sequence: nextQNumForMeta,
+          isAIGenerated: isNextQuestionAIGenerated,
+        },
+      }));
+    }
+  // Fresher-Technical Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated, Q11-Q12 fixed
+  if (isFresherTechnical) {
+    const qNum = safeQuestionNumber;
+    const isQ11 = qNum === 11;
+    const isQ12 = qNum === 12;
+    const isQ2To10 = qNum >= 2 && qNum <= 10;
+    const isLastQuestion = qNum > FRESHER_INTERVIEW_TOTAL_QUESTIONS;
+
+    let feedbackMessage = 'Great response!';
+    const feedbackOptions = [
+      'That\'s a solid approach! I like how you explained that.',
+      'Good thinking! I can see you have hands-on experience.',
+      'I appreciate the detail there. Let\'s explore a bit more.',
+      'Nice! You covered the key points clearly.',
+      'Excellent! You have a practical understanding.'
+    ];
+    feedbackMessage = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
+
+    let followUpQuestion = '';
+    let closingRemark = undefined;
+    let isComplete = false;
+
+    if (isLastQuestion) {
+      isComplete = true;
+      closingRemark = FRESHER_TECHNICAL_FIXED.Q12_NO; // Default: no follow-up questions
+    } else if (isQ12) {
+      // Q12: Check if candidate had questions; if yes, provide closing; if no, show default closing
+      const hasQuestions = userAnswer && userAnswer.toLowerCase().includes('yes');
+      closingRemark = hasQuestions ? FRESHER_TECHNICAL_FIXED.Q12_YES : FRESHER_TECHNICAL_FIXED.Q12_NO;
+      isComplete = true;
+    } else if (isQ11) {
+      // Q11: Ask fixed wrap-up question
+      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q11;
+    } else if (isQ2To10) {
+      // Q2-Q10: Generate the exact next question requested by qNum
+      followUpQuestion = await generateFresherTechnicalQuestion(qNum, resumeContext);
+      if (!followUpQuestion) {
+        // Fallback if AI generation fails
+        const topicData = getFresherTechnicalAIPrompt(qNum);
+        followUpQuestion = `Let's move on to the next topic: ${topicData?.topic}. Can you tell me more about this?`;
+      }
+    } else {
+      // Should not reach here
+      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q11;
+    }
+
+    const nextQNumForMeta = isComplete ? null : qNum;
+
+    return res.json(withRuntime({
+      feedback: feedbackMessage,
+      followUpQuestion: isComplete ? '' : followUpQuestion,
+      closingRemark: isComplete ? closingRemark : undefined,
+      complete: isComplete,
+      score: 72 + Math.floor(Math.random() * 18),
+      strengths: [['Clear explanation'], ['Practical thinking'], ['Good communication']][Math.floor(Math.random() * 3)],
+      improvements: [['Mention edge cases'], ['Add more examples'], ['Explain trade-offs']][Math.floor(Math.random() * 3)],
+      interviewerReaction: isComplete ? 'encouraging' : 'probing',
+      thinkTime: 20,
+      hint: 'Explain your reasoning step by step, then mention trade-offs or real-world use cases.',
+      difficultyLevel: 'medium',
+      adaptiveNote: `Fresher-Technical Q${qNum} of ${FRESHER_INTERVIEW_TOTAL_QUESTIONS} (Hybrid: ${isQ2To10 ? 'AI-generated' : isQ11 ? 'wrap-up' : isQ12 ? 'conclusion' : 'fixed'}).`,
+      questionSource: 'fresher-technical-hybrid',
+      questionMeta: {
+        id: nextQNumForMeta === null ? null : `fresher-technical-q-${nextQNumForMeta}`,
+        track: 'fresher-technical',
+        sequence: nextQNumForMeta,
+        isAIGenerated: nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 10,
+      },
+    }));
+  }
+
+  if (staticQuestions.length > 0) {
+    const nextQuestion = getStaticInterviewQuestion(stage, safeQuestionNumber);
+    const isLastQuestion = safeQuestionNumber > staticQuestions.length;
+    const safeQuestionIdx = Math.min(Math.max(safeQuestionNumber - 1, 0), staticQuestions.length - 1);
+    const resolvedNextQuestion = isLastQuestion
+      ? ''
+      : (nextQuestion || staticQuestions[safeQuestionIdx] || '');
+
+    return res.json(withRuntime({
+      feedback: stage === 'HR'
+        ? 'That was a thoughtful response. Let us continue the discussion with the next HR question.'
+        : 'Good response. Let us continue with the next technical question.',
+      followUpQuestion: resolvedNextQuestion,
+      closingRemark: isLastQuestion ? getStaticInterviewClosing(stage) : undefined,
+      complete: isLastQuestion,
+      score: stage === 'HR' ? 78 : 80,
+      strengths: stage === 'HR'
+        ? ['Clear communication', 'Relevant examples']
+        : ['Structured thinking', 'Technical clarity'],
+      improvements: stage === 'HR'
+        ? ['Add one concrete example', 'Keep answers concise and outcome-focused']
+        : ['Mention complexity clearly', 'Call out edge cases earlier'],
+      interviewerReaction: isLastQuestion ? 'encouraging' : 'probing',
+      thinkTime: 20,
+      hint: stage === 'HR'
+        ? 'Answer naturally and relate your response to your experience.'
+        : 'Explain your reasoning step by step, then mention trade-offs.',
+      difficultyLevel: 'medium',
+      adaptiveNote: `Scripted ${String(stage).toLowerCase()} sequence question ${Math.min(safeQuestionNumber, staticQuestions.length)} of ${staticQuestions.length}.`,
+      questionSource: 'scripted',
+      questionMeta: { id: `${String(stage).toLowerCase()}-q-${Math.min(safeQuestionNumber, staticQuestions.length)}`, track: String(stage).toLowerCase(), sequence: Math.min(safeQuestionNumber, staticQuestions.length) },
+    }));
+  }
+  
+  // Fresher topics mapping
+  const getFresherTopic = (qNum) => {
+    switch (qNum) {
+      case 2: return "Resume & Experience: Ask them to elaborate on a project listed in their resume (or a general past project if no resume).";
+      case 3: return "Technical Skills: Ask them about a specific language or framework they are confident in, and how they used it practically.";
+      case 4: return "Object-Oriented Programming (OOP) Core: Ask them to explain a foundational OOP concept (like the 4 pillars) with a real-world example.";
+      case 5: return "OOP Applied: Ask them to compare two OOP concepts (like Interface vs Abstract Class) and when to use each.";
+      case 6: return "SQL / Databases: Ask them about foundational SQL concepts (like JOINs or Normalization).";
+      case 7: return "Database Design: Ask them about Primary/Foreign Keys, Indexes, or typical database performance optimization.";
+      case 8: return "Programming Language / Core: Ask them to explain a core programming language concept (e.g., pass-by-value vs pass-by-reference).";
+      case 9: return "OS Fundamentals: Ask an operating system fundamental (like Process vs Thread or Memory Management).";
+      case 10: return "Networking / Web: Ask about REST APIs, HTTP methods, or the client-server request cycle.";
+      case 11: return "Wrap Up: Ask if they have any questions for you about the company, team, or the role.";
+      case 12: return "Conclusion: Warmly answer the candidate's questions and strictly conclude the interview.";
+      default: return "Technical Deep Dive";
+    }
+  };
 
   // If using real questions, get the next question from the bank
   let nextRealQuestion = null;
   let realQuestionMeta = null;
   if (useRealQuestions && questionBankIds && questionBankIds.length > 0) {
-    const nextIdx = questionNumber - 1; // questionNumber is 1-indexed, and we want the next one
+    const nextIdx = safeQuestionNumber - 1; // questionNumber is 1-indexed, and we want the next one
     if (nextIdx < questionBankIds.length) {
       const { getQuestionById } = await import('../services/companyQuestionService.js');
       nextRealQuestion = getQuestionById(questionBankIds[nextIdx]);
@@ -769,10 +1616,10 @@ router.post('/follow-up', authenticateToken, async (req, res) => {
         ],
       };
       const questions = stageQuestions[stage] || stageQuestions['Technical'];
-      const qIdx = ((questionNumber || 1) - 1) % questions.length;
-      const isLast = questionNumber >= totalQuestions;
+      const qIdx = ((safeQuestionNumber || 1) - 1) % questions.length;
+      const isLast = safeQuestionNumber > safeTotalQuestions;
 
-      return res.json({
+      return res.json(withRuntime({
         feedback: reactions[Math.floor(Math.random() * reactions.length)],
         followUpQuestion: isLast ? '' : (nextRealQuestion ? nextRealQuestion.question : questions[qIdx]),
         closingRemark: isLast ? `Thank you so much for your time today! You've given some really thoughtful answers. We'll be in touch soon with next steps. Best of luck!` : undefined,
@@ -790,10 +1637,76 @@ router.post('/follow-up', authenticateToken, async (req, res) => {
         hint: ['Think about time vs space trade-offs', 'Consider the edge cases first', 'Try working through a small example', 'What would happen at scale?'][Math.floor(Math.random() * 4)],
         questionSource: nextRealQuestion ? 'database' : personalizedQuestionSource,
         questionMeta: realQuestionMeta || null,
-      });
+      }));
     }
 
-    const isLastQuestion = questionNumber >= totalQuestions;
+    const effectiveTotalQuestions = fresherScriptMode ? FRESHER_INTERVIEW_TOTAL_QUESTIONS : safeTotalQuestions;
+    const isLastQuestion = safeQuestionNumber > effectiveTotalQuestions;
+
+    if (fresherScriptMode) {
+      const score = Math.max(62, Math.min(94, 70 + Math.floor(Math.random() * 18)));
+
+      if (isLastQuestion) {
+        const shouldClose = isFinalNoAnswer(userAnswer);
+
+        if (!shouldClose) {
+          const loopQuestion = `${buildHrResponseSnippet(userAnswer, company)} Do you have any other questions before we close today?`;
+
+          return res.json(withRuntime({
+            feedback: 'Good question. You are thinking in the right direction, and I appreciate your curiosity.',
+            followUpQuestion: loopQuestion,
+            closingRemark: '',
+            complete: false,
+            score,
+            strengths: ['Curiosity and engagement', 'Clear communication'],
+            improvements: ['Frame questions with role impact', 'Prioritize one question at a time'],
+            interviewerReaction: 'encouraging',
+            thinkTime: 20,
+            hint: 'A concise, role-focused question is usually strongest at this stage.',
+            difficultyLevel: 'medium',
+            adaptiveNote: 'Scripted fresher flow waiting for explicit final "No" before closing.',
+            questionSource: 'ai-scripted',
+            questionMeta: { id: 'fresher-q-12-loop', track: 'fresher-hr-tech', sequence: 12 },
+          }));
+        }
+
+        return res.json(withRuntime({
+          feedback: 'Thank you for sharing your responses. You communicated clearly and handled the discussion with good composure.',
+          followUpQuestion: '',
+          closingRemark: HR_CLOSING_MESSAGE,
+          complete: true,
+          score,
+          strengths: ['Clear communication', 'Structured responses'],
+          improvements: ['Use concrete examples with measurable outcomes', 'Keep answers concise and impact-focused'],
+          interviewerReaction: 'encouraging',
+          thinkTime: 0,
+          hint: '',
+          difficultyLevel: 'medium',
+          adaptiveNote: 'Scripted fresher HR + fundamentals sequence complete.',
+          questionSource: 'ai-scripted',
+          questionMeta: { id: `fresher-q-${effectiveTotalQuestions + 1}`, track: 'fresher-hr-tech', sequence: effectiveTotalQuestions + 1 },
+        }));
+      }
+
+      const nextQuestion = await generateFresherScriptedQuestion(safeQuestionNumber, company, resumeContext, userAnswer);
+
+      return res.json(withRuntime({
+        feedback: 'Good response. Your points were clear; adding one concrete result would make it stronger.',
+        followUpQuestion: nextQuestion,
+        complete: false,
+        score,
+        strengths: ['Communication clarity', 'Relevant examples'],
+        improvements: ['Add specific outcomes', 'Highlight trade-offs when technical'],
+        interviewerReaction: safeQuestionNumber >= 11 ? 'encouraging' : 'probing',
+        thinkTime: safeQuestionNumber >= 11 ? 20 : 35,
+        hint: safeQuestionNumber >= 11 ? 'Ask about team structure, growth path, or first-90-day expectations.' : 'Use a simple structure: context, action, result.',
+        difficultyLevel: 'medium',
+        adaptiveNote: `Scripted fresher sequence question ${safeQuestionNumber} of ${effectiveTotalQuestions}.`,
+        questionSource: 'ai-scripted',
+        questionMeta: { id: `fresher-q-${safeQuestionNumber}`, track: 'fresher-hr-tech', sequence: safeQuestionNumber },
+      }));
+    }
+
     const focusSignal = buildFocusSignal(previousQuestion, userAnswer);
 
     // Build code review context if code was submitted
@@ -838,17 +1751,30 @@ Include your evaluation in "codeFeedback" in the JSON response.` : '';
 Use this as a benchmark to evaluate the candidate's answer. Score higher if they cover the key points from the reference.` : '';
 
     // Build real question injection if available
-    const realQuestionInstruction = (nextRealQuestion && !isLastQuestion) ? `
+    let realQuestionInstruction = '';
+    
+    if (fresherScriptMode && !isLastQuestion) {
+      const topic = getFresherTopic(safeQuestionNumber);
+      realQuestionInstruction = `
+
+## CRITICAL: Fresher Interview Sequence
+You are currently on Question ${safeQuestionNumber} of 12.
+For this turn, you MUST evaluate the candidate's last answer and provide feedback.
+Then, generating your next question, YOU MUST ASK A QUESTION STRICTLY ABOUT THIS TOPIC: "${topic}".
+Do NOT ask a generic follow-up. Transition naturally to this new topic. Keep the question clear and suitable for a fresher level.`;
+    } else if (nextRealQuestion && !isLastQuestion) {
+      realQuestionInstruction = `
 
 ## IMPORTANT: Use This Exact Question as Your Follow-Up
 You MUST use this question as your follow-up (present it naturally, in your own words, but keep the core question intact):
 "${nextRealQuestion.question}"
-Do NOT generate a different question. Transitions should be natural.` : '';
+Do NOT generate a different question. Transitions should be natural.`;
+    }
 
     const messages = [
       {
         role: 'system',
-        content: getInterviewerPersona(company, role, stage, difficulty, questionNumber, totalQuestions, normalizedAdvanced, resumeContext) + adaptivePrompt + memoryPrompt + codeContext + referenceContext + realQuestionInstruction + `
+        content: getInterviewerPersona(company, role, stage, difficulty, safeQuestionNumber, effectiveTotalQuestions, normalizedAdvanced, resumeContext, experienceLevel) + adaptivePrompt + memoryPrompt + codeContext + referenceContext + realQuestionInstruction + `
 
 The candidate just answered a question. You must:
 1. React naturally to their answer (say something like "Makes sense", "Got it")
@@ -865,6 +1791,10 @@ NATURAL SPEECH CONSTRAINTS:
 - Keep tone professional but conversational.
 - Use one focused question, not a list.
 - Avoid repeating the candidate's full answer back.
+- Avoid meta prompts such as "walk me through your approach step by step" unless the stage is explicitly DSA/Coding or System Design.
+- Do not repeat the exact same follow-up wording twice in a row.
+- For fresher Technical interviews, vary the angle across project, coursework, internship, fundamentals, and trade-offs instead of asking for the same concrete example repeatedly.
+- Prefer concrete, topic-specific follow-ups tied to the current stage (e.g., OOP/DBMS/OS/networking for Technical; STAR context for Behavioral).
 ` + focusPrompt + `
 
 Respond as JSON:
@@ -904,7 +1834,7 @@ Respond as JSON:
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
-    res.json({
+    res.json(withRuntime({
       ...result,
       interviewerReaction: result.interviewerReaction || 'neutral',
       thinkTime: result.thinkTime || 45,
@@ -912,32 +1842,50 @@ Respond as JSON:
       difficultyLevel: result.difficultyLevel || 'medium',
       adaptiveNote: result.adaptiveNote || null,
       codeFeedback: result.codeFeedback || null,
-      questionSource: nextRealQuestion ? 'database' : personalizedQuestionSource,
-      questionMeta: realQuestionMeta || null,
+      questionSource: fresherScriptMode ? 'ai-scripted' : (nextRealQuestion ? 'database' : personalizedQuestionSource),
+      questionMeta: fresherScriptMode ? { id: `fresher-q-${safeQuestionNumber}`, track: 'fresher-hr-tech', sequence: safeQuestionNumber } : (realQuestionMeta || null),
       referenceAnswer: referenceAnswer || null,
-    });
+    }));
   } catch (error) {
     console.error('Follow-up error:', error.message?.substring(0, 200));
     // Graceful fallback — contextual follow-up
+    const technicalFallbackQuestions = experienceLevel === 'fresher'
+      ? [
+          'Can you connect that to a class project, internship, or side project you worked on?',
+          'Can you give one concrete example from something you built or studied?',
+          'Can you walk me through a specific project or coursework example that shows that in practice?',
+        ]
+      : [
+          'Can you walk me through your approach step by step, including trade-offs?',
+          'What alternative would you consider, and why?',
+          'How would you apply that in a real system or team setting?',
+        ];
+    const pickTechnicalFallbackQuestion = (seed = 0) => {
+      const index = Math.abs(seed) % technicalFallbackQuestions.length;
+      return technicalFallbackQuestions[index];
+    };
     const fallbackFollowUps = {
       'HR': 'That\'s interesting! Can you tell me about your career goals? Where do you see yourself in a few years after starting your career?',
       'Behavioral': 'Good insight. Can you give me another example where you showed leadership or took initiative — maybe in a college project or extracurricular?',
       'DSA / Coding': 'Nice approach. Now, can you think of a way to optimize that solution? What would the time and space complexity be?',
       'System Design': 'Good thinking. How would your design handle 10x the current traffic? What would you scale first?',
-      'Technical': 'Solid answer. Can you explain how this concept applies in a distributed systems context?',
+      'Technical': pickTechnicalFallbackQuestion(questionNumber),
       'OA': 'Good. Here\'s a follow-up: what if the input size was 10 million? How would you optimize?',
       'Managerial': 'Great example. How did you handle any disagreements within the team during that project?',
     };
-    res.json({
+    const defaultFallbackByExperience = experienceLevel === 'fresher'
+      ? pickTechnicalFallbackQuestion(questionNumber)
+      : 'Good answer. Can you compare one alternative approach and explain the trade-off?';
+    res.json(withRuntime({
       feedback: 'That\'s a thoughtful response! I can see you\'ve given this real thought.',
-      followUpQuestion: fallbackFollowUps[stage] || 'Can you walk me through how you would optimize that solution? What trade-offs would you consider?',
+      followUpQuestion: fallbackFollowUps[stage] || defaultFallbackByExperience,
       score: 72 + Math.floor(Math.random() * 15),
       strengths: ['Clear communication', 'Structured thinking'],
       improvements: ['Add more specific examples', 'Consider edge cases'],
       interviewerReaction: 'encouraging',
       thinkTime: 45,
       hint: 'Try breaking the problem into smaller parts'
-    });
+    }));
   }
 });
 
@@ -990,6 +1938,47 @@ Respond as JSON:
   } catch (error) {
     console.error('Hint error:', error.message);
     res.status(500).json({ error: 'Failed to generate hint' });
+  }
+});
+
+// ─── Rephrase Interview Question ───
+router.post('/rephrase', authenticateToken, async (req, res) => {
+  const { question, company, stage } = req.body;
+
+  try {
+    if (!groq || !question) {
+      return res.status(400).json({ error: 'Missing requirements for rephrase' });
+    }
+
+    const completion = await callGroqWithRetry({
+      messages: [
+        {
+          role: 'system',
+          content: `You are an interviewer from ${company} conducting a ${stage} interview.
+The candidate is struggling to answer the current question or is silent.
+Rephrase the question to be simpler, more direct, and easier to understand.
+Do not change the core topic, just make it more approachable.
+
+Output ONLY a JSON object with this shape:
+{
+  "rephrased": "The simpler version of the question"
+}`
+        },
+        { role: 'user', content: `Original question: "${question}"` }
+      ],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      response_format: { type: "json_object" },
+      max_tokens: 200,
+      timeoutMs: 8000,
+      maxRetries: 2,
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    res.json(result);
+  } catch (error) {
+    console.error('Rephrase error:', error.message);
+    res.status(500).json({ error: 'Failed to rephrase question' });
   }
 });
 

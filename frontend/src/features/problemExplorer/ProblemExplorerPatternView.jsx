@@ -64,14 +64,19 @@ export function ProblemExplorerPatternView({
         <React.Fragment>
             <div
                 style={{
-                    borderRadius: 14,
+                    borderRadius: 18,
                     overflow: 'hidden',
+                    background: isLight
+                        ? 'linear-gradient(135deg, rgba(255,255,255,0.7), rgba(248,250,252,0.5))'
+                        : 'linear-gradient(135deg, rgba(15,15,25,0.5), rgba(20,20,35,0.3))',
                     border: isLight
-                        ? '1px solid rgba(0,0,0,0.1)'
-                        : '1px solid rgba(255,255,255,0.06)',
+                        ? '1px solid rgba(0,0,0,0.06)'
+                        : '1px solid rgba(255,255,255,0.04)',
                     boxShadow: isLight
-                        ? '0 4px 24px rgba(0,0,0,0.06)'
-                        : '0 4px 24px rgba(0,0,0,0.2)',
+                        ? '0 8px 32px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.03)'
+                        : '0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.02)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
                 }}
             >
                 {initialLoading

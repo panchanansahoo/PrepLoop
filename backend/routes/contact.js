@@ -39,7 +39,8 @@ router.post('/', contactLimiter, async (req, res) => {
       try {
         const nodemailer = await import('nodemailer');
         const transporter = nodemailer.createTransport({
-          service: 'gmail',
+          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+          port: process.env.SMTP_PORT || 587,
           auth: {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -47,9 +48,9 @@ router.post('/', contactLimiter, async (req, res) => {
         });
 
         const mailOptions = {
-          from: process.env.SMTP_USER,
-          to: 'careerloop.me@gmail.com',
-          subject: `CareerLoop Contact: ${subject}`,
+          from: `"PrepLoop Support" <support@preploop.me>`,
+          to: 'support@preploop.me',
+          subject: `PrepLoop Contact: ${subject}`,
           text: `
             Name: ${name}
             Email: ${email}
@@ -62,7 +63,7 @@ router.post('/', contactLimiter, async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-        console.log(`✅ Email sent to careerloop.me@gmail.com from ${email}`);
+        console.log(`✅ Email sent to support@preploop.me from ${email}`);
       } catch (emailError) {
         console.error('Email sending failed (contact saved to DB):', emailError.message);
       }

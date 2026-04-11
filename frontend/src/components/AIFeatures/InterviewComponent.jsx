@@ -3,7 +3,8 @@ import {
   startInterview,
   submitInterviewResponse,
   completeInterview,
-  getInterviewSession
+  getInterviewSession,
+  getInterviewModes
 } from '../../api/aiService';
 import {
   AlertCircle,
@@ -33,6 +34,10 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
   const [scores, setScores] = useState(null);
   const [finalFeedback, setFinalFeedback] = useState(null);
   const [interviewer, setInterviewer] = useState(null);
+  const [interviewMode, setInterviewMode] = useState('hybrid_rollout');
+  const [runtimeConfig, setRuntimeConfig] = useState(null);
+  const [modeOptions, setModeOptions] = useState(['hybrid_rollout', 'full_realtime']);
+  const [modeDescriptions, setModeDescriptions] = useState({});
   const [copyStatus, setCopyStatus] = useState('idle');
   const [interviewStart, setInterviewStart] = useState(null);
   const messagesEndRef = useRef(null);
@@ -43,6 +48,32 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
     difficulty: 'medium',
     companyFocus: ''
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadModes = async () => {
+      try {
+        const modeConfig = await getInterviewModes();
+        if (cancelled || !modeConfig) return;
+        if (Array.isArray(modeConfig.supportedModes) && modeConfig.supportedModes.length > 0) {
+          setModeOptions(modeConfig.supportedModes);
+        }
+        if (modeConfig.defaultMode) {
+          setInterviewMode(modeConfig.defaultMode);
+        }
+        setModeDescriptions(modeConfig.description || {});
+      } catch {
+        // Use defaults when mode endpoint is unavailable.
+      }
+    };
+
+    loadModes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const persistActiveSession = (activeSessionId) => {
     if (!activeSessionId) {
@@ -69,6 +100,8 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         setSessionId(existing.session_id || savedSessionId);
         setMessages(restoredMessages);
         setInterviewer(existing.interviewer || existing.interviewerGreeting || null);
+        setInterviewMode(existing.interviewMode || existing.interview_context?.mode || 'hybrid_rollout');
+        setRuntimeConfig(existing.runtime || existing.interview_context?.runtime || null);
         setScores(existing.scores || existing.final_scores || null);
 
         const startedAt = existing.started_at || existing.created_at;
@@ -118,12 +151,15 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
       const result = await startInterview(
         setupForm.interviewType,
         setupForm.difficulty,
-        setupForm.companyFocus || null
+        setupForm.companyFocus || null,
+        interviewMode
       );
 
       setSessionId(result.session_id);
       persistActiveSession(result.session_id);
       setInterviewer(result.interviewer);
+      setInterviewMode(result.interviewMode || interviewMode);
+      setRuntimeConfig(result.runtime || null);
       setFinalFeedback(null);
       setMessages([
         {
@@ -158,7 +194,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
     setError(null);
 
     try {
-      const result = await submitInterviewResponse(sessionId, currentResponse);
+      const result = await submitInterviewResponse(sessionId, currentResponse, interviewMode);
 
       // Add interviewer response
       setMessages((prev) => {
@@ -181,6 +217,12 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
       // Update scores if provided
       if (result.current_scores) {
         setScores(result.current_scores);
+      }
+      if (result.interviewMode) {
+        setInterviewMode(result.interviewMode);
+      }
+      if (result.runtime) {
+        setRuntimeConfig(result.runtime);
       }
     } catch (err) {
       setError(err.message || 'Failed to submit response');
@@ -331,6 +373,29 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
             />
           </div>
 
+          <div className="mt-4 p-3 rounded-lg border border-indigo-200 bg-indigo-50">
+            <label className="block text-xs font-semibold text-indigo-900 mb-2">
+              Interview Runtime Mode
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {modeOptions.map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setInterviewMode(mode)}
+                  className={`p-2 rounded-lg border text-left transition ${
+                    interviewMode === mode
+                      ? 'border-indigo-600 bg-indigo-100 text-indigo-900'
+                      : 'border-indigo-200 bg-white text-indigo-800 hover:border-indigo-300'
+                  }`}
+                >
+                  <p className="text-sm font-semibold">{mode === 'full_realtime' ? 'Full Real-Time' : 'Hybrid Rollout'}</p>
+                  <p className="text-xs mt-1 opacity-80">{modeDescriptions[mode] || 'Mode description unavailable.'}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -348,9 +413,6 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         </form>
 
         <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-900 mb-2">
-            <strong>Coins:</strong> Each AI interview start costs 5 coins.
-          </p>
           <p className="text-sm text-blue-900">
             <strong>💡 Tip:</strong> The AI interviewer will ask you questions and evaluate your 
             responses based on technical knowledge, communication, and problem-solving skills.
@@ -377,10 +439,19 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
                 {calculateDuration()}
               </span>
               <span className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                Mode: {interviewMode === 'full_realtime' ? 'Full Real-Time' : 'Hybrid Rollout'}
+              </span>
+              <span className="flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />
                 Score: {scores?.overall || 'N/A'}/10
               </span>
             </div>
+            {runtimeConfig?.strategy && (
+              <p className="text-xs text-blue-100 mt-1">
+                Runtime: {runtimeConfig.strategy}
+              </p>
+            )}
           </div>
           <button
             onClick={handleCopyQuestion}

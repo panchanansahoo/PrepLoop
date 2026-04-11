@@ -106,7 +106,7 @@ export default function CoinDisplay() {
               <Sparkles size={14} /> Earn
             </div>
             <div className="coin-earn-tips">
-              <span>Solve coding problems for first-solve rewards.</span>
+              <span>Solve coding problems for +5 coin first-solve rewards.</span>
               <span>Visit daily to claim streak bonus coins.</span>
             </div>
             <div className="coin-links">

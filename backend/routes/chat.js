@@ -8,7 +8,8 @@ import { applyCoinTransaction } from '../utils/coinTransactions.js';
 const router = express.Router();
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const CHAT_QUERY_COST = Number(process.env.AI_CHAT_COIN_COST || 5);
+const parsedChatCost = Number(process.env.AI_CHAT_COIN_COST || 0);
+const CHAT_QUERY_COST = Number.isFinite(parsedChatCost) ? Math.max(0, parsedChatCost) : 0;
 
 const isSchemaMissingError = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -133,21 +134,23 @@ router.post('/message', authenticateToken, async (req, res) => {
     }
 
     let spendResult = { ok: true, newBalance: null };
-    try {
-      spendResult = await spendCoinsForChat(req.user.id, CHAT_QUERY_COST);
-      if (!spendResult.ok) {
-        return res.status(400).json({
-          error: 'Insufficient coins',
-          required: CHAT_QUERY_COST,
-          coins: spendResult.currentCoins,
-        });
-      }
-      didCharge = true;
-    } catch (error) {
-      if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
-        degraded = true;
-      } else {
-        throw error;
+    if (CHAT_QUERY_COST > 0) {
+      try {
+        spendResult = await spendCoinsForChat(req.user.id, CHAT_QUERY_COST);
+        if (!spendResult.ok) {
+          return res.status(400).json({
+            error: 'Insufficient coins',
+            required: CHAT_QUERY_COST,
+            coins: spendResult.currentCoins,
+          });
+        }
+        didCharge = true;
+      } catch (error) {
+        if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
+          degraded = true;
+        } else {
+          throw error;
+        }
       }
     }
 

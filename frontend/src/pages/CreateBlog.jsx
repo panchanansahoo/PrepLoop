@@ -22,6 +22,7 @@ export default function CreateBlog() {
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const navigate = useNavigate();
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     // Check backend connection
@@ -41,6 +42,7 @@ export default function CreateBlog() {
 
   const handlePublish = async () => {
     if (!user || user.isGuest) return alert("You must be logged in to post a blog.");
+    if (!isAdmin) return alert('Only admins can publish blog posts.');
     if (!title || !content || content === '<p></p>') return alert("Title and content are required");
 
     setSaving(true);
@@ -393,16 +395,16 @@ export default function CreateBlog() {
           <button
             className="btn btn-primary"
             onClick={handlePublish}
-            disabled={saving || !user || user.isGuest}
+            disabled={saving || !user || user.isGuest || !isAdmin}
             style={{
               height: '28px',
               fontSize: '13px',
               padding: '0 12px',
-              opacity: (!user || user.isGuest) ? 0.5 : 1,
-              cursor: (!user || user.isGuest) ? 'not-allowed' : 'pointer'
+              opacity: (!user || user.isGuest || !isAdmin) ? 0.5 : 1,
+              cursor: (!user || user.isGuest || !isAdmin) ? 'not-allowed' : 'pointer'
             }}
           >
-            {saving ? <Loader size={14} className="animate-spin" /> : 'Publish'}
+            {saving ? <Loader size={14} className="animate-spin" /> : (isAdmin ? 'Publish' : 'Admin Only')}
           </button>
         </div>
       </header>

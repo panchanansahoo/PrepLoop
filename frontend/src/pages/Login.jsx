@@ -269,6 +269,8 @@ export default function Login() {
       console.error("Login error:", err);
       if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
         setError('Unable to connect to the server. Please ensure the backend is running.');
+      } else if (err.response?.status === 403 && err.response?.data?.email) {
+        navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
       } else {
         setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
       }

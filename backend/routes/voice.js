@@ -31,14 +31,14 @@ router.get('/providers', (req, res) => {
 
 // ─── Unified Text-to-Speech ───
 router.post('/tts', optionalAuth, async (req, res) => {
-    const { text, persona, provider, language } = req.body;
+    const { text, persona, provider, language, gender } = req.body;
 
     if (!text || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
     }
 
     try {
-        const result = await voiceService.textToSpeech(text, persona || 'friendly', provider || null, language || 'en');
+        const result = await voiceService.textToSpeech(text, persona || 'friendly', provider || null, language || 'en', gender || 'female');
 
         if (result.fallback) {
             // Signal frontend to use browser TTS
@@ -49,6 +49,7 @@ router.post('/tts', optionalAuth, async (req, res) => {
             'Content-Type': result.contentType,
             'Content-Length': result.audio.length,
             'X-TTS-Provider': result.provider,
+            'X-TTS-Voice': result.voice || '',
             'Cache-Control': 'no-cache',
         });
         res.send(result.audio);

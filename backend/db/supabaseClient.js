@@ -10,6 +10,11 @@ if (!supabaseUrl || !supabaseAnonKey) {
   process.exit(1);
 }
 
+if (process.env.NODE_ENV === 'production' && !supabaseServiceKey) {
+  console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY in production');
+  process.exit(1);
+}
+
 // Public client (respects RLS)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

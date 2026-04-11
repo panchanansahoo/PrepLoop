@@ -238,8 +238,8 @@ export function AuthProvider({ children }) {
       localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
     }
-    setUser(user);
 
     return user;
   };

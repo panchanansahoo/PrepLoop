@@ -1,12 +1,36 @@
 import React from 'react';
-import { ChevronRight, ChevronDown, BookOpen, Play, Star, Crown } from 'lucide-react';
+import { ChevronRight, ChevronDown, BookOpen, Play, Star, Crown, Layers, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { SubPatternList } from './SubPatternList';
 
+// Category-specific accent colors for visual differentiation
+const CATEGORY_ACCENTS = [
+    { from: '#6ee7b7', to: '#34d399', dot: '#6ee7b7' },   // Array - emerald
+    { from: '#67e8f9', to: '#22d3ee', dot: '#67e8f9' },   // String - cyan
+    { from: '#c084fc', to: '#a78bfa', dot: '#c084fc' },   // Hash map - violet
+    { from: '#fb923c', to: '#f97316', dot: '#fb923c' },   // Stack - orange
+    { from: '#f472b6', to: '#ec4899', dot: '#f472b6' },   // Queue - pink
+    { from: '#60a5fa', to: '#3b82f6', dot: '#60a5fa' },   // Linked List - blue
+    { from: '#a3e635', to: '#84cc16', dot: '#a3e635' },   // Tree - lime
+    { from: '#fbbf24', to: '#f59e0b', dot: '#fbbf24' },   // Recursion - amber
+    { from: '#818cf8', to: '#6366f1', dot: '#818cf8' },   // Heap - indigo
+    { from: '#2dd4bf', to: '#14b8a6', dot: '#2dd4bf' },   // Graphs - teal
+    { from: '#e879f9', to: '#d946ef', dot: '#e879f9' },   // Trie - fuchsia
+    { from: '#fb7185', to: '#f43f5e', dot: '#fb7185' },   // DP - rose
+    { from: '#38bdf8', to: '#0ea5e9', dot: '#38bdf8' },   // Binary Search - sky
+    { from: '#a78bfa', to: '#8b5cf6', dot: '#a78bfa' },   // Greedy - purple
+    { from: '#fca5a5', to: '#ef4444', dot: '#fca5a5' },   // Backtracking - red
+    { from: '#86efac', to: '#4ade80', dot: '#86efac' },   // Bit Manipulation - green
+    { from: '#fdba74', to: '#f97316', dot: '#fdba74' },   // Math - amber
+    { from: '#93c5fd', to: '#60a5fa', dot: '#93c5fd' },   // Intervals - blue
+    { from: '#d8b4fe', to: '#c084fc', dot: '#d8b4fe' },   // Segment Tree - violet
+    { from: '#fde68a', to: '#fbbf24', dot: '#fde68a' },   // Union Find - yellow
+];
+
 /**
- * PatternCategoryItem — Clean, flat category accordion.
- * Redesigned to match a minimal, scannable layout:
- *   Category header → flat sub-pattern rows (no group headers).
+ * PatternCategoryItem — Premium card-style category accordion.
+ * Redesigned with glassmorphism, gradient accents, progress rings,
+ * and difficulty distribution indicators.
  */
 export function PatternCategoryItem({
     category,
@@ -31,9 +55,9 @@ export function PatternCategoryItem({
 }) {
     const isCatExpanded = !!expandedCategories[category.id];
     const isComplete = totalProblems > 0 && attemptedProblems === totalProblems;
+    const gc = CATEGORY_ACCENTS[catIdx % CATEGORY_ACCENTS.length];
 
-    // ── Filter: hide category if search/difficulty filters yield no matches ──
-    // Count non-empty sub-patterns early (needed for both filter and display)
+    // Count non-empty sub-patterns
     const nonEmptyPatternCount = catPatterns.filter(p => (p.problems || []).length > 0).length;
 
     // Hide categories with zero non-empty patterns (and no extra problems) when idle
@@ -46,19 +70,15 @@ export function PatternCategoryItem({
             if (
                 pat.name.toLowerCase().includes(search.toLowerCase()) ||
                 category.name.toLowerCase().includes(search.toLowerCase())
-            )
-                return true;
+            ) return true;
             return (pat.problems || []).some((pr) => {
                 if (
                     search &&
                     !pr.title.toLowerCase().includes(search.toLowerCase()) &&
                     !pat.name.toLowerCase().includes(search.toLowerCase()) &&
                     !category.name.toLowerCase().includes(search.toLowerCase())
-                ) {
-                    return false;
-                }
-                if (selectedDifficulties.length > 0 && !selectedDifficulties.includes(pr.difficulty))
-                    return false;
+                ) return false;
+                if (selectedDifficulties.length > 0 && !selectedDifficulties.includes(pr.difficulty)) return false;
                 return true;
             });
         });
@@ -67,23 +87,44 @@ export function PatternCategoryItem({
                 search &&
                 !p.title.toLowerCase().includes(search.toLowerCase()) &&
                 !category.name.toLowerCase().includes(search.toLowerCase())
-            )
-                return false;
-            if (selectedDifficulties.length > 0 && !selectedDifficulties.includes(p.difficulty))
-                return false;
+            ) return false;
+            if (selectedDifficulties.length > 0 && !selectedDifficulties.includes(p.difficulty)) return false;
             return true;
         });
         if (!anyDsaMatch && !anyExtraMatch) return null;
     }
 
-    // ── Build flat list of all sub-patterns (no grouping) ──
+    // Build flat list of all sub-patterns (no grouping)
     const allEntries = catPatterns.map((pattern) => ({
         pattern,
         leafLabel: pattern.name,
     }));
 
+    // Progress calculation
+    const pct = totalProblems > 0 ? (attemptedProblems / totalProblems) * 100 : 0;
+
+    // Difficulty distribution
+    const allProblemsInCategory = [];
+    catPatterns.forEach(p => {
+        (p.problems || []).forEach(pr => allProblemsInCategory.push(pr));
+    });
+    extraProblems?.forEach(pr => allProblemsInCategory.push(pr));
+    const easyCount = allProblemsInCategory.filter(p => p.difficulty === 'Easy').length;
+    const medCount = allProblemsInCategory.filter(p => p.difficulty === 'Medium').length;
+    const hardCount = allProblemsInCategory.filter(p => p.difficulty === 'Hard').length;
+
+    // Mini ring
+    const R = 15, SW = 3, C = 2 * Math.PI * R;
+    const ringOffset = C * (1 - pct / 100);
+
     return (
-        <div key={category.id}>
+        <div
+            key={category.id}
+            style={{
+                marginBottom: isCatExpanded ? 2 : 0,
+                transition: 'margin 0.3s ease',
+            }}
+        >
             {/* ── Category header row ── */}
             <div
                 onClick={() =>
@@ -92,35 +133,49 @@ export function PatternCategoryItem({
                 style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 12,
-                    padding: '13px 20px',
+                    gap: 14,
+                    padding: '16px 24px',
                     background: isCatExpanded
-                        ? isLight ? 'rgba(0,0,0,0.018)' : 'rgba(255,255,255,0.025)'
+                        ? isLight ? `linear-gradient(135deg, ${gc.from}06, transparent)` : `linear-gradient(135deg, ${gc.from}08, transparent)`
                         : 'transparent',
                     borderBottom: isLight
-                        ? '1px solid rgba(0,0,0,0.06)'
-                        : '1px solid rgba(255,255,255,0.04)',
+                        ? '1px solid rgba(0,0,0,0.04)'
+                        : '1px solid rgba(255,255,255,0.03)',
                     cursor: 'pointer',
-                    transition: 'background 0.2s ease',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     userSelect: 'none',
+                    position: 'relative',
+                    overflow: 'hidden',
                 }}
                 onMouseEnter={(e) => {
                     if (!isCatExpanded) {
                         e.currentTarget.style.background = isLight
-                            ? 'rgba(0,0,0,0.012)'
-                            : 'rgba(255,255,255,0.018)';
+                            ? `linear-gradient(135deg, ${gc.from}08, transparent)`
+                            : `linear-gradient(135deg, ${gc.from}0a, transparent)`;
                     }
+                    e.currentTarget.style.paddingLeft = '28px';
                 }}
                 onMouseLeave={(e) => {
                     e.currentTarget.style.background = isCatExpanded
-                        ? isLight ? 'rgba(0,0,0,0.018)' : 'rgba(255,255,255,0.025)'
+                        ? isLight ? `linear-gradient(135deg, ${gc.from}06, transparent)` : `linear-gradient(135deg, ${gc.from}08, transparent)`
                         : 'transparent';
+                    e.currentTarget.style.paddingLeft = '24px';
                 }}
             >
+                {/* Expanded accent bar */}
+                {isCatExpanded && (
+                    <div style={{
+                        position: 'absolute', left: 0, top: 0, bottom: 0, width: 3,
+                        background: `linear-gradient(180deg, ${gc.from}, ${gc.to})`,
+                        boxShadow: `0 0 12px ${gc.from}40`,
+                        borderRadius: '0 2px 2px 0',
+                    }} />
+                )}
+
                 {/* Chevron */}
                 <div
                     style={{
-                        transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         transform: isCatExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
                         flexShrink: 0,
                         display: 'flex',
@@ -128,24 +183,27 @@ export function PatternCategoryItem({
                     }}
                 >
                     <ChevronRight
-                        size={16}
-                        color={isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)'}
+                        size={15}
+                        color={isCatExpanded ? gc.dot : isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'}
                     />
                 </div>
 
-                {/* Roman numeral badge */}
+                {/* Roman numeral badge with category accent */}
                 <div
                     style={{
-                        minWidth: 26,
-                        height: 22,
-                        borderRadius: 6,
+                        minWidth: 30,
+                        height: 24,
+                        borderRadius: 7,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)',
+                        background: isLight
+                            ? `linear-gradient(135deg, ${gc.from}12, ${gc.to}08)`
+                            : `linear-gradient(135deg, ${gc.from}18, ${gc.to}0c)`,
+                        border: `1px solid ${gc.from}25`,
                         fontSize: 10,
                         fontWeight: 800,
-                        color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)',
+                        color: gc.dot,
                         letterSpacing: 0.5,
                         padding: '0 6px',
                         flexShrink: 0,
@@ -158,64 +216,110 @@ export function PatternCategoryItem({
                 <span
                     style={{
                         flex: 1,
-                        fontSize: 14.5,
+                        fontSize: 15,
                         fontWeight: 700,
-                        color: isLight ? '#1e293b' : '#f1f5f9',
-                        letterSpacing: '-0.01em',
+                        color: isLight ? '#0f172a' : '#f1f5f9',
+                        letterSpacing: '-0.02em',
                         lineHeight: 1.3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
                     }}
                 >
                     {category.name}
                     {isComplete && (
                         <Crown
-                            size={13}
+                            size={14}
                             color="#6ee7b7"
+                            fill="#6ee7b7"
                             style={{
-                                marginLeft: 8,
-                                verticalAlign: 'middle',
-                                filter: 'drop-shadow(0 0 4px rgba(110,231,183,0.4))',
+                                filter: 'drop-shadow(0 0 6px rgba(110,231,183,0.5))',
                             }}
                         />
                     )}
                 </span>
 
-                {/* Right: pattern count + attempted */}
-                <div
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        flexShrink: 0,
-                    }}
-                >
+                {/* Progress ring + Difficulty distribution + Stats */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexShrink: 0 }}>
+                    {/* Difficulty mini dots */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {easyCount > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <div style={{
+                                    width: 7, height: 7, borderRadius: '50%',
+                                    background: '#6ee7b7',
+                                    boxShadow: '0 0 4px rgba(110,231,183,0.3)',
+                                }} />
+                                <span style={{ fontSize: 10, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)' }}>
+                                    {easyCount}
+                                </span>
+                            </div>
+                        )}
+                        {medCount > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <div style={{
+                                    width: 7, height: 7, borderRadius: '50%',
+                                    background: '#fbbf24',
+                                    boxShadow: '0 0 4px rgba(251,191,36,0.3)',
+                                }} />
+                                <span style={{ fontSize: 10, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)' }}>
+                                    {medCount}
+                                </span>
+                            </div>
+                        )}
+                        {hardCount > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <div style={{
+                                    width: 7, height: 7, borderRadius: '50%',
+                                    background: '#f87171',
+                                    boxShadow: '0 0 4px rgba(248,113,113,0.3)',
+                                }} />
+                                <span style={{ fontSize: 10, fontWeight: 600, color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)' }}>
+                                    {hardCount}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Pattern count */}
                     <span
                         style={{
-                            fontSize: 12,
+                            fontSize: 11.5,
                             fontWeight: 600,
-                            color: isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)',
+                            color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
                         }}
                     >
-                        {nonEmptyPatternCount} {nonEmptyPatternCount === 1 ? 'pattern' : 'patterns'}
+                        <Layers size={11} style={{ opacity: 0.5 }} />
+                        {nonEmptyPatternCount}
                     </span>
-                    <span
-                        style={{
-                            fontSize: 11,
-                            color: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)',
-                        }}
-                    >
-                        ·
-                    </span>
-                    <span
-                        style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: attemptedProblems > 0
-                                ? '#6ee7b7'
-                                : isLight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)',
-                        }}
-                    >
-                        {attemptedProblems} attempted
-                    </span>
+
+                    {/* Mini progress ring */}
+                    <div style={{ position: 'relative', width: 36, height: 36, flexShrink: 0 }}>
+                        <svg width="36" height="36" viewBox="0 0 36 36" style={{ transform: 'rotate(-90deg)' }}>
+                            <circle cx="18" cy="18" r={R} stroke={isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.06)'} strokeWidth={SW} fill="none" />
+                            <circle cx="18" cy="18" r={R} stroke={gc.dot} strokeWidth={SW} fill="none"
+                                strokeDasharray={C} strokeDashoffset={ringOffset} strokeLinecap="round"
+                                style={{
+                                    transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)',
+                                    filter: `drop-shadow(0 0 3px ${gc.from}30)`,
+                                }}
+                            />
+                        </svg>
+                        <div style={{
+                            position: 'absolute', inset: 0, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <span style={{
+                                fontSize: 9, fontWeight: 800,
+                                color: attemptedProblems > 0 ? gc.dot : isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)',
+                            }}>
+                                {attemptedProblems}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -249,6 +353,7 @@ export function PatternCategoryItem({
                     search={search}
                     selectedDifficulties={selectedDifficulties}
                     onSolveProblem={onSolveProblem}
+                    gc={gc}
                 />
             )}
         </div>
@@ -270,6 +375,7 @@ function ExtraProblemsSection({
     search,
     selectedDifficulties,
     onSolveProblem,
+    gc,
 }) {
     const extraKey = `${category.id}__extra`;
     const isExtraExpanded = !!expandedSubPatterns[extraKey];

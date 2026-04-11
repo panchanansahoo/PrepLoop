@@ -48,6 +48,8 @@ const INTERVIEW_MODEL_CONFIG = {
   max_tokens: 1500,
 };
 
+const INTERVIEW_RUNTIME_MODES = ['hybrid_rollout', 'full_realtime'];
+
 /**
  * Feature 1: AI Code Review Service
  * Analyzes submitted code and provides detailed feedback
@@ -335,6 +337,62 @@ Please provide your analysis in the following JSON format (return ONLY valid JSO
  * Conducts realistic technical interviews with follow-ups and scoring
  */
 export class InterviewSimulatorService {
+  static _normalizeInterviewMode(mode) {
+    const normalized = String(mode || '').trim().toLowerCase();
+    if (INTERVIEW_RUNTIME_MODES.includes(normalized)) {
+      return normalized;
+    }
+
+    const envMode = String(process.env.AI_INTERVIEW_MODE || '').trim().toLowerCase();
+    if (INTERVIEW_RUNTIME_MODES.includes(envMode)) {
+      return envMode;
+    }
+
+    return 'hybrid_rollout';
+  }
+
+  static _buildInterviewRuntime(mode) {
+    if (mode === 'full_realtime') {
+      return {
+        mode,
+        realtime: true,
+        strategy: 'pipecat_realtime',
+        transport: 'websocket',
+        bargeInEnabled: true,
+        fallbackToBatch: false,
+        targetFirstAudioMs: 800,
+      };
+    }
+
+    return {
+      mode: 'hybrid_rollout',
+      realtime: false,
+      strategy: 'http_pipeline_with_realtime_bridge',
+      transport: 'http',
+      bargeInEnabled: false,
+      fallbackToBatch: true,
+      targetFirstAudioMs: 1500,
+    };
+  }
+
+  static _compressForRealtimeVoice(message, mode) {
+    if (mode !== 'full_realtime') {
+      return message;
+    }
+
+    const normalizedMessage = String(message || '').replace(/\s+/g, ' ').trim();
+    if (!normalizedMessage) {
+      return 'Good progress. Briefly explain your complexity and one edge case.';
+    }
+
+    const tokens = normalizedMessage.split(' ');
+    if (tokens.length <= 24) {
+      return normalizedMessage;
+    }
+
+    return `${tokens.slice(0, 24).join(' ')}...`;
+  }
+
   static async getInterviewSession(sessionId, userId) {
     const virtualSession = virtualInterviewSessions.get(sessionId);
     if (virtualSession && virtualSession.user_id === userId) {
@@ -355,13 +413,24 @@ export class InterviewSimulatorService {
     throw new Error('Interview session not found');
   }
 
-  static async initializeInterview(userId, interviewType = 'dsa', difficulty = 'medium', companyFocus = null, requestId = null) {
+  static async initializeInterview(
+    userId,
+    interviewType = 'dsa',
+    difficulty = 'medium',
+    companyFocus = null,
+    requestId = null,
+    interviewMode = null
+  ) {
     try {
+      const normalizedMode = this._normalizeInterviewMode(interviewMode);
+      const runtime = this._buildInterviewRuntime(normalizedMode);
+
       logger.info('Interview session initialized', {
         userId,
         interviewType,
         difficulty,
         companyFocus,
+        interviewMode: normalizedMode,
         requestId
       });
 
@@ -446,6 +515,10 @@ export class InterviewSimulatorService {
           questions_asked: 0,
           follow_ups_count: 0,
           candidate_got_stuck: false,
+          interview_context: {
+            mode: normalizedMode,
+            runtime,
+          },
           status: 'in_progress',
           started_at: new Date().toISOString(),
           created_at: new Date().toISOString(),
@@ -477,6 +550,11 @@ export class InterviewSimulatorService {
         sessionData.problem_statement = problem.statement;
         sessionData.initial_requirements = problem.requirements;
         sessionData.problem_id = problem.problem_id;
+        sessionData.interview_context = {
+          ...(sessionData.interview_context || {}),
+          mode: normalizedMode,
+          runtime,
+        };
         virtualInterviewSessions.set(sessionData.id, sessionData);
         updatedSession = sessionData;
       }
@@ -493,6 +571,8 @@ export class InterviewSimulatorService {
           statement: problem.statement,
           requirements: problem.requirements
         },
+        interviewMode: normalizedMode,
+        runtime,
         initialQuestion: this._composeInitialInterviewQuestion(problem, interviewType, difficulty, companyFocus),
         interviewerGreeting: this._generateInterviewerGreeting(interviewType, companyFocus)
       };
@@ -508,7 +588,7 @@ export class InterviewSimulatorService {
     }
   }
 
-  static async processInterviewResponse(sessionId, userId, candidateResponse, requestId = null) {
+  static async processInterviewResponse(sessionId, userId, candidateResponse, requestId = null, interviewMode = null) {
     const startTime = Date.now();
     
     try {
@@ -522,6 +602,8 @@ export class InterviewSimulatorService {
       // Get current session
       const session = await this.getInterviewSession(sessionId, userId);
       const currentContext = session.interview_context || {};
+      const normalizedMode = this._normalizeInterviewMode(interviewMode || currentContext.mode);
+      const runtime = this._buildInterviewRuntime(normalizedMode);
       const responseSignals = this._extractResponseSignals(candidateResponse);
       const mergedMissingAreas = Array.from(
         new Set([
@@ -534,6 +616,8 @@ export class InterviewSimulatorService {
 
       const interviewContext = {
         ...currentContext,
+        mode: normalizedMode,
+        runtime,
         turns: (currentContext.turns || 0) + 1,
         lastCandidateSummary: candidateResponse.slice(0, 220),
         lastSignals: responseSignals,
@@ -558,7 +642,8 @@ export class InterviewSimulatorService {
           session.transcript || [],
           candidateResponse,
           session.interview_type,
-          interviewContext
+          interviewContext,
+          normalizedMode
         );
       } catch (error) {
         logger.warn('Falling back to local interviewer follow-up', {
@@ -576,6 +661,7 @@ export class InterviewSimulatorService {
           continueInterview: true,
         };
       }
+      followUp.message = this._compressForRealtimeVoice(followUp.message, normalizedMode);
 
       // Add interviewer response to transcript
       updatedTranscript.push({
@@ -674,6 +760,8 @@ export class InterviewSimulatorService {
         hints: followUp.hints,
         encouragement: followUp.encouragement,
         continueInterview: followUp.continueInterview,
+        interviewMode: normalizedMode,
+        runtime,
         current_scores: currentScores,
         adaptive_update: adaptiveUpdate,
       };
@@ -838,7 +926,14 @@ export class InterviewSimulatorService {
     };
   }
 
-  static async _generateInterviewerFollowUp(problemStatement, transcript, candidateResponse, interviewType, interviewContext = {}) {
+  static async _generateInterviewerFollowUp(
+    problemStatement,
+    transcript,
+    candidateResponse,
+    interviewType,
+    interviewContext = {},
+    interviewMode = 'hybrid_rollout'
+  ) {
     const missingAreas = (interviewContext.missingAreas || []).slice(0, 3);
     const prompt = `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
 
@@ -850,12 +945,14 @@ ${transcript.slice(-4).map(t => `${t.role}: ${t.text}`).join('\n')}
 
 INTERVIEW CONTEXT:
 - Type: ${interviewType}
+- Runtime mode: ${interviewMode}
 - Turns completed: ${interviewContext.turns || 0}
 - Candidate likely missing: ${missingAreas.join(', ') || 'none'}
 - Last candidate summary: ${interviewContext.lastCandidateSummary || 'n/a'}
 
 VOICE AND STYLE RULES:
 - Keep the interviewer message concise: 1-2 sentences, max 38 words.
+- If runtime mode is full_realtime, target <= 24 words and avoid long preambles.
 - Sound human, direct, and calm. Avoid robotic phrases.
 - Ask exactly one primary question per turn.
 - If needed, add one brief coaching cue, not a full explanation.

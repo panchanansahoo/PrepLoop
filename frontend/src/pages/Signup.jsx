@@ -245,8 +245,12 @@ export default function Signup() {
       return;
     }
     try {
-      await signup(email, password, fullName);
-      navigate('/dashboard');
+      const user = await signup(email, password, fullName);
+      if (user && user.emailVerified === false) {
+        navigate(`/check-email?email=${encodeURIComponent(email)}`);
+      } else {
+        navigate('/login');
+      }
     } catch (err) {
       console.error("Signup error:", err);
       if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {

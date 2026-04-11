@@ -46,11 +46,14 @@ export default function InterviewStart({ onStartInterview }) {
       }
 
       const data = await response.json();
+      const questions = Array.isArray(data.questions) ? data.questions : [];
+      const firstQuestion = data.firstQuestion || data.question || questions[0] || null;
       onStartInterview({
         type: selectedType,
         difficulty: selectedDifficulty,
         duration,
-        questions: data.questions || []
+        questions: questions.length > 0 ? questions : firstQuestion ? [firstQuestion] : [],
+        firstQuestion,
       });
     } catch (err) {
       setError(err.message);

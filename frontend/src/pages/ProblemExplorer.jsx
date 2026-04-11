@@ -20,6 +20,8 @@ import { ProblemExplorerPatternView } from '../features/problemExplorer/ProblemE
 import { ProblemExplorerNotesModal } from '../features/problemExplorer/ProblemExplorerNotesModal';
 import { ProblemExplorerSearchToolbar } from '../features/problemExplorer/ProblemExplorerSearchToolbar';
 import { ProblemExplorerInsightsPanels } from '../features/problemExplorer/ProblemExplorerInsightsPanels';
+import { ProblemExplorerLeaderboard } from '../features/problemExplorer/ProblemExplorerLeaderboard';
+import { ProblemSolvingOverview } from '../features/problemExplorer/ProblemSolvingOverview';
 import { PATTERN_CATEGORIES } from '../data/problemExplorerConfig';
 import { useDsaPatterns } from '../hooks/useDsaPatterns';
 
@@ -413,6 +415,15 @@ export default function ProblemExplorer() {
     const solvedCount = solvedSet.size;
     const totalCount = PROBLEMS.length;
     const progressPercent = totalCount > 0 ? Math.round((solvedCount / totalCount) * 100) : 0;
+
+    // Solved by difficulty for hero section
+    const solvedByDifficulty = useMemo(() => {
+        const counts = { Easy: 0, Medium: 0, Hard: 0 };
+        PROBLEMS.forEach(p => {
+            if (solvedSet.has(p.id)) counts[p.difficulty]++;
+        });
+        return counts;
+    }, [solvedSet]);
     const solvedInFiltered = filteredProblems.filter(p => solvedSet.has(p.id)).length;
 
     // Recently viewed problems
@@ -421,14 +432,26 @@ export default function ProblemExplorer() {
     }, [recentlyViewed]);
 
     return (
-        <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#0a0a0a] text-white'} selection:bg-purple-500/30`} style={{ scrollBehavior: 'smooth' }}>
-            <div className="fixed inset-0 pointer-events-none" style={{ background: isLight ? 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.06), transparent 70%)' : 'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(139,92,246,0.10), transparent 70%)' }} />
+        <div className={`min-h-screen ${isLight ? 'bg-slate-50 text-slate-900' : 'bg-[#06060a] text-white'} selection:bg-purple-500/30`} style={{ scrollBehavior: 'smooth', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+            {/* Multi-layer ambient background */}
+            <div className="fixed inset-0 pointer-events-none" style={{
+                background: isLight
+                    ? 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(139,92,246,0.06), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 20%, rgba(59,130,246,0.04), transparent 50%)'
+                    : 'radial-gradient(ellipse 80% 50% at 50% -5%, rgba(139,92,246,0.12), transparent 60%), radial-gradient(ellipse 60% 40% at 80% 20%, rgba(59,130,246,0.06), transparent 50%), radial-gradient(ellipse 50% 30% at 20% 80%, rgba(52,211,153,0.04), transparent 50%)'
+            }} />
+            {/* Subtle grid pattern */}
+            <div className="fixed inset-0 pointer-events-none" style={{
+                backgroundImage: isLight ? 'none' : `linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px)`,
+                backgroundSize: '60px 60px',
+            }} />
             <style>{`
                 @keyframes shimmer-border { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-                @keyframes pulse-glow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
-                @keyframes fade-up-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes pulse-glow { 0%, 100% { opacity: 0.6; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } }
+                @keyframes fade-up-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
                 @keyframes spin-loader { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
                 @keyframes skeleton-pulse { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.08; } }
+                @keyframes gradient-shift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+                @keyframes float-gentle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
             `}</style>
 
             <ProblemExplorerNotesModal
@@ -443,167 +466,182 @@ export default function ProblemExplorer() {
 
             <div className="max-w-7xl mx-auto px-6 py-8 pt-24 relative z-10">
                 {/* Header */}
-                <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{
+                    marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    animation: 'fade-up-in 0.4s ease both',
+                }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
                         <h1 style={{
-                            fontSize: 32, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1, margin: 0,
-                            background: 'linear-gradient(135deg, #c084fc, #a78bfa, #67e8f9, #6ee7b7)',
+                            fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1, margin: 0,
+                            background: 'linear-gradient(135deg, #c084fc 0%, #818cf8 30%, #38bdf8 60%, #34d399 100%)',
+                            backgroundSize: '200% 100%',
+                            animation: 'gradient-shift 6s ease infinite',
                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-                            textShadow: 'none',
                         }}>Problem Explorer</h1>
-                        <p style={{ color: isLight ? '#64748b' : 'rgba(255,255,255,0.35)', fontSize: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#6ee7b7', animation: 'pulse-glow 2s ease-in-out infinite', boxShadow: '0 0 8px rgba(110,231,183,0.4)' }} />
-                            {PROBLEMS.length} original problems • {TOPICS.length} topics • {COMPANIES.length} companies
+                        <p style={{
+                            color: isLight ? '#64748b' : 'rgba(255,255,255,0.35)', fontSize: 13,
+                            display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontWeight: 500,
+                        }}>
+                            <span style={{
+                                display: 'inline-block', width: 6, height: 6, borderRadius: '50%',
+                                background: '#34d399', animation: 'pulse-glow 2s ease-in-out infinite',
+                                boxShadow: '0 0 8px rgba(52,211,153,0.5)',
+                            }} />
+                            <span>{PROBLEMS.length} problems</span>
+                            <span style={{ color: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)' }}>•</span>
+                            <span>{TOPICS.length} topics</span>
+                            <span style={{ color: isLight ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)' }}>•</span>
+                            <span>{COMPANIES.length} companies</span>
                         </p>
                     </div>
-                    <button onClick={pickRandom} style={{
-                        display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 12,
-                        background: isLight ? 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(110,231,183,0.08))' : 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(110,231,183,0.1))',
-                        border: isLight ? '1px solid rgba(139,92,246,0.3)' : '1px solid rgba(139,92,246,0.25)', color: isLight ? '#7c3aed' : '#e9d5ff',
-                        cursor: 'pointer', fontWeight: 700, fontSize: 13, transition: 'all 0.3s ease',
-                        boxShadow: '0 0 15px rgba(139,92,246,0.08)',
-                    }}
-                        onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.25), rgba(110,231,183,0.15))'; e.currentTarget.style.transform = 'translateY(-2px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(139,92,246,0.2)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(110,231,183,0.1))'; e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 0 15px rgba(139,92,246,0.08)'; }}
-                    >
-                        <Shuffle size={16} />
-                        Surprise Me
-                    </button>
+                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        <button onClick={pickRandom} style={{
+                            display: 'flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 14,
+                            background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))',
+                            border: '1px solid rgba(139,92,246,0.2)', color: isLight ? '#7c3aed' : '#e9d5ff',
+                            cursor: 'pointer', fontWeight: 700, fontSize: 13, transition: 'all 0.3s ease',
+                            boxShadow: '0 4px 16px rgba(139,92,246,0.06)',
+                            letterSpacing: '-0.01em',
+                        }}
+                            onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.22), rgba(99,102,241,0.15))'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(139,92,246,0.18)'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(139,92,246,0.06)'; }}
+                        >
+                            <Shuffle size={15} />
+                            Surprise Me
+                        </button>
+                    </div>
                 </div>
 
-                {/* Stats Bar */}
-                <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {DIFFICULTIES.map(d => (
-                        <div key={d} style={{
-                            padding: '8px 14px', borderRadius: 12,
-                            background: `${diffColor(d)}08`, border: `1px solid ${diffColor(d)}20`,
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                            boxShadow: `0 0 12px ${diffColor(d)}08, inset 0 1px 0 rgba(255,255,255,0.04)`,
-                            transition: 'all 0.25s ease', cursor: 'default',
-                        }}
-                            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = `0 4px 20px ${diffColor(d)}15, inset 0 1px 0 rgba(255,255,255,0.06)`; }}
-                            onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 0 12px ${diffColor(d)}08, inset 0 1px 0 rgba(255,255,255,0.04)`; }}
-                        >
-                            <div style={{ width: 8, height: 8, borderRadius: '50%', background: diffColor(d), boxShadow: `0 0 6px ${diffColor(d)}60` }} />
-                            <span style={{ fontSize: 13, color: diffColor(d), fontWeight: 700 }}>{diffCounts[d]}</span>
-                            <span style={{ fontSize: 12, color: isLight ? '#475569' : 'rgba(255,255,255,0.4)' }}>{d}</span>
-                        </div>
-                    ))}
-
-                    {/* Progress Ring */}
-                    <div style={{
-                        padding: '8px 14px', borderRadius: 12,
-                        background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)',
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                        boxShadow: '0 0 12px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04)',
-                        transition: 'all 0.25s ease',
-                    }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,92,246,0.15), inset 0 1px 0 rgba(255,255,255,0.06)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 0 12px rgba(139,92,246,0.08), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
+                {/* ══════════ HERO: Problem Solving Overview ══════════ */}
+                <div style={{
+                    display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16,
+                    marginBottom: 20, animation: 'fade-up-in 0.5s ease both',
+                }}>
+                    <ProblemSolvingOverview
+                        solvedSet={solvedSet}
+                        totalCount={totalCount}
+                        diffCounts={diffCounts}
+                        streak={streak}
+                        isLight={isLight}
+                        solvedByDifficulty={solvedByDifficulty}
                     >
-                        <div style={{ position: 'relative', width: 28, height: 28 }}>
-                            <svg width="28" height="28" viewBox="0 0 28 28" style={{ transform: 'rotate(-90deg)' }}>
-                                <circle cx="14" cy="14" r="11" stroke={isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'} strokeWidth="3" fill="none" />
-                                <circle cx="14" cy="14" r="11" stroke="url(#progressGrad)" strokeWidth="3" fill="none"
-                                    strokeDasharray={`${2 * Math.PI * 11}`}
-                                    strokeDashoffset={`${2 * Math.PI * 11 * (1 - progressPercent / 100)}`}
-                                    strokeLinecap="round" style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1)', filter: 'drop-shadow(0 0 3px rgba(167,139,250,0.4))' }} />
-                                <defs><linearGradient id="progressGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#a78bfa" /><stop offset="100%" stopColor="#6ee7b7" /></linearGradient></defs>
-                            </svg>
-                            <span style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, fontWeight: 800, color: '#a78bfa' }}>
-                                {progressPercent}%
-                            </span>
-                        </div>
-                        <div>
-                            <span style={{ fontSize: 13, color: '#a78bfa', fontWeight: 700 }}>{solvedCount}</span>
-                            <span style={{ fontSize: 12, color: isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>/{totalCount}</span>
-                        </div>
-                    </div>
+                        <ProblemExplorerLeaderboard isLight={isLight} />
+                    </ProblemSolvingOverview>
+                </div>
 
+                {/* ══════════ Quick Actions Toolbar ══════════ */}
+                <div style={{
+                    display: 'flex', gap: 8, marginBottom: 18, flexWrap: 'wrap', alignItems: 'center',
+                    animation: 'fade-up-in 0.5s ease 0.15s both',
+                    padding: '10px 16px', borderRadius: 14,
+                    background: isLight
+                        ? 'linear-gradient(135deg, rgba(255,255,255,0.5), rgba(248,250,252,0.7))'
+                        : 'linear-gradient(135deg, rgba(15,15,25,0.4), rgba(20,20,35,0.25))',
+                    border: isLight ? '1px solid rgba(0,0,0,0.04)' : '1px solid rgba(255,255,255,0.03)',
+                    backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+                }}>
                     {/* Bookmarks Toggle */}
                     <button onClick={() => setShowBookmarksOnly(b => !b)} style={{
-                        padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
+                        padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
                         background: showBookmarksOnly ? 'rgba(251,191,36,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                        border: showBookmarksOnly ? '1px solid rgba(251,191,36,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 6,
+                        border: showBookmarksOnly ? '1px solid rgba(251,191,36,0.25)' : isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.05)',
+                        display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.25s ease',
                     }}>
                         <Bookmark size={14} color={showBookmarksOnly ? '#fbbf24' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} fill={showBookmarksOnly ? '#fbbf24' : 'none'} />
-                        <span style={{ fontSize: 13, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#475569' : 'rgba(255,255,255,0.4)', fontWeight: 700 }}>{bookmarks.size}</span>
-                        <span style={{ fontSize: 12, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Saved</span>
+                        <span style={{ fontSize: 12, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#475569' : 'rgba(255,255,255,0.4)', fontWeight: 700 }}>{bookmarks.size}</span>
+                        <span style={{ fontSize: 11, color: showBookmarksOnly ? '#fbbf24' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.25)', fontWeight: 500 }}>Saved</span>
                     </button>
-
-                    {/* Streak Badge */}
-                    <div style={{
-                        padding: '8px 14px', borderRadius: 10,
-                        background: streak > 0 ? 'rgba(251,146,60,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                        border: streak > 0 ? '1px solid rgba(251,146,60,0.25)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                    }}>
-                        <Flame size={14} color={streak > 0 ? '#fb923c' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)'} />
-                        <span style={{ fontSize: 13, fontWeight: 700, color: streak > 0 ? '#fb923c' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)' }}>{streak}</span>
-                        <span style={{ fontSize: 11, color: streak > 0 ? 'rgba(251,146,60,0.7)' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.25)' }}>Streak</span>
-                    </div>
 
                     {/* Weekly Goal */}
                     <div onClick={() => setShowGoalEdit(g => !g)} style={{
-                        padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                        background: 'rgba(103,232,249,0.06)', border: '1px solid rgba(103,232,249,0.15)',
-                        display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
+                        padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+                        background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.12)',
+                        display: 'flex', alignItems: 'center', gap: 8, position: 'relative', transition: 'all 0.25s ease',
                     }}>
-                        <Target size={14} color='#67e8f9' />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontSize: 10, color: 'rgba(103,232,249,0.7)' }}>Week Goal</span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <div style={{ width: 50, height: 4, borderRadius: 2, background: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                    <div style={{ width: `${Math.min(100, (weekSolved / weeklyGoal) * 100)}%`, height: '100%', background: weekSolved >= weeklyGoal ? '#6ee7b7' : '#67e8f9', borderRadius: 2, transition: 'width 0.3s' }} />
-                                </div>
-                                <span style={{ fontSize: 10, fontWeight: 700, color: weekSolved >= weeklyGoal ? '#6ee7b7' : '#67e8f9' }}>{weekSolved}/{weeklyGoal}</span>
+                        <Target size={14} color='#06b6d4' />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 50, height: 4, borderRadius: 3, background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                                <div style={{ width: `${Math.min(100, (weekSolved / weeklyGoal) * 100)}%`, height: '100%', background: weekSolved >= weeklyGoal ? 'linear-gradient(90deg, #34d399, #10b981)' : 'linear-gradient(90deg, #06b6d4, #0891b2)', borderRadius: 3, transition: 'width 0.4s ease', boxShadow: '0 0 6px rgba(6,182,212,0.3)' }} />
                             </div>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: weekSolved >= weeklyGoal ? '#34d399' : '#06b6d4' }}>{weekSolved}/{weeklyGoal}</span>
                         </div>
                         {showGoalEdit && (
                             <div onClick={e => e.stopPropagation()} style={{
-                                position: 'absolute', top: '110%', left: 0, zIndex: 20, padding: 12, borderRadius: 10,
-                                background: isLight ? '#fff' : 'rgba(15,15,25,0.97)', border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(103,232,249,0.2)',
-                                display: 'flex', alignItems: 'center', gap: 6, boxShadow: isLight ? '0 8px 24px rgba(0,0,0,0.1)' : '0 8px 24px rgba(0,0,0,0.5)',
+                                position: 'absolute', top: '110%', left: 0, zIndex: 20, padding: '10px 14px', borderRadius: 12,
+                                background: isLight ? 'rgba(255,255,255,0.98)' : 'rgba(12,12,20,0.97)',
+                                border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(6,182,212,0.15)',
+                                display: 'flex', alignItems: 'center', gap: 6,
+                                boxShadow: isLight ? '0 8px 32px rgba(0,0,0,0.1)' : '0 8px 32px rgba(0,0,0,0.6)',
+                                backdropFilter: 'blur(16px)',
                             }}>
-                                <span style={{ fontSize: 11, color: isLight ? '#64748b' : 'rgba(255,255,255,0.4)' }}>Goal:</span>
+                                <span style={{ fontSize: 11, color: isLight ? '#64748b' : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Goal:</span>
                                 {[3, 5, 7, 10, 15].map(g => (
                                     <button key={g} onClick={() => { setWeeklyGoal(g); localStorage.setItem('cl_weekly_goal', String(g)); setShowGoalEdit(false); }} style={{
-                                        padding: '3px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700,
-                                        background: weeklyGoal === g ? 'rgba(103,232,249,0.2)' : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
-                                        border: weeklyGoal === g ? '1px solid rgba(103,232,249,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.06)',
-                                        color: weeklyGoal === g ? (isLight ? '#0891b2' : '#67e8f9') : isLight ? '#475569' : 'rgba(255,255,255,0.4)',
+                                        padding: '4px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                                        background: weeklyGoal === g ? 'rgba(6,182,212,0.15)' : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                                        border: weeklyGoal === g ? '1px solid rgba(6,182,212,0.25)' : isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.05)',
+                                        color: weeklyGoal === g ? '#06b6d4' : isLight ? '#475569' : 'rgba(255,255,255,0.4)',
+                                        transition: 'all 0.15s',
                                     }}>{g}/wk</button>
                                 ))}
                             </div>
                         )}
                     </div>
 
+                    {/* Separator */}
+                    <div style={{ width: 1, height: 20, background: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)' }} />
+
                     {/* Topic Mastery Toggle */}
                     <button onClick={() => setShowTopicMastery(t => !t)} style={{
-                        padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                        background: showTopicMastery ? 'rgba(103,232,249,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                        border: showTopicMastery ? '1px solid rgba(103,232,249,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
-                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+                        background: showTopicMastery ? 'rgba(6,182,212,0.1)' : 'transparent',
+                        border: showTopicMastery ? '1px solid rgba(6,182,212,0.2)' : '1px solid transparent',
+                        display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.25s ease',
                     }}>
-                        <BarChart2 size={14} color={showTopicMastery ? '#67e8f9' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} />
-                        <span style={{ fontSize: 12, color: showTopicMastery ? (isLight ? '#0891b2' : '#67e8f9') : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Mastery</span>
+                        <BarChart2 size={14} color={showTopicMastery ? '#06b6d4' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.35)'} />
+                        <span style={{ fontSize: 12, color: showTopicMastery ? '#06b6d4' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Mastery</span>
                     </button>
 
                     {/* Recently Viewed Toggle */}
                     {recentProblems.length > 0 && (
                         <button onClick={() => setShowRecentlyViewed(r => !r)} style={{
-                            padding: '8px 14px', borderRadius: 10, cursor: 'pointer',
-                            background: showRecentlyViewed ? 'rgba(139,92,246,0.12)' : isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
-                            border: showRecentlyViewed ? '1px solid rgba(139,92,246,0.3)' : isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
-                            display: 'flex', alignItems: 'center', gap: 6,
+                            padding: '7px 14px', borderRadius: 10, cursor: 'pointer',
+                            background: showRecentlyViewed ? 'rgba(139,92,246,0.1)' : 'transparent',
+                            border: showRecentlyViewed ? '1px solid rgba(139,92,246,0.2)' : '1px solid transparent',
+                            display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.25s ease',
                         }}>
-                            <History size={14} color={showRecentlyViewed ? '#a78bfa' : isLight ? '#64748b' : 'rgba(255,255,255,0.4)'} />
-                            <span style={{ fontSize: 12, color: showRecentlyViewed ? '#a78bfa' : isLight ? '#64748b' : 'rgba(255,255,255,0.3)' }}>Recent</span>
+                            <History size={14} color={showRecentlyViewed ? '#a78bfa' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.35)'} />
+                            <span style={{ fontSize: 12, color: showRecentlyViewed ? '#a78bfa' : isLight ? '#94a3b8' : 'rgba(255,255,255,0.3)', fontWeight: 600 }}>Recent</span>
                         </button>
                     )}
+
+                    {/* Spacer */}
+                    <div style={{ flex: 1 }} />
+
+                    {/* Company Quick Prep */}
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 10, color: isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.2)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.8, marginRight: 2 }}>Quick Prep</span>
+                        {QUICK_PREP_COMPANIES.map(cId => {
+                            const comp = COMPANIES.find(c => c.id === cId);
+                            if (!comp) return null;
+                            const isActive = selectedCompanies.length === 1 && selectedCompanies[0] === cId;
+                            return (
+                                <button key={cId} onClick={() => isActive ? clearAll() : quickPrep(cId)} style={{
+                                    padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 700,
+                                    background: isActive ? `${comp.color}18` : 'transparent',
+                                    border: isActive ? `1px solid ${comp.color}30` : isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)',
+                                    color: isActive ? comp.color : isLight ? '#94a3b8' : 'rgba(255,255,255,0.35)',
+                                    transition: 'all 0.2s ease',
+                                    letterSpacing: '-0.01em',
+                                }}
+                                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = comp.color; e.currentTarget.style.borderColor = `${comp.color}20`; }  }}
+                                    onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = isLight ? '#94a3b8' : 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'; } }}
+                                >
+                                    {comp.name}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <ProblemExplorerInsightsPanels
@@ -618,73 +656,67 @@ export default function ProblemExplorer() {
                     diffColor={diffColor}
                 />
 
-                {/* Company Quick Prep */}
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, marginRight: 4 }}>Quick Prep:</span>
-                    {QUICK_PREP_COMPANIES.map(cId => {
-                        const comp = COMPANIES.find(c => c.id === cId);
-                        if (!comp) return null;
-                        const isActive = selectedCompanies.length === 1 && selectedCompanies[0] === cId;
-                        return (
-                            <button key={cId} onClick={() => isActive ? clearAll() : quickPrep(cId)} style={{
-                                padding: '5px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                                background: isActive ? `${comp.color}20` : isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)',
-                                border: isActive ? `1px solid ${comp.color}40` : isLight ? '1px solid rgba(0,0,0,0.1)' : '1px solid rgba(255,255,255,0.06)',
-                                color: isActive ? comp.color : isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)',
-                                transition: 'all 0.15s',
-                            }}>
-                                {comp.name}
-                            </button>
-                        );
-                    })}
-                </div>
+                {/* Leaderboard has been moved to the hero row */}
 
-                {/* Daily Challenge */}
+                {/* Daily Challenge — Premium card */}
                 <div
                     onClick={() => goToProblem(dailyChallenge.id)}
                     style={{
-                        marginBottom: 16, padding: '14px 22px', borderRadius: 16,
-                        background: 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.08))',
-                        border: '1px solid rgba(251,191,36,0.2)',
-                        display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer',
-                        transition: 'all 0.3s ease', position: 'relative', overflow: 'hidden',
-                        boxShadow: '0 4px 20px rgba(251,191,36,0.06), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        marginBottom: 18, padding: '16px 24px', borderRadius: 16,
+                        background: isLight
+                            ? 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(139,92,246,0.04), rgba(251,191,36,0.03))'
+                            : 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(139,92,246,0.06), rgba(251,191,36,0.03))',
+                        border: isLight ? '1px solid rgba(251,191,36,0.15)' : '1px solid rgba(251,191,36,0.12)',
+                        display: 'flex', alignItems: 'center', gap: 16, cursor: 'pointer',
+                        transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)', position: 'relative', overflow: 'hidden',
+                        boxShadow: '0 4px 20px rgba(251,191,36,0.04)',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(139,92,246,0.12))'; e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(251,191,36,0.12), inset 0 1px 0 rgba(255,255,255,0.06)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.08))'; e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(251,191,36,0.06), inset 0 1px 0 rgba(255,255,255,0.04)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 12px 32px rgba(251,191,36,0.1)'; e.currentTarget.style.borderColor = 'rgba(251,191,36,0.25)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(251,191,36,0.04)'; e.currentTarget.style.borderColor = isLight ? 'rgba(251,191,36,0.15)' : 'rgba(251,191,36,0.12)'; }}
                 >
                     {/* Animated shimmer overlay */}
-                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 0%, rgba(251,191,36,0.04) 50%, transparent 100%)', backgroundSize: '200% 100%', animation: 'shimmer-border 4s ease infinite', pointerEvents: 'none' }} />
+                    <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(90deg, transparent 0%, rgba(251,191,36,0.03) 50%, transparent 100%)', backgroundSize: '200% 100%', animation: 'shimmer-border 5s ease infinite', pointerEvents: 'none' }} />
                     <div style={{
-                        width: 36, height: 36, borderRadius: 10,
-                        background: 'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(251,191,36,0.1))',
-                        border: '1px solid rgba(251,191,36,0.3)',
+                        width: 40, height: 40, borderRadius: 12,
+                        background: 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(245,158,11,0.1))',
+                        border: '1px solid rgba(251,191,36,0.2)',
                         display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                        boxShadow: '0 0 12px rgba(251,191,36,0.15)',
+                        boxShadow: '0 4px 12px rgba(251,191,36,0.12)',
                     }}>
-                        <Sparkles size={17} color="#fbbf24" style={{ animation: 'pulse-glow 2.5s ease-in-out infinite' }} />
+                        <Sparkles size={18} color="#f59e0b" style={{ animation: 'float-gentle 3s ease-in-out infinite' }} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 1 }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: 0.5 }}>Daily Challenge</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, color: '#f59e0b', textTransform: 'uppercase', letterSpacing: 1 }}>Daily Challenge</span>
                             <span style={{
-                                fontSize: 9, fontWeight: 700, color: diffColor(dailyChallenge.difficulty),
-                                padding: '1px 5px', borderRadius: 3, background: `${diffColor(dailyChallenge.difficulty)}15`,
+                                fontSize: 9, fontWeight: 800, color: diffColor(dailyChallenge.difficulty),
+                                padding: '2px 7px', borderRadius: 5, background: `${diffColor(dailyChallenge.difficulty)}12`,
+                                textTransform: 'uppercase', letterSpacing: 0.3,
                             }}>{dailyChallenge.difficulty}</span>
                             {solvedSet.has(dailyChallenge.id) && (
-                                <span style={{ fontSize: 9, color: '#6ee7b7', display: 'flex', alignItems: 'center', gap: 2, fontWeight: 600 }}>
-                                    <CheckCircle2 size={10} /> Done
+                                <span style={{ fontSize: 9, color: '#34d399', display: 'flex', alignItems: 'center', gap: 3, fontWeight: 700, padding: '2px 8px', borderRadius: 5, background: 'rgba(52,211,153,0.1)' }}>
+                                    <CheckCircle2 size={10} /> Completed
                                 </span>
                             )}
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? '#1e293b' : '#fff' }}>{dailyChallenge.title}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: isLight ? '#0f172a' : '#f8fafc', letterSpacing: '-0.01em' }}>{dailyChallenge.title}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                         {dailyChallenge.topics.slice(0, 2).map(t => (
-                            <span key={t} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(139,92,246,0.1)', color: '#c084fc', fontWeight: 600 }}>{t}</span>
+                            <span key={t} style={{
+                                fontSize: 10, padding: '3px 8px', borderRadius: 6,
+                                background: 'rgba(139,92,246,0.08)', color: '#a78bfa',
+                                fontWeight: 700, letterSpacing: '-0.01em',
+                            }}>{t}</span>
                         ))}
                     </div>
-                    <div style={{ fontSize: 11, color: isLight ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', gap: 3, flexShrink: 0 }}>
+                    <div style={{
+                        fontSize: 11, color: isLight ? '#94a3b8' : 'rgba(255,255,255,0.4)',
+                        display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                        padding: '4px 10px', borderRadius: 8,
+                        background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.03)',
+                        fontWeight: 600,
+                    }}>
                         <Clock size={11} />{dailyChallenge.timeEstimate}m
                     </div>
                 </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
 import {
   User, Briefcase, Award, LogOut, Shield
@@ -73,6 +74,7 @@ function countFilledProfileFields(profile) {
 
 export default function Profile() {
   const { user, logout } = useAuth();
+  const { refreshBalance } = useCoins();
   const { data: dashboardData, loading: dashboardLoading } = useDashboardData();
   const [profile, setProfile] = useState({
     ...buildInitialProfile(user)
@@ -80,12 +82,19 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('idle');
+  const [rewardMessage, setRewardMessage] = useState('');
 
   useEffect(() => {
     if (status !== 'saved') return undefined;
     const timer = window.setTimeout(() => setStatus('idle'), 2600);
     return () => window.clearTimeout(timer);
   }, [status]);
+
+  useEffect(() => {
+    if (!rewardMessage) return undefined;
+    const timer = window.setTimeout(() => setRewardMessage(''), 4000);
+    return () => window.clearTimeout(timer);
+  }, [rewardMessage]);
 
   useEffect(() => {
     fetchProfile();
@@ -122,6 +131,11 @@ export default function Profile() {
       if (!res.ok) {
         throw new Error('Failed to save profile');
       }
+      const data = await res.json();
+      if (data?.coinsAwarded) {
+        setRewardMessage(`+${data.coinsAwarded} coins earned for completing your profile.`);
+      }
+      refreshBalance();
       setEditing(false);
       setStatus('saved');
     } catch (err) {
@@ -155,6 +169,7 @@ export default function Profile() {
           <div className="account-chip-row">
             <span className="account-chip">{completion}% complete</span>
             <span className="account-chip">{editing ? 'Editing' : 'Review mode'}</span>
+            <span className="account-chip">20 coin bonus at 100%</span>
             <span className="account-chip">{status === 'saved' ? 'Saved' : status === 'error' ? 'Save failed' : 'Synced to account'}</span>
           </div>
         </div>
@@ -187,6 +202,7 @@ export default function Profile() {
       {status === 'saved' && (
         <div className="account-status-message success" role="status" aria-live="polite">
           Profile changes saved successfully.
+          {rewardMessage ? ` ${rewardMessage}` : ''}
         </div>
       )}
       {status === 'error' && (
@@ -204,7 +220,7 @@ export default function Profile() {
         <article className="account-stat-card">
           <span className="account-stat-label">Profile depth</span>
           <strong className="account-stat-value">{filledFields}/6 fields</strong>
-          <span className="account-stat-meta">Add role, experience, and skills for better personalization</span>
+          <span className="account-stat-meta">Add role, experience, and skills for better personalization and unlock a one-time 20 coin bonus</span>
         </article>
         <article className="account-stat-card">
           <span className="account-stat-label">Plan</span>

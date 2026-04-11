@@ -79,7 +79,7 @@ jobs:
     needs:
       - validate
       - changes
-    if: ${{ secrets.SUPABASE_URL != '' && secrets.SUPABASE_ANON_KEY != '' && needs.changes.outputs.dsa_editor == 'true' }}
+    if: ${{ needs.changes.outputs.dsa_editor == 'true' }}
 
     steps:
       - name: Checkout
@@ -94,18 +94,6 @@ jobs:
 
       - name: Install backend dependencies
         run: npm ci --prefix backend
-
-      - name: Create backend env
-        shell: bash
-        run: |
-          cat > backend/.env << 'EOF'
-          NODE_ENV=test
-          PORT=5000
-          FRONTEND_URL=http://localhost:5173
-          SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY=${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          EOF
 
       - name: Start backend
         shell: bash
