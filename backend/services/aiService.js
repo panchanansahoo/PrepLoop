@@ -2,6 +2,14 @@ import Groq from 'groq-sdk';
 import { randomUUID } from 'crypto';
 import { createLogger } from '../utils/structuredLogger.js';
 import { supabaseAdmin } from '../db/index.js';
+import { InterviewOrchestratorService } from './interviewOrchestrator.js';
+import interviewGroundingService from './interviewGroundingService.js';
+import { InterviewPromptService } from './interviewPromptService.js';
+import { InterviewConversationService } from './interviewConversationService.js';
+import { InterviewScoringService } from './interviewScoringService.js';
+import { InterviewFollowUpRulesService } from './interviewFollowUpRules.js';
+import { InterviewTelemetryService } from './interviewTelemetryService.js';
+import { addSpanEvent, setSpanAttribute } from '../utils/telemetry.js';
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
@@ -9,6 +17,7 @@ const groq = new Groq({
 
 const logger = createLogger('AIService');
 const virtualInterviewSessions = new Map();
+const interviewTelemetryService = new InterviewTelemetryService();
 
 const isMissingColumnError = (error, columnName) => {
   const message = String(error?.message || '').toLowerCase();
@@ -48,7 +57,113 @@ const INTERVIEW_MODEL_CONFIG = {
   max_tokens: 1500,
 };
 
-const INTERVIEW_RUNTIME_MODES = ['hybrid_rollout', 'full_realtime'];
+const INTERVIEW_RUNTIME_MODES = ['full_realtime'];
+
+const ANSWER_FILLERS = ['um', 'uh', 'like', 'you know', 'basically', 'literally', 'sort of', 'right'];
+
+const clampScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
+function analyzeAnswerQualityHeuristic(answer = '', question = '') {
+  const normalizedAnswer = String(answer || '').trim();
+  const normalizedQuestion = String(question || '').trim();
+  const lower = normalizedAnswer.toLowerCase();
+
+  if (!normalizedAnswer) {
+    return {
+      clarityScore: 0,
+      specificityScore: 0,
+      confidenceScore: 0,
+      fillerCount: 0,
+      needsFollowUp: true,
+      followUpQuestion: normalizedQuestion
+        ? `Could you answer this directly: ${normalizedQuestion}`
+        : 'Could you give a specific example with the outcome?',
+      rationale: 'No answer content provided.',
+      source: 'heuristic',
+    };
+  }
+
+  const wordCount = normalizedAnswer.split(/\s+/).filter(Boolean).length;
+  const hasNumber = /\d/.test(normalizedAnswer);
+  const hasResultLanguage = /(result|outcome|improved|reduced|increased|impact|delivered|launched)/i.test(normalizedAnswer);
+  const hasActionLanguage = /(i built|i implemented|i designed|i migrated|i optimized|i led|i improved|i created)/i.test(normalizedAnswer);
+
+  let fillerCount = 0;
+  for (const filler of ANSWER_FILLERS) {
+    const escaped = filler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`\\b${escaped}\\b`, 'g');
+    fillerCount += (lower.match(regex) || []).length;
+  }
+
+  const clarityScore = clampScore(40 + Math.min(wordCount, 80) * 0.65 - fillerCount * 6);
+  const specificityScore = clampScore((hasActionLanguage ? 45 : 20) + (hasNumber ? 30 : 0) + (hasResultLanguage ? 25 : 5));
+  const confidenceScore = clampScore(50 + Math.min(wordCount, 60) * 0.5 - fillerCount * 7);
+  const needsFollowUp = !(hasNumber && hasResultLanguage);
+  const followUpQuestion = needsFollowUp
+    ? (hasNumber
+      ? 'What was the concrete outcome and business impact?'
+      : 'Can you share a concrete example with measurable results?')
+    : 'Great. Can you also describe one trade-off you considered?';
+
+  return {
+    clarityScore,
+    specificityScore,
+    confidenceScore,
+    fillerCount,
+    needsFollowUp,
+    followUpQuestion,
+    rationale: hasResultLanguage
+      ? 'Answer includes action and result indicators.'
+      : 'Answer can be improved with measurable outcomes and clearer impact.',
+    source: 'heuristic',
+  };
+}
+
+export async function analyzeAnswerQuality(answer = '', question = '') {
+  const heuristic = analyzeAnswerQualityHeuristic(answer, question);
+
+  if (!process.env.GROQ_API_KEY) {
+    return heuristic;
+  }
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.1-8b-instant',
+      temperature: 0.2,
+      max_tokens: 220,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an interview evaluator. Return strict JSON only with keys: clarityScore, specificityScore, confidenceScore, needsFollowUp, followUpQuestion, rationale.'
+        },
+        {
+          role: 'user',
+          content: `Question: ${question || 'N/A'}\nAnswer: ${answer || 'N/A'}`,
+        },
+      ],
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = completion?.choices?.[0]?.message?.content || '{}';
+    const parsed = JSON.parse(raw);
+
+    return {
+      clarityScore: clampScore(parsed.clarityScore ?? heuristic.clarityScore),
+      specificityScore: clampScore(parsed.specificityScore ?? heuristic.specificityScore),
+      confidenceScore: clampScore(parsed.confidenceScore ?? heuristic.confidenceScore),
+      fillerCount: heuristic.fillerCount,
+      needsFollowUp: Boolean(parsed.needsFollowUp ?? heuristic.needsFollowUp),
+      followUpQuestion: String(parsed.followUpQuestion || heuristic.followUpQuestion),
+      rationale: String(parsed.rationale || heuristic.rationale),
+      source: 'groq',
+    };
+  } catch (error) {
+    logger.warn('analyzeAnswerQuality fell back to heuristic scoring', {
+      error: error.message,
+    });
+    return heuristic;
+  }
+}
 
 /**
  * Feature 1: AI Code Review Service
@@ -348,7 +463,7 @@ export class InterviewSimulatorService {
       return envMode;
     }
 
-    return 'hybrid_rollout';
+    return 'full_realtime';
   }
 
   static _buildInterviewRuntime(mode) {
@@ -356,7 +471,7 @@ export class InterviewSimulatorService {
       return {
         mode,
         realtime: true,
-        strategy: 'pipecat_realtime',
+        strategy: 'realtime_voice_bridge',
         transport: 'websocket',
         bargeInEnabled: true,
         fallbackToBatch: false,
@@ -365,13 +480,13 @@ export class InterviewSimulatorService {
     }
 
     return {
-      mode: 'hybrid_rollout',
-      realtime: false,
-      strategy: 'http_pipeline_with_realtime_bridge',
-      transport: 'http',
-      bargeInEnabled: false,
-      fallbackToBatch: true,
-      targetFirstAudioMs: 1500,
+      mode: 'full_realtime',
+      realtime: true,
+      strategy: 'realtime_voice_bridge',
+      transport: 'websocket',
+      bargeInEnabled: true,
+      fallbackToBatch: false,
+      targetFirstAudioMs: 800,
     };
   }
 
@@ -391,6 +506,18 @@ export class InterviewSimulatorService {
     }
 
     return `${tokens.slice(0, 24).join(' ')}...`;
+  }
+
+  static _buildStagePlan(interviewType = 'dsa') {
+    return InterviewOrchestratorService.buildStagePlan(interviewType);
+  }
+
+  static _buildInitialInterviewState(interviewType = 'dsa', difficulty = 'medium', companyFocus = null) {
+    return InterviewOrchestratorService.buildInitialState(interviewType, difficulty, companyFocus);
+  }
+
+  static _advanceInterviewStage(state = {}) {
+    return InterviewOrchestratorService.advanceState(state);
   }
 
   static async getInterviewSession(sessionId, userId) {
@@ -424,6 +551,13 @@ export class InterviewSimulatorService {
     try {
       const normalizedMode = this._normalizeInterviewMode(interviewMode);
       const runtime = this._buildInterviewRuntime(normalizedMode);
+      const initialInterviewState = this._buildInitialInterviewState(interviewType, difficulty, companyFocus);
+      const telemetryAttributes = {
+        'interview.user_id': String(userId || ''),
+        'interview.type': String(interviewType || 'dsa'),
+        'interview.difficulty': String(difficulty || 'medium'),
+        'interview.mode': String(normalizedMode || 'full_realtime'),
+      };
 
       logger.info('Interview session initialized', {
         userId,
@@ -526,21 +660,34 @@ export class InterviewSimulatorService {
       }
 
       // Generate initial problem/scenario
-      const problem = await this._generateProblemStatement(interviewType, difficulty, companyFocus);
+      const problem = await interviewTelemetryService.withSpan(
+        'interview.session.problem_select',
+        { attributes: telemetryAttributes },
+        async () => this._generateProblemStatement(interviewType, difficulty, companyFocus)
+      );
 
       // Update session with problem
       let updatedSession = null;
       let updateError = null;
-      ({ data: updatedSession, error: updateError } = await supabaseAdmin
-        .from('interview_sessions')
-        .update({
-          problem_statement: problem.statement,
-          initial_requirements: problem.requirements,
-          problem_id: problem.problem_id
-        })
-        .eq('id', sessionData.id)
-        .select()
-        .single());
+      ({ data: updatedSession, error: updateError } = await interviewTelemetryService.withSpan(
+        'interview.session.problem_persist',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.session_id': String(sessionData.id || ''),
+          },
+        },
+        async () => supabaseAdmin
+          .from('interview_sessions')
+          .update({
+            problem_statement: problem.statement,
+            initial_requirements: problem.requirements,
+            problem_id: problem.problem_id
+          })
+          .eq('id', sessionData.id)
+          .select()
+          .single()
+      ));
 
       if (updateError && !isInterviewSchemaCompatibilityError(updateError)) {
         throw new Error(`Failed to update interview session: ${updateError.message}`);
@@ -554,6 +701,9 @@ export class InterviewSimulatorService {
           ...(sessionData.interview_context || {}),
           mode: normalizedMode,
           runtime,
+          interviewState: initialInterviewState,
+          stage: initialInterviewState.stage,
+          stageLabel: initialInterviewState.stageLabel,
         };
         virtualInterviewSessions.set(sessionData.id, sessionData);
         updatedSession = sessionData;
@@ -571,6 +721,9 @@ export class InterviewSimulatorService {
           statement: problem.statement,
           requirements: problem.requirements
         },
+        stage: initialInterviewState.stage,
+        stageLabel: initialInterviewState.stageLabel,
+        stagePlan: initialInterviewState.stagePlan,
         interviewMode: normalizedMode,
         runtime,
         initialQuestion: this._composeInitialInterviewQuestion(problem, interviewType, difficulty, companyFocus),
@@ -603,6 +756,12 @@ export class InterviewSimulatorService {
       const session = await this.getInterviewSession(sessionId, userId);
       const currentContext = session.interview_context || {};
       const normalizedMode = this._normalizeInterviewMode(interviewMode || currentContext.mode);
+      const telemetryAttributes = {
+        'interview.session_id': String(sessionId || ''),
+        'interview.user_id': String(userId || ''),
+        'interview.mode': String(normalizedMode || 'full_realtime'),
+        'interview.type': String(session.interview_type || 'dsa'),
+      };
       const runtime = this._buildInterviewRuntime(normalizedMode);
       const responseSignals = this._extractResponseSignals(candidateResponse);
       const mergedMissingAreas = Array.from(
@@ -624,6 +783,21 @@ export class InterviewSimulatorService {
         missingAreas: mergedMissingAreas,
       };
 
+      const priorInterviewState = currentContext.interviewState
+        || this._buildInitialInterviewState(
+          session.interview_type,
+          session.difficulty_level || session.difficulty || 'medium',
+          session.company_focus || null,
+        );
+      const advancedInterviewState = this._advanceInterviewStage({
+        ...priorInterviewState,
+        turns: interviewContext.turns,
+      });
+
+      interviewContext.interviewState = advancedInterviewState;
+      interviewContext.stage = advancedInterviewState.stage;
+      interviewContext.stageLabel = advancedInterviewState.stageLabel;
+
       // Add candidate response to transcript
       const updatedTranscript = [
         ...(session.transcript || []),
@@ -636,14 +810,60 @@ export class InterviewSimulatorService {
 
       // Generate interviewer follow-up
       let followUp;
+      let groundingContext = null;
       try {
-        followUp = await this._generateInterviewerFollowUp(
-          session.problem_statement,
-          session.transcript || [],
-          candidateResponse,
-          session.interview_type,
-          interviewContext,
-          normalizedMode
+        groundingContext = await interviewTelemetryService.withSpan(
+          'interview.grounding.fetch',
+          {
+            attributes: {
+              ...telemetryAttributes,
+              'interview.stage': String(advancedInterviewState.stage || 'intake'),
+            },
+          },
+          async (span) => {
+            const grounded = await interviewGroundingService.fetchContext({
+              company: session.company_focus || null,
+              role: interviewContext.role || 'SDE',
+              difficulty: interviewContext.currentDifficulty || session.difficulty_level || session.difficulty || 'medium',
+              stage: advancedInterviewState.stage,
+              missingAreas: interviewContext.missingAreas || [],
+              resumeContext: interviewContext.resumeContext || {},
+              limit: 4,
+            });
+            if (grounded?.provider) {
+              span.setAttribute('interview.grounding.provider', String(grounded.provider));
+            }
+            span.setAttribute('interview.grounding.count', Number(grounded?.count || 0));
+            return grounded;
+          }
+        );
+      } catch (error) {
+        logger.warn('Interview grounding retrieval failed; continuing without grounding', {
+          sessionId,
+          userId,
+          requestId,
+          error: error.message,
+        });
+      }
+
+      try {
+        followUp = await interviewTelemetryService.withSpan(
+          'interview.followup.generate',
+          {
+            attributes: {
+              ...telemetryAttributes,
+              'interview.stage': String(advancedInterviewState.stage || 'intake'),
+            },
+          },
+          async () => this._generateInterviewerFollowUp(
+            session.problem_statement,
+            session.transcript || [],
+            candidateResponse,
+            session.interview_type,
+            interviewContext,
+            normalizedMode,
+            groundingContext
+          )
         );
       } catch (error) {
         logger.warn('Falling back to local interviewer follow-up', {
@@ -673,11 +893,25 @@ export class InterviewSimulatorService {
       // Analyze candidate response
       let analysis;
       try {
-        analysis = await this._analyzeInterviewResponse(
-          candidateResponse,
-          session.problem_statement,
-          session.interview_type,
-          interviewContext
+        analysis = await interviewTelemetryService.withSpan(
+          'interview.analysis.score',
+          {
+            attributes: {
+              ...telemetryAttributes,
+              'interview.stage': String(advancedInterviewState.stage || 'intake'),
+            },
+          },
+          async (span) => {
+            const analyzed = await this._analyzeInterviewResponse(
+              candidateResponse,
+              session.problem_statement,
+              session.interview_type,
+              interviewContext
+            );
+            span.setAttribute('interview.analysis.score', Number(analyzed?.score || 0));
+            span.setAttribute('interview.analysis.stuck', Boolean(analyzed?.candidateStuck));
+            return analyzed;
+          }
         );
       } catch (error) {
         logger.warn('Falling back to local interview analysis', {
@@ -695,13 +929,42 @@ export class InterviewSimulatorService {
       }
 
       // Update session
-      const currentScores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type);
-      const currentDifficulty =
-        interviewContext.currentDifficulty ||
-        session.difficulty_level ||
-        session.difficulty ||
-        'medium';
-      const adaptiveUpdate = this._deriveAdaptiveDifficulty(currentDifficulty, currentScores.overall, interviewContext.turns || 1);
+      const { currentScores, adaptiveUpdate, adaptiveFollowUp } = await interviewTelemetryService.withSpan(
+        'interview.scoring.update',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.stage': String(advancedInterviewState.stage || 'intake'),
+          },
+        },
+        async (span) => {
+          const scores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type);
+          const currentDifficulty =
+            interviewContext.currentDifficulty ||
+            session.difficulty_level ||
+            session.difficulty ||
+            'medium';
+          const adaptive = this._deriveAdaptiveDifficulty(currentDifficulty, scores.overall, interviewContext.turns || 1);
+          const followUpRules = InterviewFollowUpRulesService.decideBranch({
+            analysis,
+            interviewContext,
+            candidateResponse,
+          });
+          span.setAttribute('interview.score.overall', Number(scores?.overall || 0));
+          span.setAttribute('interview.score.difficulty', String(adaptive?.newDifficulty || currentDifficulty));
+          span.setAttribute('interview.followup.next_action', String(followUpRules?.nextAction || 'followup_clarify'));
+          return { currentScores: scores, adaptiveUpdate: adaptive, adaptiveFollowUp: followUpRules };
+        }
+      );
+      const telemetry = this._buildInterviewTelemetrySnapshot({
+        previousTelemetry: currentContext.telemetry || {},
+        turnNumber: interviewContext.turns || 1,
+        previousStage: priorInterviewState.stage,
+        nextStage: advancedInterviewState.stage,
+        responseLatencyMs: Date.now() - startTime,
+        groundingUsed: Boolean(groundingContext?.retrievedQuestions?.length),
+        analysisScore: analysis.score,
+      });
 
       const updatePayload = {
         transcript: updatedTranscript,
@@ -715,18 +978,30 @@ export class InterviewSimulatorService {
           currentScores,
           lastInterviewerPrompt: followUp.message,
           missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])),
+          adaptiveFollowUp,
+          telemetry,
         },
         updated_at: new Date().toISOString()
       };
 
       let updatedSession = null;
       let updateError = null;
-      ({ data: updatedSession, error: updateError } = await supabaseAdmin
-        .from('interview_sessions')
-        .update(updatePayload)
-        .eq('id', sessionId)
-        .select()
-        .single());
+      ({ data: updatedSession, error: updateError } = await interviewTelemetryService.withSpan(
+        'interview.session.persist',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.stage': String(advancedInterviewState.stage || 'intake'),
+            'interview.turn': Number(interviewContext.turns || 1),
+          },
+        },
+        async () => supabaseAdmin
+          .from('interview_sessions')
+          .update(updatePayload)
+          .eq('id', sessionId)
+          .select()
+          .single()
+      ));
 
       if (updateError) {
         if (!isInterviewSchemaCompatibilityError(updateError)) {
@@ -760,10 +1035,15 @@ export class InterviewSimulatorService {
         hints: followUp.hints,
         encouragement: followUp.encouragement,
         continueInterview: followUp.continueInterview,
+        stage: advancedInterviewState.stage,
+        stageLabel: advancedInterviewState.stageLabel,
+        stagePlan: advancedInterviewState.stagePlan,
         interviewMode: normalizedMode,
         runtime,
         current_scores: currentScores,
         adaptive_update: adaptiveUpdate,
+        adaptive_followup: adaptiveFollowUp,
+        telemetry,
       };
 
     } catch (error) {
@@ -780,15 +1060,45 @@ export class InterviewSimulatorService {
   static async completeInterview(sessionId, userId, requestId = null) {
     try {
       logger.info('Completing interview', { sessionId, userId, requestId });
+      const telemetryAttributes = {
+        'interview.session_id': String(sessionId || ''),
+        'interview.user_id': String(userId || ''),
+      };
 
       // Get final session data
-      const session = await this.getInterviewSession(sessionId, userId);
+      const session = await interviewTelemetryService.withSpan(
+        'interview.session.load_for_completion',
+        { attributes: telemetryAttributes },
+        async () => this.getInterviewSession(sessionId, userId)
+      );
 
       // Generate comprehensive performance analysis
-      const analysis = await this._generatePerformanceAnalysis(session);
+      const analysis = await interviewTelemetryService.withSpan(
+        'interview.completion.analysis',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.type': String(session.interview_type || 'dsa'),
+          },
+        },
+        async () => this._generatePerformanceAnalysis(session)
+      );
 
       // Calculate overall scores
-      const scores = this._calculateScores(analysis, session.transcript, session.interview_type);
+      const scores = await interviewTelemetryService.withSpan(
+        'interview.completion.scores',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.type': String(session.interview_type || 'dsa'),
+          },
+        },
+        async (span) => {
+          const calculated = this._calculateScores(analysis, session.transcript, session.interview_type);
+          span.setAttribute('interview.score.final', Number(calculated?.interviewScore || 0));
+          return calculated;
+        }
+      );
 
       // Get or create performance trend
       await this._updatePerformanceTrend(userId, session.interview_type, session.company_focus, scores);
@@ -815,12 +1125,21 @@ export class InterviewSimulatorService {
 
       let completedSession = null;
       let updateError = null;
-      ({ data: completedSession, error: updateError } = await supabaseAdmin
-        .from('interview_sessions')
-        .update(completionPayload)
-        .eq('id', sessionId)
-        .select()
-        .single());
+      ({ data: completedSession, error: updateError } = await interviewTelemetryService.withSpan(
+        'interview.session.complete_persist',
+        {
+          attributes: {
+            ...telemetryAttributes,
+            'interview.type': String(session.interview_type || 'dsa'),
+          },
+        },
+        async () => supabaseAdmin
+          .from('interview_sessions')
+          .update(completionPayload)
+          .eq('id', sessionId)
+          .select()
+          .single()
+      ));
 
       if (updateError) {
         if (!isInterviewSchemaCompatibilityError(updateError)) {
@@ -932,62 +1251,84 @@ export class InterviewSimulatorService {
     candidateResponse,
     interviewType,
     interviewContext = {},
-    interviewMode = 'hybrid_rollout'
+    interviewMode = 'full_realtime',
+    ragContext = null
   ) {
-    const missingAreas = (interviewContext.missingAreas || []).slice(0, 3);
-    const prompt = `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
+    const prompt = await interviewTelemetryService.withSpan(
+      'interview.prompt.build',
+      {
+        attributes: {
+          'interview.mode': String(interviewMode || 'full_realtime'),
+          'interview.type': String(interviewType || 'dsa'),
+          'interview.stage': String(interviewContext?.stage || interviewContext?.interviewState?.stage || 'intake'),
+          'interview.transcript_count': Number(Array.isArray(transcript) ? transcript.length : 0),
+        },
+      },
+      async () => InterviewPromptService.buildFollowUpPrompt({
+        problemStatement,
+        transcript,
+        candidateResponse,
+        interviewType,
+        interviewContext,
+        interviewMode,
+        ragContext,
+      })
+    );
 
-PROBLEM: ${problemStatement}
-CANDIDATE JUST SAID: "${candidateResponse}"
+    const rawFollowUp = await interviewTelemetryService.withSpan(
+      'interview.model.call',
+      {
+        attributes: {
+          'interview.mode': String(interviewMode || 'full_realtime'),
+          'interview.type': String(interviewType || 'dsa'),
+          'interview.stage': String(interviewContext?.stage || interviewContext?.interviewState?.stage || 'intake'),
+          'interview.model.name': String(INTERVIEW_MODEL_CONFIG.model),
+        },
+      },
+      async (span) => {
+        const raw = await InterviewConversationService.requestFollowUpContent({
+          groqClient: groq,
+          modelConfig: INTERVIEW_MODEL_CONFIG,
+          prompt,
+        });
+        setSpanAttribute(span, 'interview.model.latency_ms', Number(raw.modelLatencyMs || 0));
+        setSpanAttribute(span, 'interview.model.fallback_triggered', Boolean(raw.fallbackTriggered));
+        return raw;
+      }
+    );
 
-INTERVIEW HISTORY (last 2 exchanges):
-${transcript.slice(-4).map(t => `${t.role}: ${t.text}`).join('\n')}
-
-INTERVIEW CONTEXT:
-- Type: ${interviewType}
-- Runtime mode: ${interviewMode}
-- Turns completed: ${interviewContext.turns || 0}
-- Candidate likely missing: ${missingAreas.join(', ') || 'none'}
-- Last candidate summary: ${interviewContext.lastCandidateSummary || 'n/a'}
-
-VOICE AND STYLE RULES:
-- Keep the interviewer message concise: 1-2 sentences, max 38 words.
-- If runtime mode is full_realtime, target <= 24 words and avoid long preambles.
-- Sound human, direct, and calm. Avoid robotic phrases.
-- Ask exactly one primary question per turn.
-- If needed, add one brief coaching cue, not a full explanation.
-- Do not use markdown, bullets, or labels in the message.
-- Match realistic interview cadence: probe depth, then narrow scope.
-
-Generate a JSON response:
-{
-  "message": "Your next question or follow-up (be natural, not robotic)",
-  "isFollowUp": true/false,
-  "clarifications": ["Any clarifications you need?"],
-  "hints": ["Hint to provide if they're stuck"],
-  "encouragement": "Positive feedback or encouragement",
-  "continueInterview": true/false
-}`;
-
-    const response = await groq.chat.completions.create({
-      ...INTERVIEW_MODEL_CONFIG,
-      messages: [{ role: 'user', content: prompt }]
-    });
-
-    try {
-      const content = response.choices[0]?.message?.content || '{}';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      return JSON.parse(jsonMatch?.[0] || '{}');
-    } catch {
-      return {
-        message: 'Good start. What is your time and space complexity, and what edge case would break this approach first?',
-        isFollowUp: true,
-        clarifications: [],
-        hints: [],
-        encouragement: 'You are on the right track. Keep it structured.',
-        continueInterview: true
-      };
-    }
+    return interviewTelemetryService.withSpan(
+      'interview.response.parse',
+      {
+        attributes: {
+          'interview.mode': String(interviewMode || 'full_realtime'),
+          'interview.type': String(interviewType || 'dsa'),
+          'interview.stage': String(interviewContext?.stage || interviewContext?.interviewState?.stage || 'intake'),
+        },
+      },
+      async (span) => {
+        const normalized = InterviewConversationService.normalizeFollowUp({
+          content: rawFollowUp?.content,
+          interviewMode,
+          forceFallback: Boolean(rawFollowUp?.fallbackTriggered),
+        });
+        setSpanAttribute(span, 'interview.parse.success', Boolean(normalized.parseSuccess));
+        setSpanAttribute(span, 'interview.parse.fallback_triggered', Boolean(normalized.parseFallbackTriggered));
+        addSpanEvent(span, 'interview.followup.branch', {
+          parseFallback: Boolean(normalized.parseFallbackTriggered),
+        });
+        return {
+          ...normalized.followUp,
+          telemetryMeta: {
+            modelName: String(rawFollowUp?.modelName || INTERVIEW_MODEL_CONFIG.model),
+            modelLatencyMs: Number(rawFollowUp?.modelLatencyMs || 0),
+            modelFallbackTriggered: Boolean(rawFollowUp?.fallbackTriggered),
+            parseFallbackTriggered: Boolean(normalized.parseFallbackTriggered),
+            parseSuccess: Boolean(normalized.parseSuccess),
+          },
+        };
+      }
+    );
   }
 
   static _extractResponseSignals(response) {
@@ -1013,83 +1354,35 @@ Generate a JSON response:
   }
 
   static _buildTypeRubric(interviewType) {
-    const defaults = {
-      communication: 0.34,
-      decomposition: 0.33,
-      technical: 0.33,
-    };
-
-    if (interviewType === 'system_design') {
-      return { communication: 0.25, decomposition: 0.35, technical: 0.40 };
-    }
-    if (interviewType === 'behavioral') {
-      return { communication: 0.45, decomposition: 0.35, technical: 0.20 };
-    }
-    if (interviewType === 'mixed') {
-      return { communication: 0.35, decomposition: 0.33, technical: 0.32 };
-    }
-
-    return defaults;
+    return InterviewScoringService.buildTypeRubric(interviewType);
   }
 
   static _calculateRollingScores(analysis, transcript, interviewType = 'dsa') {
-    const metrics = analysis.metrics || {};
-    const rubric = this._buildTypeRubric(interviewType);
-    const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry.role === 'candidate').length;
-    const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
-
-    const communication = Math.max(0, Math.min(100, Number(metrics.communication || 65)));
-    const problemSolving = Math.max(0, Math.min(100, Number(metrics.problemDecomposition || 65)));
-    const technicalDepth = Math.max(0, Math.min(100, Number(metrics.efficiency || 65)));
-
-    const overall100 = Math.max(
-      0,
-      Math.min(
-        100,
-        Number(
-          (
-            communication * rubric.communication +
-            problemSolving * rubric.decomposition +
-            technicalDepth * rubric.technical +
-            engagementBonus
-          ).toFixed(1)
-        )
-      )
-    );
-
-    return {
-      overall: Number((overall100 / 10).toFixed(1)),
-      communication: Number((communication / 10).toFixed(1)),
-      problem_solving: Number((problemSolving / 10).toFixed(1)),
-      technical_depth: Number((technicalDepth / 10).toFixed(1)),
-      performance_level: overall100 >= 90 ? 'Excellent' : overall100 >= 75 ? 'Good' : overall100 >= 60 ? 'Fair' : 'Needs Work',
-    };
+    return InterviewScoringService.calculateRollingScores(analysis, transcript, interviewType);
   }
 
   static _deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns) {
-    const current = String(currentDifficulty || 'medium').toLowerCase();
-    const overall = Number(rollingOverallTen || 0);
-    const safeTurns = Number(turns || 0);
+    return InterviewScoringService.deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns);
+  }
 
-    if (safeTurns >= 3 && overall >= 8.2) {
-      if (current === 'easy') {
-        return { changed: true, previousDifficulty: 'easy', newDifficulty: 'medium', reason: 'Strong consistency, escalating challenge.' };
-      }
-      if (current === 'medium') {
-        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'hard', reason: 'High performance, moving to hard-level probing.' };
-      }
-    }
-
-    if (safeTurns >= 2 && overall <= 5.5) {
-      if (current === 'hard') {
-        return { changed: true, previousDifficulty: 'hard', newDifficulty: 'medium', reason: 'Reducing complexity to rebuild momentum.' };
-      }
-      if (current === 'medium') {
-        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'easy', reason: 'Switching to foundational depth before scaling up.' };
-      }
-    }
-
-    return { changed: false, previousDifficulty: current, newDifficulty: current, reason: 'Difficulty remains stable.' };
+  static _buildInterviewTelemetrySnapshot({
+    previousTelemetry = {},
+    turnNumber = 1,
+    previousStage = null,
+    nextStage = null,
+    responseLatencyMs = 0,
+    groundingUsed = false,
+    analysisScore = null,
+  } = {}) {
+    return interviewTelemetryService.buildInterviewTelemetrySnapshot({
+      previousTelemetry,
+      turnNumber,
+      previousStage,
+      nextStage,
+      responseLatencyMs,
+      groundingUsed,
+      analysisScore,
+    });
   }
 
   static async _analyzeInterviewResponse(response, problemStatement, interviewType, interviewContext = {}) {
@@ -1281,5 +1574,6 @@ Generate a JSON response:
 
 export default {
   CodeReviewService,
-  InterviewSimulatorService
+  InterviewSimulatorService,
+  analyzeAnswerQuality,
 };

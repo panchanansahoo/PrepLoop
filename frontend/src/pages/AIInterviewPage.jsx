@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceInterview } from '../hooks/useVoiceInterview';
-import { usePipecatInterview } from '../hooks/usePipecatInterview';
+import { useDeepgramVoice } from '../hooks/useDeepgramVoice';
+import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
+import VoiceWaveform from '../components/VoiceWaveform';
 import {
     Mic, MicOff, Phone, Flag, Code2, FileText, Palette,
     Clock, Search, Bell, Settings, RotateCcw, Sparkles,
@@ -227,6 +229,15 @@ export default function AIInterviewPage() {
     const [phase, setPhase] = useState('lobby'); // lobby | connecting | interview | summary
     const [interviewType, setInterviewType] = useState('technical');
     const [realtimeMode, setRealtimeMode] = useState(false); // Pipecat real-time voice mode
+    const [interviewerGender, setInterviewerGender] = useState(readStoredInterviewerGender);
+
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(AI_INTERVIEW_GENDER_STORAGE_KEY, interviewerGender);
+        } catch {
+            // Ignore storage failures and keep the in-memory selection.
+        }
+    }, [interviewerGender]);
 
     // ── Prevent hook instantiation before dependencies are ready ──
     // We'll initialize voice hook lazily after speakerMuted is set up (see below)
@@ -265,12 +276,11 @@ export default function AIInterviewPage() {
     const sendAnswerRef = useRef(null);
     const classicVoice = useVoiceInterview({
         speakerMuted,
-        interviewerGender: readStoredInterviewerGender, // Will be updated when interviewerGender state changes
+        interviewerGender,
         getAuthHeaders,
         getBrowserVoice: () => ({ pitch: 1.0, rate: 0.95 }),
         splitTextForTTS: (text) => {
-            // Simple chunking: split on sentence boundaries for long texts
-            const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
             return sentences.map(s => s.trim()).filter(s => s.length > 0);
         },
         onAutoSend: () => {
@@ -278,37 +288,73 @@ export default function AIInterviewPage() {
         }
     });
 
-    const pipecatVoice = usePipecatInterview({
-        speakerMuted,
-        getAuthHeaders,
-        interviewerGender: readStoredInterviewerGender,
-        onAutoSend: () => {
-            if (sendAnswerRef.current) sendAnswerRef.current();
-        },
-        onBotTranscript: (text) => {
-            // Add bot transcript to conversation
-            setConversation(prev => [...prev, { role: 'interviewer', content: text, timestamp: Date.now() }]);
-        },
+    // ── Deepgram Streaming Voice Hook ──
+    // Runs the real-time STT (Deepgram) + TTS (Kokoro local) pipeline.
+    // `onAnswer` bridges detected speech directly into sendAnswer().
+    const dgVoice = useDeepgramVoice({
+        onAnswer: useCallback((answerText) => {
+            // Push transcribed text into state for UI display
+            classicVoice.setTranscript(answerText);
+            // CRITICAL: Pass answerText directly to sendAnswer because React
+            // state (transcript) won't update until the next render. Without
+            // this, sendAnswer reads stale/empty transcript and silently bails.
+            if (sendAnswerRef.current) sendAnswerRef.current(false, answerText);
+        }, []),  // eslint-disable-line react-hooks/exhaustive-deps
+        onTranscriptUpdate: useCallback((partial) => {
+            classicVoice.setTranscript(partial);
+        }, []),  // eslint-disable-line react-hooks/exhaustive-deps
+        interviewType,
+        personaGender: interviewerGender,
+        question: currentQuestion,
     });
 
-    // Use the appropriate voice hook based on mode
-    const voice = realtimeMode ? pipecatVoice : classicVoice;
+    // ── Interview Intelligence (filler detection + answer analysis) ──
+    const intelligence = useInterviewIntelligence({ getAuthHeaders });
 
-    // Destructure voice hook values
+    // Use classic voice as foundation; override speak/record with Deepgram pipeline.
+    const voice = classicVoice;
+
+
+    // Destructure classic voice hook values (refs / TTS state)
     const {
         aiSpeaking,
         setAiSpeaking,
-        isListening,
         transcript,
         setTranscript,
         silenceCountdown,
-        speakInterviewerText,
-        startVoiceRecording,
-        stopVoiceRecording,
         isListeningRef,
         isSendingRef,
         ttsAudioRef,
     } = voice;
+
+    // isListening now derived from dgVoice.state so the UI accurately reflects
+    // the Deepgram MediaRecorder pipeline (not the legacy WebSpeech API)
+    const isListening = dgVoice.state === 'listening';
+    // Keep the shared ref in sync so closures that read isListeningRef work
+    useEffect(() => {
+        isListeningRef.current = isListening;
+    }, [isListening, isListeningRef]);
+
+    // ── Upgraded voice controls ──
+    // speakInterviewerText → routes through backend TTS (Kokoro local → Groq Orpheus → browser)
+    const speakInterviewerText = useCallback(async (text) => {
+        if (!text) return;
+        setAiSpeaking(true);
+        await dgVoice.speak(text, {
+            onStart: () => setAiSpeaking(true),
+            onEnd:   () => setAiSpeaking(false),
+        });
+        setAiSpeaking(false);
+    }, [dgVoice, setAiSpeaking]);
+
+    // startVoiceRecording / stopVoiceRecording → Deepgram MediaRecorder pipeline
+    const startVoiceRecording = useCallback(() => {
+        dgVoice.start();
+    }, [dgVoice]);
+
+    const stopVoiceRecording = useCallback(() => {
+        dgVoice.stop();
+    }, [dgVoice]);
 
     // ── Chat ──
     const [chatOpen, setChatOpen] = useState(false);
@@ -325,6 +371,20 @@ export default function AIInterviewPage() {
     useEffect(() => {
         stateRefs.current = { userInput, transcript, code, language };
     }, [userInput, transcript, code, language]);
+
+    // ── Intelligence: feed live transcript to filler detector ──
+    useEffect(() => {
+        if (transcript && transcript.trim().length > 0) {
+            intelligence.ingestTranscript(transcript);
+        }
+    }, [transcript, intelligence]);
+
+    // ── Intelligence: feed audio RMS to confidence scorer ──
+    useEffect(() => {
+        if (dgVoice.inputLevel > 0) {
+            intelligence.ingestAudioConfidence(dgVoice.inputLevel);
+        }
+    }, [dgVoice.inputLevel, intelligence]);
 
     // ── Notes ──
     const [notes, setNotes] = useState('');
@@ -421,15 +481,6 @@ export default function AIInterviewPage() {
             setTotalQuestions(6);
         }
     }, [experienceLevel]);
-    const [interviewerGender, setInterviewerGender] = useState(readStoredInterviewerGender);
-
-    useEffect(() => {
-        try {
-            window.localStorage.setItem(AI_INTERVIEW_GENDER_STORAGE_KEY, interviewerGender);
-        } catch {
-            // Ignore storage failures and keep the in-memory selection.
-        }
-    }, [interviewerGender]);
 
     // ── Results State ──
     const [resultTab, setResultTab] = useState('overview');
@@ -775,35 +826,9 @@ export default function AIInterviewPage() {
 
         // ── Pipecat Real-Time Mode ──
         if (realtimeMode) {
-            try {
-                const session = await pipecatVoice.createSession({
-                    company: resolvedCompany,
-                    role: resolvedRole,
-                    stage: resolvedStage,
-                    interviewerName: INTERVIEWER.name,
-                    interviewerRole: INTERVIEWER.role,
-                    gender: interviewerGender,
-                    difficulty: experienceLevel === 'fresher' ? 'easy' : 'medium',
-                    experienceLevel,
-                    totalQuestions,
-                });
-
-                setCurrentQuestion('Real-time voice interview in progress...');
-                setQuestionIndex(1);
-                setConversation([]);
-                setPhase('interview');
-                setLoading(false);
-
-                // Auto-start mic for real-time streaming
-                await pipecatVoice.startVoiceRecording();
-                setMicOn(true);
-                return;
-            } catch (err) {
-                console.warn('[Pipecat] Failed to start real-time mode, falling back to classic:', err.message);
+                console.warn('[Pipecat] Real-time mode is temporarily unavailable, falling back to classic flow.');
                 setRealtimeMode(false);
-                // Fall through to classic mode
             }
-        }
 
         // Minimum display time for connecting animation
         const minDelay = new Promise(resolve => setTimeout(resolve, 3200));
@@ -930,7 +955,7 @@ export default function AIInterviewPage() {
     };
 
     // ── Send Answer ──
-    const sendAnswer = async (isAutoSkip = false) => {
+    const sendAnswer = async (isAutoSkip = false, answerOverride = null) => {
         /**
          * CRITICAL QUESTION NUMBERING CONTRACT:
          * When sending an answer, we send `questionNumber: questionIndex + 1`
@@ -961,7 +986,16 @@ export default function AIInterviewPage() {
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         setAiSpeaking(false);
 
-        const answer = isAutoSkip === true ? "I do not have a response to this question." : (userInput.trim() || transcript.trim());
+        // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
+        // pass the answer text directly, bypassing stale React state.
+        const answer = isAutoSkip === true
+            ? "I do not have a response to this question."
+            : (answerOverride?.trim() || userInput.trim() || transcript.trim());
+
+        // Trigger answer analysis (non-blocking, fire-and-forget)
+        if (answer && answer.length > 10) {
+            intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
+        }
         if (!answer && !code.trim() && isAutoSkip !== true) { isSendingRef.current = false; return; }
 
         const fullAnswer = code.trim()
@@ -1084,6 +1118,14 @@ export default function AIInterviewPage() {
             const fallbackQ = followUpFallbackByStage[resolvedStage] || 'Can you walk me through your approach step by step, including trade-offs?';
             const continueQ = (typeof nextQ === 'string' && nextQ.trim().length > 0) ? nextQ : fallbackQ;
 
+            // Speculative TTS pre-fetch: start downloading the audio for the
+            // next question NOW, while feedback is still being spoken + thinking
+            // delay runs. By the time speak(continueQ) is called, the blob is
+            // already cached → near-zero TTS latency.
+            if (!isInterviewOver) {
+                dgVoice.prefetch(continueQ);
+            }
+
             if (isInterviewOver) {
                 // Last question — speak closing remark and end
                 const closingText = data.closingRemark || closingRemark || 'Great job today! Thank you for your time. We\'ll be in touch soon.';
@@ -1117,6 +1159,9 @@ export default function AIInterviewPage() {
                     // Brief pause between feedback and next question
                     await new Promise(r => setTimeout(r, 1000));
                 }
+                // Natural thinking delay — makes AI feel human (0.8–1.6s)
+                const thinkDelay = 800 + Math.random() * 800;
+                await new Promise(r => setTimeout(r, thinkDelay));
                 await speakInterviewerText(continueQ);
                 // Smooth handoff: brief pause then auto-enable mic
                 await new Promise(r => setTimeout(r, 600));
@@ -1234,13 +1279,10 @@ export default function AIInterviewPage() {
     const endInterview = () => {
         clearInterval(timerRef.current);
         stopVoiceRecording();
+        dgVoice.interrupt();
         if (ttsAudioRef.current) { ttsAudioRef.current.pause(); ttsAudioRef.current = null; }
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         setAiSpeaking(false);
-        // Clean up Pipecat session if active
-        if (realtimeMode && pipecatVoice.closeSession) {
-            pipecatVoice.closeSession().catch(() => {});
-        }
         setPhase('summary');
     };
 
@@ -1698,7 +1740,7 @@ export default function AIInterviewPage() {
                                         </div>
                                         {realtimeMode && (
                                             <div style={{ fontSize: '0.75rem', color: '#94a3b8', padding: '8px 0 0 0', lineHeight: 1.5 }}>
-                                                ⚡ Ultra-low latency voice conversation powered by Pipecat AI. Requires Python bot running on the server.
+                                                ⚡ Deepgram STT + Kokoro TTS — ultra-low latency, 100% Node.js. No Python required.
                                             </div>
                                         )}
                                     </div>
@@ -2328,6 +2370,22 @@ export default function AIInterviewPage() {
                                     <div className="ai-vc-speaking-ring-inner" />
                                 </div>
                             )}
+
+                            {/* AI Lip-sync bars (Phase 4) */}
+                            {aiSpeaking && (
+                                <div className="ai-vc-lipsync">
+                                    {[...Array(3)].map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className="ai-vc-lipsync-bar"
+                                            style={{
+                                                animationDelay: `${i * 0.12}s`,
+                                                height: `${6 + (dgVoice.outputBars?.[i * 2] || 0) * 18}px`,
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         {/* Name badge */}
                         <div className="ai-vc-tile-badge">
@@ -2335,10 +2393,37 @@ export default function AIInterviewPage() {
                             <span className="ai-vc-tile-badge-name">{INTERVIEWER.name}</span>
                             <span className="ai-vc-tile-badge-role">{INTERVIEWER.role} · {INTERVIEWER.company}</span>
                         </div>
-                        {/* Speaking wave overlay */}
-                        {aiSpeaking && (
-                            <div className="ai-vc-wave-overlay">
-                                <span /><span /><span /><span /><span /><span /><span />
+                        {/* Speaking wave overlay — Deepgram real-time waveform */}
+                        {aiSpeaking ? (
+                            <div className="ai-vc-wave-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 12px 10px' }}>
+                                <VoiceWaveform
+                                    bars={dgVoice.outputBars}
+                                    active={dgVoice.outputActive}
+                                    color="#a78bfa"
+                                    height={36}
+                                />
+                            </div>
+                        ) : (isListening && (
+                            <div className="ai-vc-wave-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 12px 10px' }}>
+                                <VoiceWaveform
+                                    bars={dgVoice.inputBars}
+                                    active={dgVoice.inputActive}
+                                    color="#34d399"
+                                    height={36}
+                                />
+                            </div>
+                        ))}
+
+                        {/* Filler word counter badge + Confidence meter (Phase 2) */}
+                        {isListening && intelligence.totalFillers > 0 && (
+                            <div className="ai-vc-filler-badge" title="Filler words detected">
+                                <AlertTriangle size={11} />
+                                <span>{intelligence.totalFillers}</span>
+                            </div>
+                        )}
+                        {isListening && (
+                            <div className="ai-vc-confidence-meter" title={`Confidence: ${intelligence.confidenceScore}%`}>
+                                <div className="ai-vc-confidence-meter-fill" style={{ width: `${intelligence.confidenceScore}%` }} />
                             </div>
                         )}
                         {/* Status message overlay */}
@@ -2398,6 +2483,13 @@ export default function AIInterviewPage() {
                                         ? 'You'
                                         : null;
                         if (!speakerName) return null;
+
+                        // Word-by-word animation (Phase 3)
+                        const displayText = currentSpeech && currentSpeech.length > 200
+                            ? '...' + currentSpeech.slice(-200)
+                            : currentSpeech || '';
+                        const words = displayText.split(/\s+/).filter(Boolean);
+
                         return (
                             <div className="ai-vc-captions">
                                 <div className="ai-vc-captions-inner">
@@ -2405,9 +2497,15 @@ export default function AIInterviewPage() {
                                         {speakerName}:
                                     </span>
                                     <span className="ai-vc-captions-text">
-                                        {currentSpeech && currentSpeech.length > 160
-                                            ? '...' + currentSpeech.slice(-160)
-                                            : currentSpeech}
+                                        {words.map((word, i) => (
+                                            <span
+                                                key={`${word}-${i}`}
+                                                className="ai-vc-caption-word"
+                                                style={{ animationDelay: `${i * 0.06}s` }}
+                                            >
+                                                {word}{' '}
+                                            </span>
+                                        ))}
                                     </span>
                                 </div>
                             </div>
@@ -2804,3 +2902,7 @@ export default function AIInterviewPage() {
         </div>
     );
 }
+
+
+
+

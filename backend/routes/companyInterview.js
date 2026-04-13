@@ -4,10 +4,12 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { authenticateToken } from '../middleware/auth.js';
+import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../services/companyQuestionService.js';
+import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../utils/voiceTelemetry.js';
+import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../utils/interviewFeedback.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -89,7 +91,7 @@ const DEFAULT_ADVANCED_OPTIONS = {
   questionCount: 8,
 };
 
-const INTERVIEW_RUNTIME_MODES = ['hybrid_rollout', 'full_realtime'];
+const INTERVIEW_RUNTIME_MODES = ['full_realtime'];
 
 function normalizeInterviewRuntimeMode(mode) {
   const normalized = String(mode || '').trim().toLowerCase();
@@ -98,7 +100,7 @@ function normalizeInterviewRuntimeMode(mode) {
   const envMode = String(process.env.AI_INTERVIEW_MODE || '').trim().toLowerCase();
   if (INTERVIEW_RUNTIME_MODES.includes(envMode)) return envMode;
 
-  return 'hybrid_rollout';
+  return 'full_realtime';
 }
 
 function buildInterviewRuntime(mode) {
@@ -106,7 +108,7 @@ function buildInterviewRuntime(mode) {
     return {
       mode,
       realtime: true,
-      strategy: 'pipecat_realtime',
+      strategy: 'realtime_voice_bridge',
       transport: 'websocket',
       bargeInEnabled: true,
       targetFirstAudioMs: 800,
@@ -114,12 +116,12 @@ function buildInterviewRuntime(mode) {
   }
 
   return {
-    mode: 'hybrid_rollout',
-    realtime: false,
-    strategy: 'http_pipeline_with_realtime_bridge',
-    transport: 'http',
-    bargeInEnabled: false,
-    targetFirstAudioMs: 1500,
+    mode: 'full_realtime',
+    realtime: true,
+    strategy: 'realtime_voice_bridge',
+    transport: 'websocket',
+    bargeInEnabled: true,
+    targetFirstAudioMs: 800,
   };
 }
 
@@ -857,7 +859,8 @@ ${stage === 'Managerial' ? `- For students: focus on leadership in college activ
 };
 
 // ─── Start Interview ───
-router.post('/start', authenticateToken, async (req, res) => {
+router.post('/start', optionalAuth, async (req, res) => {
+  const requestStartTime = Date.now();
   const {
     company,
     role,
@@ -875,8 +878,21 @@ router.post('/start', authenticateToken, async (req, res) => {
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+  const buildCanonicalStartPayload = (payload = {}) => {
+    const turn = Number(payload?.questionMeta?.sequence);
+    return {
+      ...payload,
+      mode: resolvedRuntimeMode,
+      status: 'in_progress',
+      complete: false,
+      turn: Number.isFinite(turn) ? turn : 1,
+      initialQuestion: payload.question || payload.initialQuestion || null,
+      nextQuestion: payload.nextQuestion || null,
+      telemetry: payload.telemetry || buildInitialVoiceTelemetry(stage, resolvedRuntimeMode),
+    };
+  };
   const withRuntime = (payload) => ({
-    ...payload,
+    ...buildCanonicalStartPayload(payload),
     interviewRuntimeMode: resolvedRuntimeMode,
     runtime,
   });
@@ -1284,13 +1300,32 @@ function buildFocusSignal(previousQuestion = '', userAnswer = '') {
 }
 
 // ─── Follow-up with realistic interviewer behavior ───
-router.post('/follow-up', authenticateToken, async (req, res) => {
+router.post('/follow-up', optionalAuth, async (req, res) => {
+  const requestStartTime = Date.now();
   const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher' } = req.body;
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+  const buildCanonicalFollowUpPayload = (payload = {}) => {
+    const turn = Number(payload?.questionMeta?.sequence);
+    return {
+      ...payload,
+      mode: resolvedRuntimeMode,
+      status: payload.complete ? 'completed' : 'in_progress',
+      turn: Number.isFinite(turn) ? turn : null,
+      nextQuestion: payload.nextQuestion || payload.followUpQuestion || null,
+      telemetry: payload.telemetry || buildVoiceTelemetrySnapshot({
+        previousTelemetry: req.body?.telemetry || {},
+        turnNumber: Number.isFinite(turn) ? turn : safeQuestionNumber,
+        previousStage: req.body?.previousStage || req.body?.telemetry?.currentStage || stage,
+        nextStage: stage,
+        responseLatencyMs: Date.now() - requestStartTime,
+        mode: resolvedRuntimeMode,
+      }),
+    };
+  };
   const withRuntime = (payload) => ({
-    ...payload,
+    ...buildCanonicalFollowUpPayload(payload),
     interviewRuntimeMode: resolvedRuntimeMode,
     runtime,
   });
@@ -1727,6 +1762,7 @@ Include your evaluation in "codeFeedback" in the JSON response.` : '';
 
     const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company, stage);
     const memoryPrompt = buildInterviewMemoryPrompt(conversationHistory, previousQuestion, userAnswer);
+    const feedbackPrompt = buildAnswerFeedbackPrompt();
 
     const focusPrompt = `
 
@@ -1795,7 +1831,7 @@ NATURAL SPEECH CONSTRAINTS:
 - Do not repeat the exact same follow-up wording twice in a row.
 - For fresher Technical interviews, vary the angle across project, coursework, internship, fundamentals, and trade-offs instead of asking for the same concrete example repeatedly.
 - Prefer concrete, topic-specific follow-ups tied to the current stage (e.g., OOP/DBMS/OS/networking for Technical; STAR context for Behavioral).
-` + focusPrompt + `
+` + focusPrompt + feedbackPrompt + `
 
 Respond as JSON:
 {
@@ -1834,11 +1870,16 @@ Respond as JSON:
     });
 
     const result = JSON.parse(completion.choices[0].message.content);
+    const normalizedResult = normalizeInterviewFeedback(result, {
+      stage,
+      question: previousQuestion,
+      answer: userAnswer,
+    });
     res.json(withRuntime({
-      ...result,
+      ...normalizedResult,
       interviewerReaction: result.interviewerReaction || 'neutral',
       thinkTime: result.thinkTime || 45,
-      hint: result.hint || 'Try breaking the problem into smaller parts',
+      hint: normalizedResult.hint || 'Try breaking the problem into smaller parts',
       difficultyLevel: result.difficultyLevel || 'medium',
       adaptiveNote: result.adaptiveNote || null,
       codeFeedback: result.codeFeedback || null,
@@ -1876,21 +1917,28 @@ Respond as JSON:
     const defaultFallbackByExperience = experienceLevel === 'fresher'
       ? pickTechnicalFallbackQuestion(questionNumber)
       : 'Good answer. Can you compare one alternative approach and explain the trade-off?';
+    const fallbackFeedback = normalizeInterviewFeedback({
+      feedback: 'That answer is a good start, but it needs one concrete example and a clearer takeaway.',
+      strengths: [],
+      improvements: [],
+      hint: 'Add one real example and finish with the result or lesson learned.',
+    }, {
+      stage,
+      question: previousQuestion,
+      answer: userAnswer,
+    });
     res.json(withRuntime({
-      feedback: 'That\'s a thoughtful response! I can see you\'ve given this real thought.',
+      ...fallbackFeedback,
       followUpQuestion: fallbackFollowUps[stage] || defaultFallbackByExperience,
       score: 72 + Math.floor(Math.random() * 15),
-      strengths: ['Clear communication', 'Structured thinking'],
-      improvements: ['Add more specific examples', 'Consider edge cases'],
       interviewerReaction: 'encouraging',
       thinkTime: 45,
-      hint: 'Try breaking the problem into smaller parts'
     }));
   }
 });
 
 // ─── Get a hint for current question ───
-router.post('/hint', authenticateToken, async (req, res) => {
+router.post('/hint', optionalAuth, async (req, res) => {
   const { company, role, stage, currentQuestion, conversationHistory } = req.body;
 
   try {
@@ -1942,7 +1990,7 @@ Respond as JSON:
 });
 
 // ─── Rephrase Interview Question ───
-router.post('/rephrase', authenticateToken, async (req, res) => {
+router.post('/rephrase', optionalAuth, async (req, res) => {
   const { question, company, stage } = req.body;
 
   try {
@@ -1983,7 +2031,7 @@ Output ONLY a JSON object with this shape:
 });
 
 // ─── Real-time nudge for AICopilot NudgeBar ───
-router.post('/nudge', authenticateToken, async (req, res) => {
+router.post('/nudge', optionalAuth, async (req, res) => {
   const { currentQuestion, partialAnswer, stage, company, role } = req.body;
 
   try {
@@ -2496,7 +2544,7 @@ Return valid JSON with this shape:
   }
 }
 
-router.post('/evaluate', authenticateToken, async (req, res) => {
+router.post('/evaluate', optionalAuth, async (req, res) => {
   const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
 
   try {
@@ -2509,7 +2557,7 @@ router.post('/evaluate', authenticateToken, async (req, res) => {
 });
 
 // ─── Detailed per-question report ───
-router.post('/detailed-report', authenticateToken, async (req, res) => {
+router.post('/detailed-report', optionalAuth, async (req, res) => {
   const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
 
   try {
@@ -2522,7 +2570,7 @@ router.post('/detailed-report', authenticateToken, async (req, res) => {
 });
 
 // ─── Analyze speech for pace, fillers, clarity ───
-router.post('/speech-feedback', authenticateToken, async (req, res) => {
+router.post('/speech-feedback', optionalAuth, async (req, res) => {
   const { transcript, duration } = req.body;
 
   try {
@@ -2580,7 +2628,7 @@ router.post('/speech-feedback', authenticateToken, async (req, res) => {
 });
 
 // ─── AI Copilot suggestions ───
-router.post('/copilot-suggest', authenticateToken, async (req, res) => {
+router.post('/copilot-suggest', optionalAuth, async (req, res) => {
   const { company, role, stage, currentQuestion, partialAnswer, jobDescription } = req.body;
 
   try {
@@ -2642,7 +2690,7 @@ Respond strictly in this JSON format:
 });
 
 // ─── Text-to-Speech (Orpheus TTS) ───
-router.post('/tts', authenticateToken, async (req, res) => {
+router.post('/tts', optionalAuth, async (req, res) => {
   const { text, persona } = req.body;
 
   if (!text || text.trim().length === 0) {
@@ -2713,7 +2761,7 @@ router.post('/tts', authenticateToken, async (req, res) => {
 });
 
 // ─── Speech-to-Text (Whisper) ───
-router.post('/stt', authenticateToken, upload.single('audio'), async (req, res) => {
+router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
   const filePath = req.file?.path;
 
   try {

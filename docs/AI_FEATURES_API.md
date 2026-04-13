@@ -156,11 +156,9 @@ Retrieve user's code review history with pagination.
 ## Interview Simulation Endpoints
 
 ### Runtime Modes
-- `hybrid_rollout`: Keeps current API request/response flow with realtime-ready metadata and safe fallbacks.
-- `full_realtime`: Optimizes prompts and responses for realtime voice orchestration (for example Pipecat).
-- `full_realtime`: Optimizes prompts and responses for realtime voice orchestration (for example Pipecat).
+- `full_realtime`: Optimizes prompts and responses for generic realtime voice orchestration.
 
-When `full_realtime` is selected, clients can create a Pipecat bridge session descriptor first and then start the interview as usual.
+When `full_realtime` is selected, clients continue with the same interview contract and use realtime metadata when available.
 
 ### 5. List Supported Interview Modes
 **GET** `/api/ai-features/interview/modes`
@@ -172,11 +170,10 @@ Returns the default mode and the currently supported modes.
 {
   "success": true,
   "data": {
-    "defaultMode": "hybrid_rollout",
-    "supportedModes": ["hybrid_rollout", "full_realtime"],
+    "defaultMode": "full_realtime",
+    "supportedModes": ["full_realtime"],
     "description": {
-      "hybrid_rollout": "Uses current API flow with realtime-ready metadata and safe fallback behavior.",
-      "full_realtime": "Optimizes prompts and responses for realtime voice runtimes such as Pipecat."
+      "full_realtime": "Optimizes prompts and responses for generic realtime voice runtimes."
     }
   }
 }
@@ -193,7 +190,7 @@ Initialize a new interview session with a problem statement and greeting from th
   "interviewType": "dsa",  // "dsa", "system_design", "behavioral", or "mixed"
   "difficulty": "medium",  // Optional: "easy", "medium", or "hard", defaults to "medium"
   "companyFocus": "Google",  // Optional: specific company focus
-  "interviewMode": "hybrid_rollout" // Optional: "hybrid_rollout" or "full_realtime"
+  "interviewMode": "full_realtime" // Optional: "full_realtime"
 }
 ```
 
@@ -202,30 +199,157 @@ Initialize a new interview session with a problem statement and greeting from th
 {
   "success": true,
   "data": {
-    "session_id": "uuid",
-    "user_id": "uuid",
-    "interview_type": "dsa",
-    "difficulty": "medium",
-    "company_focus": "Google",
-    "interviewMode": "hybrid_rollout",
-    "runtime": {
-      "mode": "hybrid_rollout",
-      "realtime": false,
-      "strategy": "http_pipeline_with_realtime_bridge"
+    "sessionId": "uuid",
+    "problem": {
+      "statement": "Design a system to handle...",
+      "requirements": ["Scalability", "Fault tolerance"]
     },
-    "problem_statement": "Design a system to handle...",
-    "interviewer_greeting": "Hello! Let's start with a system design question...",
-    "status": "in_progress",
-    "round": 1,
-    "max_rounds": 5,
-    "created_at": "2024-01-15T10:30:00Z"
+    "stage": "intake",
+    "stageLabel": "Requirements Clarification",
+    "stagePlan": [
+      "intake",
+      "warmup",
+      "technical",
+      "followup",
+      "challenge",
+      "feedback"
+    ],
+    "interviewMode": "full_realtime",
+    "runtime": {
+      "mode": "full_realtime",
+      "realtime": true,
+      "strategy": "realtime_voice_bridge"
+    },
+    "initialQuestion": "Let's start by clarifying requirements and constraints.",
+    "interviewerGreeting": "Hello! Let's start with a system design question..."
+  }
+}
+```
+
+The `stage`, `stageLabel`, and `stagePlan` fields define the active orchestration step and allow clients to render interview progress in realtime.
+
+**Session Lifecycle Contract:**
+- `status` is `in_progress` after start and becomes `completed` only after `/complete`.
+- Active stage sequence is `intake -> warmup -> technical -> followup -> challenge -> feedback`.
+- `stagePlan` may be serialized as either string keys or `{ key, label }` objects; clients should normalize to `{ key, label }`.
+- Question numbering is turn-driven: each `/respond` increments internal turns, while `stage` and `stageLabel` communicate lifecycle progression.
+
+**Error Responses:**
+- `400`: Invalid interviewType or other validation error
+- `500`: Server error or AI service failure
+
+---
+
+### 6A. Test Interview Grounding Context
+**POST** `/api/ai-features/interview/test-grounding`
+
+Diagnostic endpoint to preview retrieval context used for stage-aware follow-up generation. This endpoint does not mutate interview session state.
+
+**Request Body:**
+```json
+{
+  "company": "Google",
+  "role": "SDE",
+  "difficulty": "medium",
+  "stage": "technical",
+  "interviewType": "dsa",
+  "missingAreas": ["complexity analysis", "edge cases"],
+  "resumeContext": {
+    "coreSkills": ["distributed systems", "javascript"]
+  },
+  "limit": 4
+}
+```
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "source": "company_question_bank",
+    "query": {
+      "company": "Google",
+      "role": "SDE",
+      "stage": "technical",
+      "interviewType": "dsa",
+      "normalizedStage": "Technical",
+      "difficulty": "Medium"
+    },
+    "retrievedQuestions": [
+      {
+        "id": "google_123",
+        "company": "google",
+        "role": "SDE",
+        "stage": "Technical",
+        "difficulty": "Medium",
+        "question": "How would you scale this design to 10x traffic?",
+        "tags": ["scalability"]
+      }
+    ],
+    "retrievedExamples": [
+      "Compare horizontal vs vertical scaling with latency trade-offs"
+    ],
+    "hintPatterns": [
+      "Quantify time and space complexity before concluding the answer."
+    ],
+    "retrievalLatencyMs": 42
   }
 }
 ```
 
 **Error Responses:**
-- `400`: Invalid interviewType or other validation error
-- `500`: Server error or AI service failure
+- `400`: Validation error
+- `500`: Server error
+
+---
+
+### 6B. Get Interview Telemetry Snapshot
+**GET** `/api/ai-features/interview/:sessionId/telemetry`
+
+Fetches runtime telemetry for a single interview session (turn count, stage transitions, grounding hit rate, and latency stats).
+
+**URL Parameters:**
+- `sessionId` (UUID): Interview session ID
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "uuid",
+    "stage": "technical",
+    "stageLabel": "Core Round",
+    "current_scores": {
+      "overall": 7.2,
+      "communication": 7.5,
+      "problem_solving": 7.0,
+      "technical_depth": 7.1,
+      "performance_level": "Good"
+    },
+    "telemetry": {
+      "totalTurns": 4,
+      "stageTransitions": [
+        {
+          "from": "warmup",
+          "to": "technical",
+          "atTurn": 3,
+          "timestamp": "2026-04-12T06:00:00.000Z"
+        }
+      ],
+      "groundingHits": 3,
+      "groundingHitRate": 0.75,
+      "lastResponseLatencyMs": 1120,
+      "averageResponseLatencyMs": 948.5,
+      "latestAnalysisScore": 78,
+      "lastUpdatedAt": "2026-04-12T06:00:01.000Z"
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `404`: Session not found
+- `500`: Server error
 
 ---
 
@@ -250,27 +374,74 @@ Process the candidate's response and generate interviewer's follow-up or next ro
 {
   "success": true,
   "data": {
-    "session_id": "uuid",
-    "round": 1,
-    "candidate_response": "I would approach this by...",
-    "interviewer_message": "Good start! Can you elaborate on the scalability aspect?",
+    "interviewerMessage": "Good start! Can you elaborate on the scalability aspect?",
+    "feedback": "You provided a solid high-level overview. Your approach shows understanding of common patterns.",
+    "clarifications": [
+      "What assumptions are you making about request volume?"
+    ],
+    "hints": [
+      "Discuss boundary conditions and worst-case behavior."
+    ],
+    "encouragement": "Nice progress so far.",
+    "continueInterview": true,
+    "stage": "technical",
+    "stageLabel": "Core Solution",
+    "stagePlan": [
+      "intake",
+      "warmup",
+      "technical",
+      "followup",
+      "challenge",
+      "feedback"
+    ],
     "interviewMode": "full_realtime",
     "runtime": {
       "mode": "full_realtime",
       "realtime": true,
-      "strategy": "pipecat_realtime"
+      "strategy": "realtime_voice_bridge"
     },
-    "feedback": "You provided a solid high-level overview. Your approach shows understanding of common patterns.",
-    "response_quality_score": 72,
-    "communication_score": 75,
-    "problem_solving_score": 70,
-    "transcript": [
-      { "role": "interviewer", "message": "..." },
-      { "role": "candidate", "message": "..." }
-    ]
+    "current_scores": {
+      "overall": 7.2,
+      "communication": 7.5,
+      "problemSolving": 7.0,
+      "technicalDepth": 7.1,
+      "performance_level": "Good"
+    },
+    "adaptive_update": {
+      "newDifficulty": "medium",
+      "reason": "maintain"
+    },
+    "telemetry": {
+      "totalTurns": 4,
+      "stageTransitions": [
+        {
+          "from": "warmup",
+          "to": "technical",
+          "atTurn": 3,
+          "timestamp": "2026-04-12T06:00:00.000Z"
+        }
+      ],
+      "groundingHits": 3,
+      "groundingHitRate": 0.75,
+      "lastResponseLatencyMs": 1120,
+      "averageResponseLatencyMs": 948.5,
+      "latestAnalysisScore": 78,
+      "lastUpdatedAt": "2026-04-12T06:00:01.000Z"
+    }
   }
 }
 ```
+
+`stage` and `stageLabel` are updated on each turn based on the internal interview state machine.
+
+**Follow-up Payload Contract (required keys on success):**
+- `interviewerMessage` (string): next interviewer turn text
+- `continueInterview` (boolean): whether client should keep the loop active
+- `stage` and `stageLabel` (string): current lifecycle position
+- `stagePlan` (array): normalized lifecycle stages
+- `current_scores` (object): rolling score snapshot on a 0-10 scale
+- `adaptive_update` (object): difficulty adaptation reason and direction
+- `telemetry` (object): turn count, stage transitions, grounding hit rate, and latency metrics
 
 **Error Responses:**
 - `400`: Invalid sessionId or empty response
@@ -318,6 +489,8 @@ End the interview and generate final performance analysis with scores.
   }
 }
 ```
+
+`/complete` finalizes the contract by persisting the session status and producing terminal scores and summary fields for history/report views.
 
 **Error Responses:**
 - `404`: Session not found
@@ -400,76 +573,9 @@ Retrieve user's interview history with pagination and optional status filtering.
 
 ---
 
-## Pipecat Bridge Endpoints (Runtime Helper)
+## Realtime Runtime Notes
 
-These endpoints are prefixed with `/api/pipecat` and require authentication.
-
-### 11. Pipecat Bridge Health
-**GET** `/api/pipecat/health`
-
-Returns whether a bridge is configured and runtime helper metadata.
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "configured": false,
-    "bridgeBaseUrl": null,
-    "hasWsTemplate": false,
-    "activeSessionCount": 0,
-    "sessionTtlMinutes": 30,
-    "modeSupport": ["full_realtime"]
-  }
-}
-```
-
-### 12. Create Pipecat Session Descriptor
-**POST** `/api/pipecat/session`
-
-Creates an ephemeral session descriptor for `full_realtime` mode.
-
-**Request Body:**
-```json
-{
-  "interviewMode": "full_realtime",
-  "interviewType": "dsa",
-  "difficulty": "medium",
-  "interviewSessionId": "optional-uuid"
-}
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "sessionId": "uuid",
-    "status": "bridge_configured",
-    "transport": "websocket",
-    "websocketUrl": "wss://bridge.example/ws?sessionId=...",
-    "expiresAt": "2026-04-08T12:00:00.000Z",
-    "runtime": {
-      "mode": "full_realtime",
-      "realtime": true,
-      "strategy": "pipecat_realtime",
-      "bridgeConfigured": true
-    }
-  }
-}
-```
-
-If bridge configuration is missing, `status` will be `bridge_pending_configuration` and `websocketUrl` may be null. Clients should continue with hybrid-compatible behavior.
-
-### 15. Get Pipecat Session Descriptor
-**GET** `/api/pipecat/session/:sessionId`
-
-Returns the current session descriptor for the authenticated user.
-
-### 16. Close Pipecat Session Descriptor
-**DELETE** `/api/pipecat/session/:sessionId`
-
-Closes the ephemeral descriptor in backend memory.
+The `full_realtime` mode uses the standard interview endpoints and relies on runtime metadata instead of a separate bridge helper API.
 
 ---
 
