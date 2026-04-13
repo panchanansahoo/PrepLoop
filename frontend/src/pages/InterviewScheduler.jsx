@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { CalendarPlus, Clock3, Trash2 } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -20,13 +21,7 @@ export default function InterviewScheduler() {
     [user?.role],
   );
 
-  const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
+  const getHeaders = () => buildAuthHeaders(user);
 
   const loadSlots = async () => {
     setLoading(true);

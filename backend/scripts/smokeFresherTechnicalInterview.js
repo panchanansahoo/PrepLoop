@@ -154,8 +154,17 @@ async function main() {
     console.log(`Fresher technical smoke target: ${BASE_URL}`);
     console.log(TOKEN ? 'Mode: AUTHENTICATED' : 'Mode: UNAUTHENTICATED');
 
+    const strictMode = process.env.FRESHER_TECHNICAL_SMOKE_STRICT === 'true' || process.env.CI === 'true';
+
     await runHealthCheck();
-    assert(TOKEN, 'FRESHER_TECHNICAL_SMOKE_TOKEN (or AI_FEATURES_SMOKE_TOKEN / TEST_AUTH_TOKEN) is required for authenticated smoke checks');
+    if (!TOKEN) {
+      const message = 'Missing auth token: set FRESHER_TECHNICAL_SMOKE_TOKEN or AI_FEATURES_SMOKE_TOKEN.';
+      if (strictMode) {
+        throw new Error(`${message} Strict mode is enabled.`);
+      }
+      console.log(`Skipping authenticated fresher technical smoke: ${message}`);
+      return;
+    }
     await runAuthenticatedSmoke();
 
     console.log('Fresher technical interview smoke test passed.');

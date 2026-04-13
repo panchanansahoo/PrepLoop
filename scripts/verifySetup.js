@@ -124,7 +124,6 @@ function main() {
     'SMTP_USER',
     'SMTP_PASS',
     'RECAPTCHA_SECRET_KEY',
-    'ELEVENLABS_API_KEY',
     'DEEPGRAM_API_KEY',
     'RAPIDAPI_KEY',
     'ADZUNA_APP_ID',

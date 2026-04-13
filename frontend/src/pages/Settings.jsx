@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Bell, Moon, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function Settings() {
     const { user, logout } = useAuth();
@@ -28,11 +29,10 @@ export default function Settings() {
         setSaving(true);
         setStatus('idle');
         try {
-            const token = localStorage.getItem('token');
             syncLanguagePreferences(settings.language);
             const res = await fetch('/api/user/settings', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
                 body: JSON.stringify(settings)
             });
             if (!res.ok) {

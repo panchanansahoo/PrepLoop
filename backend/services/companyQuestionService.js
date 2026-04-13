@@ -38,6 +38,7 @@ function loadQuestionData() {
         // Extract just the data arrays we need
         const wrappedCode = fileContent
             .replace(/export const /g, 'const ')
+            .replace(/export function /g, 'function ')
             .replace(/export default /g, 'const _default = ');
 
         const extractFn = new Function(`

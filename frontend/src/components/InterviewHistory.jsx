@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Filter, ChevronRight, Clock } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function InterviewHistory({ userId }) {
   const [interviews, setInterviews] = useState([]);
@@ -14,13 +15,9 @@ export default function InterviewHistory({ userId }) {
   const fetchInterviewHistory = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5003/api/interview/history', {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: buildAuthHeaders(),
       });
 
       if (response.ok) {

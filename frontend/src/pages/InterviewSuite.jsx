@@ -7,6 +7,7 @@ import {
   TrendingUp, Award, ChevronRight, Flame, Timer,
   Radio, BookOpen
 } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import './InterviewHub.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -106,10 +107,7 @@ const QUICK_TOOLS = [
 ];
 
 function getAuthHeaders() {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+  return buildAuthHeaders();
 }
 
 /* ─── Mode Icon Map for Sessions ─── */

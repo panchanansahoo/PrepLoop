@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader, Send, Mic, MicOff, Lightbulb } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function InterviewSession({ interview, config, onComplete }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -105,13 +106,9 @@ export default function InterviewSession({ interview, config, onComplete }) {
     setFeedback(null);
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5003/api/interview/0/feedback', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           questionIndex: currentQuestionIndex,
           answerText: currentAnswer

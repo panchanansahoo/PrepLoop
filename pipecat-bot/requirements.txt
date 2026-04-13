@@ -1,3 +1,0 @@
-pipecat-ai[groq,deepgram,elevenlabs]
-python-dotenv
-aiohttp

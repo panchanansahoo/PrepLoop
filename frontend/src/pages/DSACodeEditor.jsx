@@ -12,15 +12,11 @@ import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
 import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../data/editorThemes';
 import { markProblemAsAttempted } from '../data/dsaLearningProgress';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getAuthHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-};
+const getAuthHeaders = () => buildAuthHeaders();
 
 const getSolutionUnlockKey = (id) => `dsa-solution-unlocked-${String(id ?? '').trim()}`;
 

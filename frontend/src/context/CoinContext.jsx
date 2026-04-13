@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useAuth } from './AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -14,11 +15,7 @@ export function CoinProvider({ children }) {
   const [redeemOptions, setRedeemOptions] = useState([]);
 
   const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    return buildAuthHeaders(user);
   };
 
   const refreshBalance = useCallback(async () => {

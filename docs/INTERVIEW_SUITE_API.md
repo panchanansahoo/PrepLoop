@@ -2,6 +2,9 @@
 
 Base path: `/api/interview-suite`
 
+This document covers Interview Suite utilities (heatmaps, roadmap generation, rubric scoring, replay, peer/mentor features).
+The realtime interview session lifecycle contract (`start/respond/complete`) is defined under `/api/ai-features/interview/*` in `docs/AI_FEATURES_API.md` and `docs/AI_INTERVIEW_WORKFLOW.md`.
+
 ## 1) Resume-to-question generator
 - `POST /resume/question-generator`
 - Auth: required
@@ -11,6 +14,7 @@ Base path: `/api/interview-suite`
   - `company?: string`
   - `role?: string`
   - `experienceLevel?: string`
+  - `skillLevel?: string` (accepted alias)
 - Returns project, HR, and technical follow-up question arrays.
 
 ## 2) Interview replay + transcript + mistake markers
@@ -39,9 +43,11 @@ Base path: `/api/interview-suite`
   - `company?: string`
   - `role?: string`
   - `difficulty?: string`
+  - `skillLevel?: string` (accepted alias)
   - `includeDebugMode?: boolean`
   - `customFocus?: string[]`
 - Returns round-by-round simulation flow.
+- Response compatibility includes both top-level and nested roadmap shapes (`rounds` and `roadmap.rounds`) for legacy and current UI clients.
 
 ## 6) Clarifying-question and communication rubric
 - `POST /communication/rubric-score`
@@ -49,6 +55,7 @@ Base path: `/api/interview-suite`
 - Body:
   - `answers?: string[]`
   - `transcript?: string`
+  - `answer?: string` (accepted alias)
 - Returns rubric (1-5 dimensions), overall score, strengths, and improvements.
 
 ## 7) Debugging + code-review interview mode

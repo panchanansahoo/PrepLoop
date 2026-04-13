@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import { Link, useNavigate } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -73,10 +74,7 @@ export default function MultiRoundInterview() {
     const activeRounds = ROUND_TYPES.filter(r => selectedRounds.includes(r.id));
 
     const getAuthHeaders = () => {
-        const headers = { 'Content-Type': 'application/json' };
-        const token = localStorage.getItem('token');
-        if (token) headers.Authorization = `Bearer ${token}`;
-        return headers;
+        return buildAuthHeaders(user);
     };
 
     // Toggle round selection

@@ -32,6 +32,23 @@ function assert(condition, message) {
   }
 }
 
+function resolvePayload(result) {
+  return result?.json?.data || result?.json || null;
+}
+
+function assertStagePlan(stagePlan, pathLabel) {
+  assert(Array.isArray(stagePlan), `${pathLabel} missing stagePlan array`);
+  assert(stagePlan.length > 0, `${pathLabel} stagePlan should not be empty`);
+  const first = stagePlan[0];
+  if (typeof first === 'string') {
+    assert(first === 'intake', `${pathLabel} stagePlan should start at intake`);
+    return;
+  }
+
+  assert(typeof first?.key === 'string', `${pathLabel} stagePlan should contain key/label objects`);
+  assert(first.key === 'intake', `${pathLabel} stagePlan should start at intake`);
+}
+
 async function runHealthCheck() {
   const health = await requestJson('/health');
   assert(health.status === 200, `Expected 200 for /health, got ${health.status}`);
@@ -85,12 +102,20 @@ async function runAuthenticatedSmoke() {
     body: { interviewType: 'dsa', difficulty: 'easy' },
   });
   assert(interviewStart.status === 200, `Expected 200 for /interview/start, got ${interviewStart.status}`);
+  const interviewStartPayload = resolvePayload(interviewStart);
   const sessionId =
     interviewStart.json?.session_id ||
     interviewStart.json?.sessionId ||
     interviewStart.json?.data?.session_id ||
     interviewStart.json?.data?.sessionId;
   assert(typeof sessionId === 'string' && sessionId.length > 0, 'interview/start missing session id');
+  assert(typeof interviewStartPayload?.stage === 'string', 'interview/start missing stage');
+  assert(typeof interviewStartPayload?.stageLabel === 'string', 'interview/start missing stageLabel');
+  assertStagePlan(interviewStartPayload?.stagePlan, '/api/ai-features/interview/start');
+  assert(
+    typeof interviewStartPayload?.initialQuestion === 'string' || typeof interviewStartPayload?.initial_question === 'string',
+    'interview/start missing initial question',
+  );
   console.log('OK auth POST /api/ai-features/interview/start');
 
   const interviewRespond = await requestJson(`/api/ai-features/interview/${sessionId}/respond`, {
@@ -101,7 +126,37 @@ async function runAuthenticatedSmoke() {
     interviewRespond.status === 200,
     `Expected 200 for /interview/${sessionId}/respond, got ${interviewRespond.status}`,
   );
+  const interviewRespondPayload = resolvePayload(interviewRespond);
+  assert(
+    typeof interviewRespondPayload?.interviewerMessage === 'string' && interviewRespondPayload.interviewerMessage.length > 0,
+    'interview/respond missing interviewerMessage',
+  );
+  assert(typeof interviewRespondPayload?.continueInterview === 'boolean', 'interview/respond missing continueInterview boolean');
+  assert(typeof interviewRespondPayload?.stage === 'string', 'interview/respond missing stage');
+  assert(typeof interviewRespondPayload?.stageLabel === 'string', 'interview/respond missing stageLabel');
+  assertStagePlan(interviewRespondPayload?.stagePlan, '/api/ai-features/interview/:sessionId/respond');
+  assert(interviewRespondPayload?.current_scores && typeof interviewRespondPayload.current_scores === 'object', 'interview/respond missing current_scores object');
+  assert(interviewRespondPayload?.adaptive_update && typeof interviewRespondPayload.adaptive_update === 'object', 'interview/respond missing adaptive_update object');
+  assert(interviewRespondPayload?.telemetry && typeof interviewRespondPayload.telemetry === 'object', 'interview/respond missing telemetry object');
   console.log('OK auth POST /api/ai-features/interview/:sessionId/respond');
+
+  const interviewComplete = await requestJson(`/api/ai-features/interview/${sessionId}/complete`, {
+    method: 'POST',
+  });
+  assert(
+    interviewComplete.status === 200,
+    `Expected 200 for /interview/${sessionId}/complete, got ${interviewComplete.status}`,
+  );
+  const interviewCompletePayload = resolvePayload(interviewComplete);
+  assert(
+    interviewCompletePayload?.status === 'completed',
+    'interview/complete should mark status as completed',
+  );
+  assert(
+    typeof interviewCompletePayload?.interview_score === 'number' || typeof interviewCompletePayload?.overall_performance === 'number',
+    'interview/complete missing numeric final score fields',
+  );
+  console.log('OK auth POST /api/ai-features/interview/:sessionId/complete');
 
   const review = await requestJson('/api/ai-features/code-review', {
     method: 'POST',

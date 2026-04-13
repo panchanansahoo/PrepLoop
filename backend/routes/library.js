@@ -4,6 +4,40 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const ADMIN_BOOK_UPDATABLE_FIELDS = [
+  'title',
+  'author',
+  'isbn',
+  'description',
+  'cover_url',
+  'category',
+  'subcategory',
+  'tags',
+  'publisher',
+  'publication_date',
+  'language',
+  'pages',
+  'edition',
+  'amazon_url',
+  'goodreads_url',
+  'resource_url',
+  'difficulty_level',
+  'rating',
+  'total_ratings'
+];
+
+export function sanitizeAdminBookPayloadForUpdate(payload = {}) {
+  const sanitized = {};
+
+  for (const field of ADMIN_BOOK_UPDATABLE_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(payload, field)) {
+      sanitized[field] = payload[field];
+    }
+  }
+
+  return sanitized;
+}
+
 // ─── ADMIN ENDPOINTS (Require Authentication + Admin Role) ─────────────────────
 
 // POST /api/library/admin/books - Add a new book (ADMIN ONLY)
@@ -83,11 +117,11 @@ router.post('/admin/books', authenticateToken, requireAdmin, async (req, res) =>
 router.put('/admin/books/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = sanitizeAdminBookPayloadForUpdate(req.body);
 
-    // Don't allow changing the added_by or approved status via this endpoint
-    delete updateData.added_by;
-    delete updateData.approved;
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid fields provided for update' });
+    }
 
     // Add updated_at timestamp
     updateData.updated_at = new Date().toISOString();

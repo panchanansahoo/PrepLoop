@@ -5,8 +5,9 @@ import {
   Building2, Loader2, AlertCircle, Tag,
   DollarSign, Calendar, Sparkles,
   Globe, Bookmark, TrendingUp, GraduationCap, Users,
-  Zap, Brain, X, ArrowRight, Wand2
+  Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2
 } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import '../styles/JobUpdates.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -35,8 +36,23 @@ const AI_EXAMPLES = [
   "Frontend developer remote part-time",
 ];
 
+const getCareerOpsHistoryStorageKey = (userId) => {
+  const normalizedUserId = String(userId || '').trim();
+  return normalizedUserId ? `careerOpsHistory:${normalizedUserId}` : null;
+};
+
+const parseStoredHistory = (rawValue) => {
+  try {
+    const parsed = JSON.parse(rawValue || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
 export default function JobUpdates() {
   const { user } = useAuth();
+  const careerOpsHistoryKey = getCareerOpsHistoryStorageKey(user?.id);
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,11 +68,47 @@ export default function JobUpdates() {
 
   // AI Search state
   const [isAiMode, setIsAiMode] = useState(false);
+  const [isCareerOpsMode, setIsCareerOpsMode] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiParams, setAiParams] = useState(null);
   const [aiSuggestions, setAiSuggestions] = useState([]);
   const [aiError, setAiError] = useState(null);
+
+  // Career Ops mode state
+  const [careerOpsInput, setCareerOpsInput] = useState({
+    company: '',
+    role: '',
+    jobDescription: '',
+    candidateHeadline: '',
+    candidateSummary: '',
+    candidateSkills: '',
+  });
+  const [careerOpsLoading, setCareerOpsLoading] = useState(false);
+  const [careerOpsError, setCareerOpsError] = useState(null);
+  const [careerOpsResult, setCareerOpsResult] = useState(null);
+  const [careerOpsHistory, setCareerOpsHistory] = useState(() => (
+    careerOpsHistoryKey ? parseStoredHistory(localStorage.getItem(careerOpsHistoryKey)) : []
+  ));
+
+  useEffect(() => {
+    if (!careerOpsHistoryKey) {
+      setCareerOpsHistory([]);
+      return;
+    }
+
+    setCareerOpsHistory(parseStoredHistory(localStorage.getItem(careerOpsHistoryKey)));
+  }, [careerOpsHistoryKey]);
+
+  useEffect(() => {
+    if (!careerOpsHistoryKey) return;
+
+    try {
+      localStorage.setItem(careerOpsHistoryKey, JSON.stringify(careerOpsHistory.slice(0, 10)));
+    } catch {
+      // Ignore storage quota / privacy mode failures.
+    }
+  }, [careerOpsHistory, careerOpsHistoryKey]);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 400);
@@ -73,9 +125,7 @@ export default function JobUpdates() {
       params.append('page', page.toString());
       params.append('limit', '20');
 
-      const headers = {};
-      const token = localStorage.getItem('token');
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const headers = buildAuthHeaders(user);
 
       const response = await fetch(`${API_URL}/api/jobs?${params}`, { headers });
       if (!response.ok) throw new Error('Failed to fetch jobs');
@@ -92,7 +142,9 @@ export default function JobUpdates() {
     }
   }, [activeCategory, debouncedSearch, page]);
 
-  useEffect(() => { if (!isAiMode) fetchJobs(); }, [fetchJobs, isAiMode]);
+  useEffect(() => {
+    if (!isAiMode && !isCareerOpsMode) fetchJobs();
+  }, [fetchJobs, isAiMode, isCareerOpsMode]);
   useEffect(() => { setPage(1); }, [activeCategory, debouncedSearch]);
 
   // AI Search handler
@@ -144,6 +196,7 @@ export default function JobUpdates() {
   const toggleAiMode = () => {
     const newMode = !isAiMode;
     setIsAiMode(newMode);
+    if (newMode) setIsCareerOpsMode(false);
     if (newMode) {
       // Switching to AI mode — clear keyword results
       setJobs([]);
@@ -158,6 +211,111 @@ export default function JobUpdates() {
       setAiSuggestions([]);
       setAiError(null);
       // Regular jobs will auto-fetch via useEffect
+    }
+  };
+
+  const toggleCareerOpsMode = () => {
+    const newMode = !isCareerOpsMode;
+    setIsCareerOpsMode(newMode);
+    if (newMode) {
+      setIsAiMode(false);
+      setJobs([]);
+      setError(null);
+      setAiError(null);
+      loadCareerOpsHistory();
+    } else {
+      setCareerOpsError(null);
+    }
+  };
+
+  const loadCareerOpsHistory = async () => {
+    const headers = buildAuthHeaders(user);
+    if (!headers.Authorization) return;
+
+    try {
+      const response = await fetch(`${API_URL}/api/jobs/career-ops/history?limit=10`, {
+        headers,
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json().catch(() => ({}));
+      if (Array.isArray(data.data)) {
+        setCareerOpsHistory(data.data);
+      }
+    } catch {
+      // Fall back to local cache.
+    }
+  };
+
+  const updateCareerOpsField = (field, value) => {
+    setCareerOpsInput(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCareerOpsEvaluate = async () => {
+    const headers = buildAuthHeaders(user);
+    if (!headers.Authorization) {
+      setCareerOpsError('Please log in to use Career Ops evaluation.');
+      return;
+    }
+
+    if (!careerOpsInput.jobDescription.trim() || careerOpsInput.jobDescription.trim().length < 40) {
+      setCareerOpsError('Paste a fuller job description (minimum 40 characters).');
+      return;
+    }
+
+    setCareerOpsLoading(true);
+    setCareerOpsError(null);
+    setCareerOpsResult(null);
+
+    try {
+      const candidateSkills = careerOpsInput.candidateSkills
+        .split(',')
+        .map(skill => skill.trim())
+        .filter(Boolean);
+
+      const response = await fetch(`${API_URL}/api/jobs/career-ops/evaluate`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          company: careerOpsInput.company,
+          role: careerOpsInput.role,
+          jobDescription: careerOpsInput.jobDescription,
+          candidateProfile: {
+            headline: careerOpsInput.candidateHeadline,
+            summary: careerOpsInput.candidateSummary,
+            coreSkills: candidateSkills,
+          },
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || 'Career Ops evaluation failed');
+      }
+
+      setCareerOpsResult(data);
+      if (data.historyItem) {
+        setCareerOpsHistory(prev => [data.historyItem, ...prev.filter(item => item.id !== data.historyItem.id)].slice(0, 10));
+      } else {
+        setCareerOpsHistory(prev => [
+          {
+            id: data.generatedAt || String(Date.now()),
+            company: careerOpsInput.company,
+            role: careerOpsInput.role,
+            jobDescription: careerOpsInput.jobDescription,
+            candidateHeadline: careerOpsInput.candidateHeadline,
+            candidateSummary: careerOpsInput.candidateSummary,
+            candidateSkills: careerOpsInput.candidateSkills,
+            result: data,
+          },
+          ...prev.filter(item => item.jobDescription !== careerOpsInput.jobDescription),
+        ].slice(0, 10));
+      }
+    } catch (err) {
+      setCareerOpsError(err.message || 'Career Ops evaluation failed');
+    } finally {
+      setCareerOpsLoading(false);
     }
   };
 
@@ -229,11 +387,18 @@ export default function JobUpdates() {
               <span>AI Search</span>
               <span className="ai-spark">✨</span>
             </button>
+            <button
+              className={`mode-btn career-ops ${isCareerOpsMode ? 'active' : ''}`}
+              onClick={toggleCareerOpsMode}
+            >
+              <Target size={14} />
+              <span>Career Ops</span>
+            </button>
           </div>
         </div>
 
         {/* Search Bars */}
-        {!isAiMode ? (
+        {!isAiMode && !isCareerOpsMode ? (
           <div className="job-search-bar">
             <Search size={20} className="search-icon" />
             <input
@@ -246,7 +411,7 @@ export default function JobUpdates() {
               <button className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
             )}
           </div>
-        ) : (
+        ) : isAiMode ? (
           <div className="ai-search-wrapper">
             <div className={`ai-search-bar ${aiLoading ? 'searching' : ''}`}>
               <div className="ai-search-icon-wrap">
@@ -296,11 +461,117 @@ export default function JobUpdates() {
               </div>
             )}
           </div>
+        ) : (
+          <div className="career-ops-panel">
+            <div className="career-ops-intro">
+              <h3>Career Ops Job Fit Evaluator</h3>
+              <p>Paste a JD and get a structured fit score, strongest matches, gaps, and a focused action plan before you apply.</p>
+            </div>
+
+            <div className="career-ops-grid">
+              <input
+                type="text"
+                className="career-ops-input"
+                placeholder="Company (optional)"
+                value={careerOpsInput.company}
+                onChange={(e) => updateCareerOpsField('company', e.target.value)}
+              />
+              <input
+                type="text"
+                className="career-ops-input"
+                placeholder="Role (optional)"
+                value={careerOpsInput.role}
+                onChange={(e) => updateCareerOpsField('role', e.target.value)}
+              />
+              <input
+                type="text"
+                className="career-ops-input"
+                placeholder="Your headline (e.g., Backend Engineer | Node + Postgres)"
+                value={careerOpsInput.candidateHeadline}
+                onChange={(e) => updateCareerOpsField('candidateHeadline', e.target.value)}
+              />
+              <input
+                type="text"
+                className="career-ops-input"
+                placeholder="Core skills (comma-separated)"
+                value={careerOpsInput.candidateSkills}
+                onChange={(e) => updateCareerOpsField('candidateSkills', e.target.value)}
+              />
+              <textarea
+                className="career-ops-textarea"
+                placeholder="Candidate summary / impact bullets"
+                value={careerOpsInput.candidateSummary}
+                onChange={(e) => updateCareerOpsField('candidateSummary', e.target.value)}
+              />
+              <textarea
+                className="career-ops-textarea career-ops-jd"
+                placeholder="Paste job description here"
+                value={careerOpsInput.jobDescription}
+                onChange={(e) => updateCareerOpsField('jobDescription', e.target.value)}
+              />
+            </div>
+
+            <button
+              className="career-ops-evaluate-btn"
+              onClick={handleCareerOpsEvaluate}
+              disabled={careerOpsLoading}
+            >
+              {careerOpsLoading ? <Loader2 size={14} className="spin" /> : <Target size={14} />}
+              {careerOpsLoading ? 'Evaluating...' : 'Evaluate Fit'}
+            </button>
+
+            {careerOpsError && <div className="career-ops-error">{careerOpsError}</div>}
+
+            {careerOpsResult && (
+              <CareerOpsResultCard result={careerOpsResult} />
+            )}
+
+            {careerOpsHistory.length > 0 && (
+              <div className="career-ops-history">
+                <div className="career-ops-history-header">
+                  <span>Recent Evaluations</span>
+                  <span>{careerOpsHistory.length}</span>
+                </div>
+                <div className="career-ops-history-list">
+                  {careerOpsHistory.map((entry) => {
+                    const entryScore = Number(entry.result?.overallScore || 0).toFixed(2);
+                    return (
+                      <button
+                        key={entry.id}
+                        type="button"
+                        className="career-ops-history-item"
+                        onClick={() => {
+                          setCareerOpsInput({
+                            company: entry.company || '',
+                            role: entry.role || '',
+                            jobDescription: entry.jobDescription || '',
+                            candidateHeadline: entry.candidateHeadline || '',
+                            candidateSummary: entry.candidateSummary || '',
+                            candidateSkills: entry.candidateSkills || '',
+                          });
+                          setCareerOpsResult(entry.result || null);
+                        }}
+                      >
+                        <div className="career-ops-history-item-top">
+                          <strong>{entry.company || 'Untitled role'}</strong>
+                          <span>{entryScore} / 5</span>
+                        </div>
+                        <div className="career-ops-history-item-role">{entry.role || 'No role set'}</div>
+                        <div className="career-ops-history-item-copy">
+                          {(entry.jobDescription || '').slice(0, 120)}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
       {/* AI Parsed Parameters */}
-      {isAiMode && aiParams && (
+      {isAiMode && !isCareerOpsMode && aiParams && (
         <div className="ai-params-strip">
           <div className="ai-params-header">
             <Brain size={14} />
@@ -342,7 +613,7 @@ export default function JobUpdates() {
       )}
 
       {/* AI Suggestions */}
-      {isAiMode && aiSuggestions.length > 0 && (
+      {isAiMode && !isCareerOpsMode && aiSuggestions.length > 0 && (
         <div className="ai-suggestions">
           <span className="ai-suggestions-label">
             <Sparkles size={12} /> Related searches:
@@ -363,7 +634,7 @@ export default function JobUpdates() {
       )}
 
       {/* Category Tabs (only in keyword mode) */}
-      {!isAiMode && (
+      {!isAiMode && !isCareerOpsMode && (
         <div className="job-categories">
           {CATEGORIES.map(cat => {
             const Icon = cat.icon;
@@ -382,8 +653,9 @@ export default function JobUpdates() {
       )}
 
       {/* Results Info */}
-      <div className="job-results-info">
-        {isAiMode ? (
+      {!isCareerOpsMode && (
+        <div className="job-results-info">
+          {isAiMode ? (
           aiLoading ? (
             <span className="ai-thinking-text">
               <Brain size={14} className="spin" /> AI is analyzing your query...
@@ -395,16 +667,17 @@ export default function JobUpdates() {
           ) : (
             <span>Describe what you're looking for above</span>
           )
-        ) : (
-          <>
-            <span>{loading ? 'Loading...' : `${jobs.length} job${jobs.length !== 1 ? 's' : ''} found`}</span>
-            {debouncedSearch && <span className="search-tag">for "{debouncedSearch}"</span>}
-          </>
-        )}
-      </div>
+          ) : (
+            <>
+              <span>{loading ? 'Loading...' : `${jobs.length} job${jobs.length !== 1 ? 's' : ''} found`}</span>
+              {debouncedSearch && <span className="search-tag">for "{debouncedSearch}"</span>}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Jobs Grid */}
-      <div className="job-list">
+      {!isCareerOpsMode && <div className="job-list">
         {(loading || aiLoading) ? (
           <div className="job-loading">
             {isAiMode ? (
@@ -464,10 +737,10 @@ export default function JobUpdates() {
             />
           ))
         )}
-      </div>
+      </div>}
 
       {/* Pagination (keyword mode only) */}
-      {!isAiMode && !loading && totalPages > 1 && (
+      {!isAiMode && !isCareerOpsMode && !loading && totalPages > 1 && (
         <div className="job-pagination">
           <button
             disabled={page <= 1}
@@ -486,6 +759,60 @@ export default function JobUpdates() {
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+function CareerOpsResultCard({ result }) {
+  const score = Number(result?.overallScore || 0);
+  const scoreBand = result?.scoreBand || 'Unknown';
+  const dimensions = Array.isArray(result?.dimensions) ? result.dimensions : [];
+  const topMatches = Array.isArray(result?.topMatches) ? result.topMatches : [];
+  const gaps = Array.isArray(result?.gaps) ? result.gaps : [];
+  const actionPlan = Array.isArray(result?.actionPlan) ? result.actionPlan : [];
+
+  return (
+    <div className="career-ops-result">
+      <div className="career-ops-score-block">
+        <div className="career-ops-score-value">{score.toFixed(2)} / 5</div>
+        <div className="career-ops-score-band">{scoreBand}</div>
+      </div>
+
+      <div className="career-ops-dimensions">
+        {dimensions.map((dimension) => (
+          <div key={dimension.id || dimension.label} className="career-ops-dimension">
+            <div className="career-ops-dimension-top">
+              <span>{dimension.label}</span>
+              <span>{Number(dimension.score || 0).toFixed(2)}</span>
+            </div>
+            <div className="career-ops-progress-track">
+              <div className="career-ops-progress-fill" style={{ width: `${Math.max(0, Math.min(100, (Number(dimension.score || 0) / 5) * 100))}%` }} />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="career-ops-columns">
+        <div className="career-ops-column">
+          <h4><CheckCircle2 size={14} /> Top Matches</h4>
+          <ul>
+            {topMatches.map((match, idx) => <li key={`${match}-${idx}`}>{match}</li>)}
+          </ul>
+        </div>
+        <div className="career-ops-column">
+          <h4><AlertCircle size={14} /> Gaps</h4>
+          <ul>
+            {gaps.map((gap, idx) => <li key={`${gap}-${idx}`}>{gap}</li>)}
+          </ul>
+        </div>
+      </div>
+
+      <div className="career-ops-plan">
+        <h4>Action Plan</h4>
+        <ol>
+          {actionPlan.map((step, idx) => <li key={`${step}-${idx}`}>{step}</li>)}
+        </ol>
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import {
   User, Briefcase, Award, LogOut, Shield
 } from 'lucide-react';
@@ -102,8 +103,7 @@ export default function Profile() {
 
   const fetchProfile = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/user/profile', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await fetch('/api/user/profile', { headers: buildAuthHeaders(user) });
       if (res.ok) {
         const data = await res.json();
         setProfile((prev) => ({
@@ -121,11 +121,10 @@ export default function Profile() {
     setSaving(true);
     setStatus('idle');
     try {
-      const token = localStorage.getItem('token');
       const payload = buildProfilePayload(profile);
       const res = await fetch('/api/user/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(user),
         body: JSON.stringify(payload)
       });
       if (!res.ok) {

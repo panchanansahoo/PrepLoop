@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Shield, Lock, CheckCircle2, ArrowLeft, Zap, Sparkles, Check, Code2, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const isDev = import.meta.env.DEV;
@@ -100,11 +101,6 @@ export default function Payment() {
 
     const selectedPlan = plans[plan.toLowerCase()] || plans.pro;
 
-    // Get auth token
-    function getAuthToken() {
-        return localStorage.getItem('token') || null;
-    }
-
     const handlePayment = async () => {
         setError('');
         setIsProcessing(true);
@@ -118,8 +114,8 @@ export default function Payment() {
                 return;
             }
 
-            const token = getAuthToken();
-            if (!token) {
+            const authHeaders = buildAuthHeaders(user);
+            if (!authHeaders.Authorization) {
                 setError('Please log in to make a payment.');
                 setIsProcessing(false);
                 return;
@@ -128,9 +124,7 @@ export default function Payment() {
             // 2. Payment health preflight
             const healthRes = await fetch(`${API_URL}/api/payment/health`, {
                 method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: authHeaders,
             });
 
             const healthData = await parseJsonSafely(healthRes);
@@ -155,10 +149,7 @@ export default function Payment() {
             // 3. Create order on backend
             const orderRes = await fetch(`${API_URL}/api/payment/create-order`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
-                },
+                headers: authHeaders,
                 body: JSON.stringify({ plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase() }),
             });
 
@@ -209,10 +200,7 @@ export default function Payment() {
                     try {
                         const verifyRes = await fetch(`${API_URL}/api/payment/verify`, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`,
-                            },
+                            headers: authHeaders,
                             body: JSON.stringify({
                                 razorpay_order_id: response.razorpay_order_id,
                                 razorpay_payment_id: response.razorpay_payment_id,

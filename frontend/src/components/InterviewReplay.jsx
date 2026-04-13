@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, Download, Share2, MessageCircle, ThumbsUp, ArrowLeft } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 /**
  * Interview Replay Component
@@ -19,7 +20,9 @@ export default function InterviewReplay() {
   const fetchInterviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/interviews?sort=${sortBy}`);
+      const response = await fetch(`/api/interviews?sort=${sortBy}`, {
+        headers: buildAuthHeaders(),
+      });
       const data = await response.json();
       setInterviews(data);
     } catch (error) {
@@ -30,8 +33,27 @@ export default function InterviewReplay() {
   };
 
   const downloadInterview = (interviewId) => {
-    // Trigger download
-    window.location.href = `/api/interviews/${interviewId}/download`;
+    (async () => {
+      try {
+        const response = await fetch(`/api/interviews/${interviewId}/download`, {
+          headers: buildAuthHeaders(),
+        });
+        if (!response.ok) {
+          throw new Error('Failed to download interview');
+        }
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `interview-${interviewId}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error downloading interview:', error);
+      }
+    })();
   };
 
   const shareInterview = (interview) => {
