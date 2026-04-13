@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, User, Video, ChevronRight, Star, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -13,13 +14,7 @@ export default function RealInterview() {
   const [selectedDate, setSelectedDate] = useState('');
   const [bookingSlot, setBookingSlot] = useState(null);
 
-  const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  };
+  const getHeaders = () => buildAuthHeaders(user);
 
   useEffect(() => {
     loadSlots();

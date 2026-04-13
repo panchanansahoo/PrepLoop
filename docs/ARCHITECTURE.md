@@ -45,7 +45,8 @@ Configured in `backend/index.js`:
 - `/api/voice`
 - `/api/notes`
 - `/api/admin`
-- `/api/jobs`
+- `/api/jobs`  
+  - Job search surface and Career Ops evaluation/history endpoints.
 
 ## Security and Platform Middleware
 
@@ -70,6 +71,7 @@ Configured in `backend/index.js`:
 - Razorpay for payment workflows.
 - Deepgram/ElevenLabs for voice-related routes.
 - RapidAPI/Adzuna for jobs aggregation.
+- Supabase persistence for resume, interview, and Career Ops history.
 
 ## Local Development Flow
 

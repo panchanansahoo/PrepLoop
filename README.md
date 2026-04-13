@@ -125,8 +125,7 @@ SMTP_PASS=your_smtp_password
 # CAPTCHA (optional)
 RECAPTCHA_SECRET_KEY=your_recaptcha_secret
 
-# Voice (optional)
-ELEVENLABS_API_KEY=your_elevenlabs_key
+# Voice (optional — Kokoro TTS runs locally, no key needed)
 DEEPGRAM_API_KEY=your_deepgram_key
 
 # Jobs integrations (optional)

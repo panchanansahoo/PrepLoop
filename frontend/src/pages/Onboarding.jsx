@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import { ArrowRight, ArrowLeft, CheckCircle, Target, Clock, BookOpen } from 'lucide-react';
 
 const steps = [
@@ -52,6 +54,7 @@ const steps = [
 
 export default function Onboarding() {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [saving, setSaving] = useState(false);
@@ -79,10 +82,9 @@ export default function Onboarding() {
     const handleFinish = async () => {
         setSaving(true);
         try {
-            const token = localStorage.getItem('token');
             await fetch('/api/user/preferences', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
                 body: JSON.stringify({
                     experienceLevel: answers[0],
                     targetCompanies: answers[1],

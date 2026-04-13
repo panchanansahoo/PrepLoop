@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Trash2, Sparkles, Bot, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
@@ -17,11 +18,7 @@ export default function ChatAssistant() {
   const inputRef = useRef(null);
 
   const getHeaders = () => {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
+    return buildAuthHeaders(user);
   };
 
   // Load chat history on open

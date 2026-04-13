@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Image as ImageIcon, Loader, Save, FileText, Mail } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 // --- EDITOR SWITCH ---
 // Use 'SimpleEditor' if Tiptap dependencies are broken/missing (White Screen fix).
@@ -49,10 +50,7 @@ export default function CreateBlog() {
     try {
       const response = await fetch(`${API_URL}/api/blog`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` // Simple token auth
-        },
+        headers: buildAuthHeaders(user),
         body: JSON.stringify({
           title,
           content,

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Volume2, Clock, SkipForward, CheckCircle, AlertCircle } from 'lucide-react';
 import RealtimeFeedback from './RealtimeFeedback';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 /**
  * Modern Interactive Interview Component
@@ -38,7 +39,7 @@ export default function ModernInterviewContainer() {
     try {
       const response = await fetch('/api/ai/interview/v2/start', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           type: selectedType,
           difficulty: selectedDifficulty,
@@ -108,7 +109,7 @@ export default function ModernInterviewContainer() {
     try {
       const response = await fetch('/api/ai/interview/v2/feedback/realtime', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           question: currentQuestion.question,
           answer: currentAnswer,
@@ -142,7 +143,7 @@ export default function ModernInterviewContainer() {
     try {
       const response = await fetch('/api/ai/interview/v2/next-question', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           previousResponses: answers,
           type: selectedType,
@@ -165,7 +166,7 @@ export default function ModernInterviewContainer() {
     try {
       const response = await fetch('/api/ai/interview/v2/analysis/detailed', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           responses: answers.map(a => ({ question: a.question.question, answer: a.answer })),
           type: selectedType,

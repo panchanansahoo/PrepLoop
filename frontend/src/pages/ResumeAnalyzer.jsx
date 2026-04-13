@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp,
   Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2,
@@ -136,9 +137,8 @@ export default function ResumeAnalyzer() {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch('/api/resume/history', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(user),
       });
       if (res.ok) {
         const data = await res.json();
@@ -190,7 +190,6 @@ export default function ResumeAnalyzer() {
     setActiveTab('overview');
 
     try {
-      const token = localStorage.getItem('token');
       let res;
 
       if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
@@ -198,16 +197,13 @@ export default function ResumeAnalyzer() {
         formData.append('resume', fileInputRef.current._file);
         res = await fetch('/api/resume/analyze', {
           method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
+          headers: buildAuthHeaders(user),
           body: formData,
         });
       } else {
         res = await fetch('/api/resume/analyze', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: buildAuthHeaders(user),
           body: JSON.stringify({ resumeText }),
         });
       }
@@ -228,9 +224,8 @@ export default function ResumeAnalyzer() {
 
   const loadAnalysis = async (id) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`/api/resume/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(user),
       });
       if (res.ok) {
         const data = await res.json();
@@ -307,10 +302,9 @@ export default function ResumeAnalyzer() {
     setGenerating(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch('/api/resume/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: buildAuthHeaders(user),
         body: JSON.stringify({ ...createFormData, template: selectedTemplate }),
       });
       if (!res.ok) {
@@ -1672,7 +1666,7 @@ export default function ResumeAnalyzer() {
                       // Update the corresponding field
                       const fields = ['email', 'phone', 'location', 'linkedin', 'portfolio'];
                       const fieldIdx = [generatedResume.email, generatedResume.phone, generatedResume.location, generatedResume.linkedin, generatedResume.portfolio]
-                        .filter(Boolean).indexOf(item.replace(/^[✉📍]?\s?/, '').replace(/^in\s/, ''));
+                        .filter(Boolean).indexOf(item.replace('✉ ', '').replace('📍 ', '').replace(/^in\s/, ''));
                       if (fieldIdx >= 0 && fields[fieldIdx]) updateResumeField(fields[fieldIdx], e.target.innerText);
                     }}
                   >
@@ -1919,3 +1913,4 @@ export default function ResumeAnalyzer() {
     </div>
   );
 }
+

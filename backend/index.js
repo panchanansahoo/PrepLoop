@@ -4,8 +4,10 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
+import { createLogger } from './utils/structuredLogger.js';
 
 let app;
+const voiceHttpLogger = createLogger('voice-http');
 
 async function initializeServer() {
   try {
@@ -40,7 +42,6 @@ async function initializeServer() {
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
-    const pipecatRoutes = (await import('./routes/pipecat.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
 
@@ -102,6 +103,57 @@ async function initializeServer() {
     app.use('/api/auth', authLimiter);
     app.use('/api/', limiter);
 
+    const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
+    if (enableVoiceDebugLogs) {
+      app.use('/api/voice', (req, res, next) => {
+        const startedAt = Date.now();
+        const requestId = req.requestId || res.locals.requestId || req.get('X-Request-ID') || 'unknown';
+        let responseCompleted = false;
+        voiceHttpLogger.info('Voice request started', {
+          requestId,
+          method: req.method,
+          path: req.originalUrl,
+          hasAuthHeader: Boolean(req.headers.authorization),
+        });
+
+        req.on('aborted', () => {
+          voiceHttpLogger.warn('Voice request aborted by client', {
+            requestId,
+            method: req.method,
+            path: req.originalUrl,
+            durationMs: Date.now() - startedAt,
+          });
+        });
+
+        res.on('finish', () => {
+          responseCompleted = true;
+          voiceHttpLogger.info('Voice request completed', {
+            requestId,
+            method: req.method,
+            path: req.originalUrl,
+            statusCode: res.statusCode,
+            durationMs: Date.now() - startedAt,
+            responseContentType: res.getHeader('content-type') || null,
+          });
+        });
+
+        res.on('close', () => {
+          if (responseCompleted) return;
+          voiceHttpLogger.warn('Voice request connection closed before finish', {
+            requestId,
+            method: req.method,
+            path: req.originalUrl,
+            statusCode: res.statusCode,
+            durationMs: Date.now() - startedAt,
+            writableEnded: res.writableEnded,
+            responseContentType: res.getHeader('content-type') || null,
+          });
+        });
+
+        next();
+      });
+    }
+
     // Health check endpoint
     app.get('/health', (req, res) => {
       res.json({ status: 'ok', message: 'Server is running' });
@@ -140,7 +192,6 @@ async function initializeServer() {
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);
-    app.use('/api/pipecat', pipecatRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {

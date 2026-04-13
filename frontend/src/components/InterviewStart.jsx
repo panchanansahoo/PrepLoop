@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Zap, BookOpen, Code, Users, Loader } from 'lucide-react';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function InterviewStart({ onStartInterview }) {
   const [selectedType, setSelectedType] = useState('technical');
@@ -27,13 +28,9 @@ export default function InterviewStart({ onStartInterview }) {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch('http://localhost:5003/api/interview/start', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: buildAuthHeaders(),
         body: JSON.stringify({
           type: selectedType,
           difficulty: selectedDifficulty,

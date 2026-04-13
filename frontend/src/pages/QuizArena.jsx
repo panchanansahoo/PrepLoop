@@ -14,6 +14,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import './QuizArena.css';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
@@ -272,9 +273,8 @@ export default function QuizArena() {
   const loadLeaderboard = async (topicId = topic) => {
     setLoadingLeaderboard(true);
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/api/user/quiz-leaderboard?topic=${encodeURIComponent(topicId)}&limit=8`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: buildAuthHeaders(),
       });
 
       if (!response.ok) {
@@ -333,9 +333,9 @@ export default function QuizArena() {
 
     setSubmitted(true);
 
-    const token = localStorage.getItem('token');
+    const headers = buildAuthHeaders();
 
-    if (!token) {
+    if (!headers.Authorization) {
       setSaveMessage('Login to save your quiz score to leaderboard.');
       await loadLeaderboard(topic);
       return;
@@ -347,10 +347,7 @@ export default function QuizArena() {
     try {
       const response = await fetch(`${API_BASE_URL}/api/user/quiz/attempt`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers,
         body: JSON.stringify({
           topic,
           score: finalScore,

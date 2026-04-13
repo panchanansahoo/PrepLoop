@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import {
     Timer, Zap, Clock, Target, Play, Pause, RotateCcw,
     CheckCircle2, XCircle, ArrowRight, Trophy, Brain
@@ -53,10 +54,9 @@ export default function TimedPractice() {
     const startSession = async (mode) => {
         setLoading(true);
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch('/api/practice/timed-session', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
                 body: JSON.stringify({ mode: mode.id }),
             });
             const data = await res.json();

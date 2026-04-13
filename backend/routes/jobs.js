@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/auth.js';
+import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 
 const router = express.Router();
 
@@ -197,6 +198,164 @@ function detectCategory(job) {
   return 'off-campus';
 }
 
+const STOP_WORDS = new Set([
+  'the', 'and', 'for', 'with', 'that', 'this', 'from', 'have', 'will', 'your', 'you', 'our', 'are', 'into', 'about',
+  'role', 'team', 'work', 'years', 'year', 'must', 'required', 'requirements', 'nice', 'plus', 'good', 'strong',
+  'ability', 'experience', 'developer', 'engineer', 'software', 'building', 'skills', 'skill', 'using', 'across',
+]);
+
+function normalizeText(input) {
+  return String(input || '').toLowerCase().replace(/[^a-z0-9+#.\-\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function tokenize(input) {
+  const text = normalizeText(input);
+  if (!text) return [];
+  return text
+    .split(' ')
+    .map(token => token.trim())
+    .filter(token => token.length > 2 && !STOP_WORDS.has(token));
+}
+
+function uniqueStrings(items) {
+  const seen = new Set();
+  const output = [];
+  for (const item of items || []) {
+    const normalized = String(item || '').trim();
+    if (!normalized) continue;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    output.push(normalized);
+  }
+  return output;
+}
+
+function extractJdKeywords(jobDescription) {
+  const explicitLines = String(jobDescription || '')
+    .split('\n')
+    .filter(line => /must|required|requirements|need|looking for/i.test(line));
+
+  const explicitTokens = tokenize(explicitLines.join(' '));
+  const allTokens = tokenize(jobDescription);
+  const combined = [...explicitTokens, ...allTokens];
+  return uniqueStrings(combined).slice(0, 40);
+}
+
+function splitSkills(input) {
+  if (Array.isArray(input)) {
+    return uniqueStrings(input.map(x => String(x || '').trim()).filter(Boolean));
+  }
+
+  const raw = String(input || '').trim();
+  if (!raw) return [];
+  return uniqueStrings(raw.split(',').map(item => item.trim()).filter(Boolean));
+}
+
+function isMissingCareerOpsSchema(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'PGRST204' || code === '42P01' || message.includes('career_ops_evaluations');
+}
+
+function evaluateCareerOpsFit({ jobDescription, candidateProfile }) {
+  const profile = candidateProfile || {};
+  const headline = String(profile.headline || profile.candidateHeadline || '').trim();
+  const summary = String(profile.summary || '').trim();
+  const coreSkills = splitSkills(profile.coreSkills || profile.skills || []);
+  const projectHighlights = Array.isArray(profile.projectHighlights) ? profile.projectHighlights.slice(0, 5) : [];
+  const yearsOfExperience = Number(profile.yearsOfExperience || 0);
+
+  const candidateText = [headline, summary, ...coreSkills, ...projectHighlights].join(' ');
+  const jdText = String(jobDescription || '');
+  const jdKeywords = extractJdKeywords(jdText);
+  const candidateTokens = new Set(tokenize(candidateText));
+
+  const matchedKeywords = jdKeywords.filter(keyword => candidateTokens.has(String(keyword).toLowerCase()));
+  const unmatchedKeywords = jdKeywords.filter(keyword => !candidateTokens.has(String(keyword).toLowerCase()));
+
+  const skillOverlapRatio = jdKeywords.length ? matchedKeywords.length / jdKeywords.length : 0;
+  const projectSignal = projectHighlights.length >= 2 ? 1 : projectHighlights.length === 1 ? 0.6 : 0;
+  const summarySignal = summary.length >= 80 ? 1 : summary.length >= 35 ? 0.6 : 0.25;
+  const experienceSignal = yearsOfExperience >= 3 ? 1 : yearsOfExperience >= 1 ? 0.7 : 0.45;
+
+  const dimensions = [
+    {
+      id: 'skill-overlap',
+      label: 'Skill Overlap',
+      weight: 0.4,
+      score: Number((Math.min(1, skillOverlapRatio * 1.25) * 5).toFixed(2)),
+    },
+    {
+      id: 'project-proof',
+      label: 'Project Proof',
+      weight: 0.2,
+      score: Number((projectSignal * 5).toFixed(2)),
+    },
+    {
+      id: 'profile-clarity',
+      label: 'Profile Clarity',
+      weight: 0.15,
+      score: Number((summarySignal * 5).toFixed(2)),
+    },
+    {
+      id: 'experience-fit',
+      label: 'Experience Fit',
+      weight: 0.15,
+      score: Number((experienceSignal * 5).toFixed(2)),
+    },
+    {
+      id: 'portfolio-depth',
+      label: 'Portfolio Depth',
+      weight: 0.1,
+      score: Number((Math.min(1, coreSkills.length / 8) * 5).toFixed(2)),
+    },
+  ];
+
+  const weightedTotal = dimensions.reduce((sum, d) => sum + d.score * d.weight, 0);
+  const overallScore = Number(weightedTotal.toFixed(2));
+
+  const scoreBand = overallScore >= 4.2
+    ? 'Strong Match'
+    : overallScore >= 3.3
+      ? 'Potential Match'
+      : 'Low Match';
+
+  const topMatches = uniqueStrings([
+    ...matchedKeywords.slice(0, 5).map(keyword => `Relevant keyword match: ${keyword}`),
+    headline ? `Clear profile headline: ${headline}` : '',
+    projectHighlights[0] ? `Project evidence: ${projectHighlights[0]}` : '',
+  ]).slice(0, 6);
+
+  const gaps = uniqueStrings([
+    ...unmatchedKeywords.slice(0, 6).map(keyword => `Missing or weak signal for: ${keyword}`),
+    projectHighlights.length === 0 ? 'No project highlights provided to prove impact.' : '',
+    summary.length < 40 ? 'Candidate summary is too short for strong recruiter context.' : '',
+  ]).slice(0, 6);
+
+  const actionPlan = uniqueStrings([
+    unmatchedKeywords[0] ? `Add one quantified bullet covering "${unmatchedKeywords[0]}" in your resume summary.` : '',
+    unmatchedKeywords[1] ? `Create a STAR story that demonstrates "${unmatchedKeywords[1]}" for interviews.` : '',
+    'Tailor the top 3 resume bullets to mirror this JD language before applying.',
+    'Prepare one project deep-dive with architecture, trade-offs, and measurable results.',
+    'Draft a role-specific intro note explaining why this role fits your trajectory.',
+  ]).slice(0, 5);
+
+  return {
+    overallScore,
+    scoreBand,
+    dimensions,
+    topMatches,
+    gaps,
+    actionPlan,
+    metadata: {
+      matchedKeywordCount: matchedKeywords.length,
+      keywordUniverse: jdKeywords.length,
+      candidateSkillCount: coreSkills.length,
+    },
+  };
+}
+
 // ─── POST /api/jobs/ai-search — AI-powered natural-language search ───
 router.post('/ai-search', async (req, res) => {
   try {
@@ -391,6 +550,102 @@ router.get('/', optionalAuth, async (req, res) => {
   } catch (error) {
     console.error('Jobs fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch job listings' });
+  }
+});
+
+// ─── POST /api/jobs/career-ops/evaluate — JD-fit score + action plan ─────
+router.post('/career-ops/evaluate', authenticateToken, async (req, res) => {
+  try {
+    const {
+      jobDescription = '',
+      candidateProfile = {},
+      company = '',
+      role = '',
+    } = req.body || {};
+
+    const normalizedJobDescription = String(jobDescription || '').trim();
+    if (normalizedJobDescription.length < 40) {
+      return res.status(400).json({
+        error: 'jobDescription must be at least 40 characters.',
+      });
+    }
+
+    const fit = evaluateCareerOpsFit({
+      jobDescription: normalizedJobDescription,
+      candidateProfile,
+    });
+
+    const historyRecord = buildCareerOpsHistoryRecord(req.user.id, {
+      ...req.body,
+      ...fit,
+      candidateProfile,
+    });
+
+    let historyItem = null;
+    try {
+      const { data: insertedRow, error: insertError } = await supabaseAdmin
+        .from('career_ops_evaluations')
+        .insert(historyRecord)
+        .select('*')
+        .single();
+
+      if (insertError) {
+        if (!isMissingCareerOpsSchema(insertError)) throw insertError;
+      } else if (insertedRow) {
+        historyItem = mapCareerOpsHistoryRow(insertedRow);
+      }
+    } catch (persistError) {
+      if (!isMissingCareerOpsSchema(persistError)) {
+        console.warn('Career Ops persistence skipped:', persistError.message || persistError);
+      }
+    }
+
+    return res.json({
+      ...fit,
+      company: String(company || '').trim() || null,
+      role: String(role || '').trim() || null,
+      generatedAt: new Date().toISOString(),
+      historyItem,
+    });
+  } catch (error) {
+    console.error('Career Ops evaluate error:', error);
+    return res.status(500).json({ error: 'Failed to evaluate job fit.' });
+  }
+});
+
+// ─── GET /api/jobs/career-ops/history — saved evaluations ───────────
+router.get('/career-ops/history', authenticateToken, async (req, res) => {
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const offset = (page - 1) * limit;
+
+    const { data, error, count } = await supabaseAdmin
+      .from('career_ops_evaluations')
+      .select('*', { count: 'exact' })
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      if (isMissingCareerOpsSchema(error)) {
+        return res.json({ data: [], pagination: { page, limit, total: 0, pages: 0 } });
+      }
+      throw error;
+    }
+
+    return res.json({
+      data: (data || []).map(mapCareerOpsHistoryRow),
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        pages: Math.ceil((count || 0) / limit),
+      },
+    });
+  } catch (error) {
+    console.error('Career Ops history error:', error);
+    return res.status(500).json({ error: 'Failed to fetch Career Ops history' });
   }
 });
 

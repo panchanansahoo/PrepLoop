@@ -5,6 +5,7 @@ import Editor from '@monaco-editor/react';
 import { ArrowLeft, Play, Send, Lightbulb, CheckCircle, XCircle, Loader, Code2, Clock, Cpu, Award } from 'lucide-react';
 import HintsPanel from '../components/solver/HintsPanel';
 import { useTheme } from '../context/ThemeContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function ProblemSolver() {
   const { id } = useParams();
@@ -60,13 +61,9 @@ export default function ProblemSolver() {
     setSubmitting(true);
     setFeedback(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
       const response = await axios.post('/api/practice/run', {
         code, language, problemId: id
-      }, { headers });
+      }, { headers: buildAuthHeaders() });
 
       const data = response.data;
       if (data.testResults) {
@@ -95,13 +92,9 @@ export default function ProblemSolver() {
     setSubmitting(true);
     setFeedback(null);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = `Bearer ${token}`;
-
       const response = await axios.post('/api/practice/submit', {
         problemId: id, code, language
-      }, { headers });
+      }, { headers: buildAuthHeaders() });
 
       const data = response.data;
       setOutput({

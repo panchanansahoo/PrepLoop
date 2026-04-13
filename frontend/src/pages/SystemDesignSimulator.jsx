@@ -41,7 +41,7 @@ function getIcon(componentId, size = 18) {
     return Icon ? <Icon size={size} /> : <Server size={size} />;
 }
 import { SD_PROBLEMS, SD_COMPONENT_CATEGORIES, ALL_COMPONENTS } from '../data/systemDesignProblems';
-import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const GRID_SIZE = 20;
@@ -627,10 +627,9 @@ function DesignCanvas({ problem, onBack }) {
         try {
             const designDesc = nodes.map(n => { const cfg = nodeConfigs[n.id]; const cfgStr = cfg ? ` (${Object.entries(cfg).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''; return `${n.label}${cfgStr}`; }).join(', ');
             const connDesc = connections.map(c => { const f = nodes.find(n => n.id === c.from); const t = nodes.find(n => n.id === c.to); return f && t ? `${f.label} →${c.label ? ' [' + c.label + ']' : ''} ${t.label}` : ''; }).filter(Boolean).join('; ');
-            const token = localStorage.getItem('token');
             const res = await fetch(`${API}/system-design/feedback`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                headers: buildAuthHeaders(),
                 body: JSON.stringify({ topicId: 1, design: `Problem: ${problem.title}\nComponents: ${designDesc}\nConnections: ${connDesc}\nRequirements: ${problem.requirements.functional.join(', ')}`, components: nodes.map(n => n.label) }),
             });
             const data = await res.json();

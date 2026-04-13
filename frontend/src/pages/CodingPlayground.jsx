@@ -15,15 +15,11 @@ import {
 } from 'lucide-react';
 import { LANGUAGES, ALGORITHM_TEMPLATES } from '../data/dsaTemplates';
 import { EDITOR_THEMES, registerAllThemes, getSavedTheme, saveTheme } from '../data/editorThemes';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getAuthHeaders = () => {
-    const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('token');
-    if (token) headers.Authorization = `Bearer ${token}`;
-    return headers;
-};
+const getAuthHeaders = () => buildAuthHeaders();
 
 // Enhanced error parser with line number extraction
 const parseErrorWithLineInfo = (errorText = '') => {
@@ -1264,10 +1260,10 @@ export default function CodingPlayground() {
         };
 
         return String(message || '')
-            .replace(/expected\s+['"`]?([:;,.()\[\]{}])['"`]?/gi, (match, symbol) => {
+            .replace(/expected\s+['"`]?([:;,.(){}[\]])['"`]?/gi, (match, symbol) => {
                 return `expected ${symbolName(symbol)}`;
             })
-            .replace(/['"`]?([:;,.()\[\]{}])['"`]?(\s+was\s+never\s+closed)/gi, (match, symbol, suffix) => {
+            .replace(/['"`]?([:;,.(){}[\]])['"`]?(\s+was\s+never\s+closed)/gi, (match, symbol, suffix) => {
                 return `${symbolName(symbol)}${suffix}`;
             });
     }, []);
@@ -2518,4 +2514,5 @@ export default function CodingPlayground() {
         </div>
     );
 }
+
 

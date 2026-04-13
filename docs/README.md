@@ -3,6 +3,9 @@
 ## Core Docs
 
 - Architecture: `docs/ARCHITECTURE.md`
+- AI interview workflow: `docs/AI_INTERVIEW_WORKFLOW.md`
+- AI features API: `docs/AI_FEATURES_API.md`
+- Interview suite API: `docs/INTERVIEW_SUITE_API.md`
 - Discord community blueprint: `docs/DISCORD_COMMUNITY_BLUEPRINT.md`
 - Discord bot command spec: `docs/DISCORD_BOT_COMMAND_SPEC.md`
 - Discord bot starter setup: `discord-bot/README.md`

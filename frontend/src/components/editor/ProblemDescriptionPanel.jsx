@@ -5,15 +5,11 @@ import {
   FileText, Clock, CheckCircle2, Eye, EyeOff,
   ChevronUp, AlertCircle, Code2, History, ArrowRight
 } from 'lucide-react';
+import { buildAuthHeaders } from '../../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getAuthHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-};
+const getAuthHeaders = () => buildAuthHeaders();
 
 const LANGUAGE_ALIASES = {
   python: ['python', 'py'],

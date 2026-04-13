@@ -10,7 +10,14 @@ const router = express.Router();
 const isMissingEmailVerificationSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
-  return (code === 'PGRST204' || code === '42703') && message.includes('email_verified');
+  const missingVerificationField = [
+    'email_verified',
+    'verification_token',
+    'token_expires_at',
+    'verification_sent_at',
+  ].some((field) => message.includes(field));
+
+  return (code === 'PGRST204' || code === '42703') && missingVerificationField;
 };
 
 router.post('/signup', async (req, res) => {

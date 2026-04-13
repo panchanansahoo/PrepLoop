@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import {
     Bookmark, Search, Tag, Filter, Plus, Trash2,
     Edit3, Save, X, Hash, ListFilter, StickyNote
@@ -35,14 +36,13 @@ export default function NotesBookmarks() {
     // Fetch bookmarks
     const fetchBookmarks = async () => {
         try {
-            const token = localStorage.getItem('token');
             const params = new URLSearchParams();
             if (typeFilter !== 'all') params.append('type', typeFilter);
             if (search) params.append('search', search);
             if (tagFilter !== 'all') params.append('tag', tagFilter);
 
             const res = await fetch(`/api/notes/bookmarks?${params}`, {
-                headers: { Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
             });
             const data = await res.json();
             setBookmarks(data.bookmarks || []);
@@ -61,10 +61,9 @@ export default function NotesBookmarks() {
     const addBookmark = async () => {
         if (!newBookmark.title.trim()) return;
         try {
-            const token = localStorage.getItem('token');
             const res = await fetch('/api/notes/bookmark', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
                 body: JSON.stringify({
                     questionId: `custom_${Date.now()}`,
                     questionTitle: newBookmark.title,
@@ -100,10 +99,9 @@ export default function NotesBookmarks() {
     // Update note
     const updateNote = async (id) => {
         try {
-            const token = localStorage.getItem('token');
             await fetch(`/api/notes/bookmark/${id}/note`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
                 body: JSON.stringify({ note: editNote, tags: editTags }),
             });
             await fetchBookmarks();
@@ -116,10 +114,9 @@ export default function NotesBookmarks() {
     // Delete bookmark
     const deleteBookmark = async (id) => {
         try {
-            const token = localStorage.getItem('token');
             await fetch(`/api/notes/bookmark/${id}`, {
                 method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
+                headers: buildAuthHeaders(user),
             });
             await fetchBookmarks();
         } catch (err) {

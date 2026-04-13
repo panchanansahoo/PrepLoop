@@ -7,15 +7,11 @@ import { getSchemaById } from '../data/sqlSchemas';
 import SchemaViewer from '../components/sql/SchemaViewer';
 import SQLResultsPanel from '../components/sql/SQLResultsPanel';
 import { useTheme } from '../context/ThemeContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getAuthHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-};
+const getAuthHeaders = () => buildAuthHeaders();
 
 const diffColors = { Easy: '#10b981', Medium: '#f59e0b', Hard: '#ef4444' };
 const getSQLSolutionUnlockKey = (id) => `sql-solution-unlocked-${String(id ?? '').trim()}`;
@@ -151,8 +147,8 @@ export default function SQLCodeEditor() {
   }, [code, running]);
 
   const handleSubmit = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
+    const headers = getAuthHeaders();
+    if (headers.Authorization) {
       const unlockKey = getSQLSolutionUnlockKey(problemId);
       setSolutionUnlocked(true);
       localStorage.setItem(unlockKey, 'true');

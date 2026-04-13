@@ -7,15 +7,11 @@ import {
   EDGE_CASE_TEMPLATES, createTestCase, runTestCases,
   generateStressTests, detectProblemType
 } from '../../data/testCaseEngine';
+import { buildAuthHeaders } from '../../utils/authHeaders';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const getAuthHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' };
-  const token = localStorage.getItem('token');
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
-};
+const getAuthHeaders = () => buildAuthHeaders();
 
 /* ── Utility: parse "nums = [2,7,11,15], target = 9" into [{name, value}] ── */
 function parseInputParams(inputStr) {

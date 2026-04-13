@@ -5,6 +5,7 @@ import {
     MessageSquare, BarChart3, Search
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import { Link } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -76,10 +77,7 @@ export default function InterviewHistory() {
     });
 
     const getAuthHeaders = () => {
-        const headers = { 'Content-Type': 'application/json' };
-        const token = localStorage.getItem('token');
-        if (token) headers.Authorization = `Bearer ${token}`;
-        return headers;
+        return buildAuthHeaders(user);
     };
 
     useEffect(() => { fetchSessions(); }, []);

@@ -127,7 +127,7 @@ export default function Library() {
                     : []
             };
 
-            await updateBook(editingBook.id, payload, localStorage.getItem('token') || sessionStorage.getItem('token'));
+            await updateBook(editingBook.id, payload);
 
             setBooks((currentBooks) => currentBooks.map((book) => (
                 book.id === editingBook.id ? { ...book, ...payload } : book

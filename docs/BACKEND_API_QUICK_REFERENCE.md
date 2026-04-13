@@ -49,6 +49,24 @@ router.get('/content', optionalAuth, async (req, res) => {
 });
 ```
 
+## Jobs API Reference
+
+### Career Ops Evaluation
+```javascript
+POST /api/jobs/career-ops/evaluate
+Authorization: Bearer <jwt_token>
+```
+
+Evaluates a job description against a candidate profile and returns a normalized Career Ops result. The backend also persists the evaluation to Supabase when the schema is available.
+
+### Career Ops History
+```javascript
+GET /api/jobs/career-ops/history?page=1&limit=10
+Authorization: Bearer <jwt_token>
+```
+
+Returns the authenticated user's saved Career Ops evaluations with pagination.
+
 ## Role System
 
 ### Check Current Role (in middleware context)
