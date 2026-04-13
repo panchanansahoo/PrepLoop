@@ -34,9 +34,9 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
   const [scores, setScores] = useState(null);
   const [finalFeedback, setFinalFeedback] = useState(null);
   const [interviewer, setInterviewer] = useState(null);
-  const [interviewMode, setInterviewMode] = useState('hybrid_rollout');
+  const [interviewMode, setInterviewMode] = useState('full_realtime');
   const [runtimeConfig, setRuntimeConfig] = useState(null);
-  const [modeOptions, setModeOptions] = useState(['hybrid_rollout', 'full_realtime']);
+  const [modeOptions, setModeOptions] = useState(['full_realtime']);
   const [modeDescriptions, setModeDescriptions] = useState({});
   const [copyStatus, setCopyStatus] = useState('idle');
   const [interviewStart, setInterviewStart] = useState(null);
@@ -100,7 +100,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         setSessionId(existing.session_id || savedSessionId);
         setMessages(restoredMessages);
         setInterviewer(existing.interviewer || existing.interviewerGreeting || null);
-        setInterviewMode(existing.interviewMode || existing.interview_context?.mode || 'hybrid_rollout');
+        setInterviewMode(existing.interviewMode || existing.interview_context?.mode || 'full_realtime');
         setRuntimeConfig(existing.runtime || existing.interview_context?.runtime || null);
         setScores(existing.scores || existing.final_scores || null);
 
@@ -389,7 +389,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
                       : 'border-indigo-200 bg-white text-indigo-800 hover:border-indigo-300'
                   }`}
                 >
-                  <p className="text-sm font-semibold">{mode === 'full_realtime' ? 'Full Real-Time' : 'Hybrid Rollout'}</p>
+                  <p className="text-sm font-semibold">Full Real-Time</p>
                   <p className="text-xs mt-1 opacity-80">{modeDescriptions[mode] || 'Mode description unavailable.'}</p>
                 </button>
               ))}
@@ -440,7 +440,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4" />
-                Mode: {interviewMode === 'full_realtime' ? 'Full Real-Time' : 'Hybrid Rollout'}
+                Mode: Full Real-Time
               </span>
               <span className="flex items-center gap-1">
                 <TrendingUp className="w-4 h-4" />

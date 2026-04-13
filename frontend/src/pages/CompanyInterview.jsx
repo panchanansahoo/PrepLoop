@@ -11,6 +11,7 @@ import {
 import { Upload, FileText } from 'lucide-react';
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
+import { buildAuthHeaders } from '../utils/authHeaders';
 import { Link } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
 import EmotionDetector from '../components/EmotionDetector';
@@ -18,9 +19,17 @@ import AICopilot from '../components/AICopilot';
 import CodeEditorPanel from '../components/CodeEditorPanel';
 import ProctoringManager from '../components/ProctoringManager';
 import DetailedReport from '../components/interview/DetailedReport';
+import {
+    AUTO_SUBMIT_DELAY_MS,
+    SILENCE_TO_NEXT_QUESTION_MS,
+    VOICE_INPUT_COMMIT_DELAY_MS,
+    buildVoiceAnswerSnapshot,
+    formatInterviewDuration,
+} from './companyInterviewTiming';
 import './CompanyInterview.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const AUTO_SUBMIT_COUNTDOWN_SECONDS = AUTO_SUBMIT_DELAY_MS / 1000;
 
 const INTERVIEW_PRESETS = [
     {
@@ -404,7 +413,6 @@ function normalizeFeedbackList(value) {
 export default function CompanyInterview() {
     const { user } = useAuth();
     const INTERVIEW_RUNTIME_MODES = [
-        { value: 'hybrid_rollout', label: 'Hybrid Rollout' },
         { value: 'full_realtime', label: 'Full Real-Time' },
     ];
 
@@ -435,15 +443,9 @@ export default function CompanyInterview() {
         questionCount: 8,
     });
     const [activePreset, setActivePreset] = useState(null);
-    const [interviewRuntimeMode, setInterviewRuntimeMode] = useState('hybrid_rollout');
-    const [runtimeStrategy, setRuntimeStrategy] = useState('http_pipeline_with_realtime_bridge');
-    const [pipecatBridgeState, setPipecatBridgeState] = useState({
-        status: 'idle',
-        sessionId: null,
-        websocketUrl: null,
-        bridgeConfigured: false,
-    });
-    const [pipecatConnectionState, setPipecatConnectionState] = useState('idle');
+    const [interviewRuntimeMode, setInterviewRuntimeMode] = useState('full_realtime');
+    const [runtimeStrategy, setRuntimeStrategy] = useState('realtime_voice_bridge');
+    const [realtimeStartError, setRealtimeStartError] = useState('');
     const [useResumeContext, setUseResumeContext] = useState(false);
     const [resumeUploadLoading, setResumeUploadLoading] = useState(false);
     const [resumeContext, setResumeContext] = useState(null);
@@ -463,7 +465,7 @@ export default function CompanyInterview() {
 
     // UX Realism — active listening, silence handling, status
     const [interviewerStatus, setInterviewerStatus] = useState(''); // 'reviewing' | 'thinking' | 'notes' | ''
-    const [silenceStage, setSilenceStage] = useState(0); // 0=none, 1="take your time", 2="rephrase?", 3=auto-skip
+    const [silenceStage, setSilenceStage] = useState(0); // 0=none, 1="take your time", 2="auto-advance"
     const silenceStageTimerRef = useRef(null);
     const activeListeningTimerRef = useRef(null);
     const [aiSpeechCaption, setAiSpeechCaption] = useState(''); // Live subtitles for AI speech
@@ -479,6 +481,11 @@ export default function CompanyInterview() {
         const lIdx = Math.abs((config.role || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0)) % lastNames.length;
         return `${names[idx]} ${lastNames[lIdx]}`;
     }, [config.company, config.role, config.interviewerGender]);
+
+    const interviewerRole = useMemo(() => {
+        const stageLabel = String(config.stage || 'technical').replace(/[-_]/g, ' ');
+        return `${stageLabel} interviewer`;
+    }, [config.stage]);
 
     // Media
     const [cameraOn, setCameraOn] = useState(true);
@@ -558,27 +565,10 @@ export default function CompanyInterview() {
     const companyColor = companyObj.color;
 
     const getAuthHeaders = () => {
-        const token =
-            user?.access_token ||
-            user?.token ||
-            localStorage.getItem('token') ||
-            sessionStorage.getItem('token') ||
-            localStorage.getItem('access_token') ||
-            sessionStorage.getItem('access_token') ||
-            localStorage.getItem('auth_token') ||
-            sessionStorage.getItem('auth_token');
-
-        return {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        };
+        return buildAuthHeaders(user);
     };
 
-    const formatTime = (secs) => {
-        const m = Math.floor(secs / 60).toString().padStart(2, '0');
-        const s = (secs % 60).toString().padStart(2, '0');
-        return `${m}:${s}`;
-    };
+    const formatTime = (secs) => formatInterviewDuration(secs);
 
     const updateAdvancedOption = (key, value) => {
         setActivePreset(null);
@@ -595,119 +585,9 @@ export default function CompanyInterview() {
         });
     };
 
-    const closePipecatSocket = useCallback((manual = true) => {
-        pipecatManualCloseRef.current = manual;
-        clearTimeout(pipecatReconnectTimerRef.current);
-        pipecatReconnectTimerRef.current = null;
-        pipecatReconnectAttemptsRef.current = 0;
-
-        if (pipecatSocketRef.current) {
-            try {
-                pipecatSocketRef.current.close();
-            } catch {
-                // ignore socket close failures
-            }
-            pipecatSocketRef.current = null;
-        }
-
-        if (manual) {
-            setPipecatConnectionState('closed');
-        }
-    }, []);
-
-    const switchToHybridRuntime = useCallback((status = 'fallback_hybrid') => {
-        setInterviewRuntimeMode('hybrid_rollout');
-        setRuntimeStrategy('http_pipeline_with_realtime_bridge');
-        setPipecatBridgeState({
-            status,
-            sessionId: null,
-            websocketUrl: null,
-            bridgeConfigured: false,
-        });
-        setPipecatConnectionState('fallback_hybrid');
-        closePipecatSocket(true);
-    }, [closePipecatSocket]);
-
-    const connectPipecatSocket = useCallback((websocketUrl) => {
-        if (!websocketUrl) {
-            setPipecatConnectionState('pending_bridge');
-            return;
-        }
-
-        clearTimeout(pipecatReconnectTimerRef.current);
-        pipecatReconnectTimerRef.current = null;
-
-        if (pipecatSocketRef.current) {
-            try {
-                pipecatManualCloseRef.current = true;
-                pipecatSocketRef.current.close();
-            } catch {
-                // ignore close failures
-            }
-            pipecatSocketRef.current = null;
-        }
-
-        pipecatManualCloseRef.current = false;
-        setPipecatConnectionState(pipecatReconnectAttemptsRef.current > 0 ? 'reconnecting' : 'connecting');
-
-        try {
-            const ws = new WebSocket(websocketUrl);
-            pipecatSocketRef.current = ws;
-
-            ws.onopen = () => {
-                pipecatReconnectAttemptsRef.current = 0;
-                setPipecatConnectionState('connected');
-            };
-
-            ws.onmessage = (event) => {
-                try {
-                    const payload = JSON.parse(event.data);
-                    if (payload?.type === 'caption' && typeof payload?.text === 'string') {
-                        setAiSpeechCaption(payload.text);
-                    }
-                } catch {
-                    // ignore unsupported message frames
-                }
-            };
-
-            ws.onerror = () => {
-                setPipecatConnectionState('error');
-            };
-
-            ws.onclose = () => {
-                const wasManualClose = pipecatManualCloseRef.current;
-                pipecatSocketRef.current = null;
-
-                if (wasManualClose || phaseRef.current !== 'interview' || interviewRuntimeMode !== 'full_realtime') {
-                    setPipecatConnectionState('closed');
-                    return;
-                }
-
-                if (pipecatReconnectAttemptsRef.current >= 3) {
-                    switchToHybridRuntime('fallback_hybrid');
-                    return;
-                }
-
-                pipecatReconnectAttemptsRef.current += 1;
-                setPipecatConnectionState('reconnecting');
-                const backoffMs = 800 * pipecatReconnectAttemptsRef.current;
-                pipecatReconnectTimerRef.current = setTimeout(() => {
-                    connectPipecatSocket(websocketUrl);
-                }, backoffMs);
-            };
-        } catch {
-            setPipecatConnectionState('error');
-            switchToHybridRuntime('fallback_hybrid');
-        }
-    }, [interviewRuntimeMode, switchToHybridRuntime]);
-
     // ── Ambient Typing Sounds (Web Audio API — no external files) ──
     const audioCtxRef = useRef(null);
     const typingSoundIntervalRef = useRef(null);
-    const pipecatSocketRef = useRef(null);
-    const pipecatReconnectTimerRef = useRef(null);
-    const pipecatReconnectAttemptsRef = useRef(0);
-    const pipecatManualCloseRef = useRef(false);
 
     const playTypingSound = useCallback(() => {
         try {
@@ -812,67 +692,21 @@ export default function CompanyInterview() {
         clearTimeout(silenceStageTimerRef.current);
         setSilenceStage(0);
 
-        // Stage 1: After 5s of silence → "Take your time"
+        // Stage 1: After 4s of silence → gentle nudge
         silenceStageTimerRef.current = setTimeout(() => {
             if (!isListeningRef.current || accumulatedTranscriptRef.current.trim()) return;
             setSilenceStage(1);
             setInterviewerStatus('Take your time, no rush...');
 
-            // Stage 2: After 10s total → "Want me to rephrase?"
+            // Stage 2: After 10s total → advance to the next question
             silenceStageTimerRef.current = setTimeout(() => {
                 if (!isListeningRef.current || accumulatedTranscriptRef.current.trim()) return;
                 setSilenceStage(2);
-                setInterviewerStatus('Would you like me to rephrase the question?');
-                rephraseCurrentQuestion();
-
-                // Stage 3: After 15s total → Auto-skip
-                silenceStageTimerRef.current = setTimeout(() => {
-                    if (!isListeningRef.current || accumulatedTranscriptRef.current.trim()) return;
-                    setSilenceStage(3);
-                    setInterviewerStatus('');
-                    document.dispatchEvent(new CustomEvent('interview-auto-send', { detail: { autoSkip: true } }));
-                }, 5000);
-            }, 5000);
-        }, 5000);
+                setInterviewerStatus('No answer detected. Moving to the next question...');
+                document.dispatchEvent(new CustomEvent('interview-auto-send', { detail: { autoSkip: true } }));
+            }, SILENCE_TO_NEXT_QUESTION_MS - AUTO_SUBMIT_DELAY_MS);
+        }, AUTO_SUBMIT_DELAY_MS);
     }, []);
-
-    // P22: Smart Rephrase — rephrase the question when silence stage 2 hits
-    const rephraseCurrentQuestion = useCallback(async () => {
-        if (!currentQuestion) return;
-        try {
-            const res = await fetch(`${API_URL}/api/company-interview/rephrase`, {
-                method: 'POST', headers: getAuthHeaders(),
-                body: JSON.stringify({ question: currentQuestion, company: config.company, stage: config.stage })
-            });
-            const data = await res.json();
-            if (data?.interviewRuntimeMode) {
-                setInterviewRuntimeMode(data.interviewRuntimeMode);
-            }
-            if (data?.runtime?.strategy) {
-                setRuntimeStrategy(data.runtime.strategy);
-            }
-            if (data.rephrased) {
-                const rephrased = data.rephrased;
-                transitionToQuestion(rephrased);
-                speakText(`Let me put it another way. ${rephrased}`);
-                setConversation(prev => [...prev, {
-                    role: 'interviewer', content: `(Rephrased) ${rephrased}`, tips: [],
-                    reaction: 'encouraging', timestamp: new Date().toISOString()
-                }]);
-            }
-        } catch {
-            // Local fallback rephrase
-            const prefixes = [
-                'To put it differently,',
-                'In other words,',
-                'Let me rephrase that —',
-                'Another way to think about this:'
-            ];
-            const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
-            const rephrased = `${prefix} ${currentQuestion}`;
-            speakText(rephrased);
-        }
-    }, [currentQuestion, config.company, config.stage]);
 
     const stopSilenceHandling = useCallback(() => {
         clearTimeout(silenceStageTimerRef.current);
@@ -1023,12 +857,29 @@ export default function CompanyInterview() {
             streamRef.current = s;
             setStream(s);
             if (videoRef.current) videoRef.current.srcObject = s;
+            const videoTrack = s.getVideoTracks()[0];
+            const audioTrack = s.getAudioTracks()[0];
+            setCameraOn(Boolean(videoTrack?.enabled));
+            setMicOn(Boolean(audioTrack?.enabled));
             return true;
         } catch {
-            // Allow text-only if no camera
-            setStream(null);
-            setCameraOn(false);
-            return false;
+            // Recover with microphone-only access when camera+audio fails.
+            try {
+                const audioOnlyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                streamRef.current = audioOnlyStream;
+                setStream(audioOnlyStream);
+                if (videoRef.current) videoRef.current.srcObject = null;
+                const audioTrack = audioOnlyStream.getAudioTracks()[0];
+                setCameraOn(false);
+                setMicOn(Boolean(audioTrack?.enabled));
+                return true;
+            } catch {
+                // Last fallback: no media available.
+                setStream(null);
+                setCameraOn(false);
+                setMicOn(false);
+                return false;
+            }
         }
     };
 
@@ -1094,7 +945,6 @@ export default function CompanyInterview() {
         isMountedRef.current = true;
         return () => {
             isMountedRef.current = false;
-            closePipecatSocket(true);
             stopMedia();
             clearInterval(timerRef.current);
             clearInterval(thinkTimerRef.current);
@@ -1113,7 +963,7 @@ export default function CompanyInterview() {
                 audioCtxRef.current.close().catch(() => {});
             }
         };
-    }, [closePipecatSocket]);
+    }, []);
 
     // ── TTS — pick the most natural voice available ──
     const getBestVoice = () => {
@@ -1393,6 +1243,8 @@ export default function CompanyInterview() {
     // ── Speech Recognition (robust) ──
     const isListeningRef = useRef(false);
     const accumulatedTranscriptRef = useRef('');
+    const latestUserInputRef = useRef('');
+    const latestInterimTextRef = useRef('');
     const inactivityTimerRef = useRef(null);
 
     const initSpeechRecognition = useCallback(() => {
@@ -1430,6 +1282,8 @@ export default function CompanyInterview() {
 
             if (finalTranscript) {
                 accumulatedTranscriptRef.current += finalTranscript;
+                latestInterimTextRef.current = '';
+                latestUserInputRef.current = accumulatedTranscriptRef.current;
                 setTranscript(accumulatedTranscriptRef.current);
                 setUserInput(accumulatedTranscriptRef.current);
                 setInterimText('');
@@ -1446,9 +1300,9 @@ export default function CompanyInterview() {
                 // Reset auto-send timer — user just finished a sentence
                 clearTimeout(autoSendTimerRef.current);
                 clearInterval(autoSendCountdownRef.current);
-                setAutoSendCountdown(5);
-                // Start 5-second countdown to auto-send with clear visual indicator
-                let countdown = 5;
+                setAutoSendCountdown(AUTO_SUBMIT_COUNTDOWN_SECONDS);
+                // Start 4-second countdown to auto-send with clear visual indicator
+                let countdown = AUTO_SUBMIT_COUNTDOWN_SECONDS;
                 autoSendCountdownRef.current = setInterval(() => {
                     countdown--;
                     setAutoSendCountdown(countdown);
@@ -1465,6 +1319,8 @@ export default function CompanyInterview() {
                 }, 5000);
             } else if (interimTranscript) {
                 // Show interim (live) text so user sees words appearing in real-time
+                latestInterimTextRef.current = interimTranscript;
+                latestUserInputRef.current = accumulatedTranscriptRef.current + interimTranscript;
                 setInterimText(interimTranscript);
                 setUserInput(accumulatedTranscriptRef.current + interimTranscript);
                 // Cancel auto-send — user is still speaking
@@ -1541,9 +1397,10 @@ export default function CompanyInterview() {
 
             // Create fresh recognition instance each time to avoid stale state
             recognitionRef.current = initSpeechRecognition();
-            if (!recognitionRef.current) return;
 
             accumulatedTranscriptRef.current = '';
+            latestUserInputRef.current = '';
+            latestInterimTextRef.current = '';
             setTranscript('');
             setInterimText('');
             setSpeechStartTime(Date.now());
@@ -1552,9 +1409,26 @@ export default function CompanyInterview() {
             clearInterval(autoSendCountdownRef.current);
 
             try {
-                recognitionRef.current.start();
+                // Ensure we have a live microphone track for recorder/STT.
+                if (!streamRef.current || !streamRef.current.getAudioTracks().some(t => t.readyState === 'live')) {
+                    try {
+                        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                        streamRef.current = micStream;
+                        setStream(micStream);
+                        setCameraOn(false);
+                        setMicOn(true);
+                    } catch (micError) {
+                        console.error('Unable to access microphone for listening:', micError);
+                    }
+                }
+
                 isListeningRef.current = true;
                 setIsListening(true);
+
+                // Start browser speech recognition when available.
+                if (recognitionRef.current) {
+                    recognitionRef.current.start();
+                }
 
                 // --- STT RECORDING START ---
                 if (streamRef.current) {
@@ -1589,6 +1463,14 @@ export default function CompanyInterview() {
             }
         }
     }, [initSpeechRecognition, speechStartTime, startSilenceHandling, startActiveListening]);
+
+    useEffect(() => {
+        latestUserInputRef.current = userInput;
+    }, [userInput]);
+
+    useEffect(() => {
+        latestInterimTextRef.current = interimText;
+    }, [interimText]);
 
     // ── API Calls ──
     // Start think-time countdown
@@ -1628,16 +1510,9 @@ export default function CompanyInterview() {
 
     const startInterview = async () => {
         setLoading(true);
+        setRealtimeStartError('');
         timeLimitTriggeredRef.current = false;
         consecutiveSkipsRef.current = 0;
-        closePipecatSocket(true);
-        setPipecatConnectionState('idle');
-        setPipecatBridgeState({
-            status: 'idle',
-            sessionId: null,
-            websocketUrl: null,
-            bridgeConfigured: false,
-        });
         if (!streamRef.current) {
             await startMedia();
         }
@@ -1654,60 +1529,7 @@ export default function CompanyInterview() {
 
         const resolvedExperienceLevel = isFresherHrTechMode ? 'fresher' : 'experienced';
         let effectiveInterviewMode = interviewRuntimeMode;
-        let pipecatSessionId = null;
         const headers = getAuthHeaders();
-
-        if (effectiveInterviewMode === 'full_realtime') {
-            try {
-                const pipecatRes = await fetch(`${API_URL}/api/pipecat/session`, {
-                    method: 'POST', headers,
-                    body: JSON.stringify({
-                        interviewMode: effectiveInterviewMode,
-                        interviewType: config.stage,
-                        difficulty: String(config.difficulty || 'Medium').toLowerCase(),
-                        gender: config.interviewerGender,
-                        company: config.company,
-                        role: config.role,
-                        stage: config.stage,
-                        interviewerName: interviewerName,
-                        interviewerRole: interviewerRole,
-                        interviewerPersona: config.interviewerPersona
-                    })
-                });
-
-                const pipecatPayload = await pipecatRes.json();
-                const pipecatData = pipecatPayload?.data || null;
-                if (!pipecatRes.ok || !pipecatData) {
-                    throw new Error(pipecatPayload?.message || 'Pipecat session request failed');
-                }
-
-                pipecatSessionId = pipecatData.sessionId || null;
-                setPipecatBridgeState({
-                    status: pipecatData.status || 'bridge_pending_configuration',
-                    sessionId: pipecatData.sessionId || null,
-                    websocketUrl: pipecatData.websocketUrl || null,
-                    bridgeConfigured: Boolean(pipecatData.runtime?.bridgeConfigured),
-                });
-                if (pipecatData?.runtime?.strategy) {
-                    setRuntimeStrategy(pipecatData.runtime.strategy);
-                }
-                connectPipecatSocket(pipecatData.websocketUrl || null);
-            } catch (bridgeError) {
-                // Non-breaking fallback: continue the interview using the hybrid runtime.
-                effectiveInterviewMode = 'hybrid_rollout';
-                setInterviewRuntimeMode('hybrid_rollout');
-                setRuntimeStrategy('http_pipeline_with_realtime_bridge');
-                setPipecatBridgeState({
-                    status: 'fallback_hybrid',
-                    sessionId: null,
-                    websocketUrl: null,
-                    bridgeConfigured: false,
-                });
-                setPipecatConnectionState('fallback_hybrid');
-                closePipecatSocket(true);
-                console.warn('Pipecat bridge unavailable, falling back to hybrid mode:', bridgeError?.message || bridgeError);
-            }
-        }
 
         try {
             const res = await fetch(`${API_URL}/api/company-interview/start`, {
@@ -1716,7 +1538,6 @@ export default function CompanyInterview() {
                     ...config,
                     totalQuestions,
                     interviewRuntimeMode: effectiveInterviewMode,
-                    pipecatSessionId,
                     experienceLevel: resolvedExperienceLevel,
                     useRealQuestions,
                     advancedOptions,
@@ -1772,7 +1593,12 @@ export default function CompanyInterview() {
     };
 
     const sendAnswer = async (isAutoSkip = false, isInterrupted = false) => {
-        if (!userInput.trim() && !isAutoSkip && !isInterrupted) return;
+        const answerSnapshot = buildVoiceAnswerSnapshot({
+            userInput: latestUserInputRef.current || userInput,
+            accumulatedTranscript: accumulatedTranscriptRef.current,
+            interimText: latestInterimTextRef.current || interimText,
+        });
+        if (!answerSnapshot && !isAutoSkip && !isInterrupted) return;
 
         // Stop voice recognition if active
         if (isListeningRef.current) {
@@ -1781,20 +1607,24 @@ export default function CompanyInterview() {
             recognitionRef.current?.stop();
         }
 
+        if (answerSnapshot) {
+            await new Promise(resolve => setTimeout(resolve, VOICE_INPUT_COMMIT_DELAY_MS));
+        }
+
         // --- STT RECORDING STOP ---
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
             mediaRecorderRef.current.onstop = () => {
-                processFinalAudioAndSend(isAutoSkip, isInterrupted);
+                processFinalAudioAndSend(isAutoSkip, isInterrupted, answerSnapshot);
             };
             mediaRecorderRef.current.stop();
             return; // Exit here. The onstop callback handles the rest.
         } else {
-            processFinalAudioAndSend(isAutoSkip, isInterrupted);
+            processFinalAudioAndSend(isAutoSkip, isInterrupted, answerSnapshot);
         }
     };
 
-    const processFinalAudioAndSend = async (isAutoSkip, isInterrupted) => {
-        let answerText = userInput.trim();
+    const processFinalAudioAndSend = async (isAutoSkip, isInterrupted, answerSnapshot = '') => {
+        let answerText = String(answerSnapshot || userInput || '').trim();
 
         // Call STT backend if we have audio chunks
         if (audioChunksRef.current.length > 0) {
@@ -1879,6 +1709,8 @@ export default function CompanyInterview() {
         setTranscript('');
         setInterimText('');
         accumulatedTranscriptRef.current = '';
+        latestUserInputRef.current = '';
+        latestInterimTextRef.current = '';
         clearInterval(thinkTimerRef.current);
         setThinkTimeLeft(0);
 
@@ -1909,7 +1741,6 @@ export default function CompanyInterview() {
                     company: config.company, role: config.role, stage: config.stage,
                     difficulty: config.difficulty,
                     interviewRuntimeMode,
-                    pipecatSessionId: pipecatBridgeState.sessionId || undefined,
                     previousQuestion: currentQuestion, userAnswer: answer,
                     conversationHistory: conversation,
                     questionNumber: questionCount + 1, totalQuestions,
@@ -2095,27 +1926,6 @@ export default function CompanyInterview() {
         setPhase('summary'); // Immediately show loading summary UI
         phaseRef.current = 'summary'; // Immediately lock phase to prevent async bleeding
 
-        closePipecatSocket(true);
-        setPipecatConnectionState('closed');
-
-        // Best effort cleanup for ephemeral Pipecat bridge session.
-        if (pipecatBridgeState.sessionId) {
-            try {
-                await fetch(`${API_URL}/api/pipecat/session/${pipecatBridgeState.sessionId}`, {
-                    method: 'DELETE',
-                    headers: getAuthHeaders(),
-                });
-            } catch {
-                // Ignore bridge cleanup failures; summary flow should remain uninterrupted.
-            }
-            setPipecatBridgeState({
-                status: 'closed',
-                sessionId: null,
-                websocketUrl: null,
-                bridgeConfigured: false,
-            });
-        }
-
         // Stop ALL voice, timers, and media immediately
         window.speechSynthesis?.cancel();
         if (audioPlayerRef.current) {
@@ -2200,14 +2010,7 @@ export default function CompanyInterview() {
 
     const resetInterview = () => {
         timeLimitTriggeredRef.current = false;
-        closePipecatSocket(true);
-        setPipecatConnectionState('idle');
-        setPipecatBridgeState({
-            status: 'idle',
-            sessionId: null,
-            websocketUrl: null,
-            bridgeConfigured: false,
-        });
+        setRealtimeStartError('');
         setPhase('lobby');
         setConversation([]);
         setSummaryData(null);
@@ -2245,7 +2048,14 @@ export default function CompanyInterview() {
         const handleAutoSend = (e) => {
             const isAutoSkip = e.detail?.autoSkip;
             const isInterrupted = e.detail?.interrupted;
-            if ((accumulatedTranscriptRef.current.trim() || isAutoSkip || isInterrupted) && isListeningRef.current) {
+            const hasCapturedSpeech = Boolean(
+                buildVoiceAnswerSnapshot({
+                    userInput: latestUserInputRef.current,
+                    accumulatedTranscript: accumulatedTranscriptRef.current,
+                    interimText: latestInterimTextRef.current,
+                })
+            );
+            if ((hasCapturedSpeech || isAutoSkip || isInterrupted) && isListeningRef.current) {
                 // Stop listening first
                 isListeningRef.current = false;
                 setIsListening(false);
@@ -2553,12 +2363,12 @@ export default function CompanyInterview() {
                                             <><span className="ti-realq-badge">🤖</span> AI-generated questions</>
                                         )}
                                     </span>
-                                </div>
                                 {useRealQuestions && (
                                     <div className="ti-realq-note">
                                         Questions sourced from actual {companyName} interview reports
                                     </div>
                                 )}
+                                </div>
                             </div>
 
                             <div className="ti-form-section">
@@ -2679,7 +2489,12 @@ export default function CompanyInterview() {
                                         <label>Runtime Mode</label>
                                         <select
                                             value={interviewRuntimeMode}
-                                            onChange={e => setInterviewRuntimeMode(e.target.value)}
+                                            onChange={e => {
+                                                setInterviewRuntimeMode(e.target.value);
+                                                if (realtimeStartError) {
+                                                    setRealtimeStartError('');
+                                                }
+                                            }}
                                         >
                                             {INTERVIEW_RUNTIME_MODES.map(mode => (
                                                 <option key={mode.value} value={mode.value}>{mode.label}</option>
@@ -2687,6 +2502,28 @@ export default function CompanyInterview() {
                                         </select>
                                     </div>
                                 </div>
+
+                                {realtimeStartError && (
+                                    <div
+                                        role="alert"
+                                        style={{
+                                            marginTop: 12,
+                                            padding: '10px 12px',
+                                            borderRadius: 10,
+                                            border: '1px solid rgba(248, 113, 113, 0.55)',
+                                            background: 'rgba(127, 29, 29, 0.25)',
+                                            color: '#fecaca',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 8,
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        <AlertCircle size={16} />
+                                        <span>{realtimeStartError}</span>
+                                    </div>
+                                )}
 
                                 <div className="ti-form-row">
                                     <div className="ti-form-section">
@@ -2995,17 +2832,6 @@ export default function CompanyInterview() {
                     <div className="ci-mode-badge" style={{ marginLeft: 8 }}>
                         {runtimeStrategy || 'runtime: n/a'}
                     </div>
-                    {interviewRuntimeMode === 'full_realtime' && (
-                        <div className="ci-mode-badge" style={{ marginLeft: 8 }}>
-                            {pipecatConnectionState === 'connected'
-                                ? 'pipecat: bridge ready'
-                                : pipecatConnectionState === 'reconnecting'
-                                    ? 'pipecat: reconnecting'
-                                : pipecatBridgeState.status === 'fallback_hybrid'
-                                    ? 'pipecat: fallback to hybrid'
-                                    : 'pipecat: pending bridge'}
-                        </div>
-                    )}
                 </div>
 
 
@@ -3064,10 +2890,10 @@ export default function CompanyInterview() {
                         : loading
                             ? (interviewerStatus || 'Reviewing your answer...')
                             : isListening
-                                ? (silenceStage === 1
+                                    ? (silenceStage === 1
                                     ? '💭 Take your time, no rush...'
                                     : silenceStage === 2
-                                        ? '🔄 Would you like me to rephrase?'
+                                        ? '⏭️ No answer detected. Moving to the next question...'
                                         : interviewerStatus
                                             ? interviewerStatus
                                             : '🎤 Listening to your response...')
@@ -3165,7 +2991,7 @@ export default function CompanyInterview() {
                                         <svg className="ci-autosend-ring" viewBox="0 0 36 36">
                                             <circle cx="18" cy="18" r="16" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
                                             <circle cx="18" cy="18" r="16" fill="none" stroke="#818cf8" strokeWidth="2"
-                                                strokeDasharray={`${(autoSendCountdown / 5) * 100.53} 100.53`}
+                                                strokeDasharray={`${(autoSendCountdown / AUTO_SUBMIT_COUNTDOWN_SECONDS) * 100.53} 100.53`}
                                                 strokeLinecap="round" transform="rotate(-90 18 18)"
                                                 style={{ transition: 'stroke-dasharray 0.9s linear' }}
                                             />
@@ -3355,14 +3181,33 @@ export default function CompanyInterview() {
                                 <div className="ci-chat-input-row">
                                     <button
                                         className={`ci-chat-mic-btn ${isListening ? 'active' : ''}`}
-                                        onClick={toggleListening}
+                                        onClick={() => {
+                                            const liveInputValue = document
+                                                .querySelector('.ci-chat-input-row textarea')
+                                                ?.value
+                                                ?.trim() || '';
+                                            const hasPendingResponse = Boolean(
+                                                userInput.trim() || liveInputValue || accumulatedTranscriptRef.current.trim()
+                                            );
+                                            if (isListening || isListeningRef.current) {
+                                                sendAnswer();
+                                            } else if (hasPendingResponse) {
+                                                // Submit pending dictated/typed content even after transient recognition drops.
+                                                sendAnswer();
+                                            } else {
+                                                toggleListening();
+                                            }
+                                        }}
                                         title={isListening ? 'Stop & send' : 'Start speaking'}
                                     >
                                         {isListening ? <MicOff size={16} /> : <Mic size={16} />}
                                     </button>
                                     <textarea
                                         value={userInput}
-                                        onChange={e => setUserInput(e.target.value)}
+                                        onChange={e => {
+                                            latestUserInputRef.current = e.target.value;
+                                            setUserInput(e.target.value);
+                                        }}
                                         placeholder={isListening ? '🔴 Listening...' : 'Type your answer...'}
                                         rows={2}
                                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendAnswer(); } }}
@@ -3506,3 +3351,4 @@ export default function CompanyInterview() {
         </div>
     );
 }
+

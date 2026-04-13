@@ -1,15 +1,16 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/index.js';
 import { body, validationResult, param } from 'express-validator';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { CodeReviewService, InterviewSimulatorService } from '../services/aiService.js';
+import { InterviewGroundingService } from '../services/ragInterviewGroundingService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
 const logger = createLogger('AI-Features-Routes');
 // AI assistant features are now free - no coin requirement
 
-const INTERVIEW_MODES = ['hybrid_rollout', 'full_realtime'];
+const INTERVIEW_MODES = ['full_realtime'];
 
 const isMissingPerformanceTrendSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -218,14 +219,73 @@ router.get(
     return res.status(200).json({
       success: true,
       data: {
-        defaultMode: process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+        defaultMode: process.env.AI_INTERVIEW_MODE || 'full_realtime',
         supportedModes: INTERVIEW_MODES,
         description: {
-          hybrid_rollout: 'Uses current API flow with realtime-ready metadata and safe fallback behavior.',
-          full_realtime: 'Optimizes prompts and responses for realtime voice runtimes such as Pipecat.',
+          full_realtime: 'Optimizes prompts and responses for generic realtime voice runtimes.',
         },
       },
     });
+  }
+);
+
+/**
+ * POST /api/ai/interview/test-grounding
+ * Diagnostic endpoint for interview grounding retrieval (no session mutation)
+ */
+router.post(
+  '/interview/test-grounding',
+  authenticateToken,
+  requireAdmin,
+  body('company').optional().isString().trim(),
+  body('role').optional().isString().trim(),
+  body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
+  body('stage').optional().isString().trim(),
+  body('interviewType').optional().isIn(['dsa', 'system_design', 'behavioral', 'mixed']),
+  body('missingAreas').optional().isArray(),
+  body('resumeContext').optional().isObject(),
+  body('limit').optional().isInt({ min: 1, max: 8 }).toInt(),
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const {
+        company,
+        role,
+        difficulty = 'medium',
+        stage = 'technical',
+        interviewType = 'dsa',
+        missingAreas = [],
+        resumeContext = {},
+        limit = 5,
+      } = req.body || {};
+
+      const data = await InterviewGroundingService.fetchGroundingContext({
+        company,
+        role,
+        difficulty,
+        stage,
+        interviewType,
+        missingAreas,
+        resumeContext,
+        limit,
+      });
+
+      return res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      logger.error('Interview grounding test endpoint error', { error: error.message });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve interview grounding context',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
   }
 );
 
@@ -252,7 +312,7 @@ router.post(
         interviewType,
         difficulty = 'medium',
         companyFocus,
-        interviewMode = process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+        interviewMode = process.env.AI_INTERVIEW_MODE || 'full_realtime',
       } = req.body;
       const userId = req.user.id;
       const requestId = req.id;
@@ -312,7 +372,7 @@ router.post(
       const { sessionId } = req.params;
       const {
         response,
-        interviewMode = process.env.AI_INTERVIEW_MODE || 'hybrid_rollout',
+        interviewMode = process.env.AI_INTERVIEW_MODE || 'full_realtime',
       } = req.body;
       const userId = req.user.id;
       const requestId = req.id;
@@ -386,6 +446,58 @@ router.post(
         success: false,
         message: 'Failed to complete interview',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/ai/interview/:sessionId/telemetry
+ * Get interview telemetry snapshot for a session
+ */
+router.get(
+  '/interview/:sessionId/telemetry',
+  authenticateToken,
+  param('sessionId').isUUID(),
+  async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const userId = req.user.id;
+
+      const interview = await InterviewSimulatorService.getInterviewSession(sessionId, userId);
+      const context = interview.interview_context || {};
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          sessionId,
+          stage: context.stage || context.interviewState?.stage || 'intake',
+          stageLabel: context.stageLabel || context.interviewState?.stageLabel || 'Intake & Setup',
+          current_scores: context.currentScores || null,
+          telemetry: context.telemetry || {
+            totalTurns: Number(context.turns || 0),
+            stageTransitions: [],
+            groundingHits: 0,
+            groundingHitRate: 0,
+            lastResponseLatencyMs: 0,
+            averageResponseLatencyMs: 0,
+            latestAnalysisScore: 0,
+            lastUpdatedAt: interview.updated_at || interview.created_at || new Date().toISOString(),
+          },
+        },
+      });
+    } catch (error) {
+      if (error.message === 'Interview session not found') {
+        return res.status(404).json({
+          success: false,
+          message: 'Interview session not found'
+        });
+      }
+
+      logger.error('Fetch interview telemetry error', { error: error.message });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch interview telemetry'
       });
     }
   }

@@ -19,6 +19,27 @@ function toPerformanceLevel(score) {
   return 'Needs Work';
 }
 
+function normalizeStagePlan(stagePlan) {
+  if (!Array.isArray(stagePlan)) return [];
+
+  return stagePlan
+    .map((stage) => {
+      if (typeof stage === 'string' && stage.trim()) {
+        return { key: stage.trim(), label: stage.trim() };
+      }
+
+      if (stage && typeof stage === 'object' && typeof stage.key === 'string') {
+        return {
+          key: stage.key,
+          label: typeof stage.label === 'string' && stage.label.trim() ? stage.label : stage.key,
+        };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function mapCodeReview(raw) {
   if (!raw || typeof raw !== 'object') return raw;
 
@@ -52,11 +73,15 @@ function mapCodeReview(raw) {
 
 function mapInterviewStart(raw) {
   if (!raw || typeof raw !== 'object') return raw;
+  const stagePlan = normalizeStagePlan(raw.stagePlan);
   return {
     ...raw,
+    sessionId: raw.sessionId || raw.session_id,
     session_id: raw.session_id || raw.sessionId,
-    interviewMode: raw.interviewMode || raw.interview_mode || 'hybrid_rollout',
+    stagePlan,
+    interviewMode: raw.interviewMode || raw.interview_mode || 'full_realtime',
     runtime: raw.runtime || null,
+    status: raw.status || 'in_progress',
     interviewer: raw.interviewer || raw.interviewerGreeting || 'AI Interviewer',
     initial_question:
       raw.initial_question ||
@@ -69,12 +94,16 @@ function mapInterviewStart(raw) {
 
 function mapInterviewResponse(raw) {
   if (!raw || typeof raw !== 'object') return raw;
+  const stagePlan = normalizeStagePlan(raw.stagePlan);
   const currentScores = raw.current_scores || raw.scores || null;
   return {
     ...raw,
+    sessionId: raw.sessionId || raw.session_id,
+    stagePlan,
     follow_up: raw.follow_up || raw.interviewerMessage || raw.message || null,
-    interviewMode: raw.interviewMode || raw.interview_mode || 'hybrid_rollout',
+    interviewMode: raw.interviewMode || raw.interview_mode || 'full_realtime',
     runtime: raw.runtime || null,
+    continueInterview: typeof raw.continueInterview === 'boolean' ? raw.continueInterview : true,
     current_scores: currentScores,
     adaptive_update: raw.adaptive_update || null
   };
@@ -84,10 +113,10 @@ function mapInterviewModes(raw) {
   if (!raw || typeof raw !== 'object') return raw;
 
   return {
-    defaultMode: raw.defaultMode || 'hybrid_rollout',
+    defaultMode: raw.defaultMode || 'full_realtime',
     supportedModes: Array.isArray(raw.supportedModes)
       ? raw.supportedModes
-      : ['hybrid_rollout', 'full_realtime'],
+      : ['full_realtime'],
     description: raw.description || {}
   };
 }
@@ -120,8 +149,10 @@ function mapInterviewCompletion(raw) {
   if (!hasFinalScore) {
     return {
       ...raw,
+      sessionId: raw.sessionId || raw.session_id || raw.id,
       session_id: raw.session_id || raw.id,
       transcript,
+      stagePlan: normalizeStagePlan(raw.interview_context?.stagePlan),
       final_scores: null,
       scores: raw.interview_context?.currentScores || null
     };
@@ -138,8 +169,10 @@ function mapInterviewCompletion(raw) {
 
   return {
     ...raw,
+    sessionId: raw.sessionId || raw.session_id || raw.id,
     session_id: raw.session_id || raw.id,
     transcript,
+    stagePlan: normalizeStagePlan(raw.interview_context?.stagePlan),
     final_scores: finalScores,
     scores: finalScores
   };
@@ -361,18 +394,6 @@ export async function submitInterviewResponse(sessionId, response, interviewMode
 export async function getInterviewModes() {
   const result = await apiRequest('/interview/modes');
   return mapInterviewModes(result);
-}
-
-/**
- * Create a Pipecat bridge session descriptor for full realtime interview mode.
- * @param {{ interviewMode: string, interviewSessionId?: string, interviewType?: string, difficulty?: string }} payload
- * @returns {promise} Session descriptor including websocket URL and runtime metadata
- */
-export async function createPipecatSession(payload) {
-  return apiRequestAbsolute('/pipecat/session', {
-    method: 'POST',
-    body: JSON.stringify(payload || {})
-  });
 }
 
 /**
