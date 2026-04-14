@@ -398,7 +398,14 @@ async function groqJson(systemPrompt, userPrompt, fallback) {
       baseDelayMs: 250,
     });
 
-    return JSON.parse(completion.choices[0].message.content);
+    let parsed;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      return fallback;
+    }
+    return parsed;
   } catch (error) {
     console.error('Groq JSON generation failed:', error.message);
     return fallback;

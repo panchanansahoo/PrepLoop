@@ -1,6 +1,11 @@
 import fetch from 'node-fetch';
 
-const API_URL = 'http://localhost:5001/api/auth';
+const API_URL = process.env.TEST_API_URL || 'http://localhost:5001/api/auth';
+const TEST_PASSWORD = process.env.TEST_USER_PASSWORD;
+if (!TEST_PASSWORD) {
+  console.error('❌ TEST_USER_PASSWORD environment variable is required');
+  process.exit(1);
+}
 const timestamp = Date.now();
 const testEmail = `test-${timestamp}@example.com`;
 
@@ -16,7 +21,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: testEmail,
-        password: 'Test@123456',
+        password: TEST_PASSWORD,
         fullName: 'Test User'
       })
     });
@@ -37,7 +42,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         email: testEmail,
-        password: 'Test@123456'
+        password: TEST_PASSWORD
       })
     });
     const loginData = await loginRes.json();

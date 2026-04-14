@@ -140,9 +140,22 @@ const DISCUSSIONS = [
   { title: 'System Design: Rate Limiter deep dive', author: 'ArchitectPro', replies: 19, likes: 36, tag: 'System Design', time: '1d ago' },
 ];
 
+// ── Gradient Divider Component ──
+function GradientDivider() {
+  return (
+    <div style={{
+      height: '1px',
+      background: 'linear-gradient(90deg, transparent, var(--border), transparent)',
+      margin: '0 auto',
+      maxWidth: '800px'
+    }} />
+  );
+}
+
 // ── Main Component ──
 export default function CommunityHub() {
   const [activeSection, setActiveSection] = useState('overview');
+  const [memberCount, setMemberCount] = useState(5000);
 
   const sections = [
     { id: 'overview', label: 'Overview', icon: Globe },
@@ -198,14 +211,19 @@ export default function CommunityHub() {
           </p>
           <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
             {[
-              { label: '5,000+ Members', icon: Users },
+              { label: `${memberCount.toLocaleString()}+ Members`, icon: Users },
               { label: 'Active 24/7', icon: Clock },
               { label: 'Free Forever', icon: Heart },
             ].map((stat, i) => {
               const Icon = stat.icon;
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
-                  <Icon size={13} />
+                <div key={i} style={{ 
+                  display: 'flex', alignItems: 'center', gap: 6, 
+                  fontSize: i === 0 ? 13 : 11, 
+                  fontWeight: i === 0 ? 700 : 400,
+                  color: i === 0 ? '#60a5fa' : 'rgba(255,255,255,0.4)' 
+                }}>
+                  <Icon size={14} />
                   {stat.label}
                 </div>
               );
@@ -229,6 +247,8 @@ export default function CommunityHub() {
           <ExternalLink size={14} />
         </a>
       </div>
+
+      <GradientDivider />
 
       {/* ── Section Tabs ── */}
       <div style={{
@@ -365,6 +385,8 @@ export default function CommunityHub() {
         </div>
       )}
 
+      <GradientDivider />
+
       {activeSection === 'groups' && (
         <div style={{
           background: 'var(--bg-card)', borderRadius: 20, padding: 24,
@@ -380,6 +402,8 @@ export default function CommunityHub() {
           </div>
         </div>
       )}
+
+      <GradientDivider />
 
       {activeSection === 'leaderboard' && (
         <div style={{
@@ -435,6 +459,8 @@ export default function CommunityHub() {
         </div>
       )}
 
+      <GradientDivider />
+
       {activeSection === 'events' && (
         <div style={{
           background: 'var(--bg-card)', borderRadius: 20, padding: 24,
@@ -467,6 +493,8 @@ export default function CommunityHub() {
           </div>
         </div>
       )}
+
+      <GradientDivider />
 
       {activeSection === 'discussions' && (
         <div style={{

@@ -84,6 +84,7 @@ const InterviewScheduler = lazy(() => import('./pages/InterviewScheduler'));
 const HRLogin = lazy(() => import('./pages/HRLogin'));
 const HRDashboard = lazy(() => import('./pages/HRDashboard'));
 const AIInterviewPage = lazy(() => import('./pages/AIInterviewPage'));
+const CommunityHub = lazy(() => import('./pages/CommunityHub'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -106,12 +107,16 @@ class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
+    this.handleReloadPage = this.handleReloadPage.bind(this);
   }
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
   componentDidCatch(error, info) {
     console.error('App crash:', error, info);
+  }
+  handleReloadPage() {
+    window.location.reload();
   }
   render() {
     if (this.state.hasError) {
@@ -121,7 +126,7 @@ class ErrorBoundary extends Component {
           <pre style={{ whiteSpace: 'pre-wrap', marginTop: 20, fontSize: 14, color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', padding: 20, borderRadius: 12 }}>
             {this.state.error?.toString()}
           </pre>
-          <button onClick={() => window.location.reload()} className="btn btn-primary" style={{ marginTop: 24 }}>
+          <button onClick={this.handleReloadPage} className="btn btn-primary" style={{ marginTop: 24 }}>
             Reload Page
           </button>
         </div>
@@ -217,6 +222,7 @@ function AppContent() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/community" element={<CommunityHub />} />
             <Route
               path="/dashboard"
               element={<PrivateRoute><Dashboard /></PrivateRoute>}
@@ -280,7 +286,7 @@ function AppContent() {
             <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
 
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/payment" element={<Payment />} />
+            <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
             <Route path="/library" element={<Library />} />
             <Route path="/blog" element={<BlogList />} />
             <Route path="/blog/new" element={<PrivateRoute><CreateBlog /></PrivateRoute>} />

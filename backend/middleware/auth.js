@@ -6,29 +6,36 @@ const roleCache = new Map();
 
 const getRoleFromCache = (userId) => {
   const cached = roleCache.get(userId);
-  if (!cached) {
-    return null;
-  }
+  if (!cached) return null;
 
   if (cached.expiresAt <= Date.now()) {
     roleCache.delete(userId);
     return null;
   }
 
+  // Fix #18: update lastAccessed for LRU eviction
+  cached.lastAccessed = Date.now();
   return cached.role;
 };
 
 const setRoleCache = (userId, role) => {
   if (roleCache.size >= ROLE_CACHE_MAX_ENTRIES) {
-    const oldestKey = roleCache.keys().next().value;
-    if (oldestKey) {
-      roleCache.delete(oldestKey);
+    // Fix #18: evict least-recently-used entry instead of oldest-inserted
+    let lruKey = null;
+    let lruTime = Infinity;
+    for (const [key, entry] of roleCache) {
+      if (entry.lastAccessed < lruTime) {
+        lruTime = entry.lastAccessed;
+        lruKey = key;
+      }
     }
+    if (lruKey) roleCache.delete(lruKey);
   }
 
   roleCache.set(userId, {
     role,
     expiresAt: Date.now() + ROLE_CACHE_TTL_MS,
+    lastAccessed: Date.now(),
   });
 };
 

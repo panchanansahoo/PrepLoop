@@ -289,6 +289,14 @@ export default function CreateBlog() {
     }
   };
 
+  const handleOpenPdfUpload = () => {
+    document.getElementById('pdf-upload')?.click();
+  };
+
+  const handleOpenEmlUpload = () => {
+    document.getElementById('eml-upload')?.click();
+  };
+
   const categories = [
     { id: 'system-design', label: 'System Design' },
     { id: 'dsa', label: 'DSA' },
@@ -338,7 +346,7 @@ export default function CreateBlog() {
           <div style={{ fontSize: '12px', color: 'var(--zinc-500)' }}>{saving ? 'Saving...' : 'Saved'}</div>
           <button
             className="btn btn-outline"
-            onClick={() => document.getElementById('pdf-upload').click()}
+            onClick={handleOpenPdfUpload}
             disabled={aiLoading}
             style={{
               height: '28px',
@@ -356,7 +364,7 @@ export default function CreateBlog() {
           </button>
           <button
             className="btn btn-outline"
-            onClick={() => document.getElementById('eml-upload').click()}
+            onClick={handleOpenEmlUpload}
             disabled={aiLoading}
             style={{
               height: '28px',

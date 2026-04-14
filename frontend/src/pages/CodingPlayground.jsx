@@ -4,12 +4,12 @@ import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import {
     ArrowLeft, Play, Terminal, Trash2, Copy, Check,
-    Download, Upload, Clock, ChevronDown, Code2,
-    Braces, Hash, FileCode, Layers, Sparkles, X,
+    Download, Clock, ChevronDown, Code2,
+    Braces, Sparkles, X,
     RotateCcw, Maximize2, Minimize2, Palette,
     Share2, Keyboard, ZoomIn, ZoomOut, History,
-    Type, Link2, Volume2,
-    PanelRightOpen, Settings, Info,
+    Volume2,
+    PanelRightOpen, Info,
     Bot, Send, MessageSquare, Eraser,
     ClipboardCheck, RefreshCw, FileCode2, AlertTriangle
 } from 'lucide-react';
@@ -94,32 +94,10 @@ const findBracketErrors = (source = '') => {
     return errors;
 };
 
-const findJavaScriptSyntaxErrors = (source = '') => {
-    if (!source.trim()) return [];
-    try {
-        // eslint-disable-next-line no-new-func
-        new Function(source);
-        return [];
-    } catch (err) {
-        const raw = String(err?.stack || err?.message || 'Syntax error');
-        const lineMatch = raw.match(/<anonymous>:(\d+):(\d+)/);
-        const line = lineMatch ? Math.max(1, Number(lineMatch[1]) - 1) : 1;
-        const col = lineMatch ? Math.max(1, Number(lineMatch[2])) : 1;
-        return [{
-            line,
-            col,
-            message: String(err?.message || 'Syntax error'),
-            severity: 'error',
-        }];
-    }
-};
 
 const getRealtimeErrors = (source = '', language = '') => {
     const normalized = String(language || '').toLowerCase();
     const errors = findBracketErrors(source);
-    if (normalized === 'javascript') {
-        errors.push(...findJavaScriptSyntaxErrors(source));
-    }
     if (normalized === 'python') {
         const lines = source.split('\n');
         for (let i = 0; i < lines.length; i++) {
@@ -397,41 +375,6 @@ function formatTime(seconds) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-// ─── Simulated output generation ───
-function simulateOutput(code, language) {
-    const lines = [];
-    const timestamp = new Date().toLocaleTimeString();
-    lines.push({ type: 'info', text: `[${timestamp}] Running ${language}...` });
-
-    // Extract print/console.log statements for simulated output
-    const printPatterns = {
-        python: /print\s*\(\s*(?:f?["'](.+?)["']|(.+?))\s*\)/g,
-        javascript: /console\.log\s*\(\s*["'](.+?)["']\s*(?:,\s*(.+?))?\s*\)/g,
-        c: /printf\s*\(\s*["'](.+?)["']/g,
-        cpp: /cout\s*<<\s*["'](.+?)["']/g,
-        java: /System\.out\.println\s*\(\s*["'](.+?)["']\s*\)/g,
-        go: /fmt\.Println\s*\(\s*["'](.+?)["']\s*\)/g,
-    };
-
-    const pattern = printPatterns[language];
-    if (pattern) {
-        let match;
-        while ((match = pattern.exec(code)) !== null) {
-            lines.push({ type: 'output', text: match[1] || match[2] || match[0] });
-        }
-    }
-
-    if (lines.length === 1) {
-        lines.push({ type: 'output', text: '✓ Code compiled successfully' });
-    }
-
-    const runtime = (Math.random() * 50 + 10).toFixed(1);
-    const memory = (Math.random() * 5 + 8).toFixed(1);
-    lines.push({ type: 'info', text: `\n⏱ Runtime: ${runtime}ms  |  💾 Memory: ${memory}MB` });
-
-    return lines;
-}
-
 export default function CodingPlayground() {
     const navigate = useNavigate();
     const editorRef = useRef(null);
@@ -463,8 +406,6 @@ export default function CodingPlayground() {
     const [execHistory, setExecHistory] = useState(() => {
         try { return JSON.parse(localStorage.getItem('pg-exec-history') || '[]'); } catch { return []; }
     });
-    const [showHistory, setShowHistory] = useState(false);
-    const [showShortcuts, setShowShortcuts] = useState(false);
     const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
     const [shareCopied, setShareCopied] = useState(false);
     const [showSidebar] = useState(true);
@@ -1515,7 +1456,7 @@ export default function CodingPlayground() {
                 handleFullscreen();
             } else if (e.ctrlKey && e.key === '/') {
                 e.preventDefault();
-                setShowShortcuts(s => !s);
+                setSidebarTab('shortcuts');
             } else if (e.key === 'Escape' && running) {
                 e.preventDefault();
                 handleCancelRun();

@@ -9,8 +9,9 @@
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import '../config/env.js';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-const API_BASE = process.env.API_URL || 'http://localhost:5000/api';
+const API_BASE = ensureLocalBaseUrl(process.env.API_URL || 'http://localhost:5000');
 const TEST_AUTH_TOKEN = process.env.TEST_TOKEN || null;
 const HAS_TEST_AUTH_TOKEN = Boolean(TEST_AUTH_TOKEN);
 const TIMEOUT = 30000;
@@ -32,8 +33,8 @@ const colors = {
 };
 
 async function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(`${API_BASE}${path}`);
+  return new Promise((resolve) => {
+    const url = new URL(buildLocalEndpoint(API_BASE, `/api${path}`));
     const headers = { 'Content-Type': 'application/json' };
 
     if (token) {
@@ -57,6 +58,14 @@ async function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
         res.on('end', () => {
           try {
             const parsed = data ? JSON.parse(data) : {};
+            resolve({ status: res.statusCode, headers: res.headers, body: parsed, rawBody: data });
+          } catch (error) {
+            resolve({ status: res.statusCode, headers: res.headers, body: null, rawBody: data, parseError: error.message });
+          }
+        });
+      },
+    );
+
     req.on('error', (error) => {
       resolve({
         status: 0,
@@ -80,13 +89,9 @@ async function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
       });
     });
 
-            resolve({ status: res.statusCode, headers: res.headers, body: parsed, rawBody: data });
-          } catch (error) {
-            resolve({ status: res.statusCode, headers: res.headers, body: null, rawBody: data, parseError: error.message });
-          }
-        });
-      },
-    );
+    if (body !== null && body !== undefined) {
+      req.write(JSON.stringify(body));
+    }
 
     req.end();
   });

@@ -1,7 +1,8 @@
 import process from 'process';
 import { resolveLocalBaseUrl } from './utils/resolveBaseUrl.js';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-let BASE_URL = process.env.INTERVIEW_BASE_URL || 'http://localhost:5000';
+let BASE_URL = ensureLocalBaseUrl(process.env.INTERVIEW_BASE_URL || 'http://localhost:5000');
 const TOKEN = process.env.TEST_AUTH_TOKEN || process.env.INTERVIEW_SMOKE_TOKEN || '';
 
 function assert(condition, message) {
@@ -11,7 +12,7 @@ function assert(condition, message) {
 }
 
 async function requestJson(path, { method = 'GET', body } = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
     headers: {
       'Content-Type': 'application/json',
@@ -82,10 +83,10 @@ async function runGuestSmoke() {
 
 async function main() {
   try {
-    BASE_URL = await resolveLocalBaseUrl({
+    BASE_URL = ensureLocalBaseUrl(await resolveLocalBaseUrl({
       envVarName: 'INTERVIEW_BASE_URL',
       fallback: BASE_URL,
-    });
+    }));
 
     await runGuestSmoke();
 

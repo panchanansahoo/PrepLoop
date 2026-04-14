@@ -496,7 +496,14 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
       baseDelayMs: 250,
     });
 
-    return JSON.parse(completion.choices[0].message.content);
+    let parsed;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      return null;
+    }
+    return parsed;
   } catch (error) {
     console.error('Groq generation error:', error);
     return null;
@@ -508,10 +515,11 @@ router.post('/start', authenticateToken, async (req, res) => {
   try {
     const { type, difficulty, duration } = req.body;
 
+    // Fix #4: use req.requestId (set by requestIdMiddleware) instead of req.id which is always undefined
     const spendResult = await spendCoinsForInterviewStart(
       req.user.id,
       INTERVIEW_START_COIN_COST,
-      req.id ? `interview-start:${req.id}` : null
+      req.requestId ? `interview-start:${req.requestId}` : null
     );
 
     if (!spendResult.ok) {
@@ -535,13 +543,10 @@ router.post('/start', authenticateToken, async (req, res) => {
     } else {
       // Fallback to static questions
       const questions = getFallbackQuestions(type, difficulty);
-      const selectedQuestions = [];
       const questionCount = 5;
-
-      for (let i = 0; i < questionCount && i < questions.length; i++) {
-        const randomIndex = Math.floor(Math.random() * questions.length);
-        selectedQuestions.push(questions[randomIndex]);
-      }
+      // Fix #5: sample without replacement to avoid duplicate questions
+      const shuffled = [...questions].sort(() => Math.random() - 0.5);
+      const selectedQuestions = shuffled.slice(0, Math.min(questionCount, shuffled.length));
 
       res.json({
         questions: selectedQuestions,
@@ -552,10 +557,11 @@ router.post('/start', authenticateToken, async (req, res) => {
   } catch (error) {
     if (didCharge) {
       try {
+      // Fix #4: use req.requestId for refund reference key
         await refundCoinsForInterviewStartFailure(
           req.user?.id,
           INTERVIEW_START_COIN_COST,
-          req.id ? `interview-refund:${req.id}` : null
+          req.requestId ? `interview-refund:${req.requestId}` : null
         );
       } catch (refundError) {
         console.error('Interview coin refund error:', refundError);
@@ -569,10 +575,13 @@ router.post('/start', authenticateToken, async (req, res) => {
 router.post('/next-question', authenticateToken, async (req, res) => {
   try {
     const { previousResponses, type } = req.body;
-    const difficulty = req.body.difficulty || 'medium'; // Pass difficulty if available, else default
+    const difficulty = req.body.difficulty || 'medium';
 
-    // Extract previous questions to avoid repetition
-    const previousQuestions = previousResponses.map(r => r.question.question);
+    // Fix #11: validate previousResponses is an array before calling .map
+    const safeResponses = Array.isArray(previousResponses) ? previousResponses : [];
+    const previousQuestions = safeResponses
+      .map(r => r?.question?.question)
+      .filter(Boolean);
 
     const aiQuestion = await generateAIQuestion(type, difficulty, previousQuestions);
 
@@ -627,13 +636,21 @@ router.post('/complete', authenticateToken, async (req, res) => {
           baseDelayMs: 250,
         });
 
-        const aiScores = JSON.parse(completion.choices[0].message.content);
-        scores = {
-          overall: Math.max(0, Math.min(100, Math.round(aiScores.overall || 50))),
-          communication: Math.max(0, Math.min(100, Math.round(aiScores.communication || 50))),
-          technical: Math.max(0, Math.min(100, Math.round(aiScores.technical || 50))),
-          problemSolving: Math.max(0, Math.min(100, Math.round(aiScores.problemSolving || 50)))
-        };
+        let aiScores;
+        try {
+          const raw = completion.choices?.[0]?.message?.content || '';
+          aiScores = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+        } catch {
+          aiScores = null;
+        }
+        if (aiScores) {
+          scores = {
+            overall: Math.max(0, Math.min(100, Math.round(aiScores.overall || 50))),
+            communication: Math.max(0, Math.min(100, Math.round(aiScores.communication || 50))),
+            technical: Math.max(0, Math.min(100, Math.round(aiScores.technical || 50))),
+            problemSolving: Math.max(0, Math.min(100, Math.round(aiScores.problemSolving || 50)))
+          };
+        }
       } catch (aiError) {
         console.error('AI scoring failed, using heuristic:', aiError.message);
         scores = null; // Fall through to heuristic
@@ -793,7 +810,13 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
       baseDelayMs: 250,
     });
 
-    const feedback = JSON.parse(completion.choices[0].message.content);
+    let feedback;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      feedback = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      feedback = { assessment: 'Feedback analysis temporarily unavailable.', strengths: ['Good effort'], improvements: ['Try again'], tips: 'Continue practicing!' };
+    }
 
     // Save feedback to database
     const { error: saveError } = await supabaseAdmin
@@ -835,10 +858,22 @@ router.post('/transcribe', authenticateToken, async (req, res) => {
       return res.status(503).json({ error: 'Transcription unavailable' });
     }
 
-    // Convert base64 to buffer if needed
-    let buffer = audioBuffer;
+    // Validate serialized audio payload without decoding arbitrary content.
     if (typeof audioBuffer === 'string') {
-      buffer = Buffer.from(audioBuffer, 'base64');
+      const sanitizedBase64 = audioBuffer
+        .replace(/^data:audio\/[a-z0-9.+-]+;base64,/i, '')
+        .replace(/\s+/g, '');
+
+      if (!sanitizedBase64 || !/^[A-Za-z0-9+/=]+$/.test(sanitizedBase64)) {
+        return res.status(400).json({ error: 'Invalid audio payload format' });
+      }
+
+      const estimatedBytes = Math.floor((sanitizedBase64.length * 3) / 4);
+      if (estimatedBytes > 25 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Audio payload too large' });
+      }
+    } else if (!Buffer.isBuffer(audioBuffer)) {
+      return res.status(400).json({ error: 'Invalid audio payload type' });
     }
 
     // In production, you'd use a dedicated speech-to-text API like:

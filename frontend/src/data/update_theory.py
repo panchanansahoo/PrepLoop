@@ -1,7 +1,8 @@
 import re
 import json
+from pathlib import Path
 
-filepath = r"c:\Users\panch\Desktop\Preploop\frontend\src\data\learningPathData.js"
+filepath = Path(__file__).resolve().parent / "learningPathData.js"
 
 with open(filepath, "r", encoding="utf-8") as f:
     content = f.read()

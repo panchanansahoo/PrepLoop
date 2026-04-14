@@ -9,6 +9,9 @@ router.post("/bookmark", authenticateToken, async (req, res) => {
     try {
         const { questionId, questionTitle, questionType, tags, note } = req.body;
 
+        if (!questionId) {
+            return res.status(400).json({ error: 'questionId is required' });
+        }
         // Check if already bookmarked
         const { data: existing } = await supabaseAdmin
             .from("bookmarks")

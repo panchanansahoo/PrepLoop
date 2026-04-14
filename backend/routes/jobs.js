@@ -16,6 +16,16 @@ const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY || '';
 // ─── Groq API for AI-powered search ─────────────────────────────
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
+const ALLOWED_EXTERNAL_JOB_HOSTS = new Set([JSEARCH_HOST, 'api.adzuna.com']);
+
+function ensureAllowedExternalJobUrl(candidateUrl) {
+  const parsed = new URL(candidateUrl);
+  if (parsed.protocol !== 'https:' || !ALLOWED_EXTERNAL_JOB_HOSTS.has(parsed.hostname)) {
+    throw new Error(`Blocked external jobs URL host: ${parsed.hostname}`);
+  }
+  return parsed.toString();
+}
+
 // ─── Curated fallback jobs (always available) ────────────────────
 const CURATED_JOBS = [
   {
@@ -73,7 +83,8 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   if (RAPIDAPI_KEY) {
     try {
       const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(query)}&page=${page}&num_pages=1&date_posted=month`;
-      const response = await fetch(url, {
+      const safeUrl = ensureAllowedExternalJobUrl(url);
+      const response = await fetch(safeUrl, {
         headers: {
           'x-rapidapi-key': RAPIDAPI_KEY,
           'x-rapidapi-host': JSEARCH_HOST,
@@ -119,7 +130,8 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
       const cleanQuery = query.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
       const keyword = encodeURIComponent(cleanQuery);
       const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=10&what=${keyword}&max_days_old=30`;
-      const response = await fetch(adzunaUrl);
+      const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
+      const response = await fetch(safeAdzunaUrl);
 
       if (response.ok) {
         const result = await response.json();
@@ -366,6 +378,7 @@ router.post('/ai-search', async (req, res) => {
 
     let parsedParams = null;
     let aiSuggestions = [];
+    let searchQuery; // Declare searchQuery before first assignment
 
     // ── Use Groq LLM to parse the natural language query ──
     if (GROQ_API_KEY) {
@@ -411,7 +424,6 @@ Return this exact JSON structure:
           
           // Parse the JSON response
           try {
-            // Remove any markdown code fences if present
             const jsonStr = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
             const parsed = JSON.parse(jsonStr);
             parsedParams = {
@@ -423,9 +435,8 @@ Return this exact JSON structure:
               salary_preference: parsed.salary_preference || null,
             };
             aiSuggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.slice(0, 3) : [];
-
-            // Use the AI-optimized query for search
-            var searchQuery = parsed.optimized_query || query;
+            // Fix: use let instead of var to avoid function-scope leak
+            searchQuery = parsed.optimized_query || query;
           } catch (parseErr) {
             console.error('Failed to parse Groq JSON response:', parseErr.message);
           }
@@ -491,7 +502,7 @@ router.get('/', optionalAuth, async (req, res) => {
       source,
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     let adminJobs = [];
     let externalJobs = [];
     let totalAdmin = 0;
@@ -524,9 +535,9 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     // ── Fetch external API jobs (only page 1 or when specifically requested) ──
-    if (source !== 'admin' && parseInt(page) <= 2) {
+    if (source !== 'admin' && parseInt(page, 10) <= 2) {
       const searchQuery = search || category || 'fresher software developer India';
-      externalJobs = await fetchExternalJobs(searchQuery, parseInt(page));
+      externalJobs = await fetchExternalJobs(searchQuery, parseInt(page, 10));
     }
 
     // Combine and send
@@ -537,14 +548,14 @@ router.get('/', optionalAuth, async (req, res) => {
         : [...adminJobs, ...externalJobs];
 
     // Respect the limit parameter for the combined results
-    const requestedLimit = parseInt(limit);
+    const requestedLimit = parseInt(limit, 10);
     const combinedJobs = allJobs.slice(0, requestedLimit);
 
     res.json({
       jobs: combinedJobs,
       total: totalAdmin + externalJobs.length,
       page: parseInt(page),
-      totalPages: Math.ceil(totalAdmin / parseInt(limit)) || 1,
+      totalPages: Math.ceil(totalAdmin / parseInt(limit, 10)) || 1,
       hasExternalApi: !!RAPIDAPI_KEY,
     });
   } catch (error) {

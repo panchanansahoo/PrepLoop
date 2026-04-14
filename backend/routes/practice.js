@@ -1,6 +1,7 @@
 import express from "express";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import fs from "fs";
+import vm from "vm";
 import os from "os";
 import path from "path";
 import { supabaseAdmin } from "../db/supabaseClient.js";
@@ -383,7 +384,7 @@ const resolvePythonCommand = () => {
   const candidates = ["python3", "python", "py"];
   for (const cmd of candidates) {
     try {
-      execSync(`${cmd} --version`, { stdio: "pipe", timeout: 3000, shell: true });
+      execFileSync(cmd, ["--version"], { stdio: "pipe", timeout: 3000 });
       return cmd;
     } catch {
       // try next command
@@ -395,7 +396,7 @@ const resolvePythonCommand = () => {
 const resolveCommand = (candidates = []) => {
   for (const cmd of candidates) {
     try {
-      execSync(`${cmd} --version`, { stdio: "pipe", timeout: 3000, shell: true });
+      execFileSync(cmd, ["--version"], { stdio: "pipe", timeout: 3000 });
       return cmd;
     } catch {
       // try next command
@@ -527,6 +528,7 @@ const resolveProblemRecord = async (problemIdentifier) => {
   const rawIdentifier = String(identifierValue).trim();
   if (!rawIdentifier) return null;
 
+  // Fast path: numeric ID
   if (/^\d+$/.test(rawIdentifier)) {
     const numericId = Number(rawIdentifier);
     const { data: byId } = await supabaseAdmin
@@ -534,40 +536,27 @@ const resolveProblemRecord = async (problemIdentifier) => {
       .select("id, title, test_cases, starter_code, examples")
       .eq("id", numericId)
       .single();
-
     if (byId) return byId;
   }
 
-  const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
-  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, " ").trim().toLowerCase();
-
-  const staticProblemMatch =
-    all425Problems.find((problem) => String(problem.id) === rawIdentifier) ||
-    all425Problems.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
-    all425Problems.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
-    all425Problems.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+  // Check static list first (no DB call)
+  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, " ").trim();
+  const staticMatch =
+    all425Problems.find((p) => String(p.id) === rawIdentifier) ||
+    all425Problems.find((p) => slugifyProblemTitle(p.title) === slugifyProblemTitle(rawIdentifier)) ||
+    all425Problems.find((p) => p.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
     null;
 
-  const titleSlugsToMatch = new Set([normalizedIdentifier]);
-  const titlesToMatch = new Set([rawIdentifier.toLowerCase(), titleFromSlug]);
+  const searchTitle = staticMatch?.title || titleFromSlug;
 
-  if (staticProblemMatch?.title) {
-    titleSlugsToMatch.add(slugifyProblemTitle(staticProblemMatch.title));
-    titlesToMatch.add(String(staticProblemMatch.title).toLowerCase());
-  }
-
+  // Targeted DB ilike query instead of fetching 1500 rows
   const { data: candidates } = await supabaseAdmin
     .from("problems")
     .select("id, title, test_cases, starter_code, examples")
-    .limit(1500);
+    .ilike("title", searchTitle)
+    .limit(5);
 
-  if (!candidates || !candidates.length) return null;
-
-  return (
-    candidates.find((problem) => titleSlugsToMatch.has(slugifyProblemTitle(problem.title))) ||
-    candidates.find((problem) => titlesToMatch.has(problem.title?.toLowerCase())) ||
-    null
-  );
+  return (Array.isArray(candidates) && candidates.length > 0) ? candidates[0] : null;
 };
 
 router.post("/submit", authenticateToken, async (req, res) => {
@@ -950,8 +939,7 @@ router.post("/lint", authenticateToken, async (req, res) => {
 
     if (normalizedLanguage === "javascript") {
       try {
-        // eslint-disable-next-line no-new-func
-        new Function(code);
+        new vm.Script(code);
         return res.json({ success: true, errors: [], checkedWith: "js-parser" });
       } catch (err) {
         const raw = String(err?.stack || err?.message || "Syntax error");
@@ -976,15 +964,11 @@ router.post("/lint", authenticateToken, async (req, res) => {
         });
       }
 
-      const lintFile = path.join(os.tmpdir(), `playground_lint_${Date.now()}.py`);
+      const lintDir = fs.mkdtempSync(path.join(os.tmpdir(), "preploop-lint-"));
+      const lintFile = path.join(lintDir, "lint.py");
       try {
         fs.writeFileSync(lintFile, code, "utf-8");
-        execSync(`${pythonCmd} -m py_compile "${lintFile}"`, {
-          stdio: "pipe",
-          timeout: 8000,
-          shell: true,
-          cwd: os.tmpdir(),
-        });
+        execFileSync(pythonCmd, ["-m", "py_compile", lintFile], { stdio: "pipe", timeout: 8000, cwd: lintDir });
         return res.json({ success: true, errors: [], checkedWith: "python-py-compile" });
       } catch (lintErr) {
         const stderr = lintErr?.stderr ? lintErr.stderr.toString() : lintErr?.message || "Syntax error";
@@ -994,12 +978,12 @@ router.post("/lint", authenticateToken, async (req, res) => {
           errors: [extractPythonSyntaxError(stderr)],
         });
       } finally {
-        try { fs.unlinkSync(lintFile); } catch {}
+        try { fs.rmSync(lintDir, { recursive: true, force: true }); } catch {}
       }
     }
 
     if (normalizedLanguage === "c") {
-      const cCmd = resolveCommand(["gcc", "clang", '"C:\\Program Files\\LLVM\\bin\\clang.exe"']);
+      const cCmd = resolveCommand(["gcc", "clang", "C:\\Program Files\\LLVM\\bin\\clang.exe"]);
       if (!cCmd) {
         return res.json({
           success: true,
@@ -1008,15 +992,11 @@ router.post("/lint", authenticateToken, async (req, res) => {
         });
       }
 
-      const lintFile = path.join(os.tmpdir(), `playground_lint_${Date.now()}.c`);
+      const lintDir = fs.mkdtempSync(path.join(os.tmpdir(), "preploop-lint-"));
+      const lintFile = path.join(lintDir, "lint.c");
       try {
         fs.writeFileSync(lintFile, code, "utf-8");
-        execSync(`${cCmd} -fsyntax-only "${lintFile}"`, {
-          stdio: "pipe",
-          timeout: 8000,
-          shell: true,
-          cwd: os.tmpdir(),
-        });
+        execFileSync(cCmd, ["-fsyntax-only", lintFile], { stdio: "pipe", timeout: 8000, cwd: lintDir });
         return res.json({ success: true, errors: [], checkedWith: "c-compiler" });
       } catch (lintErr) {
         const stderr = lintErr?.stderr ? lintErr.stderr.toString() : lintErr?.message || "C syntax error";
@@ -1026,12 +1006,12 @@ router.post("/lint", authenticateToken, async (req, res) => {
           errors: extractCompilerSyntaxErrors(stderr, "C syntax error"),
         });
       } finally {
-        try { fs.unlinkSync(lintFile); } catch {}
+        try { fs.rmSync(lintDir, { recursive: true, force: true }); } catch {}
       }
     }
 
     if (normalizedLanguage === "cpp") {
-      const cppCmd = resolveCommand(["g++", "clang++", '"C:\\Program Files\\LLVM\\bin\\clang++.exe"']);
+      const cppCmd = resolveCommand(["g++", "clang++", "C:\\Program Files\\LLVM\\bin\\clang++.exe"]);
       if (!cppCmd) {
         return res.json({
           success: true,
@@ -1040,15 +1020,11 @@ router.post("/lint", authenticateToken, async (req, res) => {
         });
       }
 
-      const lintFile = path.join(os.tmpdir(), `playground_lint_${Date.now()}.cpp`);
+      const lintDir = fs.mkdtempSync(path.join(os.tmpdir(), "preploop-lint-"));
+      const lintFile = path.join(lintDir, "lint.cpp");
       try {
         fs.writeFileSync(lintFile, code, "utf-8");
-        execSync(`${cppCmd} -fsyntax-only "${lintFile}"`, {
-          stdio: "pipe",
-          timeout: 8000,
-          shell: true,
-          cwd: os.tmpdir(),
-        });
+        execFileSync(cppCmd, ["-fsyntax-only", lintFile], { stdio: "pipe", timeout: 8000, cwd: lintDir });
         return res.json({ success: true, errors: [], checkedWith: "cpp-compiler" });
       } catch (lintErr) {
         const stderr = lintErr?.stderr ? lintErr.stderr.toString() : lintErr?.message || "C++ syntax error";
@@ -1058,7 +1034,7 @@ router.post("/lint", authenticateToken, async (req, res) => {
           errors: extractCompilerSyntaxErrors(stderr, "C++ syntax error"),
         });
       } finally {
-        try { fs.unlinkSync(lintFile); } catch {}
+        try { fs.rmSync(lintDir, { recursive: true, force: true }); } catch {}
       }
     }
 
@@ -1074,8 +1050,9 @@ router.post("/lint", authenticateToken, async (req, res) => {
 
       const classMatch = code.match(/public\s+class\s+(\w+)/);
       const className = classMatch?.[1] || "Main";
-      const lintFile = path.join(os.tmpdir(), `${className}_${Date.now()}.java`);
-      const generatedClassName = path.basename(lintFile, ".java");
+      const lintDir = fs.mkdtempSync(path.join(os.tmpdir(), "preploop-lint-"));
+      const generatedClassName = `${className}_${Date.now()}`;
+      const lintFile = path.join(lintDir, `${generatedClassName}.java`);
 
       // Keep public class name aligned with filename to avoid false mismatch errors.
       const adjustedCode = classMatch?.[1]
@@ -1084,12 +1061,7 @@ router.post("/lint", authenticateToken, async (req, res) => {
 
       try {
         fs.writeFileSync(lintFile, adjustedCode, "utf-8");
-        execSync(`${javacCmd} "${lintFile}"`, {
-          stdio: "pipe",
-          timeout: 10000,
-          shell: true,
-          cwd: os.tmpdir(),
-        });
+        execFileSync(javacCmd, [lintFile], { stdio: "pipe", timeout: 10000, cwd: lintDir });
         return res.json({ success: true, errors: [], checkedWith: "javac" });
       } catch (lintErr) {
         const stderr = lintErr?.stderr ? lintErr.stderr.toString() : lintErr?.message || "Java syntax error";
@@ -1099,8 +1071,7 @@ router.post("/lint", authenticateToken, async (req, res) => {
           errors: extractCompilerSyntaxErrors(stderr, "Java syntax error"),
         });
       } finally {
-        try { fs.unlinkSync(lintFile); } catch {}
-        try { fs.unlinkSync(path.join(os.tmpdir(), `${generatedClassName}.class`)); } catch {}
+        try { fs.rmSync(lintDir, { recursive: true, force: true }); } catch {}
       }
     }
 
@@ -1133,7 +1104,12 @@ router.get("/snippets", authenticateToken, async (req, res) => {
 
 router.post("/snippets", authenticateToken, async (req, res) => {
   try {
-    const { name, code, language } = req.body;
+    const name = String(req.body?.name || "").trim().slice(0, 200);
+    const code = String(req.body?.code || "").trim().slice(0, 50000);
+    const language = String(req.body?.language || "").trim().slice(0, 50);
+    if (!name) return res.status(400).json({ error: "Snippet name is required" });
+    if (!code) return res.status(400).json({ error: "Snippet code is required" });
+    if (!language) return res.status(400).json({ error: "Language is required" });
     const { data, error } = await supabaseAdmin
       .from("code_snippets")
       .insert({ user_id: req.user.id, name, code, language })

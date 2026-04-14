@@ -3,6 +3,18 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 
 const DEFAULT_FOLDER_URL = 'https://drive.google.com/drive/folders/1bmwnYFNkRo2R0Xgb8hYG-6tFBn7TDTkH?usp=sharing';
 
+function ensureSafeDriveFolderUrl(folderUrl) {
+  const parsed = new URL(String(folderUrl || DEFAULT_FOLDER_URL));
+  const safeHosts = new Set(['drive.google.com', 'docs.google.com']);
+  const isSafePath = parsed.pathname.includes('/folders/');
+
+  if (parsed.protocol !== 'https:' || !safeHosts.has(parsed.hostname) || !isSafePath) {
+    throw new Error(`Unsafe Google Drive folder URL: ${folderUrl}`);
+  }
+
+  return parsed.toString();
+}
+
 function parseArgs(argv) {
   const args = {
     folderUrl: DEFAULT_FOLDER_URL,
@@ -328,7 +340,8 @@ function parseDriveEntriesFromHtml(html, folderId) {
 }
 
 async function fetchDriveFolderHtml(folderUrl) {
-  const response = await fetch(folderUrl, {
+  const safeFolderUrl = ensureSafeDriveFolderUrl(folderUrl);
+  const response = await fetch(safeFolderUrl, {
     headers: {
       'User-Agent': 'Mozilla/5.0'
     }

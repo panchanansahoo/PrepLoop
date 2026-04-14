@@ -76,3 +76,23 @@ export const contactLimiter = rateLimit({
     message: { error: 'Too many messages sent. Please try again in an hour.' },
     keyGenerator: (req) => req.ip,
 });
+
+/** Auth login: 10 requests per 15 min per IP */
+export const authLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+    keyGenerator: (req) => req.ip,
+});
+
+/** HR login: stricter window due to privileged access */
+export const hrLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many HR login attempts. Please try again in 15 minutes.' },
+    keyGenerator: (req) => req.ip,
+});

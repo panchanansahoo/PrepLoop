@@ -33,6 +33,22 @@ export default function EditorMenu({ editor }) {
         editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
     };
 
+    const handleToggleBold = () => {
+        editor.chain().focus().toggleBold().run();
+    };
+
+    const handleToggleItalic = () => {
+        editor.chain().focus().toggleItalic().run();
+    };
+
+    const handleToggleStrike = () => {
+        editor.chain().focus().toggleStrike().run();
+    };
+
+    const handleToggleCode = () => {
+        editor.chain().focus().toggleCode().run();
+    };
+
     return (
         <BubbleMenu
             editor={editor}
@@ -40,28 +56,28 @@ export default function EditorMenu({ editor }) {
             className="bubble-menu"
         >
             <button
-                onClick={() => editor.chain().focus().toggleBold().run()}
+                onClick={handleToggleBold}
                 className={editor.isActive('bold') ? 'is-active' : ''}
                 title="Bold"
             >
                 <Bold size={16} />
             </button>
             <button
-                onClick={() => editor.chain().focus().toggleItalic().run()}
+                onClick={handleToggleItalic}
                 className={editor.isActive('italic') ? 'is-active' : ''}
                 title="Italic"
             >
                 <Italic size={16} />
             </button>
             <button
-                onClick={() => editor.chain().focus().toggleStrike().run()}
+                onClick={handleToggleStrike}
                 className={editor.isActive('strike') ? 'is-active' : ''}
                 title="Strike"
             >
                 <Strikethrough size={16} />
             </button>
             <button
-                onClick={() => editor.chain().focus().toggleCode().run()}
+                onClick={handleToggleCode}
                 className={editor.isActive('code') ? 'is-active' : ''}
                 title="Inline Code"
             >

@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, Download, Share2, MessageCircle, ThumbsUp, ArrowLeft } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 /**
  * Interview Replay Component
  * Allows users to review past interviews with playback and analysis
  */
 export default function InterviewReplay() {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+  const buildInterviewApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
   const [interviews, setInterviews] = useState([]);
   const [selectedInterview, setSelectedInterview] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,7 +23,7 @@ export default function InterviewReplay() {
   const fetchInterviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/interviews?sort=${sortBy}`, {
+      const response = await fetch(`${buildInterviewApiUrl('/interviews')}?sort=${sortBy}`, {
         headers: buildAuthHeaders(),
       });
       const data = await response.json();
@@ -35,7 +38,7 @@ export default function InterviewReplay() {
   const downloadInterview = (interviewId) => {
     (async () => {
       try {
-        const response = await fetch(`/api/interviews/${interviewId}/download`, {
+        const response = await fetch(buildInterviewApiUrl(`/interviews/${interviewId}/download`), {
           headers: buildAuthHeaders(),
         });
         if (!response.ok) {

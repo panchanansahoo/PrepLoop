@@ -2945,6 +2945,19 @@
   50% { opacity: 0.4; transform: scale(0.8); }
 }
 
+/* Paused state: amber dot, no pulse */
+.ai-vc-timer-dot--paused {
+  background: #fbbf24;
+  animation: none;
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
+}
+
+/* Per-question timer pulse (last 30s warning) */
+@keyframes ai-vc-q-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .ai-vc-progress {
   display: flex;
   align-items: center;
@@ -3552,6 +3565,26 @@
   50% { opacity: 0.4; transform: scale(0.7); }
 }
 
+/* I6: Connection health indicator (REST fallback) */
+.ai-vc-conn-indicator {
+  position: absolute;
+  top: -2px;
+  left: 2px;
+  font-size: 10px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.ai-vc-conn-indicator--rest {
+  color: #f59e0b;
+  filter: drop-shadow(0 0 4px rgba(245, 158, 11, 0.5));
+  animation: ai-vc-conn-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ai-vc-conn-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
 
 /* ═══════════════════════════════════════════════════════════
    WORKSPACE PANEL (Right Side)
@@ -3855,6 +3888,54 @@
   .ai-vc-captions-text {
     font-size: 13px;
   }
+}
+
+/* ── Live user-speaking caption enhancements ── */
+.ai-vc-captions--live .ai-vc-captions-inner {
+  border-color: rgba(74, 222, 128, 0.25);
+  box-shadow: 0 0 16px rgba(74, 222, 128, 0.1), 0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+.ai-vc-captions-speaker--user-live {
+  color: var(--ai-green, #4ade80) !important;
+}
+
+.ai-vc-captions-speaker--user-live::after {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ai-green, #4ade80);
+  margin-left: 4px;
+  vertical-align: middle;
+  animation: ai-vc-caption-dot 0.8s ease-in-out infinite;
+}
+
+/* Interim (unfinished) words pulse subtly */
+.ai-vc-caption-word--interim {
+  opacity: 0.65;
+  animation: ai-vc-interim-pulse 1.2s ease-in-out infinite !important;
+}
+
+@keyframes ai-vc-interim-pulse {
+  0%, 100% { opacity: 0.65; }
+  50% { opacity: 0.35; }
+}
+
+/* Blinking cursor after live text */
+.ai-vc-caption-cursor {
+  display: inline-block;
+  color: var(--ai-green, #4ade80);
+  font-weight: 300;
+  font-size: 15px;
+  animation: ai-vc-cursor-blink 0.8s step-end infinite;
+  margin-left: 1px;
+}
+
+@keyframes ai-vc-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }
 
 /* ═══════════════════════════════════

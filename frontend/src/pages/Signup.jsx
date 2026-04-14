@@ -225,6 +225,12 @@ const keyframes = `
 `;
 
 export default function Signup() {
+  const FORM_LABELS = {
+    fullName: 'Full Name',
+    email: 'Email',
+    password: 'Password',
+  };
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -239,8 +245,8 @@ export default function Signup() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -392,7 +398,7 @@ export default function Signup() {
             {/* Form */}
             <form onSubmit={handleSubmit}>
               <div style={styles.inputWrapper}>
-                <label style={styles.label}>Full Name</label>
+                <label style={styles.label}>{FORM_LABELS.fullName}</label>
                 <div style={{ position: 'relative' }}>
                   <User size={16} style={styles.inputIcon} />
                   <input
@@ -405,7 +411,7 @@ export default function Signup() {
               </div>
 
               <div style={styles.inputWrapper}>
-                <label style={styles.label}>Email</label>
+                <label style={styles.label}>{FORM_LABELS.email}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={16} style={styles.inputIcon} />
                   <input
@@ -418,13 +424,13 @@ export default function Signup() {
               </div>
 
               <div style={{ marginBottom: '22px' }}>
-                <label style={styles.label}>Password</label>
+                <label style={styles.label}>{FORM_LABELS.password}</label>
                 <div style={{ position: 'relative' }}>
                   <Lock size={16} style={styles.inputIcon} />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password} onChange={e => setPassword(e.target.value)}
-                    placeholder="Minimum 6 characters" required
+                    placeholder="Minimum 8 characters" required
                     style={styles.input}
                     onFocus={inputFocusHandler} onBlur={inputBlurHandler}
                   />
@@ -440,17 +446,17 @@ export default function Signup() {
                   {[0, 1, 2, 3].map(i => (
                     <div key={i} style={{
                       flex: 1, height: '3px', borderRadius: '2px',
-                      background: password.length >= (i + 1) * 3
-                        ? (password.length >= 9 ? '#34d399' : password.length >= 6 ? '#facc15' : '#f87171')
+                      background: password.length >= (i + 1) * 2
+                        ? (password.length >= 10 ? '#34d399' : password.length >= 8 ? '#facc15' : '#f87171')
                         : 'rgba(255,255,255,0.06)',
                       transition: 'all 0.3s ease',
                     }} />
                   ))}
                 </div>
                 <p style={{ fontSize: '11px', color: 'rgba(148,163,184,0.4)', marginTop: '6px' }}>
-                  {password.length === 0 ? 'At least 6 characters' :
-                    password.length < 6 ? `${6 - password.length} more characters needed` :
-                      password.length < 9 ? 'Good password' : 'Strong password ✓'}
+                  {password.length === 0 ? 'At least 8 characters' :
+                    password.length < 8 ? `${8 - password.length} more characters needed` :
+                      password.length < 10 ? 'Good password' : 'Strong password ✓'}
                 </p>
               </div>
 

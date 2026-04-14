@@ -6,6 +6,7 @@ import {
   getInterviewSession,
   getInterviewModes
 } from '../../api/aiService';
+import { useCallback } from 'react';
 import {
   AlertCircle,
   Loader,
@@ -39,6 +40,10 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
   const [modeOptions, setModeOptions] = useState(['full_realtime']);
   const [modeDescriptions, setModeDescriptions] = useState({});
   const [copyStatus, setCopyStatus] = useState('idle');
+
+  const handleBackToDashboard = useCallback(() => {
+    window.history.back();
+  }, []);
   const [interviewStart, setInterviewStart] = useState(null);
   const messagesEndRef = useRef(null);
 
@@ -657,7 +662,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
             Start Another Interview
           </button>
           <button
-            onClick={() => window.history.back()}
+            onClick={handleBackToDashboard}
             className="flex-1 px-4 py-3 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition font-semibold"
           >
             Back to Dashboard

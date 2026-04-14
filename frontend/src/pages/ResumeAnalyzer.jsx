@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp,
   Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2,
@@ -102,6 +103,10 @@ export default function ResumeAnalyzer() {
   const { user } = useAuth();
   const fileInputRef = useRef(null);
 
+  const FORM_LABELS = {
+    linkedInUrl: 'LinkedIn URL',
+  };
+
   const [resumeText, setResumeText] = useState('');
   const [fileName, setFileName] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
@@ -134,10 +139,15 @@ export default function ResumeAnalyzer() {
     if (user) fetchHistory();
   }, [user]);
 
+  const buildResumeApiUrl = useCallback(
+    (path) => buildApiUrl(import.meta.env.VITE_API_URL || '', path),
+    []
+  );
+
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const res = await fetch('/api/resume/history', {
+      const res = await fetch(buildResumeApiUrl('/api/resume/history'), {
         headers: buildAuthHeaders(user),
       });
       if (res.ok) {
@@ -179,6 +189,10 @@ export default function ResumeAnalyzer() {
     handleFileUpload(file);
   }, [handleFileUpload]);
 
+  const handleOpenFilePicker = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   const analyzeResume = async () => {
     if (!resumeText && !fileName) {
       setError('Please paste your resume text or upload a file.');
@@ -195,13 +209,13 @@ export default function ResumeAnalyzer() {
       if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
         const formData = new FormData();
         formData.append('resume', fileInputRef.current._file);
-        res = await fetch('/api/resume/analyze', {
+        res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
           headers: buildAuthHeaders(user),
           body: formData,
         });
       } else {
-        res = await fetch('/api/resume/analyze', {
+        res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
           headers: buildAuthHeaders(user),
           body: JSON.stringify({ resumeText }),
@@ -224,7 +238,7 @@ export default function ResumeAnalyzer() {
 
   const loadAnalysis = async (id) => {
     try {
-      const res = await fetch(`/api/resume/${id}`, {
+      const res = await fetch(buildResumeApiUrl(`/api/resume/${id}`), {
         headers: buildAuthHeaders(user),
       });
       if (res.ok) {
@@ -691,7 +705,7 @@ export default function ResumeAnalyzer() {
                 onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
                 onDragLeave={() => setDragOver(false)}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={handleOpenFilePicker}
                 style={{
                   border: `2px dashed ${dragOver ? '#a78bfa' : 'rgba(255,255,255,0.1)'}`,
                   borderRadius: 16, padding: '48px 32px', textAlign: 'center',
@@ -1301,7 +1315,7 @@ export default function ResumeAnalyzer() {
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>LinkedIn URL</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{FORM_LABELS.linkedInUrl}</label>
                       <input type="text" value={createFormData.linkedin} onChange={(e) => setCreateFormData({ ...createFormData, linkedin: e.target.value })}
                         placeholder="linkedin.com/in/yourname" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s' }}
                         onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'} onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}

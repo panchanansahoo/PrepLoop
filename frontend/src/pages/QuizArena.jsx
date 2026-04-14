@@ -15,10 +15,15 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import './QuizArena.css';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
 const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
+
+function buildQuizApiUrl(path) {
+  return buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+}
 
 const QUIZ_BANK = {
   dsa: {
@@ -273,7 +278,7 @@ export default function QuizArena() {
   const loadLeaderboard = async (topicId = topic) => {
     setLoadingLeaderboard(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/quiz-leaderboard?topic=${encodeURIComponent(topicId)}&limit=8`, {
+      const response = await fetch(buildQuizApiUrl(`/user/quiz-leaderboard?topic=${encodeURIComponent(topicId)}&limit=8`), {
         headers: buildAuthHeaders(),
       });
 

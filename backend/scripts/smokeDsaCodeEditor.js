@@ -1,9 +1,10 @@
 import process from 'process';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-const BASE_URL = process.env.DSA_SMOKE_BASE_URL || 'http://localhost:5000';
+const BASE_URL = ensureLocalBaseUrl(process.env.DSA_SMOKE_BASE_URL || 'http://localhost:5000');
 
 async function requestJson(path, { method = 'GET', body } = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,

@@ -61,7 +61,13 @@ router.post('/feedback/realtime', authenticateToken, async (req, res) => {
       baseDelayMs: 250
     });
 
-    const feedback = JSON.parse(completion.choices[0].message.content);
+    let feedback;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      feedback = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      feedback = { strengths: ['Good effort'], improvements: ['Add more detail'], score: 70, suggestion: 'Try elaborating on your answer' };
+    }
     res.json(feedback);
   } catch (error) {
     console.error('Real-time feedback error:', error);
@@ -129,7 +135,13 @@ router.post('/analysis/detailed', authenticateToken, async (req, res) => {
       baseDelayMs: 250
     });
 
-    const analysis = JSON.parse(completion.choices[0].message.content);
+    let analysis;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      analysis = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      analysis = { overall_score: 70, scores: { communication: 72, technical_knowledge: 68, problem_solving: 70, clarity: 71, confidence: 69 }, strengths: ['Clear communication'], weaknesses: ['Could provide more examples'], recommendations: ['Practice more questions'] };
+    }
     res.json(analysis);
   } catch (error) {
     console.error('Detailed analysis error:', error);
@@ -203,7 +215,13 @@ router.post('/recommendations/personalized', authenticateToken, async (req, res)
       baseDelayMs: 250
     });
 
-    const recommendations = JSON.parse(completion.choices[0].message.content);
+    let recommendations;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      recommendations = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      recommendations = { learning_path: [{ topic: 'General Practice', priority: 'high', resources: [] }], next_interview_topics: ['Data Structures', 'Algorithms'], estimated_improvement: '10-15%', study_duration: '2-3 weeks' };
+    }
     
     // Save recommendations to database
     await supabaseAdmin

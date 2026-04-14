@@ -188,6 +188,10 @@ export default function JobUpdates() {
     }
   };
 
+  const handleAiSearchClick = () => {
+    handleAiSearch();
+  };
+
   const handleSuggestionClick = (suggestion) => {
     setAiQuery(suggestion);
     handleAiSearch(suggestion);
@@ -434,7 +438,7 @@ export default function JobUpdates() {
               )}
               <button
                 className="ai-search-go"
-                onClick={() => handleAiSearch()}
+                onClick={handleAiSearchClick}
                 disabled={aiLoading || !aiQuery.trim()}
               >
                 {aiLoading ? 'Thinking...' : 'Search'}

@@ -3,8 +3,13 @@ import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { CalendarPlus, Clock3, Trash2 } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
+
+function buildScheduleApiUrl(path) {
+  return buildApiUrl(path, { rawBaseUrl: API_URL, apiPrefix: '/api' });
+}
 
 const initialSlot = { date: '', startTime: '', endTime: '' };
 
@@ -27,7 +32,7 @@ export default function InterviewScheduler() {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/schedule/my-slots`, {
+      const res = await fetch(buildScheduleApiUrl('/schedule/my-slots'), {
         headers: getHeaders(),
       });
       if (!res.ok) {
@@ -70,7 +75,7 @@ export default function InterviewScheduler() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/schedule/slots`, {
+      const res = await fetch(buildScheduleApiUrl('/schedule/slots'), {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ slots: [slot] }),
@@ -91,7 +96,7 @@ export default function InterviewScheduler() {
   const onDeleteSlot = async (id) => {
     setError('');
     try {
-      const res = await fetch(`${API_URL}/api/schedule/slots/${id}`, {
+      const res = await fetch(buildScheduleApiUrl(`/schedule/slots/${id}`), {
         method: 'DELETE',
         headers: getHeaders(),
       });

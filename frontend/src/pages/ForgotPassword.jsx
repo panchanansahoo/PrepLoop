@@ -112,6 +112,7 @@ const keyframes = `
 `;
 
 export default function ForgotPassword() {
+  const EMAIL_ADDRESS_LABEL = 'Email address';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -170,7 +171,7 @@ export default function ForgotPassword() {
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={styles.inputWrapper}>
-                <label style={styles.label}>Email address</label>
+                <label style={styles.label}>{EMAIL_ADDRESS_LABEL}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={16} style={styles.inputIcon} />
                   <input

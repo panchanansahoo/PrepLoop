@@ -249,6 +249,11 @@ const keyframes = `
 `;
 
 export default function Login() {
+  const FORM_LABELS = {
+    email: 'Email',
+    password: 'Password',
+  };
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -401,7 +406,7 @@ export default function Login() {
             {/* Form */}
             <form onSubmit={handleSubmit}>
               <div style={styles.inputWrapper}>
-                <label style={styles.label}>Email</label>
+                <label style={styles.label}>{FORM_LABELS.email}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={16} style={styles.inputIcon} />
                   <input
@@ -416,7 +421,7 @@ export default function Login() {
 
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <label style={{ ...styles.label, marginBottom: 0 }}>Password</label>
+                  <label style={{ ...styles.label, marginBottom: 0 }}>{FORM_LABELS.password}</label>
                   <Link to="/forgot-password" style={styles.forgotLink}>Forgot password?</Link>
                 </div>
                 <div style={{ position: 'relative' }}>

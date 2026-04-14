@@ -12,6 +12,10 @@ export function ProblemExplorerSearchToolbar({
     const inputRef = useRef(null);
     const [isFocused, setIsFocused] = useState(false);
 
+    const handleSearchContainerClick = () => {
+        inputRef.current?.focus();
+    };
+
     return (
         <div style={{ display: 'flex', gap: 12, marginBottom: 18 }}>
             {/* Search Input */}
@@ -37,7 +41,7 @@ export function ProblemExplorerSearchToolbar({
                     WebkitBackdropFilter: 'blur(12px)',
                     cursor: 'text',
                 }}
-                onClick={() => inputRef.current?.focus()}
+                onClick={handleSearchContainerClick}
             >
                 <Search
                     size={18}

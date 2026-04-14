@@ -184,52 +184,49 @@ export function useVoiceInterview(options = {}) {
 		// ── Primary: Try premium backend TTS (Groq Orpheus) ──
 		try {
 			const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
-			if (headers && (headers.Authorization || headers.authorization)) {
-				const res = await fetch('/api/voice/tts', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json', ...headers },
-					body: JSON.stringify({
-						text: spokenText,
-						persona: 'friendly',
-						provider: 'groq-orpheus',
-						gender: interviewerGender || 'female',
-					}),
-				});
+			const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+			const res = await fetch(`${apiUrl}/api/voice/tts`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', ...headers },
+				body: JSON.stringify({
+					text: spokenText,
+					persona: 'friendly',
+					provider: 'groq-orpheus',
+					gender: interviewerGender || 'female',
+				}),
+			});
 
-				if (res.ok) {
-					const contentType = res.headers.get('content-type');
-					// If backend returned JSON with fallback flag, skip to browser TTS
-					if (contentType && contentType.includes('application/json')) {
-						const data = await res.json();
-						if (data.fallback) throw new Error('Backend requested fallback');
-					} else {
-						const blob = await res.blob();
-						if (blob.size > 100) {
-							const audioUrl = URL.createObjectURL(blob);
-							const audio = new Audio(audioUrl);
-							ttsAudioRef.current = audio;
+			if (res.ok) {
+				const contentType = res.headers.get('content-type');
+				if (contentType && contentType.includes('application/json')) {
+					const data = await res.json();
+					if (data.fallback) throw new Error('Backend requested fallback');
+				} else {
+					const blob = await res.blob();
+					if (blob.size > 100) {
+						const audioUrl = URL.createObjectURL(blob);
+						const audio = new Audio(audioUrl);
+						ttsAudioRef.current = audio;
 
-							await new Promise((resolve) => {
-								audio.onended = () => {
-									URL.revokeObjectURL(audioUrl);
-									ttsAudioRef.current = null;
-									resolve();
-								};
-								audio.onerror = () => {
-									URL.revokeObjectURL(audioUrl);
-									ttsAudioRef.current = null;
-									resolve();
-								};
-								audio.play().catch(() => resolve());
-							});
-							setAiSpeaking(false);
-							return; // Success — premium voice played
-						}
+						await new Promise((resolve) => {
+							audio.onended = () => {
+								URL.revokeObjectURL(audioUrl);
+								ttsAudioRef.current = null;
+								resolve();
+							};
+							audio.onerror = () => {
+								URL.revokeObjectURL(audioUrl);
+								ttsAudioRef.current = null;
+								resolve();
+							};
+							audio.play().catch(() => resolve());
+						});
+						setAiSpeaking(false);
+						return; // Success — premium voice played
 					}
 				}
 			}
 		} catch (err) {
-			// Backend TTS failed — fall back to browser TTS silently
 			console.warn('[VoiceHook] Backend TTS unavailable, using browser fallback:', err.message);
 		}
 

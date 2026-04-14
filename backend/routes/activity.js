@@ -14,12 +14,18 @@ router.post('/update', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Missing date or seconds' });
         }
 
+        // Fix #6: validate seconds is a non-negative integer
+        const safeSeconds = Math.floor(Number(seconds));
+        if (!Number.isFinite(safeSeconds) || safeSeconds < 0) {
+            return res.status(400).json({ error: 'seconds must be a non-negative number' });
+        }
+
         const { data, error } = await supabaseAdmin
             .from('user_activity')
             .upsert({
                 user_id: userId,
                 date,
-                seconds_active: seconds,
+                seconds_active: safeSeconds,
                 last_updated: new Date().toISOString()
             }, {
                 onConflict: 'user_id, date'

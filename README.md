@@ -16,6 +16,7 @@ PrepLoop is a full-stack interview preparation platform that combines DSA practi
 
 - DSA problem practice and editor workflows
 - AI coaching and interview simulation endpoints
+- **AI Interview Improvement Plans** - Personalized improvement plans based on interview performance
 - System design preparation modules
 - Community/blog/contact flows
 - Notes, activity tracking, and user profile APIs
@@ -209,6 +210,7 @@ npm run dev
 - System architecture: `docs/ARCHITECTURE.md`
 - Backend API quick reference: `docs/BACKEND_API_QUICK_REFERENCE.md`
 - AI features API: `docs/AI_FEATURES_API.md`
+- **AI Improvement Plan**: `docs/AI_IMPROVEMENT_PLAN.md`
 - Interview suite API: `docs/INTERVIEW_SUITE_API.md`
 - Library API and admin guides:
   - `docs/LIBRARY_API.md`
@@ -251,6 +253,8 @@ The backend exposes grouped routes under `/api`, including:
 - `/api/dsa`
 - `/api/practice`
 - `/api/ai`
+- `/api/ai-features`
+- `/api/improvement-plan`
 - `/api/system-design`
 - `/api/community`
 - `/api/contact`

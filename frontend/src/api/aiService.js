@@ -3,7 +3,20 @@
  * Wrapper functions for all AI features endpoints
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
+
+// Fix #13: normalize base URL — strip trailing /api if present so we can append it consistently
+const _rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+function buildAiFeaturesUrl(endpoint) {
+  const safeEndpoint = normalizeRelativePath(endpoint);
+  return buildApiUrl(`/ai-features${safeEndpoint}`, { rawBaseUrl: _rawApiUrl, apiPrefix: '/api' });
+}
+
+function buildApiRootUrl(endpoint) {
+  const safeEndpoint = normalizeRelativePath(endpoint);
+  return buildApiUrl(safeEndpoint, { rawBaseUrl: _rawApiUrl, apiPrefix: '/api' });
+}
 
 function toTenScale(value) {
   if (typeof value !== 'number' || Number.isNaN(value)) return null;
@@ -228,9 +241,13 @@ function mapTrends(raw) {
   };
 }
 
-// Helper: Get auth token from localStorage
+// Fix #3: read token using the same key ('token') that AuthContext stores it under
 function getAuthToken() {
-  return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+  return localStorage.getItem('token') ||
+    localStorage.getItem('auth_token') ||
+    sessionStorage.getItem('token') ||
+    sessionStorage.getItem('auth_token') ||
+    null;
 }
 
 // Helper: Make authenticated API request
@@ -241,7 +258,7 @@ async function apiRequest(endpoint, options = {}) {
     throw new Error('Authentication required. Please log in first.');
   }
 
-  const response = await fetch(`${API_BASE_URL}/ai-features${endpoint}`, {
+  const response = await fetch(buildAiFeaturesUrl(endpoint), {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -273,7 +290,7 @@ async function apiRequestAbsolute(endpoint, options = {}) {
     throw new Error('Authentication required. Please log in first.');
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(buildApiRootUrl(endpoint), {
     ...options,
     headers: {
       'Authorization': `Bearer ${token}`,

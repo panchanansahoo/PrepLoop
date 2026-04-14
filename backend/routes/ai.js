@@ -31,6 +31,7 @@ const resolveProblemId = async (problemIdentifier) => {
   const rawIdentifier = String(problemIdentifier).trim();
   if (!rawIdentifier) return null;
 
+  // Fast path: numeric ID — single-row lookup
   if (/^\d+$/.test(rawIdentifier)) {
     const numericId = Number(rawIdentifier);
     const { data: byId } = await supabaseAdmin
@@ -38,27 +39,22 @@ const resolveProblemId = async (problemIdentifier) => {
       .select('id')
       .eq('id', numericId)
       .single();
-
     if (byId?.id) return byId.id;
   }
 
-  const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
-  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim().toLowerCase();
-
+  // Slug path: convert to title-like string and do a DB ilike search
+  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim();
   const { data: candidates } = await supabaseAdmin
     .from('problems')
     .select('id, title')
-    .limit(1500);
+    .ilike('title', titleFromSlug)
+    .limit(5);
 
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    return candidates[0].id;
+  }
 
-  const matched =
-    candidates.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
-    candidates.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
-    candidates.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
-    null;
-
-  return matched?.id || null;
+  return null;
 };
 
 router.post('/code-feedback', authenticateToken, async (req, res) => {
@@ -118,7 +114,20 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
       response_format: { type: 'json_object' }
     });
 
-    const feedback = JSON.parse(completion.choices[0].message.content);
+    let feedback;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      feedback = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      feedback = {
+        timeComplexity: 'Unable to analyze',
+        spaceComplexity: 'Unable to analyze',
+        strengths: ['Code submitted for review'],
+        improvements: ['Try again for AI-powered analysis'],
+        suggestions: 'AI analysis temporarily unavailable.',
+        score: 70,
+      };
+    }
     
     if (canonicalProblemId) {
       // Update latest submission with AI feedback

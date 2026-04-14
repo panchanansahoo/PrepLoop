@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 const STORAGE_KEY = 'preploop_calendar_events';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+function buildCalendarApiUrl(path) {
+  return buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+}
 
 function loadFromStorage() {
   try {
@@ -39,7 +45,7 @@ export default function useCalendarEvents() {
       }
 
       try {
-        const res = await axios.get('/api/user/calendar-events');
+        const res = await axios.get(buildCalendarApiUrl('/user/calendar-events'));
         if (!cancelled) {
           setEvents(res.data.events || {});
           initialLoadDone.current = true;
@@ -86,7 +92,7 @@ export default function useCalendarEvents() {
     }
 
     try {
-      const res = await axios.post('/api/user/calendar-events', {
+      const res = await axios.post(buildCalendarApiUrl('/user/calendar-events'), {
         title: title.trim(),
         date: dateKey,
         time: time || '',
@@ -131,7 +137,7 @@ export default function useCalendarEvents() {
 
     if (isLoggedIn) {
       try {
-        await axios.put(`/api/user/calendar-events/${eventId}`, updates);
+        await axios.put(buildCalendarApiUrl(`/user/calendar-events/${eventId}`), updates);
       } catch (err) {
         console.error('Failed to update event:', err);
       }
@@ -147,7 +153,7 @@ export default function useCalendarEvents() {
 
     if (isLoggedIn) {
       try {
-        await axios.delete(`/api/user/calendar-events/${eventId}`);
+        await axios.delete(buildCalendarApiUrl(`/user/calendar-events/${eventId}`));
       } catch (err) {
         console.error('Failed to delete event:', err);
         setEvents(prev);

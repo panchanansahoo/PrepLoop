@@ -1,7 +1,8 @@
 import process from 'process';
 import { resolveLocalBaseUrl } from './utils/resolveBaseUrl.js';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-let BASE_URL = process.env.FRESHER_TECHNICAL_SMOKE_BASE_URL || 'http://localhost:5000';
+let BASE_URL = ensureLocalBaseUrl(process.env.FRESHER_TECHNICAL_SMOKE_BASE_URL || 'http://localhost:5000');
 const TOKEN = process.env.FRESHER_TECHNICAL_SMOKE_TOKEN || process.env.AI_FEATURES_SMOKE_TOKEN || process.env.TEST_AUTH_TOKEN || '';
 
 function buildHeaders() {
@@ -11,7 +12,7 @@ function buildHeaders() {
 }
 
 async function requestJson(path, { method = 'GET', body } = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
     headers: buildHeaders(),
     body: body ? JSON.stringify(body) : undefined,
@@ -147,10 +148,10 @@ async function runAuthenticatedSmoke() {
 
 async function main() {
   try {
-    BASE_URL = await resolveLocalBaseUrl({
+    BASE_URL = ensureLocalBaseUrl(await resolveLocalBaseUrl({
       envVarName: 'FRESHER_TECHNICAL_SMOKE_BASE_URL',
       fallback: BASE_URL,
-    });
+    }));
     console.log(`Fresher technical smoke target: ${BASE_URL}`);
     console.log(TOKEN ? 'Mode: AUTHENTICATED' : 'Mode: UNAUTHENTICATED');
 

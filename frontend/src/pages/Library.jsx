@@ -5,6 +5,12 @@ import { Search, BookOpen, Star, Loader, X } from 'lucide-react';
 import { getBooks, updateBook } from '../api/libraryService';
 
 export default function Library() {
+    const EDIT_FORM_LABELS = {
+        coverPhotoUrl: 'Cover Photo URL',
+        description: 'Description',
+        tags: 'Tags (comma-separated)',
+    };
+
     const { theme } = useTheme();
     const { user } = useAuth();
     const isLight = theme === 'light';
@@ -621,7 +627,7 @@ export default function Library() {
                                     </div>
 
                                     <div>
-                                        <label style={labelStyle}>Cover Photo URL</label>
+                                        <label style={labelStyle}>{EDIT_FORM_LABELS.coverPhotoUrl}</label>
                                         <input
                                             name="cover_url"
                                             value={editFormData.cover_url}
@@ -646,7 +652,7 @@ export default function Library() {
                                 </div>
 
                                 <div>
-                                    <label style={labelStyle}>Description</label>
+                                    <label style={labelStyle}>{EDIT_FORM_LABELS.description}</label>
                                     <textarea name="description" value={editFormData.description} onChange={handleEditInputChange} rows="4" style={inputStyle(isLight, true)} />
                                 </div>
 
@@ -675,7 +681,7 @@ export default function Library() {
                                 </div>
 
                                 <div>
-                                    <label style={labelStyle}>Tags (comma-separated)</label>
+                                    <label style={labelStyle}>{EDIT_FORM_LABELS.tags}</label>
                                     <input name="tags" value={editFormData.tags} onChange={handleEditInputChange} style={inputStyle(isLight)} placeholder="algorithms, dsa, interview" />
                                 </div>
 

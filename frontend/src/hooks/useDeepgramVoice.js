@@ -34,6 +34,15 @@ const BACKCHANNEL_GAP_MS  = 12_000;   // min gap between backchannel clips
 const SILENCE_SHORT  = 2500;  // short answers (<50 chars) — user might continue
 const SILENCE_MEDIUM = 1800;  // medium answers (50-200 chars)
 const SILENCE_LONG   = 1200;  // long answers (>200 chars) — user is likely done
+const SILENCE_FALLBACK = 4500; // fallback: final transcript received but UtteranceEnd never came
+const MAX_TRANSCRIPT_LENGTH = 10_000; // safety: cap transcript to prevent unbounded memory growth
+
+// WebSocket reconnection
+const WS_RECONNECT_MAX_RETRIES = 3;
+const WS_RECONNECT_BASE_MS    = 500;  // exponential: 500ms → 1s → 2s
+
+// TTS retry
+const TTS_RETRY_DELAY_MS = 500;       // delay before single retry attempt
 
 // Interrupt detection
 const INTERRUPT_LEVEL     = 0.12;     // RMS above this = user speaking
@@ -154,6 +163,8 @@ export function useDeepgramVoice({
     const [finalTranscript, setFinalTranscript] = useState('');
     const [errorMessage,    setErrorMessage]    = useState(null);
     const [interruptDetected, setInterruptDetected] = useState(false);
+    // I6: Connection health — 'websocket' | 'rest' | 'offline'
+    const [connectionMode, setConnectionMode] = useState('offline');
 
     const transcriptListener = onTranscriptUpdate || onTranscript;
     const inputLevelRef = useRef(0);
@@ -168,6 +179,7 @@ export function useDeepgramVoice({
     const wsReadyRef       = useRef(false);
     // Timers
     const silenceTimerRef  = useRef(null);
+    const fallbackSilenceRef = useRef(null);
     const maxWaitRef       = useRef(null);
     // Accumulated transcripts
     const finalTextRef     = useRef('');
@@ -186,11 +198,27 @@ export function useDeepgramVoice({
     const backchannelTimerRef  = useRef(null);
     // Interrupt detection
     const interruptTimerRef = useRef(null);
+    // WebSocket reconnection
+    const wsReconnectAttemptRef = useRef(0);
+    const wsReconnectTimerRef  = useRef(null);
+    // I14: Analytics counters (lightweight, no re-renders)
+    const analyticsRef = useRef({
+        wsDrops: 0,           // WebSocket unexpected closures
+        wsReconnects: 0,      // successful reconnections
+        wsReconnectFails: 0,  // exhausted retries
+        ttsFallbacks: 0,      // TTS fell back to browser speechSynthesis
+        ttsRetries: 0,        // TTS retried (before fallback)
+        restFallbacks: 0,     // STT switched to REST mode
+        sessionStart: Date.now(),
+    });
     // Question ref for callbacks
     const questionRef      = useRef(question);
     useEffect(() => { questionRef.current = question; }, [question]);
     // Keep stateRef in sync
     useEffect(() => { stateRef.current = state; }, [state]);
+
+    // I10: Eagerly pre-warm token endpoint on mount (not just first start())
+    useEffect(() => { warmUp(); }, []);
 
     const resolveAuthHeaders = useCallback((headersInput = {}) => {
         const callerHeaders = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
@@ -234,6 +262,9 @@ export function useDeepgramVoice({
     const clearSilenceTimer = () => {
         if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     };
+    const clearFallbackSilence = () => {
+        if (fallbackSilenceRef.current) { clearTimeout(fallbackSilenceRef.current); fallbackSilenceRef.current = null; }
+    };
     const clearMaxWait = () => {
         if (maxWaitRef.current) { clearTimeout(maxWaitRef.current); maxWaitRef.current = null; }
     };
@@ -274,6 +305,7 @@ export function useDeepgramVoice({
     const submitAnswer = useCallback(async () => {
         const answer = finalTextRef.current.trim();
         clearSilenceTimer();
+        clearFallbackSilence();
         clearMaxWait();
         clearBackchannelTimer();
 
@@ -285,8 +317,7 @@ export function useDeepgramVoice({
         setState('processing');
         setFinalTranscript(answer);
 
-        // Fire-and-forget answer analysis
-        let analysis = {};
+        // Fire-and-forget answer analysis (non-blocking, no latency impact)
         fetch(ANALYZE_ENDPOINT, {
             method:  'POST',
             headers: resolveAuthHeaders({ 'Content-Type': 'application/json' }),
@@ -295,13 +326,10 @@ export function useDeepgramVoice({
                 answer,
                 interviewType,
             }),
-        })
-            .then(r => r.json())
-            .then(a => { analysis = a; })
-            .catch(() => {})
-            .finally(() => {
-                try { onAnswer?.(answer, analysis); } catch { /* no-op */ }
-            });
+        }).catch(() => {});
+
+        // Immediately notify caller — don't wait for analyze roundtrip
+        try { onAnswer?.(answer, {}); } catch { /* no-op */ }
 
         // Reset for next question
         finalTextRef.current = '';
@@ -312,16 +340,31 @@ export function useDeepgramVoice({
 
     const scheduleAutoSubmit = useCallback((utteranceEnded = false) => {
         const answer = finalTextRef.current.trim();
-        if (!shouldAutoSubmitAnswer({ transcriptLength: answer.length, inputLevel: inputLevelRef.current, utteranceEnded })) {
-            return;
-        }
+        if (answer.length < MIN_ANSWER_LENGTH) return;
+        if (inputLevelRef.current >= 0.05) return; // user still speaking audibly
 
-        clearSilenceTimer();
-        silenceTimerRef.current = setTimeout(() => {
-            if (shouldAutoSubmitAnswer({ transcriptLength: finalTextRef.current.trim().length, inputLevel: inputLevelRef.current, utteranceEnded: true })) {
-                submitAnswer();
+        if (utteranceEnded) {
+            // Primary path: UtteranceEnd confirmed → short adaptive timer
+            clearSilenceTimer();
+            clearFallbackSilence();
+            silenceTimerRef.current = setTimeout(() => {
+                if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH && inputLevelRef.current < 0.05) {
+                    submitAnswer();
+                }
+            }, getAdaptiveSilenceMs(answer.length));
+        } else {
+            // Fallback: got final transcript but UtteranceEnd hasn't fired yet.
+            // Start a longer timer so the answer isn't stuck forever if
+            // UtteranceEnd never arrives (WebSocket issue, Deepgram glitch).
+            if (!fallbackSilenceRef.current) {
+                fallbackSilenceRef.current = setTimeout(() => {
+                    if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH && inputLevelRef.current < 0.05) {
+                        logVoiceDebug('fallback-silence fired (UtteranceEnd missing)');
+                        submitAnswer();
+                    }
+                }, SILENCE_FALLBACK);
             }
-        }, getAdaptiveSilenceMs(answer.length));
+        }
     }, [submitAnswer]);
 
     // ── Connect WebSocket to Deepgram ──
@@ -367,6 +410,7 @@ export function useDeepgramVoice({
                         // Speech started event
                         if (msg.type === 'SpeechStarted') {
                             clearSilenceTimer();
+                            clearFallbackSilence();
                             return;
                         }
 
@@ -385,8 +429,11 @@ export function useDeepgramVoice({
                             if (!text) return;
 
                             if (msg.is_final) {
-                                // Final transcript: accumulate
-                                finalTextRef.current = (finalTextRef.current + ' ' + text).trim();
+                                // Final transcript: accumulate (capped for memory safety)
+                                const appended = (finalTextRef.current + ' ' + text).trim();
+                                finalTextRef.current = appended.length > MAX_TRANSCRIPT_LENGTH
+                                    ? appended.slice(-MAX_TRANSCRIPT_LENGTH)
+                                    : appended;
                                 interimRef.current = '';
                                 setTranscript(finalTextRef.current);
                                 setInterimText('');
@@ -417,6 +464,31 @@ export function useDeepgramVoice({
                     console.log('[useDeepgramVoice] WebSocket closed:', event.code, event.reason);
                     wsReadyRef.current = false;
                     wsRef.current = null;
+
+                    // I4: Auto-reconnect if still actively listening
+                    if (activeRef.current && stateRef.current === 'listening') {
+                        analyticsRef.current.wsDrops++; // I14
+                        setConnectionMode('rest'); // degrade gracefully
+                        analyticsRef.current.restFallbacks++; // I14
+                        const attempt = wsReconnectAttemptRef.current;
+                        if (attempt < WS_RECONNECT_MAX_RETRIES) {
+                            const delay = WS_RECONNECT_BASE_MS * Math.pow(2, attempt);
+                            console.info(`[useDeepgramVoice] Reconnecting in ${delay}ms (attempt ${attempt + 1}/${WS_RECONNECT_MAX_RETRIES})`);
+                            wsReconnectTimerRef.current = setTimeout(async () => {
+                                wsReconnectAttemptRef.current = attempt + 1;
+                                const ok = await connectWebSocket();
+                                if (ok) {
+                                    wsReconnectAttemptRef.current = 0;
+                                    setConnectionMode('websocket');
+                                    analyticsRef.current.wsReconnects++; // I14
+                                    console.info('[useDeepgramVoice] ✓ Reconnected to Deepgram WebSocket');
+                                }
+                            }, delay);
+                        } else {
+                            analyticsRef.current.wsReconnectFails++; // I14
+                            console.warn('[useDeepgramVoice] Max reconnect attempts reached, staying on REST fallback');
+                        }
+                    }
                 };
 
                 // Timeout after 5s
@@ -458,7 +530,9 @@ export function useDeepgramVoice({
             if (!data.transcript) return;
 
             const newText = (finalTextRef.current + ' ' + data.transcript).trim();
-            finalTextRef.current = newText;
+            finalTextRef.current = newText.length > MAX_TRANSCRIPT_LENGTH
+                ? newText.slice(-MAX_TRANSCRIPT_LENGTH)
+                : newText;
             setTranscript(newText);
             transcriptListener?.(newText);
 
@@ -468,6 +542,24 @@ export function useDeepgramVoice({
             console.warn('[useDeepgramVoice] REST chunk error:', err.message);
         }
     }, [scheduleAutoSubmit, transcriptListener, resolveAuthHeaders]);
+
+    // ── Ensure WebSocket is alive (reuse or reconnect) ──
+    const ensureWebSocket = useCallback(async () => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            setConnectionMode('websocket');
+            return true; // Reuse existing connection
+        }
+        // Close stale socket if any
+        if (wsRef.current) {
+            try { wsRef.current.close(); } catch { /* no-op */ }
+            wsRef.current = null;
+            wsReadyRef.current = false;
+        }
+        wsReconnectAttemptRef.current = 0; // reset retries on fresh connect
+        const ok = await connectWebSocket();
+        setConnectionMode(ok ? 'websocket' : 'rest');
+        return ok;
+    }, [connectWebSocket]);
 
     // ── Start listening ──
     const start = useCallback(async () => {
@@ -488,23 +580,27 @@ export function useDeepgramVoice({
         if (audioRef.current)    { audioRef.current.pause(); audioRef.current.src = ''; }
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    channelCount:     1,
-                    sampleRate:       16000,
-                    echoCancellation: true,
-                    noiseSuppression: true,
-                    autoGainControl:  true,
-                },
-            });
-
-            streamRef.current = stream;
+            // Reuse existing mic stream when possible (avoids repeated getUserMedia latency)
+            let stream = streamRef.current;
+            const streamAlive = stream && stream.getTracks().some(t => t.readyState === 'live');
+            if (!streamAlive) {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount:     1,
+                        sampleRate:       16000,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl:  true,
+                    },
+                });
+                streamRef.current = stream;
+            }
             setInputStreamState(stream);
             activeRef.current = true;
             listenStartRef.current = Date.now();
 
-            // Try WebSocket first, fall back to REST
-            const wsConnected = await connectWebSocket();
+            // Reuse existing WebSocket or reconnect if closed
+            const wsConnected = await ensureWebSocket();
 
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
@@ -544,20 +640,42 @@ export function useDeepgramVoice({
             setState('error');
             activeRef.current = false;
         }
-    }, [connectWebSocket, processChunkREST, submitAnswer, startBackchannelSchedule]);
+    }, [ensureWebSocket, processChunkREST, submitAnswer, startBackchannelSchedule]);
 
-    // ── Stop listening ──
+    // ── Stop listening (keeps WebSocket alive for reuse) ──
     const stop = useCallback(() => {
         activeRef.current = false;
         clearSilenceTimer();
+        clearFallbackSilence();
         clearMaxWait();
         clearBackchannelTimer();
         setInputStreamState(null);
 
-        // Close WebSocket
+        // NOTE: WebSocket AND mic stream are intentionally kept alive for reuse
+        // across questions. Releasing the mic between questions causes:
+        //   • Repeated getUserMedia permission prompts on some browsers
+        //   • 200-500ms latency to re-acquire the mic on each new question
+        //   • Browser mic indicator flicker
+        // Stream is released only on unmount via releaseStream().
+
+        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+            recorderRef.current.stop();
+        }
+        recorderRef.current = null;
+
+        setState('idle');
+    }, []);
+
+    // ── Force-close WebSocket (used only on unmount) ──
+    const closeWebSocket = useCallback(() => {
+        // Cancel any pending reconnect
+        if (wsReconnectTimerRef.current) {
+            clearTimeout(wsReconnectTimerRef.current);
+            wsReconnectTimerRef.current = null;
+        }
+        wsReconnectAttemptRef.current = 0;
         if (wsRef.current) {
             try {
-                // Send close message to Deepgram
                 if (wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({ type: 'CloseStream' }));
                 }
@@ -566,18 +684,15 @@ export function useDeepgramVoice({
             wsRef.current = null;
             wsReadyRef.current = false;
         }
+        setConnectionMode('offline');
+    }, []);
 
-        if (recorderRef.current && recorderRef.current.state !== 'inactive') {
-            recorderRef.current.stop();
-        }
-        recorderRef.current = null;
-
+    // ── Release mic stream (used only on unmount) ──
+    const releaseStream = useCallback(() => {
         if (streamRef.current) {
             streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
         }
-
-        setState('idle');
     }, []);
 
     // ── Interrupt AI speech mid-sentence ──
@@ -626,6 +741,26 @@ export function useDeepgramVoice({
         }
     }, [enableInterrupt, state, inputLevel, interrupt, start]);
 
+    // ── Helper: pick a gendered browser voice for speechSynthesis fallback ──
+    const pickBrowserVoice = useCallback((gender) => {
+        if (!('speechSynthesis' in window)) return null;
+        const voices = window.speechSynthesis.getVoices();
+        if (!voices.length) return null;
+        const g = (gender || personaGender || 'female').toLowerCase();
+        const maleNames   = ['Daniel', 'Alex', 'David', 'Google UK English Male', 'Microsoft David', 'Microsoft Mark'];
+        const femaleNames = ['Samantha', 'Karen', 'Google UK English Female', 'Microsoft Zira', 'Microsoft Jenny', 'Moira', 'Fiona'];
+        const preferred = g === 'male' ? maleNames : femaleNames;
+        for (const name of preferred) {
+            const v = voices.find(v => v.name.includes(name));
+            if (v) return v;
+        }
+        // Fallback: any English voice with gender keyword
+        const kw = g === 'male' ? /male|man|david|alex|daniel|mark/i : /female|woman|samantha|jenny|karen|zira/i;
+        const gendered = voices.find(v => v.lang.startsWith('en') && kw.test(v.name));
+        if (gendered) return gendered;
+        return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+    }, [personaGender]);
+
     // ── Speak — AI TTS playback ──
     const speak = useCallback(async (text, { onStart, onEnd, addTransition = false } = {}) => {
         if (!text || !text.trim()) { onEnd?.(); return; }
@@ -669,21 +804,36 @@ export function useDeepgramVoice({
                     endpoint: TTS_ENDPOINT,
                     requestId: ttsRequest.requestId,
                 });
-                const res = await fetch(TTS_ENDPOINT, {
-                    method:  'POST',
-                    headers: ttsRequest.headers,
-                    body:    JSON.stringify({ text: spokenText, persona: 'friendly', gender: personaGender }),
-                    signal:  controller.signal,
-                });
+                // I12: TTS fetch with 1 retry attempt
+                const fetchTts = async () => {
+                    const res = await fetch(TTS_ENDPOINT, {
+                        method:  'POST',
+                        headers: ttsRequest.headers,
+                        body:    JSON.stringify({ text: spokenText, persona: 'friendly', gender: personaGender }),
+                        signal:  controller.signal,
+                    });
+                    logVoiceDebug('tts response', {
+                        endpoint: TTS_ENDPOINT,
+                        status: res.status,
+                        ok: res.ok,
+                        requestId: res.headers.get('x-request-id') || ttsRequest.requestId,
+                    });
+                    if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+                    return res;
+                };
 
-                logVoiceDebug('tts response', {
-                    endpoint: TTS_ENDPOINT,
-                    status: res.status,
-                    ok: res.ok,
-                    requestId: res.headers.get('x-request-id') || ttsRequest.requestId,
-                });
-
-                if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+                let res;
+                try {
+                    res = await fetchTts();
+                } catch (firstErr) {
+                    if (controller.signal.aborted) throw firstErr;
+                    // Retry once after delay
+                    analyticsRef.current.ttsRetries++; // I14
+                    logVoiceDebug('tts retry after first failure', { error: firstErr.message });
+                    await new Promise(r => setTimeout(r, TTS_RETRY_DELAY_MS));
+                    if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                    res = await fetchTts();
+                }
 
                 const ct = (res.headers.get('content-type') || '').toLowerCase();
                 blob = await res.blob();
@@ -695,11 +845,14 @@ export function useDeepgramVoice({
             // ── Browser speechSynthesis fallback ──
             if (isFallback || !blob) {
                 if ('speechSynthesis' in window) {
+                    analyticsRef.current.ttsFallbacks++; // I14
                     console.info('[useDeepgramVoice] TTS fallback → browser speechSynthesis');
                     await new Promise((resolve) => {
                         const utter = new SpeechSynthesisUtterance(spokenText);
+                        const selectedVoice = pickBrowserVoice(personaGender);
+                        if (selectedVoice) utter.voice = selectedVoice;
                         utter.rate = 1.0;
-                        utter.pitch = 1.0;
+                        utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
                         utter.onend = resolve;
                         utter.onerror = resolve;
                         controller.signal.addEventListener('abort', () => {
@@ -723,11 +876,14 @@ export function useDeepgramVoice({
                 } catch (playError) {
                     URL.revokeObjectURL(url);
                     if ('speechSynthesis' in window) {
+                        analyticsRef.current.ttsFallbacks++; // I14
                         console.info('[useDeepgramVoice] Audio playback failed, using speechSynthesis fallback');
                         await new Promise((resolve) => {
                             const utter = new SpeechSynthesisUtterance(spokenText);
+                            const selectedVoice = pickBrowserVoice(personaGender);
+                            if (selectedVoice) utter.voice = selectedVoice;
                             utter.rate = 1.0;
-                            utter.pitch = 1.0;
+                            utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
                             utter.onend = resolve;
                             utter.onerror = resolve;
                             controller.signal.addEventListener('abort', () => {
@@ -748,6 +904,7 @@ export function useDeepgramVoice({
                 });
 
                 URL.revokeObjectURL(url);
+                setOutputAudioEl(null);     // Clean visualizer ref after playback
             }
         } catch (err) {
             if (err.name === 'AbortError') {
@@ -769,7 +926,7 @@ export function useDeepgramVoice({
                 onEnd?.();
             }
         }
-    }, [personaGender, resolveAuthHeaders]);
+    }, [personaGender, pickBrowserVoice, resolveAuthHeaders]);
 
     // ── Prefetch TTS for a text (speculative, non-blocking) ──
     const prefetch = useCallback((text) => {
@@ -816,20 +973,29 @@ export function useDeepgramVoice({
         setTimeout(() => ttsCacheRef.current.delete(cacheKey), 60_000);
     }, [personaGender, resolveAuthHeaders]);
 
-    // Cleanup on unmount
-    useEffect(() => () => {
+    // ── Full cleanup (closes WebSocket + releases mic) ──
+    // Called by endInterview and also on unmount.
+    const cleanup = useCallback(() => {
         stop();
         interrupt();
-    }, [stop, interrupt]);
+        closeWebSocket();
+        releaseStream();
+    }, [stop, interrupt, closeWebSocket, releaseStream]);
+
+    // Cleanup on unmount
+    useEffect(() => () => {
+        cleanup();
+    }, [cleanup]);
 
     return {
         // State machine
         state,
         transcript,
-        interimText,        // NEW: live interim text from Deepgram
+        interimText,        // live interim text from Deepgram
         finalTranscript,
         errorMessage,
-        interruptDetected,  // NEW: true when user interrupted AI
+        interruptDetected,  // true when user interrupted AI
+        connectionMode,     // I6: 'websocket' | 'rest' | 'offline'
 
         // Controls
         start,
@@ -837,6 +1003,8 @@ export function useDeepgramVoice({
         interrupt,
         speak,
         prefetch,
+        cleanup,          // Full teardown (WebSocket + mic + TTS)
+        closeWebSocket,   // Close WebSocket only
 
         // Audio element ref
         audioRef,
@@ -849,6 +1017,12 @@ export function useDeepgramVoice({
         outputLevel,
         inputActive:  inputLevel  > 0.08,
         outputActive: outputLevel > 0.05,
+
+        // I14: Analytics snapshot
+        getAnalytics: () => ({
+            ...analyticsRef.current,
+            sessionDurationMs: Date.now() - analyticsRef.current.sessionStart,
+        }),
     };
 }
 

@@ -1,11 +1,21 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
+import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
 import nodemailer from 'nodemailer';
 import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
 
 const router = express.Router();
+
+// Reuse a single transporter instance (connection pooling — fix #17)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  port: Number(process.env.SMTP_PORT) || 587,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 const isMissingEmailVerificationSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -27,16 +37,16 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: 'Email, password, and full name are required' });
   }
 
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  // Fix #23: raise minimum password length to 8
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
 
   try {
-    // Create user with email NOT confirmed
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // User must verify email before full access
+      email_confirm: false,
       user_metadata: { full_name: fullName }
     });
 
@@ -48,11 +58,9 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    // Generate verification token
     const verificationToken = generateVerificationToken();
     const tokenExpiresAt = getTokenExpirationTime();
 
-    // Store verification token in profiles table
     let legacyMode = false;
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -78,36 +86,23 @@ router.post('/signup', async (req, res) => {
 
     if (profileError && !legacyMode) {
       console.error('Error storing verification token:', profileError);
-      // Delete the user if we can't store verification token
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
       return res.status(500).json({ error: 'Failed to process signup' });
     }
 
     if (!legacyMode) {
-      // Send verification email
+      // Fix #17: reuse shared transporter
       try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-          port: process.env.SMTP_PORT || 587,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          }
-        });
-
         const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
-
         await transporter.sendMail({
           from: `"PrepLoop" <support@preploop.me>`,
           to: email,
           subject: 'Confirm Your Email - PrepLoop',
           html: getVerificationEmailHTML(verificationUrl, email)
         });
-
         markEmailSent('signup', email);
       } catch (emailError) {
         console.error('Error sending verification email:', emailError);
-        // Don't fail signup if email fails, but log it
       }
     }
 
@@ -129,7 +124,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLoginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -146,7 +141,6 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Fetch profile once for verification + response payload
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('full_name, subscription_tier, experience_level, role, email_verified')
@@ -161,22 +155,21 @@ router.post('/login', async (req, res) => {
     const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
 
     if (!shouldBypassVerification && !profile?.email_verified) {
+      // Fix #3: return a distinct 403 code so the frontend interceptor can skip retry
       return res.status(403).json({
         error: 'Please verify your email before logging in',
+        code: 'EMAIL_NOT_VERIFIED',
         userId: data.user.id,
         email: data.user.email
       });
     }
 
-    // Update last_login asynchronously so login response is not blocked.
     supabaseAdmin
       .from('profiles')
       .update({ last_login: new Date().toISOString() })
       .eq('id', data.user.id)
       .then(({ error: updateError }) => {
-        if (updateError) {
-          console.error('Failed to update last_login:', updateError.message || updateError);
-        }
+        if (updateError) console.error('Failed to update last_login:', updateError.message || updateError);
       })
       .catch((updateErr) => {
         console.error('Failed to update last_login:', updateErr.message || updateErr);
@@ -202,7 +195,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Verify email endpoint - validates verification token and marks email as verified
 router.post('/verify-email', verificationLimiter, async (req, res) => {
   const { token, email } = req.body;
 
@@ -211,7 +203,6 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
   }
 
   try {
-    // Find profile by verification token
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
@@ -222,25 +213,21 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Invalid verification token' });
     }
 
-    // Some deployments do not have profiles.email. Enforce match only when available.
     if (typeof profile.email === 'string' && profile.email.length > 0 && profile.email !== email) {
       return res.status(400).json({ error: 'Email does not match token' });
     }
 
-    // Check if token has expired
     if (isTokenExpired(profile.token_expires_at)) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Verification token has expired. Please request a new one.',
         email: profile.email
       });
     }
 
-    // Check if already verified
     if (profile.email_verified) {
       return res.status(400).json({ error: 'Email already verified. You can log in now.' });
     }
 
-    // Mark email as verified and clear token
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -255,13 +242,10 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Failed to verify email' });
     }
 
-    // Also confirm the email in Supabase Auth if not already confirmed
-    // This is optional but recommended for additional security
     await supabaseAdmin.auth.admin.updateUserById(profile.id, {
       email_confirm: true
     }).catch(err => {
       console.error('Error confirming email in auth:', err);
-      // Don't fail if this step fails
     });
 
     res.json({
@@ -275,7 +259,6 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
   }
 });
 
-// Resend verification email endpoint
 router.post('/resend-verification-email', verificationLimiter, async (req, res) => {
   const { email } = req.body;
 
@@ -283,13 +266,11 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  // Per-email cooldown: 60 seconds between resends
   if (isEmailCoolingDown('resend-verification-email', email)) {
     return res.status(429).json({ error: 'Please wait at least 60 seconds before requesting another verification email.' });
   }
 
   try {
-    // Find unverified profile with this email
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
@@ -298,15 +279,13 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       .single();
 
     if (profileError || !profile) {
-      // For security, don't reveal whether email exists or is already verified
-      return res.json({ message: 'If an account with that email exists and is unverified, we has sent a verification email.' });
+      // Fix #11: grammar fix "we have sent"
+      return res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
     }
 
-    // Generate new verification token
     const verificationToken = generateVerificationToken();
     const tokenExpiresAt = getTokenExpirationTime();
 
-    // Update verification token
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update({
@@ -321,33 +300,22 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       return res.status(500).json({ error: 'Failed to resend verification email' });
     }
 
-    // Send verification email
+    // Fix #17: reuse shared transporter
     try {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-        port: process.env.SMTP_PORT || 587,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS
-        }
-      });
-
       const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
-
       await transporter.sendMail({
         from: `"PrepLoop" <support@preploop.me>`,
         to: email,
         subject: 'Confirm Your Email - PrepLoop',
         html: getVerificationEmailHTML(verificationUrl, email)
       });
-
       markEmailSent('resend-verification-email', email);
     } catch (emailError) {
       console.error('Error sending verification email:', emailError);
-      // Don't fail the endpoint if email fails to send
     }
 
-    res.json({ message: 'If an account with that email exists and is unverified, we has sent a verification email.' });
+    // Fix #11: grammar fix
+    res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Failed to process request' });
@@ -387,7 +355,6 @@ router.post('/resend-verification', verificationLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  // Per-email cooldown: 60 seconds between resends for the same email
   if (isEmailCoolingDown('resend-verification', email)) {
     return res.status(429).json({ error: 'Please wait at least 60 seconds before requesting another verification email.' });
   }
@@ -414,19 +381,16 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  // Optional CAPTCHA verification (enabled when RECAPTCHA_SECRET_KEY is set)
   const captchaResult = await verifyCaptcha(captchaToken);
   if (!captchaResult.success) {
     return res.status(400).json({ error: captchaResult.error });
   }
 
-  // Per-email cooldown: 60 seconds between resets for the same email
   if (isEmailCoolingDown('forgot-password', email)) {
     return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
   }
 
   try {
-    // Use admin.generateLink - this generates a link WITHOUT sending email (no rate limit!)
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email,
@@ -437,53 +401,40 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
 
     if (error) {
       console.error('Generate link error:', error.message);
-      // Always return success to prevent email enumeration
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    // Send the email ourselves using Nodemailer
-    const nodemailer = (await import('nodemailer')).default;
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-      port: process.env.SMTP_PORT || 587,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-      }
-    });
-
+    // Fix #12: guard against missing action_link before sending email
     const resetLink = data?.properties?.action_link;
+    if (!resetLink) {
+      console.error('Forgot password: action_link missing from Supabase response');
+      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
 
+    // Fix #17: reuse shared transporter
     await transporter.sendMail({
       from: `"PrepLoop" <support@preploop.me>`,
       to: email,
       subject: 'Reset your PrepLoop password',
       html: `
-        <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';">
-          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border-radius: 12px; border: 1px solid #1e293b; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">
-            <!-- Logo / Brand Header -->
+        <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border-radius: 12px; border: 1px solid #1e293b; overflow: hidden;">
             <div style="padding: 32px 32px 0 32px; text-align: center;">
-              <h1 style="margin: 0; color: #f8fafc; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">PrepLoop</h1>
+              <h1 style="margin: 0; color: #f8fafc; font-size: 26px; font-weight: 800;">PrepLoop</h1>
             </div>
-            
-            <!-- Content -->
             <div style="padding: 32px;">
               <h2 style="margin: 0 0 16px; color: #f8fafc; font-size: 18px; font-weight: 600;">Reset your password</h2>
               <p style="margin: 0 0 24px; color: #94a3b8; font-size: 15px; line-height: 1.6;">
                 We received a request to reset the password for your PrepLoop account. Click the button below to set a new password.
               </p>
-              
-              <!-- CTA Button -->
               <table border="0" cellpadding="0" cellspacing="0" style="margin: 0 auto 24px; width: 100%;">
                 <tr>
                   <td align="center">
-                    <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background-color: #9333ea; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; line-height: 100%;">Reset Password</a>
+                    <a href="${resetLink}" style="display: inline-block; padding: 14px 32px; background-color: #9333ea; color: #ffffff; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px;">Reset Password</a>
                   </td>
                 </tr>
               </table>
             </div>
-            
-            <!-- Footer -->
             <div style="padding: 24px 32px; background-color: #020617; border-top: 1px solid #1e293b; text-align: center;">
               <p style="margin: 0 0 8px; color: #64748b; font-size: 12px;">This link will expire in 1 hour.</p>
               <p style="margin: 0; color: #475569; font-size: 12px;">If you didn't request a password reset, you can safely ignore this email.</p>
@@ -506,8 +457,9 @@ router.post('/reset-password', async (req, res) => {
   if (!accessToken || !newPassword) {
     return res.status(400).json({ error: 'Access token and new password are required' });
   }
-  if (newPassword.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  // Fix #23: raise minimum password length to 8
+  if (newPassword.length < 8) {
+    return res.status(400).json({ error: 'Password must be at least 8 characters' });
   }
   try {
     const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(accessToken);

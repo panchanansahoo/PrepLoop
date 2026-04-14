@@ -36,14 +36,24 @@ async function waitForHealth(baseUrl, timeoutMs = 45000) {
 
 function runSmokeScript(baseUrl) {
   return new Promise((resolve, reject) => {
+    const childEnv = {
+      NODE_ENV: process.env.NODE_ENV || 'development',
+      PATH: process.env.PATH || '',
+      SystemRoot: process.env.SystemRoot || '',
+      COMSPEC: process.env.COMSPEC || '',
+      PATHEXT: process.env.PATHEXT || '',
+      HOME: process.env.HOME || process.env.USERPROFILE || '',
+      USERPROFILE: process.env.USERPROFILE || '',
+      TEMP: process.env.TEMP || '',
+      TMP: process.env.TMP || '',
+      INTERVIEW_SUITE_BASE_URL: baseUrl,
+    };
+
     const child = spawn('node', [SMOKE_SCRIPT_PATH], {
       cwd: BACKEND_ROOT,
       stdio: 'inherit',
       shell: false,
-      env: {
-        ...process.env,
-        INTERVIEW_SUITE_BASE_URL: baseUrl,
-      },
+      env: childEnv,
     });
 
     child.on('error', (error) => reject(error));

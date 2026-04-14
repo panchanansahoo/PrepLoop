@@ -40,6 +40,18 @@ function isValidEnvValue(value) {
     return !invalidMarkers.some((marker) => trimmed.toUpperCase().includes(marker));
 }
 
+function isHexString(value) {
+    if (typeof value !== 'string' || value.length === 0) return false;
+    for (const ch of value) {
+        const code = ch.charCodeAt(0);
+        const isDigit = code >= 48 && code <= 57;
+        const isLowerHex = code >= 97 && code <= 102;
+        const isUpperHex = code >= 65 && code <= 70;
+        if (!isDigit && !isLowerHex && !isUpperHex) return false;
+    }
+    return true;
+}
+
 let cachedEnvFileValues = null;
 
 function readBackendEnvFileValues() {
@@ -352,11 +364,21 @@ router.post('/verify', authenticateToken, async (req, res) => {
             .update(`${razorpay_order_id}|${razorpay_payment_id}`)
             .digest('hex');
 
-        // SECURITY: Timing-safe comparison to prevent timing attacks
-        const sigBuffer = Buffer.from(razorpay_signature, 'hex');
-        const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+        // Fix #5: safe hex decode — non-hex input produces wrong-length buffer and crashes timingSafeEqual
+        // Compare as utf8 strings of equal known length to avoid RangeError
+        const sigBuffer = Buffer.from(expectedSignature, 'utf8');
+        const expectedBuffer = Buffer.from(
+            isHexString(razorpay_signature) ? expectedSignature : '',
+            'utf8'
+        );
+        const receivedSigBuffer = Buffer.from(
+            isHexString(razorpay_signature) ? razorpay_signature : ' '.repeat(expectedSignature.length),
+            'utf8'
+        );
+        const signaturesEqual = sigBuffer.length === receivedSigBuffer.length &&
+            crypto.timingSafeEqual(sigBuffer, receivedSigBuffer);
 
-        if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
+        if (!signaturesEqual) {
             // Mark payment as failed
             await supabaseAdmin
                 .from('payments')
@@ -442,7 +464,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             .update(body)
             .digest('hex');
 
-        if (expectedSignature !== receivedSignature) {
+        // Fix #6: use timing-safe comparison to prevent timing attacks
+        const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+        const receivedBuf = Buffer.from(receivedSignature, 'utf8');
+        const signaturesMatch = expectedBuf.length === receivedBuf.length &&
+            crypto.timingSafeEqual(expectedBuf, receivedBuf);
+
+        if (!signaturesMatch) {
             console.error('SECURITY: Invalid webhook signature');
             return res.status(400).json({ error: 'Invalid signature' });
         }

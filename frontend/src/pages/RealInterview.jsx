@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, User, Video, ChevronRight, Star, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -15,6 +16,7 @@ export default function RealInterview() {
   const [bookingSlot, setBookingSlot] = useState(null);
 
   const getHeaders = () => buildAuthHeaders(user);
+  const buildInterviewApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_URL, apiPrefix: '/api' });
 
   useEffect(() => {
     loadSlots();
@@ -24,9 +26,8 @@ export default function RealInterview() {
   const loadSlots = async (date = '') => {
     setLoading(true);
     try {
-      const url = date
-        ? `${API_URL}/api/real-interview/slots?date=${date}`
-        : `${API_URL}/api/real-interview/slots`;
+      const baseSlotsUrl = buildInterviewApiUrl('/real-interview/slots');
+      const url = date ? `${baseSlotsUrl}?date=${encodeURIComponent(date)}` : baseSlotsUrl;
       const res = await fetch(url, { headers: getHeaders() });
       if (res.ok) setSlots(await res.json());
     } catch (err) {
@@ -38,7 +39,7 @@ export default function RealInterview() {
 
   const loadBookings = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/real-interview/my-bookings`, { headers: getHeaders() });
+      const res = await fetch(buildInterviewApiUrl('/real-interview/my-bookings'), { headers: getHeaders() });
       if (res.ok) setBookings(await res.json());
     } catch (err) {
       console.error('Failed to load bookings:', err);
@@ -48,7 +49,7 @@ export default function RealInterview() {
   const bookSlot = async (slotId) => {
     setBookingSlot(slotId);
     try {
-      const res = await fetch(`${API_URL}/api/real-interview/book`, {
+      const res = await fetch(buildInterviewApiUrl('/real-interview/book'), {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ slotId }),
@@ -71,7 +72,7 @@ export default function RealInterview() {
   const cancelBooking = async (id) => {
     if (!confirm('Are you sure you want to cancel this interview?')) return;
     try {
-      const res = await fetch(`${API_URL}/api/real-interview/cancel/${id}`, {
+      const res = await fetch(buildInterviewApiUrl(`/real-interview/cancel/${id}`), {
         method: 'PUT',
         headers: getHeaders(),
       });

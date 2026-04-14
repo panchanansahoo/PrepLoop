@@ -42,6 +42,7 @@ async function initializeServer() {
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
+    const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
 
@@ -171,6 +172,8 @@ async function initializeServer() {
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
+    // Fix #22: removed duplicate mount — interviewRoutes was registered on both
+    // /api/ai/interview and /api/interview; keep only one canonical path
     app.use('/api/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
     app.use('/api/ai', interviewEnhancedRoutes);
@@ -192,6 +195,7 @@ async function initializeServer() {
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);
+    app.use('/api/improvement-plan', improvementPlanRoutes);
 
     // Error handler middleware
     app.use((err, req, res, next) => {
@@ -236,6 +240,11 @@ function startServer(port, attempt = 0) {
 // Initialize server and start listening
 initializeServer().then(() => {
   startServer(DEFAULT_PORT);
+
+  // ── Eager model preload (fire-and-forget, non-blocking) ──
+  import('./services/voiceService.js')
+    .then(mod => mod.default.preloadKokoroTTS())
+    .catch(err => console.warn('[startup] Kokoro preload import failed (non-fatal):', err.message));
 }).catch((error) => {
   console.error('❌ Failed to start server:', error.message);
   process.exit(1);

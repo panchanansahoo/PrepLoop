@@ -10,6 +10,15 @@ import { useCompanyPrepProgress } from '../data/companyPrepProgress';
 import { Link } from 'react-router-dom';
 
 export default function CompanyPrep() {
+  const FILTER_LABELS = {
+    difficulty: 'Difficulty',
+    stage: 'Stage',
+    role: 'Role',
+    frequency: 'Frequency',
+    recency: 'Recency',
+    status: 'Status',
+  };
+
   const [search, setSearch] = useState('');
   const [selectedCompanies, setSelectedCompanies] = useState([]);
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
@@ -210,7 +219,7 @@ export default function CompanyPrep() {
       {showFilters && (
         <div className="cp-filters-panel">
           <div className="cp-filter-group">
-            <label>Difficulty</label>
+            <label>{FILTER_LABELS.difficulty}</label>
             <div className="cp-filter-pills">
               {DIFFICULTIES.map(d => (
                 <button key={d} className={`cp-pill ${selectedDifficulty === d ? 'active' : ''}`} style={selectedDifficulty === d ? { background: difficultyColor(d), color: '#fff' } : {}} onClick={() => setSelectedDifficulty(selectedDifficulty === d ? '' : d)}>{d}</button>
@@ -218,7 +227,7 @@ export default function CompanyPrep() {
             </div>
           </div>
           <div className="cp-filter-group">
-            <label>Stage</label>
+            <label>{FILTER_LABELS.stage}</label>
             <div className="cp-filter-pills">
               {STAGES.map(s => (
                 <button key={s} className={`cp-pill ${selectedStage === s ? 'active' : ''}`} onClick={() => setSelectedStage(selectedStage === s ? '' : s)}>{s}</button>
@@ -226,7 +235,7 @@ export default function CompanyPrep() {
             </div>
           </div>
           <div className="cp-filter-group">
-            <label>Role</label>
+            <label>{FILTER_LABELS.role}</label>
             <div className="cp-filter-pills">
               {ROLES.map(r => (
                 <button key={r} className={`cp-pill ${selectedRole === r ? 'active' : ''}`} onClick={() => setSelectedRole(selectedRole === r ? '' : r)}>{r}</button>
@@ -234,7 +243,7 @@ export default function CompanyPrep() {
             </div>
           </div>
           <div className="cp-filter-group">
-            <label>Frequency</label>
+            <label>{FILTER_LABELS.frequency}</label>
             <div className="cp-filter-pills">
               {[{ label: '🔥 High (4+)', val: 4 }, { label: '⚡ Medium (3+)', val: 3 }, { label: 'All', val: 0 }].map(f => (
                 <button key={f.val} className={`cp-pill ${frequencyMin === f.val ? 'active' : ''}`} onClick={() => setFrequencyMin(frequencyMin === f.val ? 0 : f.val)}>{f.label}</button>
@@ -242,7 +251,7 @@ export default function CompanyPrep() {
             </div>
           </div>
           <div className="cp-filter-group">
-            <label>Recency</label>
+            <label>{FILTER_LABELS.recency}</label>
             <div className="cp-filter-pills">
               {[{ label: 'Last 6 months', val: 6 }, { label: 'Last year', val: 12 }, { label: 'All time', val: 0 }].map(r => (
                 <button key={r.val} className={`cp-pill ${recentFilter === r.val ? 'active' : ''}`} onClick={() => setRecentFilter(recentFilter === r.val ? 0 : r.val)}>{r.label}</button>
@@ -250,7 +259,7 @@ export default function CompanyPrep() {
             </div>
           </div>
           <div className="cp-filter-group">
-            <label>Status</label>
+            <label>{FILTER_LABELS.status}</label>
             <div className="cp-filter-pills">
               <button className={`cp-pill ${showSolvedOnly ? 'active' : ''}`} onClick={() => { setShowSolvedOnly(!showSolvedOnly); setShowBookmarkedOnly(false); }}>✅ Solved</button>
               <button className={`cp-pill ${showBookmarkedOnly ? 'active' : ''}`} onClick={() => { setShowBookmarkedOnly(!showBookmarkedOnly); setShowSolvedOnly(false); }}>🔖 Bookmarked</button>

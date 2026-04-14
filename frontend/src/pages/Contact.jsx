@@ -4,6 +4,13 @@ import { useTheme } from '../context/ThemeContext';
 
 
 export default function Contact() {
+    const FORM_LABELS = {
+        name: 'Name',
+        email: 'Email',
+        subject: 'Subject',
+        message: 'Message',
+    };
+
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const [formData, setFormData] = useState({
@@ -133,7 +140,7 @@ export default function Contact() {
 
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                                     <div className="form-group">
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>Name</label>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>{FORM_LABELS.name}</label>
                                         <input
                                             type="text"
                                             name="name"
@@ -145,7 +152,7 @@ export default function Contact() {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>Email</label>
+                                        <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>{FORM_LABELS.email}</label>
                                         <input
                                             type="email"
                                             name="email"
@@ -159,7 +166,7 @@ export default function Contact() {
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '24px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>Subject</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>{FORM_LABELS.subject}</label>
                                     <input
                                         type="text"
                                         name="subject"
@@ -172,7 +179,7 @@ export default function Contact() {
                                 </div>
 
                                 <div className="form-group" style={{ marginBottom: '32px' }}>
-                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>Message</label>
+                                    <label style={{ display: 'block', marginBottom: '8px', color: 'var(--zinc-400)', fontSize: '14px' }}>{FORM_LABELS.message}</label>
                                     <textarea
                                         name="message"
                                         value={formData.message}

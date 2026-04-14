@@ -1,7 +1,8 @@
 import process from 'process';
 import { resolveLocalBaseUrl } from './utils/resolveBaseUrl.js';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-let BASE_URL = process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000';
+let BASE_URL = ensureLocalBaseUrl(process.env.INTERVIEW_SUITE_BASE_URL || 'http://localhost:5000');
 const TOKEN = process.env.INTERVIEW_SUITE_SMOKE_TOKEN || '';
 
 function buildHeaders() {
@@ -11,7 +12,7 @@ function buildHeaders() {
 }
 
 async function requestJson(path, { method = 'GET', body } = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
     headers: buildHeaders(),
     body: body ? JSON.stringify(body) : undefined,
@@ -124,10 +125,10 @@ async function runHealthCheck() {
 
 async function main() {
   try {
-    BASE_URL = await resolveLocalBaseUrl({
+    BASE_URL = ensureLocalBaseUrl(await resolveLocalBaseUrl({
       envVarName: 'INTERVIEW_SUITE_BASE_URL',
       fallback: BASE_URL,
-    });
+    }));
     console.log(`Smoke test target: ${BASE_URL}`);
     console.log(TOKEN ? 'Mode: AUTHENTICATED' : 'Mode: UNAUTHENTICATED');
 

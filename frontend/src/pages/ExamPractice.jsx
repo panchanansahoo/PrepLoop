@@ -71,6 +71,10 @@ function CalcWidget({ onClose, isLight }) {
 
 /* ─── Results View ─────────────────────────────────────────────────────── */
 function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
+  const handleRetryExam = () => {
+    window.location.reload();
+  };
+
   const totalMarks = sectionResults.reduce((s, r) => s + r.scored, 0);
   const maxMarks = sectionResults.reduce((s, r) => s + r.maxMarks, 0);
   const totalCorrect = sectionResults.reduce((s, r) => s + r.correct, 0);
@@ -175,7 +179,7 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
           }}>
             <Home size={16} /> Back to Exam Hub
           </button>
-          <button onClick={() => window.location.reload()} style={{
+          <button onClick={handleRetryExam} style={{
             padding: '14px 28px', borderRadius: 12, fontSize: 14, fontWeight: 700,
             background: exam.gradient, color: '#fff', border: 'none', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: 8,
