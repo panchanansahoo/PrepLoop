@@ -375,7 +375,7 @@ const getFallbackQuestions = (type, difficulty) => {
       res.json(buildInterviewAnalytics(interviews || []));
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      res.status(500).json({ error: 'Failed to fetch analytics' });
+      res.status(500).json({ error: 'Failed to fetch analytics', message: error.message });
     }
   }
 
@@ -463,7 +463,7 @@ const getFallbackQuestions = (type, difficulty) => {
       res.json({ recommendations });
     } catch (error) {
       console.error('Error fetching recommendations:', error);
-      res.status(500).json({ error: 'Failed to fetch recommendations' });
+      res.status(500).json({ error: 'Failed to fetch recommendations', message: error.message });
     }
   }
 
@@ -515,6 +515,26 @@ router.post('/start', authenticateToken, async (req, res) => {
   try {
     const { type, difficulty, duration } = req.body;
 
+    // Validate interview type
+    const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
+    if (!type || !validTypes.includes(type)) {
+      return res.status(400).json({
+        error: 'Invalid interview type',
+        validTypes,
+        received: type
+      });
+    }
+
+    // Validate difficulty
+    const validDifficulties = ['easy', 'medium', 'hard'];
+    if (!difficulty || !validDifficulties.includes(difficulty)) {
+      return res.status(400).json({
+        error: 'Invalid difficulty level',
+        validDifficulties,
+        received: difficulty
+      });
+    }
+
     // Fix #4: use req.requestId (set by requestIdMiddleware) instead of req.id which is always undefined
     const spendResult = await spendCoinsForInterviewStart(
       req.user.id,
@@ -555,11 +575,12 @@ router.post('/start', authenticateToken, async (req, res) => {
       });
     }
   } catch (error) {
-    if (didCharge) {
+    // Fix: Add null check for req.user before refund
+    if (didCharge && req.user?.id) {
       try {
       // Fix #4: use req.requestId for refund reference key
         await refundCoinsForInterviewStartFailure(
-          req.user?.id,
+          req.user.id,
           INTERVIEW_START_COIN_COST,
           req.requestId ? `interview-refund:${req.requestId}` : null
         );
@@ -568,7 +589,7 @@ router.post('/start', authenticateToken, async (req, res) => {
       }
     }
     console.error('Error starting interview:', error);
-    res.status(500).json({ error: 'Failed to start interview' });
+    res.status(500).json({ error: 'Failed to start interview', message: error.message });
   }
 });
 
@@ -576,6 +597,26 @@ router.post('/next-question', authenticateToken, async (req, res) => {
   try {
     const { previousResponses, type } = req.body;
     const difficulty = req.body.difficulty || 'medium';
+
+    // Validate interview type
+    const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
+    if (!type || !validTypes.includes(type)) {
+      return res.status(400).json({
+        error: 'Invalid interview type',
+        validTypes,
+        received: type
+      });
+    }
+
+    // Validate difficulty
+    const validDifficulties = ['easy', 'medium', 'hard'];
+    if (!validDifficulties.includes(difficulty)) {
+      return res.status(400).json({
+        error: 'Invalid difficulty level',
+        validDifficulties,
+        received: difficulty
+      });
+    }
 
     // Fix #11: validate previousResponses is an array before calling .map
     const safeResponses = Array.isArray(previousResponses) ? previousResponses : [];
@@ -595,13 +636,40 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error getting next question:', error);
-    res.status(500).json({ error: 'Failed to get next question' });
+    res.status(500).json({ error: 'Failed to get next question', message: error.message });
   }
 });
 
 router.post('/complete', authenticateToken, async (req, res) => {
   try {
     const { type, difficulty, duration, responses } = req.body;
+
+    // Validate interview type
+    const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
+    if (!type || !validTypes.includes(type)) {
+      return res.status(400).json({
+        error: 'Invalid interview type',
+        validTypes,
+        received: type
+      });
+    }
+
+    // Validate difficulty
+    const validDifficulties = ['easy', 'medium', 'hard'];
+    if (!difficulty || !validDifficulties.includes(difficulty)) {
+      return res.status(400).json({
+        error: 'Invalid difficulty level',
+        validDifficulties,
+        received: difficulty
+      });
+    }
+
+    // Validate responses
+    if (!Array.isArray(responses)) {
+      return res.status(400).json({
+        error: 'Responses must be an array'
+      });
+    }
 
     let scores;
 
@@ -713,7 +781,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error completing interview:', error);
-    res.status(500).json({ error: 'Failed to complete interview' });
+    res.status(500).json({ error: 'Failed to complete interview', message: error.message });
   }
 });
 
@@ -730,7 +798,7 @@ router.get('/history', authenticateToken, async (req, res) => {
     res.json({ interviews: data || [] });
   } catch (error) {
     console.error('Error fetching interview history:', error);
-    res.status(500).json({ error: 'Failed to fetch history' });
+    res.status(500).json({ error: 'Failed to fetch history', message: error.message });
   }
 });
 
@@ -752,7 +820,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     res.json({ interview: data });
   } catch (error) {
     console.error('Error fetching interview:', error);
-    res.status(500).json({ error: 'Failed to fetch interview' });
+    res.status(500).json({ error: 'Failed to fetch interview', message: error.message });
   }
 });
 
@@ -835,7 +903,7 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
     res.json({ feedback });
   } catch (error) {
     console.error('Error generating feedback:', error);
-    res.status(500).json({ error: 'Failed to generate feedback' });
+    res.status(500).json({ error: 'Failed to generate feedback', message: error.message });
   }
 });
 
@@ -890,7 +958,7 @@ router.post('/transcribe', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error transcribing audio:', error);
-    res.status(500).json({ error: 'Failed to transcribe audio' });
+    res.status(500).json({ error: 'Failed to transcribe audio', message: error.message });
   }
 });
 
@@ -911,7 +979,7 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
     res.json({ feedbacks: feedbacks || [] });
   } catch (error) {
     console.error('Error fetching feedback history:', error);
-    res.status(500).json({ error: 'Failed to fetch feedback' });
+    res.status(500).json({ error: 'Failed to fetch feedback', message: error.message });
   }
 });
 

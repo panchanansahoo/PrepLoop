@@ -275,7 +275,79 @@ async function apiRequest(endpoint, options = {}) {
       typeof data?.required === 'number' &&
       typeof data?.coins === 'number'
     ) {
-      throw new Error(`Insufficient coins. You need ${data.required} coins, but you have ${data.coins}.`);
+      throw new Error(`Insufficient coins. You need ${data.required} coins, but you have ${data.coins} coins.`);
+    }
+    throw new Error(data?.message || data?.error || 'Request failed');
+  }
+
+  return data;
+}
+
+// ============================================================================
+// AI INTERVIEW IMPROVEMENT PLAN
+// ============================================================================
+
+/**
+ * Generate personalized improvement plan based on interview history
+ * @param {Object} options - Generation options
+ * @param {string[]} options.sessionIds - Optional: specific session IDs to analyze
+ * @param {string[]} options.focusAreas - Optional: specific areas to focus on
+ * @param {number} options.timeframe - Optional: plan duration in days (default: 7)
+ * @returns {Promise<Object>} Generated improvement plan
+ */
+export async function generateImprovementPlan(options = {}) {
+  const { sessionIds, focusAreas, timeframe = 7 } = options;
+  
+  const response = await apiRequest('/improvement-plan/generate', {
+    method: 'POST',
+    body: JSON.stringify({ sessionIds, focusAreas, timeframe })
+  });
+
+  return response.data;
+}
+
+/**
+ * Get user's latest improvement plan
+ * @returns {Promise<Object|null>} Latest improvement plan or null
+ */
+export async function getLatestImprovementPlan() {
+  const response = await apiRequest('/improvement-plan/latest');
+  return response.data;
+}
+
+/**
+ * Get user's improvement plan history
+ * @param {number} limit - Maximum number of plans to retrieve (default: 10)
+ * @returns {Promise<Array>} Array of improvement plans
+ */
+export async function getImprovementPlanHistory(limit = 10) {
+  const response = await apiRequest(`/improvement-plan/history?limit=${limit}`);
+  return response.data || [];
+}
+
+/**
+ * Update progress on an improvement plan
+ * @param {string} planId - Plan ID
+ * @param {Array} completedTasks - Array of completed task objects
+ * @param {string} notes - Optional progress notes
+ * @returns {Promise<Object>} Updated plan
+ */
+export async function updateImprovementPlanProgress(planId, completedTasks, notes = '') {
+  const response = await apiRequest(`/improvement-plan/${planId}/progress`, {
+    method: 'POST',
+    body: JSON.stringify({ completedTasks, notes })
+  });
+
+  return response.data;
+}
+
+// Export all improvement plan functions
+export const improvementPlan = {
+  generate: generateImprovementPlan,
+  getLatest: getLatestImprovementPlan,
+  getHistory: getImprovementPlanHistory,
+  updateProgress: updateImprovementPlanProgress
+};.coins}.`);
     }
     throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`);
   }

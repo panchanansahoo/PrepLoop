@@ -16,6 +16,20 @@ const groq = new Groq({
 });
 
 const logger = createLogger('AIService');
+
+/**
+ * IMPORTANT: Virtual interview sessions are stored in-memory as a fallback mechanism
+ * when database schema is incompatible. This Map has the following limitations:
+ * 
+ * 1. NOT PERSISTENT: Data is lost on server restart
+ * 2. NOT THREAD-SAFE: Potential race conditions with concurrent access
+ * 3. NOT SCALABLE: Does not work across multiple server instances
+ * 
+ * For production deployments:
+ * - Use Redis or another distributed cache
+ * - Implement proper locking mechanisms for concurrent access
+ * - Ensure database schema is up-to-date to avoid fallback usage
+ */
 const virtualInterviewSessions = new Map();
 const interviewTelemetryService = new InterviewTelemetryService();
 
@@ -410,7 +424,7 @@ Please provide your analysis in the following JSON format (return ONLY valid JSO
         spaceComplexity: 'Error parsing',
         complexityAnalysis: 'Analysis failed',
         optimizationSuggestions: [],
-        edgeCasesCcovered: { found: [], missed: [] },
+        edgeCasesCovered: { found: [], missed: [] },
         patternsIdentified: [],
         patternExplanations: {},
         refactoringHints: '',

@@ -9,7 +9,10 @@
         "lint": "eslint src",
         "preview": "vite preview",
         "test": "vitest run",
-        "test:watch": "vitest"
+        "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "test:e2e:ui": "playwright test --ui",
+        "test:e2e:report": "playwright show-report"
     },
     "dependencies": {
         "@blocknote/core": "^0.46.2",
@@ -33,7 +36,7 @@
         "axios": "^1.6.7",
         "clsx": "^2.1.1",
         "dagre": "^0.8.5",
-        "dompurify": "^3.3.3",
+        "dompurify": "^3.4.0",
         "lucide-react": "^0.323.0",
         "prettier": "^3.8.1",
         "react": "^18.2.0",
@@ -44,11 +47,13 @@
         "reactflow": "^11.11.4",
         "tailwind-merge": "^3.4.1",
         "three": "^0.182.0",
-        "tippy.js": "^6.3.7"
+        "tippy.js": "^6.3.7",
+        "zod": "^4.3.6"
     },
     "devDependencies": {
         "@eslint/js": "^9.22.0",
         "@monaco-editor/react": "^4.7.0",
+        "@playwright/test": "^1.59.1",
         "@tailwindcss/postcss": "^4.1.18",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/jest-dom": "^6.9.1",

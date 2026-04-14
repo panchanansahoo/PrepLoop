@@ -3,6 +3,8 @@ import './index.css'
 import './App.css'
 import App from './App.jsx'
 import { buildInterviewAuthInit } from './utils/interviewRequestAuth';
+import { registerServiceWorker } from './utils/serviceWorkerRegistration';
+import ErrorBoundary from './components/ErrorBoundary';
 
 
 if (typeof window !== 'undefined' && !window.__preploopInterviewFetchPatched) {
@@ -11,7 +13,11 @@ if (typeof window !== 'undefined' && !window.__preploopInterviewFetchPatched) {
   window.__preploopInterviewFetchPatched = true;
 }
 
+// Register service worker for offline support
+registerServiceWorker();
 
 createRoot(document.getElementById('root')).render(
-  <App />,
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>,
 )
