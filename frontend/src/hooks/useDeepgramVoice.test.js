@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    buildDeepgramVoiceApiUrl,
     buildDeepgramStreamingUrl,
     getAdaptiveSilenceMs,
     isAudioContentType,
@@ -22,6 +23,11 @@ describe('useDeepgramVoice helpers', () => {
         expect(url).toContain('interim_results=true');
         expect(url).toContain('utterance_end_ms=1200');
         expect(url).toContain('endpointing=300');
+    });
+
+    it('builds voice api urls from the configured backend origin', () => {
+        expect(buildDeepgramVoiceApiUrl('/voice/tts-stream', 'http://localhost:5000')).toBe('http://localhost:5000/api/voice/tts-stream');
+        expect(buildDeepgramVoiceApiUrl('/voice/tts-stream', 'http://localhost:5000/api')).toBe('http://localhost:5000/api/voice/tts-stream');
     });
 
     it('only auto-submits when an utterance ended and the transcript is quiet enough', () => {

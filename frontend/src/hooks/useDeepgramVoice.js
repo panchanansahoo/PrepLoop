@@ -22,6 +22,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import useAudioVisualizer from './useAudioVisualizer';
 import { mergeAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 // ─── Configuration ───
 const CHUNK_INTERVAL_MS   = 250;      // MediaRecorder chunk interval
@@ -43,17 +44,24 @@ const WS_RECONNECT_BASE_MS    = 500;  // exponential: 500ms → 1s → 2s
 
 // TTS retry
 const TTS_RETRY_DELAY_MS = 500;       // delay before single retry attempt
+const TTS_PLAYBACK_GUARD_MS = 30000;  // safety: resolve if playback events never fire
 
 // Interrupt detection
 const INTERRUPT_LEVEL     = 0.12;     // RMS above this = user speaking
 const INTERRUPT_DURATION  = 400;      // ms of speech before interrupt triggers
 
 // Endpoints
-const TOKEN_ENDPOINT   = '/api/voice/deepgram-token';
-const STT_ENDPOINT     = '/api/voice/stt-chunk';
-const TTS_ENDPOINT     = '/api/voice/tts-stream';
-const ANALYZE_ENDPOINT = '/api/voice/analyze-answer';
-const BACKCHANNEL_ENDPOINT = '/api/voice/backchannel-clips';
+const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+export function buildDeepgramVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
+    return buildApiUrl(path, { rawBaseUrl, apiPrefix: '/api' });
+}
+
+const TOKEN_ENDPOINT   = buildDeepgramVoiceApiUrl('/voice/deepgram-token');
+const STT_ENDPOINT     = buildDeepgramVoiceApiUrl('/voice/stt-chunk');
+const TTS_ENDPOINT     = buildDeepgramVoiceApiUrl('/voice/tts-stream');
+const ANALYZE_ENDPOINT = buildDeepgramVoiceApiUrl('/voice/analyze-answer');
+const BACKCHANNEL_ENDPOINT = buildDeepgramVoiceApiUrl('/voice/backchannel-clips');
 
 function isVoiceDebugEnabled() {
     if (!import.meta.env.DEV) return false;
@@ -848,17 +856,29 @@ export function useDeepgramVoice({
                     analyticsRef.current.ttsFallbacks++; // I14
                     console.info('[useDeepgramVoice] TTS fallback → browser speechSynthesis');
                     await new Promise((resolve) => {
+                        let guardTimer = null;
+                        let settled = false;
+                        const settle = () => {
+                            if (settled) return;
+                            settled = true;
+                            if (guardTimer) clearTimeout(guardTimer);
+                            resolve();
+                        };
                         const utter = new SpeechSynthesisUtterance(spokenText);
                         const selectedVoice = pickBrowserVoice(personaGender);
                         if (selectedVoice) utter.voice = selectedVoice;
                         utter.rate = 1.0;
                         utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
-                        utter.onend = resolve;
-                        utter.onerror = resolve;
+                        utter.onend = settle;
+                        utter.onerror = settle;
                         controller.signal.addEventListener('abort', () => {
                             window.speechSynthesis.cancel();
-                            resolve();
+                            settle();
                         }, { once: true });
+                        guardTimer = setTimeout(() => {
+                            window.speechSynthesis.cancel();
+                            settle();
+                        }, TTS_PLAYBACK_GUARD_MS);
                         window.speechSynthesis.speak(utter);
                     });
                 }
@@ -879,17 +899,29 @@ export function useDeepgramVoice({
                         analyticsRef.current.ttsFallbacks++; // I14
                         console.info('[useDeepgramVoice] Audio playback failed, using speechSynthesis fallback');
                         await new Promise((resolve) => {
+                            let guardTimer = null;
+                            let settled = false;
+                            const settle = () => {
+                                if (settled) return;
+                                settled = true;
+                                if (guardTimer) clearTimeout(guardTimer);
+                                resolve();
+                            };
                             const utter = new SpeechSynthesisUtterance(spokenText);
                             const selectedVoice = pickBrowserVoice(personaGender);
                             if (selectedVoice) utter.voice = selectedVoice;
                             utter.rate = 1.0;
                             utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
-                            utter.onend = resolve;
-                            utter.onerror = resolve;
+                            utter.onend = settle;
+                            utter.onerror = settle;
                             controller.signal.addEventListener('abort', () => {
                                 window.speechSynthesis.cancel();
-                                resolve();
+                                settle();
                             }, { once: true });
+                            guardTimer = setTimeout(() => {
+                                window.speechSynthesis.cancel();
+                                settle();
+                            }, TTS_PLAYBACK_GUARD_MS);
                             window.speechSynthesis.speak(utter);
                         });
                         return;
@@ -898,9 +930,26 @@ export function useDeepgramVoice({
                 }
 
                 await new Promise((resolve) => {
-                    audioRef.current.onended  = resolve;
-                    audioRef.current.onerror  = resolve;
-                    controller.signal.addEventListener('abort', resolve, { once: true });
+                    let guardTimer = null;
+                    let settled = false;
+                    const settle = () => {
+                        if (settled) return;
+                        settled = true;
+                        if (guardTimer) clearTimeout(guardTimer);
+                        resolve();
+                    };
+
+                    audioRef.current.onended  = settle;
+                    audioRef.current.onerror  = settle;
+                    controller.signal.addEventListener('abort', settle, { once: true });
+                    guardTimer = setTimeout(() => {
+                        try {
+                            audioRef.current?.pause();
+                        } catch {
+                            // no-op
+                        }
+                        settle();
+                    }, TTS_PLAYBACK_GUARD_MS);
                 });
 
                 URL.revokeObjectURL(url);

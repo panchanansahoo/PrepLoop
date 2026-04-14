@@ -45,6 +45,8 @@ async function initializeServer() {
     const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
+    const { errorHandler } = await import('./middleware/errorHandler.js');
+    const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
 
     console.log('✅ Routes loaded successfully');
 
@@ -155,10 +157,10 @@ async function initializeServer() {
       });
     }
 
-    // Health check endpoint
-    app.get('/health', (req, res) => {
-      res.json({ status: 'ok', message: 'Server is running' });
-    });
+    // Health check endpoints
+    app.get('/health', healthCheck);
+    app.get('/health/ready', readinessCheck);
+    app.get('/health/live', livenessCheck);
 
     // Register all routes
     app.use('/api/auth', authRoutes);
@@ -172,9 +174,6 @@ async function initializeServer() {
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
-    // Fix #22: removed duplicate mount — interviewRoutes was registered on both
-    // /api/ai/interview and /api/interview; keep only one canonical path
-    app.use('/api/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
     app.use('/api/ai', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
@@ -198,13 +197,7 @@ async function initializeServer() {
     app.use('/api/improvement-plan', improvementPlanRoutes);
 
     // Error handler middleware
-    app.use((err, req, res, next) => {
-      console.error(err.stack);
-      res.status(500).json({
-        error: 'Something went wrong!',
-        message: process.env.NODE_ENV === 'development' ? err.message : undefined
-      });
-    });
+    app.use(errorHandler);
 
   } catch (error) {
     console.error('❌ Failed to initialize server:', error.message);
