@@ -97,6 +97,8 @@ function playBeep() {
 }
 
 export default function PomodoroTimer({ stats }) {
+    const FOCUS_LABEL = 'Focus (min)';
+    const BREAK_LABEL = 'Break (min)';
     const initialRef = useRef(buildInitialPomodoroState(stats));
     const [historyMap, setHistoryMap] = useState(initialRef.current.history);
     const [useServerStats, setUseServerStats] = useState(initialRef.current.fromServer);
@@ -260,7 +262,7 @@ export default function PomodoroTimer({ stats }) {
             {showSettings && (
                 <div className="pomo-settings-panel">
                     <div className="pomo-setting-group">
-                        <label>Focus (min)</label>
+                        <label>{FOCUS_LABEL}</label>
                         <div className="pomo-preset-row">
                             {PRESETS.focus.map(v => (
                                 <button
@@ -275,7 +277,7 @@ export default function PomodoroTimer({ stats }) {
                         </div>
                     </div>
                     <div className="pomo-setting-group">
-                        <label>Break (min)</label>
+                        <label>{BREAK_LABEL}</label>
                         <div className="pomo-preset-row">
                             {PRESETS.break.map(v => (
                                 <button

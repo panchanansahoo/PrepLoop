@@ -58,7 +58,14 @@ router.get('/posts', optionalAuth, async (req, res) => {
 
 router.post('/posts', authenticateToken, async (req, res) => {
   try {
-    const { title, content, tags } = req.body;
+    const title = String(req.body?.title || '').trim().slice(0, 300);
+    const content = String(req.body?.content || '').trim().slice(0, 10000);
+    const tags = Array.isArray(req.body?.tags)
+      ? req.body.tags.slice(0, 10).map(t => String(t).trim().slice(0, 50))
+      : [];
+
+    if (!title) return res.status(400).json({ error: 'Title is required' });
+    if (!content) return res.status(400).json({ error: 'Content is required' });
 
     const { data, error } = await supabaseAdmin
       .from('community_posts')

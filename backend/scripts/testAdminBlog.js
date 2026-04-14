@@ -9,11 +9,13 @@
  *   ADMIN_JWT=<token with admin role>
  */
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:5000';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
+
+const API_BASE_URL = ensureLocalBaseUrl(process.env.API_BASE_URL || 'http://localhost:5000');
 const ADMIN_JWT = process.env.ADMIN_JWT;
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(API_BASE_URL, path), {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {}),

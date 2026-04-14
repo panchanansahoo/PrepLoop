@@ -14,6 +14,15 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const BACKEND_ROOT = path.resolve(__dirname, '..');
+
+function readBackendFileUtf8(relativePath) {
+   const resolvedPath = path.resolve(BACKEND_ROOT, relativePath);
+   if (!(resolvedPath === BACKEND_ROOT || resolvedPath.startsWith(`${BACKEND_ROOT}${path.sep}`))) {
+      throw new Error(`Unsafe file path: ${relativePath}`);
+   }
+   return fs.readFileSync(resolvedPath, 'utf8');
+}
 
 console.log(`
 ╔════════════════════════════════════════════════════════════════════════════╗
@@ -53,8 +62,7 @@ console.log(`
 `);
 
 // Read the migration SQL
-const migrationPath = path.join(__dirname, '../db/migration_coin_transaction_idempotency.sql');
-const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+const migrationSql = readBackendFileUtf8('db/migration_coin_transaction_idempotency.sql');
 
 console.log('📄 MIGRATION SQL CODE:');
 console.log('═'.repeat(80));

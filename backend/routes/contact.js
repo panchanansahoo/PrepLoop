@@ -1,9 +1,20 @@
 import express from 'express';
+import nodemailer from 'nodemailer';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { contactLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
 
 const router = express.Router();
+
+// Reuse a single transporter (connection pooling)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  port: Number(process.env.SMTP_PORT) || 587,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 // POST /api/contact - Store contact form submissions
 router.post('/', contactLimiter, async (req, res) => {
@@ -37,32 +48,13 @@ router.post('/', contactLimiter, async (req, res) => {
     // Try to send email notification if SMTP is configured
     if (process.env.SMTP_USER && process.env.SMTP_PASS) {
       try {
-        const nodemailer = await import('nodemailer');
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-          port: process.env.SMTP_PORT || 587,
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          }
-        });
-
-        const mailOptions = {
+        await transporter.sendMail({
           from: `"PrepLoop Support" <support@preploop.me>`,
           to: 'support@preploop.me',
           subject: `PrepLoop Contact: ${subject}`,
-          text: `
-            Name: ${name}
-            Email: ${email}
-            Subject: ${subject}
-            
-            Message:
-            ${message}
-          `,
+          text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\nMessage:\n${message}`,
           replyTo: email
-        };
-
-        await transporter.sendMail(mailOptions);
+        });
         console.log(`✅ Email sent to support@preploop.me from ${email}`);
       } catch (emailError) {
         console.error('Email sending failed (contact saved to DB):', emailError.message);

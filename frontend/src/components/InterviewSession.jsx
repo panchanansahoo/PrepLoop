@@ -6,6 +6,7 @@ export default function InterviewSession({ interview, config, onComplete }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [currentAnswer, setCurrentAnswer] = useState('');
+  const [validationMessage, setValidationMessage] = useState('');
   const [feedback, setFeedback] = useState(null);
   const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -92,9 +93,11 @@ export default function InterviewSession({ interview, config, onComplete }) {
 
   const handleSubmitAnswer = async () => {
     if (!currentAnswer.trim()) {
-      alert('Please provide an answer before submitting');
+      setValidationMessage('Please provide an answer before submitting.');
       return;
     }
+
+    setValidationMessage('');
 
     setAnswers(prev => ({
       ...prev,
@@ -106,7 +109,7 @@ export default function InterviewSession({ interview, config, onComplete }) {
     setFeedback(null);
 
     try {
-      const response = await fetch('http://localhost:5003/api/interview/0/feedback', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/interview/0/feedback`, {
         method: 'POST',
         headers: buildAuthHeaders(),
         body: JSON.stringify({
@@ -188,10 +191,19 @@ export default function InterviewSession({ interview, config, onComplete }) {
             
             <textarea
               value={currentAnswer}
-              onChange={(e) => setCurrentAnswer(e.target.value)}
+              onChange={(e) => {
+                setCurrentAnswer(e.target.value);
+                if (validationMessage) {
+                  setValidationMessage('');
+                }
+              }}
               placeholder="Type your answer here... or use voice recording below."
               className="w-full bg-slate-900 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none resize-none h-32"
             />
+
+            {validationMessage && (
+              <p className="text-sm text-amber-300">{validationMessage}</p>
+            )}
 
             <div className="flex gap-3">
               <button

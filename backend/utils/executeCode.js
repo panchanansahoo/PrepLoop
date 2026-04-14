@@ -1,4 +1,4 @@
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -40,6 +40,12 @@ const sweepCompiledCache = () => {
     }
 };
 
+const createTempWorkspace = () => fs.mkdtempSync(path.join(os.tmpdir(), 'preploop-exec-'));
+
+const removeTempWorkspace = (workspacePath) => {
+    try { fs.rmSync(workspacePath, { recursive: true, force: true }); } catch { }
+};
+
 const LANGUAGE_ALIASES = {
     c: 'c',
     py: 'python',
@@ -69,13 +75,13 @@ const LANG_CONFIG = {
     },
     c: {
         ext: '.c',
-        commands: ['gcc', 'clang', '"C:\\Program Files\\LLVM\\bin\\clang.exe"'],
+        commands: ['gcc', 'clang', 'C:\\Program Files\\LLVM\\bin\\clang.exe'],
         compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
         run: (file, cmd, out) => `"${out}"`,
     },
     cpp: {
         ext: '.cpp',
-        commands: ['g++', 'clang++', '"C:\\Program Files\\LLVM\\bin\\clang++.exe"'],
+        commands: ['g++', 'clang++', 'C:\\Program Files\\LLVM\\bin\\clang++.exe'],
         compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
         run: (file, cmd, out) => `"${out}"`,
     },
@@ -101,23 +107,34 @@ const LANG_CONFIG = {
  * @param {string} input - Optional stdin input
  * @returns {{ success: boolean, output: string, error?: string, executionTime: number }}
  */
+const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
+
 export async function executeCode(code, language, input = '') {
     const startTime = Date.now();
     const requestedLanguage = normalizeLanguage(language);
     const normalizedLanguage = requestedLanguage === 'typescript' ? 'javascript' : requestedLanguage;
 
+    if (!ALLOWED_LANGUAGES.has(normalizedLanguage)) {
+        return {
+            success: false, output: '',
+            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java.`,
+            executionTime: 0, compileTime: 0, runTime: 0,
+        };
+    }
+
     sweepCompiledCache();
 
     // JavaScript: execute in sandboxed child process via Node.js
     if (normalizedLanguage === 'javascript') {
-        const tmpFile = path.join(os.tmpdir(), `playground_${Date.now()}.js`);
+        const workspaceDir = createTempWorkspace();
+        const tmpFile = path.join(workspaceDir, 'playground.js');
         try {
             fs.writeFileSync(tmpFile, code, 'utf-8');
             try {
-                const result = execSync(`node "${tmpFile}"`, {
-                    stdio: 'pipe', timeout: 10000, shell: true,
+                const result = execFileSync('node', [tmpFile], {
+                    stdio: 'pipe', timeout: 10000, shell: false,
                     input: input || '',
-                    cwd: os.tmpdir(),
+                    cwd: workspaceDir,
                 });
                 const output = result.toString().trim() || '(No output — use console.log() to see results)';
                 const total = Date.now() - startTime;
@@ -131,7 +148,7 @@ export async function executeCode(code, language, input = '') {
         } catch (fileErr) {
             return { success: false, output: '', error: `Failed to create temp file: ${fileErr.message}`, executionTime: Date.now() - startTime, compileTime: 0, runTime: 0 };
         } finally {
-            try { fs.unlinkSync(tmpFile); } catch { }
+            removeTempWorkspace(workspaceDir);
         }
     }
 
@@ -152,7 +169,7 @@ export async function executeCode(code, language, input = '') {
     let availableCmd = null;
     for (const cmd of langConfig.commands) {
         try {
-            execSync(`${cmd} --version`, { stdio: 'pipe', timeout: 3000, shell: true });
+            execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 3000 });
             availableCmd = cmd;
             break;
         } catch { /* try next */ }
@@ -168,7 +185,7 @@ export async function executeCode(code, language, input = '') {
         };
     }
 
-    const tmpDir = os.tmpdir();
+    const tmpDir = createTempWorkspace();
     let className = 'Main';
     let tmpFile;
 
@@ -176,7 +193,7 @@ export async function executeCode(code, language, input = '') {
         className = langConfig.preprocess(code);
         tmpFile = path.join(tmpDir, `${className}${langConfig.ext}`);
     } else {
-        tmpFile = path.join(tmpDir, `playground_${Date.now()}${langConfig.ext}`);
+        tmpFile = path.join(tmpDir, `playground_${crypto.randomBytes(8).toString('hex')}${langConfig.ext}`);
     }
 
     try {
@@ -204,7 +221,7 @@ export async function executeCode(code, language, input = '') {
 
                 try {
                     execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
-                        stdio: 'pipe', timeout: 15000, shell: true, cwd: tmpDir,
+                        stdio: 'pipe', timeout: 15000, shell: false, cwd: tmpDir,
                     });
                     compileTime = Date.now() - compileStart;
                     finalExecutablePath = compileTarget;
@@ -228,7 +245,7 @@ export async function executeCode(code, language, input = '') {
         const runStart = Date.now();
         try {
             const result = execSync(runCmd, {
-                stdio: 'pipe', timeout: 10000, shell: true, input: input || '', cwd: tmpDir,
+                stdio: 'pipe', timeout: 10000, shell: false, input: input || '', cwd: tmpDir,
             });
             const output = result.toString().trim() || '(No output)';
             const runTime = Date.now() - runStart;
@@ -259,6 +276,7 @@ export async function executeCode(code, language, input = '') {
                 try { fs.unlinkSync(path.join(tmpDir, `${className}.class`)); } catch { }
             }
         }
+        removeTempWorkspace(tmpDir);
     }
 }
 

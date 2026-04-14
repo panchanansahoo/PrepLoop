@@ -108,7 +108,13 @@ router.post('/feedback', authenticateToken, async (req, res) => {
       baseDelayMs: 250
     });
 
-    const feedback = JSON.parse(completion.choices[0].message.content);
+    let feedback;
+    try {
+      const raw = completion.choices?.[0]?.message?.content || '';
+      feedback = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+    } catch {
+      feedback = { strengths: ['Design submitted'], improvements: ['Try again for detailed analysis'], score: 70, detailedFeedback: 'AI analysis temporarily unavailable.' };
+    }
     res.json({ feedback });
   } catch (error) {
     console.error('System design feedback error:', error);

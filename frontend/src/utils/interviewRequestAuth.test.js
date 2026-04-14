@@ -1,6 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { buildInterviewAuthInit, shouldInjectInterviewAuth } from './interviewRequestAuth';
 
+const setStorageValue = (storage, key, value) => {
+  Storage.prototype.setItem.call(storage, key, value);
+};
+
 describe('interviewRequestAuth', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -8,7 +12,7 @@ describe('interviewRequestAuth', () => {
   });
 
   it('injects auth for company interview endpoints', () => {
-    localStorage.setItem('token', 'test-token');
+    setStorageValue(localStorage, 'token', 'test-token');
 
     const nextInit = buildInterviewAuthInit('/api/company-interview/follow-up', {
       method: 'POST',
@@ -27,7 +31,7 @@ describe('interviewRequestAuth', () => {
   });
 
   it('does not inject auth for unrelated endpoints', () => {
-    localStorage.setItem('token', 'test-token');
+    setStorageValue(localStorage, 'token', 'test-token');
 
     const init = { method: 'GET', headers: { Accept: 'application/json' } };
     const nextInit = buildInterviewAuthInit('/api/health', init);

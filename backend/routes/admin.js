@@ -116,10 +116,10 @@ router.get('/stats', async (req, res) => {
 });
 
 // ─── List Users ──────────────────────────────────────────────────
-router.get('/users', async (req, res) => {
+router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { search, role, tier, page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     let query = supabaseAdmin
       .from('profiles')
@@ -131,29 +131,34 @@ router.get('/users', async (req, res) => {
 
     query = query
       .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + parseInt(limit, 10) - 1);
 
     const { data: users, count, error } = await query;
 
     if (error) throw error;
 
-    // Fetch emails from auth for each user
-    const usersWithEmail = await Promise.all(
-      (users || []).map(async (u) => {
-        try {
-          const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(u.id);
-          return { ...u, email: authUser?.email || 'N/A' };
-        } catch {
-          return { ...u, email: 'N/A' };
-        }
-      })
-    );
+    // Fix #2: batch fetch all auth users in one call instead of N+1
+    const userIds = (users || []).map(u => u.id);
+    const authEmailMap = {};
+    if (userIds.length > 0) {
+      await Promise.all(
+        userIds.map(async (id) => {
+          try {
+            const { data: { user: authUser } } = await supabaseAdmin.auth.admin.getUserById(id);
+            authEmailMap[id] = authUser?.email || 'N/A';
+          } catch {
+            authEmailMap[id] = 'N/A';
+          }
+        })
+      );
+    }
+    const usersWithEmail = (users || []).map(u => ({ ...u, email: authEmailMap[u.id] || 'N/A' }));
 
     res.json({
       users: usersWithEmail,
       total: count || 0,
-      page: parseInt(page),
-      totalPages: Math.ceil((count || 0) / parseInt(limit)),
+      page: parseInt(page, 10),
+      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
     });
   } catch (error) {
     console.error('Admin users error:', error);
@@ -168,7 +173,7 @@ router.get('/users', async (req, res) => {
 });
 
 // ─── Update User Role ────────────────────────────────────────────
-router.put('/users/:id/role', async (req, res) => {
+router.put('/users/:id/role', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
@@ -205,7 +210,7 @@ router.put('/users/:id/role', async (req, res) => {
 });
 
 // ─── Delete (Ban) User ───────────────────────────────────────────
-router.delete('/users/:id', async (req, res) => {
+router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -229,14 +234,14 @@ router.delete('/users/:id', async (req, res) => {
 router.get('/content', async (req, res) => {
   try {
     const { type = 'posts', page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
 
     if (type === 'posts') {
       const { data: posts, count, error } = await supabaseAdmin
         .from('community_posts')
         .select('id, title, content, tags, likes, replies, created_at, user_id, profiles(full_name)', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(offset, offset + parseInt(limit) - 1);
+        .range(offset, offset + parseInt(limit, 10) - 1);
 
       if (error) throw error;
 
@@ -246,7 +251,7 @@ router.get('/content', async (req, res) => {
         .from('community_replies')
         .select('id, content, likes, created_at, user_id, post_id, profiles(full_name)', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(offset, offset + parseInt(limit) - 1);
+        .range(offset, offset + parseInt(limit, 10) - 1);
 
       if (error) throw error;
 
@@ -270,10 +275,11 @@ router.delete('/content/:type/:id', async (req, res) => {
     else if (type === 'reply') table = 'community_replies';
     else return res.status(400).json({ error: 'Invalid type. Use "post" or "reply"' });
 
+    // Fix #12: don't parseInt UUID ids — use the raw string
     const { error } = await supabaseAdmin
       .from(table)
       .delete()
-      .eq('id', parseInt(id));
+      .eq('id', id);
 
     if (error) throw error;
 

@@ -1,4 +1,5 @@
 import process from 'process';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './safeLocalUrl.js';
 
 export const DEFAULT_LOCAL_BASE_CANDIDATES = [
   'http://localhost:5006',
@@ -16,7 +17,7 @@ export const DEFAULT_LOCAL_BASE_CANDIDATES = [
 
 export async function isHealthReady(baseUrl, healthPath = '/health') {
   try {
-    const response = await fetch(`${baseUrl}${healthPath}`);
+    const response = await fetch(buildLocalEndpoint(baseUrl, healthPath));
     const json = await response.json().catch(() => null);
     return response.status === 200 && json?.status === 'ok';
   } catch {
@@ -32,15 +33,15 @@ export async function resolveLocalBaseUrl({
 } = {}) {
   const envValue = envVarName ? process.env[envVarName] : '';
   if (envValue) {
-    return envValue;
+    return ensureLocalBaseUrl(envValue, fallback);
   }
 
   const uniqueCandidates = [...new Set([...candidates, fallback])].filter(Boolean);
   for (const candidate of uniqueCandidates) {
     if (await isHealthReady(candidate, healthPath)) {
-      return candidate;
+      return ensureLocalBaseUrl(candidate, fallback);
     }
   }
 
-  return fallback;
+  return ensureLocalBaseUrl(fallback, 'http://localhost:5000');
 }

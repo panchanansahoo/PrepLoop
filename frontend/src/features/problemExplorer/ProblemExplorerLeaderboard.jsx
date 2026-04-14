@@ -49,6 +49,10 @@ export function ProblemExplorerLeaderboard({ isLight }) {
     }
   };
 
+  const handleRefresh = () => {
+    fetchLeaderboard();
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     fetchLeaderboard(controller.signal);
@@ -90,7 +94,7 @@ export function ProblemExplorerLeaderboard({ isLight }) {
 
         <button
           type="button"
-          onClick={() => fetchLeaderboard()}
+          onClick={handleRefresh}
           style={{
             borderRadius: 9,
             border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.12)',

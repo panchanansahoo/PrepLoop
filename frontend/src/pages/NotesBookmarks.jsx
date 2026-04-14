@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import {
     Bookmark, Search, Tag, Filter, Plus, Trash2,
     Edit3, Save, X, Hash, ListFilter, StickyNote
@@ -22,6 +23,8 @@ const PRESET_TAGS = [
 
 export default function NotesBookmarks() {
     const { user } = useAuth();
+    const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+    const buildNotesApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
     const [bookmarks, setBookmarks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
@@ -41,7 +44,7 @@ export default function NotesBookmarks() {
             if (search) params.append('search', search);
             if (tagFilter !== 'all') params.append('tag', tagFilter);
 
-            const res = await fetch(`/api/notes/bookmarks?${params}`, {
+            const res = await fetch(`${buildNotesApiUrl('/notes/bookmarks')}?${params}`, {
                 headers: buildAuthHeaders(user),
             });
             const data = await res.json();
@@ -61,7 +64,7 @@ export default function NotesBookmarks() {
     const addBookmark = async () => {
         if (!newBookmark.title.trim()) return;
         try {
-            const res = await fetch('/api/notes/bookmark', {
+            const res = await fetch(buildNotesApiUrl('/notes/bookmark'), {
                 method: 'POST',
                 headers: buildAuthHeaders(user),
                 body: JSON.stringify({
@@ -99,7 +102,7 @@ export default function NotesBookmarks() {
     // Update note
     const updateNote = async (id) => {
         try {
-            await fetch(`/api/notes/bookmark/${id}/note`, {
+            await fetch(buildNotesApiUrl(`/notes/bookmark/${id}/note`), {
                 method: 'PUT',
                 headers: buildAuthHeaders(user),
                 body: JSON.stringify({ note: editNote, tags: editTags }),
@@ -114,7 +117,7 @@ export default function NotesBookmarks() {
     // Delete bookmark
     const deleteBookmark = async (id) => {
         try {
-            await fetch(`/api/notes/bookmark/${id}`, {
+            await fetch(buildNotesApiUrl(`/notes/bookmark/${id}`), {
                 method: 'DELETE',
                 headers: buildAuthHeaders(user),
             });

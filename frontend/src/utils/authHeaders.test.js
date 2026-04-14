@@ -1,6 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { buildAuthHeaders, mergeAuthHeaders, resolveAuthToken } from './authHeaders';
 
+const setStorageValue = (storage, key, value) => {
+  Storage.prototype.setItem.call(storage, key, value);
+};
+
 describe('buildAuthHeaders', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -13,7 +17,7 @@ describe('buildAuthHeaders', () => {
   });
 
   it('falls back to localStorage token when user token is missing', () => {
-    localStorage.setItem('token', 'local-token');
+    setStorageValue(localStorage, 'token', 'local-token');
     const headers = buildAuthHeaders(null);
     expect(headers.Authorization).toBe('Bearer local-token');
   });
@@ -30,7 +34,7 @@ describe('buildAuthHeaders', () => {
   });
 
   it('resolves auth token using storage fallback even when user has no token fields', () => {
-    localStorage.setItem('token', 'stored-token');
+    setStorageValue(localStorage, 'token', 'stored-token');
     expect(resolveAuthToken({ id: 'u-1', email: 'demo@example.com' })).toBe('stored-token');
   });
 
@@ -49,7 +53,7 @@ describe('buildAuthHeaders', () => {
   });
 
   it('does not overwrite an existing authorization header', () => {
-    localStorage.setItem('token', 'local-token');
+    setStorageValue(localStorage, 'token', 'local-token');
 
     const merged = mergeAuthHeaders({ authorization: 'Bearer already-set' }, null);
 

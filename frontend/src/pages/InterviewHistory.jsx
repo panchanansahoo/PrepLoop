@@ -6,9 +6,14 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import { Link } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+function buildInterviewHistoryApiUrl(path) {
+    return buildApiUrl(path, { rawBaseUrl: API_URL, apiPrefix: '/api' });
+}
 
 export default function InterviewHistory() {
     const { user } = useAuth();
@@ -85,7 +90,7 @@ export default function InterviewHistory() {
     const fetchSessions = async () => {
         setLoading(true);
         try {
-            let url = `${API_URL}/api/company-interview/sessions?limit=50`;
+            let url = buildInterviewHistoryApiUrl('/company-interview/sessions?limit=50');
             if (filterCompany) url += `&company=${filterCompany}`;
             const res = await fetch(url, { headers: getAuthHeaders() });
             const data = await res.json();
@@ -98,7 +103,7 @@ export default function InterviewHistory() {
 
     const fetchSessionDetail = async (id) => {
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/sessions/${id}`, { headers: getAuthHeaders() });
+            const res = await fetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${id}`), { headers: getAuthHeaders() });
             const data = await res.json();
             setSelectedSession(data);
         } catch (e) {

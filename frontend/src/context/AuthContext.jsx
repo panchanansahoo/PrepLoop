@@ -1,20 +1,51 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
 
+function isSafeRetryRequestUrl(requestUrl) {
+  try {
+    if (!requestUrl) return false;
+    const raw = String(requestUrl).trim();
+    if (!raw) return false;
+
+    // Always allow relative API paths.
+    if (raw.startsWith('/api/')) return true;
+
+    // Allow absolute URLs only for configured API origin or current origin.
+    const baseOrigin = window.location.origin;
+    const resolved = new URL(raw, baseOrigin);
+    const configuredApiOrigin = (() => {
+      try {
+        const fromEnv = import.meta.env.VITE_API_URL;
+        return fromEnv ? new URL(fromEnv, baseOrigin).origin : null;
+      } catch {
+        return null;
+      }
+    })();
+
+    if (resolved.origin === baseOrigin && resolved.pathname.startsWith('/api/')) return true;
+    if (configuredApiOrigin && resolved.origin === configuredApiOrigin && resolved.pathname.startsWith('/api/')) return true;
+
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Fix #9: use a ref so the interceptor always calls the latest refreshSession
+  const refreshSessionRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
-        // 1. Check for Supabase session (primary auth source)
         if (supabase) {
           const { data: { session }, error } = await supabase.auth.getSession();
 
@@ -26,7 +57,6 @@ export function AuthProvider({ children }) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
-              // Fetch profile from backend to get role
               const response = await axios.get('/api/user/profile');
               const profileData = response.data.user;
               const fullUser = {
@@ -40,8 +70,7 @@ export function AuthProvider({ children }) {
               if (mounted) setUser(fullUser);
               localStorage.setItem('user', JSON.stringify(fullUser));
             } catch (err) {
-              console.error("Profile sync error", err);
-              // Fallback without role
+              console.error('Profile sync error', err);
               const userMetadata = session.user.user_metadata || {};
               const fullUser = {
                 id: session.user.id,
@@ -53,12 +82,10 @@ export function AuthProvider({ children }) {
               if (mounted) setUser(fullUser);
               localStorage.setItem('user', JSON.stringify(fullUser));
             }
-            // Supabase session found — skip localStorage fallback to avoid overwriting
             return;
           }
         }
 
-        // 2. Restore from localStorage (ONLY if no Supabase session exists)
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
         const isGuest = localStorage.getItem('isGuest');
@@ -93,14 +120,12 @@ export function AuthProvider({ children }) {
 
     initializeAuth();
 
-    // Set up listener
     let subscription = null;
     if (supabase) {
       const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
         if (!mounted) return;
 
         if (event === 'SIGNED_IN' && session) {
-          // ... logic to update user ...
           const token = session.access_token;
           localStorage.removeItem('isGuest');
           localStorage.setItem('token', token);
@@ -123,11 +148,10 @@ export function AuthProvider({ children }) {
             }
           } catch (e) {
             console.error('Profile fetch failed', e);
-            // Fallback
             const u = {
               id: session.user.id,
               email: session.user.email,
-              fullName: session.user.user_metadata.full_name,
+              fullName: session.user.user_metadata?.full_name,
               role: 'user'
             };
             if (mounted) setUser(u);
@@ -165,70 +189,34 @@ export function AuthProvider({ children }) {
     return user;
   };
 
-  /* Social Logins */
   const loginWithGoogle = async () => {
-    if (!supabase) {
-      console.error('Supabase client is not initialized. Check your environment variables.');
-      throw new Error('Supabase Authentication is not configured. Please check your .env file.');
-    }
-    const redirectTo = window.location.origin + '/dashboard';
-    console.log('Attempting Google login with redirect to:', redirectTo);
-
+    if (!supabase) throw new Error('Supabase Authentication is not configured. Please check your .env file.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: redirectTo
-      }
+      options: { redirectTo: window.location.origin + '/dashboard' }
     });
-
-    if (error) {
-      console.error('Google login error:', error);
-      throw error;
-    }
+    if (error) throw error;
   };
 
   const loginWithGithub = async () => {
-    if (!supabase) {
-      console.error('Supabase client is not initialized. Check your environment variables.');
-      return;
-    }
-    const redirectTo = window.location.origin + '/dashboard';
-    console.log('Attempting GitHub login with redirect to:', redirectTo);
-
+    if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: {
-        redirectTo: redirectTo
-      }
+      options: { redirectTo: window.location.origin + '/dashboard' }
     });
-
-    if (error) {
-      console.error('GitHub login error:', error);
-      throw error;
-    }
+    if (error) throw error;
   };
 
   const loginWithLinkedin = async () => {
-    if (!supabase) {
-      console.error('Supabase client is not initialized. Check your environment variables.');
-      return;
-    }
-    const redirectTo = window.location.origin + '/dashboard';
-    console.log('Attempting LinkedIn login with redirect to:', redirectTo);
-
+    if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'linkedin_oidc', // Using OIDC as it is the current standard
-      options: {
-        redirectTo: redirectTo
-      }
+      provider: 'linkedin_oidc',
+      options: { redirectTo: window.location.origin + '/dashboard' }
     });
-
-    if (error) {
-      console.error('LinkedIn login error:', error);
-      throw error;
-    }
+    if (error) throw error;
   };
 
+  // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
     const response = await axios.post('/api/auth/signup', { email, password, fullName });
     const { token, refreshToken, user } = response.data;
@@ -241,7 +229,7 @@ export function AuthProvider({ children }) {
       setUser(user);
     }
 
-    return user;
+    return response.data.user;
   };
 
   const logout = async () => {
@@ -266,17 +254,15 @@ export function AuthProvider({ children }) {
     };
     setUser(guestUser);
     localStorage.setItem('isGuest', 'true');
-    // Clear any potential leftover real auth data to avoid confusion
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
   };
 
   const refreshSession = async () => {
-    const refreshToken = localStorage.getItem('refreshToken');
-    if (!refreshToken) return false;
+    const storedRefreshToken = localStorage.getItem('refreshToken');
+    if (!storedRefreshToken) return false;
 
-    // First try Supabase refresh if it's a supabase session
     let data = { session: null };
     let error = null;
 
@@ -295,37 +281,49 @@ export function AuthProvider({ children }) {
       return true;
     }
 
-    // Fallback to custom backend refresh
     try {
-      const response = await axios.post('/api/auth/refresh', { refreshToken });
+      const response = await axios.post('/api/auth/refresh', { refreshToken: storedRefreshToken });
       const { token, refreshToken: newRefreshToken } = response.data;
-
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', newRefreshToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       return true;
-    } catch (error) {
+    } catch {
       logout();
       return false;
     }
   };
 
-  // Derived helper
+  // Fix #9: keep ref in sync so the interceptor always has the latest function
+  refreshSessionRef.current = refreshSession;
+
   const isAdmin = user?.role === 'admin';
 
-  // Set up axios interceptor for token refresh on 401/403
+  // Fix #9: interceptor uses ref — no stale closure
+  // Fix #3: skip retry for EMAIL_NOT_VERIFIED 403 responses
   useEffect(() => {
     const interceptor = axios.interceptors.response.use(
       response => response,
       async error => {
         const originalRequest = error.config;
+        const responseData = error.response?.data;
+
+        if (!originalRequest || !isSafeRetryRequestUrl(originalRequest.url)) {
+          return Promise.reject(error);
+        }
+
+        // Fix #3: do NOT retry if the 403 is specifically email-not-verified
+        const isEmailNotVerified = error.response?.status === 403 &&
+          responseData?.code === 'EMAIL_NOT_VERIFIED';
+
         if (
-          (error.response?.status === 401 || error.response?.status === 403) &&
+          (error.response?.status === 401 ||
+            (error.response?.status === 403 && !isEmailNotVerified)) &&
           !originalRequest._retry &&
           localStorage.getItem('refreshToken')
         ) {
           originalRequest._retry = true;
-          const refreshed = await refreshSession();
+          const refreshed = await refreshSessionRef.current();
           if (refreshed) {
             originalRequest.headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
             return axios(originalRequest);
@@ -336,7 +334,7 @@ export function AuthProvider({ children }) {
     );
 
     return () => axios.interceptors.response.eject(interceptor);
-  }, []);
+  }, []); // safe — uses ref, no stale closure
 
   if (loading) {
     return (

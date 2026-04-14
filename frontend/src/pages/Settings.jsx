@@ -164,7 +164,7 @@ export default function Settings() {
                 <div className="account-stack">
                     <Section title="Preferences" subtitle="Personalize the workspace" icon={<Globe size={18} color="var(--text-primary)" />}>
                         <SettingRow label="Theme" desc={theme === 'dark' ? 'Currently using dark theme' : 'Currently using light theme'}>
-                            <Toggle label="Theme toggle" checked={theme === 'dark'} onChange={() => toggleTheme()} />
+                            <Toggle label="Theme toggle" checked={theme === 'dark'} onChange={toggleTheme} />
                         </SettingRow>
                         <SettingRow label="Language">
                             <select

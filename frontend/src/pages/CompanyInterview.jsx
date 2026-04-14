@@ -30,6 +30,26 @@ import './CompanyInterview.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const AUTO_SUBMIT_COUNTDOWN_SECONDS = AUTO_SUBMIT_DELAY_MS / 1000;
+const INTERVIEW_LABELS = {
+    company: 'Company',
+    role: 'Role',
+    stage: 'Stage',
+    difficulty: 'Difficulty',
+    format: 'Format',
+    interviewerVoice: 'Interviewer Voice (Groq API)',
+    tonePersona: 'Tone / Persona',
+    questionSource: 'Question Source',
+    resumePersonalization: 'Resume-Based Personalization',
+    resumeMode: 'Resume Interview Mode',
+    advancedControls: 'Advanced AI Controls',
+    runtimeMode: 'Runtime Mode',
+    interviewerStyle: 'Interviewer Style',
+    followUpDepth: 'Follow-up Depth',
+    pacing: 'Pacing',
+    questions: 'Questions',
+    focusTopics: 'Focus Topics (optional)',
+    realInterviewerMode: 'Real Interviewer Mode',
+};
 
 const INTERVIEW_PRESETS = [
     {
@@ -2239,7 +2259,7 @@ export default function CompanyInterview() {
                         <div className="ti-lobby-form">
                             {/* Company */}
                             <div className="ti-form-section">
-                                <label>Company</label>
+                                <label>{INTERVIEW_LABELS.company}</label>
                                 <div className="ti-company-chips">
                                     {COMPANIES.map(c => (
                                         <button
@@ -2257,7 +2277,7 @@ export default function CompanyInterview() {
                             {/* Role, Stage, Difficulty row */}
                             <div className="ti-form-row">
                                 <div className="ti-form-section">
-                                    <label>Role</label>
+                                    <label>{INTERVIEW_LABELS.role}</label>
                                     <input
                                         type="text"
                                         list="role-suggestions"
@@ -2271,13 +2291,13 @@ export default function CompanyInterview() {
                                     </datalist>
                                 </div>
                                 <div className="ti-form-section">
-                                    <label>Stage</label>
+                                    <label>{INTERVIEW_LABELS.stage}</label>
                                     <select value={config.stage} onChange={e => setConfig(prev => ({ ...prev, stage: e.target.value }))}>
                                         {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                                     </select>
                                 </div>
                                 <div className="ti-form-section">
-                                    <label>Difficulty</label>
+                                    <label>{INTERVIEW_LABELS.difficulty}</label>
                                     <select value={config.difficulty} onChange={e => setConfig(prev => ({ ...prev, difficulty: e.target.value }))}>
                                         {DIFFICULTIES.map(d => <option key={d} value={d}>{d}</option>)}
                                     </select>
@@ -2287,7 +2307,7 @@ export default function CompanyInterview() {
                             {/* Format & Gender */}
                             <div className="ti-form-row">
                                 <div className="ti-form-section">
-                                    <label>Format</label>
+                                    <label>{INTERVIEW_LABELS.format}</label>
                                     <div className="ti-format-toggle">
                                         <button
                                             className={`ti-format-btn ${config.format === 'voice' ? 'active' : ''}`}
@@ -2304,7 +2324,7 @@ export default function CompanyInterview() {
                                     </div>
                                 </div>
                                 <div className="ti-form-section">
-                                    <label>Interviewer Voice (Groq API)</label>
+                                    <label>{INTERVIEW_LABELS.interviewerVoice}</label>
                                     <div className="ti-format-toggle">
                                         <button
                                             className={`ti-format-btn ${config.interviewerGender === 'female' ? 'active' : ''}`}
@@ -2325,7 +2345,7 @@ export default function CompanyInterview() {
                             {/* Tone / Persona */}
                             <div className="ti-form-row">
                                 <div className="ti-form-section">
-                                    <label>Tone / Persona</label>
+                                    <label>{INTERVIEW_LABELS.tonePersona}</label>
                                     <div className="ti-format-toggle">
                                         <select
                                             value={config.interviewerPersona}
@@ -2346,7 +2366,7 @@ export default function CompanyInterview() {
 
                             {/* Question Source Toggle */}
                             <div className="ti-form-section">
-                                <label>Question Source</label>
+                                <label>{INTERVIEW_LABELS.questionSource}</label>
                                 <div className="ti-realq-toggle">
                                     <label className="ti-toggle-switch">
                                         <input
@@ -2372,7 +2392,7 @@ export default function CompanyInterview() {
                             </div>
 
                             <div className="ti-form-section">
-                                <label>Resume-Based Personalization</label>
+                                <label>{INTERVIEW_LABELS.resumePersonalization}</label>
                                 <div className="ti-realq-toggle">
                                     <label className="ti-toggle-switch">
                                         <input
@@ -2416,7 +2436,7 @@ export default function CompanyInterview() {
                                 </div>
                                 <div className="ti-form-row" style={{ marginTop: 12 }}>
                                     <div className="ti-form-section">
-                                        <label>Resume Interview Mode</label>
+                                        <label>{INTERVIEW_LABELS.resumeMode}</label>
                                         <select
                                             value={advancedOptions.resumeInterviewMode}
                                             onChange={e => updateAdvancedOption('resumeInterviewMode', e.target.value)}
@@ -2450,7 +2470,7 @@ export default function CompanyInterview() {
 
                             {/* Advanced AI Controls */}
                             <div className="ti-form-section">
-                                <label>Advanced AI Controls</label>
+                                <label>{INTERVIEW_LABELS.advancedControls}</label>
                                 <div className="ti-preset-grid">
                                     {INTERVIEW_PRESETS.map(preset => (
                                         <button
@@ -2477,7 +2497,7 @@ export default function CompanyInterview() {
                                             onChange={e => updateAdvancedOption('realInterviewerMode', e.target.checked)}
                                         />
                                         <span>
-                                            Real Interviewer Mode
+                                            {INTERVIEW_LABELS.realInterviewerMode}
                                             <small style={{ display: 'block', opacity: 0.75 }}>
                                                 Less coaching, sharper follow-ups, and closer to real interview pressure.
                                             </small>
@@ -2486,7 +2506,7 @@ export default function CompanyInterview() {
                                 </div>
                                 <div className="ti-form-row">
                                     <div className="ti-form-section">
-                                        <label>Runtime Mode</label>
+                                        <label>{INTERVIEW_LABELS.runtimeMode}</label>
                                         <select
                                             value={interviewRuntimeMode}
                                             onChange={e => {
@@ -2527,7 +2547,7 @@ export default function CompanyInterview() {
 
                                 <div className="ti-form-row">
                                     <div className="ti-form-section">
-                                        <label>Interviewer Style</label>
+                                        <label>{INTERVIEW_LABELS.interviewerStyle}</label>
                                         <select
                                             value={advancedOptions.interviewerIntensity}
                                             onChange={e => updateAdvancedOption('interviewerIntensity', e.target.value)}
@@ -2538,7 +2558,7 @@ export default function CompanyInterview() {
                                         </select>
                                     </div>
                                     <div className="ti-form-section">
-                                        <label>Follow-up Depth</label>
+                                        <label>{INTERVIEW_LABELS.followUpDepth}</label>
                                         <select
                                             value={advancedOptions.followUpDepth}
                                             onChange={e => updateAdvancedOption('followUpDepth', e.target.value)}
@@ -2548,7 +2568,7 @@ export default function CompanyInterview() {
                                         </select>
                                     </div>
                                     <div className="ti-form-section">
-                                        <label>Pacing</label>
+                                        <label>{INTERVIEW_LABELS.pacing}</label>
                                         <select
                                             value={advancedOptions.answerPace}
                                             onChange={e => updateAdvancedOption('answerPace', e.target.value)}
@@ -2561,7 +2581,7 @@ export default function CompanyInterview() {
                                 </div>
                                 <div className="ti-form-row">
                                     <div className="ti-form-section">
-                                        <label>Questions</label>
+                                        <label>{INTERVIEW_LABELS.questions}</label>
                                         <select
                                             value={advancedOptions.questionCount}
                                             onChange={e => updateAdvancedOption('questionCount', Number(e.target.value))}
@@ -2573,7 +2593,7 @@ export default function CompanyInterview() {
                                         </select>
                                     </div>
                                     <div className="ti-form-section" style={{ gridColumn: 'span 2' }}>
-                                        <label>Focus Topics (optional)</label>
+                                        <label>{INTERVIEW_LABELS.focusTopics}</label>
                                         <input
                                             type="text"
                                             className="ti-role-input"

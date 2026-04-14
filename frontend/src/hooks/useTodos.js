@@ -1,8 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { buildApiUrl } from '../utils/safeApiUrl';
 
 const STORAGE_KEY = 'preploop_todo_list';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+
+function buildTodoApiUrl(path) {
+  return buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+}
 
 function loadFromStorage() {
   try {
@@ -40,7 +46,7 @@ export default function useTodos() {
       }
 
       try {
-        const res = await axios.get('/api/user/todos');
+        const res = await axios.get(buildTodoApiUrl('/user/todos'));
         if (!cancelled) {
           setTodos(res.data.todos || []);
           initialLoadDone.current = true;
@@ -88,7 +94,7 @@ export default function useTodos() {
     }
 
     try {
-      const res = await axios.post('/api/user/todos', { text, priority, category, dueDate });
+      const res = await axios.post(buildTodoApiUrl('/user/todos'), { text, priority, category, dueDate });
       const newTodo = res.data.todo;
       setTodos(prev => [...prev, newTodo]);
       return newTodo;
@@ -119,7 +125,7 @@ export default function useTodos() {
 
     if (isLoggedIn) {
       try {
-        await axios.put(`/api/user/todos/${id}`, { completed: !todo.done });
+        await axios.put(buildTodoApiUrl(`/user/todos/${id}`), { completed: !todo.done });
       } catch (err) {
         console.error('Failed to toggle todo:', err);
         // Revert on failure
@@ -142,7 +148,7 @@ export default function useTodos() {
         if (updates.dueDate !== undefined) payload.dueDate = updates.dueDate;
         if (updates.subtasks !== undefined) payload.subtasks = updates.subtasks;
 
-        await axios.put(`/api/user/todos/${id}`, payload);
+        await axios.put(buildTodoApiUrl(`/user/todos/${id}`), payload);
       } catch (err) {
         console.error('Failed to update todo:', err);
       }
@@ -155,7 +161,7 @@ export default function useTodos() {
 
     if (isLoggedIn) {
       try {
-        await axios.delete(`/api/user/todos/${id}`);
+        await axios.delete(buildTodoApiUrl(`/user/todos/${id}`));
       } catch (err) {
         console.error('Failed to delete todo:', err);
         setTodos(prev);
@@ -169,7 +175,7 @@ export default function useTodos() {
 
     if (isLoggedIn) {
       try {
-        await axios.delete('/api/user/todos');
+        await axios.delete(buildTodoApiUrl('/user/todos'));
       } catch (err) {
         console.error('Failed to clear completed:', err);
         setTodos(prev);

@@ -2,6 +2,8 @@ import { supabaseAdmin } from './supabaseClient.js';
 import Groq from 'groq-sdk';
 import fs from 'fs';
 
+const EXTERNAL_AI_SYNC_ENABLED = process.env.ALLOW_EXTERNAL_AI_PROBLEM_SYNC === 'true';
+
 const groq = new Groq({
     apiKey: process.env.GROQ_API_KEY, // Ensure this is available in your shell or .env
 });
@@ -9,6 +11,11 @@ const groq = new Groq({
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function main() {
+    if (!EXTERNAL_AI_SYNC_ENABLED) {
+        console.log('External AI sync is disabled. Set ALLOW_EXTERNAL_AI_PROBLEM_SYNC=true to run this script.');
+        return;
+    }
+
     console.log('Fetching problems without complete solutions...');
 
     // Fetch all problems
@@ -47,8 +54,6 @@ Return the output ONLY as a minified valid JSON object containing exactly 4 keys
 Do NOT include any extra text. Make sure the JSON is totally valid.
 
 Problem Title: ${problem.title}
-Problem Description:
-${problem.description?.substring(0, 1500)}
 `;
             const completion = await groq.chat.completions.create({
                 model: 'llama-3.3-70b-versatile',
@@ -74,13 +79,15 @@ ${problem.description?.substring(0, 1500)}
                 .eq('id', problem.id);
 
             if (updateError) {
-                console.error(`  -> Failed to update DB for ${problem.title}: ${updateError.message}`);
+                console.error(`  -> Failed to update DB for [${problem.id}]`);
+                if (process.env.NODE_ENV !== 'production') console.error('  -> Detail:', updateError.message);
             } else {
                 console.log(`  -> Successfully updated ${problem.title}`);
                 count++;
             }
         } catch (e) {
-            console.error(`  -> Error processing ${problem.title}: ${e.message}`);
+            console.error(`  -> Error processing problem [${problem.id}]`);
+            if (process.env.NODE_ENV !== 'production') console.error('  -> Detail:', e.message);
         }
 
         // Wait 2s to not exceed rate limits (~ 30 RPM limit on free tier)

@@ -9,12 +9,31 @@
 import 'dotenv/config';
 import Groq from 'groq-sdk';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
+const TMP_AUDIO_ROOT = path.resolve(os.tmpdir());
+
+function resolveSafeAudioPath(filePath) {
+    if (typeof filePath !== 'string' || filePath.length === 0) {
+        throw new Error('Valid audio file path is required');
+    }
+
+    const resolvedPath = path.resolve(filePath);
+    if (!(resolvedPath === TMP_AUDIO_ROOT || resolvedPath.startsWith(`${TMP_AUDIO_ROOT}${path.sep}`))) {
+        throw new Error('Audio file path must be inside system temp directory');
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+        throw new Error('Valid audio file path is required');
+    }
+
+    return resolvedPath;
+}
 
 // ─── Provider availability ───
 const providers = {
@@ -158,11 +177,11 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
  * Deepgram Nova-2 → Groq Whisper → { fallback: true }
  */
 export async function speechToText(filePath, preferredProvider = null) {
-    if (!filePath || !fs.existsSync(filePath)) throw new Error('Valid audio file path is required');
+    const safeFilePath = resolveSafeAudioPath(filePath);
 
     if (providers.deepgram && (!preferredProvider || preferredProvider === 'deepgram')) {
         try {
-            const result = await deepgramSTT(filePath);
+            const result = await deepgramSTT(safeFilePath);
             if (result) return result;
         } catch (err) {
             console.warn('[STT] Deepgram failed:', err.message?.substring(0, 120));
@@ -171,7 +190,7 @@ export async function speechToText(filePath, preferredProvider = null) {
 
     if (providers.groq && (!preferredProvider || preferredProvider === 'groq')) {
         try {
-            const result = await groqWhisperSTT(filePath);
+            const result = await groqWhisperSTT(safeFilePath);
             if (result) return result;
         } catch (err) {
             console.warn('[STT] Groq Whisper failed:', err.message?.substring(0, 120));
@@ -348,10 +367,15 @@ async function kokoroTTS(text, persona, gender = 'female') {
 }
 
 async function googleTranslateTTS(text, language) {
-    const tl    = /^hi/i.test(language) ? 'hi' : 'en';
-    const query = new URLSearchParams({ ie: 'UTF-8', client: 'tw-ob', tl, q: text });
+    const tl = /^hi/i.test(language) ? 'hi' : 'en';
+    const googleTtsUrl = new URL('https://translate.google.com/translate_tts');
+    googleTtsUrl.search = new URLSearchParams({ ie: 'UTF-8', client: 'tw-ob', tl, q: String(text) }).toString();
 
-    const response = await fetch(`https://translate.google.com/translate_tts?${query}`, {
+    if (googleTtsUrl.protocol !== 'https:' || googleTtsUrl.hostname !== 'translate.google.com') {
+        throw new Error('Blocked unexpected Google TTS host');
+    }
+
+    const response = await fetch(googleTtsUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
     });
 
@@ -363,7 +387,8 @@ async function googleTranslateTTS(text, language) {
 
 async function deepgramSTT(filePath) {
     const apiKey      = process.env.DEEPGRAM_API_KEY;
-    const audioBuffer = fs.readFileSync(filePath);
+    const safeFilePath = resolveSafeAudioPath(filePath);
+    const audioBuffer = fs.readFileSync(safeFilePath);
 
     const response = await fetch(DEEPGRAM_STT_URL, {
         method:  'POST',
@@ -386,9 +411,10 @@ async function deepgramSTT(filePath) {
 }
 
 async function groqWhisperSTT(filePath) {
+    const safeFilePath = resolveSafeAudioPath(filePath);
     const transcription = await groq.audio.transcriptions.create({
         model:           'whisper-large-v3-turbo',
-        file:            fs.createReadStream(filePath),
+        file:            fs.createReadStream(safeFilePath),
         response_format: 'json',
     });
 
@@ -399,6 +425,24 @@ async function groqWhisperSTT(filePath) {
     };
 }
 
+/**
+ * Preload Kokoro TTS model at startup (fire-and-forget).
+ * Eliminates the ~2s cold-start penalty on the first TTS request.
+ * Safe to call multiple times — subsequent calls are no-ops.
+ */
+async function preloadKokoroTTS() {
+    try {
+        const instance = await getKokoroTTS();
+        if (instance) {
+            console.log('[Kokoro] Preloaded at startup ✓  (first TTS will be instant)');
+        } else {
+            console.warn('[Kokoro] Preload skipped — model unavailable, will use fallback providers');
+        }
+    } catch (err) {
+        console.warn('[Kokoro] Preload failed (non-fatal):', err.message?.substring(0, 120));
+    }
+}
+
 export default {
     textToSpeech,
     speechToText,
@@ -406,4 +450,5 @@ export default {
     getDeepgramToken,
     getAvailableProviders,
     generateBackchannelClips,
+    preloadKokoroTTS,
 };

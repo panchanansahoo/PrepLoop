@@ -14,15 +14,71 @@ import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../utils/
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
+function safeDeleteUploadFile(filePath) {
+  if (!filePath) return;
+  const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+  const resolvedPath = path.resolve(filePath);
+  if (!resolvedPath.startsWith(resolvedUploadDir + path.sep) && resolvedPath !== resolvedUploadDir) {
+    return;
+  }
+
+  try {
+    if (fs.existsSync(resolvedPath)) fs.unlinkSync(resolvedPath);
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+// ─── Helpers ───
+
+/** Truncate conversation history to the last N turns (each turn = 1 user + 1 assistant message). */
+const MAX_HISTORY_TURNS = 6;
+function truncateConversationHistory(history) {
+  if (!Array.isArray(history) || history.length === 0) return [];
+  const maxMessages = MAX_HISTORY_TURNS * 2;
+  return history.length > maxMessages ? history.slice(-maxMessages) : history;
+}
+
+/** Deterministic pseudo-random for scoring — avoids Math.random() non-determinism. */
+function deterministicScore(base, range, seed) {
+  const s = typeof seed === 'string' ? seed.length : Number(seed) || 0;
+  const hash = ((s * 2654435761) >>> 0) % range;
+  return base + hash;
+}
+
+/** Deterministic array pick using seed instead of Math.random(). */
+function deterministicPick(arr, seed) {
+  if (!arr.length) return arr[0];
+  const s = typeof seed === 'string' ? seed.length : Number(seed) || 0;
+  const idx = ((s * 2654435761) >>> 0) % arr.length;
+  return arr[idx];
+}
+
+/** Safely parse JSON from AI response, returning null on failure. */
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Try to extract JSON from markdown code fences
+    const fenced = text?.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenced?.[1]) {
+      try { return JSON.parse(fenced[1].trim()); } catch { /* fall through */ }
+    }
+    return null;
+  }
+}
+
 // Multer config for STT audio uploads
+const UPLOAD_DIR = os.tmpdir();
 const upload = multer({
   storage: multer.diskStorage({
-    destination: os.tmpdir(),
-    filename: (req, file, cb) => cb(null, `stt_${Date.now()}${path.extname(file.originalname) || '.webm'}`)
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => cb(null, `stt_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`)
   }),
   limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    cb(null, file.mimetype.startsWith('audio/'));
+    if (!file.mimetype.startsWith('audio/')) return cb(null, false);
+    cb(null, true);
   }
 });
 
@@ -480,7 +536,7 @@ async function generateInterviewerName(company = '') {
       baseDelayMs: 200,
     });
 
-    const parsed = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '{}');
     const name = String(parsed?.name || '').trim();
     if (!name || name.split(/\s+/).length < 2) return pickFallbackInterviewerName();
     return name;
@@ -673,7 +729,7 @@ ${styleHints.join('\n')}
       baseDelayMs: 200,
     });
 
-    const parsed = JSON.parse(completion.choices?.[0]?.message?.content || '{}');
+    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '{}');
     const question = String(parsed?.question || '').trim();
     if (question) return question;
   } catch {
@@ -1091,7 +1147,8 @@ Respond as JSON:
       baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!result) throw new Error('Failed to parse AI start response');
     return res.json(withRuntime({
       ...result,
       context: {
@@ -1306,6 +1363,18 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+
+  // Fix #8: Declare safeQuestionNumber BEFORE buildCanonicalFollowUpPayload so the
+  // closure can reference it without a ReferenceError (const is not hoisted).
+  const parsedQuestionNumber = Number(questionNumber);
+  const safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
+    ? Math.floor(parsedQuestionNumber)
+    : 2;
+  const parsedTotalQuestions = Number(totalQuestions);
+  const safeTotalQuestions = Number.isFinite(parsedTotalQuestions) && parsedTotalQuestions >= 1
+    ? Math.floor(parsedTotalQuestions)
+    : 8;
+
   const buildCanonicalFollowUpPayload = (payload = {}) => {
     const turn = Number(payload?.questionMeta?.sequence);
     return {
@@ -1339,14 +1408,6 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   const isFresherTechnical = fresherScriptMode && stage === 'Technical';
   const isFresherHR = fresherScriptMode && stage === 'HR';
   const staticQuestions = getStaticInterviewQuestions(stage);
-  const parsedQuestionNumber = Number(questionNumber);
-  const safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
-    ? Math.floor(parsedQuestionNumber)
-    : 2;
-  const parsedTotalQuestions = Number(totalQuestions);
-  const safeTotalQuestions = Number.isFinite(parsedTotalQuestions) && parsedTotalQuestions >= 1
-    ? Math.floor(parsedTotalQuestions)
-    : 8;
 
   // Fresher-HR Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated (different each interview), Q11 wrap-up, Q12 closing
     if (isFresherHR) {
@@ -1366,7 +1427,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         'Excellent! You\'ve demonstrated great interpersonal awareness.',
         'That\'s really thoughtful. I like how you framed that.',
       ];
-      feedbackMessage = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
+      feedbackMessage = deterministicPick(feedbackOptions, qNum);
 
       let followUpQuestion = '';
       let closingRemark = undefined;
@@ -1404,9 +1465,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         followUpQuestion: isComplete ? '' : followUpQuestion,
         closingRemark: isComplete ? closingRemark : undefined,
         complete: isComplete,
-        score: 78 + Math.floor(Math.random() * 15),
-        strengths: [['Clear communication'], ['Genuine engagement'], ['Good self-awareness']][Math.floor(Math.random() * 3)],
-        improvements: [['Add one concrete example'], ['Relate to team dynamics'], ['Show growth mindset']][Math.floor(Math.random() * 3)],
+        score: deterministicScore(78, 15, qNum + (userAnswer?.length || 0)),
+        strengths: deterministicPick([['Clear communication'], ['Genuine engagement'], ['Good self-awareness']], qNum),
+        improvements: deterministicPick([['Add one concrete example'], ['Relate to team dynamics'], ['Show growth mindset']], qNum + 1),
         interviewerReaction: isComplete ? 'encouraging' : 'probing',
         thinkTime: 20,
         hint: 'Answer naturally and relate your response to your experience and values.',
@@ -1437,7 +1498,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       'Nice! You covered the key points clearly.',
       'Excellent! You have a practical understanding.'
     ];
-    feedbackMessage = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
+    feedbackMessage = deterministicPick(feedbackOptions, qNum);
 
     let followUpQuestion = '';
     let closingRemark = undefined;
@@ -1474,9 +1535,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       followUpQuestion: isComplete ? '' : followUpQuestion,
       closingRemark: isComplete ? closingRemark : undefined,
       complete: isComplete,
-      score: 72 + Math.floor(Math.random() * 18),
-      strengths: [['Clear explanation'], ['Practical thinking'], ['Good communication']][Math.floor(Math.random() * 3)],
-      improvements: [['Mention edge cases'], ['Add more examples'], ['Explain trade-offs']][Math.floor(Math.random() * 3)],
+      score: deterministicScore(72, 18, qNum + (userAnswer?.length || 0)),
+      strengths: deterministicPick([['Clear explanation'], ['Practical thinking'], ['Good communication']], qNum),
+      improvements: deterministicPick([['Mention edge cases'], ['Add more examples'], ['Explain trade-offs']], qNum + 1),
       interviewerReaction: isComplete ? 'encouraging' : 'probing',
       thinkTime: 20,
       hint: 'Explain your reasoning step by step, then mention trade-offs or real-world use cases.',
@@ -1655,21 +1716,21 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       const isLast = safeQuestionNumber > safeTotalQuestions;
 
       return res.json(withRuntime({
-        feedback: reactions[Math.floor(Math.random() * reactions.length)],
+        feedback: deterministicPick(reactions, safeQuestionNumber),
         followUpQuestion: isLast ? '' : (nextRealQuestion ? nextRealQuestion.question : questions[qIdx]),
         closingRemark: isLast ? `Thank you so much for your time today! You've given some really thoughtful answers. We'll be in touch soon with next steps. Best of luck!` : undefined,
-        score: 65 + Math.floor(Math.random() * 25),
+        score: deterministicScore(65, 25, safeQuestionNumber + (userAnswer?.length || 0)),
         strengths: [
-          ['Clear communication', 'Structured thinking', 'Good examples'][Math.floor(Math.random() * 3)],
-          ['Technical depth', 'Problem-solving mindset', 'Practical approach'][Math.floor(Math.random() * 3)]
+          deterministicPick(['Clear communication', 'Structured thinking', 'Good examples'], safeQuestionNumber),
+          deterministicPick(['Technical depth', 'Problem-solving mindset', 'Practical approach'], safeQuestionNumber + 1)
         ],
         improvements: [
-          ['Add more specific metrics', 'Consider edge cases', 'Discuss trade-offs'][Math.floor(Math.random() * 3)],
-          ['Mention real-world experience', 'Think about scalability', 'Explore alternatives'][Math.floor(Math.random() * 3)]
+          deterministicPick(['Add more specific metrics', 'Consider edge cases', 'Discuss trade-offs'], safeQuestionNumber),
+          deterministicPick(['Mention real-world experience', 'Think about scalability', 'Explore alternatives'], safeQuestionNumber + 1)
         ],
-        interviewerReaction: ['encouraging', 'impressed', 'probing', 'neutral'][Math.floor(Math.random() * 4)],
-        thinkTime: 30 + Math.floor(Math.random() * 30),
-        hint: ['Think about time vs space trade-offs', 'Consider the edge cases first', 'Try working through a small example', 'What would happen at scale?'][Math.floor(Math.random() * 4)],
+        interviewerReaction: deterministicPick(['encouraging', 'impressed', 'probing', 'neutral'], safeQuestionNumber),
+        thinkTime: deterministicScore(30, 30, safeQuestionNumber),
+        hint: deterministicPick(['Think about time vs space trade-offs', 'Consider the edge cases first', 'Try working through a small example', 'What would happen at scale?'], safeQuestionNumber),
         questionSource: nextRealQuestion ? 'database' : personalizedQuestionSource,
         questionMeta: realQuestionMeta || null,
       }));
@@ -1679,7 +1740,8 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     const isLastQuestion = safeQuestionNumber > effectiveTotalQuestions;
 
     if (fresherScriptMode) {
-      const score = Math.max(62, Math.min(94, 70 + Math.floor(Math.random() * 18)));
+      const answerLen = userAnswer?.length || 0;
+      const score = Math.max(62, Math.min(94, deterministicScore(70, 18, safeQuestionNumber + answerLen)));
 
       if (isLastQuestion) {
         const shouldClose = isFinalNoAnswer(userAnswer);
@@ -1848,7 +1910,7 @@ Respond as JSON:
   "adaptiveNote": "Brief explanation of difficulty adjustment"${code ? ',\n  "codeFeedback": {"correctness": "pass|fail|partial", "timeComplexity": "O(...)", "spaceComplexity": "O(...)", "quality": 0-10, "issues": ["issue1"], "optimizedApproach": "brief suggestion"}' : ''}
 }`
       },
-      ...(conversationHistory || []).map(h => ({
+      ...truncateConversationHistory(conversationHistory || []).map(h => ({
         role: h.role === 'interviewer' ? 'assistant' : 'user',
         content: h.content
       })),
@@ -1869,7 +1931,12 @@ Respond as JSON:
       baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const rawContent = completion.choices[0].message.content;
+    const result = safeJsonParse(rawContent);
+    if (!result) {
+      console.error('Follow-up JSON parse failed, raw:', rawContent?.substring(0, 300));
+      throw new Error('AI returned malformed JSON');
+    }
     const normalizedResult = normalizeInterviewFeedback(result, {
       stage,
       question: previousQuestion,
@@ -1930,7 +1997,7 @@ Respond as JSON:
     res.json(withRuntime({
       ...fallbackFeedback,
       followUpQuestion: fallbackFollowUps[stage] || defaultFallbackByExperience,
-      score: 72 + Math.floor(Math.random() * 15),
+      score: deterministicScore(72, 15, safeQuestionNumber + (userAnswer?.length || 0)),
       interviewerReaction: 'encouraging',
       thinkTime: 45,
     }));
@@ -1969,7 +2036,7 @@ Respond as JSON:
             },
             ...(conversationHistory || []).slice(-4).map(h => ({
               role: h.role === 'interviewer' ? 'assistant' : 'user',
-              content: h.content
+              content: String(h.content || '').substring(0, 500)
             })),
             { role: 'user', content: `I'm stuck on: "${currentQuestion}". Can you give me a hint?` }
           ],
@@ -1981,7 +2048,8 @@ Respond as JSON:
       baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!result) throw new Error('Failed to parse hint response');
     res.json(result);
   } catch (error) {
     console.error('Hint error:', error.message);
@@ -1998,11 +2066,14 @@ router.post('/rephrase', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'Missing requirements for rephrase' });
     }
 
-    const completion = await callGroqWithRetry({
-      messages: [
-        {
-          role: 'system',
-          content: `You are an interviewer from ${company} conducting a ${stage} interview.
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an interviewer from ${company} conducting a ${stage} interview.
 The candidate is struggling to answer the current question or is silent.
 Rephrase the question to be simpler, more direct, and easier to understand.
 Do not change the core topic, just make it more approachable.
@@ -2011,18 +2082,20 @@ Output ONLY a JSON object with this shape:
 {
   "rephrased": "The simpler version of the question"
 }`
-        },
-        { role: 'user', content: `Original question: "${question}"` }
-      ],
-      model: "llama-3.3-70b-versatile",
-      temperature: 0.7,
-      response_format: { type: "json_object" },
-      max_tokens: 200,
+            },
+            { role: 'user', content: `Original question: "${question}"` }
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.7,
+          max_tokens: 200,
+        }),
       timeoutMs: 8000,
       maxRetries: 2,
+      baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!result) throw new Error('Failed to parse rephrase response');
     res.json(result);
   } catch (error) {
     console.error('Rephrase error:', error.message);
@@ -2063,7 +2136,8 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
       baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!result) throw new Error('Failed to parse nudge response');
     res.json(result);
   } catch (error) {
     console.error('Nudge error:', error.message?.substring(0, 100));
@@ -2520,7 +2594,8 @@ Return valid JSON with this shape:
       baseDelayMs: 250,
     });
 
-    const parsed = JSON.parse(completion.choices[0].message.content);
+    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!parsed) throw new Error('Failed to parse interview report');
     return normalizeInterviewReport(
       {
         ...fallbackReport,
@@ -2574,6 +2649,9 @@ router.post('/speech-feedback', optionalAuth, async (req, res) => {
   const { transcript, duration } = req.body;
 
   try {
+    if (!transcript || typeof transcript !== 'string') {
+      return res.status(400).json({ error: 'Transcript is required' });
+    }
     const words = transcript.split(/\s+/).filter(Boolean);
     const wordCount = words.length;
     const wpm = duration > 0 ? Math.round((wordCount / duration) * 60) : 0;
@@ -2681,7 +2759,8 @@ Respond strictly in this JSON format:
       baseDelayMs: 250,
     });
 
-    const result = JSON.parse(completion.choices[0].message.content);
+    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!result) throw new Error('Failed to parse copilot response');
     res.json(result);
   } catch (error) {
     console.error('Copilot suggest error:', error.message);
@@ -2693,11 +2772,17 @@ Respond strictly in this JSON format:
 router.post('/tts', optionalAuth, async (req, res) => {
   const { text, persona } = req.body;
 
-  if (!text || text.trim().length === 0) {
+  if (!text || String(text).trim().length === 0) {
     return res.status(400).json({ error: 'Text is required' });
   }
 
-  // Voice selection based on interviewer persona
+  // Sanitize text early — strip HTML tags to prevent XSS via reflected content
+  const sanitizedText = String(text).replace(/<[^>]*>/g, '').substring(0, 1500);
+
+  if (sanitizedText.length === 0) {
+    return res.status(400).json({ error: 'Text is required after sanitization' });
+  }
+
   const voiceMap = {
     friendly: 'diana',
     analytical: 'tara',
@@ -2719,7 +2804,7 @@ router.post('/tts', optionalAuth, async (req, res) => {
     // Primary: Orpheus with persona-selected voice
     const response = await groq.audio.speech.create({
       model: 'canopylabs/orpheus-v1-english',
-      input: text,
+      input: sanitizedText,
       voice: selectedVoice,
       response_format: 'wav',
     });
@@ -2739,11 +2824,11 @@ router.post('/tts', optionalAuth, async (req, res) => {
   } catch (error) {
     console.error('Orpheus TTS error:', error.message?.substring(0, 200));
 
-    // Fallback: try PlayAI
+    // Fallback: try PlayAI — sanitizedText is in scope here
     try {
       const response = await groq.audio.speech.create({
         model: 'playai-tts',
-        input: text,
+        input: sanitizedText,
         voice: 'Arista-PlayAI',
         response_format: 'wav',
       });
@@ -2764,9 +2849,19 @@ router.post('/tts', optionalAuth, async (req, res) => {
 router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
   const filePath = req.file?.path;
 
+  // Validate that the resolved path stays within the expected temp directory
+  if (filePath) {
+    const resolvedPath = path.resolve(filePath);
+    const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+    if (!resolvedPath.startsWith(resolvedUploadDir + path.sep) && resolvedPath !== resolvedUploadDir) {
+      safeDeleteUploadFile(filePath);
+      return res.status(400).json({ error: 'Invalid file path' });
+    }
+  }
+
   try {
     if (!groq) {
-      if (filePath) fs.unlinkSync(filePath);
+      safeDeleteUploadFile(filePath);
       return res.status(503).json({ error: 'AI service unavailable' });
     }
 
@@ -2781,7 +2876,7 @@ router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
     });
 
     // Clean up temp file
-    try { fs.unlinkSync(filePath); } catch { }
+    safeDeleteUploadFile(filePath);
 
     res.json({
       text: transcription.text || '',
@@ -2789,7 +2884,7 @@ router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
     });
   } catch (error) {
     console.error('STT error:', error.message);
-    try { if (filePath) fs.unlinkSync(filePath); } catch { }
+    safeDeleteUploadFile(filePath);
     res.status(500).json({ error: 'STT failed' });
   }
 });

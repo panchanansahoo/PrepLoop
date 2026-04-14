@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../context/AuthContext';
-import { useVoiceInterview } from '../hooks/useVoiceInterview';
+// Legacy useVoiceInterview removed — all voice handled by useDeepgramVoice
 import { useDeepgramVoice } from '../hooks/useDeepgramVoice';
 import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
 import VoiceWaveform from '../components/VoiceWaveform';
 import {
     Mic, MicOff, Phone, Flag, Code2, FileText, Palette,
     Clock, Search, Bell, Settings, RotateCcw, Sparkles,
-    Send, MessageSquare, X, ChevronRight, Zap, Play,
+    Send, MessageSquare, X, ChevronRight, Zap, Play, Pause,
     Bookmark, Volume2, VolumeX, Wifi, User, Building2,
     ArrowLeft, ArrowRight, CheckCircle, Star,
     Award, TrendingUp, BarChart3, Target, Brain, Shield,
@@ -19,6 +19,15 @@ import {
     Video, VideoOff, PanelRightOpen, PanelRightClose,
     Captions, CaptionsOff, GraduationCap, Briefcase
 } from 'lucide-react';
+import {
+    getThinkingDelayMs,
+    getInterviewerReaction,
+    communicationScore as calcCommunication,
+    technicalScore as calcTechnical,
+    problemSolvingScore as calcProblemSolving,
+    codeQualityScore as calcCodeQuality,
+    getQuestionTimeLimit,
+} from './aiInterviewTiming';
 import './AIInterviewPage.css';
 
 /* ═══ Constants ═══ */
@@ -152,6 +161,7 @@ func main() {
 };
 
 const AI_INTERVIEW_GENDER_STORAGE_KEY = 'preploop-ai-interview-gender-v1';
+const AI_INTERVIEW_SESSION_KEY = 'preploop-ai-interview-session-v1'; // I9: session persistence
 
 const readStoredInterviewerGender = () => {
     if (typeof window === 'undefined') return 'male';
@@ -255,6 +265,15 @@ export default function AIInterviewPage() {
     const [elapsed, setElapsed] = useState(0);
     const timerRef = useRef(null);
 
+    // ── Pause / Resume ──
+    const [isPaused, setIsPaused] = useState(false);
+    const [totalPauseTime, setTotalPauseTime] = useState(0);
+    const pauseStartRef = useRef(null);
+
+    // ── Per-Question Timer ──
+    const [questionElapsed, setQuestionElapsed] = useState(0);
+    const questionTimerRef = useRef(null);
+
     // ── Interview State ──
     const [currentQuestion, setCurrentQuestion] = useState('');
     const [questionIndex, setQuestionIndex] = useState(0);
@@ -272,21 +291,23 @@ export default function AIInterviewPage() {
     const [interviewerVideoReady, setInterviewerVideoReady] = useState({ speaking: false, listening: false });
     const [interviewerVisibleMode, setInterviewerVisibleMode] = useState('listening');
 
-    // ── Voice Orchestration Hook ──
+    // ── Voice State (previously from legacy useVoiceInterview) ──
     const sendAnswerRef = useRef(null);
-    const classicVoice = useVoiceInterview({
-        speakerMuted,
-        interviewerGender,
-        getAuthHeaders,
-        getBrowserVoice: () => ({ pitch: 1.0, rate: 0.95 }),
-        splitTextForTTS: (text) => {
-            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
-            return sentences.map(s => s.trim()).filter(s => s.length > 0);
-        },
-        onAutoSend: () => {
-            if (sendAnswerRef.current) sendAnswerRef.current();
+    const [aiSpeaking, setAiSpeaking] = useState(false);
+    const [transcript, setTranscriptRaw] = useState('');
+    const [silenceCountdown] = useState(0); // Kept for UI compatibility
+    const isListeningRef = useRef(false);
+    const isSendingRef = useRef(false);
+    const ttsAudioRef = useRef(null);
+
+    // Stable setTranscript that also tracks final text
+    const setTranscript = useCallback((val) => {
+        if (typeof val === 'function') {
+            setTranscriptRaw(val);
+        } else {
+            setTranscriptRaw(val || '');
         }
-    });
+    }, []);
 
     // ── Deepgram Streaming Voice Hook ──
     // Runs the real-time STT (Deepgram) + TTS (Kokoro local) pipeline.
@@ -294,14 +315,14 @@ export default function AIInterviewPage() {
     const dgVoice = useDeepgramVoice({
         onAnswer: useCallback((answerText) => {
             // Push transcribed text into state for UI display
-            classicVoice.setTranscript(answerText);
+            setTranscriptRaw(answerText || '');
             // CRITICAL: Pass answerText directly to sendAnswer because React
             // state (transcript) won't update until the next render. Without
             // this, sendAnswer reads stale/empty transcript and silently bails.
             if (sendAnswerRef.current) sendAnswerRef.current(false, answerText);
         }, []),  // eslint-disable-line react-hooks/exhaustive-deps
         onTranscriptUpdate: useCallback((partial) => {
-            classicVoice.setTranscript(partial);
+            setTranscriptRaw(partial || '');
         }, []),  // eslint-disable-line react-hooks/exhaustive-deps
         interviewType,
         personaGender: interviewerGender,
@@ -311,22 +332,6 @@ export default function AIInterviewPage() {
     // ── Interview Intelligence (filler detection + answer analysis) ──
     const intelligence = useInterviewIntelligence({ getAuthHeaders });
 
-    // Use classic voice as foundation; override speak/record with Deepgram pipeline.
-    const voice = classicVoice;
-
-
-    // Destructure classic voice hook values (refs / TTS state)
-    const {
-        aiSpeaking,
-        setAiSpeaking,
-        transcript,
-        setTranscript,
-        silenceCountdown,
-        isListeningRef,
-        isSendingRef,
-        ttsAudioRef,
-    } = voice;
-
     // isListening now derived from dgVoice.state so the UI accurately reflects
     // the Deepgram MediaRecorder pipeline (not the legacy WebSpeech API)
     const isListening = dgVoice.state === 'listening';
@@ -335,17 +340,71 @@ export default function AIInterviewPage() {
         isListeningRef.current = isListening;
     }, [isListening, isListeningRef]);
 
+    // Fix 3: Keep micOn in perfect sync with isListening (single source of truth)
+    useEffect(() => {
+        setMicOn(isListening);
+    }, [isListening]);
+
+    // Fix 5: Detect when user interrupts AI speech and sync page-level state
+    useEffect(() => {
+        if (dgVoice.interruptDetected) {
+            setAiSpeaking(false);
+            if (ttsAudioRef.current) {
+                ttsAudioRef.current.pause();
+                ttsAudioRef.current = null;
+            }
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+    }, [dgVoice.interruptDetected, setAiSpeaking, ttsAudioRef]);
+
     // ── Upgraded voice controls ──
     // speakInterviewerText → routes through backend TTS (Kokoro local → Groq Orpheus → browser)
     const speakInterviewerText = useCallback(async (text) => {
-        if (!text) return;
+        // Fix #6: Respect speaker mute — don't speak when muted
+        if (!text || speakerMuted) return;
         setAiSpeaking(true);
-        await dgVoice.speak(text, {
-            onStart: () => setAiSpeaking(true),
-            onEnd:   () => setAiSpeaking(false),
-        });
-        setAiSpeaking(false);
-    }, [dgVoice, setAiSpeaking]);
+        try {
+            await dgVoice.speak(text, {
+                onStart: () => setAiSpeaking(true),
+                onEnd:   () => {},  // Handled by caller or speakSequence
+            });
+        } finally {
+            // Only set false if this is a standalone call (speakSequence overrides)
+            setAiSpeaking(false);
+        }
+    }, [dgVoice, setAiSpeaking, speakerMuted]);
+
+    // speakSequence — speak multiple texts without aiSpeaking flicker between segments.
+    // Keeps the interviewer video in "speaking" mode across all segments.
+    const speakSequenceCancelledRef = useRef(false);
+    const speakSequence = useCallback(async (segments, { pauseMs = 400 } = {}) => {
+        // Fix #6: Respect speaker mute
+        if (!segments || segments.length === 0 || speakerMuted) return;
+        speakSequenceCancelledRef.current = false;
+        setAiSpeaking(true);
+        try {
+            for (let i = 0; i < segments.length; i++) {
+                // Abort remaining segments if paused or cancelled mid-sequence
+                if (speakSequenceCancelledRef.current) break;
+
+                const text = segments[i];
+                if (!text || !text.trim()) continue;
+
+                await dgVoice.speak(text, {
+                    onStart: () => {},  // aiSpeaking already true
+                    onEnd:   () => {},  // Don't set false between segments
+                });
+
+                // Brief natural pause between segments (not after last one)
+                if (i < segments.length - 1 && pauseMs > 0) {
+                    if (speakSequenceCancelledRef.current) break;
+                    await new Promise(r => setTimeout(r, pauseMs));
+                }
+            }
+        } finally {
+            setAiSpeaking(false);
+        }
+    }, [dgVoice, setAiSpeaking, speakerMuted]);
 
     // startVoiceRecording / stopVoiceRecording → Deepgram MediaRecorder pipeline
     const startVoiceRecording = useCallback(() => {
@@ -389,8 +448,83 @@ export default function AIInterviewPage() {
     // ── Notes ──
     const [notes, setNotes] = useState('');
 
+    // ── I9: Session Persistence ──
+    const [savedSession, setSavedSession] = useState(null); // Recoverable session from localStorage
+
+    // I9: Check for saved session on mount
+    useEffect(() => {
+        try {
+            const raw = window.localStorage.getItem(AI_INTERVIEW_SESSION_KEY);
+            if (raw) {
+                const session = JSON.parse(raw);
+                // Only offer recovery if session is less than 2 hours old
+                if (session.timestamp && Date.now() - session.timestamp < 2 * 60 * 60 * 1000) {
+                    setSavedSession(session);
+                } else {
+                    window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
+                }
+            }
+        } catch {
+            // Corrupted data — clean up
+            try { window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY); } catch {}
+        }
+    }, []);
+
+    // I9: Save session to localStorage when conversation changes during interview
+    useEffect(() => {
+        if (phase !== 'interview' || conversation.length === 0) return;
+        try {
+            const sessionData = {
+                conversation,
+                questionIndex,
+                currentQuestion,
+                elapsed,
+                totalQuestions,
+                interviewType,
+                interviewerGender,
+                code,
+                language,
+                notes,
+                timestamp: Date.now(),
+            };
+            window.localStorage.setItem(AI_INTERVIEW_SESSION_KEY, JSON.stringify(sessionData));
+        } catch {
+            // Storage full or unavailable — silently skip
+        }
+    }, [conversation, phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // I9: Clear saved session helper
+    const clearSavedSession = useCallback(() => {
+        setSavedSession(null);
+        try { window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY); } catch {}
+    }, []);
+
+    // I9: Restore session from saved data
+    const restoreSession = useCallback((session) => {
+        setConversation(session.conversation || []);
+        setQuestionIndex(session.questionIndex || 1);
+        setCurrentQuestion(session.currentQuestion || '');
+        setElapsed(session.elapsed || 0);
+        setTotalQuestions(session.totalQuestions || 6);
+        setInterviewType(session.interviewType || 'technical');
+        setInterviewerGender(session.interviewerGender || 'male');
+        setCode(session.code || BOILERPLATE.python);
+        setLanguage(session.language || 'python');
+        setNotes(session.notes || '');
+        setSavedSession(null);
+        setPhase('interview');
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+
     // ── Webcam ──
     const videoRef = useRef(null);
+    // Fix #3: Track questionIndex in a ref so sendAnswer closures always read the latest value
+    const questionIndexRef = useRef(1);
+    // Keep questionIndexRef in sync with state
+    useEffect(() => {
+        questionIndexRef.current = questionIndex;
+    }, [questionIndex]);
+
     const streamRef = useRef(null);
     const interviewerSpeakingVideoRef = useRef(null);
     const interviewerListeningVideoRef = useRef(null);
@@ -509,6 +643,7 @@ export default function AIInterviewPage() {
             totalMessages,
             linesOfCode: lineCount,
             language,
+            pauseTime: totalPauseTime > 0 ? formatTime(Math.round(totalPauseTime / 1000)) : null,
         };
 
         // Icon and color mapping for category names
@@ -523,21 +658,24 @@ export default function AIInterviewPage() {
         setAnalysisLoading(true);
         try {
             const headers = getAuthHeaders ? getAuthHeaders() : {};
-            const res = await fetch('/api/company-interview/analyze', {
+            const res = await fetch('/api/company-interview/evaluate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...headers },
                 body: JSON.stringify({
-                    conversation: conversation.map(m => ({ role: m.role, content: m.content })),
+                    conversation: conversation.map(m => ({
+                        role: m.role,
+                        content: m.content,
+                        score: m.score,
+                        strengths: m.strengths,
+                        improvements: m.improvements,
+                        questionSource: m.questionSource,
+                        questionMeta: m.questionMeta,
+                        timestamp: m.timestamp,
+                    })),
                     company: targetCompany || 'General',
                     role: targetRole || 'Software Engineer',
                     stage: interviewType,
-                    interviewType,
-                    duration: formatTime(elapsed),
-                    questionsAnswered: questionIndex,
-                    code,
-                    language,
-                    linesOfCode: lineCount,
-                    interviewerName: INTERVIEWER.name,
+                    sessionScores: conversation.filter(m => m.role === 'feedback' && m.score).map(m => m.score),
                 }),
             });
             const data = await res.json();
@@ -565,14 +703,15 @@ export default function AIInterviewPage() {
             console.warn('AI analysis failed, using local fallback:', err.message);
         }
 
-        // Fallback: client-side basic scoring
+        // Fallback: deterministic client-side scoring (no Math.random())
         const avgResponseLength = userMessages.length > 0
             ? Math.round(userMessages.reduce((sum, m) => sum + ((m.content || m.text || '').length || 0), 0) / userMessages.length)
             : 0;
-        const communicationScore = Math.min(10, Math.round((avgResponseLength / 50) * 3 + (userMessages.length / Math.max(questionIndex, 1)) * 4 + Math.random() * 3));
-        const technicalScore = Math.min(10, Math.round(3 + (code.length > 100 ? 3 : 1) + (lineCount > 5 ? 2 : 0) + Math.random() * 2));
-        const problemSolvingScore = Math.min(10, Math.round(2 + (questionIndex > 2 ? 3 : 1) + (userMessages.length > 3 ? 2 : 0) + Math.random() * 3));
-        const overallScore = Math.round(((communicationScore + technicalScore + problemSolvingScore) / 3) * 10) / 10;
+        const commScore = calcCommunication(avgResponseLength, userMessages.length, Math.max(questionIndex, 1));
+        const techScore = calcTechnical(code, lineCount);
+        const psScore = calcProblemSolving(questionIndex, userMessages.length);
+        const cqScore = calcCodeQuality(code, lineCount);
+        const overallScore = Math.round(((commScore + techScore + psScore + cqScore) / 4) * 10) / 10;
 
         const keyMoments = [];
         conversation.forEach((msg, idx) => {
@@ -590,10 +729,10 @@ export default function AIInterviewPage() {
             performanceLabel: overallScore >= 7 ? 'Strong Hire' : overallScore >= 5 ? 'Inclined Hire' : overallScore >= 3 ? 'Needs Improvement' : 'Not Ready',
             performanceColor: overallScore >= 7 ? '#22c55e' : overallScore >= 5 ? '#f59e0b' : overallScore >= 3 ? '#f97316' : '#ef4444',
             categories: [
-                { name: 'Communication', score: communicationScore, icon: MessageSquare, color: '#818cf8' },
-                { name: 'Technical Skills', score: technicalScore, icon: Code2, color: '#22d3ee' },
-                { name: 'Problem Solving', score: problemSolvingScore, icon: Brain, color: '#a78bfa' },
-                { name: 'Code Quality', score: Math.min(10, Math.round(3 + (lineCount > 10 ? 3 : 1) + Math.random() * 4)), icon: Shield, color: '#34d399' },
+                { name: 'Communication', score: commScore, icon: MessageSquare, color: '#818cf8' },
+                { name: 'Technical Skills', score: techScore, icon: Code2, color: '#22d3ee' },
+                { name: 'Problem Solving', score: psScore, icon: Brain, color: '#a78bfa' },
+                { name: 'Code Quality', score: cqScore, icon: Shield, color: '#34d399' },
             ],
             strengths: [
                 'Structured approach to problem decomposition',
@@ -612,15 +751,58 @@ export default function AIInterviewPage() {
         setAnalysisLoading(false);
     }, [conversation, elapsed, questionIndex, code, lineCount, language, targetCompany, targetRole, interviewType, getAuthHeaders, INTERVIEWER.name]);
 
-    // ── Timer Logic ──
+    // ── Timer Logic (pauses when isPaused) ──
     useEffect(() => {
-        if (phase === 'interview') {
+        if (phase === 'interview' && !isPaused) {
             timerRef.current = setInterval(() => {
                 setElapsed(prev => prev + 1);
             }, 1000);
         }
         return () => clearInterval(timerRef.current);
-    }, [phase]);
+    }, [phase, isPaused]);
+
+    // ── Per-Question Timer (pauses when isPaused) ──
+    useEffect(() => {
+        if (phase === 'interview' && !isPaused) {
+            questionTimerRef.current = setInterval(() => {
+                setQuestionElapsed(prev => prev + 1);
+            }, 1000);
+        }
+        return () => clearInterval(questionTimerRef.current);
+    }, [phase, isPaused]);
+
+    // Reset per-question timer when question changes
+    const countdownWarnedRef = useRef(false); // I8: track per-Q warning
+    useEffect(() => {
+        setQuestionElapsed(0);
+        countdownWarnedRef.current = false;  // I8: reset on new question
+    }, [questionIndex]);
+
+    // ── Auto-submit when per-question timer expires ──
+    useEffect(() => {
+        if (phase !== 'interview' || isPaused) return;
+        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
+        const resolvedStage = stageMap[interviewType] || 'Technical';
+        const limit = getQuestionTimeLimit(resolvedStage);
+        const remaining = limit - questionElapsed;
+
+        // I8: Fire a one-time 30-second countdown warning
+        if (remaining === 30 && !countdownWarnedRef.current) {
+            countdownWarnedRef.current = true;
+            setInterviewerStatus('⏰ 30 seconds remaining for this question');
+            setTimeout(() => setInterviewerStatus(''), 4000);
+        }
+
+        if (questionElapsed >= limit && sendAnswerRef.current && !isSendingRef.current) {
+            console.info(`[AI Interview] Per-question timer expired for Q${questionIndex} (${formatTime(limit)}). Auto-submitting.`);
+            // Bug 3 fix: Cancel ALL competing timers before submitting
+            dgVoice.stop();  // Cancels Deepgram silence timers + recorder
+            if (silenceStageTimerRef.current) clearTimeout(silenceStageTimerRef.current);
+            sendAnswerRef.current(true); // Auto-skip
+        }
+    }, [questionElapsed, phase, isPaused, interviewType, questionIndex, dgVoice]);
+
+
 
     // ── Generate analysis when summary phase starts ──
     useEffect(() => {
@@ -693,6 +875,24 @@ export default function AIInterviewPage() {
         }
     }, []);
 
+    const handleSpeakingLoadedMetadata = useCallback(() => handleInterviewerLoadedMetadata('speaking'), [handleInterviewerLoadedMetadata]);
+    const handleSpeakingTimeUpdate = useCallback(() => handleInterviewerTimeUpdate('speaking'), [handleInterviewerTimeUpdate]);
+    const handleSpeakingCanPlay = useCallback(() => handleInterviewerCanPlay('speaking'), [handleInterviewerCanPlay]);
+    const handleListeningLoadedMetadata = useCallback(() => handleInterviewerLoadedMetadata('listening'), [handleInterviewerLoadedMetadata]);
+    const handleListeningTimeUpdate = useCallback(() => handleInterviewerTimeUpdate('listening'), [handleInterviewerTimeUpdate]);
+    const handleListeningCanPlay = useCallback(() => handleInterviewerCanPlay('listening'), [handleInterviewerCanPlay]);
+
+    const handleResumeDragOver = useCallback((e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }, []);
+    const handleResumeDragLeave = useCallback((e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); }, []);
+    const handleResumeDrop = useCallback((e) => {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        if (e.dataTransfer.files.length > 0) setResumeFile(e.dataTransfer.files[0]);
+    }, []);
+    const handleResumeFileChange = useCallback((e) => {
+        if (e.target.files?.[0]) setResumeFile(e.target.files[0]);
+    }, []);
+
     useEffect(() => {
         const activeMode = aiSpeaking ? 'speaking' : 'listening';
         interviewerTargetModeRef.current = activeMode;
@@ -723,15 +923,16 @@ export default function AIInterviewPage() {
     const getBrowserVoice = useCallback((gender = interviewerGender) => {
         if (!('speechSynthesis' in window)) return null;
         const voices = window.speechSynthesis.getVoices();
+        // Male-first priority: actual male voices before any female fallbacks
         const preferred = gender === 'male'
             ? [
-                'Google US English', 'Google UK English Male', 'Alex', 'Daniel',
-                'Microsoft David', 'Google UK English Female', 'Samantha', 'Karen',
+                'Google UK English Male', 'Microsoft David', 'Microsoft Mark', 'Daniel', 'Alex',
+                'Google US English', 'Google UK English Female', 'Samantha', 'Karen',
                 'Microsoft Zira', 'Microsoft Jenny', 'Moira', 'Fiona',
             ]
             : [
-                'Google US English', 'Google UK English Female', 'Samantha', 'Karen',
-                'Microsoft Zira', 'Microsoft Jenny', 'Moira', 'Fiona',
+                'Google UK English Female', 'Samantha', 'Karen', 'Microsoft Zira',
+                'Microsoft Jenny', 'Moira', 'Fiona', 'Google US English',
                 'Google UK English Male', 'Alex', 'Daniel', 'Microsoft David',
             ];
         for (const name of preferred) {
@@ -740,8 +941,8 @@ export default function AIInterviewPage() {
         }
         // Fallback: any English voice that matches the selected gender when possible
         const genderedVoice = gender === 'male'
-            ? voices.find(v => v.lang.startsWith('en') && /male|man|david|alex|daniel/i.test(v.name))
-            : voices.find(v => v.lang.startsWith('en') && /female|woman|samantha|jenny|karen/i.test(v.name));
+            ? voices.find(v => v.lang.startsWith('en') && /male|man|david|alex|daniel|mark/i.test(v.name))
+            : voices.find(v => v.lang.startsWith('en') && /female|woman|samantha|jenny|karen|zira/i.test(v.name));
         if (genderedVoice) return genderedVoice;
 
         // Any English voice
@@ -796,10 +997,13 @@ export default function AIInterviewPage() {
     // ── Cleanup Voice Resources on Unmount ──
     useEffect(() => {
         return () => {
-            voice.cleanup();
+            dgVoice.cleanup();
             if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            // Clear silence handling timers to prevent state-after-unmount
+            if (silenceStageTimerRef.current) clearTimeout(silenceStageTimerRef.current);
+            clearInterval(questionTimerRef.current);
         };
-    }, [voice.cleanup]);
+    }, [dgVoice.cleanup]);
 
     // ── Start Interview ──
     const startInterview = async () => {
@@ -920,9 +1124,8 @@ export default function AIInterviewPage() {
             setPhase('interview');
             setLoading(false);
             await speakInterviewerText(questionText);
-            // Auto-start mic after first question
+            // Auto-start mic after first question — micOn syncs via effect
             startVoiceRecording();
-            setMicOn(true);
         } catch (error) {
             const statusCode = getHttpStatus(error);
             if (statusCode !== 401) {
@@ -950,7 +1153,6 @@ export default function AIInterviewPage() {
             setPhase('interview');
             await speakInterviewerText(fallbackQ);
             startVoiceRecording();
-            setMicOn(true);
         }
     };
 
@@ -978,7 +1180,9 @@ export default function AIInterviewPage() {
         // Stop any ongoing voice recording (use ref to avoid stale closure)
         if (isListeningRef.current) stopVoiceRecording();
 
-        // Stop AI speech immediately when user sends answer (smooth transition)
+        // Stop ALL AI speech immediately when user sends answer (smooth transition)
+        speakSequenceCancelledRef.current = true;
+        dgVoice.interrupt();
         if (ttsAudioRef.current) {
             ttsAudioRef.current.pause();
             ttsAudioRef.current = null;
@@ -1055,14 +1259,15 @@ export default function AIInterviewPage() {
                 body: JSON.stringify({
                     previousQuestion: currentQuestion,
                     userAnswer: fullAnswer,
-                    questionNumber: questionIndex + 1,
+                    // Fix #3: Use ref to avoid stale closure on questionIndex
+                    questionNumber: questionIndexRef.current + 1,
                     totalQuestions,
                     company: resolvedCompany,
                     role: resolvedRole,
                     stage: resolvedStage,
                     difficulty: experienceLevel === 'fresher' ? 'easy' : 'medium',
                     experienceLevel,
-                    conversationHistory: conversation.map(m => ({ role: m.role, content: m.content })),
+                    conversationHistory: conversation.slice(-12).map(m => ({ role: m.role, content: m.content })),
                     code: code.trim() || undefined,
                     codeLanguage: language,
                     advancedOptions: followUpAdvancedOpts,
@@ -1126,6 +1331,26 @@ export default function AIInterviewPage() {
                 dgVoice.prefetch(continueQ);
             }
 
+            // Fix 6: Shared speak-and-handoff logic (used in both try and catch)
+            const speakAndHandoff = async (feedbackSegment, questionSegment, isEnding = false) => {
+                setLoading(false);
+                if (isEnding) {
+                    // Final question: speak feedback → brief pause → closing
+                    const segments = [feedbackSegment, questionSegment].filter(Boolean);
+                    await speakSequence(segments, { pauseMs: 600 });
+                    setTimeout(() => endInterview(), 1500);
+                } else {
+                    // Normal flow: speak feedback + question as a single sequence (no video flicker!)
+                    const segments = [feedbackSegment, questionSegment].filter(Boolean);
+                    await speakSequence(segments, { pauseMs: 400 });
+                    // Fix 2: Reduced post-speak delay from 600ms → 150ms
+                    await new Promise(r => setTimeout(r, 150));
+                    if (!isListeningRef.current) {
+                        startVoiceRecording();
+                    }
+                }
+            };
+
             if (isInterviewOver) {
                 // Last question — speak closing remark and end
                 const closingText = data.closingRemark || closingRemark || 'Great job today! Thank you for your time. We\'ll be in touch soon.';
@@ -1134,15 +1359,7 @@ export default function AIInterviewPage() {
                     content: closingText,
                     timestamp: Date.now(),
                 }]);
-                setLoading(false);
-                if (spokenFeedback) {
-                    await speakInterviewerText(spokenFeedback);
-                    // Brief pause between feedback and closing
-                    await new Promise(r => setTimeout(r, 1200));
-                }
-                await speakInterviewerText(closingText);
-                // End interview after closing is spoken
-                setTimeout(() => endInterview(), 2000);
+                await speakAndHandoff(spokenFeedback, closingText, true);
             } else {
                 setCurrentQuestion(continueQ);
                 setQuestionIndex(prev => prev + 1);
@@ -1151,24 +1368,14 @@ export default function AIInterviewPage() {
                     content: continueQ,
                     timestamp: Date.now(),
                 }]);
-                setLoading(false);
-                setMicOn(false); // Mic off while AI speaks
-                // Speak feedback first, then the next question
-                if (spokenFeedback) {
-                    await speakInterviewerText(spokenFeedback);
-                    // Brief pause between feedback and next question
-                    await new Promise(r => setTimeout(r, 1000));
-                }
-                // Natural thinking delay — makes AI feel human (0.8–1.6s)
-                const thinkDelay = 800 + Math.random() * 800;
+                // Sprint 1: Deterministic thinking delay scaled by answer length
+                const thinkDelay = getThinkingDelayMs(fullAnswer);
+                // Show interviewer reaction based on feedback score
+                const reaction = getInterviewerReaction(feedbackScore);
+                setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
                 await new Promise(r => setTimeout(r, thinkDelay));
-                await speakInterviewerText(continueQ);
-                // Smooth handoff: brief pause then auto-enable mic
-                await new Promise(r => setTimeout(r, 600));
-                if (!isListeningRef.current) {
-                    startVoiceRecording();
-                    setMicOn(true);
-                }
+                setInterviewerStatus('');
+                await speakAndHandoff(spokenFeedback, continueQ);
             }
         } catch (error) {
             const statusCode = getHttpStatus(error);
@@ -1189,35 +1396,59 @@ export default function AIInterviewPage() {
                 'HR': 'Can you give one concrete example that shows this about you?',
             };
             const fallbackQ = catchFollowUpFallbackByStage[resolvedStage] || 'Can you tell me about the time and space complexity of your solution?';
-            setConversation(prev => [...prev,
-                {
-                    role: 'feedback',
-                    content: fallbackFeedback,
-                    score: 70,
-                    strengths: ['Clear communication'],
-                    improvements: ['Add more detail'],
-                    hint: '',
-                    codeFeedback: null,
-                    timestamp: Date.now(),
-                },
-                {
-                    role: 'interviewer',
-                    content: fallbackQ,
-                    timestamp: Date.now(),
-                },
-            ]);
-            setCurrentQuestion(fallbackQ);
-            setQuestionIndex(prev => prev + 1);
-            setLoading(false);
-            setMicOn(false);
-            await speakInterviewerText(fallbackFeedback);
-            await new Promise(r => setTimeout(r, 800));
-            await speakInterviewerText(fallbackQ);
-            // Smooth handoff: brief pause then auto-enable mic
-            await new Promise(r => setTimeout(r, 600));
-            if (!isListeningRef.current) {
-                startVoiceRecording();
-                setMicOn(true);
+
+            // Bug 12 Fix: Check if interview should be over even in error path
+            const isInterviewOverFallback = questionIndex >= totalQuestions;
+
+            if (isInterviewOverFallback) {
+                const closingFallback = 'Great job today! Thank you for your time. We\'ll be in touch soon.';
+                setConversation(prev => [...prev,
+                    {
+                        role: 'feedback',
+                        content: fallbackFeedback,
+                        score: 70,
+                        strengths: ['Clear communication'],
+                        improvements: ['Add more detail'],
+                        hint: '',
+                        codeFeedback: null,
+                        timestamp: Date.now(),
+                    },
+                    {
+                        role: 'interviewer',
+                        content: closingFallback,
+                        timestamp: Date.now(),
+                    },
+                ]);
+                setLoading(false);
+                await speakSequence([fallbackFeedback, closingFallback], { pauseMs: 600 });
+                setTimeout(() => endInterview(), 1500);
+            } else {
+                setConversation(prev => [...prev,
+                    {
+                        role: 'feedback',
+                        content: fallbackFeedback,
+                        score: 70,
+                        strengths: ['Clear communication'],
+                        improvements: ['Add more detail'],
+                        hint: '',
+                        codeFeedback: null,
+                        timestamp: Date.now(),
+                    },
+                    {
+                        role: 'interviewer',
+                        content: fallbackQ,
+                        timestamp: Date.now(),
+                    },
+                ]);
+                setCurrentQuestion(fallbackQ);
+                setQuestionIndex(prev => prev + 1);
+                setLoading(false);
+                // Fix 6: Reuse speakSequence for error path too (no flicker)
+                await speakSequence([fallbackFeedback, fallbackQ], { pauseMs: 400 });
+                await new Promise(r => setTimeout(r, 150));
+                if (!isListeningRef.current) {
+                    startVoiceRecording();
+                }
             }
         }
         } finally {
@@ -1253,16 +1484,20 @@ export default function AIInterviewPage() {
                 const rephraseText = "Would you like me to rephrase the question?";
                 setInterviewerStatus(rephraseText);
                 setConversation(prev => [...prev, { role: 'interviewer', content: rephraseText, timestamp: Date.now() }]);
-                speakInterviewerText(rephraseText);
-
-                // Stage 3: After 15s total -> Auto-skip
-                silenceStageTimerRef.current = setTimeout(() => {
-                    if (!isListeningRef.current || stateRefs.current.transcript.trim()) return;
-                    setSilenceStage(3);
-                    setInterviewerStatus('');
-                    // Trigger auto skip
-                    sendAnswer(true);
-                }, 5000);
+                // Wait for rephrase speech to finish before starting auto-skip timer
+                speakInterviewerText(rephraseText).then(() => {
+                    // Stage 3: After rephrase finishes + 5s silence -> Auto-skip
+                    silenceStageTimerRef.current = setTimeout(() => {
+                        // NOTE: Mic may have dropped — auto-skip doesn't need the mic
+                        // since its answer is hardcoded ("I do not have a response").
+                        // Only bail if user actually started typing/speaking.
+                        if (stateRefs.current.transcript.trim()) return;
+                        setSilenceStage(3);
+                        setInterviewerStatus('');
+                        // Use ref to avoid stale closure in memoized callback
+                        if (sendAnswerRef.current) sendAnswerRef.current(true);
+                    }, 5000);
+                });
             }, 5000);
         }, 5000);
     }, [phase, speakInterviewerText, stopSilenceHandling]);
@@ -1276,26 +1511,55 @@ export default function AIInterviewPage() {
     }, [isListening, transcript, aiSpeaking, startSilenceHandling, stopSilenceHandling]);
 
     // ── End Interview ──
-    const endInterview = () => {
+    // Bug 1+2 fix: useCallback with proper deps + full resource cleanup
+    const endInterview = useCallback(() => {
         clearInterval(timerRef.current);
+        clearInterval(questionTimerRef.current);
+        if (silenceStageTimerRef.current) clearTimeout(silenceStageTimerRef.current);
         stopVoiceRecording();
+        speakSequenceCancelledRef.current = true;
         dgVoice.interrupt();
         if (ttsAudioRef.current) { ttsAudioRef.current.pause(); ttsAudioRef.current = null; }
         if ('speechSynthesis' in window) window.speechSynthesis.cancel();
         setAiSpeaking(false);
+        // Bug 1 fix: Release WebSocket + mic stream (no longer needed after interview)
+        dgVoice.cleanup();
+        // I14: Log voice pipeline analytics
+        try {
+            const stats = dgVoice.getAnalytics();
+            console.info('[AI Interview] Voice analytics:', stats);
+        } catch {}
+        // I9: Clear saved session — interview completed normally
+        clearSavedSession();
         setPhase('summary');
-    };
+    }, [dgVoice, stopVoiceRecording, clearSavedSession]);
+
+    // ── Auto-end interview when global time budget expires ──
+    const endInterviewRef = useRef(null); // Avoids stale closure in effect
+    useEffect(() => {
+        endInterviewRef.current = endInterview;
+    }, [endInterview]);
+    useEffect(() => {
+        if (phase !== 'interview' || isPaused) return;
+        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
+        const resolvedStage = stageMap[interviewType] || 'Technical';
+        const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
+        if (elapsed >= totalBudget) {
+            console.info(`[AI Interview] Global timer expired (${formatTime(totalBudget)}). Auto-ending interview.`);
+            if (endInterviewRef.current) endInterviewRef.current();
+        }
+    }, [elapsed, phase, isPaused, interviewType, totalQuestions]);
 
     // ── Toggle Mic (also controls STT) ──
     const toggleMic = () => {
         if (isListening) {
             // Currently listening — stop recording and process
             stopVoiceRecording();
-            setMicOn(false);
+            // micOn syncs automatically via useEffect
         } else {
             // Not listening — start recording
             startVoiceRecording();
-            setMicOn(true);
+            // micOn syncs automatically via useEffect
         }
     };
 
@@ -1305,7 +1569,7 @@ export default function AIInterviewPage() {
             stopVoiceRecording();
         } else {
             startVoiceRecording();
-            setMicOn(true);
+            // micOn syncs automatically via useEffect
         }
     };
 
@@ -1405,6 +1669,20 @@ export default function AIInterviewPage() {
         return matchTab && matchSearch;
     });
 
+    // Fix #7: Stable handlers for session recovery banner hover — avoids re-renders from inline arrows
+    const onResumeMouseEnter = useCallback((e) => { e.currentTarget.style.opacity = '0.85'; }, []);
+    const onResumeMouseLeave = useCallback((e) => { e.currentTarget.style.opacity = '1'; }, []);
+    const onDiscardMouseEnter = useCallback((e) => {
+        e.currentTarget.style.background = 'rgba(239,68,68,0.15)';
+        e.currentTarget.style.color = '#ef4444';
+        e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)';
+    }, []);
+    const onDiscardMouseLeave = useCallback((e) => {
+        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
+        e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+    }, []);
+
     if (phase === 'lobby') {
         return (
             <div className="ai-interview-page">
@@ -1423,6 +1701,64 @@ export default function AIInterviewPage() {
                                 <X size={20} />
                             </button>
                         </div>
+
+                        {/* I9: Session Recovery Banner */}
+                        {savedSession && (
+                            <div className="ai-session-recovery" style={{
+                                margin: '0 24px 12px',
+                                padding: '14px 18px',
+                                borderRadius: 12,
+                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
+                                border: '1px solid rgba(99, 102, 241, 0.25)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 14,
+                                animation: 'fadeIn 0.3s ease both',
+                            }}>
+                                <div style={{
+                                    width: 40, height: 40, borderRadius: 10,
+                                    background: 'rgba(99, 102, 241, 0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    flexShrink: 0,
+                                }}>
+                                    <RefreshCw size={18} style={{ color: '#818cf8' }} />
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>
+                                        Resume Previous Session
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                                        {savedSession.interviewType} · Q{savedSession.questionIndex}/{savedSession.totalQuestions} · {formatTime(savedSession.elapsed || 0)} elapsed
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => restoreSession(savedSession)}
+                                    style={{
+                                        padding: '7px 16px', borderRadius: 8,
+                                        background: 'rgba(99, 102, 241, 0.85)', border: 'none',
+                                        color: '#fff', fontSize: 12, fontWeight: 600,
+                                        cursor: 'pointer', transition: 'opacity 0.2s',
+                                    }}
+                                    onMouseEnter={onResumeMouseEnter}
+                                    onMouseLeave={onResumeMouseLeave}
+                                >
+                                    Resume
+                                </button>
+                                <button
+                                    onClick={clearSavedSession}
+                                    style={{
+                                        padding: '7px 12px', borderRadius: 8,
+                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500,
+                                        cursor: 'pointer', transition: 'all 0.2s',
+                                    }}
+                                    onMouseEnter={onDiscardMouseEnter}
+                                    onMouseLeave={onDiscardMouseLeave}
+                                >
+                                    Discard
+                                </button>
+                            </div>
+                        )}
 
                         {/* Stepper */}
                         <div className="ai-wizard-stepper">
@@ -1536,13 +1872,9 @@ export default function AIInterviewPage() {
                                             <div
                                                 className={`ai-setup-drop-zone ${resumeFile ? 'has-file' : ''}`}
                                                 onClick={() => document.getElementById('resume-file-input')?.click()}
-                                                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
-                                                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); }}
-                                                onDrop={(e) => {
-                                                    e.preventDefault();
-                                                    e.currentTarget.classList.remove('drag-over');
-                                                    if (e.dataTransfer.files.length > 0) setResumeFile(e.dataTransfer.files[0]);
-                                                }}
+                                                onDragOver={handleResumeDragOver}
+                                                onDragLeave={handleResumeDragLeave}
+                                                onDrop={handleResumeDrop}
                                             >
                                                 {resumeFile ? (
                                                     <>
@@ -1562,9 +1894,7 @@ export default function AIInterviewPage() {
                                                     type="file"
                                                     accept=".pdf,.doc,.docx"
                                                     style={{ display: 'none' }}
-                                                    onChange={(e) => {
-                                                        if (e.target.files?.[0]) setResumeFile(e.target.files[0]);
-                                                    }}
+                                                    onChange={handleResumeFileChange}
                                                 />
                                             </div>
                                         </div>
@@ -2206,6 +2536,15 @@ export default function AIInterviewPage() {
                                                 <div className="ai-result-session-value">{INTERVIEWER.company}</div>
                                             </div>
                                         </div>
+                                        {a.stats.pauseTime && (
+                                            <div className="ai-result-session-item">
+                                                <Pause size={16} />
+                                                <div>
+                                                    <div className="ai-result-session-label">Time Paused</div>
+                                                    <div className="ai-result-session-value">{a.stats.pauseTime}</div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -2297,10 +2636,39 @@ export default function AIInterviewPage() {
                 </div>
                 <div className="ai-vc-topbar-center">
                     <div className="ai-vc-timer">
-                        <div className="ai-vc-timer-dot" />
+                        <div className={`ai-vc-timer-dot ${isPaused ? 'ai-vc-timer-dot--paused' : ''}`} />
                         <Clock size={13} />
-                        {formatTime(Math.max(0, 1200 - elapsed))}
+                        {(() => {
+                            const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
+                            const resolvedStage = stageMap[interviewType] || 'Technical';
+                            const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
+                            return formatTime(Math.max(0, totalBudget - elapsed));
+                        })()}
+                        {isPaused && <span style={{ marginLeft: 6, color: '#fbbf24', fontSize: '0.7rem', fontWeight: 600 }}>PAUSED</span>}
                     </div>
+                    {/* Per-Question Timer */}
+                    {(() => {
+                        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
+                        const resolvedStage = stageMap[interviewType] || 'Technical';
+                        const limit = getQuestionTimeLimit(resolvedStage);
+                        const remaining = Math.max(0, limit - questionElapsed);
+                        const isWarning = remaining <= 30 && remaining > 0;
+                        const isExpired = remaining <= 0;
+                        return (
+                            <div className="ai-vc-q-timer" style={{
+                                display: 'flex', alignItems: 'center', gap: 4,
+                                padding: '2px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600,
+                                background: isExpired ? 'rgba(239,68,68,0.15)' : isWarning ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.06)',
+                                color: isExpired ? '#ef4444' : isWarning ? '#fbbf24' : 'rgba(255,255,255,0.5)',
+                                border: `1px solid ${isExpired ? 'rgba(239,68,68,0.3)' : isWarning ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.08)'}`,
+                                transition: 'all 0.3s ease',
+                                animation: isWarning ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                            }}>
+                                <Timer size={11} />
+                                Q{questionIndex}: {formatTime(remaining)}
+                            </div>
+                        );
+                    })()}
                     <div className="ai-vc-progress">
                         {Array.from({ length: totalQuestions }).map((_, i) => (
                             <div
@@ -2343,9 +2711,9 @@ export default function AIInterviewPage() {
                                 muted
                                 playsInline
                                 preload="auto"
-                                onLoadedMetadata={() => handleInterviewerLoadedMetadata('speaking')}
-                                onTimeUpdate={() => handleInterviewerTimeUpdate('speaking')}
-                                onCanPlay={() => handleInterviewerCanPlay('speaking')}
+                                onLoadedMetadata={handleSpeakingLoadedMetadata}
+                                onTimeUpdate={handleSpeakingTimeUpdate}
+                                onCanPlay={handleSpeakingCanPlay}
                             />
                             <video
                                 ref={interviewerListeningVideoRef}
@@ -2356,9 +2724,9 @@ export default function AIInterviewPage() {
                                 muted
                                 playsInline
                                 preload="auto"
-                                onLoadedMetadata={() => handleInterviewerLoadedMetadata('listening')}
-                                onTimeUpdate={() => handleInterviewerTimeUpdate('listening')}
-                                onCanPlay={() => handleInterviewerCanPlay('listening')}
+                                onLoadedMetadata={handleListeningLoadedMetadata}
+                                onTimeUpdate={handleListeningTimeUpdate}
+                                onCanPlay={handleListeningCanPlay}
                             />
 
                             {aiSpeaking && (
@@ -2469,19 +2837,28 @@ export default function AIInterviewPage() {
 
                     {/* ── Live Captions Overlay ── */}
                     {captionsOn && (() => {
+                        // Advanced: Show live interim text from Deepgram when user is speaking
+                        const liveInterim = isListening && dgVoice.interimText ? dgVoice.interimText : '';
+                        const liveTranscript = isListening && transcript ? transcript : '';
+                        const isUserSpeaking = isListening && (liveInterim || liveTranscript);
+
                         const lastMsg = [...conversation].reverse().find(m => m.role === 'interviewer' || m.role === 'candidate' || m.role === 'feedback');
-                        const currentSpeech = aiSpeaking
-                            ? (conversation.filter(m => m.role === 'interviewer' || m.role === 'feedback').slice(-1)[0]?.content || 'Thinking...')
-                            : lastMsg?.content;
-                        const speakerName = aiSpeaking
-                            ? INTERVIEWER.name
-                            : lastMsg?.role === 'interviewer'
+                        const currentSpeech = isUserSpeaking
+                            ? (liveTranscript + (liveInterim ? ' ' + liveInterim : '')).trim()
+                            : aiSpeaking
+                                ? (conversation.filter(m => m.role === 'interviewer' || m.role === 'feedback').slice(-1)[0]?.content || 'Thinking...')
+                                : lastMsg?.content;
+                        const speakerName = isUserSpeaking
+                            ? 'You'
+                            : aiSpeaking
                                 ? INTERVIEWER.name
-                                : lastMsg?.role === 'feedback'
-                                    ? `${INTERVIEWER.name} (Feedback)`
-                                    : lastMsg?.role === 'candidate'
-                                        ? 'You'
-                                        : null;
+                                : lastMsg?.role === 'interviewer'
+                                    ? INTERVIEWER.name
+                                    : lastMsg?.role === 'feedback'
+                                        ? `${INTERVIEWER.name} (Feedback)`
+                                        : lastMsg?.role === 'candidate'
+                                            ? 'You'
+                                            : null;
                         if (!speakerName) return null;
 
                         // Word-by-word animation (Phase 3)
@@ -2491,21 +2868,26 @@ export default function AIInterviewPage() {
                         const words = displayText.split(/\s+/).filter(Boolean);
 
                         return (
-                            <div className="ai-vc-captions">
+                            <div className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''}`}>
                                 <div className="ai-vc-captions-inner">
-                                    <span className={`ai-vc-captions-speaker ${aiSpeaking ? 'ai-vc-captions-speaker--ai' : ''}`}>
+                                    <span className={`ai-vc-captions-speaker ${aiSpeaking ? 'ai-vc-captions-speaker--ai' : ''} ${isUserSpeaking ? 'ai-vc-captions-speaker--user-live' : ''}`}>
                                         {speakerName}:
                                     </span>
                                     <span className="ai-vc-captions-text">
-                                        {words.map((word, i) => (
-                                            <span
-                                                key={`${word}-${i}`}
-                                                className="ai-vc-caption-word"
-                                                style={{ animationDelay: `${i * 0.06}s` }}
-                                            >
-                                                {word}{' '}
-                                            </span>
-                                        ))}
+                                        {words.map((word, i) => {
+                                            // Interim words (unfinished) get a subtle pulse
+                                            const isInterimWord = isUserSpeaking && liveInterim && displayText.indexOf(liveInterim) !== -1 && i >= words.length - liveInterim.split(/\s+/).length;
+                                            return (
+                                                <span
+                                                    key={`${word}-${i}`}
+                                                    className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''}`}
+                                                    style={{ animationDelay: `${i * 0.06}s` }}
+                                                >
+                                                    {word}{' '}
+                                                </span>
+                                            );
+                                        })}
+                                        {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
                                     </span>
                                 </div>
                             </div>
@@ -2519,15 +2901,23 @@ export default function AIInterviewPage() {
                                 className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''}`}
                                 onClick={toggleMic}
                                 title={micOn ? (isListening ? 'Stop listening' : 'Mute') : 'Unmute & start listening'}
+                                aria-label={micOn ? (isListening ? 'Microphone on, actively listening. Click to stop.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.'}
+                                aria-pressed={micOn}
                             >
                                 {micOn ? <Mic size={18} /> : <MicOff size={18} />}
                                 <span className="ai-vc-ctrl-label">{isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted'}</span>
                                 {isListening && <span className="ai-vc-listening-dot" />}
+                                {/* I6: Connection health indicator */}
+                                {dgVoice.connectionMode === 'rest' && isListening && (
+                                    <span className="ai-vc-conn-indicator ai-vc-conn-indicator--rest" title="Using REST fallback (slower transcription)">⚡</span>
+                                )}
                             </button>
                             <button
                                 className={`ai-vc-ctrl ${!cameraOn ? 'ai-vc-ctrl--off' : ''}`}
                                 onClick={toggleCamera}
                                 title={cameraOn ? 'Turn off camera' : 'Turn on camera'}
+                                aria-label={cameraOn ? 'Camera on. Click to turn off.' : 'Camera off. Click to turn on.'}
+                                aria-pressed={cameraOn}
                             >
                                 {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
                                 <span className="ai-vc-ctrl-label">{cameraOn ? 'Camera' : 'Off'}</span>
@@ -2536,6 +2926,8 @@ export default function AIInterviewPage() {
                                 className={`ai-vc-ctrl ${speakerMuted ? 'ai-vc-ctrl--off' : ''}`}
                                 onClick={() => setSpeakerMuted(p => !p)}
                                 title={speakerMuted ? 'Unmute speaker' : 'Mute speaker'}
+                                aria-label={speakerMuted ? 'Speaker muted. Click to unmute.' : 'Speaker on. Click to mute.'}
+                                aria-pressed={!speakerMuted}
                             >
                                 {speakerMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
                                 <span className="ai-vc-ctrl-label">{speakerMuted ? 'Speaker Off' : 'Speaker'}</span>
@@ -2544,9 +2936,48 @@ export default function AIInterviewPage() {
                         <div className="ai-vc-controls-divider" />
                         <div className="ai-vc-controls-group">
                             <button
+                                className={`ai-vc-ctrl ${isPaused ? 'ai-vc-ctrl--active' : ''}`}
+                                onClick={() => {
+                                    if (isPaused) {
+                                        // Resume
+                                        if (pauseStartRef.current) {
+                                            setTotalPauseTime(prev => prev + (Date.now() - pauseStartRef.current));
+                                            pauseStartRef.current = null;
+                                        }
+                                        setIsPaused(false);
+                                        setInterviewerStatus('');
+                                        if (!isListeningRef.current) startVoiceRecording();
+                                    } else {
+                                        // Pause
+                                        pauseStartRef.current = Date.now();
+                                        setIsPaused(true);
+                                        setInterviewerStatus('Interview paused');
+                                        stopVoiceRecording();
+                                        // Stop ALL TTS pipelines — dgVoice (Kokoro), legacy Audio, and browser synth
+                                        dgVoice.interrupt();
+                                        speakSequenceCancelledRef.current = true;
+                                        if (ttsAudioRef.current) {
+                                            ttsAudioRef.current.pause();
+                                        }
+                                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                                    }
+                                }}
+                                title={isPaused ? 'Resume interview' : 'Pause interview'}
+                                aria-label={isPaused ? 'Interview paused. Click to resume.' : 'Interview running. Click to pause.'}
+                                aria-pressed={isPaused}
+                            >
+                                {isPaused ? <Play size={18} /> : <Pause size={18} />}
+                                <span className="ai-vc-ctrl-label">{isPaused ? 'Resume' : 'Pause'}</span>
+                            </button>
+                        </div>
+                        <div className="ai-vc-controls-divider" />
+                        <div className="ai-vc-controls-group">
+                            <button
                                 className={`ai-vc-ctrl ${captionsOn ? 'ai-vc-ctrl--active' : ''}`}
                                 onClick={() => setCaptionsOn(p => !p)}
                                 title={captionsOn ? 'Turn off captions' : 'Turn on captions'}
+                                aria-label={captionsOn ? 'Captions on. Click to turn off.' : 'Captions off. Click to turn on.'}
+                                aria-pressed={captionsOn}
                             >
                                 {captionsOn ? <Captions size={18} /> : <CaptionsOff size={18} />}
                                 <span className="ai-vc-ctrl-label">{captionsOn ? 'CC' : 'CC Off'}</span>
@@ -2569,7 +3000,7 @@ export default function AIInterviewPage() {
                             </button>
                         </div>
                         <div className="ai-vc-controls-divider" />
-                        <button className="ai-vc-ctrl ai-vc-ctrl--end" onClick={endInterview} title="End">
+                        <button className="ai-vc-ctrl ai-vc-ctrl--end" onClick={endInterview} title="End" aria-label="End the interview session">
                             <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
                             <span className="ai-vc-ctrl-label">End</span>
                         </button>

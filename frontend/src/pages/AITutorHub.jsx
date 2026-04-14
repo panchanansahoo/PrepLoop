@@ -13,6 +13,10 @@ const TABS = [
 
 export default function AITutorHub() {
     const AI_TUTOR_COST = 5;
+        const PATH_LABELS = {
+            duration: 'Duration',
+            level: 'Level',
+        };
     const { coins, spendCoins } = useCoins();
     const [activeTab, setActiveTab] = useState('dsa');
     const [selectedTopic, setSelectedTopic] = useState(null);
@@ -211,7 +215,7 @@ export default function AITutorHub() {
                         <p className="tutor-hub-desc">Get a personalized, week-by-week learning path tailored to your timeline and level.</p>
                         <div className="tutor-path-config">
                             <div className="tutor-path-option">
-                                <label>Duration</label>
+                                  <label>{PATH_LABELS.duration}</label>
                                 <div className="tutor-path-buttons">
                                     {[30, 60, 90].map(d => (
                                         <button
@@ -225,7 +229,7 @@ export default function AITutorHub() {
                                 </div>
                             </div>
                             <div className="tutor-path-option">
-                                <label>Level</label>
+                                  <label>{PATH_LABELS.level}</label>
                                 <div className="tutor-path-buttons">
                                     {['beginner', 'intermediate', 'advanced'].map(l => (
                                         <button

@@ -9,12 +9,13 @@ import {
   Building2, Mic, Globe, Cpu, BarChart3, Bot, Layers, GitBranch,
   GraduationCap, Trophy, Rocket, ChevronRight, Quote, Activity,
   PenTool, Eye, Gauge, UserCheck, Timer, Flame, Crown, BadgeCheck,
-  Briefcase, MapPin, ExternalLink
+  Briefcase, MapPin, ExternalLink, Calendar
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 
 const Hero3DScene = lazy(() => import('../components/Hero3DScene'));
+import HeroShowcase from '../components/HeroShowcase';
 
 /* ═══════════════════════════════════════════════ */
 /*                    DATA                         */
@@ -702,65 +703,11 @@ export default function Home() {
       <GradientDivider />
 
       {/* ═══════════════════════════════════════════════ */}
-      {/*               HOW IT WORKS (3-STEP)             */}
+      {/*        FROM ZERO TO INTERVIEW READY (SHOWCASE)  */}
       {/* ═══════════════════════════════════════════════ */}
-      <section style={{ padding: '100px 0', position: 'relative', zIndex: 10 }}>
+      <section style={{ padding: '60px 0', position: 'relative', zIndex: 10 }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '72px' }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '6px 16px', border: '1px solid rgba(139, 92, 246, 0.25)',
-              borderRadius: '99px', fontSize: '12px', color: '#a78bfa',
-              background: 'rgba(139, 92, 246, 0.08)', marginBottom: '20px',
-              textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
-            }}>
-              <Rocket size={12} /> How It Works
-            </div>
-            <h2 style={{ fontSize: 'clamp(30px, 6vw, 44px)', marginBottom: '16px', fontWeight: '700', letterSpacing: '-0.02em' }}>
-              From Zero to <span className="text-gradient">Interview Ready</span>
-            </h2>
-            <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto', lineHeight: '1.7' }}>
-              Three simple steps to transform your interview preparation
-            </p>
-          </div>
-
-          <div className="hiw-grid">
-            {howItWorks.map((item, i) => (
-              <React.Fragment key={i}>
-                <div className="hiw-card">
-                  {/* Glow orb behind card */}
-                  <div className="hiw-card-glow" style={{ background: item.glowColor }} />
-
-                  {/* Step number badge */}
-                  <div className="hiw-step-badge" style={{ background: item.gradient }}>
-                    {item.step}
-                  </div>
-
-                  {/* Icon container */}
-                  <div className="hiw-icon-wrap" style={{ borderColor: item.borderColor }}>
-                    <div className="hiw-icon-inner" style={{ background: item.glowColor }}>
-                      {item.icon}
-                    </div>
-                  </div>
-
-                  <h3 className="hiw-title">{item.title}</h3>
-                  <p className="hiw-desc">{item.desc}</p>
-
-                  {/* Bottom accent line */}
-                  <div className="hiw-accent-line" style={{ background: item.gradient }} />
-                </div>
-
-                {/* Animated connector arrow between cards */}
-                {i < howItWorks.length - 1 && (
-                  <div className="hiw-connector">
-                    <div className="hiw-connector-line" />
-                    <div className="hiw-connector-pulse" />
-                    <ArrowRight size={16} className="hiw-connector-arrow" />
-                  </div>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
+          <HeroShowcase />
         </div>
       </section>
 
@@ -1051,40 +998,168 @@ export default function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════ */}
-      {/*                   BOTTOM CTA                    */}
+      {/*           COMMUNITY HUB SECTION                  */}
       {/* ═══════════════════════════════════════════════ */}
-      <section className="home-cta-banner" style={{ position: 'relative', overflow: 'hidden' }}>
-        {/* Ambient gradient orbs */}
-        <div style={{
-          position: 'absolute', top: '-50%', left: '20%', width: '400px', height: '400px',
-          borderRadius: '50%', background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
-          pointerEvents: 'none'
-        }} />
-        <div style={{
-          position: 'absolute', bottom: '-50%', right: '20%', width: '400px', height: '400px',
-          borderRadius: '50%', background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
-          pointerEvents: 'none'
-        }} />
+      <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="community-hub">
+        <div className="container">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', alignItems: 'center' }}>
+            {/* Discord & Community CTA */}
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
+              border: '1px solid rgba(88, 101, 242, 0.3)',
+              borderRadius: '20px',
+              padding: '40px 32px',
+              transition: 'all 0.3s ease',
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden'
+            }} onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(88, 101, 242, 0.6)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.25) 0%, rgba(139, 92, 246, 0.2) 100%)';
+            }} onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(88, 101, 242, 0.3)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)';
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="#5865F2" style={{ margin: '0 auto', marginBottom: '16px' }}>
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 10h-6v2h6v-2zm0-4h-6v2h6V8z" />
+                </svg>
+              </div>
+              <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px', textAlign: 'center' }}>
+                Join Our Discord
+              </h3>
+              <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '20px' }}>
+                Connect with 5,000+ engineers
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', textAlign: 'center' }}>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#5865F2' }}>5K+</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Members</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#5865F2' }}>24/7</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</div>
+                </div>
+              </div>
+              <a href="https://discord.gg/preploop" target="_blank" rel="noopener noreferrer" style={{
+                display: 'block',
+                width: '100%',
+                padding: '12px 24px',
+                background: '#5865F2',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                textAlign: 'center',
+                transition: 'all 0.3s ease'
+              }} onMouseEnter={(e) => e.target.style.background = '#4752c4'} onMouseLeave={(e) => e.target.style.background = '#5865F2'}>
+                Join Discord
+              </a>
+            </div>
 
-        <div className="container" style={{ position: 'relative', zIndex: 2 }}>
-          <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'center' }}>
-            <Crown size={32} color="#a78bfa" />
-          </div>
-          <h2 style={{ fontSize: 'clamp(30px, 6vw, 40px)', marginBottom: '16px' }}>Ready to get started?</h2>
-          <p style={{ maxWidth: '500px', margin: '0 auto 32px', fontSize: '18px' }}>Join thousands of engineers who are crushing technical interviews. Start for free, upgrade when you're ready.</p>
-          <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Button asChild size="lg" className="px-10 py-6 text-lg">
-              <Link to="/signup">
-                Start Free Trial <ArrowRight size={20} style={{ marginLeft: '8px' }} />
+            {/* Quick Links Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: '16px',
+              gridColumn: 'span 1'
+            }}>
+              {/* Study Groups Link */}
+              <Link to="/community" style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '24px 20px',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'all 0.3s ease',
+                textAlign: 'center',
+                cursor: 'pointer'
+              }} onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
+              }} onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'var(--bg-card)';
+              }}>
+                <Users size={28} style={{ marginBottom: '8px', marginLeft: 'auto', marginRight: 'auto', color: '#8b5cf6' }} />
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Study Groups</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>6 active</div>
               </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="px-10 py-6 text-lg">
-              <Link to="/dashboard">
-                View Dashboard <ChevronRight size={20} style={{ marginLeft: '8px' }} />
+
+              {/* Leaderboard Link */}
+              <Link to="/community" style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '24px 20px',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'all 0.3s ease',
+                textAlign: 'center',
+                cursor: 'pointer'
+              }} onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
+              }} onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'var(--bg-card)';
+              }}>
+                <Trophy size={28} style={{ marginBottom: '8px', marginLeft: 'auto', marginRight: 'auto', color: '#fbbf24' }} />
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Leaderboard</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Top 100</div>
               </Link>
-            </Button>
+
+              {/* Events Link */}
+              <Link to="/community" style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '24px 20px',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'all 0.3s ease',
+                textAlign: 'center',
+                cursor: 'pointer'
+              }} onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
+              }} onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'var(--bg-card)';
+              }}>
+                <Calendar size={28} style={{ marginBottom: '8px', marginLeft: 'auto', marginRight: 'auto', color: '#f472b6' }} />
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Events</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Upcoming</div>
+              </Link>
+
+              {/* Discussions Link */}
+              <Link to="/community" style={{
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border)',
+                borderRadius: '12px',
+                padding: '24px 20px',
+                textDecoration: 'none',
+                color: 'inherit',
+                transition: 'all 0.3s ease',
+                textAlign: 'center',
+                cursor: 'pointer'
+              }} onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--accent-primary)';
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.05)';
+              }} onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = 'var(--bg-card)';
+              }}>
+                <MessageSquare size={28} style={{ marginBottom: '8px', marginLeft: 'auto', marginRight: 'auto', color: '#60a5fa' }} />
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Discussions</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Active</div>
+              </Link>
+            </div>
           </div>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '20px' }}>No credit card required · Cancel anytime · 7-day money-back guarantee</p>
         </div>
       </section>
 

@@ -9,8 +9,9 @@
  */
 
 import fetch from 'node-fetch';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-const API_BASE = 'http://localhost:5000';
+const API_BASE = ensureLocalBaseUrl(process.env.COIN_TEST_BASE_URL || 'http://localhost:5000');
 const authToken = process.env.TEST_AUTH_TOKEN;
 
 class CoinIntegrationTests {
@@ -36,7 +37,7 @@ class CoinIntegrationTests {
 
     try {
       const response = await Promise.race([
-        fetch(`${API_BASE}${path}`, options),
+        fetch(buildLocalEndpoint(API_BASE, path), options),
         new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 5000)
         ),

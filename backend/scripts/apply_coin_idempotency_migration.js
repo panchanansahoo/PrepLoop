@@ -6,6 +6,15 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '../.env') });
+const BACKEND_ROOT = path.resolve(__dirname, '..');
+
+function readBackendFileUtf8(relativePath) {
+  const resolvedPath = path.resolve(BACKEND_ROOT, relativePath);
+  if (!(resolvedPath === BACKEND_ROOT || resolvedPath.startsWith(`${BACKEND_ROOT}${path.sep}`))) {
+    throw new Error(`Unsafe file path: ${relativePath}`);
+  }
+  return fs.readFileSync(resolvedPath, 'utf8');
+}
 
 const { Pool } = pg;
 
@@ -36,8 +45,7 @@ const encodedPassword = encodeURIComponent(supabasePassword);
 // Try connecting with IPv6 address directly
 const connectionString = `postgres://postgres:${encodedPassword}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
 
-const migrationPath = path.join(__dirname, '../db/migration_coin_transaction_idempotency.sql');
-const migrationSql = fs.readFileSync(migrationPath, 'utf8');
+const migrationSql = readBackendFileUtf8('db/migration_coin_transaction_idempotency.sql');
 
 // Verification queries
 const verifyColumnSql = `

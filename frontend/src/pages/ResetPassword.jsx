@@ -69,6 +69,8 @@ const styles = {
 };
 
 export default function ResetPassword() {
+    const NEW_PASSWORD_LABEL = 'New Password';
+    const CONFIRM_PASSWORD_LABEL = 'Confirm Password';
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -166,7 +168,7 @@ export default function ResetPassword() {
                 ) : (
                     <form onSubmit={handleSubmit}>
                         <div style={styles.inputWrapper}>
-                            <label style={styles.label}>New Password</label>
+                            <label style={styles.label}>{NEW_PASSWORD_LABEL}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock size={16} style={styles.inputIcon} />
                                 <input
@@ -182,7 +184,7 @@ export default function ResetPassword() {
                         </div>
 
                         <div style={styles.inputWrapper}>
-                            <label style={styles.label}>Confirm Password</label>
+                            <label style={styles.label}>{CONFIRM_PASSWORD_LABEL}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock size={16} style={styles.inputIcon} />
                                 <input

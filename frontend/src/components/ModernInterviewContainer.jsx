@@ -8,6 +8,10 @@ import { buildAuthHeaders } from '../utils/authHeaders';
  * Features: Video/Audio support, Real-time feedback, Progress tracking
  */
 export default function ModernInterviewContainer() {
+  const FORM_LABELS = {
+    answer: 'Your Answer',
+  };
+
   const [interviewState, setInterviewState] = useState('intro'); // intro, recording, answered, completed
   const [currentQuestion, setCurrentQuestion] = useState(null);
   const [answers, setAnswers] = useState([]);
@@ -311,7 +315,7 @@ export default function ModernInterviewContainer() {
 
                 {/* Text Input Area */}
                 <div className="mb-6">
-                  <label className="block font-semibold text-gray-900 mb-2">Your Answer</label>
+                    <label className="block font-semibold text-gray-900 mb-2">{FORM_LABELS.answer}</label>
                   <textarea
                     value={currentAnswer}
                     onChange={(e) => setCurrentAnswer(e.target.value)}

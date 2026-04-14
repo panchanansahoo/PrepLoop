@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { buildApiUrl } from '../utils/safeApiUrl';
 import {
   Users, FileText, BarChart3, Trash2, ShieldCheck, Shield,
   Search, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp,
@@ -8,6 +9,15 @@ import {
 } from 'lucide-react';
 
 export default function AdminDashboard() {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+  const buildAdminApiUrl = useCallback(
+    (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' }),
+    [API_BASE_URL]
+  );
+  const FORM_LABELS = {
+    requirements: 'Requirements (comma-separated)',
+  };
+
   const [activeTab, setActiveTab] = useState('stats');
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
@@ -125,7 +135,7 @@ export default function AdminDashboard() {
   const handleRoleChange = async (userId, newRole) => {
     clearMessages();
     try {
-      await axios.put(`/api/admin/users/${userId}/role`, { role: newRole });
+      await axios.put(buildAdminApiUrl(`/admin/users/${userId}/role`), { role: newRole });
       setSuccess(`Role updated to ${newRole}`);
       fetchUsers();
     } catch (err) {
@@ -639,7 +649,7 @@ export default function AdminDashboard() {
                 />
               </div>
               <div className="form-group">
-                <label>Requirements (comma-separated)</label>
+                <label>{FORM_LABELS.requirements}</label>
                 <input
                   type="text" value={jobForm.requirements}
                   onChange={e => setJobForm({...jobForm, requirements: e.target.value})}

@@ -5,17 +5,39 @@
 import express from 'express';
 import multer from 'multer';
 import os from 'os';
+import crypto from 'crypto';
 import fs from 'fs';
+import path from 'path';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import voiceService from '../services/voiceService.js';
 
 const router = express.Router();
+const TMP_UPLOAD_DIR = path.resolve(os.tmpdir());
 
-// Multer config — accepts audio blobs up to 25 MB
+const isPathInsideTmp = (filePath) => {
+    if (!filePath) return false;
+    const resolved = path.resolve(filePath);
+    return resolved === TMP_UPLOAD_DIR || resolved.startsWith(`${TMP_UPLOAD_DIR}${path.sep}`);
+};
+
+const safeDeleteTempFile = (filePath) => {
+    if (!isPathInsideTmp(filePath)) return;
+    try {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    } catch {
+        // Best-effort cleanup only.
+    }
+};
+
+// Fix #1: module-level Groq client — reused across requests
+import Groq from 'groq-sdk';
+const groqClient = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+
+// Fix #10: use crypto.randomBytes for unique filenames
 const upload = multer({
     storage: multer.diskStorage({
         destination: os.tmpdir(),
-        filename: (req, file, cb) => cb(null, `voice-stt-${Date.now()}-${file.originalname}`),
+        filename: (req, file, cb) => cb(null, `voice-stt-${crypto.randomBytes(8).toString('hex')}.webm`),
     }),
     limits: { fileSize: 25 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
@@ -60,14 +82,17 @@ router.post('/tts', optionalAuth, async (req, res) => {
             return res.status(200).json({ fallback: true });
         }
 
+        const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
+
         res.set({
             'Content-Type':   result.contentType,
-            'Content-Length': result.audio.length,
+            'Content-Length': audioBuffer.length,
             'X-TTS-Provider': result.provider,
             'X-TTS-Voice':    result.voice || '',
             'Cache-Control':  'no-cache',
         });
-        res.send(result.audio);
+        res.type(result.contentType || 'audio/mpeg');
+        res.send(audioBuffer);
     } catch (error) {
         console.error('[voice/tts] Error:', error.message?.substring(0, 200));
         res.status(200).json({ fallback: true });
@@ -100,14 +125,17 @@ router.post('/tts-stream', optionalAuth, async (req, res) => {
             return res.status(200).json({ fallback: true });
         }
 
+        const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
+
         res.set({
             'Content-Type':   result.contentType,
-            'Content-Length': result.audio.length,
+            'Content-Length': audioBuffer.length,
             'X-TTS-Provider': result.provider,
             'X-TTS-Voice':    result.voice || '',
             'Cache-Control':  'no-cache',
         });
-        res.send(result.audio);
+        res.type(result.contentType || 'audio/mpeg');
+        res.send(audioBuffer);
     } catch (error) {
         console.error('[voice/tts-stream] Error:', error.message?.substring(0, 200));
         if (!res.headersSent) res.status(200).json({ fallback: true });
@@ -162,9 +190,10 @@ router.post('/analyze-answer', optionalAuth, async (req, res) => {
     }
 
     try {
-        // Use Groq llama-3.1-8b-instant (fast, free) for analysis
-        const Groq = (await import('groq-sdk')).default;
-        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+        // Fix #1: reuse module-level groqClient instead of creating new instance per request
+        if (!groqClient) {
+            return res.json({ needsFollowUp: false, followUpQuestion: null, clarityScore: 6, specificityScore: 6, starUsed: false });
+        }
 
         const analysisPrompt = `You are an expert interview coach analyzing a candidate's answer.
 
@@ -190,7 +219,7 @@ Rules:
 - starUsed = true if answer uses Situation/Task/Action/Result structure
 - confidenceScore based on language assertiveness (avoid "I think", "maybe", "I guess")`;
 
-        const completion = await groq.chat.completions.create({
+        const completion = await groqClient.chat.completions.create({
             model:       'llama-3.1-8b-instant',
             messages:    [{ role: 'user', content: analysisPrompt }],
             temperature: 0.3,
@@ -246,7 +275,7 @@ router.get('/backchannel-clips', optionalAuth, async (req, res) => {
 // DEEPGRAM TOKEN — For frontend WebSocket STT (if enabled)
 // GET /api/voice/deepgram-token  (requires auth)
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/deepgram-token', optionalAuth, (req, res) => {
+router.get('/deepgram-token', authenticateToken, (req, res) => {
     const token = voiceService.getDeepgramToken();
     if (!token) {
         return res.status(200).json({ available: false, message: 'Deepgram not configured. Using browser speech recognition.' });
@@ -265,7 +294,7 @@ router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
         if (!filePath) return res.status(400).json({ error: 'Audio file is required' });
 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
-        try { fs.unlinkSync(filePath); } catch { }
+        safeDeleteTempFile(filePath);
 
         if (result.fallback) return res.status(200).json({ fallback: true, text: '' });
 
@@ -277,7 +306,7 @@ router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
         });
     } catch (error) {
         console.error('[voice/stt] Error:', error.message);
-        try { if (filePath) fs.unlinkSync(filePath); } catch { }
+        safeDeleteTempFile(filePath);
         res.status(200).json({ fallback: true, text: '' });
     }
 });

@@ -2,12 +2,7 @@
 // Provides access to 11,873 real company interview questions from companyPrepData
 // Used by the AI interview system to serve actual company-reported questions
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { COMPANY_QUESTIONS, COMPANIES } from '../../frontend/src/data/companyPrepData.js';
 
 // In-memory cache for the question bank
 let questionCache = null;
@@ -15,40 +10,14 @@ let companiesList = null;
 
 /**
  * Load question data from the frontend data file.
- * We read it as text and extract the COMPANY_QUESTIONS array and COMPANIES array.
+ * Data is imported directly to avoid runtime code evaluation.
  */
 function loadQuestionData() {
     if (questionCache) return;
 
     try {
-        const dataPath = path.resolve(__dirname, '../../frontend/src/data/companyPrepData.js');
-        const fileContent = fs.readFileSync(dataPath, 'utf-8');
-
-        // Extract COMPANY_QUESTIONS array by evaluating the export
-        // Using a safer approach: parse the array portion
-        const questionsMatch = fileContent.match(/export const COMPANY_QUESTIONS\s*=\s*\[/);
-        if (!questionsMatch) {
-            console.warn('Could not find COMPANY_QUESTIONS in companyPrepData.js');
-            questionCache = [];
-            companiesList = [];
-            return;
-        }
-
-        // Use Function constructor to safely evaluate the data portions
-        // Extract just the data arrays we need
-        const wrappedCode = fileContent
-            .replace(/export const /g, 'const ')
-            .replace(/export function /g, 'function ')
-            .replace(/export default /g, 'const _default = ');
-
-        const extractFn = new Function(`
-      ${wrappedCode}
-      return { questions: typeof COMPANY_QUESTIONS !== 'undefined' ? COMPANY_QUESTIONS : [], companies: typeof COMPANIES !== 'undefined' ? COMPANIES : [] };
-    `);
-
-        const result = extractFn();
-        questionCache = result.questions || [];
-        companiesList = result.companies || [];
+        questionCache = Array.isArray(COMPANY_QUESTIONS) ? COMPANY_QUESTIONS : [];
+        companiesList = Array.isArray(COMPANIES) ? COMPANIES : [];
 
         console.log(`✅ Company Question Bank loaded: ${questionCache.length} questions, ${companiesList.length} companies`);
     } catch (error) {

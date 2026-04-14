@@ -1,7 +1,8 @@
 import process from 'process';
 import { spawn } from 'child_process';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-const BASE_URL = process.env.STARTUP_TEST_BASE_URL || 'http://localhost:5000';
+const BASE_URL = ensureLocalBaseUrl(process.env.STARTUP_TEST_BASE_URL || 'http://localhost:5000');
 const HEALTH_PATH = '/health';
 
 function sleep(ms) {
@@ -9,7 +10,7 @@ function sleep(ms) {
 }
 
 async function requestJson(path, options = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, options);
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), options);
   let json = null;
 
   try {

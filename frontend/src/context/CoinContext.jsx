@@ -14,9 +14,10 @@ export function CoinProvider({ children }) {
   const [history, setHistory] = useState([]);
   const [redeemOptions, setRedeemOptions] = useState([]);
 
-  const getHeaders = () => {
+  // Fix #9: memoize getHeaders so useCallback deps are stable
+  const getHeaders = useCallback(() => {
     return buildAuthHeaders(user);
-  };
+  }, [user]);
 
   const refreshBalance = useCallback(async () => {
     if (!user) return;

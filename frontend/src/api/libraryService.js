@@ -1,3 +1,5 @@
+import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
+
 function resolveApiBaseUrl() {
 	const rawBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').trim();
 	if (!rawBaseUrl) return 'http://localhost:5000/api';
@@ -9,6 +11,11 @@ function resolveApiBaseUrl() {
 }
 
 const API_BASE_URL = resolveApiBaseUrl();
+
+function buildLibraryApiUrl(endpoint) {
+	const safeEndpoint = normalizeRelativePath(endpoint);
+	return buildApiUrl(`/library${safeEndpoint}`, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
+}
 
 function resolveToken(explicitToken) {
 	if (explicitToken) return explicitToken;
@@ -37,7 +44,7 @@ async function request(endpoint, { method = 'GET', body, token } = {}) {
 		headers.Authorization = `Bearer ${authToken}`;
 	}
 
-	const response = await fetch(`${API_BASE_URL}/library${endpoint}`, {
+	const response = await fetch(buildLibraryApiUrl(endpoint), {
 		method,
 		headers,
 		body: body ? JSON.stringify(body) : undefined

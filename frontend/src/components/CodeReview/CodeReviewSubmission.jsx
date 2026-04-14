@@ -11,6 +11,11 @@ const MOCK_PROBLEMS = [
   { id: 3, title: 'Median of Two Sorted Arrays', difficulty: 'Hard' }
 ];
 
+const FORM_LABELS = {
+  problem: 'Select Problem',
+  language: 'Language',
+};
+
 export default function CodeReviewSubmission() {
   const [code, setCode] = useState('// Write your solution here\n');
   const [language, setLanguage] = useState('javascript');
@@ -55,7 +60,7 @@ export default function CodeReviewSubmission() {
         {/* Settings Panel */}
         <div className="cr-settings">
           <div className="cr-form-group">
-            <label>Select Problem</label>
+            <label>{FORM_LABELS.problem}</label>
             <select 
               value={problemId} 
               onChange={e => setProblemId(Number(e.target.value))}
@@ -70,7 +75,7 @@ export default function CodeReviewSubmission() {
           </div>
 
           <div className="cr-form-group">
-            <label>Language</label>
+            <label>{FORM_LABELS.language}</label>
             <select 
               value={language} 
               onChange={e => setLanguage(e.target.value)}

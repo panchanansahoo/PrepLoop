@@ -1,6 +1,7 @@
 import process from 'process';
+import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
-const BASE_URL = process.env.AI_FEATURES_BASE_URL || 'http://localhost:5000';
+const BASE_URL = ensureLocalBaseUrl(process.env.AI_FEATURES_BASE_URL || 'http://localhost:5000');
 const TOKEN = process.env.AI_FEATURES_SMOKE_TOKEN || process.env.TEST_AUTH_TOKEN || '';
 
 function buildHeaders() {
@@ -10,7 +11,7 @@ function buildHeaders() {
 }
 
 async function requestJson(path, { method = 'GET', body } = {}) {
-  const response = await fetch(`${BASE_URL}${path}`, {
+  const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
     headers: buildHeaders(),
     body: body ? JSON.stringify(body) : undefined,

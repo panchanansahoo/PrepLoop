@@ -331,8 +331,17 @@ function _estimateComplexity(code) {
     }
   }
 
-  // Check for recursion
-  const hasRecursion = /function\s+(\w+)/.test(code) && new RegExp('\\b' + (code.match(/function\s+(\w+)/)?.[1] || 'xxx') + '\\b').test(code.split('function')[1] || '');
+  // Check for recursion without constructing a dynamic regular expression.
+  const functionMatch = code.match(/function\s+([A-Za-z_]\w*)/);
+  let hasRecursion = false;
+  if (functionMatch?.[1]) {
+    const declaration = functionMatch[0];
+    const fnName = functionMatch[1];
+    const declarationIndex = code.indexOf(declaration);
+    const bodyStart = declarationIndex >= 0 ? declarationIndex + declaration.length : 0;
+    const functionBody = code.slice(bodyStart);
+    hasRecursion = functionBody.includes(`${fnName}(`);
+  }
 
   let time = 'O(n)';
   let space = 'O(1)';

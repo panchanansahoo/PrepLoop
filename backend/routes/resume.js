@@ -299,7 +299,18 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
           baseDelayMs: 500
         });
 
-        const parsed = JSON.parse(completion.choices[0].message.content);
+        let parsed;
+        try {
+          const rawContent = completion.choices?.[0]?.message?.content || '';
+          parsed = JSON.parse(rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+        } catch {
+          parsed = null;
+        }
+        if (!parsed) {
+          analysisData = buildStaticAnalysis(resumeText);
+          resumeProfile = buildFallbackResumeProfile(resumeText, analysisData);
+          return res.json({ analysis: analysisData, resumeText, resumeProfile });
+        }
 
         // Validate and sanitize the AI response
         analysisData = {
@@ -326,12 +337,15 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
       resumeProfile = analysisData.interviewProfile || buildFallbackResumeProfile(resumeText, analysisData);
     }
 
+    // Fix #7: store truncated text to avoid storing huge PII blobs
+    const storedText = resumeText.length > 8000 ? resumeText.slice(0, 8000) + '\n[truncated]' : resumeText;
+
     // Store in database
     const { data: analysis, error } = await supabaseAdmin
       .from('resume_analyses')
       .insert({
         user_id: req.user.id,
-        resume_text: resumeText,
+        resume_text: storedText,
         ats_score: analysisData.atsScore,
         strengths: analysisData.strengths,
         weaknesses: analysisData.weaknesses,
@@ -579,7 +593,20 @@ ${formatAwards(awards)}
           baseDelayMs: 500
         });
 
-        generatedResume = JSON.parse(completion.choices[0].message.content);
+        try {
+          const rawContent = completion.choices?.[0]?.message?.content || '';
+          generatedResume = JSON.parse(rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+        } catch {
+          generatedResume = null;
+        }
+        if (!generatedResume) {
+          generatedResume = {
+            fullName, email, phone: phone || '', location: location || '', linkedin: linkedin || '', portfolio: '',
+            summary: summary || 'Motivated professional seeking to leverage skills and experience.',
+            education: buildEducation(), skills: categorizeSkills(skills), experience: buildExperience(),
+            projects: buildProjects(), certifications: buildAwards(), atsScore: 55
+          };
+        }
         // Ensure projects have dates if provided in form
         if (Array.isArray(projects) && generatedResume.projects) {
           generatedResume.projects.forEach((p, i) => {
@@ -606,14 +633,14 @@ ${formatAwards(awards)}
       }
     }
 
-    // Store in database (non-blocking — don't fail if DB write fails)
+    // Fix #15: store a plain-text summary instead of raw JSON so /latest can parse it
     try {
-      const resumeText = JSON.stringify(generatedResume);
+      const storedText = `Generated resume for ${fullName} <${email}>`;
       await supabaseAdmin
         .from('resume_analyses')
         .insert({
           user_id: req.user.id,
-          resume_text: resumeText,
+          resume_text: storedText,
           ats_score: generatedResume.atsScore || 70,
           strengths: ['AI-generated professional resume'],
           weaknesses: [],

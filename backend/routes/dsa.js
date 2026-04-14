@@ -21,6 +21,7 @@ const resolveProblemId = async (problemIdentifier) => {
   const rawIdentifier = String(problemIdentifier).trim();
   if (!rawIdentifier) return null;
 
+  // Fast path: numeric ID
   if (/^\d+$/.test(rawIdentifier)) {
     const numericId = Number(rawIdentifier);
     const { data: byId } = await supabaseAdmin
@@ -28,41 +29,31 @@ const resolveProblemId = async (problemIdentifier) => {
       .select('id')
       .eq('id', numericId)
       .single();
-
     if (byId?.id) return byId.id;
   }
 
-  const normalizedIdentifier = slugifyProblemTitle(rawIdentifier);
-  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim().toLowerCase();
-
-   const staticProblemMatch =
-    all425Problems.find((problem) => String(problem.id) === rawIdentifier) ||
-    all425Problems.find((problem) => slugifyProblemTitle(problem.title) === normalizedIdentifier) ||
-    all425Problems.find((problem) => problem.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
-    all425Problems.find((problem) => problem.title?.toLowerCase() === titleFromSlug) ||
+  // Check static list first (no DB call)
+  const staticMatch =
+    all425Problems.find((p) => String(p.id) === rawIdentifier) ||
+    all425Problems.find((p) => slugifyProblemTitle(p.title) === slugifyProblemTitle(rawIdentifier)) ||
+    all425Problems.find((p) => p.title?.toLowerCase() === rawIdentifier.toLowerCase()) ||
     null;
 
-  const titleSlugsToMatch = new Set([normalizedIdentifier]);
-  const titlesToMatch = new Set([rawIdentifier.toLowerCase(), titleFromSlug]);
-
-  if (staticProblemMatch?.title) {
-    titleSlugsToMatch.add(slugifyProblemTitle(staticProblemMatch.title));
-    titlesToMatch.add(String(staticProblemMatch.title).toLowerCase());
-  }
+  // Build a targeted DB ilike query instead of fetching 1500 rows
+  const titleFromSlug = rawIdentifier.replace(/[-_]+/g, ' ').trim();
+  const searchTitle = staticMatch?.title || titleFromSlug;
 
   const { data: candidates } = await supabaseAdmin
     .from('problems')
     .select('id, title')
-    .limit(1500);
+    .ilike('title', searchTitle)
+    .limit(5);
 
-  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    return candidates[0].id;
+  }
 
-  const matched =
-    candidates.find((problem) => titleSlugsToMatch.has(slugifyProblemTitle(problem.title))) ||
-    candidates.find((problem) => titlesToMatch.has(problem.title?.toLowerCase())) ||
-    null;
-
-  return matched?.id || null;
+  return null;
 };
 
 const FALLBACK_SOLUTIONS = {
@@ -107,7 +98,16 @@ ${String(problem?.description || '').substring(0, 1500)}
     response_format: { type: 'json_object' },
   });
 
-  return JSON.parse(completion.choices[0].message.content);
+  let parsed;
+  try {
+    const raw = completion.choices?.[0]?.message?.content || '';
+    parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+  } catch {
+    return null;
+  }
+  // Only return if all 4 languages are present and non-empty
+  if (!isCompleteSolution(parsed)) return null;
+  return parsed;
 };
 
 router.get('/patterns', optionalAuth, async (req, res) => {

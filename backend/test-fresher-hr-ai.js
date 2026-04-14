@@ -3,19 +3,29 @@
  * Tests: Q1 fixed -> Q2-Q10 AI-generated -> Q11-Q12 fixed
  */
 
-const http = require('http');
+import http from 'node:http';
 
 // Test data
 let interviewId = null;
 const userAnswer = 'This is my response to the question.';
+const LOCAL_API_ORIGIN = 'http://localhost:5000';
+
+function buildLocalUrl(routePath) {
+  const url = new URL(routePath, LOCAL_API_ORIGIN);
+  if (url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+    throw new Error('Unsafe host for local smoke test request');
+  }
+  return url;
+}
 
 // Helper: Make HTTP request
 function makeRequest(path, method = 'GET', body = null) {
   return new Promise((resolve, reject) => {
+    const url = buildLocalUrl(path);
     const options = {
-      hostname: 'localhost',
-      port: 5000,
-      path,
+      hostname: url.hostname,
+      port: url.port,
+      path: `${url.pathname}${url.search}`,
       method,
       headers: {
         'Content-Type': 'application/json',

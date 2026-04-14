@@ -3,6 +3,7 @@ import pool from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
+import { hrLoginLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
 
@@ -49,7 +50,7 @@ router.post('/register', async (req, res) => {
 });
 
 // HR Login
-router.post('/login', async (req, res) => {
+router.post('/login', hrLoginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
