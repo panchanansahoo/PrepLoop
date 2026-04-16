@@ -32,6 +32,8 @@ function AnimatedCounter({ end, duration = 1200, suffix = '' }) {
 }
 
 export default function QuickStats({ data }) {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const stats = data || { streak: 0, problemsSolved: 0, avgScore: 0, attendInterview: 0 };
     const hasActivity = [stats.streak, stats.problemsSolved, stats.avgScore, stats.attendInterview].some((value) => value > 0);
 
@@ -41,8 +43,8 @@ export default function QuickStats({ data }) {
             value: stats.streak,
             icon: Flame,
             color: '#f59e0b',
-            gradient: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.03))',
-            borderGlow: 'rgba(245, 158, 11, 0.2)',
+            bgGlow: isLight ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.08)',
+            borderGlow: isLight ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.2)',
             suffix: '',
             activeHint: 'Keep it alive today',
             emptyHint: 'Your streak starts with one solve'
@@ -52,8 +54,8 @@ export default function QuickStats({ data }) {
             value: stats.problemsSolved,
             icon: CheckCircle2,
             color: '#22c55e',
-            gradient: 'linear-gradient(135deg, rgba(34,197,94,0.15), rgba(34,197,94,0.03))',
-            borderGlow: 'rgba(34, 197, 94, 0.2)',
+            bgGlow: isLight ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.08)',
+            borderGlow: isLight ? 'rgba(34, 197, 94, 0.2)' : 'rgba(34, 197, 94, 0.2)',
             suffix: '',
             activeHint: 'Practice sessions completed',
             emptyHint: 'No sessions logged yet'
@@ -62,9 +64,9 @@ export default function QuickStats({ data }) {
             label: 'Avg Score',
             value: stats.avgScore,
             icon: Target,
-            color: '#a78bfa',
-            gradient: 'linear-gradient(135deg, rgba(167,139,250,0.15), rgba(167,139,250,0.03))',
-            borderGlow: 'rgba(167, 139, 250, 0.2)',
+            color: isLight ? '#6366f1' : '#a78bfa',
+            bgGlow: isLight ? 'rgba(99,102,241,0.08)' : 'rgba(167,139,250,0.08)',
+            borderGlow: isLight ? 'rgba(99,102,241,0.2)' : 'rgba(167, 139, 250, 0.2)',
             suffix: '%',
             activeHint: 'Your rolling performance average',
             emptyHint: 'Score appears after your first review'
@@ -74,16 +76,97 @@ export default function QuickStats({ data }) {
             value: stats.attendInterview,
             icon: Zap,
             color: '#38bdf8',
-            gradient: 'linear-gradient(135deg, rgba(56,189,248,0.15), rgba(56,189,248,0.03))',
-            borderGlow: 'rgba(56, 189, 248, 0.2)',
+            bgGlow: isLight ? 'rgba(56,189,248,0.08)' : 'rgba(56,189,248,0.08)',
+            borderGlow: isLight ? 'rgba(56, 189, 248, 0.2)' : 'rgba(56, 189, 248, 0.2)',
             suffix: '',
             activeHint: 'Completed mock interviews',
             emptyHint: 'Start your first mock interview'
         }
     ];
 
+    const c = {
+        baseBg: isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))' : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',
+        border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)',
+        shadow: isLight ? '0 12px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)' : '0 24px 64px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+        shadowHover: isLight ? '0 16px 48px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)' : '0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
+        title: isLight ? '#0f172a' : '#f8fafc',
+        sub: isLight ? '#64748b' : '#94a3b8',
+    };
+
     return (
         <section className="quick-stats-shell">
+            <style>{`
+                .quick-stats-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    gap: 16px;
+                }
+                .quick-stat-card {
+                    padding: 24px;
+                    border-radius: 24px;
+                    border: ${c.border};
+                    backdrop-filter: blur(24px);
+                    -webkit-backdrop-filter: blur(24px);
+                    box-shadow: ${c.shadow};
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                    display: flex;
+                    flex-direction: column;
+                    gap: 16px;
+                    position: relative;
+                    overflow: hidden;
+                    animation: fadeUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                .quick-stat-card::before {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    z-index: 0;
+                    pointer-events: none;
+                    transition: opacity 0.4s ease;
+                }
+                .quick-stat-card:hover {
+                    transform: translateY(-4px) scale(1.02);
+                    box-shadow: ${c.shadowHover};
+                }
+                .quick-stat-card > * {
+                    position: relative;
+                    z-index: 1;
+                }
+                .quick-stat-top-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .quick-stat-icon {
+                    width: 44px;
+                    height: 44px;
+                    border-radius: 14px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+                }
+                .quick-stat-label {
+                    font-size: 0.95rem;
+                    font-weight: 700;
+                    color: ${c.title};
+                    letter-spacing: 0.2px;
+                }
+                .quick-stat-value {
+                    font-size: 2.5rem;
+                    font-weight: 800;
+                    line-height: 1;
+                    text-shadow: ${isLight ? 'none' : '0 4px 16px rgba(0,0,0,0.2)'};
+                }
+                .quick-stat-card-empty {
+                    opacity: 0.7;
+                    filter: saturate(0.5);
+                }
+                @keyframes fadeUp {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
             <div className="quick-stats-grid">
             {cards.map((card) => {
                 const Icon = card.icon;
@@ -93,10 +176,14 @@ export default function QuickStats({ data }) {
                     <div
                         key={card.label}
                         className={`quick-stat-card ${isEmpty ? 'quick-stat-card-empty' : ''}`}
-                        style={{ background: card.gradient, borderColor: card.borderGlow }}
+                        style={{ 
+                            background: c.baseBg,
+                            borderColor: card.borderGlow, // Add subtle colored glow to border
+                        }}
                     >
+                        <div className="quick-stat-bg-fill" style={{ position: 'absolute', inset: 0, background: card.bgGlow, zIndex: 0 }} />
                         <div className="quick-stat-top-row">
-                            <div className="quick-stat-icon" style={{ background: `${card.color}20` }}>
+                            <div className="quick-stat-icon" style={{ background: `${card.color}${isLight ? '20' : '30'}` }}>
                                 <Icon size={20} style={{ color: card.color }} />
                             </div>
                             <div className="quick-stat-label">{card.label}</div>
@@ -215,12 +302,17 @@ export function StreakHeatmap({
             className={className}
             style={{
                 background: isLight
-                    ? 'linear-gradient(180deg, rgba(255,255,255,0.9), rgba(250,251,255,0.88))'
-                    : 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))',
+                    ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))'
+                    : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',
                 border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 18,
-                padding: 20,
-                boxShadow: isLight ? '0 16px 40px rgba(15, 23, 42, 0.05)' : '0 20px 60px rgba(0, 0, 0, 0.28)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)',
+                borderRadius: 24,
+                padding: '24px 28px',
+                boxShadow: isLight
+                    ? '0 12px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)'
+                    : '0 24px 64px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+                transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
         >
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 18 }}>

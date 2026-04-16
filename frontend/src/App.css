@@ -420,12 +420,13 @@ html[data-theme="light"] {
 
 /* ─── Logo Marquee ─── */
 [data-theme="light"] .logo-marquee-item {
-  color: #3b3f56;
-  opacity: 0.6;
+  color: #1a1d2e;
+  opacity: 0.5;
 }
 
-[data-theme="light"] .logo-marquee-track {
-  opacity: 0.5;
+[data-theme="light"] .logo-marquee-item:hover {
+  color: #0a0d1e;
+  opacity: 0.85;
 }
 
 /* ─── FAQ — Refined ─── */
@@ -1305,9 +1306,175 @@ h3 {
 }
 
 .navbar.scrolled {
-  background: rgba(3, 3, 3, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  background: rgba(10, 10, 12, 0.65);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* Public Navbar Styles - Pill Design */
+.navbar.public-navbar {
+  height: auto;
+  position: fixed;
+  top: 24px;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 0 24px;
+  background: transparent;
+  border: none;
+  pointer-events: none;
+  transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navbar.public-navbar .nav-content {
+  pointer-events: auto;
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px 0 24px;
+  border-radius: 40px;
+  background: rgba(15, 15, 20, 0.4);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.navbar.public-navbar.scrolled {
+  top: 16px;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.navbar.public-navbar.scrolled .nav-content {
+  background: rgba(18, 18, 24, 0.65);
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  transform: translateY(-2px);
+}
+
+.navbar.public-navbar .nav-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 12px;
+  flex: 1;
+  justify-content: center;
+}
+
+.navbar.public-navbar .nav-link {
+  font-size: 13px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.navbar.public-navbar .special-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.new-badge {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  letter-spacing: 0.5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  line-height: 1;
+  position: relative;
+  top: -1px;
+}
+
+.navbar.public-navbar .nav-action-btn {
+  border-radius: 30px;
+  padding: 8px 14px;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.navbar.public-navbar .nav-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.navbar.public-navbar .nav-actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 1100px) {
+  .navbar.public-navbar .nav-links {
+    gap: 8px;
+    margin-left: 8px;
+  }
+}
+
+/* Light Mode Overrides for Public Navbar */
+[data-theme="light"] .navbar.public-navbar .nav-content {
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.06), inset 0 1px 1px rgba(255, 255, 255, 1);
+}
+
+[data-theme="light"] .navbar.public-navbar.scrolled .nav-content {
+  background: rgba(255, 255, 255, 0.75);
+  border-color: rgba(99, 102, 241, 0.08);
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.1), inset 0 1px 1px rgba(255, 255, 255, 1);
+}
+
+[data-theme="light"] .navbar.public-navbar .nav-action-btn {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.1);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .navbar.public-navbar .nav-action-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .navbar.public-navbar .new-badge {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-primary);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+@media (max-width: 768px) {
+  .navbar.public-navbar {
+    top: 12px;
+    padding: 0 12px;
+  }
+  .navbar.public-navbar.scrolled {
+    top: 8px;
+  }
+  .navbar.public-navbar .nav-content {
+    border-radius: 16px;
+    height: 60px;
+    padding: 0 16px;
+  }
 }
 
 .nav-link {
@@ -12624,21 +12791,38 @@ h3 {
 }
 
 /* ─── Logo Marquee ─── */
+.logo-marquee-wrapper {
+  position: relative;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0%, #000 10%, #000 90%, transparent 100%);
+}
+
 .logo-marquee-track {
   display: flex;
-  gap: 48px;
-  animation: marqueeScroll 45s linear infinite;
+  gap: 56px;
+  align-items: center;
+  animation: marqueeScroll 50s linear infinite;
   width: max-content;
-  opacity: 0.35;
 }
 
 .logo-marquee-item {
-  font-size: 18px;
-  font-weight: 600;
-  color: #fff;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.3s ease, opacity 0.3s ease;
+  opacity: 0.7;
+}
+
+.logo-marquee-item:hover {
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1;
+}
+
+.logo-marquee-item svg {
+  display: block;
 }
 
 @keyframes marqueeScroll {
@@ -12647,7 +12831,7 @@ h3 {
   }
 
   100% {
-    transform: translateX(-50%);
+    transform: translateX(calc(-100% / 3));
   }
 }
 

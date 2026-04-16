@@ -31,6 +31,12 @@ const MAX_ANSWER_WAIT_MS  = 60_000;   // safety: force-submit after 60s
 const BACKCHANNEL_MIN_MS  = 8_000;    // min speech duration before backchannel
 const BACKCHANNEL_GAP_MS  = 12_000;   // min gap between backchannel clips
 
+// Two-tier silence detection:
+// 1. After user speaks: short adaptive silence → auto-submit
+// 2. Total silence (no speech at all): 10 seconds → auto-submit
+const SILENCE_AFTER_SPEECH_MAX_MS = 1_200; // upper bound after UtteranceEnd for real-time feel
+const TOTAL_SILENCE_AUTO_SUBMIT_MS = 10_000;  // 10 seconds of complete silence (no speech detected)
+
 // Adaptive silence thresholds (ms after UtteranceEnd before auto-submit)
 const SILENCE_SHORT  = 2500;  // short answers (<50 chars) — user might continue
 const SILENCE_MEDIUM = 1800;  // medium answers (50-200 chars)
@@ -135,6 +141,10 @@ export function getAdaptiveSilenceMs(textLength) {
     return SILENCE_LONG;
 }
 
+export function getPostSpeechAutoSubmitMs(textLength) {
+    return Math.min(getAdaptiveSilenceMs(textLength), SILENCE_AFTER_SPEECH_MAX_MS);
+}
+
 export function shouldAutoSubmitAnswer({ transcriptLength = 0, inputLevel = 0, utteranceEnded = false } = {}) {
     return Boolean(utteranceEnded) && transcriptLength >= MIN_ANSWER_LENGTH && inputLevel < 0.05;
 }
@@ -189,6 +199,8 @@ export function useDeepgramVoice({
     const silenceTimerRef  = useRef(null);
     const fallbackSilenceRef = useRef(null);
     const maxWaitRef       = useRef(null);
+    const totalSilenceTimerRef = useRef(null);  // 10-second total silence timer (no speech at all)
+    const afterSpeechSilenceRef = useRef(null); // 5-second silence after user spoke
     // Accumulated transcripts
     const finalTextRef     = useRef('');
     const interimRef       = useRef('');
@@ -279,6 +291,12 @@ export function useDeepgramVoice({
     const clearBackchannelTimer = () => {
         if (backchannelTimerRef.current) { clearTimeout(backchannelTimerRef.current); backchannelTimerRef.current = null; }
     };
+    const clearTotalSilenceTimer = () => {
+        if (totalSilenceTimerRef.current) { clearTimeout(totalSilenceTimerRef.current); totalSilenceTimerRef.current = null; }
+    };
+    const clearAfterSpeechSilence = () => {
+        if (afterSpeechSilenceRef.current) { clearTimeout(afterSpeechSilenceRef.current); afterSpeechSilenceRef.current = null; }
+    };
 
     // ── Play a random backchannel clip ──
     const playBackchannel = useCallback(() => {
@@ -316,6 +334,8 @@ export function useDeepgramVoice({
         clearFallbackSilence();
         clearMaxWait();
         clearBackchannelTimer();
+        clearTotalSilenceTimer();
+        clearAfterSpeechSilence();
 
         if (!answer || answer.length < MIN_ANSWER_LENGTH) {
             if (activeRef.current) setState('listening');
@@ -394,6 +414,7 @@ export function useDeepgramVoice({
                 requestId: tokenRes.headers.get('x-request-id') || tokenRequest.requestId,
             });
             const tokenData = await tokenRes.json();
+            console.log('[useDeepgramVoice] Token response:', tokenData);
             if (!tokenData.available || !tokenData.token) {
                 logVoiceDebug('deepgram-token unavailable payload', tokenData);
                 console.warn('[useDeepgramVoice] Deepgram token not available, falling back to REST');
@@ -419,12 +440,22 @@ export function useDeepgramVoice({
                         if (msg.type === 'SpeechStarted') {
                             clearSilenceTimer();
                             clearFallbackSilence();
+                            clearTotalSilenceTimer();  // Cancel 10-second total silence timer (user is speaking)
+                            clearAfterSpeechSilence(); // Cancel any pending after-speech timer
                             return;
                         }
 
                         // UtteranceEnd — primary "done speaking" signal from Deepgram VAD
                         if (msg.type === 'UtteranceEnd') {
-                            scheduleAutoSubmit(true);
+                            // User stopped speaking → start short adaptive countdown
+                            clearAfterSpeechSilence();
+                            const postSpeechDelayMs = getPostSpeechAutoSubmitMs(finalTextRef.current.trim().length);
+                            afterSpeechSilenceRef.current = setTimeout(() => {
+                                if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH && inputLevelRef.current < 0.05) {
+                                    console.log('[useDeepgramVoice] post-speech silence window elapsed, auto-submitting');
+                                    submitAnswer();
+                                }
+                            }, postSpeechDelayMs);
                             return;
                         }
 
@@ -447,9 +478,9 @@ export function useDeepgramVoice({
                                 setInterimText('');
                                 transcriptListener?.(finalTextRef.current);
 
-                                // Reset silence timer on new final speech
-                                clearSilenceTimer();
-                                scheduleAutoSubmit(false);
+                                // User is speaking → cancel total silence timer
+                                clearTotalSilenceTimer();
+                                // Note: after-speech timer will be started by UtteranceEnd event
                             } else {
                                 // Interim transcript: show live preview
                                 interimRef.current = text;
@@ -522,6 +553,8 @@ export function useDeepgramVoice({
     const processChunkREST = useCallback(async (blob) => {
         if (!activeRef.current || !blob || blob.size < 100) return;
 
+        console.log('[useDeepgramVoice] Processing chunk via REST, size:', blob.size);
+
         try {
             const form = new FormData();
             form.append('audio', blob, 'chunk.webm');
@@ -532,9 +565,17 @@ export function useDeepgramVoice({
                 headers: resolveAuthHeaders({}),
                 body: form,
             });
-            if (!res.ok) return;
+            
+            console.log('[useDeepgramVoice] REST STT response:', res.status, res.ok);
+            
+            if (!res.ok) {
+                console.warn('[useDeepgramVoice] REST STT failed with status:', res.status);
+                return;
+            }
 
             const data = await res.json();
+            console.log('[useDeepgramVoice] REST STT data:', data);
+            
             if (!data.transcript) return;
 
             const newText = (finalTextRef.current + ' ' + data.transcript).trim();
@@ -587,11 +628,14 @@ export function useDeepgramVoice({
         if (ttsAbortRef.current) { ttsAbortRef.current.abort(); ttsAbortRef.current = null; }
         if (audioRef.current)    { audioRef.current.pause(); audioRef.current.src = ''; }
 
+        console.log('[useDeepgramVoice] Starting voice recording...');
+
         try {
             // Reuse existing mic stream when possible (avoids repeated getUserMedia latency)
             let stream = streamRef.current;
             const streamAlive = stream && stream.getTracks().some(t => t.readyState === 'live');
             if (!streamAlive) {
+                console.log('[useDeepgramVoice] Requesting microphone access...');
                 stream = await navigator.mediaDevices.getUserMedia({
                     audio: {
                         channelCount:     1,
@@ -602,19 +646,26 @@ export function useDeepgramVoice({
                     },
                 });
                 streamRef.current = stream;
+                console.log('[useDeepgramVoice] ✓ Microphone access granted');
+            } else {
+                console.log('[useDeepgramVoice] ✓ Reusing existing microphone stream');
             }
             setInputStreamState(stream);
             activeRef.current = true;
             listenStartRef.current = Date.now();
 
             // Reuse existing WebSocket or reconnect if closed
+            console.log('[useDeepgramVoice] Connecting to Deepgram WebSocket...');
             const wsConnected = await ensureWebSocket();
+            console.log('[useDeepgramVoice] WebSocket status:', wsConnected ? 'Connected' : 'Failed (using REST fallback)');
 
             const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
                 ? 'audio/webm;codecs=opus'
                 : MediaRecorder.isTypeSupported('audio/webm')
                     ? 'audio/webm'
                     : '';
+
+            console.log('[useDeepgramVoice] MediaRecorder mimeType:', mimeType || 'default');
 
             const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
             recorderRef.current = recorder;
@@ -636,15 +687,28 @@ export function useDeepgramVoice({
             };
 
             recorder.start(CHUNK_INTERVAL_MS);
+            console.log('[useDeepgramVoice] ✓ Recording started (chunk interval: ' + CHUNK_INTERVAL_MS + 'ms)');
 
             // Safety valve: force submit after MAX_ANSWER_WAIT_MS
             maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
+
+            // Start 10-second total silence auto-submit timer (if user never speaks)
+            totalSilenceTimerRef.current = setTimeout(() => {
+                console.log('[useDeepgramVoice] 10 seconds of total silence (no speech detected), auto-submitting');
+                submitAnswer();
+            }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
 
             // Start backchannel schedule
             startBackchannelSchedule();
 
         } catch (err) {
-            setErrorMessage('Microphone access denied. Please allow microphone access and try again.');
+            console.error('[useDeepgramVoice] Start error:', err);
+            const errorMsg = err.name === 'NotAllowedError' 
+                ? 'Microphone access denied. Please allow microphone access and try again.'
+                : err.name === 'NotFoundError'
+                ? 'No microphone found. Please connect a microphone and try again.'
+                : `Microphone error: ${err.message}`;
+            setErrorMessage(errorMsg);
             setState('error');
             activeRef.current = false;
         }
@@ -657,6 +721,8 @@ export function useDeepgramVoice({
         clearFallbackSilence();
         clearMaxWait();
         clearBackchannelTimer();
+        clearTotalSilenceTimer();
+        clearAfterSpeechSilence();
         setInputStreamState(null);
 
         // NOTE: WebSocket AND mic stream are intentionally kept alive for reuse
@@ -812,14 +878,25 @@ export function useDeepgramVoice({
                     endpoint: TTS_ENDPOINT,
                     requestId: ttsRequest.requestId,
                 });
-                // I12: TTS fetch with 1 retry attempt
-                const fetchTts = async () => {
-                    const res = await fetch(TTS_ENDPOINT, {
+                console.log('[useDeepgramVoice] Sending TTS request for text:', spokenText.substring(0, 50) + '...');
+                
+                // CRITICAL OPTIMIZATION: Add timeout to prevent hanging on slow TTS
+                const TTS_TIMEOUT_MS = 30000; // 30s max wait for TTS (increased for reliability)
+                
+                // I12: TTS fetch with 1 retry attempt and progressive timeout
+                const fetchTts = async (timeoutMs = TTS_TIMEOUT_MS) => {
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('TTS timeout')), timeoutMs)
+                    );
+                    
+                    const fetchPromise = fetch(TTS_ENDPOINT, {
                         method:  'POST',
                         headers: ttsRequest.headers,
                         body:    JSON.stringify({ text: spokenText, persona: 'friendly', gender: personaGender }),
                         signal:  controller.signal,
                     });
+                    
+                    const res = await Promise.race([fetchPromise, timeoutPromise]);
                     logVoiceDebug('tts response', {
                         endpoint: TTS_ENDPOINT,
                         status: res.status,
@@ -832,20 +909,47 @@ export function useDeepgramVoice({
 
                 let res;
                 try {
-                    res = await fetchTts();
+                    // First attempt with full timeout
+                    res = await fetchTts(TTS_TIMEOUT_MS);
                 } catch (firstErr) {
                     if (controller.signal.aborted) throw firstErr;
-                    // Retry once after delay
-                    analyticsRef.current.ttsRetries++; // I14
-                    logVoiceDebug('tts retry after first failure', { error: firstErr.message });
-                    await new Promise(r => setTimeout(r, TTS_RETRY_DELAY_MS));
-                    if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                    res = await fetchTts();
+                    
+                    // Retry once with shorter timeout for non-timeout errors
+                    if (firstErr.message !== 'TTS timeout' && !firstErr.message.includes('timeout')) {
+                        analyticsRef.current.ttsRetries++; // I14
+                        logVoiceDebug('tts retry after first failure', { error: firstErr.message });
+                        await new Promise(r => setTimeout(r, TTS_RETRY_DELAY_MS));
+                        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                        try {
+                            // Retry with shorter timeout (10s)
+                            res = await fetchTts(10000);
+                        } catch (secondErr) {
+                            // Second failure → fall back to browser speech
+                            console.warn('[useDeepgramVoice] TTS failed twice, falling back to browser speech');
+                            analyticsRef.current.ttsFallbacks++;
+                            isFallback = true;
+                            blob = null;
+                        }
+                    } else {
+                        // Timeout on first attempt → fall back immediately
+                        console.warn('[useDeepgramVoice] TTS timeout, falling back to browser speech');
+                        analyticsRef.current.ttsFallbacks++;
+                        isFallback = true;
+                        blob = null; // Force fallback path
+                    }
                 }
 
-                const ct = (res.headers.get('content-type') || '').toLowerCase();
-                blob = await res.blob();
-                if (shouldTreatTtsResponseAsFallback({ contentType: ct, blobSize: blob?.size })) isFallback = true;
+                // If we have a valid response, process it
+                if (res && !isFallback) {
+                    const ct = (res.headers.get('content-type') || '').toLowerCase();
+                    console.log('[useDeepgramVoice] TTS response content-type:', ct);
+                    blob = await res.blob();
+                    console.log('[useDeepgramVoice] TTS response blob size:', blob.size, 'bytes');
+                    if (shouldTreatTtsResponseAsFallback({ contentType: ct, blobSize: blob?.size })) {
+                        console.warn('[useDeepgramVoice] TTS response treated as fallback (invalid audio)');
+                        isFallback = true;
+                    }
+                }
             }
 
             if (controller.signal.aborted) return;
@@ -887,13 +991,18 @@ export function useDeepgramVoice({
                 const playbackBlob = cachedContentType ? new Blob([blob], { type: cachedContentType }) : blob;
                 const url = URL.createObjectURL(playbackBlob);
 
+                console.log('[useDeepgramVoice] Playing audio blob:', playbackBlob.size, 'bytes, type:', playbackBlob.type);
+
                 if (!audioRef.current) audioRef.current = new Audio();
                 audioRef.current.src = url;
                 setOutputAudioEl(audioRef.current);
 
                 try {
+                    console.log('[useDeepgramVoice] Starting audio playback...');
                     await audioRef.current.play();
+                    console.log('[useDeepgramVoice] ✓ Audio playback started');
                 } catch (playError) {
+                    console.error('[useDeepgramVoice] Audio playback failed:', playError);
                     URL.revokeObjectURL(url);
                     if ('speechSynthesis' in window) {
                         analyticsRef.current.ttsFallbacks++; // I14

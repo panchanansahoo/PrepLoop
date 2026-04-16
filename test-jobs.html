@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PrepLoop - Real-Time Jobs Test</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .controls { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        input { padding: 12px; border: 1px solid #ddd; border-radius: 4px; width: 300px; font-size: 14px; }
+        button { padding: 12px 24px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; margin-left: 10px; }
+        button:hover { background: #0052a3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .status { margin-top: 10px; color: #666; font-size: 14px; }
+        .jobs-grid { display: grid; gap: 20px; }
+        .job-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .job-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
+        .job-title { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 8px; }
+        .job-company { color: #666; font-size: 14px; }
+        .job-meta { display: flex; gap: 16px; margin: 12px 0; font-size: 14px; color: #666; }
+        .job-meta span { display: flex; align-items: center; gap: 4px; }
+        .job-description { color: #555; font-size: 14px; line-height: 1.6; margin: 12px 0; }
+        .job-tags { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+        .tag { padding: 4px 12px; background: #e3f2fd; color: #1976d2; border-radius: 12px; font-size: 12px; }
+        .apply-btn { display: inline-block; padding: 10px 20px; background: #0066cc; color: white; text-decoration: none; border-radius: 4px; font-size: 14px; }
+        .apply-btn:hover { background: #0052a3; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .error { background: #fee; border: 1px solid #fcc; color: #c33; padding: 12px; border-radius: 4px; margin: 20px 0; }
+        .empty { text-align: center; padding: 40px; color: #999; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 PrepLoop - Real-Time Job Updates</h1>
+        
+        <div class="controls">
+            <input type="text" id="searchInput" placeholder="Search jobs (e.g., software developer, data analyst)" value="software developer">
+            <button id="searchBtn" onclick="searchJobs()">Search Jobs</button>
+            <button id="refreshBtn" onclick="refreshJobs()">Refresh</button>
+            <div class="status" id="status">Ready to search...</div>
+        </div>
+
+        <div id="jobsContainer"></div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000';
+        let lastUpdate = null;
+
+        async function searchJobs() {
+            const query = document.getElementById('searchInput').value.trim();
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const statusEl = document.getElementById('status');
+            const containerEl = document.getElementById('jobsContainer');
+            const searchBtn = document.getElementById('searchBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            try {
+                searchBtn.disabled = true;
+                refreshBtn.disabled = true;
+                statusEl.textContent = 'Fetching jobs...';
+                containerEl.innerHTML = '<div class="loading">Loading jobs...</div>';
+
+                const response = await fetch(`${API_URL}/api/jobs/live?query=${encodeURIComponent(query)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                lastUpdate = data.timestamp;
+
+                if (data.jobs && data.jobs.length > 0) {
+                    displayJobs(data.jobs);
+                    statusEl.textContent = `Found ${data.jobs.length} jobs • Last updated: ${new Date(data.timestamp).toLocaleTimeString()} • Next poll in ${data.nextPoll}s`;
+                } else {
+                    containerEl.innerHTML = '<div class="empty">No jobs found. Try a different search query.</div>';
+                    statusEl.textContent = 'No jobs found';
+                }
+            } catch (error) {
+                console.error('Error fetching jobs:', error);
+                containerEl.innerHTML = `<div class="error">Failed to fetch jobs: ${error.message}</div>`;
+                statusEl.textContent = 'Error occurred';
+            } finally {
+                searchBtn.disabled = false;
+                refreshBtn.disabled = false;
+            }
+        }
+
+        function displayJobs(jobs) {
+            const containerEl = document.getElementById('jobsContainer');
+            
+            const html = jobs.map(job => `
+                <div class="job-card">
+                    <div class="job-header">
+                        <div>
+                            <div class="job-title">${escapeHtml(job.title)}</div>
+                            <div class="job-company">${escapeHtml(job.company)}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="job-meta">
+                        <span>📍 ${escapeHtml(job.location)}</span>
+                        ${job.salary_range ? `<span>💰 ${escapeHtml(job.salary_range)}</span>` : ''}
+                        <span>🏷️ ${escapeHtml(job.type)}</span>
+                    </div>
+                    
+                    <div class="job-description">${escapeHtml(job.description)}</div>
+                    
+                    <div class="job-tags">
+                        <span class="tag">${escapeHtml(job.category)}</span>
+                        <span class="tag">${escapeHtml(job.source)}</span>
+                        ${job.tags ? job.tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('') : ''}
+                    </div>
+                    
+                    <a href="${escapeHtml(job.apply_link)}" target="_blank" rel="noopener noreferrer" class="apply-btn">
+                        Apply Now →
+                    </a>
+                </div>
+            `).join('');
+            
+            containerEl.innerHTML = `<div class="jobs-grid">${html}</div>`;
+        }
+
+        function refreshJobs() {
+            searchJobs();
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text || '';
+            return div.innerHTML;
+        }
+
+        // Auto-search on load
+        window.addEventListener('load', () => {
+            searchJobs();
+        });
+
+        // Allow Enter key to search
+        document.getElementById('searchInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchJobs();
+            }
+        });
+    </script>
+</body>
+</html>

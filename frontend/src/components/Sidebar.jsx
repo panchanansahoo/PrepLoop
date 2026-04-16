@@ -55,11 +55,10 @@ const navSections = [
     {
         category: 'Interview',
         items: [
+            { path: '/interview-hub', label: 'Interview Hub', subtitle: 'All-in-one interview suite', icon: Grid3X3 },
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
             { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
-            { path: '/real-interview', label: 'Real Interview', subtitle: 'Book live sessions with HR', icon: CalendarDays },
-            { path: '/interview-scheduler', label: 'Schedule Manager', subtitle: 'Create/manage interview slots', icon: CalendarDays, roles: ['hr', 'admin'] },
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
             { path: '/interview-history', label: 'Interview History', subtitle: 'Past sessions & replays', icon: Clock },
@@ -69,6 +68,7 @@ const navSections = [
         category: 'Career',
         items: [
             { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
+            { path: '/community', label: 'Community Hub', subtitle: 'Connect & discuss', icon: MessageSquare },
         ]
     },
     {
@@ -177,6 +177,61 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                         </div>
                     ))}
                 </nav>
+
+                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
+                    <Link to="/feedback" style={{ textDecoration: 'none', display: 'block' }}>
+                        <div 
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                borderRadius: '12px',
+                                padding: isCollapsed && !mobileOpen ? '8px 0' : '8px 12px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                gap: '2px',
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                cursor: 'pointer',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';
+                                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(168, 85, 247, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                            }}
+                        >
+                            {isCollapsed && !mobileOpen ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
+                                    <MessageSquare size={16} color="#38bdf8" />
+                                    <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 600 }}>+10</span>
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
+                                        <MessageSquare size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
+                                        <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, lineHeight: 1 }}>
+                                            Help us improve PrepLoop (30s)
+                                        </span>
+                                    </div>
+                                    <div style={{ width: '100%', paddingLeft: '20px' }}>
+                                        <span style={{ fontSize: '10px', color: '#eab308', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1 }}>
+                                            +10 coins
+                                        </span>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </Link>
+                </div>
             </aside>
         </>
     );

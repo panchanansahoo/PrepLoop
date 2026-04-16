@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   Briefcase, Search, MapPin, Clock, ExternalLink,
   Building2, Loader2, AlertCircle, Tag,
   DollarSign, Calendar, Sparkles,
   Globe, Bookmark, TrendingUp, GraduationCap, Users,
-  Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2
+  Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown
 } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import '../styles/JobUpdates.css';
@@ -359,33 +360,26 @@ export default function JobUpdates() {
 
   return (
     <div className="job-updates-page">
-      {/* Hero Header */}
-      <div className="job-updates-hero">
-        <div className="job-hero-content">
-          <div className="job-hero-badge">
-            <Sparkles size={14} />
-            <span>Career Opportunities</span>
-          </div>
-          <h1>Job Updates</h1>
-          <p>
-            Discover the latest fresher jobs, internships, off-campus drives &amp; company hiring announcements.
-            {hasExternalApi && <span className="api-badge"> • Live from job portals</span>}
-          </p>
+      {/* Exact Header */}
+      <div className="job-updates-header-exact">
+        <div className="job-header-left">
+          <h1>All Jobs</h1>
+          <p>Browse through our curated collection of tech jobs from top companies</p>
         </div>
-
-        {/* Search Mode Toggle */}
-        <div className="search-mode-container">
+        
+        {/* Search Mode Toggle (Moved to right) */}
+        <div className="search-mode-container-exact">
           <div className="search-mode-toggle">
             <button
-              className={`mode-btn ${!isAiMode ? 'active' : ''}`}
-              onClick={() => isAiMode && toggleAiMode()}
+              className={`mode-btn ${!isAiMode && !isCareerOpsMode ? 'active' : ''}`}
+              onClick={() => { setIsAiMode(false); setIsCareerOpsMode(false); }}
             >
               <Search size={14} />
               <span>Keyword</span>
             </button>
             <button
               className={`mode-btn ai ${isAiMode ? 'active' : ''}`}
-              onClick={() => !isAiMode && toggleAiMode()}
+              onClick={() => { setIsAiMode(true); setIsCareerOpsMode(false); }}
             >
               <Brain size={14} />
               <span>AI Search</span>
@@ -393,27 +387,60 @@ export default function JobUpdates() {
             </button>
             <button
               className={`mode-btn career-ops ${isCareerOpsMode ? 'active' : ''}`}
-              onClick={toggleCareerOpsMode}
+              onClick={() => { setIsCareerOpsMode(true); setIsAiMode(false); }}
             >
               <Target size={14} />
               <span>Career Ops</span>
             </button>
           </div>
         </div>
+      </div>
 
+      <div className="job-content-area">
         {/* Search Bars */}
         {!isAiMode && !isCareerOpsMode ? (
-          <div className="job-search-bar">
-            <Search size={20} className="search-icon" />
-            <input
-              type="text"
-              placeholder="Search by company, role, or keyword..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {searchQuery && (
-              <button className="search-clear" onClick={() => setSearchQuery('')}>✕</button>
-            )}
+          <div className="job-search-filter-row">
+            <div className="job-search-input-exact">
+              <Search size={16} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search jobs, companies, or locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="job-filter-dropdowns">
+              <div className="custom-select-wrapper">
+                <select className="job-select-exact" defaultValue="">
+                  <option value="" disabled hidden>All Locations</option>
+                  <option value="all">All Locations</option>
+                  <option value="remote">Remote</option>
+                  <option value="noida">Noida</option>
+                  <option value="pune">Pune</option>
+                  <option value="mumbai">Mumbai</option>
+                </select>
+                <ChevronDown size={14} className="select-chevron" />
+              </div>
+              <div className="custom-select-wrapper">
+                <select className="job-select-exact" defaultValue="">
+                  <option value="" disabled hidden>All Types</option>
+                  <option value="all">All Types</option>
+                  <option value="full-time">Full-Time</option>
+                  <option value="internship">Internship</option>
+                </select>
+                <ChevronDown size={14} className="select-chevron" />
+              </div>
+              <div className="custom-select-wrapper">
+                <select className="job-select-exact" defaultValue="">
+                  <option value="" disabled hidden>All Experience</option>
+                  <option value="all">All Experience</option>
+                  <option value="0">0 years</option>
+                  <option value="1-3">1-3 years</option>
+                  <option value="3+">3+ years</option>
+                </select>
+                <ChevronDown size={14} className="select-chevron" />
+              </div>
+            </div>
           </div>
         ) : isAiMode ? (
           <div className="ai-search-wrapper">
@@ -637,25 +664,8 @@ export default function JobUpdates() {
         </div>
       )}
 
-      {/* Category Tabs (only in keyword mode) */}
-      {!isAiMode && !isCareerOpsMode && (
-        <div className="job-categories">
-          {CATEGORIES.map(cat => {
-            const Icon = cat.icon;
-            return (
-              <button
-                key={cat.id}
-                className={`job-category-tab ${activeCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                <Icon size={16} />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-
+      {/* Category Tabs (Removed to match screenshot, kept empty or commented logic if needed) */}
+      
       {/* Results Info */}
       {!isCareerOpsMode && (
         <div className="job-results-info">
@@ -681,67 +691,69 @@ export default function JobUpdates() {
       )}
 
       {/* Jobs Grid */}
-      {!isCareerOpsMode && <div className="job-list">
-        {(loading || aiLoading) ? (
-          <div className="job-loading">
-            {isAiMode ? (
-              <>
-                <div className="ai-loading-animation">
-                  <Brain size={40} className="ai-brain-pulse" />
-                  <div className="ai-loading-rings">
-                    <div className="ring ring-1" />
-                    <div className="ring ring-2" />
-                    <div className="ring ring-3" />
+      {!isCareerOpsMode && (
+        <div className="job-list">
+          {(loading || aiLoading) ? (
+            <div className="job-loading">
+              {isAiMode ? (
+                <>
+                  <div className="ai-loading-animation">
+                    <Brain size={40} className="ai-brain-pulse" />
+                    <div className="ai-loading-rings">
+                      <div className="ring ring-1" />
+                      <div className="ring ring-2" />
+                      <div className="ring ring-3" />
+                    </div>
                   </div>
-                </div>
-                <p>AI is finding the best matches for you...</p>
-              </>
-            ) : (
-              <>
-                <Loader2 size={32} className="spin" />
-                <p>Fetching latest opportunities...</p>
-              </>
-            )}
-          </div>
-        ) : error || aiError ? (
-          <div className="job-error">
-            <AlertCircle size={32} />
-            <p>{error || aiError}</p>
-            <button className="btn-retry" onClick={isAiMode ? () => handleAiSearch() : fetchJobs}>Try Again</button>
-          </div>
-        ) : jobs.length === 0 ? (
-          <div className="job-empty">
-            {isAiMode ? (
-              <>
-                <Brain size={48} strokeWidth={1} />
-                <h3>No results yet</h3>
-                <p>Try describing the type of job you're looking for, like "React developer in Mumbai" or "Remote data science internship"</p>
-              </>
-            ) : (
-              <>
-                <Briefcase size={48} strokeWidth={1} />
-                <h3>No jobs found</h3>
-                <p>
-                  {debouncedSearch
-                    ? `No results for "${debouncedSearch}". Try a different search.`
-                    : 'No job listings available yet. Check back soon!'}
-                </p>
-              </>
-            )}
-          </div>
-        ) : (
-          jobs.map((job) => (
-            <JobCard
-              key={job.id}
-              job={job}
-              saved={savedJobs.includes(job.id)}
-              onToggleSave={() => toggleSaveJob(job.id)}
-              formatDeadline={formatDeadline}
-              getTimeAgo={getTimeAgo}
-            />
-          ))
-        )}
-      </div>}
+                  <p>AI is finding the best matches for you...</p>
+                </>
+              ) : (
+                <>
+                  <Loader2 size={32} className="spin" />
+                  <p>Fetching latest opportunities...</p>
+                </>
+              )}
+            </div>
+          ) : error || aiError ? (
+            <div className="job-error">
+              <AlertCircle size={32} />
+              <p>{error || aiError}</p>
+              <button className="btn-retry" onClick={isAiMode ? () => handleAiSearch() : fetchJobs}>Try Again</button>
+            </div>
+          ) : jobs.length === 0 ? (
+            <div className="job-empty">
+              {isAiMode ? (
+                <>
+                  <Brain size={48} strokeWidth={1} />
+                  <h3>No results yet</h3>
+                  <p>Try describing the type of job you're looking for, like "React developer in Mumbai" or "Remote data science internship"</p>
+                </>
+              ) : (
+                <>
+                  <Briefcase size={48} strokeWidth={1} />
+                  <h3>No jobs found</h3>
+                  <p>
+                    {debouncedSearch
+                      ? `No results for "${debouncedSearch}". Try a different search.`
+                      : 'No job listings available yet. Check back soon!'}
+                  </p>
+                </>
+              )}
+            </div>
+          ) : (
+            jobs.map((job) => (
+              <JobCard
+                key={job.id}
+                job={job}
+                saved={savedJobs.includes(job.id)}
+                onToggleSave={() => toggleSaveJob(job.id)}
+                formatDeadline={formatDeadline}
+                getTimeAgo={getTimeAgo}
+              />
+            ))
+          )}
+        </div>
+      )}
 
       {/* Pagination (keyword mode only) */}
       {!isAiMode && !isCareerOpsMode && !loading && totalPages > 1 && (
@@ -822,6 +834,7 @@ function CareerOpsResultCard({ result }) {
 }
 
 function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
+  const navigate = useNavigate();
   const typeBadge = TYPE_BADGES[job.type] || TYPE_BADGES['full-time'];
   const deadline = formatDeadline(job.deadline);
   const posted = getTimeAgo(job.created_at);
@@ -836,89 +849,59 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
     .trim();
 
   return (
-    <div className={`job-card ${isExpired ? 'expired' : ''}`}>
-      <div className="job-card-header">
-        <div className="job-card-company">
+    <div className={`job-card-exact ${isExpired ? 'expired' : ''}`}>
+      <div className="job-card-top-exact">
+        <div className="company-logo-wrapper-exact">
           {job.logo_url ? (
-            <img src={job.logo_url} alt={job.company} className="company-logo" />
+            <img src={job.logo_url} alt={job.company} className="company-logo-exact" />
           ) : (
-            <div className="company-logo-placeholder">
-              {initials}
+            <div className="company-logo-placeholder-exact">
+              <span style={{ color: '#ef4444' }}>{initials.charAt(0)}</span>
+              {initials.substring(1)}
             </div>
           )}
-          <div>
-            <h3 className="job-title">{job.title}</h3>
-            <span className="job-company">{job.company}</span>
-          </div>
+          <div className="online-indicator-exact"></div>
         </div>
-        <button
-          className={`save-btn ${saved ? 'saved' : ''}`}
-          onClick={onToggleSave}
-          title={saved ? 'Remove from saved' : 'Save job'}
-        >
-          <Bookmark size={18} fill={saved ? 'currentColor' : 'none'} />
-        </button>
+        <div className="company-info-exact">
+          <span className="job-company-exact">{job.company?.toUpperCase()}</span>
+          <span className="job-type-badge-exact">{typeBadge.label}</span>
+        </div>
       </div>
 
-      <div className="job-meta">
-        {job.location && (
-          <span className="job-meta-item">
-            <MapPin size={13} /> {job.location}
-          </span>
-        )}
-        <span className="job-meta-item type-badge" style={{ '--badge-color': typeBadge.color }}>
-          {typeBadge.label}
+      <h3 className="job-title-exact">{job.title}</h3>
+
+      <div className="job-meta-exact">
+        <span className="meta-item-exact">
+          <MapPin size={14} /> {job.location || 'Remote'}
         </span>
-        {job.salary_range && (
-          <span className="job-meta-item">
-            <DollarSign size={13} /> {job.salary_range}
-          </span>
-        )}
-        {posted && (
-          <span className="job-meta-item">
-            <Clock size={13} /> {posted}
-          </span>
-        )}
+        <span className="meta-item-exact">
+          <Clock size={14} /> {job.experience || '0 years'}
+        </span>
       </div>
 
-      <p className="job-description">
-        {cleanDesc.length > 200 ? cleanDesc.substring(0, 200) + '...' : cleanDesc}
+      <p className="job-desc-exact">
+        About the Company {cleanDesc.length > 150 ? cleanDesc.substring(0, 150) + '...' : cleanDesc}
       </p>
 
-      {job.tags && job.tags.length > 0 && (
-        <div className="job-tags">
-          {(Array.isArray(job.tags) ? job.tags : []).slice(0, 4).map((tag, i) => (
-            <span key={i} className="job-tag">
-              <Tag size={10} /> {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="job-compensation-exact">
+        <span className="comp-label">COMPENSATION</span>
+        <span className="comp-value">{job.salary_range || 'Competitive'}</span>
+      </div>
 
-      <div className="job-card-footer">
-        <div className="job-footer-left">
-          {deadline && !isExpired && (
-            <span className="job-deadline">
-              <Calendar size={14} /> Deadline: {deadline}
-            </span>
-          )}
-          {isExpired && <span className="job-expired-badge">Expired</span>}
-          {(job.source === 'adzuna' || job.source === 'remotive' || job.source === 'jsearch') && (
-            <span className="job-source-badge">
-              <Globe size={12} /> Live
-            </span>
+      <div className="job-actions-exact">
+        <button className="btn-match-score-exact" onClick={() => navigate('/copilot', { state: { jobDetails: job } })}>
+          <Zap size={15} /> Check Match Score
+        </button>
+        <div className="job-actions-row-exact">
+          <button className="btn-view-details-exact">View Details</button>
+          {job.apply_link ? (
+            <a href={job.apply_link} target="_blank" rel="noopener noreferrer" className="btn-apply-now-exact">
+              Apply Now
+            </a>
+          ) : (
+            <button className="btn-apply-now-exact">Apply Now</button>
           )}
         </div>
-        {job.apply_link && (
-          <a
-            href={job.apply_link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="job-apply-btn"
-          >
-            Apply Now <ExternalLink size={14} />
-          </a>
-        )}
       </div>
     </div>
   );

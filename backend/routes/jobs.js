@@ -2,6 +2,8 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/auth.js';
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
+import { fetchAllIndianJobs } from '../utils/indianJobApis.js';
+import { getCachedJobs, setCachedJobs, checkRateLimit } from '../utils/jobCache.js';
 
 const router = express.Router();
 
@@ -13,10 +15,13 @@ const JSEARCH_HOST = 'jsearch.p.rapidapi.com';
 const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID || '';
 const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY || '';
 
+// ─── Free Indian Job APIs (no key required) ───────────────────────
+const ALLOWED_INDIAN_JOB_HOSTS = new Set(['www.naukri.com', 'in.indeed.com', 'www.foundit.in']);
+
 // ─── Groq API for AI-powered search ─────────────────────────────
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
 
-const ALLOWED_EXTERNAL_JOB_HOSTS = new Set([JSEARCH_HOST, 'api.adzuna.com']);
+const ALLOWED_EXTERNAL_JOB_HOSTS = new Set([JSEARCH_HOST, 'api.adzuna.com', 'www.naukri.com', 'in.indeed.com', 'www.foundit.in', 'www.linkedin.com']);
 
 function ensureAllowedExternalJobUrl(candidateUrl) {
   const parsed = new URL(candidateUrl);
@@ -79,10 +84,39 @@ const CURATED_JOBS = [
 ];
 
 async function fetchExternalJobs(query = 'fresher software developer India', page = 1) {
-  // ── Try JSearch (RapidAPI) first ──
+  // Ensure query includes India context
+  const indianQuery = query.toLowerCase().includes('india') ? query : `${query} India`;
+  
+  // Check cache first
+  const cacheKey = `jobs_${indianQuery}_${page}`;
+  const cached = getCachedJobs(cacheKey);
+  if (cached) {
+    console.log(`Returning ${cached.length} cached Indian jobs for: ${indianQuery}`);
+    return cached;
+  }
+
+  // ── Priority 1: Free Indian Job APIs (Indeed, Naukri, Foundit, LinkedIn) ──
+  try {
+    console.log(`Fetching Indian jobs for query: ${indianQuery}`);
+    const indianJobs = await Promise.race([
+      fetchAllIndianJobs(indianQuery, 'India'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+    ]);
+    
+    if (indianJobs && indianJobs.length > 0) {
+      console.log(`✓ Fetched ${indianJobs.length} jobs from Indian job portals`);
+      setCachedJobs(cacheKey, indianJobs);
+      return indianJobs;
+    }
+    console.log('No jobs from Indian portals, trying fallbacks...');
+  } catch (error) {
+    console.error('Indian job APIs error:', error.message);
+  }
+
+  // ── Try JSearch (RapidAPI) - Filter for India only ──
   if (RAPIDAPI_KEY) {
     try {
-      const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(query)}&page=${page}&num_pages=1&date_posted=month`;
+      const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(indianQuery)}&page=${page}&num_pages=1&date_posted=month`;
       const safeUrl = ensureAllowedExternalJobUrl(url);
       const response = await fetch(safeUrl, {
         headers: {
@@ -93,30 +127,40 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
 
       if (response.ok) {
         const result = await response.json();
-        const jobs = (result.data || []).map(job => ({
-          id: `ext_${job.job_id}`,
-          title: job.job_title,
-          company: job.employer_name,
-          category: detectCategory(job),
-          type: job.job_employment_type?.toLowerCase() || 'full-time',
-          location: job.job_city
-            ? `${job.job_city}, ${job.job_state || ''} ${job.job_country || ''}`.trim()
-            : job.job_country || 'Remote',
-          salary_range: job.job_min_salary && job.job_max_salary
-            ? `${job.job_min_salary} - ${job.job_max_salary} ${job.job_salary_currency || ''}`
-            : null,
-          description: job.job_description?.substring(0, 500) + '...',
-          requirements: job.job_highlights?.Qualifications || [],
-          apply_link: job.job_apply_link,
-          deadline: job.job_offer_expiration_datetime_utc || null,
-          is_active: true,
-          tags: [job.employer_name, job.job_employment_type].filter(Boolean),
-          source: 'jsearch',
-          created_at: job.job_posted_at_datetime_utc || new Date().toISOString(),
-          logo_url: job.employer_logo,
-        }));
+        const jobs = (result.data || [])
+          .filter(job => {
+            const country = (job.job_country || '').toLowerCase();
+            const location = `${job.job_city || ''} ${job.job_state || ''} ${country}`.toLowerCase();
+            return country === 'india' || location.includes('india');
+          })
+          .map(job => ({
+            id: `ext_${job.job_id}`,
+            title: job.job_title,
+            company: job.employer_name,
+            category: detectCategory(job),
+            type: job.job_employment_type?.toLowerCase() || 'full-time',
+            location: job.job_city
+              ? `${job.job_city}, ${job.job_state || ''} ${job.job_country || ''}`.trim()
+              : job.job_country || 'Remote',
+            salary_range: job.job_min_salary && job.job_max_salary
+              ? `${job.job_min_salary} - ${job.job_max_salary} ${job.job_salary_currency || ''}`
+              : null,
+            description: job.job_description?.substring(0, 500) + '...',
+            requirements: job.job_highlights?.Qualifications || [],
+            apply_link: job.job_apply_link,
+            deadline: job.job_offer_expiration_datetime_utc || null,
+            is_active: true,
+            tags: [job.employer_name, job.job_employment_type].filter(Boolean),
+            source: 'jsearch',
+            created_at: job.job_posted_at_datetime_utc || new Date().toISOString(),
+            logo_url: job.employer_logo,
+          }));
 
-        if (jobs.length > 0) return jobs;
+        if (jobs.length > 0) {
+          console.log(`✓ Fetched ${jobs.length} Indian jobs from JSearch`);
+          setCachedJobs(cacheKey, jobs);
+          return jobs;
+        }
       }
     } catch (error) {
       console.error('JSearch API error:', error.message);
@@ -127,9 +171,9 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   if (ADZUNA_APP_ID && ADZUNA_APP_KEY) {
     try {
       // Adzuna's URL already scopes to India (/in/), so strip "India" and "fresher" from keywords
-      const cleanQuery = query.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
+      const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
       const keyword = encodeURIComponent(cleanQuery);
-      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=10&what=${keyword}&max_days_old=30`;
+      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=20&what=${keyword}&max_days_old=30`;
       const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
       const response = await fetch(safeAdzunaUrl);
 
@@ -150,53 +194,72 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
           apply_link: job.redirect_url,
           deadline: null,
           is_active: true,
-          tags: [job.company?.display_name, job.category?.label].filter(Boolean),
+          tags: [job.company?.display_name, job.category?.label, 'India'].filter(Boolean),
           source: 'adzuna',
           created_at: job.created || new Date().toISOString(),
           logo_url: null,
         }));
 
-        if (jobs.length > 0) return jobs;
+        if (jobs.length > 0) {
+          console.log(`✓ Fetched ${jobs.length} Indian jobs from Adzuna`);
+          setCachedJobs(cacheKey, jobs);
+          return jobs;
+        }
       }
     } catch (error) {
       console.error('Adzuna API error:', error.message);
     }
   }
 
-  // ── Fallback 2: Remotive API (free, no key needed) ──
+  // ── Fallback 2: Indeed India (free, no key needed) ──
   try {
-    const remoteUrl = `https://remotive.com/api/remote-jobs?category=software-dev&limit=10`;
-    const response = await fetch(remoteUrl);
+    const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').trim() || 'software developer';
+    const indeedUrl = `https://in.indeed.com/jobs?q=${encodeURIComponent(cleanQuery)}&l=India&sort=date&fromage=30&format=json&limit=20`;
+    const response = await fetch(indeedUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PrepLoop/1.0)' }
+    });
 
     if (response.ok) {
-      const result = await response.json();
-      const jobs = (result.jobs || []).map((job, idx) => ({
-        id: `rem_${job.id || idx}`,
-        title: job.title,
-        company: job.company_name,
-        category: detectCategory({ job_title: job.title, job_description: job.description || '' }),
-        type: job.job_type?.toLowerCase()?.replace('_', '-') || 'full-time',
-        location: job.candidate_required_location || 'Remote',
-        salary_range: job.salary || null,
-        description: (job.description || '').replace(/<[^>]*>/g, '').substring(0, 500) + '...',
-        requirements: [],
-        apply_link: job.url,
-        deadline: null,
-        is_active: true,
-        tags: [job.company_name, job.category].filter(Boolean),
-        source: 'remotive',
-        created_at: job.publication_date || new Date().toISOString(),
-        logo_url: job.company_logo_url,
-      }));
-
-      if (jobs.length > 0) return jobs;
+      const html = await response.text();
+      const jobMatches = html.match(/data-jk="([^"]+)"/g) || [];
+      if (jobMatches.length > 0) {
+        const jobs = jobMatches.slice(0, 20).map((match, idx) => {
+          const jobId = match.match(/data-jk="([^"]+)"/)?.[1];
+          return {
+            id: `indeed_${jobId || idx}`,
+            title: 'Software Developer',
+            company: 'Various Companies',
+            category: 'fresher',
+            type: 'full-time',
+            location: 'India',
+            salary_range: null,
+            description: 'View full details on Indeed India',
+            requirements: [],
+            apply_link: `https://in.indeed.com/viewjob?jk=${jobId}`,
+            deadline: null,
+            is_active: true,
+            tags: ['Indeed', 'India'],
+            source: 'indeed',
+            created_at: new Date().toISOString(),
+            logo_url: null,
+          };
+        });
+        if (jobs.length > 0) {
+          console.log(`✓ Fetched ${jobs.length} Indian jobs from Indeed`);
+          return jobs;
+        }
+      }
     }
   } catch (error) {
-    console.error('Remotive API error:', error.message);
+    console.error('Indeed India error:', error.message);
   }
 
-  // ── Final fallback: curated jobs ──
-  console.log('Using curated fallback jobs');
+  // ── Skip Remotive API (not India-focused) ──
+  // Remotive is primarily for remote jobs outside India
+
+  // ── Final fallback: curated Indian jobs ──
+  console.log('Using curated Indian fallback jobs');
+  setCachedJobs(cacheKey, CURATED_JOBS);
   return CURATED_JOBS;
 }
 
@@ -368,6 +431,188 @@ function evaluateCareerOpsFit({ jobDescription, candidateProfile }) {
   };
 }
 
+// ─── GET /api/jobs/skill-match — Skill-matched job recommendations ───
+router.get('/skill-match', authenticateToken, async (req, res) => {
+  try {
+    // Fetch user profile to get skills and preferences
+    const { data: profileData, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('skills, experience_summary, experience_level, preferred_role, preferred_location')
+      .eq('id', req.user.id)
+      .single();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Profile fetch error:', profileError);
+    }
+
+    // Parse user skills
+    const userSkills = profileData?.skills 
+      ? String(profileData.skills).toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    
+    const experienceSummary = String(profileData?.experience_summary || '').toLowerCase();
+    const preferredRole = String(profileData?.preferred_role || '').trim();
+    const experienceLevel = String(profileData?.experience_level || '').toLowerCase();
+
+    // If user has no skills, return 3 most recent jobs from database
+    if (userSkills.length === 0 && !preferredRole && experienceSummary.length < 20) {
+      console.log(`User ${req.user.id} has no skills - fetching 3 most recent jobs`);
+      
+      const { data: recentJobs, error: jobsError } = await supabaseAdmin
+        .from('job_listings')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (jobsError) {
+        console.error('Recent jobs fetch error:', jobsError);
+      }
+
+      const jobs = (recentJobs || []).map(job => ({
+        ...job,
+        matchScore: 50,
+        matchedSkills: [],
+        source: job.source || 'admin'
+      }));
+
+      return res.json({
+        jobs,
+        userSkills: [],
+        searchQuery: 'Recent Jobs',
+        profileComplete: false,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    // Build intelligent search query based on user profile
+    let searchQuery = '';
+    
+    if (preferredRole) {
+      // Use preferred role if available
+      searchQuery = preferredRole;
+    } else if (userSkills.length >= 2) {
+      // Build query from top skills
+      const topSkills = userSkills.slice(0, 3).join(' ');
+      searchQuery = `${topSkills} developer`;
+    } else if (experienceSummary.length > 20) {
+      // Extract role from experience summary
+      searchQuery = experienceSummary.slice(0, 50);
+    } else if (experienceLevel.includes('fresher') || experienceLevel.includes('entry')) {
+      searchQuery = 'fresher software engineer';
+    } else {
+      // Default fallback
+      searchQuery = 'software developer';
+    }
+
+    console.log(`Skill-match query for user ${req.user.id}: "${searchQuery}" (skills: ${userSkills.join(', ') || 'none'})`);
+
+    // Fetch jobs based on the query
+    const jobs = await fetchExternalJobs(searchQuery, 1);
+
+    // Calculate match scores based on user skills
+    const matchedJobs = jobs.map(job => {
+      const jobText = `${job.title} ${job.description} ${(job.requirements || []).join(' ')}`.toLowerCase();
+      
+      // Find matched skills
+      const matchedSkills = userSkills.filter(skill => {
+        const skillLower = skill.toLowerCase();
+        return jobText.includes(skillLower);
+      });
+      
+      // Calculate match score
+      let matchScore = 50; // Base score
+      
+      if (userSkills.length > 0) {
+        // Skill overlap score (0-60 points)
+        const skillOverlap = (matchedSkills.length / userSkills.length) * 60;
+        matchScore = Math.round(skillOverlap);
+        
+        // Bonus for title match (up to +20 points)
+        const titleLower = job.title.toLowerCase();
+        if (preferredRole && titleLower.includes(preferredRole.toLowerCase())) {
+          matchScore += 20;
+        } else if (userSkills.some(skill => titleLower.includes(skill.toLowerCase()))) {
+          matchScore += 15;
+        }
+        
+        // Bonus for experience level match (up to +10 points)
+        if (experienceLevel) {
+          if (experienceLevel.includes('fresher') && (titleLower.includes('fresher') || titleLower.includes('entry') || titleLower.includes('graduate'))) {
+            matchScore += 10;
+          } else if (experienceLevel.includes('mid') && (titleLower.includes('mid') || titleLower.includes('senior'))) {
+            matchScore += 10;
+          }
+        }
+        
+        // Cap at 100
+        matchScore = Math.min(100, matchScore);
+      }
+
+      return {
+        ...job,
+        matchScore,
+        matchedSkills: matchedSkills.slice(0, 5)
+      };
+    });
+
+    // Sort by match score (highest first)
+    matchedJobs.sort((a, b) => b.matchScore - a.matchScore);
+
+    // Filter out very low matches (below 30%)
+    const filteredJobs = matchedJobs.filter(job => job.matchScore >= 30);
+
+    res.json({
+      jobs: filteredJobs.slice(0, 10),
+      userSkills,
+      searchQuery,
+      profileComplete: userSkills.length > 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Skill-match jobs error:', error);
+    res.status(500).json({ error: 'Failed to fetch skill-matched jobs' });
+  }
+});
+
+// ─── GET /api/jobs/live — Real-time job updates (polling endpoint) ───
+router.get('/live', async (req, res) => {
+  try {
+    const { query = 'software developer', lastUpdate } = req.query;
+    const cacheKey = `jobs_${query}_1`;
+    
+    // Check if we have fresh data
+    const cached = getCachedJobs(cacheKey);
+    if (cached && lastUpdate) {
+      const lastUpdateTime = new Date(lastUpdate).getTime();
+      const cacheTime = Date.now() - (10 * 60 * 1000); // Cache is 10 min old max
+      
+      if (lastUpdateTime > cacheTime) {
+        return res.json({
+          jobs: [],
+          hasUpdates: false,
+          message: 'No new jobs since last check',
+          nextPoll: 60 // seconds
+        });
+      }
+    }
+
+    // Fetch fresh jobs
+    const jobs = await fetchExternalJobs(query, 1);
+    
+    res.json({
+      jobs: jobs.slice(0, 20),
+      hasUpdates: true,
+      timestamp: new Date().toISOString(),
+      nextPoll: 300, // Poll every 5 minutes
+      query
+    });
+  } catch (error) {
+    console.error('Live jobs error:', error);
+    res.status(500).json({ error: 'Failed to fetch live jobs' });
+  }
+});
+
 // ─── POST /api/jobs/ai-search — AI-powered natural-language search ───
 router.post('/ai-search', async (req, res) => {
   try {
@@ -492,6 +737,20 @@ Return this exact JSON structure:
 // ─── GET /api/jobs — List jobs (admin + external API combined) ───
 router.get('/', optionalAuth, async (req, res) => {
   try {
+    // Rate limiting
+    const identifier = req.user?.id || req.ip || 'anonymous';
+    const rateLimit = checkRateLimit(identifier);
+    
+    if (!rateLimit.allowed) {
+      return res.status(429).json({ 
+        error: `Too many requests. Please try again in ${rateLimit.resetIn} seconds.`,
+        retryAfter: rateLimit.resetIn
+      });
+    }
+
+    // Set rate limit headers
+    res.setHeader('X-RateLimit-Remaining', rateLimit.remaining);
+
     const {
       category,
       company,
@@ -535,8 +794,8 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     // ── Fetch external API jobs (only page 1 or when specifically requested) ──
+    const searchQuery = search || category || 'fresher software developer India';
     if (source !== 'admin' && parseInt(page, 10) <= 2) {
-      const searchQuery = search || category || 'fresher software developer India';
       externalJobs = await fetchExternalJobs(searchQuery, parseInt(page, 10));
     }
 
@@ -557,6 +816,11 @@ router.get('/', optionalAuth, async (req, res) => {
       page: parseInt(page),
       totalPages: Math.ceil(totalAdmin / parseInt(limit, 10)) || 1,
       hasExternalApi: !!RAPIDAPI_KEY,
+      cached: !!getCachedJobs(`jobs_${searchQuery}_${parseInt(page, 10)}`),
+      rateLimit: {
+        remaining: rateLimit.remaining,
+        limit: 10
+      }
     });
   } catch (error) {
     console.error('Jobs fetch error:', error);

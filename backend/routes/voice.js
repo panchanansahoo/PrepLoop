@@ -84,6 +84,11 @@ router.post('/tts', optionalAuth, async (req, res) => {
 
         const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
 
+        if (!audioBuffer || audioBuffer.length === 0) {
+            console.warn('[voice/tts] Empty audio buffer received');
+            return res.status(200).json({ fallback: true });
+        }
+
         res.set({
             'Content-Type':   result.contentType,
             'Content-Length': audioBuffer.length,
@@ -95,6 +100,47 @@ router.post('/tts', optionalAuth, async (req, res) => {
         res.send(audioBuffer);
     } catch (error) {
         console.error('[voice/tts] Error:', error.message?.substring(0, 200));
+        res.status(200).json({ fallback: true });
+    }
+});
+
+router.post('/tts-fast', optionalAuth, async (req, res) => {
+    const { text, persona, gender } = req.body;
+
+    if (!text || text.trim().length === 0) {
+        return res.status(400).json({ error: 'Text is required' });
+    }
+
+    try {
+        const result = await voiceService.textToSpeech(
+            text.substring(0, 150),
+            persona || 'friendly',
+            'kokoro',
+            'en',
+            gender || 'female'
+        );
+
+        if (result.fallback) {
+            return res.status(200).json({ fallback: true });
+        }
+
+        const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
+
+        if (!audioBuffer || audioBuffer.length === 0) {
+            return res.status(200).json({ fallback: true });
+        }
+
+        res.set({
+            'Content-Type':   result.contentType,
+            'Content-Length': audioBuffer.length,
+            'X-TTS-Provider': result.provider,
+            'X-TTS-Voice':    result.voice || '',
+            'Cache-Control':  'no-cache',
+        });
+        res.type(result.contentType || 'audio/wav');
+        res.send(audioBuffer);
+    } catch (error) {
+        console.error('[voice/tts-fast] Error:', error.message?.substring(0, 200));
         res.status(200).json({ fallback: true });
     }
 });
@@ -126,6 +172,11 @@ router.post('/tts-stream', optionalAuth, async (req, res) => {
         }
 
         const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
+
+        if (!audioBuffer || audioBuffer.length === 0) {
+            console.warn('[voice/tts-stream] Empty audio buffer received');
+            return res.status(200).json({ fallback: true });
+        }
 
         res.set({
             'Content-Type':   result.contentType,
@@ -281,6 +332,21 @@ router.get('/deepgram-token', authenticateToken, (req, res) => {
         return res.status(200).json({ available: false, message: 'Deepgram not configured. Using browser speech recognition.' });
     }
     res.json({ available: true, token });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TTS HEALTH CHECK — Monitor provider performance
+// GET /api/voice/tts-health
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/tts-health', optionalAuth, (req, res) => {
+    const stats = voiceService.getProviderStats();
+    const providers = voiceService.getAvailableProviders();
+    
+    res.json({
+        providers,
+        stats,
+        timestamp: Date.now(),
+    });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

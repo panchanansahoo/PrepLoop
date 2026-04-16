@@ -144,7 +144,7 @@ const DEFAULT_ADVANCED_OPTIONS = {
   realInterviewerMode: false,
   resumeInterviewMode: 'balanced',
   focusTopics: [],
-  questionCount: 8,
+  questionCount: 13,
 };
 
 const INTERVIEW_RUNTIME_MODES = ['full_realtime'];
@@ -257,7 +257,7 @@ function normalizeAdvancedOptions(input = {}) {
     .slice(0, 5);
 
   const count = Number(input?.questionCount);
-  const questionCount = Number.isFinite(count) && count >= 4 && count <= 12
+  const questionCount = Number.isFinite(count) && count >= 4 && count <= 20
     ? Math.round(count)
     : DEFAULT_ADVANCED_OPTIONS.questionCount;
 
@@ -303,7 +303,7 @@ STRICT resume usage rules:
 `;
 }
 
-const FRESHER_INTERVIEW_TOTAL_QUESTIONS = 12;
+const FRESHER_INTERVIEW_TOTAL_QUESTIONS = 13;
 const HR_CLOSING_MESSAGE = 'Thank you for your time today. It was a pleasure getting to know you and your background. We will review everything and our recruitment team will be in touch with you shortly. Have a great day!';
 
 const STATIC_INTERVIEW_QUESTIONS = {
@@ -340,16 +340,16 @@ const STATIC_INTERVIEW_CLOSINGS = {
 
 // Fresher HR Interview Fixed Questions
 // Q1: Fixed intro question
-// Q2-Q10: AI-generated from behavioral topics (different each interview)
-// Q11: Fixed wrap-up
-// Q12: Fixed conclusion (YES/NO branching)
+// Q2-Q11: AI-generated from behavioral topics (different each interview)
+// Q12: Fixed wrap-up
+// Q13: Fixed conclusion (YES/NO branching)
 
 const FRESHER_HR_FIXED = {
   Q1: 'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
-  Q11: 'Do you have any questions for me about the role, the team, or our company?',
+  Q12: 'Do you have any questions for me about the role, the team, or our company?',
 };
 
-// AI Prompt Templates for Fresher HR Q2-Q10 (Behavioral Topics)
+// AI Prompt Templates for Fresher HR Q2-Q11 (Behavioral Topics)
 const FRESHER_HR_TOPICS = {
   2: { topic: 'Role Interest & Motivation', prompt: 'Ask the candidate what attracted them to this role and to your company in particular. Focus on their genuine interest and alignment with company values.' },
   3: { topic: 'Project & Achievement', prompt: 'Ask the candidate to describe a project or achievement they\'re most proud of, and why. Push them to explain their specific contribution and impact.' },
@@ -360,6 +360,7 @@ const FRESHER_HR_TOPICS = {
   8: { topic: 'Growth & Development', prompt: 'Ask the candidate what is one area they\'re actively trying to improve and what concrete steps they\'re taking to develop in that area. Look for self-awareness and commitment.' },
   9: { topic: 'Adaptability & Flexibility', prompt: 'Ask the candidate to imagine they are assigned to a technology or location they did not expect. How would they approach that situation? Explore their flexibility and positive attitude.' },
   10: { topic: 'Culture & Fit', prompt: 'Ask the candidate how they define a positive work environment and what aspects of our company culture (mission, values, team dynamics) appeal to them most. Probe their values alignment.' },
+  11: { topic: 'Career Goals & Aspirations', prompt: 'Ask the candidate where they see themselves in 3-5 years and how this role fits into their career vision. Look for realistic ambition and alignment with company growth paths.' },
 };
 const FRESHER_HR_CLOSINGS = {
   YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
@@ -368,12 +369,12 @@ const FRESHER_HR_CLOSINGS = {
 
 const FRESHER_TECHNICAL_FIXED = {
   Q1: 'Good afternoon, my name is Abhishek Sen, I work as a technical lead with Preploop, and I\'ll be conducting your technical discussion today. We\'ll cover fundamentals in databases, OOP, and web concepts. To begin with, could you introduce yourself and walk me through your background, including your technical interests?',
-  Q11: 'Do you have any questions for me about the role, the team, or our company?',
-  Q12_YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
-  Q12_NO: 'Thank you so much for your time today! You\'ve given some really thoughtful technical answers. We\'ll review our discussion and be in touch soon. Best of luck!',
+  Q12: 'Do you have any questions for me about the role, the team, or our company?',
+  Q13_YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
+  Q13_NO: 'Thank you so much for your time today! You\'ve given some really thoughtful technical answers. We\'ll review our discussion and be in touch soon. Best of luck!',
 };
 
-// AI Prompt Templates for Fresher Technical Q2-Q10
+// AI Prompt Templates for Fresher Technical Q2-Q11
 const FRESHER_TECHNICAL_TOPICS = {
   2: { topic: 'Resume & Projects', prompt: 'Ask the candidate to elaborate on a specific project from their resume. Focus on their role, the tech stack used, and what they learned. Keep it conversational and encouraging.' },
   3: { topic: 'Top Skill', prompt: 'Ask the candidate about the programming language or framework they are most confident in, and ask them to explain a concept they recently learned or used practically.' },
@@ -384,6 +385,7 @@ const FRESHER_TECHNICAL_TOPICS = {
   8: { topic: 'Language Strengths', prompt: 'Ask the candidate to explain a core concept or strength of their preferred programming language (e.g., memory management, type system, async model). Keep it practical.' },
   9: { topic: 'GET vs POST', prompt: 'Ask the candidate to explain the difference between HTTP GET and POST requests. Push them to mention when to use each and any security implications.' },
   10: { topic: 'Process vs Thread', prompt: 'Ask the candidate to compare processes and threads: What are the key differences? When would you use one over the other? Ask for a clear, straightforward answer.' },
+  11: { topic: 'Data Structures', prompt: 'Ask the candidate to explain one fundamental data structure they are comfortable with (e.g., arrays, linked lists, stacks, queues, trees) and when they would use it in practice.' },
 };
 
 function getStaticInterviewQuestions(stage = '') {
@@ -403,8 +405,8 @@ function getStaticInterviewClosing(stage = '') {
 
 function getFresherTechnicalQuestion(qNum) {
   if (qNum === 1) return FRESHER_TECHNICAL_FIXED.Q1;
-  if (qNum === 11) return FRESHER_TECHNICAL_FIXED.Q11;
-  return null; // Q2-Q10 and Q12 require AI or special handling
+  if (qNum === 12) return FRESHER_TECHNICAL_FIXED.Q12;
+  return null; // Q2-Q11 and Q13 require AI or special handling
 }
 
 function getFresherTechnicalAIPrompt(qNum) {
@@ -414,8 +416,8 @@ function getFresherTechnicalAIPrompt(qNum) {
 
 function getFresherHRQuestion(qNum) {
   if (qNum === 1) return FRESHER_HR_FIXED.Q1;
-  if (qNum === 11) return FRESHER_HR_FIXED.Q11;
-  return null; // Q2-Q10 require AI generation
+  if (qNum === 12) return FRESHER_HR_FIXED.Q12;
+  return null; // Q2-Q11 and Q13 require AI or special handling
 }
 
 function getFresherHRAIPrompt(qNum) {
@@ -424,10 +426,10 @@ function getFresherHRAIPrompt(qNum) {
 
 async function generateFresherHRQuestion(qNum, resumeContext = null) {
   if (qNum === 1) return FRESHER_HR_FIXED.Q1;
-  if (qNum === 11) return FRESHER_HR_FIXED.Q11;
-  if (qNum === 12) return null; // Handled separately
+  if (qNum === 12) return FRESHER_HR_FIXED.Q12;
+  if (qNum === 13) return null; // Handled separately
 
-  if (!groq || qNum < 2 || qNum > 10) return null;
+  if (!groq || qNum < 2 || qNum > 11) return null;
 
   const topicData = FRESHER_HR_TOPICS[qNum];
   if (!topicData) return null;
@@ -463,10 +465,10 @@ function getFresherHRClosing(hasQuestions) {
 
 async function generateFresherTechnicalQuestion(qNum, resumeContext = null) {
   if (qNum === 1) return FRESHER_TECHNICAL_FIXED.Q1;
-  if (qNum === 11) return FRESHER_TECHNICAL_FIXED.Q11;
-  if (qNum === 12) return null; // Handled separately
+  if (qNum === 12) return FRESHER_TECHNICAL_FIXED.Q12;
+  if (qNum === 13) return null; // Handled separately
 
-  if (!groq || qNum < 2 || qNum > 10) return null;
+  if (!groq || qNum < 2 || qNum > 11) return null;
 
   const topicData = FRESHER_TECHNICAL_TOPICS[qNum];
   if (!topicData) return null;
@@ -584,8 +586,9 @@ function getFresherScriptedQuestion(questionNumber, company, resumeContext, user
   if (questionNumber === 8) return 'Which programming language do you prefer for problem solving, and what makes it strong for you?';
   if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you use each one?';
   if (questionNumber === 10) return 'Can you explain process vs thread with a practical example from what you have learned?';
-  if (questionNumber === 11) return 'Do you have any questions for me about the role, team, or company?';
-  if (questionNumber === 12) {
+  if (questionNumber === 11) return 'Can you explain one fundamental data structure you are comfortable with and when you would use it?';
+  if (questionNumber === 12) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 13) {
     const snippet = buildHrResponseSnippet(userAnswer, company);
     return `${snippet} Are there any other questions you have before we wrap up?`;
   }
@@ -602,6 +605,7 @@ function getFresherQuestionTopic(questionNumber) {
   if (questionNumber === 8) return 'Preferred language strengths';
   if (questionNumber === 9) return 'HTTP GET vs POST';
   if (questionNumber === 10) return 'Process vs thread';
+  if (questionNumber === 11) return 'Fundamental data structures';
   return '';
 }
 
@@ -615,8 +619,9 @@ function getFresherFallbackQuestion(questionNumber, company, resumeContext, user
   if (questionNumber === 8) return 'What programming language do you prefer, and why does it help you solve problems well?';
   if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you choose one over the other?';
   if (questionNumber === 10) return 'Can you explain process vs thread with a simple practical example from what you know?';
-  if (questionNumber === 11) return 'Do you have any questions for me about the role, team, or company?';
-  if (questionNumber === 12) {
+  if (questionNumber === 11) return 'Can you explain one data structure you are comfortable with and when you would use it?';
+  if (questionNumber === 12) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 13) {
     const snippet = buildHrResponseSnippet(userAnswer, company);
     return `${snippet} Are there any other questions you have before we wrap up?`;
   }
@@ -675,6 +680,11 @@ async function generateFresherScriptedQuestion(questionNumber, company, resumeCo
       'Ask for a practical example that shows process vs thread.',
       'Ask how a process and a thread differ in execution and memory.',
       'Ask why the distinction matters in real systems.',
+    ],
+    11: [
+      'Ask them to explain one data structure they know well and when to use it.',
+      'Ask how they would choose between different data structures for a problem.',
+      'Ask for a practical example where they used a specific data structure.',
     ],
   };
   const chosenAngleList = topicAngles[questionNumber] || [];
@@ -1409,14 +1419,14 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   const isFresherHR = fresherScriptMode && stage === 'HR';
   const staticQuestions = getStaticInterviewQuestions(stage);
 
-  // Fresher-HR Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated (different each interview), Q11 wrap-up, Q12 closing
+  // Fresher-HR Hybrid Mode: Q1 fixed, Q2-Q11 AI-generated (different each interview), Q12 wrap-up, Q13 closing
     if (isFresherHR) {
       const qNum = safeQuestionNumber;
-      const isQ11 = qNum === 11;
       const isQ12 = qNum === 12;
-      const isQ2To10 = qNum >= 2 && qNum <= 10;
+      const isQ13 = qNum === 13;
+      const isQ2To11 = qNum >= 2 && qNum <= 11;
       const isQ1 = qNum === 1;
-      const isLastQuestion = qNum > 12;
+      const isLastQuestion = qNum > 13;
 
       let feedbackMessage = 'Thank you for that response!';
       const feedbackOptions = [
@@ -1436,20 +1446,20 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       if (isLastQuestion) {
         isComplete = true;
         closingRemark = FRESHER_HR_CLOSINGS.NO;
-      } else if (isQ12) {
-        // Q12: Check if candidate had questions; if yes, provide closing; if no, show default closing
+      } else if (isQ13) {
+        // Q13: Check if candidate had questions; if yes, provide closing; if no, show default closing
         const hasQuestions = userAnswer && userAnswer.toLowerCase().includes('yes');
         closingRemark = getFresherHRClosing(hasQuestions);
         isComplete = true;
-      } else if (isQ11) {
-        // Q11: Ask fixed wrap-up question
-        followUpQuestion = FRESHER_HR_FIXED.Q11 || 'Do you have any questions for me about the role, the team, or our company?';
+      } else if (isQ12) {
+        // Q12: Ask fixed wrap-up question
+        followUpQuestion = FRESHER_HR_FIXED.Q12 || 'Do you have any questions for me about the role, the team, or our company?';
       } else if (isQ1) {
         // Safety fallback: if caller sends qNum=1, return opening question
         const aiQuestion = await generateFresherHRQuestion(1, resumeContext);
         followUpQuestion = aiQuestion || 'Let\'s start with a behavioral question.';
-      } else if (isQ2To10) {
-        // Q2-Q10: Generate the exact next question requested by qNum
+      } else if (isQ2To11) {
+        // Q2-Q11: Generate the exact next question requested by qNum
         const aiQuestion = await generateFresherHRQuestion(qNum, resumeContext);
         followUpQuestion = aiQuestion || 'Let\'s continue to the next question.';
       } else {
@@ -1458,7 +1468,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       }
 
       const nextQNumForMeta = isComplete ? null : qNum;
-      const isNextQuestionAIGenerated = nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 10;
+      const isNextQuestionAIGenerated = nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 11;
 
       return res.json(withRuntime({
         feedback: feedbackMessage,
@@ -1472,7 +1482,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         thinkTime: 20,
         hint: 'Answer naturally and relate your response to your experience and values.',
         difficultyLevel: 'medium',
-        adaptiveNote: `Fresher-HR Q${Math.min(qNum, 12)} of 12 (AI-generated behavioral sequence).`,
+        adaptiveNote: `Fresher-HR Q${Math.min(qNum, 13)} of 13 (AI-generated behavioral sequence).`,
         questionSource: 'fresher-hr-dynamic',
         questionMeta: {
           id: nextQNumForMeta === null ? null : `fresher-hr-q-${nextQNumForMeta}`,
@@ -1482,12 +1492,12 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         },
       }));
     }
-  // Fresher-Technical Hybrid Mode: Q1 fixed, Q2-Q10 AI-generated, Q11-Q12 fixed
+  // Fresher-Technical Hybrid Mode: Q1 fixed, Q2-Q11 AI-generated, Q12-Q13 fixed
   if (isFresherTechnical) {
     const qNum = safeQuestionNumber;
-    const isQ11 = qNum === 11;
     const isQ12 = qNum === 12;
-    const isQ2To10 = qNum >= 2 && qNum <= 10;
+    const isQ13 = qNum === 13;
+    const isQ2To11 = qNum >= 2 && qNum <= 11;
     const isLastQuestion = qNum > FRESHER_INTERVIEW_TOTAL_QUESTIONS;
 
     let feedbackMessage = 'Great response!';
@@ -1506,17 +1516,17 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
 
     if (isLastQuestion) {
       isComplete = true;
-      closingRemark = FRESHER_TECHNICAL_FIXED.Q12_NO; // Default: no follow-up questions
-    } else if (isQ12) {
-      // Q12: Check if candidate had questions; if yes, provide closing; if no, show default closing
+      closingRemark = FRESHER_TECHNICAL_FIXED.Q13_NO; // Default: no follow-up questions
+    } else if (isQ13) {
+      // Q13: Check if candidate had questions; if yes, provide closing; if no, show default closing
       const hasQuestions = userAnswer && userAnswer.toLowerCase().includes('yes');
-      closingRemark = hasQuestions ? FRESHER_TECHNICAL_FIXED.Q12_YES : FRESHER_TECHNICAL_FIXED.Q12_NO;
+      closingRemark = hasQuestions ? FRESHER_TECHNICAL_FIXED.Q13_YES : FRESHER_TECHNICAL_FIXED.Q13_NO;
       isComplete = true;
-    } else if (isQ11) {
-      // Q11: Ask fixed wrap-up question
-      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q11;
-    } else if (isQ2To10) {
-      // Q2-Q10: Generate the exact next question requested by qNum
+    } else if (isQ12) {
+      // Q12: Ask fixed wrap-up question
+      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q12;
+    } else if (isQ2To11) {
+      // Q2-Q11: Generate the exact next question requested by qNum
       followUpQuestion = await generateFresherTechnicalQuestion(qNum, resumeContext);
       if (!followUpQuestion) {
         // Fallback if AI generation fails
@@ -1525,7 +1535,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       }
     } else {
       // Should not reach here
-      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q11;
+      followUpQuestion = FRESHER_TECHNICAL_FIXED.Q12;
     }
 
     const nextQNumForMeta = isComplete ? null : qNum;
@@ -1542,13 +1552,13 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       thinkTime: 20,
       hint: 'Explain your reasoning step by step, then mention trade-offs or real-world use cases.',
       difficultyLevel: 'medium',
-      adaptiveNote: `Fresher-Technical Q${qNum} of ${FRESHER_INTERVIEW_TOTAL_QUESTIONS} (Hybrid: ${isQ2To10 ? 'AI-generated' : isQ11 ? 'wrap-up' : isQ12 ? 'conclusion' : 'fixed'}).`,
+      adaptiveNote: `Fresher-Technical Q${qNum} of ${FRESHER_INTERVIEW_TOTAL_QUESTIONS} (Hybrid: ${isQ2To11 ? 'AI-generated' : isQ12 ? 'wrap-up' : isQ13 ? 'conclusion' : 'fixed'}).`,
       questionSource: 'fresher-technical-hybrid',
       questionMeta: {
         id: nextQNumForMeta === null ? null : `fresher-technical-q-${nextQNumForMeta}`,
         track: 'fresher-technical',
         sequence: nextQNumForMeta,
-        isAIGenerated: nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 10,
+        isAIGenerated: nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 11,
       },
     }));
   }
@@ -1599,8 +1609,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       case 8: return "Programming Language / Core: Ask them to explain a core programming language concept (e.g., pass-by-value vs pass-by-reference).";
       case 9: return "OS Fundamentals: Ask an operating system fundamental (like Process vs Thread or Memory Management).";
       case 10: return "Networking / Web: Ask about REST APIs, HTTP methods, or the client-server request cycle.";
-      case 11: return "Wrap Up: Ask if they have any questions for you about the company, team, or the role.";
-      case 12: return "Conclusion: Warmly answer the candidate's questions and strictly conclude the interview.";
+      case 11: return "Data Structures: Ask about a fundamental data structure (arrays, linked lists, stacks, queues, trees) and when to use it.";
+      case 12: return "Wrap Up: Ask if they have any questions for you about the company, team, or the role.";
+      case 13: return "Conclusion: Warmly answer the candidate's questions and strictly conclude the interview.";
       default: return "Technical Deep Dive";
     }
   };

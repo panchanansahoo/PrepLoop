@@ -36,6 +36,7 @@ const PAGE_TITLES = {
   '/profile': 'Profile',
   '/history': 'History',
   '/wallet': 'Coin Wallet',
+  '/copilot': 'AI Job Copilot',
 };
 
 function getPageTitle(pathname) {
@@ -99,6 +100,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const searchInputRef = useRef(null);
+  const userTier = 'Free'; // or 'Pro'
 
   useEffect(() => {
     const handleScroll = () => {
@@ -207,14 +209,87 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
     setMobileMenuOpen(false);
   };
 
+  const renderAvatarDropdown = () => {
+    if (!user) return null;
+    return (
+      <div className="relative" ref={dropdownRef}>
+        <button
+          className="premium-avatar-btn"
+          title={user.fullName}
+          onClick={() => { setIsDropdownOpen(!isDropdownOpen); setIsNotifOpen(false); }}
+        >
+          <div className="premium-avatar">
+            {getInitials()}
+            <span className="avatar-status-dot" />
+          </div>
+          <ChevronDown size={14} className={`avatar-chevron ${isDropdownOpen ? 'open' : ''}`} />
+        </button>
+
+        {isDropdownOpen && (
+          <div className="premium-dropdown user-dropdown">
+            {/* User header */}
+            <div className="user-dropdown-header">
+              <div className="user-dropdown-avatar">
+                {getInitials()}
+              </div>
+              <div className="user-dropdown-info">
+                <p className="user-dropdown-name">{user.fullName}</p>
+                <p className="user-dropdown-email">{user.email}</p>
+              </div>
+              <span className={`user-tier-badge ${userTier === 'Pro' ? 'pro' : 'free'}`}>
+                {userTier === 'Pro' ? <><Crown size={10} /> Pro</> : 'Free'}
+              </span>
+            </div>
+
+            {/* Links */}
+            <div className="user-dropdown-links">
+              <Link to="/profile" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
+                <User size={16} />
+                My Profile
+              </Link>
+              <Link to="/dashboard/analytics" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
+                <TrendingUp size={16} />
+                Analytics
+              </Link>
+              <Link to="/dashboard/settings" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
+                <Settings size={16} />
+                Settings
+              </Link>
+              {isAdmin && (
+                <Link to="/admin" className="user-dropdown-link" style={{ color: 'var(--accent)' }} onClick={() => setIsDropdownOpen(false)}>
+                  <ShieldCheck size={16} />
+                  Admin Panel
+                </Link>
+              )}
+            </div>
+
+            {/* Logout */}
+            <div className="user-dropdown-footer">
+              <button 
+                onClick={() => {
+                  setIsDropdownOpen(false);
+                  handleLogout();
+                }} 
+                className="user-dropdown-logout"
+              >
+                <LogOut size={16} />
+                Log Out
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Define public paths that should show the public navbar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
   const isPublicPage = publicPaths.includes(location.pathname);
 
   // Render Public Navbar if not logged in OR if on a public page
   if (!user || isPublicPage) {
     return (
-      <nav className={`navbar ${scrolled ? 'scrolled' : ''}`}>
+      <nav className={`navbar public-navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="container nav-content">
           <Link to="/" className="nav-brand">
             <div className="brand-logo">
@@ -225,10 +300,10 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
           {/* Desktop Nav */}
           <div className="nav-links desktop-only">
-            <a href="/#features" className="nav-link">Features</a>
             <Link to="/dashboard" className="nav-link">Dashboard</Link>
             <Link to="/problems" className="nav-link">Problem Explorer</Link>
             <Link to="/company-interview" className="nav-link">AI Mock</Link>
+            <Link to="/library" className="nav-link">Library</Link>
             <Link to="/job-updates" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
             <Link to="/blog" className="nav-link">Blog</Link>
           </div>
@@ -243,13 +318,61 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             {user ? (
-              <Link to="/dashboard" className="btn btn-primary glow-effect">
-                Go to Dashboard <ChevronRight size={16} />
-              </Link>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <Link 
+                  to="/dashboard" 
+                  className="btn" 
+                  style={{ 
+                    padding: '6px 14px', 
+                    fontSize: '0.85rem', 
+                    borderRadius: '20px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px',
+                    background: 'rgba(15, 15, 15, 0.65)',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#fff',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  Go to Dashboard <ChevronRight size={14} />
+                </Link>
+                {renderAvatarDropdown()}
+              </div>
             ) : (
               <>
-                <Link to="/login" className="btn btn-outline">Sign In</Link>
-                <Link to="/signup" className="btn btn-primary glow-effect">
+                <Link to="/login" className="btn nav-action-btn" style={{
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  backdropFilter: 'blur(10px)',
+                  transition: 'all 0.3s ease',
+                  padding: '8px 16px',
+                  borderRadius: '99px',
+                  color: 'var(--text-primary)',
+                  textDecoration: 'none'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}>
+                  Sign In
+                </Link>
+                <Link to="/signup" className="btn-hero-primary" style={{
+                  background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                  boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
+                  padding: '8px 20px',
+                  borderRadius: '99px',
+                  color: 'white',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.3s ease',
+                  border: 'none',
+                  textDecoration: 'none'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.6)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(124, 58, 237, 0.4)' }}>
                   Get Started <ChevronRight size={16} />
                 </Link>
               </>
@@ -270,14 +393,37 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         {/* Mobile Menu */}
         {mobileMenuOpen && (
           <div className="mobile-menu">
-            <a href="/#features" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Features</a>
             <Link to="/dashboard" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
             <Link to="/problems" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Problem Explorer</Link>
             <Link to="/company-interview" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>AI Mock</Link>
+            <Link to="/library" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Library</Link>
             <Link to="/job-updates" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Job Updates</Link>
             <Link to="/blog" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Blog</Link>
             {user ? (
-              <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMobileMenuOpen(false)}>Go to Dashboard</Link>
+              <Link 
+                to="/dashboard" 
+                className="btn" 
+                style={{ 
+                  width: '100%', 
+                  justifyContent: 'center',
+                  padding: '10px 16px', 
+                  fontSize: '0.95rem', 
+                  borderRadius: '12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '6px',
+                  background: 'rgba(15, 15, 15, 0.65)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#fff',
+                  marginTop: '10px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                }} 
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Go to Dashboard
+              </Link>
             ) : (
               <>
                 <Link to="/login" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
@@ -293,7 +439,6 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   // ─── Premium Dashboard Navbar ───
   const pageTitle = getPageTitle(location.pathname);
   const breadcrumbItems = getBreadcrumbItems(location.pathname);
-  const userTier = 'Free'; // or 'Pro'
 
   return (
     <div className="navbar navbar-dashboard premium-topbar">
@@ -383,6 +528,38 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             )}
           </div>
 
+          {/* AI Mock Shortcut */}
+          <Link 
+            to="/company-interview" 
+            className="btn desktop-only" 
+            style={{ 
+              padding: '6px 14px', 
+              fontSize: '0.85rem', 
+              borderRadius: '99px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '6px', 
+              marginRight: '8px',
+              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
+              border: 'none',
+              boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
+              color: 'white',
+              fontWeight: '600',
+              textDecoration: 'none',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.6)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(124, 58, 237, 0.4)';
+            }}
+          >
+            <Sparkles size={14} /> AI Mock
+          </Link>
+
           {/* Coin Balance */}
           <div className="desktop-only">
             <CoinDisplay />
@@ -453,74 +630,35 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
           {/* Upgrade to Pro */}
           {userTier === 'Free' && (
-            <Link to="/pricing" className="upgrade-btn desktop-only">
+            <Link to="/pricing" className="upgrade-btn desktop-only" style={{
+              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+              padding: '6px 14px',
+              borderRadius: '99px',
+              color: 'white',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              textDecoration: 'none',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.3)';
+            }}>
               <Crown size={14} />
               <span>Upgrade</span>
             </Link>
           )}
 
           {/* Premium Avatar */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              className="premium-avatar-btn"
-              title={user.fullName}
-              onClick={() => { setIsDropdownOpen(!isDropdownOpen); setIsNotifOpen(false); }}
-            >
-              <div className="premium-avatar">
-                {getInitials()}
-                <span className="avatar-status-dot" />
-              </div>
-              <ChevronDown size={14} className={`avatar-chevron ${isDropdownOpen ? 'open' : ''}`} />
-            </button>
-
-            {isDropdownOpen && (
-              <div className="premium-dropdown user-dropdown">
-                {/* User header */}
-                <div className="user-dropdown-header">
-                  <div className="user-dropdown-avatar">
-                    {getInitials()}
-                  </div>
-                  <div className="user-dropdown-info">
-                    <p className="user-dropdown-name">{user.fullName}</p>
-                    <p className="user-dropdown-email">{user.email}</p>
-                  </div>
-                  <span className={`user-tier-badge ${userTier === 'Pro' ? 'pro' : 'free'}`}>
-                    {userTier === 'Pro' ? <><Crown size={10} /> Pro</> : 'Free'}
-                  </span>
-                </div>
-
-                {/* Links */}
-                <div className="user-dropdown-links">
-                  <Link to="/profile" className="user-dropdown-link">
-                    <User size={16} />
-                    My Profile
-                  </Link>
-                  <Link to="/dashboard/analytics" className="user-dropdown-link">
-                    <TrendingUp size={16} />
-                    Analytics
-                  </Link>
-                  <Link to="/dashboard/settings" className="user-dropdown-link">
-                    <Settings size={16} />
-                    Settings
-                  </Link>
-                  {isAdmin && (
-                    <Link to="/admin" className="user-dropdown-link" style={{ color: 'var(--accent)' }}>
-                      <ShieldCheck size={16} />
-                      Admin Panel
-                    </Link>
-                  )}
-                </div>
-
-                {/* Logout */}
-                <div className="user-dropdown-footer">
-                  <button onClick={handleLogout} className="user-dropdown-logout">
-                    <LogOut size={16} />
-                    Log Out
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {renderAvatarDropdown()}
         </div>
       </div>
     </div>

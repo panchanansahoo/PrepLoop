@@ -102,13 +102,14 @@ export function codeQualityScore(codeText, lineCount) {
 }
 
 // ── Per-Question Time Budgets (seconds) ─────────────────────────────
+// Total interview time: 20 minutes (1200 seconds) for 13 questions = ~92 seconds per question
 export const QUESTION_TIME_LIMITS = {
-    'DSA / Coding': 300,       // 5 min
-    'System Design': 480,      // 8 min
-    'Behavioral': 180,         // 3 min
-    'Technical': 240,          // 4 min
-    'HR': 120,                 // 2 min
-    default: 240,              // 4 min fallback
+    'DSA / Coding': 120,       // 2 min
+    'System Design': 150,      // 2.5 min
+    'Behavioral': 90,          // 1.5 min
+    'Technical': 90,           // 1.5 min
+    'HR': 75,                  // 1.25 min
+    default: 90,               // 1.5 min fallback
 };
 
 export function getQuestionTimeLimit(stage) {

@@ -6,7 +6,7 @@
 // 1. UPDATE YOUR ROUTER (App.jsx or Routes.jsx)
 // ----------------------------------------------------------------------------
 
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import ImprovementPlanPage from './pages/ImprovementPlanPage';
 
 function App() {

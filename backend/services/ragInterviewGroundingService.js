@@ -15,6 +15,46 @@ const MISSING_AREA_HINTS = {
   'trade-off discussion': 'Compare at least two approaches and justify the final choice.',
 };
 
+const normalizeText = (value) => String(value || '').trim();
+
+const normalizeList = (...values) => values
+  .flatMap((value) => {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') return value.split(/[\n,|]/g);
+    return [];
+  })
+  .map((item) => normalizeText(item))
+  .filter(Boolean);
+
+const normalizeResumeContext = (resumeContext = {}) => {
+  if (!resumeContext || typeof resumeContext !== 'object') {
+    return {};
+  }
+
+  const candidateHeadline = normalizeText(
+    resumeContext.candidateHeadline ||
+    resumeContext.headline ||
+    resumeContext.title
+  );
+  const summary = normalizeText(
+    resumeContext.summary ||
+    resumeContext.experienceSummary ||
+    resumeContext.bio
+  );
+  const coreSkills = Array.from(new Set(normalizeList(resumeContext.coreSkills, resumeContext.skills))).slice(0, 12);
+  const projectHighlights = Array.from(new Set(normalizeList(resumeContext.projectHighlights, resumeContext.projects))).slice(0, 8);
+  const likelyQuestionAreas = Array.from(new Set(normalizeList(resumeContext.likelyQuestionAreas, resumeContext.questionAreas))).slice(0, 8);
+
+  return {
+    ...resumeContext,
+    candidateHeadline,
+    summary,
+    coreSkills,
+    projectHighlights,
+    likelyQuestionAreas,
+  };
+};
+
 const normalizeDifficulty = (difficulty) => {
   const value = String(difficulty || 'medium').toLowerCase();
   if (value === 'easy') return 'Easy';
@@ -24,6 +64,7 @@ const normalizeDifficulty = (difficulty) => {
 
 const buildHintPatterns = (missingAreas = [], resumeContext = {}) => {
   const hints = [];
+  const normalizedResumeContext = normalizeResumeContext(resumeContext);
 
   for (const area of missingAreas) {
     if (MISSING_AREA_HINTS[area]) {
@@ -32,15 +73,19 @@ const buildHintPatterns = (missingAreas = [], resumeContext = {}) => {
   }
 
   const skills = [
-    ...(Array.isArray(resumeContext?.coreSkills) ? resumeContext.coreSkills : []),
-    ...(Array.isArray(resumeContext?.skills) ? resumeContext.skills : []),
-  ]
-    .map((skill) => String(skill || '').trim())
-    .filter(Boolean)
-    .slice(0, 3);
+    ...(Array.isArray(normalizedResumeContext?.coreSkills) ? normalizedResumeContext.coreSkills : []),
+  ].slice(0, 3);
 
   for (const skill of skills) {
     hints.push(`Anchor one example using ${skill} to make the answer concrete.`);
+  }
+
+  if (normalizedResumeContext.candidateHeadline) {
+    hints.push(`Reference the candidate headline "${normalizedResumeContext.candidateHeadline}" when tailoring the follow-up.`);
+  }
+
+  if (normalizedResumeContext.projectHighlights.length > 0) {
+    hints.push(`Ask about the strongest project evidence: ${normalizedResumeContext.projectHighlights[0]}.`);
   }
 
   return Array.from(new Set(hints)).slice(0, 6);
@@ -86,6 +131,7 @@ export class InterviewGroundingService {
     const safeLimit = Math.min(8, Math.max(1, Number(limit) || 5));
     const normalizedStage = STAGE_TO_COMPANY_STAGE[stage] || 'Technical';
     const normalizedDifficulty = normalizeDifficulty(difficulty);
+    const normalizedResumeContext = normalizeResumeContext(resumeContext);
 
     let results = getFilteredQuestions(company, role, normalizedStage, normalizedDifficulty);
 
@@ -128,7 +174,7 @@ export class InterviewGroundingService {
       .filter(Boolean)
       .slice(0, safeLimit);
 
-    const hintPatterns = buildHintPatterns(missingAreas, resumeContext);
+    const hintPatterns = buildHintPatterns(missingAreas, normalizedResumeContext);
 
     return {
       source: selected[0]?.id?.startsWith('fallback_') ? 'fallback_templates' : 'company_question_bank',
@@ -139,6 +185,8 @@ export class InterviewGroundingService {
         interviewType,
         normalizedStage,
         difficulty: normalizedDifficulty,
+        resumeHeadline: normalizedResumeContext.candidateHeadline || null,
+        resumeSkills: normalizedResumeContext.coreSkills.slice(0, 5),
       },
       retrievedQuestions,
       retrievedExamples,

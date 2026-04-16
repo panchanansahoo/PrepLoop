@@ -10,7 +10,10 @@ router.get('/posts', optionalAuth, async (req, res) => {
 
     let query = supabaseAdmin
       .from('community_posts')
-      .select('*, profiles(full_name)')
+      .select(`
+        *,
+        profiles!community_posts_user_id_fkey(full_name)
+      `)
       .limit(50);
 
     if (filter === 'popular') {
@@ -18,7 +21,6 @@ router.get('/posts', optionalAuth, async (req, res) => {
     } else if (filter === 'recent') {
       query = query.order('created_at', { ascending: false });
     } else {
-      // trending: order by created_at desc as default
       query = query.order('created_at', { ascending: false });
     }
 
@@ -43,10 +45,16 @@ router.get('/posts', optionalAuth, async (req, res) => {
     }
 
     const posts = (data || []).map(p => ({
-      ...p,
+      id: p.id,
+      user_id: p.user_id,
+      title: p.title,
+      content: p.content,
+      tags: p.tags || [],
+      likes: p.likes || 0,
+      created_at: p.created_at,
+      updated_at: p.updated_at,
       author_name: p.profiles?.full_name || 'Anonymous',
       reply_count: replyCountMap.get(p.id) ?? p.replies ?? 0,
-      profiles: undefined,
     }));
 
     res.json({ posts });

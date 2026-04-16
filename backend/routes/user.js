@@ -57,16 +57,16 @@ const normalizeQuizTopic = (value) => {
 };
 
 const buildProfileResponse = (req, profile) => {
-  const fullName = profile?.full_name || req.user.user_metadata?.full_name || '';
+  const fullName = profile?.full_name || req.user?.user_metadata?.full_name || '';
   const subscriptionTier = profile?.subscription_tier || 'free';
   const experienceLevel = profile?.experience_level || 'beginner';
-  const role = profile?.role || 'user';
+  const role = profile?.role || req.user?.role || 'user';
   const experienceSummary = profile?.experience_summary || '';
   const experienceYears = profile?.experience_years ?? null;
 
   const flatProfile = {
-    id: profile?.id || req.user.id,
-    email: req.user.email,
+    id: profile?.id || req.user?.id,
+    email: req.user?.email || profile?.email || '',
     fullName,
     full_name: fullName,
     subscriptionTier,
@@ -86,6 +86,9 @@ const buildProfileResponse = (req, profile) => {
     company: profile?.company || '',
     designation: profile?.designation || '',
     avatar_url: profile?.avatar_url || '',
+    githubUsername: profile?.github_username || '',
+    github_username: profile?.github_username || '',
+    coins: profile?.coins ?? 0,
   };
 
   return {
@@ -108,6 +111,9 @@ const buildProfileResponse = (req, profile) => {
       company: flatProfile.company,
       designation: flatProfile.designation,
       avatar_url: flatProfile.avatar_url,
+      github_username: flatProfile.githubUsername,
+      githubUsername: flatProfile.githubUsername,
+      coins: flatProfile.coins,
     },
     profile: flatProfile,
     ...flatProfile,
@@ -219,6 +225,9 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   if (bio !== undefined) updates.bio = bio;
   if (skills !== undefined) updates.skills = skills;
   if (education !== undefined) updates.education = education;
+
+  const githubUsername = body.githubUsername || body.github_username;
+  if (githubUsername !== undefined) updates.github_username = githubUsername;
 
   const experienceValue = body.experienceSummary || body.experience_summary || body.experience;
   if (experienceValue !== undefined && experienceValue !== null && String(experienceValue).trim() !== '') {
@@ -819,30 +828,72 @@ const fetchSqlProblemRecommendations = async (limit = 250) => {
 
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("id", req.user.id)
-      .single();
+      .maybeSingle();
 
     if (isProfilesAccessBlocked(error)) {
       return res.json({
         ...buildProfileResponse(req, {
           id: req.user.id,
+          email: req.user.email,
           full_name: req.user.user_metadata?.full_name || '',
           subscription_tier: 'free',
           experience_level: 'beginner',
-          role: 'user',
+          role: req.user.role || 'user',
         }),
         degraded: true,
       });
     }
 
-    if (error || !profile) {
-      return res.status(404).json({ error: "User not found" });
+    if (error) {
+      console.error('Profile fetch error:', error);
+      return res.status(500).json({ error: "Failed to fetch profile" });
     }
 
-    let rewardResult = { coinsAwarded: 0, coinBalance: profile?.coins ?? null, applied: false };
+    if (!profile) {
+      // Create profile if it doesn't exist
+      const { data: newProfile, error: createError } = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: req.user.id,
+          email: req.user.email,
+          full_name: req.user.user_metadata?.full_name || '',
+          subscription_tier: 'free',
+          experience_level: 'beginner',
+          role: req.user.role || 'user',
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Profile creation error:', createError);
+        return res.json({
+          ...buildProfileResponse(req, {
+            id: req.user.id,
+            email: req.user.email,
+            full_name: req.user.user_metadata?.full_name || '',
+            subscription_tier: 'free',
+            experience_level: 'beginner',
+            role: req.user.role || 'user',
+          }),
+          profileCreated: false,
+        });
+      }
+
+      return res.json({
+        ...buildProfileResponse(req, newProfile),
+        profileCreated: true,
+      });
+    }
+
+    let rewardResult = { coinsAwarded: 0, coinBalance: profile?.coins ?? 0, applied: false };
     let rewardDegraded = false;
 
     try {
@@ -865,10 +916,11 @@ router.get("/profile", authenticateToken, async (req, res) => {
       return res.json({
         ...buildProfileResponse(req, {
           id: req.user.id,
+          email: req.user.email,
           full_name: req.user.user_metadata?.full_name || '',
           subscription_tier: 'free',
           experience_level: 'beginner',
-          role: 'user',
+          role: req.user.role || 'user',
         }),
         degraded: true,
       });
@@ -879,22 +931,38 @@ router.get("/profile", authenticateToken, async (req, res) => {
 
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
     const updates = normalizeProfileUpdatePayload(req.body);
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: "No fields to update" });
     }
 
+    updates.updated_at = new Date().toISOString();
+
     const { data, error } = await supabaseAdmin
       .from("profiles")
       .update(updates)
       .eq("id", req.user.id)
       .select()
-      .single();
+      .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Profile update error:', error);
+      if (isProfilesAccessBlocked(error)) {
+        return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
+      }
+      throw error;
+    }
 
-    let rewardResult = { coinsAwarded: 0, coinBalance: data?.coins ?? null, applied: false };
+    if (!data) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    let rewardResult = { coinsAwarded: 0, coinBalance: data?.coins ?? 0, applied: false };
     let rewardDegraded = false;
 
     try {

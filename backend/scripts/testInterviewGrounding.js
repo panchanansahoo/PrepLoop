@@ -12,7 +12,9 @@ async function run() {
     interviewType: 'dsa',
     missingAreas: ['complexity analysis', 'edge cases'],
     resumeContext: {
+      title: 'Product-minded full stack engineer',
       coreSkills: ['distributed systems', 'javascript'],
+      projectHighlights: 'built a realtime interview app | reduced latency by 35%',
     },
     limit: 4,
   });
@@ -24,6 +26,8 @@ async function run() {
   assert.ok(typeof context.retrievalLatencyMs === 'number', 'retrievalLatencyMs should be numeric');
   assert.ok(typeof context.count === 'number', 'count should be numeric for client telemetry');
   assert.ok(typeof context.provider === 'string', 'provider should be included for observability');
+  assert.equal(context.query.resumeHeadline, 'Product-minded full stack engineer', 'resume headline should be available in query metadata');
+  assert.ok(Array.isArray(context.query.resumeSkills), 'resume skills should be normalized into query metadata');
   assert.ok(
     context.retrievedQuestions.every((item) => typeof item?.question === 'string' && item.question.length > 0),
     'Each retrieved question should include non-empty question text',
