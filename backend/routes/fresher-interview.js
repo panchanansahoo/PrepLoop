@@ -31,73 +31,68 @@ const HR_QUESTIONS = [
   "Can you handle tight deadlines?"
 ];
 
-const TECHNICAL_QUESTIONS = {
-  core: [
-    "Can you explain the main OOP concepts (encapsulation, inheritance, polymorphism, abstraction) with a simple example?",
-    "What is the difference between an array and a linked list? When would you use each?",
-    "What is the difference between a stack and a queue? Can you give a real life example of each?",
-    "What are the different types of loops in your preferred programming language, and when do you use them?",
-    "Can you write or dry run a simple program to reverse a string or check if a number is a palindrome?"
-  ],
-  dbms: [
-    "What is a primary key and a foreign key? Why are they important in a database design?",
-    "What is normalization? Why do we use it in databases?",
-    "What is the difference between process and thread? Can you give an example?",
-    "Which SDLC models do you know? Can you briefly compare Waterfall and Agile?",
-    "Can you explain what an HTTP request is and the difference between GET and POST?",
-    "What is Agile methodology? Benefits & drawbacks",
-    "Explain SQL vs NoSQL databases",
-    "What are ACID properties?",
-    "How would you optimize a slow SQL query?",
-    "What is multithreading vs multiprocessing?",
-    "What is a deadlock?"
-  ],
-  java: [
-    "What is Java? What are the main features of Java (platform independent, object oriented, etc.)?",
-    "What is the difference between JDK, JRE, and JVM?",
-    "Why is Java called platform independent?",
-    "What is the purpose of the main method in Java?",
-    "What is the difference between == and equals() when comparing strings in Java?",
-    "What are the four pillars of OOP (encapsulation, inheritance, polymorphism, abstraction)? Explain with simple examples.",
-    "What is a class and what is an object in Java? Give a real world example.",
-    "What is the difference between an abstract class and an interface in Java?",
-    "What is method overloading and method overriding? Give examples.",
-    "What is encapsulation? How do access modifiers (private, public, protected, default) help achieve it in Java?",
-    "What is a virtual function in C++/Java?",
-    "What is inheritance?",
-    "Explain SOLID design principles"
-  ],
-  python: [
-    "What is Python, and what are some advantages of using it (interpreted, high level, portable, etc.)?",
-    "What are the basic data types in Python (int, float, string, list, tuple, dict, set)? Give a small example of each.",
-    "What is the difference between a list and a tuple in Python?",
-    "What is the difference between a list and a dictionary? When would you use a dictionary?",
-    "What is the difference between == and is in Python?",
-    "What is a function in Python? How do you define and call a function?",
-    "What is the difference between local and global variables in Python?",
-    "What is a class and what is an object in Python? Give a real world example.",
-    "Explain the four main OOP concepts (encapsulation, inheritance, polymorphism, abstraction) with simple examples in Python."
-  ],
-  dsa: [
-    "Write a simple program to count vowels in a string",
-    "Write a program to print the Fibonacci series up to n",
-    "Write a program to check if a number is even or odd",
-    "Reverse a string",
-    "Check if string is palindrome",
-    "Find factorial of a number",
-    "Prime number check",
-    "Find maximum/minimum in array"
-  ]
-};
+const OOP_QUESTIONS = [
+  "Can you explain the main OOP concepts (encapsulation, inheritance, polymorphism, abstraction) with a simple example?",
+  "What are the four pillars of OOP (encapsulation, inheritance, polymorphism, abstraction)? Explain with simple examples.",
+  "What is a class and what is an object? Give a real world example.",
+  "What is the difference between an abstract class and an interface?",
+  "What is method overloading and method overriding? Give examples.",
+  "What is encapsulation? How do access modifiers help achieve it?",
+  "What is inheritance?",
+  "Explain SOLID design principles",
+  "Explain the four main OOP concepts (encapsulation, inheritance, polymorphism, abstraction) with simple examples in Python."
+];
 
-const FIXED_TECHNICAL_INTRO = TECHNICAL_QUESTIONS.core;
+const DSA_QUESTIONS = [
+  "Write a simple program to count vowels in a string",
+  "Write a program to print the Fibonacci series up to n",
+  "Write a program to check if a number is even or odd",
+  "Reverse a string",
+  "Check if string is palindrome",
+  "Find factorial of a number",
+  "Prime number check",
+  "Find maximum/minimum in array"
+];
 
-// In-memory session store (use Redis in production)
+const OTHER_TECHNICAL_QUESTIONS = [
+  "What is the difference between an array and a linked list? When would you use each?",
+  "What is the difference between a stack and a queue? Can you give a real life example of each?",
+  "What are the different types of loops in your preferred programming language, and when do you use them?",
+  "What is a primary key and a foreign key? Why are they important in a database design?",
+  "What is normalization? Why do we use it in databases?",
+  "What is the difference between process and thread? Can you give an example?",
+  "Which SDLC models do you know? Can you briefly compare Waterfall and Agile?",
+  "Can you explain what an HTTP request is and the difference between GET and POST?",
+  "What is Agile methodology? Benefits & drawbacks",
+  "Explain SQL vs NoSQL databases",
+  "What are ACID properties?",
+  "How would you optimize a slow SQL query?",
+  "What is multithreading vs multiprocessing?",
+  "What is a deadlock?",
+  "What is Java? What are the main features of Java (platform independent, object oriented, etc.)?",
+  "What is the difference between JDK, JRE, and JVM?",
+  "Why is Java called platform independent?",
+  "What is the purpose of the main method in Java?",
+  "What is the difference between == and equals() when comparing strings in Java?",
+  "What is a virtual function in C++/Java?",
+  "What is Python, and what are some advantages of using it (interpreted, high level, portable, etc.)?",
+  "What are the basic data types in Python (int, float, string, list, tuple, dict, set)? Give a small example of each.",
+  "What is the difference between a list and a tuple in Python?",
+  "What is the difference between a list and a dictionary? When would you use a dictionary?",
+  "What is the difference between == and is in Python?",
+  "What is a function in Python? How do you define and call a function?",
+  "What is the difference between local and global variables in Python?"
+];
+
 const sessions = new Map();
 
 router.post('/start', authenticateToken, async (req, res) => {
   try {
-    const { interviewerName, role, company, roundName } = req.body;
+    const { interviewerName, role, company, roundName, roundType } = req.body;
+
+    if (!roundType || !['hr', 'technical'].includes(roundType)) {
+      return res.status(400).json({ error: 'roundType must be either "hr" or "technical"' });
+    }
 
     const sessionId = `${req.user.id}-${Date.now()}`;
     
@@ -107,14 +102,15 @@ router.post('/start', authenticateToken, async (req, res) => {
       role: role || "role with company",
       company: company || "our organisation",
       roundName: roundName || "round name",
+      roundType,
       phase: 'intro',
       currentQuestionIndex: 0,
-      askedQuestions: [],
+      askedQuestions: [FIXED_INTRO_QUESTIONS[0]],
       responses: [],
       startedAt: new Date().toISOString()
     });
 
-    const greeting = `Good afternoon, my name is "${interviewerName || "NAME"}", I work as an "${role || "role with company"}", and I'll be conducting your "${roundName || "round name"}" discussion today. We'll mainly talk about your background, your interests, and see how you fit with our organisation.`;
+    const greeting = `Good afternoon, my name is ${interviewerName || "NAME"}, I work as an ${role || "role with company"}, and I'll be conducting your ${roundName || "round name"} discussion today. We'll mainly talk about your background, your interests, and see how you fit with our organisation.`;
 
     res.json({
       sessionId,
@@ -152,151 +148,131 @@ router.post('/answer', authenticateToken, async (req, res) => {
 
     session.currentQuestionIndex++;
 
-    // Intro phase (5 fixed questions)
-    if (session.phase === 'intro') {
-      if (session.currentQuestionIndex < FIXED_INTRO_QUESTIONS.length) {
-        const nextQuestion = FIXED_INTRO_QUESTIONS[session.currentQuestionIndex];
-        session.askedQuestions.push(nextQuestion);
-        
-        return res.json({
-          nextQuestion,
-          phase: 'intro',
-          questionNumber: session.currentQuestionIndex + 1,
-          totalQuestions: 5
-        });
-      } else {
-        // Move to HR phase
+    // Phase 1: Intro (5 fixed questions)
+    if (session.phase === 'intro' && session.currentQuestionIndex < 5) {
+      const nextQuestion = FIXED_INTRO_QUESTIONS[session.currentQuestionIndex];
+      session.askedQuestions.push(nextQuestion);
+      
+      return res.json({
+        nextQuestion,
+        phase: 'intro',
+        questionNumber: session.currentQuestionIndex + 1,
+        totalQuestions: 5
+      });
+    }
+
+    // Transition from intro to selected round
+    if (session.phase === 'intro' && session.currentQuestionIndex === 5) {
+      if (session.roundType === 'hr') {
         session.phase = 'hr';
-        session.currentQuestionIndex = 0;
-        
         const randomHR = HR_QUESTIONS[Math.floor(Math.random() * HR_QUESTIONS.length)];
         session.askedQuestions.push(randomHR);
         
         return res.json({
           nextQuestion: randomHR,
           phase: 'hr',
-          questionNumber: 1,
+          questionNumber: 6,
           message: 'Moving to HR round questions'
         });
-      }
-    }
-
-    // HR phase (random questions)
-    if (session.phase === 'hr') {
-      const availableHR = HR_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
-      
-      if (availableHR.length > 0 && session.currentQuestionIndex < 5) {
-        const randomHR = availableHR[Math.floor(Math.random() * availableHR.length)];
-        session.askedQuestions.push(randomHR);
-        session.currentQuestionIndex++;
-        
-        return res.json({
-          nextQuestion: randomHR,
-          phase: 'hr',
-          questionNumber: session.currentQuestionIndex
-        });
       } else {
-        // Move to technical phase
         session.phase = 'technical';
-        session.currentQuestionIndex = 0;
-        
-        const firstTech = FIXED_TECHNICAL_INTRO[0];
-        session.askedQuestions.push(firstTech);
+        session.techCount = { dsa: 0, oop: 0, other: 0 };
+        const dsaQ = DSA_QUESTIONS[Math.floor(Math.random() * DSA_QUESTIONS.length)];
+        session.askedQuestions.push(dsaQ);
+        session.techCount.dsa = 1;
         
         return res.json({
-          nextQuestion: firstTech,
+          nextQuestion: dsaQ,
           phase: 'technical',
-          questionNumber: 1,
-          totalQuestions: 5,
+          questionNumber: 6,
+          category: 'dsa',
           message: 'Moving to technical round questions'
         });
       }
     }
 
-    // Technical phase (5 fixed + random with constraints)
-    if (session.phase === 'technical') {
-      // First 5 are fixed
-      if (session.currentQuestionIndex < FIXED_TECHNICAL_INTRO.length) {
-        const nextTech = FIXED_TECHNICAL_INTRO[session.currentQuestionIndex];
-        session.askedQuestions.push(nextTech);
-        session.currentQuestionIndex++;
+    // Phase 2: HR Round
+    if (session.phase === 'hr') {
+      const availableHR = HR_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
+      
+      if (availableHR.length > 0) {
+        const randomHR = availableHR[Math.floor(Math.random() * availableHR.length)];
+        session.askedQuestions.push(randomHR);
         
         return res.json({
-          nextQuestion: nextTech,
-          phase: 'technical',
-          questionNumber: session.currentQuestionIndex,
-          totalQuestions: 5
+          nextQuestion: randomHR,
+          phase: 'hr',
+          questionNumber: session.askedQuestions.length
         });
       } else {
-        // Random technical: must have 1 DSA + 2 OOP
-        if (!session.technicalRandomCount) {
-          session.technicalRandomCount = { dsa: 0, oop: 0, other: 0 };
-        }
-
-        let nextQuestion;
-        let category;
-
-        // Ensure 1 DSA question
-        if (session.technicalRandomCount.dsa === 0) {
-          const availableDSA = TECHNICAL_QUESTIONS.dsa.filter(q => !session.askedQuestions.includes(q));
-          nextQuestion = availableDSA[Math.floor(Math.random() * availableDSA.length)];
-          category = 'dsa';
-          session.technicalRandomCount.dsa++;
-        }
-        // Ensure 2 OOP questions
-        else if (session.technicalRandomCount.oop < 2) {
-          const oopQuestions = [...TECHNICAL_QUESTIONS.java, ...TECHNICAL_QUESTIONS.python]
-            .filter(q => q.toLowerCase().includes('oop') || q.toLowerCase().includes('object') || 
-                         q.toLowerCase().includes('class') || q.toLowerCase().includes('inheritance') ||
-                         q.toLowerCase().includes('polymorphism') || q.toLowerCase().includes('encapsulation'));
-          const availableOOP = oopQuestions.filter(q => !session.askedQuestions.includes(q));
-          nextQuestion = availableOOP[Math.floor(Math.random() * availableOOP.length)];
-          category = 'oop';
-          session.technicalRandomCount.oop++;
-        }
-        // Other random technical
-        else {
-          const allTech = [...TECHNICAL_QUESTIONS.dbms, ...TECHNICAL_QUESTIONS.java, ...TECHNICAL_QUESTIONS.python];
-          const availableTech = allTech.filter(q => !session.askedQuestions.includes(q));
-          nextQuestion = availableTech[Math.floor(Math.random() * availableTech.length)];
-          category = 'other';
-          session.technicalRandomCount.other++;
-        }
-
-        session.askedQuestions.push(nextQuestion);
-        session.currentQuestionIndex++;
-
-        const totalTechnical = session.technicalRandomCount.dsa + session.technicalRandomCount.oop + session.technicalRandomCount.other;
-
-        if (totalTechnical >= 3) {
-          // Interview complete
-          session.phase = 'complete';
-          session.completedAt = new Date().toISOString();
-          
-          return res.json({
-            complete: true,
-            message: 'Interview completed successfully',
-            summary: {
-              totalQuestions: session.askedQuestions.length,
-              phases: {
-                intro: 5,
-                hr: session.responses.filter((_, i) => i >= 5 && i < 10).length,
-                technical: session.responses.filter((_, i) => i >= 10).length
-              }
-            }
-          });
-        }
-
+        session.phase = 'complete';
+        session.completedAt = new Date().toISOString();
+        
         return res.json({
-          nextQuestion,
-          phase: 'technical-random',
-          category,
-          questionNumber: 5 + totalTechnical
+          complete: true,
+          message: 'Interview completed successfully',
+          summary: {
+            totalQuestions: session.askedQuestions.length,
+            roundType: 'hr'
+          }
         });
       }
     }
 
-    res.json({ error: 'Invalid phase' });
+    // Phase 3: Technical Round (1 DSA + 2 OOP + 3 random technical)
+    if (session.phase === 'technical') {
+      const totalTech = session.techCount.dsa + session.techCount.oop + session.techCount.other;
+      
+      // Need 2 OOP questions
+      if (session.techCount.oop < 2) {
+        const availableOOP = OOP_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
+        const oopQ = availableOOP[Math.floor(Math.random() * availableOOP.length)];
+        session.askedQuestions.push(oopQ);
+        session.techCount.oop++;
+        
+        return res.json({
+          nextQuestion: oopQ,
+          phase: 'technical',
+          category: 'oop',
+          questionNumber: session.askedQuestions.length
+        });
+      }
+      
+      // Need 3 more random technical questions
+      if (session.techCount.other < 3) {
+        const availableTech = OTHER_TECHNICAL_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
+        const techQ = availableTech[Math.floor(Math.random() * availableTech.length)];
+        session.askedQuestions.push(techQ);
+        session.techCount.other++;
+        
+        return res.json({
+          nextQuestion: techQ,
+          phase: 'technical',
+          category: 'other',
+          questionNumber: session.askedQuestions.length
+        });
+      }
+      
+      // All technical questions done
+      session.phase = 'complete';
+      session.completedAt = new Date().toISOString();
+      
+      return res.json({
+        complete: true,
+        message: 'Interview completed successfully',
+        summary: {
+          totalQuestions: session.askedQuestions.length,
+          roundType: 'technical',
+          technical: {
+            dsa: session.techCount.dsa,
+            oop: session.techCount.oop,
+            other: session.techCount.other
+          }
+        }
+      });
+    }
+
+    res.status(400).json({ error: 'Invalid phase' });
   } catch (error) {
     console.error('Error processing answer:', error);
     res.status(500).json({ error: 'Failed to process answer' });
