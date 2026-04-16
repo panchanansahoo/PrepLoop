@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Plus, X, Clock, Edit2, Trash2 } from 'lucide-react';
 import useCalendarEvents from '../hooks/useCalendarEvents';
+import { useTheme } from '../context/ThemeContext';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -39,6 +40,8 @@ function getRelativeDay(dateStr) {
 }
 
 export default function CalendarWidget() {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const today = new Date();
     const [currentMonth, setCurrentMonth] = useState(today.getMonth());
     const [currentYear, setCurrentYear] = useState(today.getFullYear());
@@ -311,6 +314,143 @@ export default function CalendarWidget() {
                     })}
                 </div>
             )}
+            <style>{getDynamicStyles(isLight)}</style>
         </div>
     );
+}
+
+function getDynamicStyles(isLight) {
+    return `
+        .cal-advanced {
+            background: ${isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))' : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))'};
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: ${isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(255, 255, 255, 0.05)'};
+            border-radius: 20px;
+            box-shadow: ${isLight ? '0 12px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)' : '0 12px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255,255,255,0.05)'};
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            color: ${isLight ? '#0f172a' : '#fff'};
+        }
+        .cal-advanced:hover {
+            box-shadow: ${isLight ? '0 16px 48px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,1)' : '0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.08)'};
+            border-color: ${isLight ? 'rgba(15, 23, 42, 0.15)' : 'rgba(255, 255, 255, 0.1)'};
+        }
+        .cal-header {
+            border-bottom: ${isLight ? '1px solid rgba(15, 23, 42, 0.05)' : '1px solid rgba(255, 255, 255, 0.05)'};
+            background: ${isLight ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.02), transparent)' : 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), transparent)'};
+        }
+        .cal-icon-wrap {
+            background: ${isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.1)'};
+            color: ${isLight ? '#4f46e5' : '#818cf8'};
+            box-shadow: ${isLight ? '0 0 12px rgba(99, 102, 241, 0.1)' : '0 0 12px rgba(99, 102, 241, 0.2)'};
+            border-radius: 10px;
+        }
+        .cal-today-btn, .cal-nav-btn {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.03)' : 'rgba(255, 255, 255, 0.05)'};
+            border: ${isLight ? '1px solid rgba(15, 23, 42, 0.05)' : '1px solid rgba(255, 255, 255, 0.05)'};
+            color: ${isLight ? '#475569' : '#cbd5e1'};
+            transition: all 0.2s ease;
+        }
+        .cal-today-btn:hover, .cal-nav-btn:hover {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(255, 255, 255, 0.1)'};
+            color: ${isLight ? '#0f172a' : '#fff'};
+            transform: translateY(-1px);
+            box-shadow: ${isLight ? '0 4px 12px rgba(0, 0, 0, 0.05)' : '0 4px 12px rgba(0, 0, 0, 0.1)'};
+        }
+        .cal-cell {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 12px;
+            background: transparent;
+            color: ${isLight ? '#334155' : '#e2e8f0'};
+        }
+        .cal-cell:hover:not(.cal-empty) {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.04)' : 'rgba(255, 255, 255, 0.05)'};
+            transform: scale(1.05);
+        }
+        .cal-today {
+            background: ${isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(99, 102, 241, 0.15)'} !important;
+            color: ${isLight ? '#4f46e5' : '#818cf8'} !important;
+            font-weight: 800;
+            box-shadow: ${isLight ? 'inset 0 0 0 1px rgba(99, 102, 241, 0.2)' : 'inset 0 0 0 1px rgba(99, 102, 241, 0.3)'};
+        }
+        .cal-selected {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(255, 255, 255, 0.1)'} !important;
+            box-shadow: ${isLight ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.1)' : 'inset 0 0 0 1px rgba(255, 255, 255, 0.2)'};
+        }
+        .cal-events-panel {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(0, 0, 0, 0.2)'};
+            border-top: ${isLight ? '1px solid rgba(15, 23, 42, 0.05)' : '1px solid rgba(255, 255, 255, 0.05)'};
+        }
+        .cal-event-item {
+            background: ${isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.02)'};
+            border: ${isLight ? '1px solid rgba(15, 23, 42, 0.05)' : '1px solid rgba(255, 255, 255, 0.03)'};
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            box-shadow: ${isLight ? '0 2px 4px rgba(0,0,0,0.02)' : 'none'};
+        }
+        .cal-event-item:hover {
+            background: ${isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.05)'};
+            border-color: ${isLight ? 'rgba(15, 23, 42, 0.1)' : 'rgba(255, 255, 255, 0.1)'};
+            transform: translateX(4px);
+            box-shadow: ${isLight ? '0 4px 8px rgba(0,0,0,0.04)' : 'none'};
+        }
+        .cal-day-header {
+            color: ${isLight ? '#64748b' : '#94a3b8'};
+        }
+        .cal-title {
+            color: ${isLight ? '#0f172a' : '#f8fafc'};
+        }
+        .cal-subtitle {
+            color: ${isLight ? '#64748b' : '#94a3b8'};
+        }
+        .cal-event-title, .cal-agenda-text {
+            color: ${isLight ? '#0f172a' : '#e2e8f0'};
+        }
+        .cal-event-time-label, .cal-agenda-when {
+            color: ${isLight ? '#64748b' : '#94a3b8'};
+        }
+        .cal-events-date {
+            color: ${isLight ? '#0f172a' : '#f8fafc'};
+        }
+        .cal-events-count {
+            background: ${isLight ? 'rgba(15, 23, 42, 0.06)' : 'rgba(255,255,255,0.1)'};
+            color: ${isLight ? '#475569' : '#cbd5e1'};
+        }
+        .cal-add-event-btn {
+            background: ${isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255,255,255,0.05)'};
+            color: ${isLight ? '#4f46e5' : '#fff'};
+        }
+        .cal-add-event-btn:hover {
+            background: ${isLight ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255,255,255,0.1)'};
+        }
+        .cal-no-events {
+            color: ${isLight ? '#64748b' : '#64748b'};
+        }
+        .cal-agenda-title {
+            color: ${isLight ? '#475569' : '#94a3b8'};
+        }
+        .cal-event-input {
+            background: ${isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0,0,0,0.2)'};
+            color: ${isLight ? '#0f172a' : '#fff'};
+            border: ${isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(255,255,255,0.1)'};
+        }
+        .cal-event-input::placeholder {
+            color: ${isLight ? '#94a3b8' : '#64748b'};
+        }
+        .cal-event-time {
+            background: ${isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0,0,0,0.2)'};
+            color: ${isLight ? '#0f172a' : '#fff'};
+            border: ${isLight ? '1px solid rgba(15, 23, 42, 0.1)' : '1px solid rgba(255,255,255,0.1)'};
+        }
+        .cal-evt-btn {
+            color: ${isLight ? '#64748b' : '#94a3b8'};
+        }
+        .cal-evt-btn:hover {
+            color: ${isLight ? '#0f172a' : '#fff'};
+        }
+        .cal-evt-del:hover {
+            color: #ef4444;
+        }
+    `;
 }

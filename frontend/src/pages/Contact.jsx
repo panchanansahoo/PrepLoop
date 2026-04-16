@@ -80,8 +80,8 @@ export default function Contact() {
                                     </div>
                                     <div>
                                         <h4 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Email Us</h4>
-                                        <a href="mailto:careerloop.me@gmail.com" style={{ color: 'var(--zinc-400)', textDecoration: 'none', fontSize: '15px', transition: 'color 0.2s' }} className="hover:text-white">
-                                            careerloop.me@gmail.com
+                                        <a href="mailto:support@preploop.me" style={{ color: 'var(--zinc-400)', textDecoration: 'none', fontSize: '15px', transition: 'color 0.2s' }} className="hover:text-white">
+                                            support@preploop.me
                                         </a>
                                     </div>
                                 </div>

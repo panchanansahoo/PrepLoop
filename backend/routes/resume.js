@@ -694,9 +694,21 @@ router.get('/latest', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'No saved resume found' });
     }
 
-    const resumeProfile = buildFallbackResumeProfile(data.resume_text, {
-      keywordMatch: data.keyword_match,
-    });
+    const keywordMatch = data.keyword_match || {};
+    const resumeText = data.resume_text || '';
+    
+    const coreSkills = [
+      ...(Array.isArray(keywordMatch.technical) ? keywordMatch.technical : []),
+      ...(Array.isArray(keywordMatch.soft) ? keywordMatch.soft : [])
+    ].filter(Boolean).slice(0, 12);
+
+    const resumeProfile = {
+      candidateHeadline: extractHeadline(resumeText),
+      coreSkills,
+      projectHighlights: extractProjects(resumeText),
+      likelyQuestionAreas: extractExperienceAreas(resumeText),
+      summary: extractSummary(resumeText)
+    };
 
     res.json({
       analysis: data,
@@ -708,6 +720,35 @@ router.get('/latest', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch latest resume' });
   }
 });
+
+function extractHeadline(text) {
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
+  const roleKeywords = /engineer|developer|analyst|designer|manager|consultant|architect|scientist/i;
+  for (const line of lines.slice(0, 10)) {
+    if (roleKeywords.test(line) && line.length > 10 && line.length < 100) return line;
+  }
+  return lines[0] || 'Professional';
+}
+
+function extractProjects(text) {
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
+  return lines.filter(l => /project|built|developed|created|designed/i.test(l) && l.length > 20).slice(0, 3);
+}
+
+function extractExperienceAreas(text) {
+  const areas = [];
+  if (/react|vue|angular/i.test(text)) areas.push('Frontend development');
+  if (/node|express|django|flask/i.test(text)) areas.push('Backend development');
+  if (/aws|azure|docker|kubernetes/i.test(text)) areas.push('Cloud & DevOps');
+  if (/sql|database|mongodb/i.test(text)) areas.push('Database design');
+  return areas.slice(0, 4);
+}
+
+function extractSummary(text) {
+  const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
+  const summaryLine = lines.find(l => l.length > 50 && l.length < 300 && !/^[A-Z][a-z]+ [A-Z]/.test(l));
+  return summaryLine || lines.slice(0, 3).join(' ').slice(0, 200);
+}
 
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
@@ -728,6 +769,44 @@ router.get('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching analysis:', error);
     res.status(500).json({ error: 'Failed to fetch analysis' });
+  }
+});
+
+router.post('/import-linkedin', authenticateToken, async (req, res) => {
+  try {
+    const { linkedinUrl, profileData } = req.body;
+
+    if (!profileData) {
+      return res.status(400).json({ error: 'Profile data is required' });
+    }
+
+    const extractedData = {
+      fullName: profileData.name || profileData.fullName || '',
+      currentRole: profileData.headline || profileData.title || '',
+      bio: profileData.summary || profileData.about || '',
+      skills: Array.isArray(profileData.skills) 
+        ? profileData.skills.join(', ') 
+        : (profileData.skills || ''),
+      experience: Array.isArray(profileData.experience)
+        ? profileData.experience.map(exp => 
+            `${exp.title || ''} at ${exp.company || ''} (${exp.duration || ''})`
+          ).join('; ')
+        : (profileData.experience || ''),
+      education: Array.isArray(profileData.education)
+        ? profileData.education.map(edu => 
+            `${edu.degree || ''} from ${edu.school || ''}`
+          ).join('; ')
+        : (profileData.education || '')
+    };
+
+    res.json({
+      success: true,
+      profileData: extractedData,
+      message: 'LinkedIn data extracted successfully'
+    });
+  } catch (error) {
+    console.error('LinkedIn import error:', error);
+    res.status(500).json({ error: 'Failed to import LinkedIn data' });
   }
 });
 

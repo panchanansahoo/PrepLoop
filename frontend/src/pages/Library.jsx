@@ -160,7 +160,7 @@ export default function Library() {
             minHeight: '100vh',
             background: isLight ? '#f8f9fa' : '#030303',
             color: isLight ? '#1a1a2e' : 'white',
-            paddingTop: '100px',
+            paddingTop: '130px',
             paddingBottom: '80px',
             position: 'relative',
             overflow: 'hidden'

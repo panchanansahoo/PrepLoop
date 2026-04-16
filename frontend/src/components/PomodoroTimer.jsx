@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Play, Pause, RotateCcw, Coffee, Brain, Timer, Settings, SkipForward, Volume2, VolumeX, BarChart3 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 const PRESETS = {
     focus: [15, 25, 30, 45, 60],
@@ -97,6 +98,9 @@ function playBeep() {
 }
 
 export default function PomodoroTimer({ stats }) {
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
+
     const FOCUS_LABEL = 'Focus (min)';
     const BREAK_LABEL = 'Break (min)';
     const initialRef = useRef(buildInitialPomodoroState(stats));
@@ -214,6 +218,7 @@ export default function PomodoroTimer({ stats }) {
 
     const accentColor = mode === 'focus' ? '#a78bfa' : mode === 'longBreak' ? '#f472b6' : '#34d399';
     const accentGlow = mode === 'focus' ? 'rgba(167,139,250,0.15)' : mode === 'longBreak' ? 'rgba(244,114,182,0.15)' : 'rgba(52,211,153,0.15)';
+    const accentBorder = mode === 'focus' ? 'rgba(167,139,250,0.3)' : mode === 'longBreak' ? 'rgba(244,114,182,0.3)' : 'rgba(52,211,153,0.3)';
 
     // History chart data
     const historyData = useMemo(() => {
@@ -225,88 +230,128 @@ export default function PomodoroTimer({ stats }) {
             count: historyMap[d] || 0,
             height: ((historyMap[d] || 0) / max) * 100,
         }));
-    }, [historyMap, showHistory]);
+    }, [historyMap]);
+
+    const c = {
+        bg: isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))' : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',
+        border: isLight ? '1px solid rgba(15, 23, 42, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)',
+        shadow: isLight ? '0 12px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)' : '0 24px 64px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)',
+        cardBg: isLight ? 'rgba(15, 23, 42, 0.02)' : 'rgba(255, 255, 255, 0.02)',
+        cardBorder: isLight ? '1px solid rgba(15, 23, 42, 0.05)' : '1px solid rgba(255, 255, 255, 0.05)',
+        title: isLight ? '#0f172a' : '#f8fafc',
+        text: isLight ? '#475569' : '#cbd5e1',
+        muted: isLight ? '#94a3b8' : '#64748b',
+    };
 
     return (
-        <div className="pomo-widget pomo-advanced">
+        <div style={{
+            padding: '24px 28px',
+            background: c.bg,
+            borderRadius: '24px',
+            border: c.border,
+            boxShadow: c.shadow,
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+        }}>
+            <style>{`
+                @keyframes pulsing {
+                    0% { filter: drop-shadow(0 0 8px ${accentColor}); }
+                    50% { filter: drop-shadow(0 0 16px ${accentColor}); }
+                    100% { filter: drop-shadow(0 0 8px ${accentColor}); }
+                }
+                .pomo-ring-pulse { animation: pulsing 2s infinite ease-in-out; }
+                .pomo-header-btn {
+                    background: transparent; border: none; padding: 6px; border-radius: 8px; cursor: pointer;
+                    color: ${c.muted}; transition: all 0.2s;
+                }
+                .pomo-header-btn:hover { background: ${c.cardBg}; color: ${c.title}; }
+                .pomo-header-btn.active { color: ${accentColor}; background: ${accentGlow}; }
+                .pomo-panel {
+                    background: ${c.cardBg}; border: ${c.cardBorder}; border-radius: 16px; 
+                    padding: 16px; margin-bottom: 20px; animation: slideDown 0.3s ease;
+                }
+                @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+                .pomo-preset-btn {
+                    padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer;
+                    background: transparent; border: 1px solid ${c.cardBorder}; color: ${c.text};
+                    transition: all 0.2s;
+                }
+                .pomo-preset-btn:hover { background: ${c.cardBg}; color: ${c.title}; }
+                .pomo-preset-btn.active { background: ${accentColor}; color: white; border-color: ${accentColor}; }
+                
+                .pomo-history-bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100px; gap: 4px; }
+                .pomo-history-bar { width: 14px; border-radius: 4px; transition: height 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+                
+                .pomo-mode-btn {
+                    flex: 1; padding: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;
+                    border-radius: 10px; border: 1px solid transparent; background: transparent;
+                    color: ${c.muted}; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+                }
+                .pomo-mode-btn:hover { color: ${c.title}; background: ${c.cardBg}; }
+                .pomo-mode-btn.active { background: ${c.cardBg}; color: ${accentColor}; border: 1px solid ${accentBorder}; }
+            `}</style>
+            
             {/* Header */}
-            <div className="pomo-header">
-                <div className="pomo-title-row">
-                    <div className="pomo-icon-wrap" style={{ background: accentGlow }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ 
+                        width: '36px', height: '36px', borderRadius: '10px', display: 'grid', placeItems: 'center', 
+                        background: accentGlow, border: `1px solid ${accentBorder}`,
+                        transition: 'all 0.4s ease'
+                    }}>
                         <Timer size={18} style={{ color: accentColor }} />
                     </div>
                     <div>
-                        <h3 className="pomo-title">Pomodoro</h3>
-                        <p className="pomo-subtitle">{sessions} session{sessions !== 1 ? 's' : ''} today</p>
+                        <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: c.title, letterSpacing: '-0.3px' }}>Pomodoro</h3>
+                        <p style={{ margin: '2px 0 0', fontSize: '13px', color: c.muted, fontWeight: 500 }}>{sessions} session{sessions !== 1 ? 's' : ''} today</p>
                     </div>
                 </div>
-                <div className="pomo-header-actions">
-                    <button
-                        className={`pomo-header-btn ${showHistory ? 'active' : ''}`}
-                        onClick={() => { setShowHistory(!showHistory); setShowSettings(false); }}
-                        title="History"
-                    >
-                        <BarChart3 size={15} />
+                <div style={{ display: 'flex', gap: '4px' }}>
+                    <button className={`pomo-header-btn ${showHistory ? 'active' : ''}`} onClick={() => { setShowHistory(!showHistory); setShowSettings(false); }}>
+                        <BarChart3 size={16} />
                     </button>
-                    <button
-                        className={`pomo-header-btn ${showSettings ? 'active' : ''}`}
-                        onClick={() => { setShowSettings(!showSettings); setShowHistory(false); }}
-                        title="Settings"
-                    >
-                        <Settings size={15} />
+                    <button className={`pomo-header-btn ${showSettings ? 'active' : ''}`} onClick={() => { setShowSettings(!showSettings); setShowHistory(false); }}>
+                        <Settings size={16} />
                     </button>
                 </div>
             </div>
 
             {/* Settings Panel */}
             {showSettings && (
-                <div className="pomo-settings-panel">
-                    <div className="pomo-setting-group">
-                        <label>{FOCUS_LABEL}</label>
-                        <div className="pomo-preset-row">
+                <div className="pomo-panel">
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 700, color: c.title, display: 'block', marginBottom: '8px' }}>{FOCUS_LABEL}</label>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             {PRESETS.focus.map(v => (
-                                <button
-                                    key={v}
-                                    className={`pomo-preset-btn ${settings.focus === v ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setSettings(s => ({ ...s, focus: v }));
-                                        if (mode === 'focus' && !isRunning) setTimeLeft(v * 60);
-                                    }}
-                                >{v}</button>
+                                <button key={v} className={`pomo-preset-btn ${settings.focus === v ? 'active' : ''}`} onClick={() => { setSettings(s => ({ ...s, focus: v })); if (mode === 'focus' && !isRunning) setTimeLeft(v * 60); }}>
+                                    {v}
+                                </button>
                             ))}
                         </div>
                     </div>
-                    <div className="pomo-setting-group">
-                        <label>{BREAK_LABEL}</label>
-                        <div className="pomo-preset-row">
+                    <div style={{ marginBottom: '16px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 700, color: c.title, display: 'block', marginBottom: '8px' }}>{BREAK_LABEL}</label>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                             {PRESETS.break.map(v => (
-                                <button
-                                    key={v}
-                                    className={`pomo-preset-btn ${settings.break === v ? 'active' : ''}`}
-                                    onClick={() => {
-                                        setSettings(s => ({ ...s, break: v }));
-                                        if (mode === 'break' && !isRunning) setTimeLeft(v * 60);
-                                    }}
-                                >{v}</button>
+                                <button key={v} className={`pomo-preset-btn ${settings.break === v ? 'active' : ''}`} onClick={() => { setSettings(s => ({ ...s, break: v })); if (mode === 'break' && !isRunning) setTimeLeft(v * 60); }}>
+                                    {v}
+                                </button>
                             ))}
                         </div>
                     </div>
-                    <div className="pomo-setting-toggles">
-                        <label className="pomo-toggle-label">
-                            <input
-                                type="checkbox"
-                                checked={settings.autoStart}
-                                onChange={e => setSettings(s => ({ ...s, autoStart: e.target.checked }))}
-                            />
-                            <span>Auto-start next</span>
+                    <div style={{ display: 'flex', gap: '16px', marginTop: '12px', borderTop: c.cardBorder, paddingTop: '12px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: c.text, cursor: 'pointer', fontWeight: 600 }}>
+                            <input type="checkbox" checked={settings.autoStart} onChange={e => setSettings(s => ({ ...s, autoStart: e.target.checked }))} />
+                            Auto-start next
                         </label>
-                        <label className="pomo-toggle-label">
-                            <input
-                                type="checkbox"
-                                checked={settings.sound}
-                                onChange={e => setSettings(s => ({ ...s, sound: e.target.checked }))}
-                            />
-                            <span>{settings.sound ? <Volume2 size={12} /> : <VolumeX size={12} />} Sound</span>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: c.text, cursor: 'pointer', fontWeight: 600 }}>
+                            <input type="checkbox" checked={settings.sound} onChange={e => setSettings(s => ({ ...s, sound: e.target.checked }))} />
+                            {settings.sound ? <Volume2 size={14} /> : <VolumeX size={14} />} Sound
                         </label>
                     </div>
                 </div>
@@ -314,54 +359,45 @@ export default function PomodoroTimer({ stats }) {
 
             {/* History Chart */}
             {showHistory && (
-                <div className="pomo-history-panel">
-                    <div className="pomo-history-chart">
+                <div className="pomo-panel" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', width: '100%', padding: '0 10px 10px', height: '120px' }}>
                         {historyData.map(d => (
                             <div key={d.key} className="pomo-history-bar-wrap">
-                                <span className="pomo-bar-count">{d.count || ''}</span>
-                                <div className="pomo-history-bar" style={{ height: `${Math.max(d.height, 4)}%`, background: d.key === todayKey() ? accentColor : 'rgba(255,255,255,0.15)' }} />
-                                <span className="pomo-bar-label">{d.label}</span>
+                                <span style={{ fontSize: '10px', color: c.muted, fontWeight: 700 }}>{d.count || ''}</span>
+                                <div className="pomo-history-bar" style={{ height: `${Math.max(d.height, 4)}%`, background: d.key === todayKey() ? accentColor : isLight ? 'rgba(15,23,42,0.1)' : 'rgba(255,255,255,0.15)' }} />
+                                <span style={{ fontSize: '11px', color: c.text, fontWeight: 600 }}>{d.label}</span>
                             </div>
                         ))}
                     </div>
-                    <div className="pomo-history-summary">
-                        Total this week: <strong>{historyData.reduce((s, d) => s + d.count, 0)}</strong> sessions
+                    <div style={{ fontSize: '12px', color: c.text, marginTop: '8px' }}>
+                        Total this week: <strong style={{ color: c.title }}>{historyData.reduce((s, d) => s + d.count, 0)}</strong> sessions
                     </div>
                 </div>
             )}
 
             {/* Mode Toggle */}
-            <div className="pomo-mode-toggle">
-                <button
-                    className={`pomo-mode-btn ${mode === 'focus' ? 'active' : ''}`}
-                    onClick={() => switchMode('focus')}
-                >
-                    <Brain size={14} /> Focus
+            <div style={{ display: 'flex', gap: '8px', background: isLight ? 'rgba(15,23,42,0.03)' : 'rgba(0,0,0,0.2)', padding: '6px', borderRadius: '14px', marginBottom: '32px' }}>
+                <button className={`pomo-mode-btn ${mode === 'focus' ? 'active' : ''}`} onClick={() => switchMode('focus')}>
+                    <Brain size={16} /> Focus
                 </button>
-                <button
-                    className={`pomo-mode-btn ${mode === 'break' ? 'active' : ''}`}
-                    onClick={() => switchMode('break')}
-                >
-                    <Coffee size={14} /> Break
+                <button className={`pomo-mode-btn ${mode === 'break' ? 'active' : ''}`} onClick={() => switchMode('break')}>
+                    <Coffee size={16} /> Break
                 </button>
                 {consecutiveSessions > 0 && consecutiveSessions % 4 === 0 && (
-                    <button
-                        className={`pomo-mode-btn ${mode === 'longBreak' ? 'active' : ''}`}
-                        onClick={() => switchMode('longBreak')}
-                    >
+                    <button className={`pomo-mode-btn ${mode === 'longBreak' ? 'active' : ''}`} onClick={() => switchMode('longBreak')}>
                         🧘 Long
                     </button>
                 )}
             </div>
 
             {/* Timer Ring */}
-            <div className="pomo-ring-container">
-                <svg width="160" height="160" viewBox="0 0 160 160" className="pomo-svg">
-                    <circle cx="80" cy="80" r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6" />
+            <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginBottom: '32px' }}>
+                <svg width="180" height="180" viewBox="0 0 160 160">
+                    <circle cx="80" cy="80" r={radius} fill="none" stroke={isLight ? 'rgba(15, 23, 42, 0.05)' : 'rgba(255,255,255,0.06)'} strokeWidth="8" />
                     <circle
                         cx="80" cy="80" r={radius} fill="none"
                         stroke={accentColor}
-                        strokeWidth="6"
+                        strokeWidth="8"
                         strokeLinecap="round"
                         strokeDasharray={circumference}
                         strokeDashoffset={strokeDashoffset}
@@ -369,44 +405,40 @@ export default function PomodoroTimer({ stats }) {
                         style={{ transition: 'stroke-dashoffset 0.5s ease', transform: 'rotate(-90deg)', transformOrigin: '50% 50%' }}
                     />
                 </svg>
-                <div className="pomo-time-display">
-                    <span className="pomo-time" style={{ color: accentColor }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '38px', fontWeight: 800, color: c.title, letterSpacing: '-1px', lineHeight: 1 }}>
                         {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                     </span>
-                    <span className="pomo-mode-label">
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: accentColor, marginTop: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                         {mode === 'focus' ? 'Focus Time' : mode === 'longBreak' ? 'Long Break' : 'Break Time'}
                     </span>
                 </div>
             </div>
 
-            {/* Session dots */}
-            <div className="pomo-session-dots">
-                {Array.from({ length: Math.min(consecutiveSessions, 8) }).map((_, i) => (
-                    <span key={i} className="pomo-dot" style={{ background: i % 4 === 3 ? '#f472b6' : accentColor }} />
-                ))}
-                {consecutiveSessions > 0 && <span className="pomo-dot-label">{consecutiveSessions} in a row</span>}
+            {/* Controls */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
+                <button onClick={reset} style={{ width: '40px', height: '40px', borderRadius: '50%', background: c.cardBg, border: c.cardBorder, color: c.muted, display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = c.title; }} onMouseLeave={e => { e.currentTarget.style.color = c.muted; }}>
+                    <RotateCcw size={18} />
+                </button>
+                <button onClick={toggle} style={{ width: '56px', height: '56px', borderRadius: '50%', background: accentColor, border: 'none', color: 'white', display: 'grid', placeItems: 'center', cursor: 'pointer', boxShadow: `0 8px 24px ${accentGlow}`, transition: 'all 0.2s', transform: isRunning ? 'scale(0.95)' : 'scale(1)' }}>
+                    {isRunning ? <Pause size={24} /> : <Play size={24} style={{ marginLeft: '4px' }} />}
+                </button>
+                <button onClick={skipSession} style={{ width: '40px', height: '40px', borderRadius: '50%', background: c.cardBg, border: c.cardBorder, color: c.muted, display: 'grid', placeItems: 'center', cursor: 'pointer', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.color = c.title; }} onMouseLeave={e => { e.currentTarget.style.color = c.muted; }}>
+                    <SkipForward size={18} />
+                </button>
             </div>
 
-            {/* Controls */}
-            <div className="pomo-controls">
-                <button className="pomo-ctrl-btn pomo-reset" onClick={reset} title="Reset">
-                    <RotateCcw size={16} />
-                </button>
-                <button
-                    className="pomo-ctrl-btn pomo-play"
-                    onClick={toggle}
-                    style={{ background: accentColor, boxShadow: `0 4px 20px ${accentGlow}` }}
-                >
-                    {isRunning ? <Pause size={20} /> : <Play size={20} style={{ marginLeft: '2px' }} />}
-                </button>
-                <button className="pomo-ctrl-btn pomo-skip" onClick={skipSession} title="Skip">
-                    <SkipForward size={16} />
-                </button>
+            {/* Session dots */}
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginBottom: '16px' }}>
+                {Array.from({ length: Math.min(consecutiveSessions, 8) }).map((_, i) => (
+                    <span key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: i % 4 === 3 ? '#f472b6' : accentColor, boxShadow: `0 0 8px ${accentColor}` }} />
+                ))}
+                {consecutiveSessions > 0 && <span style={{ fontSize: '11px', color: c.muted, fontWeight: 700, marginLeft: '4px' }}>{consecutiveSessions} in a row</span>}
             </div>
 
             {/* Quote */}
-            <div className="pomo-quote">
-                💡 {QUOTES[quoteIdx]}
+            <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 600, color: c.text, background: c.cardBg, padding: '12px', borderRadius: '12px', fontStyle: 'italic' }}>
+                "{QUOTES[quoteIdx]}"
             </div>
         </div>
     );

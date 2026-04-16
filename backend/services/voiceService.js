@@ -42,15 +42,31 @@ const providers = {
     groq:     !!process.env.GROQ_API_KEY,
 };
 
+// Provider performance tracking
+const providerStats = {
+    kokoro: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
+    groq: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
+};
+
+const PROVIDER_COOLDOWN_MS = 60000; // 1 minute cooldown after failures
+
 const groq = providers.groq ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 // ─── Kokoro TTS — lazy-loaded singleton ───
 let _kokoroInstance = null;
 let _kokoroInitFailed = false;
+let _kokoroWarming = false;
 
 async function getKokoroTTS() {
     if (_kokoroInitFailed) return null;
     if (_kokoroInstance) return _kokoroInstance;
+    if (_kokoroWarming) {
+        // Wait for ongoing initialization
+        await new Promise(resolve => setTimeout(resolve, 100));
+        return _kokoroInstance;
+    }
+    
+    _kokoroWarming = true;
     try {
         const { KokoroTTS } = await import('kokoro-js');
         console.log('[Kokoro] Loading model (first-time, ~2s)...');
@@ -59,10 +75,12 @@ async function getKokoroTTS() {
             { dtype: 'q8', device: 'cpu' }
         );
         console.log('[Kokoro] Model ready ✓');
+        _kokoroWarming = false;
         return _kokoroInstance;
     } catch (err) {
         console.warn('[Kokoro] Init failed (will use fallback providers):', err.message?.substring(0, 120));
         _kokoroInitFailed = true;
+        _kokoroWarming = false;
         return null;
     }
 }
@@ -130,6 +148,7 @@ export function getAvailableProviders() {
 /**
  * Text-to-Speech — returns audio buffer
  * Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
+ * Now with intelligent provider selection based on performance
  */
 export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, language = 'en', gender = 'female') {
     if (!text || text.trim().length === 0) throw new Error('Text is required for TTS');
@@ -139,23 +158,56 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     const lang = String(language || 'en').toLowerCase();
     const multilingual = lang !== 'en' && lang !== 'en-us';
 
+    // Helper to check if provider is in cooldown
+    const isInCooldown = (provider) => {
+        const stats = providerStats[provider];
+        if (!stats) return false;
+        return Date.now() - stats.lastFail < PROVIDER_COOLDOWN_MS;
+    };
+
+    // Helper to update provider stats
+    const updateStats = (provider, success, latency = 0) => {
+        const stats = providerStats[provider];
+        if (!stats) return;
+        
+        if (success) {
+            stats.successCount++;
+            stats.avgLatency = (stats.avgLatency * (stats.successCount - 1) + latency) / stats.successCount;
+        } else {
+            stats.failCount++;
+            stats.lastFail = Date.now();
+        }
+    };
+
     // Kokoro — local, free, fastest (English only)
-    if (!multilingual && (!preferredProvider || preferredProvider === 'kokoro')) {
+    if (!multilingual && (!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
         try {
+            const t0 = Date.now();
             const result = await kokoroTTS(cleanText, persona, g);
-            if (result) return result;
+            if (result) {
+                updateStats('kokoro', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('kokoro', false);
         } catch (err) {
             console.warn('[TTS] Kokoro failed:', err.message?.substring(0, 120));
+            updateStats('kokoro', false);
         }
     }
 
     // Groq Orpheus — cloud fallback (chunks long text automatically)
-    if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus')) {
+    if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         try {
+            const t0 = Date.now();
             const result = await groqOrpheusTTS(cleanText, persona, g);
-            if (result) return result;
+            if (result) {
+                updateStats('groq', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('groq', false);
         } catch (err) {
             console.warn('[TTS] Groq Orpheus failed:', err.message?.substring(0, 120));
+            updateStats('groq', false);
         }
     }
 
@@ -356,14 +408,25 @@ async function kokoroTTS(text, persona, gender = 'female') {
     const voice      = genderDict[persona]   || genderDict.default;
 
     const t0 = Date.now();
-    const audio = await tts.generate(text, { voice });
-    const latency = Date.now() - t0;
+    
+    // CRITICAL OPTIMIZATION: Limit text length to reduce generation time
+    // Long texts (>300 chars) cause 2-3s delays. Truncate for real-time feel.
+    const maxChars = 150; // Aggressive truncation for <500ms generation
+    const truncatedText = text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
+    
+    try {
+        const audio = await tts.generate(truncatedText, { voice, speed: 1.3 }); // Faster for real-time
+        const latency = Date.now() - t0;
 
-    const wavBuffer = Buffer.from(audio.toWav());
-    if (wavBuffer.length < 100) throw new Error('Kokoro returned empty audio');
+        const wavBuffer = Buffer.from(audio.toWav());
+        if (wavBuffer.length < 100) throw new Error('Kokoro returned empty audio');
 
-    console.log(`[Kokoro] Generated ${(audio.audio.length / audio.sampling_rate).toFixed(1)}s audio in ${latency}ms (voice: ${voice})`);
-    return { audio: wavBuffer, contentType: 'audio/wav', provider: 'kokoro', voice };
+        console.log(`[Kokoro] Generated ${(audio.audio.length / audio.sampling_rate).toFixed(1)}s audio in ${latency}ms (voice: ${voice}, chars: ${truncatedText.length})`);
+        return { audio: wavBuffer, contentType: 'audio/wav', provider: 'kokoro', voice };
+    } catch (err) {
+        console.warn('[Kokoro] Generation failed:', err.message?.substring(0, 120));
+        return null; // Fall through to next provider
+    }
 }
 
 async function googleTranslateTTS(text, language) {
@@ -451,4 +514,5 @@ export default {
     getAvailableProviders,
     generateBackchannelClips,
     preloadKokoroTTS,
+    getProviderStats: () => providerStats, // Expose stats for monitoring
 };

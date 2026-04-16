@@ -56,14 +56,18 @@ import UpcomingContests from '../components/UpcomingContests';
 import CalendarWidget from '../components/CalendarWidget';
 import PomodoroTimer from '../components/PomodoroTimer';
 import WeeklyStats from '../components/WeeklyStats';
+import SkillMatchJobs from '../components/SkillMatchJobs';
 
 import TodoList from '../components/TodoList';
+import LearningStreakWidget from '../components/LearningStreakWidget';
+import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
     { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
     { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
     { id: 'quickActions', name: 'Quick Actions', component: QuickActions, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
+    { id: 'skillMatchJobs', name: 'Skill-Matched Jobs', component: SkillMatchJobs, defaultVisible: true, premium: false, layout: 'full', description: 'Live job recommendations based on your skills' },
     { id: 'readinessScore', name: 'Interview Readiness', component: ReadinessScore, defaultVisible: true, premium: true, layout: '2col-left', description: 'Overall interview readiness gauge' },
     { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadar, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
     { id: 'recentActivity', name: 'Recent Activity', component: RecentActivity, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
@@ -75,6 +79,8 @@ const WIDGET_REGISTRY = [
 
     { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
     { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
+    { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
+    { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -219,6 +225,10 @@ export default function Dashboard() {
         const quickActions = visible.find(w => w.id === 'quickActions');
         if (quickActions) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickActions)}</div>);
 
+        // Skill-Matched Jobs (right after QuickActions)
+        const skillMatchJobs = visible.find(w => w.id === 'skillMatchJobs');
+        if (skillMatchJobs) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(skillMatchJobs)}</div>);
+
         // 2-col rows: pair up left/right
         const maxTwoCol = Math.max(twoColLeft.length, twoColRight.length);
         for (let i = 0; i < maxTwoCol; i++) {
@@ -247,8 +257,8 @@ export default function Dashboard() {
             );
         }
 
-        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, weeklyStats)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats');
+        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, weeklyStats, skillMatchJobs)
+        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
         remainingFull.forEach(w => {
             rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
         });

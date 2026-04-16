@@ -181,17 +181,21 @@ export function useVoiceInterview(options = {}) {
 		}
 		setAiSpeaking(true);
 
-		// ── Primary: Try premium backend TTS (Groq Orpheus) ──
+		// ── OPTIMIZATION: Split into sentences for streaming playback ──
+		const sentences = spokenText.match(/[^.!?]+[.!?]+/g) || [spokenText];
+		const firstSentence = sentences[0]?.trim();
+		
+		// ── Primary: Try premium backend TTS (Kokoro) for first sentence ASAP ──
 		try {
 			const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
 			const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-			const res = await fetch(`${apiUrl}/api/voice/tts`, {
+			
+			const res = await fetch(`${apiUrl}/api/voice/tts-fast`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json', ...headers },
 				body: JSON.stringify({
-					text: spokenText,
+					text: firstSentence || spokenText.substring(0, 150),
 					persona: 'friendly',
-					provider: 'groq-orpheus',
 					gender: interviewerGender || 'female',
 				}),
 			});
@@ -221,6 +225,52 @@ export function useVoiceInterview(options = {}) {
 							};
 							audio.play().catch(() => resolve());
 						});
+						
+						// If there are more sentences, play them sequentially
+						if (sentences.length > 1) {
+							for (let i = 1; i < sentences.length; i++) {
+								const sentence = sentences[i]?.trim();
+								if (!sentence) continue;
+								
+								try {
+									const nextRes = await fetch(`${apiUrl}/api/voice/tts-fast`, {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json', ...headers },
+										body: JSON.stringify({
+											text: sentence,
+											persona: 'friendly',
+											gender: interviewerGender || 'female',
+										}),
+									});
+									
+									if (nextRes.ok) {
+										const nextBlob = await nextRes.blob();
+										if (nextBlob.size > 100) {
+											const nextUrl = URL.createObjectURL(nextBlob);
+											const nextAudio = new Audio(nextUrl);
+											ttsAudioRef.current = nextAudio;
+											
+											await new Promise((resolve) => {
+												nextAudio.onended = () => {
+													URL.revokeObjectURL(nextUrl);
+													ttsAudioRef.current = null;
+													resolve();
+												};
+												nextAudio.onerror = () => {
+													URL.revokeObjectURL(nextUrl);
+													ttsAudioRef.current = null;
+													resolve();
+												};
+												nextAudio.play().catch(() => resolve());
+											});
+										}
+									}
+								} catch (err) {
+									console.warn('[VoiceHook] Sentence TTS failed:', err.message);
+								}
+							}
+						}
+						
 						setAiSpeaking(false);
 						return; // Success — premium voice played
 					}

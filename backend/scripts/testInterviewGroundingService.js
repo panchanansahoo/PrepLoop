@@ -10,7 +10,10 @@ async function run() {
     stage: 'technical',
     interviewType: 'dsa',
     missingAreas: ['complexity analysis'],
-    resumeContext: { coreSkills: ['distributed systems'] },
+    resumeContext: {
+      headline: 'Backend Engineer focused on systems design',
+      skills: 'distributed systems,graphql',
+    },
     limit: 4,
   });
 
@@ -19,6 +22,8 @@ async function run() {
   assert.ok(Array.isArray(context.hintPatterns), 'hintPatterns should be array');
   assert.ok(typeof context.provider === 'string', 'provider should be present');
   assert.ok(typeof context.retrievalLatencyMs === 'number', 'retrievalLatencyMs should be numeric');
+  assert.equal(context.query.resumeHeadline, 'Backend Engineer focused on systems design', 'resume headline should be normalized into query metadata');
+  assert.deepEqual(context.query.resumeSkills, ['distributed systems', 'graphql'], 'resume skills should be normalized into query metadata');
 
   const fallback = await service.fetchContext({
     company: 'unknown-company',

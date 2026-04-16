@@ -79,11 +79,11 @@ const DailyChallengesPage = lazy(() => import('./pages/DailyChallengesPage'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const AdminLibrary = lazy(() => import('./pages/AdminLibrary'));
 const JobUpdates = lazy(() => import('./pages/JobUpdates'));
-const RealInterview = lazy(() => import('./pages/RealInterview'));
-const InterviewScheduler = lazy(() => import('./pages/InterviewScheduler'));
+const AIJobCopilot = lazy(() => import('./pages/AIJobCopilot'));
 const HRLogin = lazy(() => import('./pages/HRLogin'));
 const HRDashboard = lazy(() => import('./pages/HRDashboard'));
 const AIInterviewPage = lazy(() => import('./pages/AIInterviewPage'));
+const SimpleVoiceTest = lazy(() => import('./pages/SimpleVoiceTest'));
 const CommunityHub = lazy(() => import('./pages/CommunityHub'));
 
 function PrivateRoute({ children }) {
@@ -178,11 +178,12 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password'];
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
+  const isCopilotRoute = location.pathname === '/copilot';
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
@@ -271,6 +272,7 @@ function AppContent() {
             <Route path="/company-prep" element={<CompanyPrep />} />
             <Route path="/company-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
             <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+            <Route path="/voice-test" element={<SimpleVoiceTest />} />
             <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
             <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
@@ -295,6 +297,7 @@ function AppContent() {
             <Route path="/contact" element={<Contact />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/copilot" element={<AIJobCopilot />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
@@ -306,8 +309,6 @@ function AppContent() {
             <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
 
             <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
-            <Route path="/real-interview" element={<PrivateRoute><RealInterview /></PrivateRoute>} />
-            <Route path="/interview-scheduler" element={<PrivateRoute><InterviewScheduler /></PrivateRoute>} />
             <Route path="/hr/login" element={<HRLogin />} />
             <Route path="/hr/dashboard" element={<HRDashboard />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -384,7 +385,12 @@ function App() {
         <AuthProvider>
           <CoinProvider>
             {!appReady && <LoadingScreen onFinished={() => setAppReady(true)} />}
-            <Router>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
               <AppContent />
             </Router>
           </CoinProvider>

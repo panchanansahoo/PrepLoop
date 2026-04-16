@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fresher Interview Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        input, textarea { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
+        .response { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Fresher Interview API Test</h1>
+    
+    <div class="section">
+        <h2>1. Start Interview</h2>
+        <input type="text" id="interviewerName" placeholder="Interviewer Name" value="John Smith">
+        <input type="text" id="role" placeholder="Role" value="Senior HR Manager">
+        <input type="text" id="company" placeholder="Company" value="TechCorp">
+        <input type="text" id="roundName" placeholder="Round Name" value="Technical + HR Round">
+        <input type="text" id="apiUrl" placeholder="API URL" value="http://localhost:5000">
+        <input type="text" id="token" placeholder="Auth Token (optional for test server on 5001)">
+        <button onclick="startInterview()">Start Interview</button>
+        <div id="startResponse" class="response"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. Submit Answer</h2>
+        <input type="text" id="sessionId" placeholder="Session ID (from start response)">
+        <textarea id="answer" placeholder="Your answer" rows="4"></textarea>
+        <button onclick="submitAnswer()">Submit Answer</button>
+        <div id="answerResponse" class="response"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Get Session Info</h2>
+        <input type="text" id="sessionIdInfo" placeholder="Session ID">
+        <button onclick="getSessionInfo()">Get Session Info</button>
+        <div id="sessionResponse" class="response"></div>
+    </div>
+
+    <script>
+        let currentSessionId = null;
+
+        async function makeRequest(endpoint, method = 'GET', body = null) {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const token = document.getElementById('token').value;
+            
+            const options = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            };
+
+            if (token) {
+                options.headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            if (body) {
+                options.body = JSON.stringify(body);
+            }
+
+            try {
+                const response = await fetch(`${apiUrl}${endpoint}`, options);
+                const data = await response.json();
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function startInterview() {
+            const responseDiv = document.getElementById('startResponse');
+            responseDiv.textContent = 'Loading...';
+            
+            const result = await makeRequest('/api/fresher-interview/start', 'POST', {
+                interviewerName: document.getElementById('interviewerName').value,
+                role: document.getElementById('role').value,
+                company: document.getElementById('company').value,
+                roundName: document.getElementById('roundName').value
+            });
+
+            if (result.success) {
+                currentSessionId = result.data.sessionId;
+                document.getElementById('sessionId').value = currentSessionId;
+                document.getElementById('sessionIdInfo').value = currentSessionId;
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = result.error || JSON.stringify(result.data, null, 2);
+            }
+        }
+
+        async function submitAnswer() {
+            const responseDiv = document.getElementById('answerResponse');
+            responseDiv.textContent = 'Loading...';
+            
+            const sessionId = document.getElementById('sessionId').value;
+            const answer = document.getElementById('answer').value;
+
+            if (!sessionId || !answer) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Please provide session ID and answer';
+                return;
+            }
+
+            const result = await makeRequest('/api/fresher-interview/answer', 'POST', {
+                sessionId,
+                answer
+            });
+
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+                document.getElementById('answer').value = ''; // Clear answer field
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = result.error || JSON.stringify(result.data, null, 2);
+            }
+        }
+
+        async function getSessionInfo() {
+            const responseDiv = document.getElementById('sessionResponse');
+            responseDiv.textContent = 'Loading...';
+            
+            const sessionId = document.getElementById('sessionIdInfo').value;
+
+            if (!sessionId) {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = 'Please provide session ID';
+                return;
+            }
+
+            const result = await makeRequest(`/api/fresher-interview/session/${sessionId}`, 'GET');
+
+            if (result.success) {
+                responseDiv.className = 'response success';
+                responseDiv.textContent = JSON.stringify(result.data, null, 2);
+            } else {
+                responseDiv.className = 'response error';
+                responseDiv.textContent = result.error || JSON.stringify(result.data, null, 2);
+            }
+        }
+    </script>
+</body>
+</html>

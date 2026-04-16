@@ -6,10 +6,10 @@ import {
   Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
   CheckCircle, ChevronDown, ArrowRight, Users, Star, Shield,
   Zap, Clock, Target, Award, Play, Sparkles, Database, Calculator, Map,
-  Building2, Mic, Globe, Cpu, BarChart3, Bot, Layers, GitBranch,
-  GraduationCap, Trophy, Rocket, ChevronRight, Quote, Activity,
+  Building2, Mic, Globe, BarChart3, Bot, Layers, GitBranch,
+  GraduationCap, Trophy, Rocket, ChevronRight, ChevronLeft, Quote, Activity,
   PenTool, Eye, Gauge, UserCheck, Timer, Flame, Crown, BadgeCheck,
-  Briefcase, MapPin, ExternalLink, Calendar
+  Briefcase, MapPin, ExternalLink, Calendar, Mail
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -110,32 +110,64 @@ const howItWorks = [
 
 const testimonials = [
   {
-    name: 'Priya Sharma',
-    role: 'SDE-1 at Amazon',
-    text: 'PrepLoop\'s AI interviewer is scary accurate. It asked follow-ups that were harder than my actual Amazon interview. I felt over-prepared — and that\'s exactly what you want.',
-    rating: 5,
-    avatar: 'PS'
+    name: 'Rohan Sharma',
+    role: 'SDE-2 at Amazon',
+    text: 'I struggled with system design rounds for months. Preploop\'s AI interviewer gave me real-time actionable feedback on my architecture choices. Passed the loop on my next attempt.',
+    avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
   },
   {
-    name: 'Rahul Verma',
-    role: 'SDE-2 at Google',
-    text: 'The DSA learning path is brilliant. Instead of solving 500 random problems, I focused on 15 patterns and cracked Google in 3 months. The code feedback is like having a senior dev reviewing your code.',
-    rating: 5,
-    avatar: 'RV'
+    name: 'Anjali Desai',
+    role: 'Frontend Engineer at Swiggy',
+    text: 'Preploop\'s resume scanner changed the game for me. It bumped my ATS match score from 40% to 85% by fixing missing keywords. I finally started getting callbacks from top product companies.',
+    avatar: 'https://randomuser.me/api/portraits/women/68.jpg'
   },
   {
-    name: 'Ananya Patel',
-    role: 'Data Analyst at Deloitte',
-    text: 'SQL mastery + aptitude section was a game changer. The timer feature simulates real test pressure. Went from failing assessments to clearing them in the top 5%.',
-    rating: 5,
-    avatar: 'AP'
+    name: 'Varun Iyer',
+    role: 'Data Engineer at Flipkart',
+    text: 'The prep wasn\'t just a generic grind. It pulled questions based on the actual company and role I was targeting. One of the exact SQL scenarios came up word for word in my onsite round.',
+    avatar: 'https://randomuser.me/api/portraits/men/45.jpg'
   },
   {
-    name: 'Vikram Singh',
-    role: 'SDE at Microsoft',
-    text: 'Company Prep Hub showed me exactly what Microsoft asks. No more guessing. The frequency data on questions saved me weeks of unfocused practice.',
-    rating: 5,
-    avatar: 'VS'
+    name: 'Sneha Patel',
+    role: 'Backend Developer at Atlassian',
+    text: 'The AI mock interviews felt incredibly realistic. It actually pressed me on edge cases and time complexities in my code, just like a real engineering manager would. That pressure testing was invaluable.',
+    avatar: 'https://randomuser.me/api/portraits/women/43.jpg'
+  },
+  {
+    name: 'Aditya Nath',
+    role: 'DevOps Engineer',
+    text: 'Transitioning from IT support to DevOps was tough. I used the tailored prep paths here to master Kubernetes and CI/CD interview patterns. Landed my first core engineering role two months later.',
+    avatar: 'https://randomuser.me/api/portraits/men/22.jpg'
+  },
+  {
+    name: 'Karthik Nair',
+    role: 'Full Stack Developer at Zomato',
+    text: 'I kept failing React practical rounds because I was slow. The timed assessments on Preploop trained me to write clean components under pressure. Boosted my speed by 2x.',
+    avatar: 'https://randomuser.me/api/portraits/men/75.jpg'
+  },
+  {
+    name: 'Pooja Menon',
+    role: 'ML Engineer at Microsoft',
+    text: 'The machine learning system design questions are so niche, but Preploop had them. I got to practice scaling recommendation systems with the AI, which completely saved my final round.',
+    avatar: 'https://randomuser.me/api/portraits/women/35.jpg'
+  },
+  {
+    name: 'Siddharth Rao',
+    role: 'iOS Developer at Cred',
+    text: 'It\'s hard to find good iOS interview prep. Preploop\'s mobile engineering tracks had exactly the kind of deep dive questions on memory management and protocol-oriented programming that I faced.',
+    avatar: 'https://randomuser.me/api/portraits/men/51.jpg'
+  },
+  {
+    name: 'Neha Kapoor',
+    role: 'QA Automation Engineer',
+    text: 'I wanted to move from manual QA to SDET. The automation testing practice tracks helped me master Selenium and Cypress concepts intuitively. I secured a 60% hike with my new role.',
+    avatar: 'https://randomuser.me/api/portraits/women/12.jpg'
+  },
+  {
+    name: 'Arjun Verma',
+    role: 'SDE-1 at Ola',
+    text: 'The behavioral interview modules were a lifesaver. The AI analyzed my tone and structure, teaching me how to frame my past projects using the STAR method perfectly.',
+    avatar: 'https://randomuser.me/api/portraits/men/85.jpg'
   }
 ];
 
@@ -604,9 +636,20 @@ function JobUpdatesPreview() {
 export default function Home() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
-  const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [activeTestimonial, setActiveTestimonial] = useState(1);
 
-  // Auto-rotate testimonials
+  const nextTestimonial = () => setActiveTestimonial((i) => (i + 1) % testimonials.length);
+  const prevTestimonial = () => setActiveTestimonial((i) => (i - 1 + testimonials.length) % testimonials.length);
+
+  const getVisibleTestimonials = () => {
+    const len = testimonials.length;
+    const current = activeTestimonial;
+    const prev = (current - 1 + len) % len;
+    const next = (current + 1) % len;
+    return [prev, current, next];
+  };
+
+  // Optional: Auto-rotate
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveTestimonial(i => (i + 1) % testimonials.length);
@@ -624,16 +667,21 @@ export default function Home() {
       width: '100%'
     }}>
 
-      {/* Ambient gradient orbs */}
+      {/* Ambient gradient orbs - Enhanced for a premium feel */}
       <div style={{
-        position: 'fixed', top: '20%', left: '-5%', width: '500px', height: '500px',
-        borderRadius: '50%', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.06) 0%, transparent 70%)',
-        pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 15s ease-in-out infinite reverse'
+        position: 'fixed', top: '10%', left: '-10%', width: '600px', height: '600px',
+        borderRadius: '50%', background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 15s ease-in-out infinite alternate', filter: 'blur(60px)'
       }} />
       <div style={{
-        position: 'fixed', bottom: '10%', right: '-5%', width: '400px', height: '400px',
-        borderRadius: '50%', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.03) 0%, transparent 70%)',
-        pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 18s ease-in-out infinite'
+        position: 'fixed', bottom: '5%', right: '-10%', width: '500px', height: '500px',
+        borderRadius: '50%', background: 'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 18s ease-in-out infinite alternate-reverse', filter: 'blur(50px)'
+      }} />
+      <div style={{
+        position: 'fixed', top: '40%', left: '40%', width: '400px', height: '400px',
+        borderRadius: '50%', background: 'radial-gradient(circle, rgba(236, 72, 153, 0.08) 0%, transparent 70%)',
+        pointerEvents: 'none', zIndex: 0, animation: 'orbFloat 22s linear infinite', filter: 'blur(80px)'
       }} />
 
 
@@ -663,25 +711,88 @@ export default function Home() {
                 to meet your objectives and drive your engineering career forward.
               </p>
 
-              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                <Button asChild size="lg" className="h-[52px] px-8 text-base">
-                  <Link to="/signup">Get started <ArrowRight size={16} style={{ marginLeft: '4px' }} /></Link>
-                </Button>
-                <Button asChild variant="outline" size="lg" className="h-[52px] px-8 text-base">
-                  <a href="#features"><Play size={14} style={{ marginRight: '4px' }} /> Explore Features</a>
-                </Button>
-              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' }}>
+                  <span style={{ fontSize: '11px', letterSpacing: '0.15em', fontWeight: '700', color: '#888', marginBottom: '16px', textTransform: 'uppercase' }}>
+                    LAUNCHED ON
+                  </span>
+                  <div style={{ display: 'flex', gap: '24px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    {/* Fazier Badge */}
+                    <a href="https://fazier.com" target="_blank" rel="noopener noreferrer" 
+                      style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=dark" width="120" alt="Fazier badge" />
+                    </a>
 
-              <div style={{ display: 'flex', gap: '32px', color: 'var(--text-secondary)', fontSize: '14px', marginTop: '40px', flexWrap: 'wrap' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Users size={16} /> 15,000+ engineers
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Shield size={16} /> 95% success rate
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Star size={16} color="var(--text-secondary)" /> 4.9/5 rating
-                </span>
+                    {/* Product Hunt Badge */}
+                    <a href="https://www.producthunt.com/" target="_blank" rel="noopener noreferrer" 
+                      style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
+                      <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1&theme=light" style={{ width: '220px', height: '48px' }} alt="Product Hunt Badge" />
+                    </a>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+                  <Link to="/signup" className="btn-hero-primary" style={{
+                    position: 'relative',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                    borderRadius: '999px',
+                    padding: '16px 36px',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    color: 'white',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 10px 30px -10px rgba(124, 58, 237, 0.5)',
+                    transition: 'all 0.3s ease',
+                    textDecoration: 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(124, 58, 237, 0.7)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(124, 58, 237, 0.5)';
+                  }}>
+                    Start for free
+                  </Link>
+                  
+                  <a href="#features" className="btn-hero-outline" style={{
+                    position: 'relative',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '999px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    backdropFilter: 'blur(10px)',
+                    padding: '16px 36px',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: 'var(--text-primary)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.3s ease',
+                    textDecoration: 'none'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }}>
+                    Watch Video <ChevronRight size={16} />
+                  </a>
+                </div>
               </div>
             </div>
 
@@ -740,42 +851,63 @@ export default function Home() {
             {features.map((f, i) => (
               <Link to={f.link} key={i} className="card feature-card-hover" style={{
                 background: 'var(--bg-card)',
-                backdropFilter: 'blur(10px)',
+                backdropFilter: 'blur(20px)',
                 border: '1px solid var(--border)',
                 padding: '40px',
                 display: 'block',
                 textDecoration: 'none',
                 position: 'relative',
-                overflow: 'hidden'
-              }}>
+                overflow: 'hidden',
+                borderRadius: '24px',
+                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-6px)';
+                e.currentTarget.style.borderColor = f.color;
+                e.currentTarget.style.boxShadow = `0 12px 40px ${f.color}30, inset 0 0 0 1px ${f.color}20`;
+                e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1.1) rotate(5deg)';
+                e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(6px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+                e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1) rotate(0deg)';
+                e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(0)';
+              }}
+              >
                 {/* Tag */}
                 {f.tag && (
                   <div style={{
                     position: 'absolute', top: '16px', right: '16px',
-                    padding: '4px 10px', borderRadius: '99px',
-                    background: 'var(--accent-glow)', border: '1px solid var(--border)',
-                    fontSize: '11px', fontWeight: '600', color: 'var(--text-secondary)',
-                    letterSpacing: '0.02em'
+                    padding: '6px 12px', borderRadius: '99px',
+                    background: `${f.color}15`, border: `1px solid ${f.color}30`,
+                    fontSize: '11px', fontWeight: '700', color: f.color,
+                    letterSpacing: '0.04em', textTransform: 'uppercase'
                   }}>{f.tag}</div>
                 )}
                 {/* Hover gradient orb */}
                 <div style={{
                   position: 'absolute', bottom: '-40px', right: '-40px',
-                  width: '120px', height: '120px', borderRadius: '50%',
-                  background: 'radial-gradient(circle, var(--accent-glow), transparent 70%)',
-                  transition: 'opacity 0.3s', opacity: 0.5
+                  width: '180px', height: '180px', borderRadius: '50%',
+                  background: `radial-gradient(circle, ${f.color}20, transparent 70%)`,
+                  transition: 'opacity 0.3s', opacity: 1, pointerEvents: 'none'
                 }} />
-                <div style={{
-                  marginBottom: '24px', color: f.color,
-                  width: '48px', height: '48px', borderRadius: '14px',
-                  background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                <div className="feature-icon-wrapper" style={{
+                  marginBottom: '28px', color: f.color,
+                  width: '56px', height: '56px', borderRadius: '16px',
+                  background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                  border: `1px solid ${f.color}40`,
+                  boxShadow: `0 8px 24px ${f.color}20`
                 }}>
                   {f.icon}
                 </div>
-                <h3 style={{ fontSize: '20px', marginBottom: '12px', color: 'var(--text-primary)' }}>{f.title}</h3>
-                <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>{f.desc}</p>
-                <div style={{ marginTop: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: '500' }}>
-                  Explore <ChevronRight size={14} />
+                <h3 style={{ fontSize: '22px', marginBottom: '12px', color: 'var(--text-primary)', fontWeight: '700', letterSpacing: '-0.01em' }}>{f.title}</h3>
+                <p style={{ fontSize: '15px', color: 'var(--zinc-400)', lineHeight: '1.7', marginBottom: '8px' }}>{f.desc}</p>
+                <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: f.color, fontWeight: '600' }}>
+                  Explore <ChevronRight size={16} className="feature-arrow" style={{ transition: 'transform 0.3s ease' }} />
                 </div>
               </Link>
             ))}
@@ -793,20 +925,45 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════ */}
       {/*              TRUSTED BY / LOGO STRIP            */}
       {/* ═══════════════════════════════════════════════ */}
-      <section style={{ padding: '40px 0 60px', position: 'relative', zIndex: 10, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+      <section className="logo-strip-section" style={{ padding: '48px 0 56px', position: 'relative', zIndex: 10, borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              <Cpu size={14} color="var(--text-secondary)" />
-              Engineers from these companies trust PrepLoop
-            </div>
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+              Join <strong style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>70,000+ Developers</strong>
+              <span style={{ margin: '0 8px', opacity: 0.4 }}>·</span>
+              Trusted with <strong style={{ color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px dashed rgba(255,255,255,0.2)', paddingBottom: '1px' }}>9,000+ app Installs</strong>
+            </p>
           </div>
-          <div className="logo-marquee-track">
-            {[...Array(3)].flatMap((_, rep) =>
-              ['Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 'Netflix', 'Uber', 'Flipkart', 'Adobe', 'Salesforce', 'Oracle', 'TCS', 'Infosys', 'Wipro', 'Deloitte', 'Goldman Sachs', 'JPMorgan', 'Samsung', 'PayPal', 'Stripe'].map((name, i) => (
-                <div key={`${rep}-${i}`} className="logo-marquee-item">{name}</div>
-              ))
-            )}
+          <div className="logo-marquee-wrapper">
+            <div className="logo-marquee-track">
+              {[...Array(3)].flatMap((_, rep) =>
+                [
+                  { name: 'Stripe', slug: 'stripe', color: '635BFF' },
+                  { name: 'Shopify', slug: 'shopify', color: '7AB55C' },
+                  { name: 'Google', slug: 'google', color: '4285F4' },
+                  { name: 'GitHub', slug: 'github', color: 'ffffff' },
+                  { name: 'Uber', slug: 'uber', color: 'ffffff' },
+                  { name: 'Meta', slug: 'meta', color: '0081FB' },
+                  { name: 'Apple', slug: 'apple', color: 'ffffff' },
+                  { name: 'Netflix', slug: 'netflix', color: 'E50914' },
+                  { name: 'Spotify', slug: 'spotify', color: '1DB954' },
+                  { name: 'Figma', slug: 'figma', color: 'F24E1E' },
+                  { name: 'PayPal', slug: 'paypal', color: '00457C' },
+                  { name: 'Tesla', slug: 'tesla', color: 'E82127' },
+                  { name: 'Notion', slug: 'notion', color: 'ffffff' },
+                  { name: 'Dropbox', slug: 'dropbox', color: '0061FF' },
+                ].map((brand, i) => (
+                  <div key={`${rep}-${i}`} className="logo-marquee-item" title={brand.name}>
+                    <img
+                      src={`https://cdn.simpleicons.org/${brand.slug}/${brand.color}`}
+                      alt={brand.name}
+                      loading="lazy"
+                      style={{ height: '28px', width: 'auto', display: 'block' }}
+                    />
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -874,89 +1031,86 @@ export default function Home() {
       <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }}>
         <div className="container">
           <div style={{ textAlign: 'center', marginBottom: '60px' }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '6px 16px', border: '1px solid var(--border)',
-              borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
-              background: 'var(--accent-glow)', marginBottom: '20px',
-              textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
-            }}>
-              <Star size={12} /> Success Stories
-            </div>
             <h2 style={{ fontSize: '40px', marginBottom: '16px', fontWeight: 'bold' }}>
-              Engineers Who <span className="text-gradient">Made It Happen</span>
+              Developer <span style={{ color: '#fbbf24' }}>Success</span> Stories
             </h2>
             <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
-              Real stories from real engineers who landed their dream roles
+              Hear from tech professionals who have transformed their careers with Preploop.
             </p>
           </div>
 
-          {/* Testimonial Cards */}
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
-              borderRadius: '24px',
-              padding: 'clamp(24px, 5vw, 48px)',
-              backdropFilter: 'blur(20px)',
-              position: 'relative',
-              minHeight: '260px',
-              overflow: 'hidden'
-            }}>
-              {/* Quote mark */}
-              <Quote size={48} style={{ position: 'absolute', top: '24px', right: '32px', color: 'var(--accent-glow)' }} />
-
-              <div key={activeTestimonial} className="testimonial-fade">
-                <div style={{ display: 'flex', gap: '4px', marginBottom: '20px' }}>
-                  {Array(testimonials[activeTestimonial].rating).fill(0).map((_, i) => (
-                    <Star key={i} size={16} fill="var(--text-secondary)" color="var(--text-secondary)" />
-                  ))}
-                </div>
-
-                <p style={{ fontSize: '18px', lineHeight: '1.8', color: 'var(--text-secondary)', marginBottom: '28px', fontStyle: 'italic' }}>
-                  "{testimonials[activeTestimonial].text}"
-                </p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{
-                    width: '48px', height: '48px', borderRadius: '50%',
-                    background: 'var(--accent-glow)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)',
-                    border: '1px solid var(--border)'
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '20px', maxWidth: '1100px', margin: '0 auto', flexWrap: 'wrap' }}>
+            {getVisibleTestimonials().map((index, i) => {
+              const isCenter = i === 1;
+              const testm = testimonials[index];
+              return (
+                <div key={index} style={{
+                  flex: isCenter ? '1 1 400px' : '1 1 300px',
+                  opacity: isCenter ? 1 : 0.4,
+                  transform: isCenter ? 'scale(1)' : 'scale(0.9)',
+                  transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                  background: isCenter ? 'linear-gradient(145deg, var(--bg-card), rgba(255,255,255,0.02))' : 'var(--bg-card)',
+                  border: isCenter ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--border)',
+                  boxShadow: isCenter ? '0 20px 40px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(139,92,246,0.1)' : 'none',
+                  borderRadius: '24px',
+                  padding: isCenter ? '40px' : '30px',
+                  position: 'relative',
+                  backdropFilter: 'blur(20px)',
+                  zIndex: isCenter ? 10 : 1,
+                  filter: isCenter ? 'none' : 'blur(2px)'
+                }}>
+                  {isCenter && (
+                    <div style={{
+                      position: 'absolute', top: '-1px', left: '10%', right: '10%', height: '1px',
+                      background: 'linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.8), transparent)'
+                    }} />
+                  )}
+                  <Quote size={isCenter ? 32 : 24} style={{ color: isCenter ? '#a78bfa' : 'var(--zinc-600)', marginBottom: '20px', opacity: 0.5 }} />
+                  <p style={{
+                    fontSize: isCenter ? '18px' : '15px',
+                    lineHeight: '1.6',
+                    color: isCenter ? 'var(--text-primary)' : 'var(--zinc-400)',
+                    marginBottom: '24px',
+                    fontStyle: 'italic',
+                    fontWeight: isCenter ? '500' : '400'
                   }}>
-                    {testimonials[activeTestimonial].avatar}
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '16px', color: 'var(--text-primary)' }}>{testimonials[activeTestimonial].name}</div>
-                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>{testimonials[activeTestimonial].role}</div>
-                  </div>
-                  <div style={{ marginLeft: 'auto' }}>
-                    <BadgeCheck size={20} color="#22c55e" />
+                    "{testm.text}"
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <img src={testm.avatar} alt={testm.name} style={{
+                      width: isCenter ? '48px' : '40px',
+                      height: isCenter ? '48px' : '40px',
+                      borderRadius: '50%',
+                      border: isCenter ? '2px solid #a78bfa' : '1px solid var(--border)',
+                      padding: '2px'
+                    }} />
+                    <div>
+                      <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 4px' }}>{testm.name}</h4>
+                      <p style={{ fontSize: '13px', color: 'var(--zinc-400)', margin: 0 }}>{testm.role}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
+          </div>
 
-            {/* Testimonial dots */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '24px' }}>
-              {testimonials.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveTestimonial(i)}
-                  style={{
-                    width: activeTestimonial === i ? '32px' : '10px',
-                    height: '10px',
-                    borderRadius: '99px',
-                    border: 'none',
-                    background: activeTestimonial === i ? 'var(--accent-primary)' : 'var(--accent-glow)',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    padding: 0
-                  }}
-                />
-              ))}
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '48px' }}>
+            <button onClick={prevTestimonial} style={{ 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              width: '48px', height: '48px', borderRadius: '12px', 
+              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', 
+              color: 'white', cursor: 'pointer', transition: 'all 0.2s'
+            }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+              <ChevronLeft size={20} />
+            </button>
+            <button onClick={nextTestimonial} style={{ 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              width: '48px', height: '48px', borderRadius: '12px', 
+              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', 
+              color: 'white', cursor: 'pointer', transition: 'all 0.2s'
+            }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+              <ChevronRight size={20} />
+            </button>
           </div>
         </div>
       </section>
@@ -964,44 +1118,27 @@ export default function Home() {
       <GradientDivider />
 
       {/* ═══════════════════════════════════════════════ */}
-      {/*                      FAQ                        */}
-      {/* ═══════════════════════════════════════════════ */}
-      <section className="container" style={{ marginBottom: 120 }} id="faq">
-        <div style={{ textAlign: 'center', marginBottom: 60 }}>
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: '8px',
-            padding: '6px 16px', border: '1px solid var(--border)',
-            borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
-            background: 'var(--accent-glow)', marginBottom: '20px',
-            textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
-          }}>
-            <MessageSquare size={12} /> FAQ
-          </div>
-          <h2 style={{ fontSize: 'clamp(28px, 5.2vw, 36px)' }}>Frequently Asked Questions</h2>
-        </div>
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          {faqs.map((faq, i) => (
-            <div key={i} className="faq-item">
-              <button
-                className="faq-question"
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-              >
-                {faq.q}
-                <ChevronDown size={20} style={{ transform: openFaq === i ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.3s' }} />
-              </button>
-              <div className={`faq-answer ${openFaq === i ? 'open' : ''}`}>
-                <p>{faq.a}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════ */}
       {/*           COMMUNITY HUB SECTION                  */}
       {/* ═══════════════════════════════════════════════ */}
       <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="community-hub">
         <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: 60 }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              padding: '6px 16px', border: '1px solid var(--border)',
+              borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+              background: 'var(--accent-glow)', marginBottom: '20px',
+              textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
+            }}>
+              <Users size={12} /> Community Hub
+            </div>
+            <h2 style={{ fontSize: 'clamp(28px, 5.2vw, 36px)', marginBottom: '16px', fontWeight: 'bold' }}>
+              Join Our <span className="text-gradient">Developer Network</span>
+            </h2>
+            <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
+              Connect, learn, and grow with a supportive community of engineers preparing for their next big role.
+            </p>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', alignItems: 'center' }}>
             {/* Discord & Community CTA */}
             <div style={{
@@ -1159,6 +1296,174 @@ export default function Home() {
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Active</div>
               </Link>
             </div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/*                      FAQ                        */}
+      {/* ═══════════════════════════════════════════════ */}
+      <section className="container" style={{ margin: '120px auto', position: 'relative', zIndex: 10, scrollMarginTop: '100px' }} id="faq">
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gap: '64px',
+          alignItems: 'flex-start'
+        }}>
+          {/* Left Side: Header & CTA */}
+          <div style={{ position: 'sticky', top: '120px', overflow: 'visible' }}>
+            <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 64px)', fontWeight: '800', lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
+              <span style={{ color: 'var(--text-primary)' }}>Questions</span> <br />
+              <span style={{ color: 'var(--text-muted)' }}>& Answers</span>
+            </h2>
+            <p style={{ fontSize: '18px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '32px', maxWidth: '400px' }}>
+              Find answers to commonly asked questions about our platform. Still need help?
+            </p>
+            <a href="mailto:support@preploop.me" style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              padding: '12px 24px',
+              borderRadius: '99px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              textDecoration: 'none',
+              fontWeight: '600',
+              fontSize: '15px',
+              boxShadow: '0 0 20px rgba(16, 185, 129, 0.1)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
+              e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+              e.currentTarget.style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
+              e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+              e.currentTarget.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+            >
+              <Mail size={18} /> support@preploop.me
+            </a>
+            
+            {/* Background 'FAQ' Watermark */}
+            <div style={{
+              position: 'absolute',
+              top: '200px',
+              left: '-20px',
+              fontSize: 'clamp(120px, 15vw, 240px)',
+              fontWeight: '900',
+              background: 'linear-gradient(180deg, rgba(139, 92, 246, 0.15) 0%, transparent 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              pointerEvents: 'none',
+              zIndex: -1,
+              userSelect: 'none',
+              letterSpacing: '-0.05em',
+              transform: 'rotate(-5deg)'
+            }}>
+              FAQ
+            </div>
+          </div>
+
+          {/* Right Side: FAQ Accordions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {faqs.map((faq, i) => {
+              const num = (i + 1).toString().padStart(2, '0');
+              const isOpen = openFaq === i;
+              return (
+                <div key={i} style={{
+                  background: 'var(--bg-card)',
+                  borderRadius: '12px',
+                  border: `1px solid var(--border)`,
+                  overflow: 'hidden',
+                  position: 'relative',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: isOpen ? '0 8px 32px rgba(139,92,246,0.1), inset 0 0 0 1px rgba(139,92,246,0.05)' : 'none'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isOpen) {
+                    e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.1)';
+                    e.currentTarget.style.background = 'linear-gradient(145deg, rgba(255,255,255,0.02), rgba(139, 92, 246, 0.05))';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isOpen) {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.style.background = 'var(--bg-card)';
+                  }
+                }}
+                >
+                  <button
+                    onClick={() => setOpenFaq(isOpen ? null : i)}
+                    style={{
+                      width: '100%',
+                      padding: '20px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '24px',
+                      background: 'none',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <span style={{ 
+                      fontSize: '14px', 
+                      fontWeight: '700', 
+                      color: isOpen ? 'var(--text-primary)' : 'rgba(255, 255, 255, 0.4)', 
+                      fontFamily: 'var(--font-mono, monospace)',
+                      width: '28px'
+                    }}>
+                      {num}
+                    </span>
+                    <span style={{ 
+                      flex: 1, 
+                      fontSize: '18px', 
+                      fontWeight: '500', 
+                      lineHeight: '1.4',
+                      color: isOpen ? 'var(--text-primary)' : 'rgba(255, 255, 255, 0.8)'
+                    }}>
+                      {faq.q}
+                    </span>
+                    <div style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      width: '36px', height: '36px', borderRadius: '50%',
+                      background: isOpen ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                      color: 'var(--text-primary)',
+                      flexShrink: 0,
+                      transition: 'all 0.3s ease'
+                    }}>
+                      <ChevronDown size={18} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.3s' }} />
+                    </div>
+                  </button>
+                  <div style={{
+                    maxHeight: isOpen ? '400px' : '0',
+                    overflow: 'hidden',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    opacity: isOpen ? 1 : 0
+                  }}>
+                    <p style={{
+                      padding: '0 20px 20px 72px',
+                      margin: 0,
+                      color: 'rgba(255, 255, 255, 0.65)',
+                      fontSize: '16px',
+                      lineHeight: '1.7'
+                    }}>
+                      {faq.a}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>

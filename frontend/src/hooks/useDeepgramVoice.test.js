@@ -3,6 +3,7 @@ import {
     buildDeepgramVoiceApiUrl,
     buildDeepgramStreamingUrl,
     getAdaptiveSilenceMs,
+    getPostSpeechAutoSubmitMs,
     isAudioContentType,
     shouldTreatTtsResponseAsFallback,
     shouldAutoSubmitAnswer,
@@ -13,6 +14,12 @@ describe('useDeepgramVoice helpers', () => {
         expect(getAdaptiveSilenceMs(20)).toBe(2500);
         expect(getAdaptiveSilenceMs(80)).toBe(1800);
         expect(getAdaptiveSilenceMs(260)).toBe(1200);
+    });
+
+    it('keeps post-speech auto-submit delay low for real-time feel', () => {
+        expect(getPostSpeechAutoSubmitMs(20)).toBe(1200);
+        expect(getPostSpeechAutoSubmitMs(80)).toBe(1200);
+        expect(getPostSpeechAutoSubmitMs(260)).toBe(1200);
     });
 
     it('builds the Deepgram websocket url with the streaming options', () => {

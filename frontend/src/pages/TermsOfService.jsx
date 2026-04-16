@@ -65,7 +65,7 @@ export default function TermsOfService() {
                         <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>5. Contact Us</h2>
                         <p style={{ color: 'var(--zinc-400)', lineHeight: '1.7' }}>
                             If you have any questions about these Terms, please contact us at: <br />
-                            <a href="mailto:careerloop.me@gmail.com" style={{ color: '#a78bfa', textDecoration: 'none' }}>careerloop.me@gmail.com</a>
+                            <a href="mailto:support@preploop.me" style={{ color: '#a78bfa', textDecoration: 'none' }}>support@preploop.me</a>
                         </p>
                     </section>
 

@@ -138,14 +138,14 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
 
     // Theme-aware colors
     const colors = isLight ? {
-        cardBg: 'rgba(255,255,255,0.7)',
-        cardBorder: '1px solid rgba(99,102,241,0.1)',
+        cardBg: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))',
+        cardBorder: '1px solid rgba(15, 23, 42, 0.08)',
         titleColor: '#1a1d2e',
         subtitleColor: '#8b8fa6',
-        itemBg: 'rgba(255,255,255,0.5)',
-        itemBorder: '1px solid rgba(99,102,241,0.08)',
-        itemHoverBg: 'rgba(99,102,241,0.06)',
-        itemHoverBorder: 'rgba(99,102,241,0.15)',
+        itemBg: 'rgba(255,255,255,0.6)',
+        itemBorder: '1px solid rgba(15, 23, 42, 0.05)',
+        itemHoverBg: 'rgba(255,255,255,1)',
+        itemHoverBorder: 'rgba(99,102,241,0.25)',
         nameColor: '#1a1d2e',
         metaColor: '#6b7089',
         dateColor: '#8b8fa6',
@@ -162,16 +162,16 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
         scrollThumb: 'rgba(99,102,241,0.12)',
         scrollThumbHover: 'rgba(99,102,241,0.2)',
     } : {
-        cardBg: 'rgba(255,255,255,0.03)',
-        cardBorder: '1px solid rgba(255,255,255,0.06)',
+        cardBg: 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',
+        cardBorder: '1px solid rgba(255, 255, 255, 0.08)',
         titleColor: '#fff',
-        subtitleColor: 'rgba(255,255,255,0.35)',
+        subtitleColor: 'rgba(255,255,255,0.4)',
         itemBg: 'rgba(255,255,255,0.02)',
-        itemBorder: '1px solid rgba(255,255,255,0.05)',
-        itemHoverBg: 'rgba(255,255,255,0.05)',
-        itemHoverBorder: 'rgba(255,255,255,0.12)',
+        itemBorder: '1px solid rgba(255,255,255,0.03)',
+        itemHoverBg: 'rgba(255,255,255,0.06)',
+        itemHoverBorder: 'rgba(255,255,255,0.15)',
         nameColor: '#fff',
-        metaColor: 'rgba(255,255,255,0.35)',
+        metaColor: 'rgba(255,255,255,0.4)',
         dateColor: 'rgba(255,255,255,0.3)',
         btnBg: 'rgba(255,255,255,0.05)',
         btnBorder: '1px solid rgba(255,255,255,0.08)',
@@ -189,9 +189,13 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
 
     return (
         <div style={{
-            background: colors.cardBg, borderRadius: 16,
-            border: colors.cardBorder, padding: '20px 24px',
-            backdropFilter: isLight ? 'blur(12px)' : 'none',
+            background: colors.cardBg, borderRadius: 24,
+            border: colors.cardBorder, padding: '24px 28px',
+            backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+            boxShadow: isLight
+                ? '0 12px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)'
+                : '0 24px 64px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -248,14 +252,24 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
                     {contests.map((contest, i) => {
                         const meta = PLATFORM_META[contest.platform] || { color: '#94a3b8', icon: '📌', link: '#' };
                         const contestRowStyle = {
-                                display: 'flex', alignItems: 'center', gap: 14, padding: '12px 14px',
-                                borderRadius: 12, background: colors.itemBg,
+                                display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
+                                borderRadius: 16, background: colors.itemBg,
                                 border: colors.itemBorder, textDecoration: 'none',
-                                transition: 'all 0.2s', cursor: 'pointer', flexShrink: 0,
+                                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)', cursor: 'pointer', flexShrink: 0,
                             };
 
-                        const onEnter = (e) => { e.currentTarget.style.background = colors.itemHoverBg; e.currentTarget.style.borderColor = colors.itemHoverBorder; };
-                        const onLeave = (e) => { e.currentTarget.style.background = colors.itemBg; e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); };
+                        const onEnter = (e) => { 
+                            e.currentTarget.style.background = colors.itemHoverBg; 
+                            e.currentTarget.style.borderColor = colors.itemHoverBorder; 
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = isLight ? '0 8px 24px rgba(0,0,0,0.06)' : '0 12px 32px rgba(0,0,0,0.3)';
+                        };
+                        const onLeave = (e) => { 
+                            e.currentTarget.style.background = colors.itemBg; 
+                            e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); 
+                            e.currentTarget.style.transform = 'none';
+                            e.currentTarget.style.boxShadow = 'none';
+                        };
 
                         if (!contest.link) {
                             return (
@@ -298,8 +312,8 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
 
                         return (
                             <a key={i} href={contest.link} target="_blank" rel="noreferrer" style={contestRowStyle}
-                                onMouseEnter={e => { e.currentTarget.style.background = colors.itemHoverBg; e.currentTarget.style.borderColor = colors.itemHoverBorder; }}
-                                onMouseLeave={e => { e.currentTarget.style.background = colors.itemBg; e.currentTarget.style.borderColor = colors.itemBorder.split(' ').pop(); }}
+                                onMouseEnter={onEnter}
+                                onMouseLeave={onLeave}
                             >
                                 {/* Platform Icon */}
                                 <div style={{

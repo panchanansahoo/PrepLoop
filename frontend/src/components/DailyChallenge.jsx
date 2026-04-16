@@ -56,22 +56,23 @@ const DailyChallenge = ({ challengeData = null }) => {
         
         const dc = DIFFICULTY_COLORS[q.difficulty] || DIFFICULTY_COLORS.Easy;
 
-        // Premium row styling with smooth transitions
-        const baseBg = isLight ? 'rgba(248,250,252,0.8)' : 'rgba(30,41,59,0.4)';
-        const hoverBg = isLight ? '#f1f5f9' : 'rgba(51,65,85,0.6)';
-        const baseBorder = isLight ? 'rgba(203,213,225,0.4)' : 'rgba(148,163,184,0.1)';
-        const hoverBorder = isLight ? 'rgba(203,213,225,0.8)' : 'rgba(148,163,184,0.3)';
+        const baseBg = isLight ? 'rgba(255, 255, 255, 0.5)' : 'rgba(255, 255, 255, 0.015)';
+        const hoverBg = isLight ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.04)';
+        const baseBorder = isLight ? 'rgba(203,213,225,0.4)' : 'rgba(255, 255, 255, 0.04)';
+        const hoverBorder = isLight ? 'rgba(99, 102, 241, 0.4)' : `rgba(${isSql ? '236,72,153' : '99,102,241'}, 0.3)`;
 
         const handleMouseEnter = (e) => {
             e.currentTarget.style.background = hoverBg;
             e.currentTarget.style.borderColor = hoverBorder;
-            e.currentTarget.style.transform = 'translateX(4px)';
+            e.currentTarget.style.transform = 'translateX(6px) translateY(-2px)';
+            e.currentTarget.style.boxShadow = `0 6px 20px ${isLight ? 'rgba(99,102,241,0.15)' : 'rgba(0,0,0,0.5)'}`;
         };
 
         const handleMouseLeave = (e) => {
             e.currentTarget.style.background = baseBg;
             e.currentTarget.style.borderColor = baseBorder;
-            e.currentTarget.style.transform = 'translateX(0)';
+            e.currentTarget.style.transform = 'translateX(0) translateY(0)';
+            e.currentTarget.style.boxShadow = 'none';
         };
 
         return (
@@ -168,20 +169,21 @@ const DailyChallenge = ({ challengeData = null }) => {
             <div className="relative z-10 overflow-hidden border rounded-[24px]" style={{
                 background: isLight
                     ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))'
-                    : 'linear-gradient(135deg, rgba(15,23,42,0.8), rgba(20,30,50,0.7))',
-                borderColor: isLight ? 'rgba(203,213,225,0.5)' : 'rgba(148,163,184,0.15)',
+                    : 'linear-gradient(135deg, rgba(18, 18, 24, 0.75), rgba(20, 20, 28, 0.65))',
+                borderColor: isLight ? 'rgba(203,213,225,0.5)' : 'rgba(255, 255, 255, 0.08)',
                 boxShadow: isLight
-                    ? '0 1px 3px rgba(0,0,0,0.08), 0 10px 40px rgba(0,0,0,0.06)'
-                    : '0 20px 70px -40px rgba(0,0,0,0.95), 0 1px 2px rgba(148,163,184,0.1)',
-                backdropFilter: 'blur(20px)'
+                    ? '0 12px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)'
+                    : '0 24px 64px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+                backdropFilter: 'blur(24px)',
+                WebkitBackdropFilter: 'blur(24px)'
             }}>
                 {/* Header with Trophy Icon */}
                 <div style={{
-                    padding: isLight ? '24px 28px' : '24px 28px',
-                    borderBottom: isLight ? '1px solid rgba(203,213,225,0.4)' : '1px solid rgba(148,163,184,0.1)',
+                    padding: isLight ? '28px 28px' : '28px 28px',
+                    borderBottom: isLight ? '1px solid rgba(203,213,225,0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
                     background: isLight
-                        ? 'linear-gradient(135deg, rgba(251,191,36,0.06), rgba(139,92,246,0.04))'
-                        : 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.06))',
+                        ? 'linear-gradient(135deg, rgba(251,191,36,0.08), rgba(139,92,246,0.05))'
+                        : 'linear-gradient(135deg, rgba(251,191,36,0.12), rgba(139,92,246,0.08))',
                     position: 'relative',
                     overflow: 'hidden'
                 }}>

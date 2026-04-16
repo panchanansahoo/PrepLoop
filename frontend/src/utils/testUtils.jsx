@@ -7,7 +7,14 @@ import { MantineProvider } from '@mantine/core';
 export const renderWithProviders = (ui, options) => {
     return render(
         <MantineProvider>
-            <BrowserRouter>{ui}</BrowserRouter>
+            <BrowserRouter
+                future={{
+                    v7_startTransition: true,
+                    v7_relativeSplatPath: true,
+                }}
+            >
+                {ui}
+            </BrowserRouter>
         </MantineProvider>,
         options
     );

@@ -195,6 +195,9 @@ function mapInterviewHistory(items) {
   if (!Array.isArray(items)) return items;
   return items.map((item) => ({
     ...item,
+    sessionId: item.sessionId || item.session_id || item.id,
+    session_id: item.session_id || item.sessionId || item.id,
+    id: item.id || item.sessionId || item.session_id,
     type: item.type || item.interview_type,
     difficulty: item.difficulty || item.difficulty_level,
     score:
@@ -347,13 +350,7 @@ export const improvementPlan = {
   getLatest: getLatestImprovementPlan,
   getHistory: getImprovementPlanHistory,
   updateProgress: updateImprovementPlanProgress
-};.coins}.`);
-    }
-    throw new Error(data.error || `API Error: ${response.status} ${response.statusText}`);
-  }
-
-  return data.data || data;
-}
+};
 
 async function apiRequestAbsolute(endpoint, options = {}) {
   const token = getAuthToken();

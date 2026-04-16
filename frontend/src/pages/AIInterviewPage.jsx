@@ -279,6 +279,7 @@ export default function AIInterviewPage() {
     const [questionIndex, setQuestionIndex] = useState(0);
     const [totalQuestions, setTotalQuestions] = useState(6);
     const [loading, setLoading] = useState(false);
+    const [consecutiveSilentQuestions, setConsecutiveSilentQuestions] = useState(0); // Track silent questions
 
     // ── Analysis Loading State ──
     const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -316,6 +317,17 @@ export default function AIInterviewPage() {
         onAnswer: useCallback((answerText) => {
             // Push transcribed text into state for UI display
             setTranscriptRaw(answerText || '');
+            
+            // Track if this was a silent answer (no speech detected)
+            const isSilentAnswer = !answerText || answerText.trim().length === 0 || answerText === "I do not have a response to this question.";
+            
+            if (isSilentAnswer) {
+                setConsecutiveSilentQuestions(prev => prev + 1);
+            } else {
+                // User spoke, reset silent counter
+                setConsecutiveSilentQuestions(0);
+            }
+            
             // CRITICAL: Pass answerText directly to sendAnswer because React
             // state (transcript) won't update until the next render. Without
             // this, sendAnswer reads stale/empty transcript and silently bails.
@@ -327,6 +339,7 @@ export default function AIInterviewPage() {
         interviewType,
         personaGender: interviewerGender,
         question: currentQuestion,
+        getAuthHeaders,
     });
 
     // ── Interview Intelligence (filler detection + answer analysis) ──
@@ -610,9 +623,9 @@ export default function AIInterviewPage() {
     // ── Auto-adjust question count based on experience level ──
     React.useEffect(() => {
         if (experienceLevel === 'fresher') {
-            setTotalQuestions(12);
+            setTotalQuestions(13);
         } else {
-            setTotalQuestions(6);
+            setTotalQuestions(13);
         }
     }, [experienceLevel]);
 
@@ -1076,6 +1089,7 @@ export default function AIInterviewPage() {
 
             setActiveResumeContext(resumeCtx);
 
+            // CRITICAL: Fetch ALL questions upfront for batch audio pre-generation
             const [res] = await Promise.all([
                 fetch('/api/company-interview/start', {
                     method: 'POST',
@@ -1091,6 +1105,7 @@ export default function AIInterviewPage() {
                         advancedOptions: advancedOpts,
                         resumeContext: resumeCtx,
                         interviewerName: INTERVIEWER.name,
+                        generateAllQuestions: true, // Request all questions upfront
                     }),
                 }),
                 minDelay,
@@ -1120,10 +1135,21 @@ export default function AIInterviewPage() {
                 timestamp: Date.now(),
             }]);
 
-            // Speak the greeting, then auto-enable mic
+            // CRITICAL: Pre-fetch TTS audio for first question DURING connecting phase
+            // This eliminates the delay between "connected" and "speaking"
+            console.log('[Interview] Pre-generating audio for first question...');
+            dgVoice.prefetch(questionText);
+
+            // Wait for minimum connecting animation time
+            await minDelay;
+
+            // Transition to interview phase
             setPhase('interview');
             setLoading(false);
+            
+            // Speak the greeting (audio already pre-fetched, plays instantly)
             await speakInterviewerText(questionText);
+            
             // Auto-start mic after first question — micOn syncs via effect
             startVoiceRecording();
         } catch (error) {
@@ -1149,6 +1175,10 @@ export default function AIInterviewPage() {
                 content: fallbackQ,
                 timestamp: Date.now(),
             }]);
+            
+            // Pre-fetch fallback question audio
+            dgVoice.prefetch(fallbackQ);
+            
             setLoading(false);
             setPhase('interview');
             await speakInterviewerText(fallbackQ);
@@ -1323,12 +1353,18 @@ export default function AIInterviewPage() {
             const fallbackQ = followUpFallbackByStage[resolvedStage] || 'Can you walk me through your approach step by step, including trade-offs?';
             const continueQ = (typeof nextQ === 'string' && nextQ.trim().length > 0) ? nextQ : fallbackQ;
 
-            // Speculative TTS pre-fetch: start downloading the audio for the
-            // next question NOW, while feedback is still being spoken + thinking
-            // delay runs. By the time speak(continueQ) is called, the blob is
-            // already cached → near-zero TTS latency.
+            // CRITICAL: Aggressive TTS pre-fetch — start downloading audio IMMEDIATELY
+            // while backend is still processing. This eliminates the perceived delay
+            // between AI finishing text generation and audio playback starting.
+            // Pre-fetch runs in parallel with feedback speech + thinking delay.
             if (!isInterviewOver) {
+                console.log('[Interview] Pre-fetching next question audio:', continueQ.substring(0, 50) + '...');
                 dgVoice.prefetch(continueQ);
+                // Also prefetch feedback if present to eliminate ANY audio gaps
+                if (spokenFeedback) {
+                    console.log('[Interview] Pre-fetching feedback audio:', spokenFeedback.substring(0, 50) + '...');
+                    dgVoice.prefetch(spokenFeedback);
+                }
             }
 
             // Fix 6: Shared speak-and-handoff logic (used in both try and catch)
@@ -1342,9 +1378,11 @@ export default function AIInterviewPage() {
                 } else {
                     // Normal flow: speak feedback + question as a single sequence (no video flicker!)
                     const segments = [feedbackSegment, questionSegment].filter(Boolean);
-                    await speakSequence(segments, { pauseMs: 400 });
-                    // Fix 2: Reduced post-speak delay from 600ms → 150ms
-                    await new Promise(r => setTimeout(r, 150));
+                    await speakSequence(segments, { pauseMs: 200 });
+                    // CRITICAL FIX: Reduced pause from 400ms → 200ms for snappier transitions
+                    // Audio is already pre-fetched, so no need for long delays
+                    await new Promise(r => setTimeout(r, 100));
+                    // Reduced post-speak delay from 150ms → 100ms
                     if (!isListeningRef.current) {
                         startVoiceRecording();
                     }
@@ -1360,6 +1398,17 @@ export default function AIInterviewPage() {
                     timestamp: Date.now(),
                 }]);
                 await speakAndHandoff(spokenFeedback, closingText, true);
+            } else if (consecutiveSilentQuestions >= 3) {
+                // User has been silent for 3 consecutive questions — end interview gracefully
+                const earlyEndText = "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
+                setConversation(prev => [...prev, {
+                    role: 'interviewer',
+                    content: earlyEndText,
+                    timestamp: Date.now(),
+                }]);
+                setLoading(false);
+                await speakSequence([spokenFeedback, earlyEndText].filter(Boolean), { pauseMs: 600 });
+                setTimeout(() => endInterview(), 1500);
             } else {
                 setCurrentQuestion(continueQ);
                 setQuestionIndex(prev => prev + 1);
@@ -1369,7 +1418,8 @@ export default function AIInterviewPage() {
                     timestamp: Date.now(),
                 }]);
                 // Sprint 1: Deterministic thinking delay scaled by answer length
-                const thinkDelay = getThinkingDelayMs(fullAnswer);
+                // CRITICAL FIX: Reduced thinking delay by 30% for snappier feel
+                const thinkDelay = Math.round(getThinkingDelayMs(fullAnswer) * 0.7);
                 // Show interviewer reaction based on feedback score
                 const reaction = getInterviewerReaction(feedbackScore);
                 setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
@@ -2132,7 +2182,7 @@ export default function AIInterviewPage() {
     }
 
     // ═══════════════════════════════════
-    //  CONNECTING PHASE — Matchmaking animation
+    //  CONNECTING PHASE — Matchmaking animation with audio pre-generation
     // ═══════════════════════════════════
     if (phase === 'connecting') {
         return (
@@ -2143,10 +2193,32 @@ export default function AIInterviewPage() {
                     <div className="ai-connect-glow ai-connect-glow--right" />
 
                     <div className="ai-connect-container">
-                        {/* Title */}
+                        {/* Title with animated status */}
                         <div className="ai-connect-status-text">
                             <Wifi size={18} className="ai-connect-wifi-icon" />
-                            Connecting you to your interviewer…
+                            Connecting to your interviewer…
+                        </div>
+                        
+                        {/* Progress steps */}
+                        <div className="ai-connect-steps">
+                            <div className="ai-connect-step ai-connect-step--active">
+                                <div className="ai-connect-step-icon">
+                                    <Sparkles size={14} />
+                                </div>
+                                <div className="ai-connect-step-label">Generating first question</div>
+                            </div>
+                            <div className="ai-connect-step ai-connect-step--active">
+                                <div className="ai-connect-step-icon">
+                                    <Volume2 size={14} />
+                                </div>
+                                <div className="ai-connect-step-label">Pre-generating audio</div>
+                            </div>
+                            <div className="ai-connect-step ai-connect-step--pending">
+                                <div className="ai-connect-step-icon">
+                                    <Mic size={14} />
+                                </div>
+                                <div className="ai-connect-step-label">Preparing microphone</div>
+                            </div>
                         </div>
 
                         {/* Matchmaking cards */}
@@ -2808,6 +2880,10 @@ export default function AIInterviewPage() {
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(245, 158, 11, 0.9)' }}>
                                     <MessageSquare size={12} /> {interviewerStatus}
                                 </div>
+                            ) : dgVoice.errorMessage ? (
+                                <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(239, 68, 68, 0.9)' }}>
+                                    <AlertTriangle size={12} /> {dgVoice.errorMessage}
+                                </div>
                             ) : null}
                         </div>
                     </div>
@@ -2907,6 +2983,12 @@ export default function AIInterviewPage() {
                                 {micOn ? <Mic size={18} /> : <MicOff size={18} />}
                                 <span className="ai-vc-ctrl-label">{isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted'}</span>
                                 {isListening && <span className="ai-vc-listening-dot" />}
+                                {/* Debug: Show connection mode */}
+                                {isListening && (
+                                    <span style={{ fontSize: '9px', opacity: 0.6, marginLeft: 4 }}>
+                                        {dgVoice.connectionMode === 'websocket' ? 'WS' : dgVoice.connectionMode === 'rest' ? 'REST' : 'OFF'}
+                                    </span>
+                                )}
                                 {/* I6: Connection health indicator */}
                                 {dgVoice.connectionMode === 'rest' && isListening && (
                                     <span className="ai-vc-conn-indicator ai-vc-conn-indicator--rest" title="Using REST fallback (slower transcription)">⚡</span>

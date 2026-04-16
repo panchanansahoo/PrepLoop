@@ -38,11 +38,12 @@ async function initializeServer() {
     const jobsRoutes = (await import('./routes/jobs.js')).default;
     const coinsRoutes = (await import('./routes/coins.js')).default;
     const chatRoutes = (await import('./routes/chat.js')).default;
-    const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
     const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
+    const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
+    const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -190,11 +191,12 @@ async function initializeServer() {
     app.use('/api/jobs', jobsRoutes);
     app.use('/api/coins', coinsRoutes);
     app.use('/api/chat', chatRoutes);
-    app.use('/api/real-interview', realInterviewRoutes);
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);
     app.use('/api/improvement-plan', improvementPlanRoutes);
+    app.use('/api/study-groups', studyGroupsRoutes);
+    app.use('/api/fresher-interview', fresherInterviewRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
