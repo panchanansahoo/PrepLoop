@@ -193,7 +193,8 @@ export default function CommunityHub() {
       setStudyGroups(response.data.groups || []);
     } catch (err) {
       console.error('Error fetching study groups:', err);
-      setStudyGroups(STUDY_GROUPS); // Fallback to mock data
+      setError('Failed to load study groups. Please try again later.');
+      setStudyGroups([]); // Safe fallback: empty array instead of mock data
     } finally {
       setLoading(false);
     }

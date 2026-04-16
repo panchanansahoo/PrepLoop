@@ -3,11 +3,16 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
+import { validateStartupEnv } from './config/startupEnvValidation.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { createLogger } from './utils/structuredLogger.js';
+import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 
 let app;
 const voiceHttpLogger = createLogger('voice-http');
+
+// Validate startup environment before proceeding
+validateStartupEnv();
 
 async function initializeServer() {
   try {
@@ -218,11 +223,28 @@ function startServer(port, attempt = 0) {
   });
 
   server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE' && attempt < MAX_PORT_RETRIES) {
-      const nextPort = port + 1;
-      console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
-      startServer(nextPort, attempt + 1);
-      return;
+    if (error.code === 'EADDRINUSE') {
+      // In production, fail immediately - don't retry ports
+      if (process.env.NODE_ENV === 'production') {
+        console.error(
+          `❌ Port ${port} is already in use (production mode). ` +
+          'Exiting immediately - do not attempt port retry in production.'
+        );
+        process.exit(1);
+      }
+      
+      // In development, retry with next port
+      if (attempt < MAX_PORT_RETRIES) {
+        const nextPort = port + 1;
+        console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
+        startServer(nextPort, attempt + 1);
+        return;
+      }
+
+      console.error(
+        `❌ Port ${port} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
+      );
+      process.exit(1);
     }
 
     console.error('❌ Server error:', error.message);
@@ -232,9 +254,46 @@ function startServer(port, attempt = 0) {
   return server;
 }
 
+// Register process error handlers BEFORE server startup
+// Inspired by concurrently v9's graceful shutdown patterns
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Promise Rejection:', {
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+    promise: promise.toString().slice(0, 100),
+  });
+  // Log but don't exit immediately - some rejections may be recoverable
+  // Exit with code 1 only if it's a critical error
+  if (process.env.NODE_ENV === 'production') {
+    console.error('🚨 Unhandled rejection in production - exiting');
+    process.exit(1);
+  }
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', {
+    message: error.message,
+    stack: error.stack,
+    name: error.name,
+  });
+  console.error('🚨 Fatal error - server cannot continue safely. Exiting.');
+  process.exit(1);
+});
+
+// Graceful shutdown will be registered after server starts
+let shutdownManager = null;
+
 // Initialize server and start listening
 initializeServer().then(() => {
-  startServer(DEFAULT_PORT);
+  const server = startServer(DEFAULT_PORT);
+
+  // Setup graceful shutdown with configurable timeouts
+  shutdownManager = setupGracefulShutdown(server, {
+    shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
+    forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
+  });
+
+  console.log('✅ Graceful shutdown handlers registered');
 
   // ── Eager model preload (fire-and-forget, non-blocking) ──
   import('./services/voiceService.js')
