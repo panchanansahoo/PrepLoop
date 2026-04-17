@@ -81,6 +81,9 @@ async function initializeServer() {
     app.use(helmet());
     const configuredOrigins = [
       process.env.FRONTEND_URL,
+      process.env.PRODUCTION_FRONTEND_URL,
+      process.env.STAGING_FRONTEND_URL,
+      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
       'http://localhost:5173',
       'http://localhost:5174',
       'http://localhost:4173',
