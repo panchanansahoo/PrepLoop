@@ -133,16 +133,16 @@ export class InterviewGroundingService {
     const normalizedDifficulty = normalizeDifficulty(difficulty);
     const normalizedResumeContext = normalizeResumeContext(resumeContext);
 
-    let results = getFilteredQuestions(company, role, normalizedStage, normalizedDifficulty);
+    let results = await getFilteredQuestions(company, role, normalizedStage, normalizedDifficulty);
 
     if (results.length === 0) {
       // Relax stage and difficulty if the initial query is too strict.
-      results = getFilteredQuestions(company, role, null, null);
+      results = await getFilteredQuestions(company, role, null, null);
     }
 
     if (results.length === 0) {
       // Fallback to role-wide samples to guarantee non-empty retrieval for known roles.
-      results = getFilteredQuestions(null, role, 'Technical', null);
+      results = await getFilteredQuestions(null, role, 'Technical', null);
     }
 
     if (results.length === 0) {

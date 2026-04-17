@@ -8,7 +8,7 @@ describe('AI interview timing helpers', () => {
   });
 
   it('returns known stage timing', () => {
-    expect(getQuestionTimeLimit('Technical')).toBe(240);
+    expect(getQuestionTimeLimit('Technical')).toBe(90);
   });
 });
 

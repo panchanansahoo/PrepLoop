@@ -1,27 +1,54 @@
 // ─── Company Question Bank Service ───
-// Provides access to 11,873 real company interview questions from companyPrepData
-// Used by the AI interview system to serve actual company-reported questions
-
-import { COMPANY_QUESTIONS, COMPANIES } from '../../frontend/src/data/companyPrepData.js';
+// Provides access to company interview questions for the AI interview system.
+// Data loading is lazy so backend startup does not depend on frontend-only files.
 
 // In-memory cache for the question bank
 let questionCache = null;
 let companiesList = null;
 
 /**
+ * Try to resolve question data from known locations.
+ * Returns null if source files are unavailable in this runtime.
+ */
+async function resolveQuestionModule() {
+    const candidates = [
+        '../../frontend/src/data/companyPrepData.js',
+        '../data/companyPrepData.js',
+    ];
+
+    for (const candidate of candidates) {
+        try {
+            const mod = await import(candidate);
+            return mod;
+        } catch (_) {
+            // Try next candidate path.
+        }
+    }
+
+    return null;
+}
+
+/**
  * Load question data from the frontend data file.
  * Data is imported directly to avoid runtime code evaluation.
  */
-function loadQuestionData() {
+async function loadQuestionData() {
     if (questionCache) return;
 
-    try {
-        questionCache = Array.isArray(COMPANY_QUESTIONS) ? COMPANY_QUESTIONS : [];
-        companiesList = Array.isArray(COMPANIES) ? COMPANIES : [];
+    const dataModule = await resolveQuestionModule();
+    if (!dataModule) {
+        console.warn('⚠️ Company question dataset not found in this runtime. Using empty fallback set.');
+        questionCache = [];
+        companiesList = [];
+        return;
+    }
 
+    try {
+        questionCache = Array.isArray(dataModule.COMPANY_QUESTIONS) ? dataModule.COMPANY_QUESTIONS : [];
+        companiesList = Array.isArray(dataModule.COMPANIES) ? dataModule.COMPANIES : [];
         console.log(`✅ Company Question Bank loaded: ${questionCache.length} questions, ${companiesList.length} companies`);
     } catch (error) {
-        console.error('Failed to load company question data:', error.message);
+        console.error('Failed to parse company question data:', error.message);
         questionCache = [];
         companiesList = [];
     }
@@ -35,8 +62,8 @@ function loadQuestionData() {
  * @param {string} difficulty - Difficulty level (e.g., 'Easy', 'Medium', 'Hard')
  * @returns {Array} Filtered questions
  */
-export function getFilteredQuestions(company, role, stage, difficulty) {
-    loadQuestionData();
+export async function getFilteredQuestions(company, role, stage, difficulty) {
+    await loadQuestionData();
 
     const companyId = company?.toLowerCase().replace(/\s+/g, '_');
 
@@ -89,8 +116,8 @@ export function getFilteredQuestions(company, role, stage, difficulty) {
  * @param {number} count - Number of questions to return
  * @returns {Array} Random question set
  */
-export function getRandomQuestionSet(company, role, stage, difficulty, count = 8) {
-    const filtered = getFilteredQuestions(company, role, stage, difficulty);
+export async function getRandomQuestionSet(company, role, stage, difficulty, count = 8) {
+    const filtered = await getFilteredQuestions(company, role, stage, difficulty);
 
     if (filtered.length === 0) return [];
 
@@ -109,8 +136,8 @@ export function getRandomQuestionSet(company, role, stage, difficulty, count = 8
  * @param {string} id - Question ID
  * @returns {Object|null} Question or null
  */
-export function getQuestionById(id) {
-    loadQuestionData();
+export async function getQuestionById(id) {
+    await loadQuestionData();
     return questionCache.find(q => q.id === id) || null;
 }
 
@@ -118,8 +145,8 @@ export function getQuestionById(id) {
  * Get available companies list
  * @returns {Array} Companies
  */
-export function getAvailableCompanies() {
-    loadQuestionData();
+export async function getAvailableCompanies() {
+    await loadQuestionData();
     return companiesList;
 }
 
@@ -128,8 +155,8 @@ export function getAvailableCompanies() {
  * @param {string} company - Company ID
  * @returns {number} Count
  */
-export function getQuestionCount(company) {
-    loadQuestionData();
+export async function getQuestionCount(company) {
+    await loadQuestionData();
     const companyId = company?.toLowerCase().replace(/\s+/g, '_');
     return questionCache.filter(q => q.company?.toLowerCase() === companyId).length;
 }
