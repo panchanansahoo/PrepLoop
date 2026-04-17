@@ -4,6 +4,23 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function handleTableNotFoundError(error) {
+  if (error?.code === 'PGRST205') {
+    return {
+      isTableNotFound: true,
+      response: {
+        status: 503,
+        body: {
+          error: 'Study groups feature is not yet available',
+          details: 'The database table has not been initialized'
+        }
+      }
+    };
+  }
+
+  return { isTableNotFound: false };
+}
+
 // Get all study groups
 router.get('/', optionalAuth, async (req, res) => {
   try {
@@ -33,6 +50,12 @@ router.get('/', optionalAuth, async (req, res) => {
 
     res.json({ groups });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error fetching study groups:', error);
     res.status(500).json({ error: 'Failed to fetch study groups' });
   }
@@ -70,6 +93,12 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
     res.json({ group });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error fetching study group:', error);
     res.status(500).json({ error: 'Failed to fetch study group' });
   }
@@ -113,6 +142,12 @@ router.post('/', authenticateToken, async (req, res) => {
 
     res.json({ group });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error creating study group:', error);
     res.status(500).json({ error: 'Failed to create study group' });
   }
@@ -147,6 +182,12 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error joining study group:', error);
     res.status(500).json({ error: 'Failed to join study group' });
   }
@@ -167,6 +208,12 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error leaving study group:', error);
     res.status(500).json({ error: 'Failed to leave study group' });
   }
@@ -198,6 +245,12 @@ router.get('/:id/members', optionalAuth, async (req, res) => {
 
     res.json({ members });
   } catch (error) {
+    const tableError = handleTableNotFoundError(error);
+    if (tableError.isTableNotFound) {
+      console.warn('Study groups table not found in database');
+      return res.status(tableError.response.status).json(tableError.response.body);
+    }
+
     console.error('Error fetching group members:', error);
     res.status(500).json({ error: 'Failed to fetch group members' });
   }
