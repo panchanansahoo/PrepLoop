@@ -3,5 +3,7 @@
   "buildCommand": "cd frontend && node ./node_modules/vite/bin/vite.js build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
-  "regions": ["iad1"]
+  "regions": [
+    "iad1"
+  ]
 }
