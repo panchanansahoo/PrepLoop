@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm install && cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
+  "installCommand": "npm ci && cd frontend && npm ci",
+  "buildCommand": "cd frontend && node ./node_modules/vite/bin/vite.js build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
   "regions": ["iad1"]
