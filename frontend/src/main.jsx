@@ -4,6 +4,7 @@ import './App.css'
 import App from './App.jsx'
 import { buildInterviewAuthInit } from './utils/interviewRequestAuth';
 import { registerServiceWorker } from './utils/serviceWorkerRegistration';
+import { registerDynamicImportErrorRecovery } from './utils/importErrorRecovery';
 import ErrorBoundary from './components/ErrorBoundary';
 import { validateFrontendRuntimeConfig } from './utils/runtimeConfig';
 
@@ -50,6 +51,9 @@ if (typeof window !== 'undefined' && !window.__preploopInterviewFetchPatched) {
   window.fetch = (input, init) => nativeFetch(input, buildInterviewAuthInit(input, init));
   window.__preploopInterviewFetchPatched = true;
 }
+
+// Handle stale deploy chunks once by reloading the app.
+registerDynamicImportErrorRecovery();
 
 // Register service worker for offline support
 registerServiceWorker();

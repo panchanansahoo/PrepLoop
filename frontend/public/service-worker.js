@@ -1,10 +1,7 @@
-const CACHE_NAME = 'preploop-v1';
-const STATIC_CACHE = 'preploop-static-v1';
-const DYNAMIC_CACHE = 'preploop-dynamic-v1';
+const STATIC_CACHE = 'preploop-static-v2';
+const DYNAMIC_CACHE = 'preploop-dynamic-v2';
 
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
   '/favicon.svg',
   '/manifest.json'
 ];
@@ -47,6 +44,28 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome extensions
   if (url.protocol === 'chrome-extension:') return;
 
+  // Navigation requests: network first to avoid stale index.html pointing to old chunk hashes.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put('/index.html', responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedIndex = await caches.match('/index.html');
+          if (cachedIndex) return cachedIndex;
+          return caches.match('/');
+        })
+    );
+    return;
+  }
+
   // API requests - network first, cache fallback
   if (url.pathname.startsWith('/api/')) {
     const shouldCache = API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname));
@@ -66,6 +85,24 @@ self.addEventListener('fetch', (event) => {
           })
       );
     }
+    return;
+  }
+
+  // Build assets should be network-first to minimize stale chunk mismatch on deployments.
+  if (url.origin === self.location.origin && url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.status === 200) {
+            const responseClone = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
     return;
   }
 
