@@ -11,8 +11,8 @@ Created `vercel.json` configuration file with explicit build instructions:
 
 ```json
 {
-  "installCommand": "npm install && cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
+  "installCommand": "npm ci && cd frontend && npm ci",
+  "buildCommand": "cd frontend && node ./node_modules/vite/bin/vite.js build",
   "outputDirectory": "frontend/dist",
   "framework": "vite",
   "regions": ["iad1"]
@@ -20,8 +20,8 @@ Created `vercel.json` configuration file with explicit build instructions:
 ```
 
 ### Key Changes:
-1. **installCommand**: Explicitly installs both root and frontend dependencies
-2. **buildCommand**: Uses direct directory navigation (`cd frontend && npm run build`) instead of npm `--prefix` flag
+1. **installCommand**: Uses deterministic lockfile installs for root and frontend (`npm ci`)
+2. **buildCommand**: Invokes Vite via Node (`node ./node_modules/vite/bin/vite.js build`) to bypass executable permission issues on `node_modules/.bin/vite`
 3. **outputDirectory**: Explicitly specifies where Vercel should find the production build output
 4. **framework**: Set to "vite" for optimal Vercel optimization
 5. **regions**: Configured for US East Coast region (iad1)
@@ -40,7 +40,7 @@ Created `vercel.json` configuration file with explicit build instructions:
 
 ### 2. Build Should Show:
 ```
-▲ Building with "cd frontend && npm run build"
+▲ Building with "cd frontend && node ./node_modules/vite/bin/vite.js build"
 ✓ 3801 modules transformed
 ✓ dist folder contains all assets
 ✓ Deployment succeeds
