@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import './config/env.js';
 import { validateStartupEnv } from './config/startupEnvValidation.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
+import { isAllowedCorsOrigin } from './middleware/corsOrigin.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 
@@ -91,13 +92,7 @@ async function initializeServer() {
 
     app.use(cors({
       origin(origin, callback) {
-        // Allow server-side requests and explicit configured origins.
-        if (!origin || configuredOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-
-        // Allow local development origins on localhost/127.0.0.1 with any port.
-        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
+        if (isAllowedCorsOrigin(origin, configuredOrigins)) {
           return callback(null, true);
         }
 
