@@ -45,6 +45,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve staging backend health URL
+        shell: bash
+        run: |
+          HEALTH_URL="${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}"
+          if [ -z "$HEALTH_URL" ]; then
+            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
+          fi
+          if [ -z "$HEALTH_URL" ]; then
+            echo "Missing staging backend health URL secret"
+            echo "Set STAGING_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
+            exit 1
+          fi
+          echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -54,7 +68,7 @@ jobs:
         shell: bash
         run: |
           for i in {1..20}; do
-            if curl -fsS "${{ secrets.BACKEND_HEALTHCHECK_URL }}" > /dev/null; then
+            if curl -fsS "$BACKEND_HEALTH_URL" > /dev/null; then
               echo "Staging backend is healthy"
               exit 0
             fi
@@ -97,6 +111,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Resolve production backend health URL
+        shell: bash
+        run: |
+          HEALTH_URL="${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}"
+          if [ -z "$HEALTH_URL" ]; then
+            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
+          fi
+          if [ -z "$HEALTH_URL" ]; then
+            echo "Missing production backend health URL secret"
+            echo "Set PRODUCTION_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
+            exit 1
+          fi
+          echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -106,7 +134,7 @@ jobs:
         shell: bash
         run: |
           for i in {1..20}; do
-            if curl -fsS "${{ secrets.BACKEND_HEALTHCHECK_URL }}" > /dev/null; then
+            if curl -fsS "$BACKEND_HEALTH_URL" > /dev/null; then
               echo "Production backend is healthy"
               exit 0
             fi

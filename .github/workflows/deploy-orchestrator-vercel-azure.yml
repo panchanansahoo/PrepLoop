@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: deploy-orchestrator-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy-backend:
     name: Deploy Backend First
