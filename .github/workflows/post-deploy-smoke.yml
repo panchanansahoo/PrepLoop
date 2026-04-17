@@ -1,0 +1,98 @@
+name: Post Deploy Smoke Checks
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy Orchestrator (Azure Backend -> Vercel Frontend)
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke Validation
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success' &&
+        (github.event.workflow_run.head_branch == 'develop' || github.event.workflow_run.head_branch == 'main')
+      )
+
+    steps:
+      - name: Resolve target environment URLs
+        id: resolve
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # For manual runs, default to production URLs.
+            echo "BACKEND_URL=${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=${{ secrets.PRODUCTION_FRONTEND_URL }}" >> "$GITHUB_ENV"
+            echo "TARGET_ENV=production" >> "$GITHUB_ENV"
+            exit 0
+          fi
+
+          if [ "${{ github.event.workflow_run.head_branch }}" = "develop" ]; then
+            echo "BACKEND_URL=${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=${{ secrets.STAGING_FRONTEND_URL }}" >> "$GITHUB_ENV"
+            echo "TARGET_ENV=staging" >> "$GITHUB_ENV"
+          else
+            echo "BACKEND_URL=${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=${{ secrets.PRODUCTION_FRONTEND_URL }}" >> "$GITHUB_ENV"
+            echo "TARGET_ENV=production" >> "$GITHUB_ENV"
+          fi
+
+      - name: Validate secret configuration
+        shell: bash
+        run: |
+          if [ -z "$BACKEND_URL" ] || [ -z "$FRONTEND_URL" ]; then
+            echo "Missing smoke URL secrets for target environment: $TARGET_ENV"
+            echo "Expected backend and frontend URLs to be configured."
+            exit 1
+          fi
+
+      - name: Backend health check
+        id: backend_check
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "$BACKEND_URL" > /dev/null; then
+              echo "backend_status=passed" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "backend_status=failed" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Frontend availability check
+        id: frontend_check
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "$FRONTEND_URL" > /dev/null; then
+              echo "frontend_status=passed" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "frontend_status=failed" >> "$GITHUB_OUTPUT"
+          exit 1
+
+      - name: Publish smoke summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Post Deploy Smoke Summary"
+            echo ""
+            echo "- Target environment: ${TARGET_ENV:-unknown}"
+            echo "- Backend URL: ${BACKEND_URL:-not-set}"
+            echo "- Frontend URL: ${FRONTEND_URL:-not-set}"
+            echo "- Backend health: ${{ steps.backend_check.outcome }}"
+            echo "- Frontend availability: ${{ steps.frontend_check.outcome }}"
+          } >> "$GITHUB_STEP_SUMMARY"

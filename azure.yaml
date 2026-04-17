@@ -1,0 +1,10 @@
+name: preploop
+resourceGroupName: preploop-backend
+location: centralindia
+
+services:
+  api:
+    project: ./backend
+    language: js
+    host: appservice
+    resourceName: preploop-api-staging

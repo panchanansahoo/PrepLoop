@@ -1,0 +1,140 @@
+name: Deploy Frontend to Vercel
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  validate-frontend:
+    name: Validate Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Frontend tests
+        run: npm run test --prefix frontend
+
+      - name: Frontend build
+        run: npm run build --prefix frontend
+
+  deploy-staging:
+    name: Deploy Frontend Staging
+    runs-on: ubuntu-latest
+    needs: validate-frontend
+    if: github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify backend is healthy (staging)
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "${{ secrets.BACKEND_HEALTHCHECK_URL }}" > /dev/null; then
+              echo "Staging backend is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Staging backend health check failed"
+          exit 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings (preview)
+        working-directory: frontend
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build frontend artifacts (preview)
+        working-directory: frontend
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel preview
+        working-directory: frontend
+        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  deploy-production:
+    name: Deploy Frontend Production
+    runs-on: ubuntu-latest
+    needs: validate-frontend
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify backend is healthy (production)
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "${{ secrets.BACKEND_HEALTHCHECK_URL }}" > /dev/null; then
+              echo "Production backend is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Production backend health check failed"
+          exit 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel project settings (production)
+        working-directory: frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build frontend artifacts (production)
+        working-directory: frontend
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel production
+        working-directory: frontend
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

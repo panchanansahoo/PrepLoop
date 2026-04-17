@@ -1051,7 +1051,7 @@ router.post('/start', optionalAuth, async (req, res) => {
   let questionBank = [];
   let questionSource = 'ai';
   if (useRealQuestions && !fresherScriptMode) {
-    questionBank = getRandomQuestionSet(company, role, stage, difficulty, interviewTotalQuestions);
+    questionBank = await getRandomQuestionSet(company, role, stage, difficulty, interviewTotalQuestions);
     if (questionBank.length > 0) {
       questionSource = 'database';
     }
@@ -1623,7 +1623,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     const nextIdx = safeQuestionNumber - 1; // questionNumber is 1-indexed, and we want the next one
     if (nextIdx < questionBankIds.length) {
       const { getQuestionById } = await import('../services/companyQuestionService.js');
-      nextRealQuestion = getQuestionById(questionBankIds[nextIdx]);
+      nextRealQuestion = await getQuestionById(questionBankIds[nextIdx]);
       if (nextRealQuestion) {
         realQuestionMeta = { id: nextRealQuestion.id, tags: nextRealQuestion.tags, difficulty: nextRealQuestion.difficulty, frequencyScore: nextRealQuestion.frequencyScore };
       }
@@ -1634,7 +1634,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   let referenceAnswer = null;
   if (useRealQuestions && currentQuestionId) {
     const { getQuestionById: getQ } = await import('../services/companyQuestionService.js');
-    const currentQ = getQ(currentQuestionId);
+    const currentQ = await getQ(currentQuestionId);
     if (currentQ?.answer) referenceAnswer = currentQ.answer;
   }
 
