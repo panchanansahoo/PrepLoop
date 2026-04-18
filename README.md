@@ -210,6 +210,8 @@ npm run dev
 - Main docs index: `docs/README.md`
 - System architecture: `docs/ARCHITECTURE.md`
 - Backend API quick reference: `docs/BACKEND_API_QUICK_REFERENCE.md`
+- **Security Guide**: `docs/SECURITY.md`
+- **Performance Optimization**: `docs/PERFORMANCE.md`
 - AI features API: `docs/AI_FEATURES_API.md`
 - **AI Improvement Plan**: `docs/AI_IMPROVEMENT_PLAN.md`
 - **Skill-Match Jobs**: `docs/SKILL_MATCH_JOBS.md`

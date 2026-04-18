@@ -1,18 +1,44 @@
 import express from 'express';
+import net from 'node:net';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
+// Comprehensive Improvements
+import advancedCache from './utils/advancedCache.js';
+import databaseOptimizer from './utils/databaseOptimizer.js';
+import errorTracker from './utils/errorTracker.js';
+import security from './middleware/advancedSecurity.js';
+import { apiCache } from './middleware/apiCache.js';
+import { enhancedSecurity } from './middleware/securityEnhanced.js';
+import collaborationService from './services/collaborationService.js';
+
+import { disableConsoleLogs } from './utils/productionLogger.js';
 import { validateStartupEnv } from './config/startupEnvValidation.js';
+import { validateEnvironment } from './config/envValidation.js';
+import { corsOptions } from './config/cors.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
+import { sanitizeInput } from './middleware/sanitization.js';
+import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
+import cacheManager from './utils/cacheManager.js';
 
 let app;
 const voiceHttpLogger = createLogger('voice-http');
 
-// Validate startup environment before proceeding
+// Disable console.log in production
+if (process.env.NODE_ENV === 'production') {
+  disableConsoleLogs();
+}
+
+// Validate environment variables
+validateEnvironment();
 validateStartupEnv();
+
+// Initialize cache manager
+await cacheManager.connect();
 
 async function initializeServer() {
   try {
@@ -49,6 +75,7 @@ async function initializeServer() {
     const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
+    const copilotRoutes = (await import('./routes/copilot.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -78,42 +105,62 @@ async function initializeServer() {
     });
 
     // Middleware setup
-    app.use(helmet());
-    const configuredOrigins = [
-      process.env.FRONTEND_URL,
-      process.env.PRODUCTION_FRONTEND_URL,
-      process.env.STAGING_FRONTEND_URL,
-      process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null,
-      'http://localhost:5173',
-      'http://localhost:5174',
-      'http://localhost:4173',
-      'http://127.0.0.1:5173',
-      'http://127.0.0.1:5174',
-      'http://127.0.0.1:4173',
-    ].filter(Boolean);
+    
+  // Advanced security middleware
+  app.use(security.securityHeaders());
+  app.use(security.ipBlocker());
+  app.use(security.sqlInjectionProtection());
+  app.use(security.xssProtection());
 
-    app.use(cors({
-      origin(origin, callback) {
-        // Allow server-side requests and explicit configured origins.
-        if (!origin || configuredOrigins.includes(origin)) {
-          return callback(null, true);
-        }
+    app.use(enhancedSecurity());
 
-        // Allow local development origins on localhost/127.0.0.1 with any port.
-        if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin)) {
-          return callback(null, true);
-        }
-
-        return callback(new Error(`Not allowed by CORS: ${origin}`));
+  app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
       },
-      credentials: true,
+      hsts: {
+        maxAge: 31536000,
+        includeSubDomains: true,
+        preload: true,
+      },
     }));
+    
+    // Enable compression
+    app.use(compression({
+      filter: (req, res) => {
+        if (req.headers['x-no-compression']) {
+          return false;
+        }
+        return compression.filter(req, res);
+      },
+      level: 6,
+    }));
+    
+    // CORS with secure configuration
+    app.use(cors(corsOptions));
     app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
+    
+    // Input sanitization (skip for webhooks)
+    app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
+    
+    // Rate limiting
     app.use('/api/auth', authLimiter);
+    app.use('/api/ai', aiEndpointsLimiter);
+    app.use('/api/ai-features', aiEndpointsLimiter);
+    app.use('/api/payment', paymentEndpointsLimiter);
+    app.use('/api/jobs', jobsEndpointsLimiter);
+    app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
+  app.use('/api', apiCache());
+
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {
@@ -205,6 +252,7 @@ async function initializeServer() {
     app.use('/api/improvement-plan', improvementPlanRoutes);
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
+    app.use('/api/copilot', copilotRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
@@ -219,37 +267,56 @@ async function initializeServer() {
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
 const MAX_PORT_RETRIES = 10;
 
-function startServer(port, attempt = 0) {
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const tester = net.createServer();
+
+    tester.once('error', () => {
+      resolve(false);
+    });
+
+    tester.once('listening', () => {
+      tester.close(() => resolve(true));
+    });
+
+    tester.listen(port);
+  });
+}
+
+async function resolveServerPort(basePort = DEFAULT_PORT) {
+  if (process.env.NODE_ENV === 'production') {
+    const available = await isPortAvailable(basePort);
+    if (!available) {
+      throw new Error(
+        `Port ${basePort} is already in use (production mode). Exiting immediately.`
+      );
+    }
+    return basePort;
+  }
+
+  for (let attempt = 0; attempt <= MAX_PORT_RETRIES; attempt += 1) {
+    const candidatePort = basePort + attempt;
+    const available = await isPortAvailable(candidatePort);
+    if (available) {
+      if (attempt > 0) {
+        console.warn(`Port ${basePort} is already in use. Retrying on ${candidatePort}...`);
+      }
+      return candidatePort;
+    }
+  }
+
+  throw new Error(
+    `Port ${basePort} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
+  );
+}
+
+function startServer(port) {
   const server = app.listen(port, () => {
     console.log(`🚀 Server running on http://localhost:${port}`);
     console.log(`📚 API documentation available at http://localhost:${port}/api`);
   });
 
   server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      // In production, fail immediately - don't retry ports
-      if (process.env.NODE_ENV === 'production') {
-        console.error(
-          `❌ Port ${port} is already in use (production mode). ` +
-          'Exiting immediately - do not attempt port retry in production.'
-        );
-        process.exit(1);
-      }
-      
-      // In development, retry with next port
-      if (attempt < MAX_PORT_RETRIES) {
-        const nextPort = port + 1;
-        console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
-        startServer(nextPort, attempt + 1);
-        return;
-      }
-
-      console.error(
-        `❌ Port ${port} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
-      );
-      process.exit(1);
-    }
-
     console.error('❌ Server error:', error.message);
     process.exit(1);
   });
@@ -287,11 +354,17 @@ process.on('uncaughtException', (error) => {
 let shutdownManager = null;
 
 // Initialize server and start listening
-initializeServer().then(() => {
-  const server = startServer(DEFAULT_PORT);
+initializeServer().then(async () => {
+  const port = await resolveServerPort(DEFAULT_PORT);
+  const server = startServer(port);
 
   // Setup graceful shutdown with configurable timeouts
-  shutdownManager = setupGracefulShutdown(server, {
+  shutdownManager = 
+  // Initialize collaboration service
+  collaborationService.initialize(server);
+  console.log('✅ Collaboration service initialized');
+
+  setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
     forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
   });

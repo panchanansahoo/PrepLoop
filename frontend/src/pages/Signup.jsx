@@ -1,17 +1,37 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, User, AlertCircle, ArrowRight, Eye, EyeOff, CheckCircle, Github, Linkedin, Chrome, Sparkles } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle, Github, Linkedin, Chrome } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
 const styles = {
   wrapper: {
     minHeight: '100vh',
     display: 'flex',
-    background: '#050510',
+    background: '#030308',
     fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
     position: 'relative',
     overflow: 'hidden',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 'clamp(20px, 4vw, 32px)',
+    left: 'clamp(20px, 4vw, 32px)',
+    zIndex: 50,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    color: 'rgba(203,213,225,0.8)',
+    textDecoration: 'none',
+    fontSize: '14px',
+    fontWeight: 600,
+    padding: '10px 16px',
+    borderRadius: '12px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    transition: 'all 0.3s ease',
   },
   orb1: {
     position: 'fixed', top: '-15%', right: '-10%', width: '600px', height: '600px',
@@ -48,13 +68,13 @@ const styles = {
   },
   formCard: {
     width: '100%', maxWidth: '440px',
-    background: 'rgba(255,255,255,0.03)',
-    border: '1px solid rgba(255,255,255,0.06)',
+    background: 'rgba(20, 20, 28, 0.4)',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '24px',
-    padding: '36px 36px',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05)',
+    padding: 'clamp(28px, 4vw, 44px) clamp(24px, 3.5vw, 40px)',
+    backdropFilter: 'blur(32px)',
+    WebkitBackdropFilter: 'blur(32px)',
+    boxShadow: '0 24px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1)',
   },
   logo: {
     display: 'flex', alignItems: 'center', gap: '12px',
@@ -216,11 +236,89 @@ const keyframes = `
   }
   @keyframes float3 {
     0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(30px, -40px); }
+    50% { transform: translate(30px, -40px) scale(1.1); }
   }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); filter: blur(4px); }
+    to { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+  
+  .fade-in-up {
+    animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+  }
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  
+  .auth-back-btn:hover {
+    background: rgba(255,255,255,0.08) !important;
+    border-color: rgba(255,255,255,0.15) !important;
+    color: #f8fafc !important;
+    transform: translateX(-4px) !important;
+  }
+  
+  /* Input focus styles */
+  .auth-input:focus {
+    border-color: rgba(192, 132, 252, 0.5) !important;
+    box-shadow: 0 0 0 4px rgba(192, 132, 252, 0.1) !important;
+    background: rgba(255, 255, 255, 0.05) !important;
+  }
+  .auth-input-wrapper:focus-within .auth-input-icon {
+    color: #c084fc !important;
+  }
+
+  /* Button hover states */
+  .auth-social-btn, .auth-guest-btn {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .auth-social-btn:hover, .auth-guest-btn:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2) !important;
+  }
+  
+  .auth-submit-btn {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+  .auth-submit-btn::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, #c026d3 0%, #db2777 50%, #a855f7 100%);
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .auth-submit-btn:hover:not(:disabled) {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 12px 30px rgba(168, 85, 247, 0.35) !important;
+  }
+  .auth-submit-btn:hover:not(:disabled)::before {
+    opacity: 1;
+  }
+  .auth-submit-btn:active:not(:disabled) {
+    transform: translateY(1px) !important;
+  }
+
+  .auth-password-toggle:hover {
+    color: #f8fafc !important;
+  }
+  .auth-link:hover {
+    color: #e879f9 !important;
+    text-shadow: 0 0 12px rgba(232, 121, 249, 0.4);
+  }
+
   @media (max-width: 900px) {
     .auth-left-panel { display: none !important; }
-    .auth-right-panel { flex: 1 1 100% !important; }
+    .auth-right-panel { flex: 1 1 100% !important; padding: 24px !important; }
+  }
+  @media (max-width: 560px) {
+    .auth-social-row { flex-direction: column !important; }
+    .auth-brand-title { font-size: 2.4rem !important; }
   }
 `;
 
@@ -237,8 +335,7 @@ export default function Signup() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [hoveredBtn, setHoveredBtn] = useState(null);
-  const { signup, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
+  const { signup, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -279,40 +376,26 @@ export default function Signup() {
     }
   };
 
-  const getHoverStyle = (btnId, baseStyle) => ({
-    ...baseStyle,
-    ...(hoveredBtn === btnId ? {
-      background: 'rgba(255,255,255,0.08)',
-      borderColor: 'rgba(255,255,255,0.15)',
-      transform: 'translateY(-1px)',
-    } : {}),
-  });
-
-  const inputFocusHandler = (e) => {
-    e.target.style.borderColor = 'rgba(139,92,246,0.5)';
-    e.target.style.boxShadow = '0 0 0 3px rgba(139,92,246,0.08)';
-  };
-  const inputBlurHandler = (e) => {
-    e.target.style.borderColor = 'rgba(255,255,255,0.08)';
-    e.target.style.boxShadow = 'none';
-  };
-
   return (
     <>
       <style>{keyframes}</style>
       <div style={styles.wrapper}>
+        <Link to="/" style={styles.backButton} className="auth-back-btn fade-in-up">
+          <ArrowLeft size={16} /> Back to Home
+        </Link>
         <div style={styles.orb1} />
         <div style={styles.orb2} />
         <div style={styles.orb3} />
 
         {/* Left Panel — Branding */}
         <div className="auth-left-panel" style={styles.leftPanel}>
-          <Link to="/" style={styles.logo}>
+          <div className="fade-in-up">
+            <Link to="/" style={styles.logo} className="auth-link">
             <img src={logo} alt="PrepLoop" style={{ width: 32, height: 32, objectFit: 'contain' }} />
             <span style={styles.logoText}>PrepLoop</span>
           </Link>
 
-          <h2 style={styles.heading}>
+          <h2 className="auth-brand-title" style={styles.heading}>
             Start Your Journey<br />
             <span style={styles.headingAccent}>to Dream Company</span>
           </h2>
@@ -328,7 +411,7 @@ export default function Signup() {
               'Personalized AI coaching & study plans',
               'Company-specific preparation',
             ].map((text, i) => (
-              <div key={i} style={styles.featureItem}>
+              <div key={i} style={styles.featureItem} className={`fade-in-up delay-${(i + 1) * 100}`}>
                 <CheckCircle size={18} color="#34d399" style={{ flexShrink: 0 }} />
                 <span style={styles.featureText}>{text}</span>
               </div>
@@ -336,7 +419,7 @@ export default function Signup() {
           </div>
 
           {/* Testimonial */}
-          <div style={styles.testimonial}>
+          <div style={styles.testimonial} className="fade-in-up delay-300">
             <p style={styles.testimonialQuote}>
               "PrepLoop's AI interviews were a game-changer. I practiced daily and got an offer from Google within 3 months."
             </p>
@@ -344,11 +427,12 @@ export default function Signup() {
               — Software Engineer at Google
             </p>
           </div>
+          </div>
         </div>
 
         {/* Right Panel — Form */}
         <div className="auth-right-panel" style={styles.rightPanel}>
-          <div style={styles.formCard}>
+          <div style={styles.formCard} className="auth-card fade-in-up delay-100">
             <h1 style={styles.formTitle}>Create your account</h1>
             <p style={styles.formSubtitle}>Start preparing for your dream job today</p>
 
@@ -362,26 +446,23 @@ export default function Signup() {
             <div style={styles.socialSection}>
               <button
                 onClick={() => handleSocialLogin('Google', loginWithGoogle)}
-                style={getHoverStyle('google', styles.socialBtnPrimary)}
-                onMouseEnter={() => setHoveredBtn('google')}
-                onMouseLeave={() => setHoveredBtn(null)}
+                style={styles.socialBtnPrimary}
+                className="auth-social-btn"
               >
                 <Chrome size={18} /> Continue with Google
               </button>
-              <div style={styles.socialBtnRow}>
+              <div className="auth-social-row" style={styles.socialBtnRow}>
                 <button
                   onClick={() => handleSocialLogin('GitHub', loginWithGithub)}
-                  style={getHoverStyle('github', styles.socialBtnSecondary)}
-                  onMouseEnter={() => setHoveredBtn('github')}
-                  onMouseLeave={() => setHoveredBtn(null)}
+                  style={styles.socialBtnSecondary}
+                  className="auth-social-btn"
                 >
                   <Github size={17} /> GitHub
                 </button>
                 <button
                   onClick={() => handleSocialLogin('LinkedIn', loginWithLinkedin)}
-                  style={getHoverStyle('linkedin', styles.socialBtnSecondary)}
-                  onMouseEnter={() => setHoveredBtn('linkedin')}
-                  onMouseLeave={() => setHoveredBtn(null)}
+                  style={styles.socialBtnSecondary}
+                  className="auth-social-btn"
                 >
                   <Linkedin size={17} /> LinkedIn
                 </button>
@@ -397,46 +478,47 @@ export default function Signup() {
 
             {/* Form */}
             <form onSubmit={handleSubmit}>
-              <div style={styles.inputWrapper}>
+              <div style={styles.inputWrapper} className="auth-input-wrapper">
                 <label style={styles.label}>{FORM_LABELS.fullName}</label>
                 <div style={{ position: 'relative' }}>
-                  <User size={16} style={styles.inputIcon} />
+                  <User size={16} style={styles.inputIcon} className="auth-input-icon" />
                   <input
                     type="text" value={fullName} onChange={e => setFullName(e.target.value)}
                     placeholder="Your full name" required
                     style={styles.input}
-                    onFocus={inputFocusHandler} onBlur={inputBlurHandler}
+                    className="auth-input"
                   />
                 </div>
               </div>
 
-              <div style={styles.inputWrapper}>
+              <div style={styles.inputWrapper} className="auth-input-wrapper">
                 <label style={styles.label}>{FORM_LABELS.email}</label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={16} style={styles.inputIcon} />
+                  <Mail size={16} style={styles.inputIcon} className="auth-input-icon" />
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com" required
                     style={styles.input}
-                    onFocus={inputFocusHandler} onBlur={inputBlurHandler}
+                    className="auth-input"
                   />
                 </div>
               </div>
 
-              <div style={{ marginBottom: '22px' }}>
+              <div style={{ marginBottom: '22px' }} className="auth-input-wrapper">
                 <label style={styles.label}>{FORM_LABELS.password}</label>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={16} style={styles.inputIcon} />
+                  <Lock size={16} style={styles.inputIcon} className="auth-input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="Minimum 8 characters" required
                     style={styles.input}
-                    onFocus={inputFocusHandler} onBlur={inputBlurHandler}
+                    className="auth-input"
                   />
                   <button
                     type="button" onClick={() => setShowPassword(!showPassword)}
                     style={styles.passwordToggle}
+                    className="auth-password-toggle"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -465,10 +547,8 @@ export default function Signup() {
                 style={{
                   ...styles.submitBtn,
                   ...(loading ? { opacity: 0.7, cursor: 'not-allowed' } : {}),
-                  ...(hoveredBtn === 'submit' && !loading ? { transform: 'translateY(-2px)', boxShadow: '0 6px 30px rgba(139,92,246,0.4)' } : {}),
                 }}
-                onMouseEnter={() => setHoveredBtn('submit')}
-                onMouseLeave={() => setHoveredBtn(null)}
+                className="auth-submit-btn"
               >
                 {loading ? 'Creating account...' : 'Create Account'}
                 {!loading && <ArrowRight size={16} />}
@@ -477,22 +557,13 @@ export default function Signup() {
 
             <p style={styles.termsText}>
               By creating an account, you agree to our{' '}
-              <Link to="/terms" style={{ color: 'rgba(167,139,250,0.7)', textDecoration: 'none' }}>Terms</Link> and{' '}
-              <Link to="/privacy" style={{ color: 'rgba(167,139,250,0.7)', textDecoration: 'none' }}>Privacy Policy</Link>.
+              <Link to="/terms" style={{ color: 'rgba(167,139,250,0.7)', textDecoration: 'none' }} className="auth-link">Terms</Link> and{' '}
+              <Link to="/privacy" style={{ color: 'rgba(167,139,250,0.7)', textDecoration: 'none' }} className="auth-link">Privacy Policy</Link>.
             </p>
-
-            <button
-              onClick={() => { loginAsGuest(); navigate('/dashboard'); }}
-              style={getHoverStyle('guest', styles.guestBtn)}
-              onMouseEnter={() => setHoveredBtn('guest')}
-              onMouseLeave={() => setHoveredBtn(null)}
-            >
-              <Sparkles size={14} /> Try as Guest
-            </button>
 
             <div style={styles.bottomLink}>
               Already have an account?{' '}
-              <Link to="/login" style={styles.accentLink}>Sign in</Link>
+              <Link to="/login" style={styles.accentLink} className="auth-link">Sign in</Link>
             </div>
           </div>
         </div>

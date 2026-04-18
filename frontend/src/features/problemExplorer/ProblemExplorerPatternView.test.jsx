@@ -4,6 +4,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { ProblemExplorerPatternView } from './ProblemExplorerPatternView';
 
 const ROMAN = ['I'];
+const ROUTER_FUTURE = {
+  v7_startTransition: true,
+  v7_relativeSplatPath: true,
+};
 
 const patternCategories = [
   {
@@ -51,7 +55,7 @@ function renderView(overrides = {}) {
   };
 
   render(
-    <MemoryRouter>
+    <MemoryRouter future={ROUTER_FUTURE}>
       <ProblemExplorerPatternView {...props} />
     </MemoryRouter>
   );

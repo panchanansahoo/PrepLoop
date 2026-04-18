@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
 import {
   ArrowUpRight,
   Briefcase,
@@ -16,6 +16,8 @@ import {
   Wand2,
   MessageCircle,
   XCircle,
+  Send,
+  Bot,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +57,7 @@ export default function AIJobCopilot() {
   const fileInputRef = useRef(null);
 
   const initialJobDetails = location.state?.jobDetails || {};
+  const initialQuery = location.state?.initialQuery || '';
   
   const [targetRole, setTargetRole] = useState(initialJobDetails.title || initialJobDetails.role || '');
   const [jobDescription, setJobDescription] = useState(initialJobDetails.description || '');
@@ -63,6 +66,18 @@ export default function AIJobCopilot() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState('');
+  
+  // Conversational AI state
+  const [query, setQuery] = useState(initialQuery);
+  const [asking, setAsking] = useState(false);
+  const [aiResponse, setAiResponse] = useState(null);
+  const [chatError, setChatError] = useState('');
+
+  useEffect(() => {
+    if (initialQuery) {
+      handleAskCopilot();
+    }
+  }, []);
 
   const suggestedKeywords = useMemo(() => {
     if (analysis?.analysis?.keywordMatch?.technical?.length) {
@@ -84,6 +99,40 @@ export default function AIJobCopilot() {
 
     setError('');
     setResumeFile(file);
+  };
+
+  const handleAskCopilot = async () => {
+    if (!query.trim() || asking) return;
+
+    setAsking(true);
+    setChatError('');
+    setAiResponse(null);
+
+    try {
+      const headers = buildAuthHeaders(user);
+      const response = await fetch(buildApiUrl('/copilot/ask', {
+        rawBaseUrl: import.meta.env.VITE_API_URL || '',
+      }), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ 
+          query,
+          context: targetRole ? `Target role: ${targetRole}` : undefined
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload.error || 'Unable to get AI response.');
+      }
+
+      setAiResponse(payload.response);
+    } catch (requestError) {
+      setChatError(requestError.message || 'Failed to get AI response.');
+    } finally {
+      setAsking(false);
+    }
   };
 
   const handleAnalyze = async () => {
@@ -129,8 +178,7 @@ export default function AIJobCopilot() {
         <div className="copilot-hero-content">
           <h1>AI Job Copilot</h1>
           <p>
-            Stop guessing what recruiters want. Our AI analyzes your resume against any Job Description
-            and gives you the exact keywords, projects, and interview answers to land the offer.
+            Your personal career strategist. Get instant answers to interview questions, resume optimization tips, and job fit analysis.
           </p>
 
           <div className="copilot-hero-pills" aria-label="Copilot highlights">
@@ -141,7 +189,66 @@ export default function AIJobCopilot() {
         </div>
       </section>
 
-      <section className="copilot-card" aria-label="Configuration">
+      {/* AI Chat Section */}
+      <section className="copilot-card" aria-label="Ask AI Copilot">
+        <header className="copilot-card-head">
+          <h2><Bot size={20} /> Ask AI Copilot</h2>
+          <p>Get instant career advice, interview prep, and job search strategies.</p>
+        </header>
+
+        <div className="copilot-chat-container">
+          <div className="copilot-field">
+            <label htmlFor="copilotQuery">
+              <MessageCircle size={14} /> Your Question
+            </label>
+            <textarea
+              id="copilotQuery"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="e.g., Help me answer 'Why Google?' or 'How do I negotiate salary?'"
+              rows={3}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.ctrlKey) {
+                  handleAskCopilot();
+                }
+              }}
+            />
+          </div>
+
+          <button 
+            type="button" 
+            className="copilot-cta primary" 
+            disabled={!query.trim() || asking}
+            onClick={handleAskCopilot}
+          >
+            {asking ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+            {asking ? 'Thinking...' : 'Ask Copilot'}
+          </button>
+
+          {chatError && (
+            <div className="copilot-status error" role="alert">
+              <XCircle size={16} /> {chatError}
+            </div>
+          )}
+
+          {aiResponse && (
+            <div className="copilot-ai-response">
+              <div className="copilot-response-header">
+                <Bot size={18} />
+                <strong>AI Copilot Response</strong>
+              </div>
+              <div className="copilot-response-content">
+                {aiResponse.split('\n').map((paragraph, idx) => (
+                  <p key={idx}>{paragraph}</p>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Resume Analysis Section */}
+      <section className="copilot-card" aria-label="Resume Analysis">
         <header className="copilot-card-head">
           <h2>Configuration</h2>
           <p>Set your target role and provide a job description for precise AI analysis.</p>

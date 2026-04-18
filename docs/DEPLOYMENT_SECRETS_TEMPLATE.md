@@ -30,6 +30,14 @@ Required secrets:
 2. AZURE_WEBAPP_PUBLISH_PROFILE
 3. BACKEND_HEALTHCHECK_URL
 
+Redis runtime settings for the Azure backend app:
+
+1. `USE_REDIS=true`
+2. `REDIS_URL=redis://:<password>@<private-ip>:6379`
+3. `WEBSITE_VNET_ROUTE_ALL=1`
+
+These are runtime settings for the backend environment, not GitHub secrets.
+
 Examples:
 
 1. AZURE_WEBAPP_NAME=preploop-api-staging
@@ -81,3 +89,4 @@ Examples:
 1. Keep production and staging values different.
 2. Never store secret keys in frontend runtime variables.
 3. Rotate publish profiles and tokens periodically.
+4. Keep Redis credentials in the backend runtime secret store or Azure App Service settings.

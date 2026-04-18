@@ -64,3 +64,36 @@ supabase/.temp/
 temp_drive.html
 coverage/
 .nyc_output/
+
+.vercel
+node_modules
+
+# Test and coverage
+*.test.js.snap
+test-results/
+playwright-report/
+
+# Logs and debugging
+*.log.*
+.pnpm-debug.log
+
+# Cache
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Backup files
+*.backup
+*.bak
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.fleet/
+*.code-workspace
+node_modules
+node_modules

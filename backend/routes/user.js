@@ -1054,23 +1054,33 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     const completedInterviews = interviews.filter((i) => i.completed_at);
 
     // ── 5) Streak calculation (consecutive days ending today) ──
-    const submissionDates = [...new Set(
-      subs.map((s) => new Date(s.submitted_at).toISOString().split("T")[0])
-    )].sort().reverse();
+    // Combine activity from submissions AND user_activity table
+    const activityResult = await supabaseAdmin
+      .from('user_activity')
+      .select('date, seconds_active')
+      .eq('user_id', userId)
+      .gte('seconds_active', 60); // At least 1 minute of activity
+
+    const activityDates = (activityResult.data || []).map(a => a.date);
+    const submissionDates = subs.map((s) => new Date(s.submitted_at).toISOString().split("T")[0]);
+    
+    // Merge both sources and get unique dates
+    const allActivityDates = [...new Set([...submissionDates, ...activityDates])].sort().reverse();
 
     let currentStreak = 0;
     let bestStreak = 0;
+    const weekProgress = [false, false, false, false, false, false, false]; // M, T, W, T, F, S, S
 
-    if (submissionDates.length > 0) {
+    if (allActivityDates.length > 0) {
       // Calculate current streak
       const today = new Date().toISOString().split("T")[0];
       const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
 
-      if (submissionDates[0] === today || submissionDates[0] === yesterday) {
+      if (allActivityDates[0] === today || allActivityDates[0] === yesterday) {
         currentStreak = 1;
-        for (let i = 1; i < submissionDates.length; i++) {
-          const prev = new Date(submissionDates[i - 1]);
-          const curr = new Date(submissionDates[i]);
+        for (let i = 1; i < allActivityDates.length; i++) {
+          const prev = new Date(allActivityDates[i - 1]);
+          const curr = new Date(allActivityDates[i]);
           const diffDays = Math.round((prev - curr) / 86400000);
           if (diffDays === 1) {
             currentStreak++;
@@ -1082,7 +1092,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
 
       // Calculate best streak
       let tempStreak = 1;
-      const allDates = [...submissionDates].sort();
+      const allDates = [...allActivityDates].sort();
       for (let i = 1; i < allDates.length; i++) {
         const prev = new Date(allDates[i - 1]);
         const curr = new Date(allDates[i]);
@@ -1095,6 +1105,32 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         }
       }
       bestStreak = Math.max(bestStreak, tempStreak);
+
+      // Calculate week progress (last 7 days, Monday to Sunday)
+      const now = new Date();
+      const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+      const mondayOffset = currentDay === 0 ? 6 : currentDay - 1; // Days since Monday
+      
+      for (let i = 0; i < 7; i++) {
+        const checkDate = new Date(now);
+        checkDate.setDate(now.getDate() - mondayOffset + i);
+        const dateStr = checkDate.toISOString().split('T')[0];
+        weekProgress[i] = allActivityDates.includes(dateStr);
+      }
+    }
+
+    // Update profile with latest streak data
+    try {
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          daily_streak: currentStreak,
+          best_streak: Math.max(bestStreak, currentStreak),
+          last_active_date: new Date().toISOString().split('T')[0]
+        })
+        .eq('id', userId);
+    } catch (updateError) {
+      console.error('Error updating profile streak:', updateError);
     }
 
     // ── 6) Average interview score ──
@@ -1324,6 +1360,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       },
       streak: currentStreak,
       bestStreak,
+      weekProgress,
       avgScore,
       totalXP,
       heatmapData,

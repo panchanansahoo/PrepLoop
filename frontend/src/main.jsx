@@ -6,6 +6,9 @@ import { buildInterviewAuthInit } from './utils/interviewRequestAuth';
 import { registerServiceWorker } from './utils/serviceWorkerRegistration';
 import { registerDynamicImportErrorRecovery } from './utils/importErrorRecovery';
 import ErrorBoundary from './components/ErrorBoundary';
+import performanceMonitor from './utils/performanceMonitor';
+import analytics from './utils/analytics';
+
 import { validateFrontendRuntimeConfig } from './utils/runtimeConfig';
 
 // Validate configuration first - fail immediately if invalid
@@ -57,6 +60,19 @@ registerDynamicImportErrorRecovery();
 
 // Register service worker for offline support
 registerServiceWorker();
+
+// Initialize performance monitoring
+performanceMonitor.init();
+
+// Initialize analytics
+analytics.init({
+  trackPageViews: true,
+  trackClicks: true,
+  trackErrors: true,
+});
+
+console.log('✅ Monitoring and analytics initialized');
+
 
 createRoot(document.getElementById('root')).render(
   <ErrorBoundary>

@@ -7,6 +7,8 @@
         "dev": "vite",
         "build": "vite build",
         "lint": "eslint src",
+        "lint:fix": "eslint src --fix",
+        "format": "prettier --write \"src/**/*.{js,jsx}\"",
         "preview": "vite preview",
         "test": "vitest run",
         "test:watch": "vitest",
@@ -69,6 +71,7 @@
         "jsdom": "^28.1.0",
         "postcss": "^8.5.6",
         "puppeteer": "^24.40.0",
+        "rollup-plugin-visualizer": "^7.0.1",
         "tailwindcss": "^4.1.18",
         "vite": "^5.1.0",
         "vitest": "^4.0.18"

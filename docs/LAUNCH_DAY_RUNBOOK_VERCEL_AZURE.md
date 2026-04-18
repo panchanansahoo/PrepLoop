@@ -36,6 +36,17 @@ Set environment-scoped secrets.
 5. `VERCEL_ORG_ID`
 6. `VERCEL_PROJECT_ID`
 
+Redis runtime settings for Azure backend:
+
+1. `USE_REDIS=true`
+2. `REDIS_URL=redis://:<password>@10.50.2.4:6379`
+3. `WEBSITE_VNET_ROUTE_ALL=1`
+
+Note:
+1. Redis is deployed privately in Azure Container Instances on the `redis-subnet` delegated subnet.
+2. The backend App Service is VNet-integrated through `appservice-integration`.
+3. Local development should keep `USE_REDIS=false` unless you are on the Azure VNet.
+
 ### Production secrets
 
 1. `AZURE_WEBAPP_NAME`
@@ -92,6 +103,30 @@ Stop conditions:
 
 1. Backend health gate fails.
 2. Build or deploy fails.
+
+## Azure Redis Operations
+
+Before a release, verify Redis is healthy and the backend can reach it through the private network.
+
+1. Run standard Redis guardrails:
+
+```powershell
+npm run redis:guardrails
+```
+
+2. Run strict Redis guardrails:
+
+```powershell
+npm run redis:guardrails:strict
+```
+
+Expected result:
+
+1. Standard guardrails pass.
+2. Strict guardrails pass when Redis is private-only.
+3. Backend app settings contain `USE_REDIS`, `REDIS_URL`, and `WEBSITE_VNET_ROUTE_ALL=1`.
+
+If Redis is public, treat that as a release blocker for production.
 
 ## Step 3: Post-Deploy Verification (Manual)
 
