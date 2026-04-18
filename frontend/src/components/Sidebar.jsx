@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard, MessageSquare, Brain, BookOpen,
@@ -12,6 +12,7 @@ import {
 
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.svg';
+import FeedbackModal from './FeedbackModal';
 
 const navSections = [
     {
@@ -85,6 +86,7 @@ const navSections = [
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
     const location = useLocation();
     const { user, isAdmin } = useAuth();
+    const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const isCollapsed = collapsed && !mobileOpen;
     const userName = user?.fullName || user?.name || 'Engineer';
     const userEmail = user?.email || '';
@@ -179,7 +181,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                 </nav>
 
                 <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
-                    <Link to="/feedback" style={{ textDecoration: 'none', display: 'block' }}>
+                    <div onClick={() => setIsFeedbackModalOpen(true)} style={{ textDecoration: 'none', display: 'block' }}>
                         <div 
                             style={{
                                 background: 'rgba(255, 255, 255, 0.02)',
@@ -230,9 +232,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 </>
                             )}
                         </div>
-                    </Link>
+                    </div>
                 </div>
             </aside>
+            <FeedbackModal isOpen={isFeedbackModalOpen} onClose={() => setIsFeedbackModalOpen(false)} />
         </>
     );
 }

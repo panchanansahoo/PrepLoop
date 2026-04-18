@@ -484,3 +484,47 @@
     align-items: flex-start;
   }
 }
+
+/* AI Chat Section Styles */
+.copilot-chat-container {
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.copilot-ai-response {
+  margin-top: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.05));
+  padding: 16px;
+}
+
+.copilot-response-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  color: #c7d2fe;
+  font-size: 0.9rem;
+}
+
+.copilot-response-content {
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.7;
+  font-size: 0.92rem;
+}
+
+.copilot-response-content p {
+  margin: 0 0 12px;
+}
+
+.copilot-response-content p:last-child {
+  margin-bottom: 0;
+}
+
+.copilot-card-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

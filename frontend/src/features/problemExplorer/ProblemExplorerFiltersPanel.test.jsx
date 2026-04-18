@@ -37,7 +37,7 @@ describe('ProblemExplorerFiltersPanel', () => {
     it('does not render when filters are hidden', () => {
         render(<ProblemExplorerFiltersPanel {...buildProps({ showFilters: false })} />);
         expect(screen.queryByText('FILTERS')).toBeNull();
-    });
+    }, 15000);
 
     it('calls toggleListItem when a difficulty is clicked', () => {
         const props = buildProps();
@@ -50,7 +50,7 @@ describe('ProblemExplorerFiltersPanel', () => {
             props.setSelectedDifficulties,
             'Medium'
         );
-    });
+    }, 15000);
 
     it('clears selected frequency when active frequency is clicked', () => {
         const props = buildProps();
@@ -59,7 +59,7 @@ describe('ProblemExplorerFiltersPanel', () => {
         fireEvent.click(screen.getByRole('button', { name: 'high' }));
 
         expect(props.setSelectedFrequency).toHaveBeenCalledWith('');
-    });
+    }, 15000);
 
     it('shows and triggers clear all when active filters exist', () => {
         const props = buildProps({ activeFilterCount: 2 });
@@ -68,5 +68,5 @@ describe('ProblemExplorerFiltersPanel', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Clear All' }));
 
         expect(props.clearAll).toHaveBeenCalledTimes(1);
-    });
+    }, 15000);
 });

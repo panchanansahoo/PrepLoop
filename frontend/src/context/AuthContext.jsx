@@ -51,7 +51,6 @@ export function AuthProvider({ children }) {
 
           if (session) {
             const token = session.access_token;
-            localStorage.removeItem('isGuest');
             localStorage.setItem('token', token);
             localStorage.setItem('refreshToken', session.refresh_token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -88,22 +87,11 @@ export function AuthProvider({ children }) {
 
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
-        const isGuest = localStorage.getItem('isGuest');
 
         if (token && userData) {
           if (mounted) {
             setUser(JSON.parse(userData));
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-          }
-        } else if (isGuest === 'true') {
-          if (mounted) {
-            setUser({
-              id: 'guest',
-              fullName: 'Guest User',
-              email: 'guest@careerloop.io',
-              isGuest: true,
-              role: 'user'
-            });
           }
         }
 
@@ -112,7 +100,6 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         localStorage.removeItem('refreshToken');
-        localStorage.removeItem('isGuest');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -127,7 +114,6 @@ export function AuthProvider({ children }) {
 
         if (event === 'SIGNED_IN' && session) {
           const token = session.access_token;
-          localStorage.removeItem('isGuest');
           localStorage.setItem('token', token);
           localStorage.setItem('refreshToken', session.refresh_token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -162,7 +148,6 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('token');
             localStorage.removeItem('refreshToken');
             localStorage.removeItem('user');
-            localStorage.removeItem('isGuest');
           }
         }
       });
@@ -179,7 +164,6 @@ export function AuthProvider({ children }) {
     const response = await axios.post('/api/auth/login', { email, password });
     const { token, refreshToken, user } = response.data;
 
-    localStorage.removeItem('isGuest');
     localStorage.setItem('token', token);
     localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
@@ -239,24 +223,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
-    localStorage.removeItem('isGuest');
     delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-  };
-
-  const loginAsGuest = () => {
-    const guestUser = {
-      id: 'guest',
-      fullName: 'Guest User',
-      email: 'guest@careerloop.io',
-      isGuest: true,
-      role: 'user'
-    };
-    setUser(guestUser);
-    localStorage.setItem('isGuest', 'true');
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
   };
 
   const refreshSession = async () => {
@@ -345,7 +313,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginAsGuest, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

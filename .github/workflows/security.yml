@@ -1,0 +1,37 @@
+name: Security & Quality Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: npm run install:all
+        
+      - name: Scan for secrets
+        run: npm run scan:secrets
+        
+      - name: Audit dependencies
+        run: npm run audit
+        continue-on-error: true
+        
+      - name: Lint backend
+        run: npm run lint --prefix backend
+        
+      - name: Lint frontend
+        run: npm run lint --prefix frontend
+        
+      - name: Run tests
+        run: npm run test

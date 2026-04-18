@@ -707,8 +707,7 @@ export default function Home() {
               </h1>
 
               <p style={{ fontSize: 'clamp(16px, 3.8vw, 20px)', lineHeight: '1.6', color: 'var(--zinc-400)', maxWidth: '540px', marginBottom: '48px' }}>
-                Highly personalized interview preparation, expertly curated
-                to meet your objectives and drive your engineering career forward.
+                Master technical interviews with AI-driven mock sessions and personalized feedback.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content' }}>
@@ -718,12 +717,12 @@ export default function Home() {
                   </span>
                   <div style={{ display: 'flex', gap: '24px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
                     {/* Fazier Badge */}
-                    <a href="https://fazier.com" target="_blank" rel="noopener noreferrer" 
+                    <a href="https://fazier.com/launches/www.preploop.me" target="_blank" rel="noopener noreferrer" 
                       style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
                       onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=dark" width="120" alt="Fazier badge" />
+                      <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=light" width="120" alt="Fazier badge" />
                     </a>
 
                     {/* Product Hunt Badge */}

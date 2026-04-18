@@ -34,6 +34,12 @@ router.post('/update', authenticateToken, async (req, res) => {
 
         if (error) throw error;
 
+        // Update profile last_active_date
+        await supabaseAdmin
+            .from('profiles')
+            .update({ last_active_date: date })
+            .eq('id', userId);
+
         res.json({ success: true, data });
     } catch (error) {
         console.error('Error updating activity:', error);
