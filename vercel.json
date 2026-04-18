@@ -9,7 +9,7 @@
       "destination": "https://preploop-api-staging.azurewebsites.net/api/:path*"
     },
     {
-      "source": "/((?!api|assets|favicon\.svg|robots\.txt).*)",
+      "source": "/((?!api|assets|favicon\\.svg|robots\\.txt).*)",
       "destination": "/index.html"
     }
   ],
