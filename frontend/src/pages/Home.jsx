@@ -473,7 +473,7 @@ function JobUpdatesPreview() {
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
-                  e.currentTarget.style.background = 'var(--bg-card-hover, rgba(255, 255, 255, 0.04))';
+                  e.currentTarget.style.background = 'var(--bg-card-hover)';
                   e.currentTarget.style.transform = 'translateY(-4px)';
                   e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.05)';
                   e.currentTarget.querySelector('.card-accent').style.opacity = '1';
@@ -726,12 +726,12 @@ export default function Home() {
                     </a>
 
                     {/* Product Hunt Badge */}
-                    <a href="https://www.producthunt.com/" target="_blank" rel="noopener noreferrer" 
+                    <a href="https://www.producthunt.com/products/preploop?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-preploop" target="_blank" rel="noopener noreferrer" 
                       style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
                       onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                      <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1&theme=light" style={{ width: '220px', height: '48px' }} alt="Product Hunt Badge" />
+                      <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1127272&theme=light&t=1776597903520" width="250" height="54" alt="PrepLoop - All‑in‑one AI platform for tech interview prep | Product Hunt" />
                     </a>
                   </div>
                 </div>
@@ -739,55 +739,30 @@ export default function Home() {
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
                   <Link to="/signup" className="btn-hero-primary" style={{
                     position: 'relative',
-                    background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
                     borderRadius: '999px',
                     padding: '16px 36px',
                     fontSize: '16px',
                     fontWeight: '700',
-                    color: 'white',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
-                    boxShadow: '0 10px 30px -10px rgba(124, 58, 237, 0.5)',
                     transition: 'all 0.3s ease',
                     textDecoration: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 20px 40px -10px rgba(124, 58, 237, 0.7)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.boxShadow = '0 10px 30px -10px rgba(124, 58, 237, 0.5)';
                   }}>
                     Start for free
                   </Link>
                   
                   <a href="#features" className="btn-hero-outline" style={{
                     position: 'relative',
-                    background: 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '999px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    backdropFilter: 'blur(10px)',
                     padding: '16px 36px',
                     fontSize: '16px',
                     fontWeight: '600',
-                    color: 'var(--text-primary)',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '8px',
                     transition: 'all 0.3s ease',
                     textDecoration: 'none'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.03)';
-                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                    e.currentTarget.style.transform = 'translateY(0)';
                   }}>
                     Watch Video <ChevronRight size={16} />
                   </a>
@@ -930,7 +905,7 @@ export default function Home() {
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
               Join <strong style={{ color: 'var(--text-secondary)', fontWeight: 700 }}>70,000+ Developers</strong>
               <span style={{ margin: '0 8px', opacity: 0.4 }}>·</span>
-              Trusted with <strong style={{ color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px dashed rgba(255,255,255,0.2)', paddingBottom: '1px' }}>9,000+ app Installs</strong>
+              Trusted with <strong style={{ color: 'var(--text-secondary)', fontWeight: 700, borderBottom: '1px dashed var(--border)', paddingBottom: '1px' }}>9,000+ app Installs</strong>
             </p>
           </div>
           <div className="logo-marquee-wrapper">
@@ -1048,7 +1023,7 @@ export default function Home() {
                   opacity: isCenter ? 1 : 0.4,
                   transform: isCenter ? 'scale(1)' : 'scale(0.9)',
                   transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                  background: isCenter ? 'linear-gradient(145deg, var(--bg-card), rgba(255,255,255,0.02))' : 'var(--bg-card)',
+                  background: isCenter ? 'var(--bg-card-hover)' : 'var(--bg-card)',
                   border: isCenter ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid var(--border)',
                   boxShadow: isCenter ? '0 20px 40px rgba(0,0,0,0.2), inset 0 0 0 1px rgba(139,92,246,0.1)' : 'none',
                   borderRadius: '24px',
@@ -1097,17 +1072,17 @@ export default function Home() {
             <button onClick={prevTestimonial} style={{ 
               display: 'flex', alignItems: 'center', justifyContent: 'center', 
               width: '48px', height: '48px', borderRadius: '12px', 
-              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', 
-              color: 'white', cursor: 'pointer', transition: 'all 0.2s'
-            }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+              background: 'var(--bg-card)', border: '1px solid var(--border)', 
+              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s'
+            }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
               <ChevronLeft size={20} />
             </button>
             <button onClick={nextTestimonial} style={{ 
               display: 'flex', alignItems: 'center', justifyContent: 'center', 
               width: '48px', height: '48px', borderRadius: '12px', 
-              background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.1)', 
-              color: 'white', cursor: 'pointer', transition: 'all 0.2s'
-            }} onMouseEnter={e => e.currentTarget.style.background='rgba(255,255,255,0.1)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+              background: 'var(--bg-card)', border: '1px solid var(--border)', 
+              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s'
+            }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
               <ChevronRight size={20} />
             </button>
           </div>
@@ -1389,7 +1364,7 @@ export default function Home() {
                   if (!isOpen) {
                     e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
                     e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.1)';
-                    e.currentTarget.style.background = 'linear-gradient(145deg, rgba(255,255,255,0.02), rgba(139, 92, 246, 0.05))';
+                    e.currentTarget.style.background = 'var(--bg-card-hover)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -1418,7 +1393,7 @@ export default function Home() {
                     <span style={{ 
                       fontSize: '14px', 
                       fontWeight: '700', 
-                      color: isOpen ? 'var(--text-primary)' : 'rgba(255, 255, 255, 0.4)', 
+                      color: isOpen ? 'var(--text-primary)' : 'var(--text-muted)', 
                       fontFamily: 'var(--font-mono, monospace)',
                       width: '28px'
                     }}>
@@ -1429,14 +1404,14 @@ export default function Home() {
                       fontSize: '18px', 
                       fontWeight: '500', 
                       lineHeight: '1.4',
-                      color: isOpen ? 'var(--text-primary)' : 'rgba(255, 255, 255, 0.8)'
+                      color: isOpen ? 'var(--text-primary)' : 'var(--text-secondary)'
                     }}>
                       {faq.q}
                     </span>
                     <div style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       width: '36px', height: '36px', borderRadius: '50%',
-                      background: isOpen ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.05)',
+                      background: isOpen ? 'var(--border)' : 'transparent',
                       color: 'var(--text-primary)',
                       flexShrink: 0,
                       transition: 'all 0.3s ease'
@@ -1453,7 +1428,7 @@ export default function Home() {
                     <p style={{
                       padding: '0 20px 20px 72px',
                       margin: 0,
-                      color: 'rgba(255, 255, 255, 0.65)',
+                      color: 'var(--text-secondary)',
                       fontSize: '16px',
                       lineHeight: '1.7'
                     }}>
