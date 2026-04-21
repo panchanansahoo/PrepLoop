@@ -6,10 +6,10 @@ export default function LearningStreakWidget({ data }) {
     const { theme } = useTheme();
     const isLight = theme === 'light';
     
-    // Default mock data if none provided
-    const streak = data?.streak || 14;
-    const bestStreak = data?.bestStreak || 21;
-    const weekProgress = data?.weekProgress || [true, true, true, false, false, false, false]; // M, T, W, T, F, S, S
+    // Preserve backend zero values; fallback only when data is null/undefined
+    const streak = data?.streak ?? 0;
+    const bestStreak = data?.bestStreak ?? 0;
+    const weekProgress = data?.weekProgress ?? [false, false, false, false, false, false, false]; // M, T, W, T, F, S, S
 
     const c = {
         bg: isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))' : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',

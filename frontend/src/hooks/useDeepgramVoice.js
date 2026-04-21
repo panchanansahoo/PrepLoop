@@ -880,8 +880,8 @@ export function useDeepgramVoice({
                 });
                 console.log('[useDeepgramVoice] Sending TTS request for text:', spokenText.substring(0, 50) + '...');
                 
-                // CRITICAL OPTIMIZATION: Add timeout to prevent hanging on slow TTS
-                const TTS_TIMEOUT_MS = 30000; // 30s max wait for TTS (increased for reliability)
+                // SPEED FIX: Short timeout — fall back to instant browser speech quickly
+                const TTS_TIMEOUT_MS = 8000; // 8s max wait for TTS (browser fallback is instant)
                 
                 // I12: TTS fetch with 1 retry attempt and progressive timeout
                 const fetchTts = async (timeoutMs = TTS_TIMEOUT_MS) => {
@@ -922,7 +922,7 @@ export function useDeepgramVoice({
                         if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
                         try {
                             // Retry with shorter timeout (10s)
-                            res = await fetchTts(10000);
+                            res = await fetchTts(4000);
                         } catch (secondErr) {
                             // Second failure → fall back to browser speech
                             console.warn('[useDeepgramVoice] TTS failed twice, falling back to browser speech');

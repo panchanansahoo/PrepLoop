@@ -247,11 +247,11 @@ export default function CoinDisplay() {
           max-height: min(72vh, 560px);
           overflow: auto;
           border-radius: 20px;
-          border: 1px solid rgba(251, 191, 36, 0.25);
-          background: rgba(18, 18, 24, 0.75);
+          border: 1px solid var(--color-bg-card, rgba(251, 191, 36, 0.25));
+          background: var(--color-bg-glass, rgba(18, 18, 24, 0.75));
           backdrop-filter: blur(20px);
           -webkit-backdrop-filter: blur(20px);
-          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+          box-shadow: 0 20px 48px rgba(0, 0, 0, 0.2), inset 0 0 0 1px var(--color-bg-card, rgba(255, 255, 255, 0.05));
           padding: 16px;
           z-index: 1300;
           animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -271,11 +271,11 @@ export default function CoinDisplay() {
           margin: 0;
           font-size: 15px;
           font-weight: 700;
-          color: var(--text-primary, #fff);
+          color: var(--color-text-primary, #fff);
         }
         .coin-panel-header p {
           margin: 2px 0 0;
-          color: var(--text-secondary, #9ca3af);
+          color: var(--color-text-secondary, #9ca3af);
           font-size: 12px;
         }
         .coin-panel-balance {
@@ -292,7 +292,7 @@ export default function CoinDisplay() {
           border-radius: 999px;
         }
         .coin-section {
-          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          border-top: 1px solid var(--color-border-subtle);
           padding-top: 16px;
           margin-top: 16px;
         }
@@ -310,9 +310,9 @@ export default function CoinDisplay() {
           display: grid;
           gap: 6px;
           font-size: 12px;
-          color: var(--text-secondary, #9ca3af);
-          background: rgba(255, 255, 255, 0.02);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          color: var(--color-text-secondary, #9ca3af);
+          background: var(--color-bg-card, rgba(255, 255, 255, 0.02));
+          border: 1px solid var(--color-bg-card, rgba(255, 255, 255, 0.05));
           padding: 10px;
           border-radius: 12px;
         }
@@ -344,14 +344,14 @@ export default function CoinDisplay() {
           justify-content: space-between;
           align-items: center;
           gap: 8px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          border: 1px solid var(--color-bg-card, rgba(255, 255, 255, 0.05));
           border-radius: 14px;
           padding: 12px;
-          background: rgba(255, 255, 255, 0.015);
+          background: var(--color-bg-card, rgba(255, 255, 255, 0.015));
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .coin-redeem-item:hover {
-          background: rgba(255, 255, 255, 0.04);
+          background: var(--color-bg-tertiary, rgba(255, 255, 255, 0.04));
           border-color: rgba(251, 191, 36, 0.3);
           transform: translateX(2px);
         }
@@ -361,12 +361,12 @@ export default function CoinDisplay() {
           min-width: 0;
         }
         .coin-redeem-meta strong {
-          color: var(--text-primary, #fff);
+          color: var(--color-text-primary, #fff);
           font-size: 13px;
           font-weight: 600;
         }
         .coin-redeem-meta span {
-          color: var(--text-secondary, #9ca3af);
+          color: var(--color-text-secondary, #9ca3af);
           font-size: 11px;
           line-height: 1.4;
         }
@@ -418,7 +418,7 @@ export default function CoinDisplay() {
         .coin-empty {
           margin: 0;
           font-size: 12px;
-          color: var(--text-secondary, #9ca3af);
+          color: var(--color-text-secondary, #9ca3af);
           text-align: center;
           padding: 10px;
         }
@@ -427,7 +427,7 @@ export default function CoinDisplay() {
           justify-content: center;
           gap: 6px;
           align-items: center;
-          color: var(--text-secondary, #9ca3af);
+          color: var(--color-text-secondary, #9ca3af);
           font-size: 12px;
           padding: 16px;
         }
@@ -444,7 +444,7 @@ export default function CoinDisplay() {
           align-items: center;
           gap: 8px;
           border: 1px solid transparent;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+          border-bottom: 1px solid var(--color-bg-card, rgba(255, 255, 255, 0.04));
           padding: 10px 6px;
           transition: background 0.2s ease;
         }
@@ -452,21 +452,21 @@ export default function CoinDisplay() {
           border-bottom: none;
         }
         .coin-history-item:hover {
-          background: rgba(255, 255, 255, 0.02);
+          background: var(--color-bg-card, rgba(255, 255, 255, 0.02));
           border-radius: 8px;
         }
         .coin-history-item strong {
           display: block;
           font-size: 13px;
           font-weight: 600;
-          color: var(--text-primary, #fff);
+          color: var(--color-text-primary, #fff);
           margin-bottom: 2px;
         }
         .coin-history-item span {
           display: block;
           max-width: 200px;
           font-size: 11px;
-          color: var(--text-secondary, #9ca3af);
+          color: var(--color-text-secondary, #9ca3af);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -484,7 +484,7 @@ export default function CoinDisplay() {
         }
         .coin-history-right small {
           font-size: 10px;
-          color: var(--text-secondary, #6b7280);
+          color: var(--color-text-muted, #6b7280);
         }
         .spin {
           animation: spin 1s linear infinite;

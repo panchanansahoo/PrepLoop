@@ -10,10 +10,11 @@
 
 // ── Thinking Delay ──────────────────────────────────────────────────
 // Returns a deterministic delay in ms that scales with answer length,
-// simulating the interviewer "reading" the response. Capped at 2 000 ms.
+// simulating the interviewer "reading" the response. Capped at 800 ms
+// for snappy conversational feel.
 export function getThinkingDelayMs(text = '') {
     const length = String(text || '').trim().length;
-    return Math.min(2000, 600 + length * 3);
+    return Math.min(800, 200 + length * 1.5);
 }
 
 // ── Interviewer Reaction ────────────────────────────────────────────

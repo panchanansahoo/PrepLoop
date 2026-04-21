@@ -3,8 +3,8 @@ import { getThinkingDelayMs, getQuestionTimeLimit } from './aiInterviewTiming';
 import { shouldAutoSubmitAnswer, getAdaptiveSilenceMs } from '../hooks/useDeepgramVoice';
 
 describe('AI interview timing helpers', () => {
-  it('caps thinking delay at 2s', () => {
-    expect(getThinkingDelayMs('a'.repeat(1000))).toBe(2000);
+  it('caps thinking delay at 800ms', () => {
+    expect(getThinkingDelayMs('a'.repeat(1000))).toBe(800);
   });
 
   it('returns known stage timing', () => {
