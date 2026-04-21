@@ -973,7 +973,7 @@ export default function Home() {
               {plan.popular && (
                 <div style={{
                   position: 'absolute', top: 0, left: '50%', transform: 'translate(-50%, -50%)',
-                  background: 'var(--accent-primary)', color: 'var(--text-invert)',
+                  background: '#6366f1', color: '#ffffff',
                   padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: '800',
                   letterSpacing: '0.5px', boxShadow: '0 0 20px var(--accent-glow)',
                   zIndex: 10, border: '1px solid var(--border)', whiteSpace: 'nowrap'
@@ -989,7 +989,7 @@ export default function Home() {
                   <li key={j}><CheckCircle size={16} /> {f}</li>
                 ))}
               </ul>
-              <Button asChild variant={plan.btnClass === 'btn-primary' ? 'default' : 'outline'} className="w-[calc(100%-3rem)] mx-auto mb-2">
+              <Button asChild variant={plan.btnClass === 'btn-primary' ? 'default' : 'outline'} className="w-[calc(100%-3rem)] mx-auto mb-2" style={plan.btnClass !== 'btn-primary' ? { background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border)' } : {}}>
                 <Link to={(plan.name === 'Pro' || plan.name === 'Premium') && (!user || user.isGuest) ? '/login' : plan.btnLink}>{plan.btnText}</Link>
               </Button>
             </div>
@@ -1073,7 +1073,8 @@ export default function Home() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', 
               width: '48px', height: '48px', borderRadius: '12px', 
               background: 'var(--bg-card)', border: '1px solid var(--border)', 
-              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s'
+              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
               <ChevronLeft size={20} />
             </button>
@@ -1081,7 +1082,8 @@ export default function Home() {
               display: 'flex', alignItems: 'center', justifyContent: 'center', 
               width: '48px', height: '48px', borderRadius: '12px', 
               background: 'var(--bg-card)', border: '1px solid var(--border)', 
-              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s'
+              color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
               <ChevronRight size={20} />
             </button>
@@ -1144,11 +1146,11 @@ export default function Home() {
               </p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', textAlign: 'center' }}>
                 <div>
-                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#5865F2' }}>5K+</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>5K+</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Members</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '18px', fontWeight: '700', color: '#5865F2' }}>24/7</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>24/7</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</div>
                 </div>
               </div>
@@ -1300,25 +1302,21 @@ export default function Home() {
               gap: '10px',
               padding: '12px 24px',
               borderRadius: '99px',
-              background: 'rgba(16, 185, 129, 0.1)',
-              color: '#34d399',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
+              background: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
               textDecoration: 'none',
               fontWeight: '600',
               fontSize: '15px',
-              boxShadow: '0 0 20px rgba(16, 185, 129, 0.1)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.15)';
-              e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.4)';
-              e.currentTarget.style.boxShadow = '0 0 30px rgba(16, 185, 129, 0.2)';
+              e.currentTarget.style.background = 'var(--bg-card-hover)';
               e.currentTarget.style.transform = 'translateY(-2px)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)';
-              e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(16, 185, 129, 0.1)';
+              e.currentTarget.style.background = 'var(--bg-card)';
               e.currentTarget.style.transform = 'translateY(0)';
             }}
             >

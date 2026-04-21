@@ -313,7 +313,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               className="icon-btn theme-toggle-btn"
               onClick={toggleTheme}
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-              style={{ background: 'transparent', border: '1px solid var(--border)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)', transition: 'all 0.2s' }}
+              style={{ background: 'transparent', border: '1px solid var(--color-border)', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--color-text-secondary)', transition: 'all 0.2s' }}
             >
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
@@ -329,11 +329,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                     display: 'flex', 
                     alignItems: 'center', 
                     gap: '4px',
-                    background: 'rgba(15, 15, 15, 0.65)',
+                    background: 'var(--color-bg-card)',
                     backdropFilter: 'blur(12px)',
                     WebkitBackdropFilter: 'blur(12px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#fff',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-primary)',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
                   }}
                 >
@@ -344,17 +344,17 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             ) : (
               <>
                 <Link to="/login" className="btn nav-action-btn" style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: 'transparent',
+                  border: '1px solid var(--color-border)',
                   backdropFilter: 'blur(10px)',
                   transition: 'all 0.3s ease',
                   padding: '8px 16px',
                   borderRadius: '99px',
-                  color: 'var(--text-primary)',
+                  color: 'var(--color-text-primary)',
                   textDecoration: 'none'
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)' }}>
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-bg-card)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
                   Sign In
                 </Link>
                 <Link to="/signup" className="btn-hero-primary" style={{
@@ -412,11 +412,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '6px',
-                  background: 'rgba(15, 15, 15, 0.65)',
+                  background: 'var(--color-bg-card)',
                   backdropFilter: 'blur(12px)',
                   WebkitBackdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  color: '#fff',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-text-primary)',
                   marginTop: '10px',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
                 }} 

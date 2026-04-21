@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { X, Send, MessageSquare, Bug, Lightbulb, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useCoins } from '../context/CoinContext';
 
 export default function FeedbackModal({ isOpen, onClose }) {
     const { user } = useAuth();
+    const { refreshBalance } = useCoins();
     const [feedbackType, setFeedbackType] = useState('feedback'); // 'feedback', 'bug', 'idea'
     const [message, setMessage] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -16,9 +18,36 @@ export default function FeedbackModal({ isOpen, onClose }) {
         if (!message.trim()) return;
 
         setIsSubmitting(true);
-        // Simulate API call for now (can be replaced with actual backend call later)
         try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const token = localStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const response = await fetch(`${apiUrl}/api/feedback`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    feedback_type: feedbackType,
+                    message: message.trim()
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to submit feedback');
+            }
+
+            // We can also trigger context update for coins if response indicates success
+            // but for now, we just show success state.
+            const data = await response.json();
+            if (data.coinsAwarded) {
+                refreshBalance();
+            }
+            
             setIsSuccess(true);
             setTimeout(() => {
                 onClose();
@@ -34,9 +63,9 @@ export default function FeedbackModal({ isOpen, onClose }) {
     };
 
     const typeOptions = [
-        { id: 'feedback', label: 'General Feedback', icon: MessageSquare, color: '#38bdf8' },
-        { id: 'bug', label: 'Report a Bug', icon: Bug, color: '#ef4444' },
-        { id: 'idea', label: 'Feature Idea', icon: Lightbulb, color: '#eab308' }
+        { id: 'feedback', label: 'General Feedback', icon: MessageSquare, color: 'var(--color-accent-cyan, #38bdf8)' },
+        { id: 'bug', label: 'Report a Bug', icon: Bug, color: 'var(--color-danger, #ef4444)' },
+        { id: 'idea', label: 'Feature Idea', icon: Lightbulb, color: 'var(--color-warning, #eab308)' }
     ];
 
     return (
@@ -48,7 +77,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
             alignItems: 'center',
             justifyContent: 'center',
             padding: '16px',
-            background: 'rgba(0, 0, 0, 0.7)',
+            background: 'rgba(0, 0, 0, 0.6)',
             backdropFilter: 'blur(8px)',
             animation: 'fadeIn 0.2s ease-out'
         }}>
@@ -73,29 +102,29 @@ export default function FeedbackModal({ isOpen, onClose }) {
                     align-items: center;
                     gap: 8px;
                     padding: 12px;
-                    background: rgba(255, 255, 255, 0.03);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: var(--color-bg-secondary);
+                    border: 1px solid var(--color-bg-card);
                     border-radius: 12px;
                     cursor: pointer;
                     transition: all 0.2s ease;
                 }
                 .feedback-type-btn:hover {
-                    background: rgba(255, 255, 255, 0.08);
+                    background: var(--color-bg-tertiary);
                 }
                 .feedback-type-btn.active {
-                    background: rgba(99, 102, 241, 0.1);
-                    border-color: rgba(99, 102, 241, 0.5);
+                    background: var(--color-accent-glow);
+                    border-color: var(--color-accent-secondary);
                     transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+                    box-shadow: 0 4px 12px var(--color-accent-glow);
                 }
                 .feedback-textarea {
                     width: 100%;
                     min-height: 120px;
-                    background: rgba(0, 0, 0, 0.2);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    background: var(--color-bg-secondary);
+                    border: 1px solid var(--color-bg-card);
                     border-radius: 12px;
                     padding: 16px;
-                    color: white;
+                    color: var(--color-text-primary);
                     font-size: 14px;
                     resize: vertical;
                     transition: all 0.2s;
@@ -103,18 +132,18 @@ export default function FeedbackModal({ isOpen, onClose }) {
                 }
                 .feedback-textarea:focus {
                     outline: none;
-                    border-color: #6366f1;
-                    background: rgba(0, 0, 0, 0.4);
-                    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+                    border-color: var(--color-accent-secondary);
+                    background: var(--color-bg-primary);
+                    box-shadow: 0 0 0 2px var(--color-accent-glow);
                 }
                 .feedback-textarea::placeholder {
-                    color: rgba(255, 255, 255, 0.4);
+                    color: var(--color-text-muted);
                 }
                 .feedback-submit-btn {
                     width: 100%;
                     padding: 14px;
-                    background: #6366f1;
-                    color: white;
+                    background: var(--color-accent-secondary);
+                    color: #ffffff;
                     border: none;
                     border-radius: 12px;
                     font-weight: 600;
@@ -127,9 +156,9 @@ export default function FeedbackModal({ isOpen, onClose }) {
                     transition: all 0.2s;
                 }
                 .feedback-submit-btn:hover:not(:disabled) {
-                    background: #4f46e5;
+                    background: var(--color-accent-primary);
                     transform: translateY(-1px);
-                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+                    box-shadow: 0 4px 12px var(--color-accent-glow);
                 }
                 .feedback-submit-btn:disabled {
                     opacity: 0.6;
@@ -138,39 +167,38 @@ export default function FeedbackModal({ isOpen, onClose }) {
                 `}
             </style>
 
-            <div style={{
-                background: '#0f111a',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
+            <div className="glass-panel" style={{
+                background: 'var(--color-bg-primary)',
                 borderRadius: '20px',
                 width: '100%',
                 maxWidth: '500px',
                 position: 'relative',
                 overflow: 'hidden',
                 animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: '0 24px 48px rgba(0, 0, 0, 0.5)'
+                boxShadow: '0 24px 48px rgba(0, 0, 0, 0.2)'
             }}>
                 {/* Header */}
                 <div style={{
                     padding: '24px',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderBottom: '1px solid var(--color-bg-card)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: 'linear-gradient(to right, rgba(255, 255, 255, 0.02), transparent)'
+                    background: 'var(--color-bg-tertiary)'
                 }}>
                     <div>
-                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Star size={20} color="#eab308" />
+                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 600, color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Star size={20} color="var(--color-warning)" />
                             Help Us Improve
                         </h2>
-                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#a1a1aa' }}>
-                            Share your thoughts or report issues. You'll earn <span style={{ color: '#fbbf24', fontWeight: 600 }}>+10 coins</span>!
+                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                            Share your thoughts or report issues. You'll earn <span style={{ color: 'var(--color-warning)', fontWeight: 600 }}>+10 coins</span>!
                         </p>
                     </div>
                     <button 
                         onClick={onClose}
                         style={{
-                            background: 'rgba(255, 255, 255, 0.05)',
+                            background: 'var(--color-bg-card)',
                             border: 'none',
                             borderRadius: '50%',
                             width: '32px',
@@ -178,17 +206,17 @@ export default function FeedbackModal({ isOpen, onClose }) {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            color: '#a1a1aa',
+                            color: 'var(--color-text-secondary)',
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
                         onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
-                            e.currentTarget.style.color = 'white';
+                            e.currentTarget.style.background = 'var(--color-bg-tertiary)';
+                            e.currentTarget.style.color = 'var(--color-text-primary)';
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                            e.currentTarget.style.color = '#a1a1aa';
+                            e.currentTarget.style.background = 'var(--color-bg-card)';
+                            e.currentTarget.style.color = 'var(--color-text-secondary)';
                         }}
                     >
                         <X size={18} />
@@ -210,25 +238,25 @@ export default function FeedbackModal({ isOpen, onClose }) {
                                 width: '64px',
                                 height: '64px',
                                 borderRadius: '50%',
-                                background: 'rgba(34, 197, 94, 0.1)',
-                                border: '1px solid rgba(34, 197, 94, 0.2)',
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 marginBottom: '16px'
                             }}>
-                                <Send size={32} color="#22c55e" />
+                                <Send size={32} color="var(--color-success)" />
                             </div>
-                            <h3 style={{ margin: '0 0 8px', fontSize: '20px', color: 'white', fontWeight: 600 }}>Thank You!</h3>
-                            <p style={{ margin: 0, color: '#a1a1aa', textAlign: 'center', fontSize: '14px', maxWidth: '300px' }}>
-                                Your feedback has been received. <span style={{ color: '#fbbf24', fontWeight: 600 }}>+10 coins</span> have been added to your wallet!
+                            <h3 style={{ margin: '0 0 8px', fontSize: '20px', color: 'var(--color-text-primary)', fontWeight: 600 }}>Thank You!</h3>
+                            <p style={{ margin: 0, color: 'var(--color-text-secondary)', textAlign: 'center', fontSize: '14px', maxWidth: '300px' }}>
+                                Your feedback has been received. <span style={{ color: 'var(--color-warning)', fontWeight: 600 }}>+10 coins</span> have been added to your wallet!
                             </p>
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit}>
                             {/* Type Selection */}
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '13px', color: '#e4e4e7', fontWeight: 500 }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 500 }}>
                                     What would you like to share?
                                 </label>
                                 <div style={{ display: 'flex', gap: '12px' }}>
@@ -241,11 +269,11 @@ export default function FeedbackModal({ isOpen, onClose }) {
                                                 className={`feedback-type-btn ${isActive ? 'active' : ''}`}
                                                 onClick={() => setFeedbackType(option.id)}
                                             >
-                                                <Icon size={20} color={isActive ? option.color : '#a1a1aa'} />
+                                                <Icon size={20} color={isActive ? option.color : 'var(--color-text-muted)'} />
                                                 <span style={{ 
                                                     fontSize: '12px', 
                                                     fontWeight: 500,
-                                                    color: isActive ? 'white' : '#a1a1aa'
+                                                    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)'
                                                 }}>
                                                     {option.label}
                                                 </span>
@@ -257,7 +285,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
 
                             {/* Message Area */}
                             <div style={{ marginBottom: '24px' }}>
-                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '13px', color: '#e4e4e7', fontWeight: 500 }}>
+                                <label style={{ display: 'block', marginBottom: '12px', fontSize: '13px', color: 'var(--color-text-primary)', fontWeight: 500 }}>
                                     Your message
                                 </label>
                                 <textarea
@@ -308,3 +336,4 @@ export default function FeedbackModal({ isOpen, onClose }) {
         </div>
     );
 }
+

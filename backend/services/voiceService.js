@@ -263,18 +263,22 @@ export async function speechToTextChunk(audioBuffer, mimeType = 'audio/webm') {
     }
 
     const apiKey = process.env.DEEPGRAM_API_KEY;
+    // Deepgram REST API requires clean MIME types without codec params
+    // MediaRecorder sends 'audio/webm;codecs=opus' → strip to 'audio/webm'
+    const cleanMimeType = String(mimeType).split(';')[0].trim() || 'audio/webm';
 
     const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&diarize=false&filler_words=true', {
         method: 'POST',
         headers: {
             'Authorization': `Token ${apiKey}`,
-            'Content-Type':  mimeType,
+            'Content-Type':  cleanMimeType,
         },
         body: audioBuffer,
     });
 
     if (!response.ok) {
-        throw new Error(`Deepgram chunk STT error: ${response.status}`);
+        const errBody = await response.text().catch(() => '');
+        throw new Error(`Deepgram chunk STT error: ${response.status} — ${errBody.substring(0, 200)}`);
     }
 
     const data = await response.json();
@@ -409,13 +413,13 @@ async function kokoroTTS(text, persona, gender = 'female') {
 
     const t0 = Date.now();
     
-    // CRITICAL OPTIMIZATION: Limit text length to reduce generation time
-    // Long texts (>300 chars) cause 2-3s delays. Truncate for real-time feel.
-    const maxChars = 150; // Aggressive truncation for <500ms generation
+    // Limit text length to reduce generation time while keeping questions intact.
+    // 300 chars covers most interview questions without truncation.
+    const maxChars = 300;
     const truncatedText = text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
     
     try {
-        const audio = await tts.generate(truncatedText, { voice, speed: 1.3 }); // Faster for real-time
+        const audio = await tts.generate(truncatedText, { voice, speed: 1.15 }); // Slightly faster, natural tone
         const latency = Date.now() - t0;
 
         const wavBuffer = Buffer.from(audio.toWav());

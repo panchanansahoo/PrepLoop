@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, MessageSquare, Brain, Code2, Github, Linkedin, Chrome } from 'lucide-react';
+import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, MessageSquare, Brain, Code2, Sparkles, Github, Linkedin, Chrome } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
 const styles = {

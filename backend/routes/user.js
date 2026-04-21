@@ -8,6 +8,7 @@ import dsaLearningPath, {
 import lldLearningPath from "../data/lldLearningPath.js";
 import aiLearningPath from "../data/aiLearningPath.js";
 import { applyCoinTransaction } from "../utils/coinTransactions.js";
+import { calculateDashboardStreak } from "../utils/dashboardStreak.js";
 
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
@@ -1061,63 +1062,17 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       .eq('user_id', userId)
       .gte('seconds_active', 60); // At least 1 minute of activity
 
-    const activityDates = (activityResult.data || []).map(a => a.date);
-    const submissionDates = subs.map((s) => new Date(s.submitted_at).toISOString().split("T")[0]);
-    
-    // Merge both sources and get unique dates
-    const allActivityDates = [...new Set([...submissionDates, ...activityDates])].sort().reverse();
+    const activityDates = (activityResult.data || []).map((activity) => activity.date);
+    const submissionDates = subs.map((submission) => submission.submitted_at);
 
-    let currentStreak = 0;
-    let bestStreak = 0;
-    const weekProgress = [false, false, false, false, false, false, false]; // M, T, W, T, F, S, S
-
-    if (allActivityDates.length > 0) {
-      // Calculate current streak
-      const today = new Date().toISOString().split("T")[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-
-      if (allActivityDates[0] === today || allActivityDates[0] === yesterday) {
-        currentStreak = 1;
-        for (let i = 1; i < allActivityDates.length; i++) {
-          const prev = new Date(allActivityDates[i - 1]);
-          const curr = new Date(allActivityDates[i]);
-          const diffDays = Math.round((prev - curr) / 86400000);
-          if (diffDays === 1) {
-            currentStreak++;
-          } else {
-            break;
-          }
-        }
-      }
-
-      // Calculate best streak
-      let tempStreak = 1;
-      const allDates = [...allActivityDates].sort();
-      for (let i = 1; i < allDates.length; i++) {
-        const prev = new Date(allDates[i - 1]);
-        const curr = new Date(allDates[i]);
-        const diffDays = Math.round((curr - prev) / 86400000);
-        if (diffDays === 1) {
-          tempStreak++;
-        } else {
-          bestStreak = Math.max(bestStreak, tempStreak);
-          tempStreak = 1;
-        }
-      }
-      bestStreak = Math.max(bestStreak, tempStreak);
-
-      // Calculate week progress (last 7 days, Monday to Sunday)
-      const now = new Date();
-      const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-      const mondayOffset = currentDay === 0 ? 6 : currentDay - 1; // Days since Monday
-      
-      for (let i = 0; i < 7; i++) {
-        const checkDate = new Date(now);
-        checkDate.setDate(now.getDate() - mondayOffset + i);
-        const dateStr = checkDate.toISOString().split('T')[0];
-        weekProgress[i] = allActivityDates.includes(dateStr);
-      }
-    }
+    const {
+      currentStreak,
+      bestStreak,
+      weekProgress,
+    } = calculateDashboardStreak({
+      submissionDateKeys: submissionDates,
+      activityDateValues: activityDates,
+    });
 
     // Update profile with latest streak data
     try {

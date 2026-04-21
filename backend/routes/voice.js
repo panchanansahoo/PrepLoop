@@ -326,7 +326,7 @@ router.get('/backchannel-clips', optionalAuth, async (req, res) => {
 // DEEPGRAM TOKEN — For frontend WebSocket STT (if enabled)
 // GET /api/voice/deepgram-token  (requires auth)
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/deepgram-token', authenticateToken, (req, res) => {
+router.get('/deepgram-token', optionalAuth, (req, res) => {
     const token = voiceService.getDeepgramToken();
     if (!token) {
         return res.status(200).json({ available: false, message: 'Deepgram not configured. Using browser speech recognition.' });
