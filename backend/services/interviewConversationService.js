@@ -1,3 +1,28 @@
+// ── Type-specific fallback messages ──────────────────────────────────
+const FALLBACK_MESSAGES = {
+  dsa: {
+    message: 'Good start. Walk me through the time complexity and one edge case that could break your approach.',
+    encouragement: 'You are on the right track. Keep it structured.',
+  },
+  'system-design': {
+    message: 'Good foundation. Which component would you scale first and why?',
+    encouragement: 'Solid direction. Let us dig deeper into the trade-offs.',
+  },
+  behavioral: {
+    message: 'That is a good start. Can you walk me through the specific outcome and your role in it?',
+    encouragement: 'Great context. The details will make this story shine.',
+  },
+  hr: {
+    message: 'Thanks for sharing. What specifically draws you to this direction?',
+    encouragement: 'Appreciate the honesty. Let us explore that a bit more.',
+  },
+};
+
+function getFallbackForType(interviewType) {
+  const normalized = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
+  return FALLBACK_MESSAGES[normalized] || FALLBACK_MESSAGES.dsa;
+}
+
 export class InterviewConversationService {
   static parseFollowUpContent(content = '{}') {
     const normalized = String(content || '{}');
@@ -5,15 +30,15 @@ export class InterviewConversationService {
     return JSON.parse(jsonMatch?.[0] || '{}');
   }
 
-  static buildFallbackFollowUp(interviewMode = 'full_realtime') {
-    const message = 'Good start. Give complexity, then one edge case that could break your approach.';
+  static buildFallbackFollowUp(interviewMode = 'full_realtime', interviewType = 'dsa') {
+    const typeFallback = getFallbackForType(interviewType);
 
     return {
-      message,
+      message: typeFallback.message,
       isFollowUp: true,
       clarifications: [],
       hints: [],
-      encouragement: 'You are on the right track. Keep it structured.',
+      encouragement: typeFallback.encouragement,
       continueInterview: true,
     };
   }
@@ -23,6 +48,7 @@ export class InterviewConversationService {
     modelConfig,
     prompt,
     interviewMode = 'full_realtime',
+    interviewType = 'dsa',
   }) {
     const raw = await this.requestFollowUpContent({
       groqClient,
@@ -33,6 +59,7 @@ export class InterviewConversationService {
     const normalized = this.normalizeFollowUp({
       content: raw.content,
       interviewMode,
+      interviewType,
       forceFallback: raw.fallbackTriggered,
     });
 
@@ -89,11 +116,12 @@ export class InterviewConversationService {
   static normalizeFollowUp({
     content,
     interviewMode = 'full_realtime',
+    interviewType = 'dsa',
     forceFallback = false,
   }) {
     if (forceFallback) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -105,7 +133,7 @@ export class InterviewConversationService {
       parsed = this.parseFollowUpContent(content || '{}');
     } catch {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -113,7 +141,7 @@ export class InterviewConversationService {
 
     if (!parsed || typeof parsed !== 'object' || !parsed.message) {
       return {
-        followUp: this.buildFallbackFollowUp(interviewMode),
+        followUp: this.buildFallbackFollowUp(interviewMode, interviewType),
         parseSuccess: false,
         parseFallbackTriggered: true,
       };
@@ -121,7 +149,7 @@ export class InterviewConversationService {
 
     return {
       followUp: {
-        ...this.buildFallbackFollowUp(interviewMode),
+        ...this.buildFallbackFollowUp(interviewMode, interviewType),
         ...parsed,
       },
       parseSuccess: true,

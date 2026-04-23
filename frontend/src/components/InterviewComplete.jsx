@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Award, ArrowRight } from 'lucide-react';
+import { BarChart3, TrendingUp, TrendingDown, Activity, Award, ArrowRight, Target, BookOpen } from 'lucide-react';
 
 export default function InterviewComplete({ interview, onNewInterview }) {
   const [scoreDetails, setScoreDetails] = useState(null);
@@ -28,6 +28,22 @@ export default function InterviewComplete({ interview, onNewInterview }) {
     if (score >= 70) return 'Good';
     if (score >= 55) return 'Average';
     return 'Needs Improvement';
+  };
+
+  // ── Extract backend intelligence data ─────────────────────────────
+  const backendStrengths = interview.strengths || interview.completion?.strengths;
+  const backendImprovements = interview.areasForImprovement || interview.completion?.areas_for_improvement;
+  const backendRecommendations = interview.recommendations || interview.completion?.recommendations;
+  const backendFollowUps = interview.followUpProblems || interview.completion?.follow_up_practice_problems;
+  const trendNarrative = interview.trendNarrative || interview.completion?.trend_narrative;
+  const scoreTrend = interview.scoreTrendSummary || interview.completion?.score_trend_summary;
+
+  // ── Trend icon helper ─────────────────────────────────────────────
+  const getTrendIcon = () => {
+    if (!scoreTrend?.trend) return <Activity className="w-5 h-5 text-slate-400" />;
+    if (scoreTrend.trend === 'improving') return <TrendingUp className="w-5 h-5 text-green-400" />;
+    if (scoreTrend.trend === 'declining') return <TrendingDown className="w-5 h-5 text-red-400" />;
+    return <Activity className="w-5 h-5 text-blue-400" />;
   };
 
   const ScoreCard = ({ label, score }) => (
@@ -110,43 +126,124 @@ export default function InterviewComplete({ interview, onNewInterview }) {
         </div>
       )}
 
-      {/* Recommendations */}
-      <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-6 space-y-4">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-5 h-5 text-blue-400" />
-          <h2 className="text-xl font-bold text-white">Personalized Recommendations</h2>
+      {/* Performance Journey — Trend Narrative */}
+      {trendNarrative && (
+        <div className="bg-gradient-to-br from-indigo-900/20 to-slate-800/50 border border-indigo-500/30 rounded-lg p-6 space-y-3">
+          <div className="flex items-center gap-2">
+            {getTrendIcon()}
+            <h2 className="text-xl font-bold text-white">Performance Journey</h2>
+            {scoreTrend?.trend && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                scoreTrend.trend === 'improving' ? 'bg-green-500/20 text-green-400' :
+                scoreTrend.trend === 'declining' ? 'bg-red-500/20 text-red-400' :
+                'bg-blue-500/20 text-blue-400'
+              }`}>
+                {scoreTrend.trend}
+              </span>
+            )}
+          </div>
+          <p className="text-slate-300 leading-relaxed">{trendNarrative}</p>
         </div>
-        
-        <div className="space-y-3">
-          {scoreDetails?.communication < 75 && (
-            <div className="flex gap-3 text-slate-300">
-              <span className="text-blue-400">→</span>
-              <span>Work on articulation and clarity. Practice speaking slowly and structuring thoughts better.</span>
+      )}
+
+      {/* Dynamic Strengths & Improvements from Backend */}
+      {(backendStrengths || backendImprovements) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Strengths */}
+          {backendStrengths && backendStrengths.length > 0 && (
+            <div className="bg-slate-800 border border-green-500/20 rounded-lg p-6 space-y-3">
+              <h3 className="font-bold text-green-400 flex items-center gap-2">
+                <span>✓</span> Strengths
+              </h3>
+              <ul className="space-y-2">
+                {backendStrengths.map((s, i) => (
+                  <li key={i} className="text-slate-300 text-sm flex gap-2">
+                    <span className="text-green-400 mt-0.5">•</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {scoreDetails?.technical < 75 && (
-            <div className="flex gap-3 text-slate-300">
-              <span className="text-blue-400">→</span>
-              <span>Review fundamental concepts. Solve 5-10 LeetCode problems daily to improve technical depth.</span>
-            </div>
-          )}
-
-          {scoreDetails?.problemSolving < 75 && (
-            <div className="flex gap-3 text-slate-300">
-              <span className="text-blue-400">→</span>
-              <span>Think through problems step by step. Clarify requirements before diving into solutions.</span>
-            </div>
-          )}
-
-          {scoreDetails?.overall >= 80 && (
-            <div className="flex gap-3 text-green-300">
-              <span className="text-green-400">✓</span>
-              <span>Excellent performance! Try a harder difficulty level to challenge yourself further.</span>
+          {/* Areas for Improvement */}
+          {backendImprovements && backendImprovements.length > 0 && (
+            <div className="bg-slate-800 border border-amber-500/20 rounded-lg p-6 space-y-3">
+              <h3 className="font-bold text-amber-400 flex items-center gap-2">
+                <Target className="w-4 h-4" /> Areas to Improve
+              </h3>
+              <ul className="space-y-2">
+                {backendImprovements.map((a, i) => (
+                  <li key={i} className="text-slate-300 text-sm flex gap-2">
+                    <span className="text-amber-400 mt-0.5">→</span>
+                    <span>{a}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
         </div>
-      </div>
+      )}
+
+      {/* Dynamic Recommendations */}
+      {backendRecommendations && (
+        <div className="bg-gradient-to-br from-blue-900/20 to-purple-900/20 border border-blue-500/30 rounded-lg p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-blue-400" />
+            <h2 className="text-xl font-bold text-white">Personalized Recommendations</h2>
+          </div>
+
+          <p className="text-slate-300 leading-relaxed">{backendRecommendations}</p>
+
+          {/* Fallback static recommendations when no backend data */}
+          {!backendRecommendations && (
+            <div className="space-y-3">
+              {scoreDetails?.communication < 75 && (
+                <div className="flex gap-3 text-slate-300">
+                  <span className="text-blue-400">→</span>
+                  <span>Work on articulation and clarity. Practice speaking slowly and structuring thoughts better.</span>
+                </div>
+              )}
+              {scoreDetails?.technical < 75 && (
+                <div className="flex gap-3 text-slate-300">
+                  <span className="text-blue-400">→</span>
+                  <span>Review fundamental concepts. Solve 5-10 LeetCode problems daily to improve technical depth.</span>
+                </div>
+              )}
+              {scoreDetails?.problemSolving < 75 && (
+                <div className="flex gap-3 text-slate-300">
+                  <span className="text-blue-400">→</span>
+                  <span>Think through problems step by step. Clarify requirements before diving into solutions.</span>
+                </div>
+              )}
+              {scoreDetails?.overall >= 80 && (
+                <div className="flex gap-3 text-green-300">
+                  <span className="text-green-400">✓</span>
+                  <span>Excellent performance! Try a harder difficulty level to challenge yourself further.</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Recommended Practice Problems */}
+      {backendFollowUps && backendFollowUps.length > 0 && (
+        <div className="bg-slate-800 border border-purple-500/20 rounded-lg p-6 space-y-4">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-purple-400" />
+            <h2 className="text-xl font-bold text-white">Recommended Practice</h2>
+          </div>
+          <div className="space-y-3">
+            {backendFollowUps.map((fp, i) => (
+              <div key={i} className="border border-slate-700 rounded-lg p-4 space-y-1">
+                <p className="text-purple-400 font-medium">{fp.title}</p>
+                <p className="text-slate-400 text-sm">{fp.reason}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Interview Details */}
       <div className="bg-slate-800 border border-slate-700 rounded-lg p-6 space-y-4">

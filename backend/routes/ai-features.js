@@ -301,6 +301,7 @@ router.post(
   body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
   body('companyFocus').optional().isString().trim(),
   body('interviewMode').optional().isIn(INTERVIEW_MODES),
+  body('totalQuestions').optional().isInt({ min: 3, max: 30 }).toInt(),
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -313,6 +314,7 @@ router.post(
         difficulty = 'medium',
         companyFocus,
         interviewMode = process.env.AI_INTERVIEW_MODE || 'full_realtime',
+        totalQuestions = null,
       } = req.body;
       const userId = req.user.id;
       const requestId = req.id;
@@ -332,7 +334,8 @@ router.post(
         difficulty,
         companyFocus,
         requestId,
-        interviewMode
+        interviewMode,
+        totalQuestions
       );
 
       return res.status(200).json({

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
+import './Home.css';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
@@ -13,8 +14,9 @@ import {
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
+import { lazyWithRecovery } from '../utils/lazyWithRecovery';
 
-const Hero3DScene = lazy(() => import('../components/Hero3DScene'));
+const Hero3DScene = lazyWithRecovery(() => import('../components/Hero3DScene'), 1);
 import HeroShowcase from '../components/HeroShowcase';
 
 /* ═══════════════════════════════════════════════ */
@@ -113,61 +115,61 @@ const testimonials = [
     name: 'Rohan Sharma',
     role: 'SDE-2 at Amazon',
     text: 'I struggled with system design rounds for months. Preploop\'s AI interviewer gave me real-time actionable feedback on my architecture choices. Passed the loop on my next attempt.',
-    avatar: 'https://randomuser.me/api/portraits/men/32.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=RS&backgroundColor=6366f1'
   },
   {
     name: 'Anjali Desai',
     role: 'Frontend Engineer at Swiggy',
     text: 'Preploop\'s resume scanner changed the game for me. It bumped my ATS match score from 40% to 85% by fixing missing keywords. I finally started getting callbacks from top product companies.',
-    avatar: 'https://randomuser.me/api/portraits/women/68.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=AD&backgroundColor=a855f7'
   },
   {
     name: 'Varun Iyer',
     role: 'Data Engineer at Flipkart',
     text: 'The prep wasn\'t just a generic grind. It pulled questions based on the actual company and role I was targeting. One of the exact SQL scenarios came up word for word in my onsite round.',
-    avatar: 'https://randomuser.me/api/portraits/men/45.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=VI&backgroundColor=3b82f6'
   },
   {
     name: 'Sneha Patel',
     role: 'Backend Developer at Atlassian',
     text: 'The AI mock interviews felt incredibly realistic. It actually pressed me on edge cases and time complexities in my code, just like a real engineering manager would. That pressure testing was invaluable.',
-    avatar: 'https://randomuser.me/api/portraits/women/43.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=SP&backgroundColor=ec4899'
   },
   {
     name: 'Aditya Nath',
     role: 'DevOps Engineer',
     text: 'Transitioning from IT support to DevOps was tough. I used the tailored prep paths here to master Kubernetes and CI/CD interview patterns. Landed my first core engineering role two months later.',
-    avatar: 'https://randomuser.me/api/portraits/men/22.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=AN&backgroundColor=14b8a6'
   },
   {
     name: 'Karthik Nair',
     role: 'Full Stack Developer at Zomato',
     text: 'I kept failing React practical rounds because I was slow. The timed assessments on Preploop trained me to write clean components under pressure. Boosted my speed by 2x.',
-    avatar: 'https://randomuser.me/api/portraits/men/75.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=KN&backgroundColor=f97316'
   },
   {
     name: 'Pooja Menon',
     role: 'ML Engineer at Microsoft',
     text: 'The machine learning system design questions are so niche, but Preploop had them. I got to practice scaling recommendation systems with the AI, which completely saved my final round.',
-    avatar: 'https://randomuser.me/api/portraits/women/35.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=PM&backgroundColor=8b5cf6'
   },
   {
     name: 'Siddharth Rao',
     role: 'iOS Developer at Cred',
     text: 'It\'s hard to find good iOS interview prep. Preploop\'s mobile engineering tracks had exactly the kind of deep dive questions on memory management and protocol-oriented programming that I faced.',
-    avatar: 'https://randomuser.me/api/portraits/men/51.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=SR&backgroundColor=0ea5e9'
   },
   {
     name: 'Neha Kapoor',
     role: 'QA Automation Engineer',
     text: 'I wanted to move from manual QA to SDET. The automation testing practice tracks helped me master Selenium and Cypress concepts intuitively. I secured a 60% hike with my new role.',
-    avatar: 'https://randomuser.me/api/portraits/women/12.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=NK&backgroundColor=d946ef'
   },
   {
     name: 'Arjun Verma',
     role: 'SDE-1 at Ola',
     text: 'The behavioral interview modules were a lifesaver. The AI analyzed my tone and structure, teaching me how to frame my past projects using the STAR method perfectly.',
-    avatar: 'https://randomuser.me/api/portraits/men/85.jpg'
+    avatar: 'https://api.dicebear.com/9.x/initials/svg?seed=AV&backgroundColor=22c55e'
   }
 ];
 
@@ -376,20 +378,37 @@ function ActivityTicker() {
 function JobUpdatesPreview() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const sectionRef = useRef(null);
 
+  // Lazy-load: only fetch jobs when the section scrolls into view
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const { data } = await axios.get(`${API}/api/jobs?limit=3`);
-        setJobs(data.jobs || []);
-      } catch (err) {
-        console.error('Failed to fetch jobs preview:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchJobs();
+    const el = sectionRef.current;
+    if (!el) return;
+
+    let fetched = false;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !fetched) {
+          fetched = true;
+          observer.disconnect();
+          const fetchJobs = async () => {
+            try {
+              const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+              const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+              setJobs(data.jobs || []);
+            } catch (err) {
+              console.error('Failed to fetch jobs preview:', err);
+            } finally {
+              setLoading(false);
+            }
+          };
+          fetchJobs();
+        }
+      },
+      { rootMargin: '200px' } // Start fetching 200px before visible
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   // Color palette for company initials
@@ -416,7 +435,7 @@ function JobUpdatesPreview() {
 
   if (loading) {
     return (
-      <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
+      <section ref={sectionRef} style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
         <div className="container" style={{ textAlign: 'center' }}>
           <div style={{ color: 'var(--text-muted)', fontSize: '16px' }}>Loading latest jobs...</div>
         </div>
@@ -425,7 +444,7 @@ function JobUpdatesPreview() {
   }
 
   return (
-    <section style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
+    <section ref={sectionRef} style={{ padding: '80px 0', position: 'relative', zIndex: 10 }} id="jobs">
       <div className="container">
         {/* Section Header */}
         <div style={{ textAlign: 'center', marginBottom: '60px' }}>
@@ -799,6 +818,85 @@ export default function Home() {
       <GradientDivider />
 
       {/* ═══════════════════════════════════════════════ */}
+      {/*               HOW IT WORKS                      */}
+      {/* ═══════════════════════════════════════════════ */}
+      <section style={{ padding: '100px 0', position: 'relative', zIndex: 10 }} id="how-it-works">
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: '60px' }}>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: '8px',
+              padding: '6px 16px', border: '1px solid var(--border)',
+              borderRadius: '99px', fontSize: '12px', color: 'var(--text-secondary)',
+              background: 'var(--accent-glow)', marginBottom: '20px',
+              textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '600'
+            }}>
+              <Rocket size={12} /> How It Works
+            </div>
+            <h2 style={{ fontSize: 'clamp(28px, 5.5vw, 40px)', marginBottom: '16px', fontWeight: 'bold' }}>
+              Your Path to <span className="text-gradient">Interview Success</span>
+            </h2>
+            <p style={{ color: 'var(--zinc-400)', fontSize: '18px', maxWidth: '600px', margin: '0 auto' }}>
+              A proven 3-step system that takes you from zero to interview-ready in weeks, not months.
+            </p>
+          </div>
+
+          <div className="hiw-grid">
+            {howItWorks.map((item, i) => (
+              <React.Fragment key={i}>
+                {i > 0 && (
+                  <div className="hiw-connector">
+                    <div className="hiw-connector-line" />
+                    <div className="hiw-connector-pulse" />
+                    <ChevronRight size={18} className="hiw-connector-arrow" />
+                  </div>
+                )}
+                <div className="hiw-card">
+                  <div className="hiw-card-glow" style={{ background: item.glowColor }} />
+                  <div className="hiw-step-badge" style={{ background: item.gradient }}>
+                    {item.step}
+                  </div>
+                  <div className="hiw-icon-wrap" style={{
+                    borderColor: item.borderColor,
+                    background: `linear-gradient(135deg, ${item.glowColor}, transparent)`
+                  }}>
+                    <div className="hiw-icon-inner" style={{ background: item.gradient, WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                      {React.cloneElement(item.icon, { style: { color: 'inherit' }, color: undefined })}
+                    </div>
+                    <div style={{ position: 'absolute', color: '#e4e4e7' }}>{item.icon}</div>
+                  </div>
+                  <h3 className="hiw-title">{item.title}</h3>
+                  <p className="hiw-desc">{item.desc}</p>
+                  <div className="hiw-accent-line" style={{ background: item.gradient }} />
+                </div>
+              </React.Fragment>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <GradientDivider />
+
+      {/* ═══════════════════════════════════════════════ */}
+      {/*                  STATS BAR                      */}
+      {/* ═══════════════════════════════════════════════ */}
+      <section style={{ padding: '60px 0', position: 'relative', zIndex: 10 }}>
+        <div className="container">
+          <div style={{
+            display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+            gap: '8px', background: 'var(--bg-card)', border: '1px solid var(--border)',
+            borderRadius: '24px', backdropFilter: 'blur(20px)', padding: '20px 16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+          }}>
+            {stats.map((s, i) => (
+              <StatCard key={i} value={s.value} suffix={s.suffix} label={s.label} icon={s.icon} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <GradientDivider />
+
+      {/* ═══════════════════════════════════════════════ */}
       {/*                    FEATURES                     */}
       {/* ═══════════════════════════════════════════════ */}
       <section style={{ padding: '80px 0', background: 'transparent', position: 'relative', zIndex: 10 }} id="features">
@@ -1051,7 +1149,7 @@ export default function Home() {
                     "{testm.text}"
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <img src={testm.avatar} alt={testm.name} style={{
+                    <img src={testm.avatar} alt={testm.name} loading="lazy" style={{
                       width: isCenter ? '48px' : '40px',
                       height: isCenter ? '48px' : '40px',
                       borderRadius: '50%',
@@ -1118,8 +1216,8 @@ export default function Home() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', alignItems: 'center' }}>
             {/* Discord & Community CTA */}
             <div style={{
-              background: 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)',
-              border: '1px solid rgba(88, 101, 242, 0.3)',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
               borderRadius: '20px',
               padding: '40px 32px',
               transition: 'all 0.3s ease',
@@ -1127,14 +1225,14 @@ export default function Home() {
               position: 'relative',
               overflow: 'hidden'
             }} onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(88, 101, 242, 0.6)';
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.25) 0%, rgba(139, 92, 246, 0.2) 100%)';
+              e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.5)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.22) 0%, rgba(124, 58, 237, 0.15) 100%)';
             }} onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(88, 101, 242, 0.3)';
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(88, 101, 242, 0.15) 0%, rgba(139, 92, 246, 0.1) 100%)';
+              e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)';
             }}>
               <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="#5865F2" style={{ margin: '0 auto', marginBottom: '16px' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="#a78bfa" style={{ margin: '0 auto', marginBottom: '16px' }}>
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 10h-6v2h6v-2zm0-4h-6v2h6V8z" />
                 </svg>
               </div>
@@ -1158,17 +1256,18 @@ export default function Home() {
                 display: 'block',
                 width: '100%',
                 padding: '12px 24px',
-                background: '#5865F2',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 fontSize: '14px',
                 fontWeight: '600',
                 cursor: 'pointer',
                 textDecoration: 'none',
                 textAlign: 'center',
-                transition: 'all 0.3s ease'
-              }} onMouseEnter={(e) => e.target.style.background = '#4752c4'} onMouseLeave={(e) => e.target.style.background = '#5865F2'}>
+                transition: 'all 0.3s ease',
+                boxShadow: '0 4px 14px rgba(139, 92, 246, 0.3)'
+              }} onMouseEnter={(e) => { e.target.style.background = 'linear-gradient(135deg, #7c3aed, #6d28d9)'; e.target.style.boxShadow = '0 6px 20px rgba(139, 92, 246, 0.4)'; }} onMouseLeave={(e) => { e.target.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed)'; e.target.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.3)'; }}>
                 Join Discord
               </a>
             </div>

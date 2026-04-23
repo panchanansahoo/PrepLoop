@@ -13,6 +13,37 @@ class StructuredLogger {
     this.operationName = operationName;
   }
 
+  // SECURITY: Scrub PII and sensitive fields from log context
+  // Prevents email addresses, tokens, passwords, and API keys from
+  // reaching log aggregation systems (Splunk, ELK, CloudWatch, etc.)
+  static SENSITIVE_KEYS = new Set([
+    'password', 'secret', 'token', 'authorization', 'cookie',
+    'apikey', 'api_key', 'accesstoken', 'access_token', 'refreshtoken',
+    'refresh_token', 'ssn', 'creditcard', 'credit_card', 'cvv',
+  ]);
+
+  static scrubFields(obj, depth = 0) {
+    if (depth > 5 || !obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(item => StructuredLogger.scrubFields(item, depth + 1));
+
+    const scrubbed = {};
+    for (const [key, value] of Object.entries(obj)) {
+      const keyLower = key.toLowerCase().replace(/[-_]/g, '');
+      if (StructuredLogger.SENSITIVE_KEYS.has(keyLower)) {
+        scrubbed[key] = '[REDACTED]';
+      } else if (key === 'email' && typeof value === 'string') {
+        // Mask email: show first 2 chars + domain
+        const atIdx = value.indexOf('@');
+        scrubbed[key] = atIdx > 2 ? value.slice(0, 2) + '***' + value.slice(atIdx) : '[REDACTED]';
+      } else if (typeof value === 'object' && value !== null) {
+        scrubbed[key] = StructuredLogger.scrubFields(value, depth + 1);
+      } else {
+        scrubbed[key] = value;
+      }
+    }
+    return scrubbed;
+  }
+
   /**
    * Format log entry as structured JSON
    */
@@ -22,7 +53,7 @@ class StructuredLogger {
       level: level.toUpperCase(),
       operation: this.operationName,
       message,
-      ...fields,
+      ...StructuredLogger.scrubFields(fields),
     };
   }
 

@@ -1,8 +1,7 @@
-import Groq from 'groq-sdk';
 import { randomUUID } from 'crypto';
 import { createLogger } from '../utils/structuredLogger.js';
 import { supabaseAdmin } from '../db/index.js';
-import { InterviewOrchestratorService } from './interviewOrchestrator.js';
+import { InterviewStateMachineService } from './interviewStateMachine.js';
 import interviewGroundingService from './interviewGroundingService.js';
 import { InterviewPromptService } from './interviewPromptService.js';
 import { InterviewConversationService } from './interviewConversationService.js';
@@ -10,10 +9,7 @@ import { InterviewScoringService } from './interviewScoringService.js';
 import { InterviewFollowUpRulesService } from './interviewFollowUpRules.js';
 import { InterviewTelemetryService } from './interviewTelemetryService.js';
 import { addSpanEvent, setSpanAttribute } from '../utils/telemetry.js';
-
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+import { groqClient as groq } from './voiceService.js';
 
 const logger = createLogger('AIService');
 
@@ -31,6 +27,36 @@ const logger = createLogger('AIService');
  * - Ensure database schema is up-to-date to avoid fallback usage
  */
 const virtualInterviewSessions = new Map();
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_MAX_SIZE = 500;
+const SESSION_CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+
+// Periodic eviction of expired virtual sessions to prevent memory leaks
+const _sessionCleanupTimer = setInterval(() => {
+    const now = Date.now();
+    let evicted = 0;
+    for (const [key, session] of virtualInterviewSessions) {
+        if (now - (session._createdAt || 0) > SESSION_TTL_MS) {
+            virtualInterviewSessions.delete(key);
+            evicted++;
+        }
+    }
+    // If still over cap after TTL eviction, remove oldest entries
+    if (virtualInterviewSessions.size > SESSION_MAX_SIZE) {
+        const sorted = [...virtualInterviewSessions.entries()]
+            .sort((a, b) => (a[1]._createdAt || 0) - (b[1]._createdAt || 0));
+        const toRemove = sorted.slice(0, virtualInterviewSessions.size - SESSION_MAX_SIZE);
+        for (const [key] of toRemove) {
+            virtualInterviewSessions.delete(key);
+            evicted++;
+        }
+    }
+    if (evicted > 0) {
+        logger.info(`Virtual session cleanup: evicted ${evicted}, remaining ${virtualInterviewSessions.size}`);
+    }
+}, SESSION_CLEANUP_INTERVAL_MS);
+_sessionCleanupTimer.unref(); // Don't prevent process exit
+
 const interviewTelemetryService = new InterviewTelemetryService();
 
 const isMissingColumnError = (error, columnName) => {
@@ -75,12 +101,16 @@ const INTERVIEW_RUNTIME_MODES = ['full_realtime'];
 
 const ANSWER_FILLERS = ['um', 'uh', 'like', 'you know', 'basically', 'literally', 'sort of', 'right'];
 
+// Cached index of the working DB schema shape (avoids re-probing on every initializeInterview call)
+let _knownPayloadIndex = null;
+
 const clampScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 
-function analyzeAnswerQualityHeuristic(answer = '', question = '') {
+function analyzeAnswerQualityHeuristic(answer = '', question = '', interviewType = '') {
   const normalizedAnswer = String(answer || '').trim();
   const normalizedQuestion = String(question || '').trim();
   const lower = normalizedAnswer.toLowerCase();
+  const normalizedType = String(interviewType || '').toLowerCase();
 
   if (!normalizedAnswer) {
     return {
@@ -109,9 +139,35 @@ function analyzeAnswerQualityHeuristic(answer = '', question = '') {
     fillerCount += (lower.match(regex) || []).length;
   }
 
-  const clarityScore = clampScore(40 + Math.min(wordCount, 80) * 0.65 - fillerCount * 6);
-  const specificityScore = clampScore((hasActionLanguage ? 45 : 20) + (hasNumber ? 30 : 0) + (hasResultLanguage ? 25 : 5));
-  const confidenceScore = clampScore(50 + Math.min(wordCount, 60) * 0.5 - fillerCount * 7);
+  // ── Type-specific signal boosts ─────────────────────────────────────
+  let typeBoost = 0;
+  // Reduce filler penalty for behavioral/HR — natural speech has more fillers
+  const fillerPenalty = (normalizedType === 'behavioral' || normalizedType === 'hr') ? 3 : 6;
+  const fillerConfPenalty = (normalizedType === 'behavioral' || normalizedType === 'hr') ? 4 : 7;
+
+  if (normalizedType === 'dsa' || normalizedType === 'system_design' || normalizedType === 'system-design') {
+    // DSA/System Design: boost for complexity/algorithm language
+    const hasComplexity = /(o\(n|o\(1\)|o\(log|time complexity|space complexity|big o|amortized)/i.test(lower);
+    const hasAlgorithm = /(binary search|bfs|dfs|dynamic programming|greedy|hash map|hash table|sorting|recursion|backtrack)/i.test(lower);
+    const hasTradeOff = /(trade.?off|versus|instead of|alternative|compared to|at the cost of)/i.test(lower);
+    typeBoost = (hasComplexity ? 12 : 0) + (hasAlgorithm ? 8 : 0) + (hasTradeOff ? 6 : 0);
+  } else if (normalizedType === 'behavioral') {
+    // Behavioral: boost for STAR components
+    const hasSituation = /(in that situation|the context was|we were facing|at that time|when we)/i.test(lower);
+    const hasTask = /(my task was|i was responsible for|my role was|i needed to)/i.test(lower);
+    const hasStarAction = /(i took the action|i decided to|i implemented|i led|i organized)/i.test(lower);
+    const hasResult = /(the result was|as a result|the outcome|this led to|we achieved)/i.test(lower);
+    typeBoost = (hasSituation ? 8 : 0) + (hasTask ? 6 : 0) + (hasStarAction ? 8 : 0) + (hasResult ? 10 : 0);
+  } else if (normalizedType === 'hr') {
+    // HR: boost for motivation and fit language
+    const hasMotivation = /(passionate|excited|interested|motivated|driven|eager|love|enjoy)/i.test(lower);
+    const hasFit = /(team|culture|collaboration|values|growth|learning|mentor)/i.test(lower);
+    typeBoost = (hasMotivation ? 8 : 0) + (hasFit ? 8 : 0);
+  }
+
+  const clarityScore = clampScore(40 + Math.min(wordCount, 80) * 0.65 - fillerCount * fillerPenalty + typeBoost * 0.3);
+  const specificityScore = clampScore((hasActionLanguage ? 45 : 20) + (hasNumber ? 30 : 0) + (hasResultLanguage ? 25 : 5) + typeBoost * 0.4);
+  const confidenceScore = clampScore(50 + Math.min(wordCount, 60) * 0.5 - fillerCount * fillerConfPenalty + typeBoost * 0.3);
   const needsFollowUp = !(hasNumber && hasResultLanguage);
   const followUpQuestion = needsFollowUp
     ? (hasNumber
@@ -133,8 +189,8 @@ function analyzeAnswerQualityHeuristic(answer = '', question = '') {
   };
 }
 
-export async function analyzeAnswerQuality(answer = '', question = '') {
-  const heuristic = analyzeAnswerQualityHeuristic(answer, question);
+export async function analyzeAnswerQuality(answer = '', question = '', interviewType = '') {
+  const heuristic = analyzeAnswerQualityHeuristic(answer, question, interviewType);
 
   if (!process.env.GROQ_API_KEY) {
     return heuristic;
@@ -515,23 +571,38 @@ export class InterviewSimulatorService {
     }
 
     const tokens = normalizedMessage.split(' ');
-    if (tokens.length <= 24) {
+    const wordLimit = 35; // Match the prompt's word limit for realtime mode
+    if (tokens.length <= wordLimit) {
       return normalizedMessage;
     }
 
-    return `${tokens.slice(0, 24).join(' ')}...`;
+    // Truncate at the last sentence boundary within the word budget
+    const truncated = tokens.slice(0, wordLimit).join(' ');
+    const lastSentenceEnd = Math.max(
+      truncated.lastIndexOf('. '),
+      truncated.lastIndexOf('? '),
+      truncated.lastIndexOf('! '),
+    );
+
+    if (lastSentenceEnd > truncated.length * 0.4) {
+      // Found a good sentence boundary past the 40% mark — use it
+      return truncated.slice(0, lastSentenceEnd + 1).trim();
+    }
+
+    // No good boundary — truncate at word limit with ellipsis
+    return `${truncated}...`;
   }
 
   static _buildStagePlan(interviewType = 'dsa') {
-    return InterviewOrchestratorService.buildStagePlan(interviewType);
+    return InterviewStateMachineService.buildStagePlan(interviewType);
   }
 
-  static _buildInitialInterviewState(interviewType = 'dsa', difficulty = 'medium', companyFocus = null) {
-    return InterviewOrchestratorService.buildInitialState(interviewType, difficulty, companyFocus);
+  static _buildInitialInterviewState(interviewType = 'dsa', difficulty = 'medium', companyFocus = null, totalQuestions = null) {
+    return InterviewStateMachineService.createInitialState(interviewType, difficulty, companyFocus, totalQuestions);
   }
 
   static _advanceInterviewStage(state = {}) {
-    return InterviewOrchestratorService.advanceState(state);
+    return InterviewStateMachineService.advanceState(state);
   }
 
   static async getInterviewSession(sessionId, userId) {
@@ -560,12 +631,13 @@ export class InterviewSimulatorService {
     difficulty = 'medium',
     companyFocus = null,
     requestId = null,
-    interviewMode = null
+    interviewMode = null,
+    totalQuestions = null
   ) {
     try {
       const normalizedMode = this._normalizeInterviewMode(interviewMode);
       const runtime = this._buildInterviewRuntime(normalizedMode);
-      const initialInterviewState = this._buildInitialInterviewState(interviewType, difficulty, companyFocus);
+      const initialInterviewState = this._buildInitialInterviewState(interviewType, difficulty, companyFocus, totalQuestions);
       const telemetryAttributes = {
         'interview.user_id': String(userId || ''),
         'interview.type': String(interviewType || 'dsa'),
@@ -619,14 +691,23 @@ export class InterviewSimulatorService {
         }
       ];
 
-      for (const payload of payloadCandidates) {
+      // Cache the working schema shape index to avoid re-probing on every call.
+      // After the first successful insert, subsequent calls skip directly to the
+      // known-good payload shape, eliminating 1-3 unnecessary failed inserts.
+      const startIndex = _knownPayloadIndex !== null ? _knownPayloadIndex : 0;
+
+      for (let i = startIndex; i < payloadCandidates.length; i++) {
         ({ data: sessionData, error: sessionError } = await supabaseAdmin
           .from('interview_sessions')
-          .insert(payload)
+          .insert(payloadCandidates[i])
           .select()
           .single());
 
         if (!sessionError) {
+          if (_knownPayloadIndex === null) {
+            _knownPayloadIndex = i;
+            logger.info(`Schema shape cached at index ${i}`);
+          }
           break;
         }
 
@@ -719,7 +800,7 @@ export class InterviewSimulatorService {
           stage: initialInterviewState.stage,
           stageLabel: initialInterviewState.stageLabel,
         };
-        virtualInterviewSessions.set(sessionData.id, sessionData);
+        virtualInterviewSessions.set(sessionData.id, { ...sessionData, _createdAt: Date.now() });
         updatedSession = sessionData;
       }
 
@@ -777,15 +858,29 @@ export class InterviewSimulatorService {
         'interview.type': String(session.interview_type || 'dsa'),
       };
       const runtime = this._buildInterviewRuntime(normalizedMode);
-      const responseSignals = this._extractResponseSignals(candidateResponse);
+      const interviewType = String(session.interview_type || 'dsa').toLowerCase();
+      const responseSignals = this._extractResponseSignals(candidateResponse, interviewType);
+
+      // ── Type-aware missing areas: only inject relevant signals ──────
+      const newGaps = [];
+      if (interviewType === 'behavioral' || interviewType === 'hr') {
+        const responseLower = candidateResponse.toLowerCase();
+        if (!/(situation|task|action|result)/.test(responseLower) && interviewType === 'behavioral') newGaps.push('STAR structure');
+        if (!/\d+%|\d+ team|reduced|improved|increased/.test(responseLower)) newGaps.push('quantified impact');
+      } else if (interviewType === 'system_design' || interviewType === 'system-design') {
+        if (!responseSignals.hasTradeoffs) newGaps.push('trade-off discussion');
+        if (!/scale|shard|partition|replica|cache/.test(candidateResponse.toLowerCase())) newGaps.push('scalability discussion');
+      } else {
+        if (!responseSignals.hasComplexity) newGaps.push('complexity analysis');
+        if (!responseSignals.hasEdgeCases) newGaps.push('edge cases');
+        if (!responseSignals.hasTradeoffs) newGaps.push('trade-off discussion');
+      }
       const mergedMissingAreas = Array.from(
         new Set([
           ...(Array.isArray(currentContext.missingAreas) ? currentContext.missingAreas : []),
-          ...(!responseSignals.hasComplexity ? ['complexity analysis'] : []),
-          ...(!responseSignals.hasEdgeCases ? ['edge cases'] : []),
-          ...(!responseSignals.hasTradeoffs ? ['trade-off discussion'] : []),
+          ...newGaps,
         ])
-      );
+      ).slice(-5);
 
       const interviewContext = {
         ...currentContext,
@@ -795,6 +890,7 @@ export class InterviewSimulatorService {
         lastCandidateSummary: candidateResponse.slice(0, 220),
         lastSignals: responseSignals,
         missingAreas: mergedMissingAreas,
+        interviewType,
       };
 
       const priorInterviewState = currentContext.interviewState
@@ -840,6 +936,7 @@ export class InterviewSimulatorService {
               role: interviewContext.role || 'SDE',
               difficulty: interviewContext.currentDifficulty || session.difficulty_level || session.difficulty || 'medium',
               stage: advancedInterviewState.stage,
+              interviewType,
               missingAreas: interviewContext.missingAreas || [],
               resumeContext: interviewContext.resumeContext || {},
               limit: 4,
@@ -886,14 +983,7 @@ export class InterviewSimulatorService {
           requestId,
           error: error.message,
         });
-        followUp = {
-          message: 'Good direction. Can you now explain trade-offs and edge cases for your approach?',
-          isFollowUp: true,
-          clarifications: [],
-          hints: ['Consider boundary conditions and worst-case inputs.'],
-          encouragement: 'Nice progress so far.',
-          continueInterview: true,
-        };
+        followUp = InterviewConversationService.buildFallbackFollowUp(normalizedMode, session.interview_type);
       }
       followUp.message = this._compressForRealtimeVoice(followUp.message, normalizedMode);
 
@@ -934,10 +1024,16 @@ export class InterviewSimulatorService {
           requestId,
           error: error.message,
         });
+        const feedbackByType = {
+          behavioral: 'Good structure. Keep improving specificity and measurable outcomes.',
+          hr: 'Nice start. Add more detail about your motivation and career direction.',
+          system_design: 'Good foundation. Keep improving scalability reasoning and trade-off coverage.',
+          'system-design': 'Good foundation. Keep improving scalability reasoning and trade-off coverage.',
+        };
         analysis = {
           score: 70,
           candidateStuck: false,
-          feedback: 'Good structure. Keep improving clarity and edge-case coverage.',
+          feedback: feedbackByType[String(session.interview_type || '').toLowerCase()] || 'Good structure. Keep improving clarity and edge-case coverage.',
           strengths: ['Structured thinking'],
         };
       }
@@ -952,22 +1048,42 @@ export class InterviewSimulatorService {
           },
         },
         async (span) => {
-          const scores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type);
+          const scores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type, session.experience_level);
+
+          // ── Score history + trend analysis (sliding window) ─────────
+          // Must be computed before adaptive difficulty since difficulty decisions
+          // depend on trend/volatility data to block escalation for erratic candidates.
+          const scoreHistory = InterviewScoringService.buildScoreHistory(
+            updatedTranscript,
+            interviewContext,
+            5,
+          );
+          const scoreTrend = InterviewScoringService.calculateTrendFromHistory(scoreHistory);
+
           const currentDifficulty =
             interviewContext.currentDifficulty ||
             session.difficulty_level ||
             session.difficulty ||
             'medium';
-          const adaptive = this._deriveAdaptiveDifficulty(currentDifficulty, scores.overall, interviewContext.turns || 1);
+          const adaptive = this._deriveAdaptiveDifficulty(currentDifficulty, scores.overall, interviewContext.turns || 1, scoreTrend);
+
           const followUpRules = InterviewFollowUpRulesService.decideBranch({
             analysis,
-            interviewContext,
+            interviewContext: {
+              ...interviewContext,
+              previousScore: Number(interviewContext?.currentScores?.overall || 0) * 10,
+            },
             candidateResponse,
+            candidateCode: interviewContext?.lastCandidateCode || '',
+            scoreHistory,
+            scoreTrend,
           });
           span.setAttribute('interview.score.overall', Number(scores?.overall || 0));
           span.setAttribute('interview.score.difficulty', String(adaptive?.newDifficulty || currentDifficulty));
           span.setAttribute('interview.followup.next_action', String(followUpRules?.nextAction || 'followup_clarify'));
-          return { currentScores: scores, adaptiveUpdate: adaptive, adaptiveFollowUp: followUpRules };
+          span.setAttribute('interview.score.trend', String(scoreTrend?.trend || 'stable'));
+          span.setAttribute('interview.score.volatility', String(scoreTrend?.volatility || 'stable'));
+          return { currentScores: scores, adaptiveUpdate: adaptive, adaptiveFollowUp: followUpRules, scoreHistory };
         }
       );
       const telemetry = this._buildInterviewTelemetrySnapshot({
@@ -991,8 +1107,9 @@ export class InterviewSimulatorService {
           adaptiveReason: adaptiveUpdate.reason,
           currentScores,
           lastInterviewerPrompt: followUp.message,
-          missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])),
+          missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])).slice(-5),
           adaptiveFollowUp,
+          scoreHistory,
           telemetry,
         },
         updated_at: new Date().toISOString()
@@ -1027,7 +1144,7 @@ export class InterviewSimulatorService {
           id: sessionId,
           user_id: userId,
         };
-        virtualInterviewSessions.set(sessionId, virtualSession);
+        virtualInterviewSessions.set(sessionId, { ...virtualSession, _createdAt: Date.now() });
         updatedSession = virtualSession;
       }
 
@@ -1057,6 +1174,7 @@ export class InterviewSimulatorService {
         current_scores: currentScores,
         adaptive_update: adaptiveUpdate,
         adaptive_followup: adaptiveFollowUp,
+        score_trend: adaptiveFollowUp?.scoreTrend || null,
         telemetry,
       };
 
@@ -1117,8 +1235,16 @@ export class InterviewSimulatorService {
       // Get or create performance trend
       await this._updatePerformanceTrend(userId, session.interview_type, session.company_focus, scores);
 
+      // ── Compute final session score trend from accumulated history ───
+      const sessionContext = session.interview_context || {};
+      const finalScoreHistory = Array.isArray(sessionContext.scoreHistory) ? sessionContext.scoreHistory : [];
+      const finalScoreTrend = InterviewScoringService.calculateTrendFromHistory(finalScoreHistory);
+
       const startedAt = new Date(session.started_at || session.created_at || Date.now());
       const totalDurationSeconds = Math.max(0, Math.floor((Date.now() - startedAt.getTime()) / 1000));
+
+      // ── Generate human-readable trend narrative ──────────────────────
+      const trendNarrative = this._generateTrendNarrative(finalScoreTrend, scores.interviewScore, analysis.areasForImprovement);
 
       // Update session with final analysis
       const completionPayload = {
@@ -1134,7 +1260,16 @@ export class InterviewSimulatorService {
         problem_solving_score: scores.problemSolvingScore,
         technical_depth_score: scores.technicalDepthScore,
         recommendations: analysis.recommendations,
-        follow_up_practice_problems: analysis.followUpProblems
+        follow_up_practice_problems: analysis.followUpProblems,
+        trend_narrative: trendNarrative,
+        score_trend_summary: {
+          trend: finalScoreTrend.trend,
+          volatility: finalScoreTrend.volatility,
+          mean: finalScoreTrend.mean,
+          stdDev: finalScoreTrend.stdDev,
+          delta: finalScoreTrend.delta,
+          turnsTracked: finalScoreHistory.length,
+        },
       };
 
       let completedSession = null;
@@ -1166,7 +1301,7 @@ export class InterviewSimulatorService {
           id: sessionId,
           user_id: userId,
         };
-        virtualInterviewSessions.set(sessionId, completedSession);
+        virtualInterviewSessions.set(sessionId, { ...completedSession, _createdAt: Date.now() });
       } else {
         virtualInterviewSessions.delete(sessionId);
       }
@@ -1196,6 +1331,7 @@ export class InterviewSimulatorService {
       dsa: `Thanks for joining. I will run this like a real technical screen. Think out loud, ask clarifying questions, and explain trade-offs as you go.`,
       system_design: `Great to meet you. This will be a realistic system design round. I care about scope, constraints, architecture choices, and trade-offs.`,
       behavioral: `Thanks for being here. We will run this like a structured behavioral interview. Use concrete examples and focus on impact.`,
+      hr: `Welcome. This will be a conversational HR round. Be yourself, share what motivates you, and feel free to ask me questions too.`,
       mixed: `Welcome. This will be a blended interview with coding, design, and behavioral prompts, similar to an onsite loop.`
     };
 
@@ -1223,6 +1359,10 @@ export class InterviewSimulatorService {
       return `${focusLine} Tell me about a high-pressure project where priorities changed midstream. What was the context, what actions did you take, and what was the measurable outcome?`;
     }
 
+    if (interviewType === 'hr') {
+      return `${focusLine} Thanks for joining. Tell me about yourself — what excites you about this career direction and what are you looking for in your next role?`;
+    }
+
     if (interviewType === 'system_design') {
       return `${focusLine} Let's design a production-ready solution for this prompt: ${problem.statement} Start by clarifying scale, users, and non-functional requirements before diving into architecture.`;
     }
@@ -1231,31 +1371,93 @@ export class InterviewSimulatorService {
   }
 
   static async _generateProblemStatement(interviewType, difficulty, companyFocus) {
-    // This would ideally select from your problem database
-    // For now, return a sample problem
     const problems = {
       dsa: {
-        easy: {
-          statement: 'Given an array of integers, find the maximum product of any two elements.',
-          requirements: 'Time: O(n), Space: O(1). Handle negative numbers.'
-        },
-        medium: {
-          statement: 'Design an LRU (Least Recently Used) Cache with get() and put() operations.',
-          requirements: 'Both operations should be O(1). Support custom capacity.'
-        },
-        hard: {
-          statement: 'Implement a data structure for Median Finder that supports addNum() and findMedian() operations.',
-          requirements: 'addNum() in O(log n), findMedian() in O(1). Support continuous stream of numbers.'
-        }
-      }
+        easy: [
+          { statement: 'Given an array of integers, find the maximum product of any two elements.', requirements: 'Time: O(n), Space: O(1). Handle negative numbers.' },
+          { statement: 'Given a string, determine if it is a valid palindrome considering only alphanumeric characters.', requirements: 'Time: O(n), Space: O(1). Ignore case differences.' },
+          { statement: 'Given two sorted arrays, merge them into one sorted array without extra space proportional to their combined length.', requirements: 'Time: O(n+m), Space: O(1) extra. Handle empty arrays.' },
+        ],
+        medium: [
+          { statement: 'Design an LRU (Least Recently Used) Cache with get() and put() operations.', requirements: 'Both operations should be O(1). Support custom capacity.' },
+          { statement: 'Given a binary tree, return the level order traversal of its nodes values grouped by level.', requirements: 'Time: O(n). Handle empty trees and single-node trees.' },
+          { statement: 'Find the length of the longest substring without repeating characters in a given string.', requirements: 'Time: O(n), Space: O(min(n, alphabet)). Handle empty strings and single characters.' },
+        ],
+        hard: [
+          { statement: 'Implement a data structure for Median Finder that supports addNum() and findMedian() operations.', requirements: 'addNum() in O(log n), findMedian() in O(1). Support continuous stream of numbers.' },
+          { statement: 'Given a matrix of 0s and 1s, find the largest rectangle containing only 1s and return its area.', requirements: 'Time: O(rows * cols), Space: O(cols). Handle edge cases with empty or single-element matrices.' },
+          { statement: 'Implement a trie-based autocomplete system that returns the top 3 suggestions for each character typed.', requirements: 'Insert in O(word length), search in O(prefix length + k). Support ranking by frequency.' },
+        ],
+      },
+      system_design: {
+        easy: [
+          { statement: 'Design a URL shortening service like bit.ly.', requirements: 'Handle 100M URLs, support custom aliases, track click analytics.' },
+          { statement: 'Design a paste bin service that allows users to share text snippets via unique links.', requirements: 'Support expiry, access control (public/private), and 10K concurrent users.' },
+          { statement: 'Design a task queue system that processes background jobs reliably.', requirements: 'Support retries, priority, and dead-letter queues. Handle at-least-once delivery.' },
+        ],
+        medium: [
+          { statement: 'Design a real-time chat application supporting 1-on-1 and group messaging.', requirements: 'Support 1M concurrent users, message delivery guarantees, and read receipts.' },
+          { statement: 'Design a notification system that delivers push, email, and SMS notifications.', requirements: 'Support rate limiting, user preferences, and 10M notifications/day throughput.' },
+          { statement: 'Design a ride-sharing service like Uber for matching drivers and riders in real-time.', requirements: 'Support geo-proximity matching, surge pricing, and ETA calculation.' },
+        ],
+        hard: [
+          { statement: 'Design a distributed video streaming platform similar to YouTube.', requirements: 'Support adaptive bitrate, CDN distribution, 100M daily active users, and live streaming.' },
+          { statement: 'Design a global-scale social media news feed (like Twitter/X) with real-time updates.', requirements: 'Support fan-out, ranking, 500M users, and sub-second latency for hot users.' },
+          { statement: 'Design a distributed search engine that indexes and queries billions of web pages.', requirements: 'Support relevance ranking, real-time indexing, and horizontal scaling.' },
+        ],
+      },
+      behavioral: {
+        easy: [
+          { statement: 'Tell me about a time when you had to learn a new technology or tool quickly to meet a project deadline.', requirements: 'Focus on learning approach, time management, and outcome.' },
+          { statement: 'Describe a situation where you received constructive criticism. How did you respond?', requirements: 'Focus on self-awareness, growth mindset, and concrete changes made.' },
+          { statement: 'Tell me about a time you helped a teammate who was struggling with their work.', requirements: 'Focus on empathy, communication, and team impact.' },
+        ],
+        medium: [
+          { statement: 'Tell me about a time you had to make a difficult technical decision with incomplete information.', requirements: 'Focus on decision-making framework, risk assessment, and outcome.' },
+          { statement: 'Describe a situation where you disagreed with your manager or team lead about a technical approach.', requirements: 'Focus on professional conflict resolution, evidence-based arguments, and relationship preservation.' },
+          { statement: 'Tell me about a project that failed or did not meet expectations. What was your role and what did you learn?', requirements: 'Focus on accountability, root cause analysis, and applied lessons.' },
+        ],
+        hard: [
+          { statement: 'Describe a time when you had to lead a cross-functional initiative under tight deadlines and shifting priorities.', requirements: 'Focus on stakeholder management, prioritization, and measurable business impact.' },
+          { statement: 'Tell me about a time you identified and drove a significant technical improvement that required buy-in from multiple teams.', requirements: 'Focus on influence without authority, technical vision, and quantified results.' },
+          { statement: 'Describe a high-pressure production incident you managed. Walk me through your decision-making process.', requirements: 'Focus on incident leadership, communication under pressure, and post-mortem actions.' },
+        ],
+      },
+      hr: {
+        easy: [
+          { statement: 'Tell me about yourself and what excites you about this career direction.', requirements: 'Focus on career narrative, motivation, and role alignment.' },
+          { statement: 'What are your greatest strengths, and how have they helped you in your work or studies?', requirements: 'Focus on self-awareness, concrete examples, and relevance to the role.' },
+          { statement: 'Where do you see yourself in 3-5 years?', requirements: 'Focus on growth mindset, realistic ambition, and alignment with company trajectory.' },
+        ],
+        medium: [
+          { statement: 'What kind of work environment brings out the best in you? Describe your ideal team culture.', requirements: 'Focus on self-knowledge, collaboration style, and cultural fit signals.' },
+          { statement: 'How do you handle work-life balance, especially during high-pressure periods?', requirements: 'Focus on sustainability, boundary-setting, and professional maturity.' },
+          { statement: 'What is a professional challenge you are currently working on improving?', requirements: 'Focus on honest self-assessment, active improvement plan, and growth examples.' },
+        ],
+        hard: [
+          { statement: 'Describe a time when your values conflicted with a company decision. How did you navigate it?', requirements: 'Focus on ethical reasoning, professional judgment, and constructive resolution.' },
+          { statement: 'If you had to choose between delivering a feature on time with technical debt or delaying for quality, how would you decide?', requirements: 'Focus on trade-off reasoning, stakeholder awareness, and communication approach.' },
+          { statement: 'What would you do in your first 90 days if you joined our team?', requirements: 'Focus on learning orientation, relationship building, and early contribution strategy.' },
+        ],
+      },
     };
 
-    const problem = problems[interviewType]?.[difficulty] || problems.dsa.medium;
-    
+    // Normalize type aliases
+    const normalizedType = String(interviewType || 'dsa').toLowerCase().replace('system-design', 'system_design');
+    const normalizedDifficulty = String(difficulty || 'medium').toLowerCase();
+
+    // Select problem pool — fall back to DSA medium if type/difficulty unknown
+    const typePool = problems[normalizedType] || problems.dsa;
+    const difficultyPool = typePool[normalizedDifficulty] || typePool.medium || typePool.easy;
+    const pool = Array.isArray(difficultyPool) ? difficultyPool : [difficultyPool];
+
+    // Random selection within the difficulty tier
+    const selected = pool[Math.floor(Math.random() * pool.length)];
+
     return {
-      problem_id: null, // Would link to actual problem
-      statement: problem.statement,
-      requirements: problem.requirements
+      problem_id: null,
+      statement: selected.statement,
+      requirements: selected.requirements,
     };
   }
 
@@ -1324,6 +1526,7 @@ export class InterviewSimulatorService {
         const normalized = InterviewConversationService.normalizeFollowUp({
           content: rawFollowUp?.content,
           interviewMode,
+          interviewType,
           forceFallback: Boolean(rawFollowUp?.fallbackTriggered),
         });
         setSpanAttribute(span, 'interview.parse.success', Boolean(normalized.parseSuccess));
@@ -1345,16 +1548,20 @@ export class InterviewSimulatorService {
     );
   }
 
-  static _extractResponseSignals(response) {
+  static _extractResponseSignals(response, interviewType = 'dsa') {
     const text = String(response || '');
     const lower = text.toLowerCase();
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
     const wordCount = lower.split(/\s+/).filter(Boolean).length;
     const hasComplexity = /o\s*\(|time complexity|space complexity/.test(lower);
     const hasEdgeCases = /edge case|boundary|empty|null|duplicate|single/.test(lower);
     const hasTradeoffs = /trade.?off|pros?|cons?|cost|latency|memory/.test(lower);
     const hasStructure = /(first|then|next|finally|because|therefore)/.test(lower);
     const hasExample = /for example|e\.g\.|let\s+us\s+say|suppose/.test(lower);
-    const candidateStuck = wordCount < 14 || /i\s+don\'t\s+know|stuck|not sure|blanking/.test(lower);
+
+    // HR/behavioral candidates give shorter conversational answers — lower word threshold
+    const stuckWordThreshold = (normalizedType === 'hr' || normalizedType === 'behavioral') ? 8 : 14;
+    const candidateStuck = wordCount < stuckWordThreshold || /i\s+don\'t\s+know|stuck|not sure|blanking/.test(lower);
 
     return {
       wordCount,
@@ -1371,12 +1578,12 @@ export class InterviewSimulatorService {
     return InterviewScoringService.buildTypeRubric(interviewType);
   }
 
-  static _calculateRollingScores(analysis, transcript, interviewType = 'dsa') {
-    return InterviewScoringService.calculateRollingScores(analysis, transcript, interviewType);
+  static _calculateRollingScores(analysis, transcript, interviewType = 'dsa', experienceLevel = null) {
+    return InterviewScoringService.calculateRollingScores(analysis, transcript, interviewType, experienceLevel);
   }
 
-  static _deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns) {
-    return InterviewScoringService.deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns);
+  static _deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend = null) {
+    return InterviewScoringService.deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend);
   }
 
   static _buildInterviewTelemetrySnapshot({
@@ -1400,37 +1607,87 @@ export class InterviewSimulatorService {
   }
 
   static async _analyzeInterviewResponse(response, problemStatement, interviewType, interviewContext = {}) {
-    const signals = this._extractResponseSignals(response);
+    const signals = this._extractResponseSignals(response, interviewType);
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+    const responseLower = String(response || '').toLowerCase();
     let score = 50;
 
     score += Math.min(20, Math.floor(signals.wordCount / 8));
     if (signals.hasStructure) score += 8;
-    if (signals.hasComplexity) score += 8;
-    if (signals.hasEdgeCases) score += 7;
-    if (signals.hasTradeoffs) score += 5;
     if (signals.hasExample) score += 4;
-    if (signals.candidateStuck) score -= 18;
+    const stuckPenalty = (normalizedType === 'hr' || normalizedType === 'behavioral') ? 8 : 18;
+    if (signals.candidateStuck) score -= stuckPenalty;
 
-    const boundedScore = Math.max(0, Math.min(100, score));
     const nextFocus = [];
-    if (!signals.hasComplexity) nextFocus.push('complexity analysis');
-    if (!signals.hasEdgeCases) nextFocus.push('edge cases');
-    if (!signals.hasTradeoffs) nextFocus.push('trade-off discussion');
-
     const strengths = [];
-    if (signals.hasStructure) strengths.push('Clear step-by-step structure');
-    if (signals.hasExample) strengths.push('Used concrete examples');
-    if (signals.hasComplexity) strengths.push('Included complexity reasoning');
-
     const feedbackSegments = [];
-    if (signals.hasStructure) feedbackSegments.push('Good structure in your explanation');
-    if (!signals.hasComplexity) feedbackSegments.push('add explicit time and space complexity');
-    if (!signals.hasEdgeCases) feedbackSegments.push('cover key edge cases before concluding');
-    if (!signals.hasTradeoffs) feedbackSegments.push('mention trade-offs of your approach');
 
-    const responseLower = String(response || '').toLowerCase();
+    if (signals.hasStructure) {
+      strengths.push('Clear step-by-step structure');
+      feedbackSegments.push('Good structure in your explanation');
+    }
+    if (signals.hasExample) strengths.push('Used concrete examples');
+
+    // ── Type-specific scoring and feedback ────────────────────────────
     const hasScalability = /scale|shard|partition|replica|cache|throughput|availability/.test(responseLower);
     const hasStarSignals = /(situation|task|action|result)/.test(responseLower);
+    const hasMotivation = /passion|excited|career goal|interested in|drawn to/.test(responseLower);
+    const hasValues = /team|collaborate|learn|grow|mentor|culture/.test(responseLower);
+
+    if (normalizedType === 'behavioral' || normalizedType === 'hr') {
+      // Behavioral/HR: reward STAR signals and specificity, not complexity
+      if (hasStarSignals) score += 10;
+      if (hasMotivation) score += 5;
+      if (hasValues) score += 5;
+
+      if (!hasStarSignals && normalizedType === 'behavioral') {
+        nextFocus.push('STAR structure');
+        feedbackSegments.push('structure your answer with Situation, Task, Action, Result');
+      }
+      if (!/\d+%|\d+ team|\d+ month|reduced|improved|increased/.test(responseLower)) {
+        nextFocus.push('quantified impact');
+        feedbackSegments.push('add specific numbers or metrics to strengthen your story');
+      }
+      if (normalizedType === 'hr' && !hasMotivation) {
+        nextFocus.push('career motivation');
+        feedbackSegments.push('share what specifically excites you about this direction');
+      }
+    } else if (normalizedType === 'system_design' || normalizedType === 'system-design') {
+      // System design: reward architecture and scalability, not algorithm complexity
+      if (hasScalability) score += 8;
+      if (signals.hasTradeoffs) score += 6;
+      if (/microservice|monolith|api gateway|message queue|database/.test(responseLower)) score += 6;
+
+      if (!hasScalability) {
+        nextFocus.push('scalability discussion');
+        feedbackSegments.push('discuss how your design handles scale');
+      }
+      if (!signals.hasTradeoffs) {
+        nextFocus.push('trade-off discussion');
+        feedbackSegments.push('compare design alternatives with concrete trade-offs');
+      }
+    } else {
+      // DSA / default
+      if (signals.hasComplexity) score += 8;
+      if (signals.hasEdgeCases) score += 7;
+      if (signals.hasTradeoffs) score += 5;
+
+      if (signals.hasComplexity) strengths.push('Included complexity reasoning');
+      if (!signals.hasComplexity) {
+        nextFocus.push('complexity analysis');
+        feedbackSegments.push('add explicit time and space complexity');
+      }
+      if (!signals.hasEdgeCases) {
+        nextFocus.push('edge cases');
+        feedbackSegments.push('cover key edge cases before concluding');
+      }
+      if (!signals.hasTradeoffs) {
+        nextFocus.push('trade-off discussion');
+        feedbackSegments.push('mention trade-offs of your approach');
+      }
+    }
+
+    const boundedScore = Math.max(0, Math.min(100, score));
 
     const communicationMetric = Math.max(45, Math.min(95, 55 + (signals.hasStructure ? 15 : 0) + (signals.hasExample ? 10 : 0) + Math.min(10, Math.floor(signals.wordCount / 25)) + (hasStarSignals ? 8 : 0)));
     const decompositionMetric = Math.max(45, Math.min(95, 52 + (signals.hasStructure ? 18 : 0) + (signals.hasEdgeCases ? 10 : 0) + (hasScalability ? 7 : 0)));
@@ -1470,27 +1727,112 @@ export class InterviewSimulatorService {
       .length;
     const avgWordsPerTurn = candidateTurns.length > 0 ? totalWords / candidateTurns.length : 0;
     const allCandidateText = candidateTexts.join(' ').toLowerCase();
+    const interviewType = String(session.interview_type || 'dsa').toLowerCase();
 
-    const mentionComplexity = /o\s*\(|time complexity|space complexity/.test(allCandidateText);
-    const mentionEdgeCases = /edge case|boundary|empty|null|duplicate|single/.test(allCandidateText);
-    const mentionTradeoffs = /trade.?off|pros?|cons?|latency|memory/.test(allCandidateText);
+    // ── Type-specific signal extraction ────────────────────────────────
+    const dsaSignals = {
+      mentionComplexity: /o\s*\(|time complexity|space complexity/.test(allCandidateText),
+      mentionEdgeCases: /edge case|boundary|empty|null|duplicate|single/.test(allCandidateText),
+      mentionTradeoffs: /trade.?off|pros?|cons?|latency|memory/.test(allCandidateText),
+    };
 
-    const clarity = Math.max(45, Math.min(95, 55 + Math.min(25, Math.floor(avgWordsPerTurn / 4))));
-    const decomposition = Math.max(45, Math.min(95, 52 + (mentionEdgeCases ? 16 : 4) + (candidateTurns.length >= 3 ? 8 : 0)));
-    const communication = Math.max(45, Math.min(95, 56 + Math.min(16, candidateTurns.length * 2)));
-    const efficiency = Math.max(40, Math.min(95, 50 + (mentionComplexity ? 20 : 0) + (mentionTradeoffs ? 12 : 0)));
+    const behavioralSignals = {
+      hasSituation: /situation|context|we were facing|at that time|when we/.test(allCandidateText),
+      hasAction: /i decided|i implemented|i led|i created|i organized|i took/.test(allCandidateText),
+      hasResult: /result|outcome|impact|achieved|reduced|improved|increased/.test(allCandidateText),
+      hasSpecifics: /\d+%|\d+ team|\d+ month|\$\d|reduced by|increased by/.test(allCandidateText),
+    };
 
+    const sysDesignSignals = {
+      mentionScalability: /scale|horizontal|vertical|shard|partition|replica|load balanc/.test(allCandidateText),
+      mentionArchitecture: /microservice|monolith|api gateway|message queue|cache|cdn|database/.test(allCandidateText),
+      mentionTradeoffs: /trade.?off|cap theorem|consistency|availability|latency/.test(allCandidateText),
+    };
+
+    const hrSignals = {
+      hasMotivation: /passion|excited|drawn to|interested in|career goal|aspire|want to/.test(allCandidateText),
+      hasValues: /team|collaborate|learn|grow|mentor|culture|value|integrity/.test(allCandidateText),
+      hasSelfAwareness: /weakness|improve|learn from|mistake|feedback|challenge/.test(allCandidateText),
+    };
+
+    // ── Compute metrics based on interview type ───────────────────────
+    let clarity, decomposition, communication, efficiency;
     const strengths = [];
-    if (avgWordsPerTurn >= 35) strengths.push('Detailed verbal walkthroughs under interview pressure');
-    if (mentionComplexity) strengths.push('Good complexity awareness and algorithmic rigor');
-    if (mentionEdgeCases) strengths.push('Proactive attention to boundary conditions');
-    if (mentionTradeoffs) strengths.push('Balanced trade-off reasoning');
-
     const areasForImprovement = [];
-    if (!mentionComplexity) areasForImprovement.push('State time and space complexity explicitly for each approach');
-    if (!mentionEdgeCases) areasForImprovement.push('Call out edge cases early before implementation details');
-    if (!mentionTradeoffs) areasForImprovement.push('Compare alternatives with concrete trade-offs');
+
+    if (interviewType === 'behavioral' || interviewType === 'hr') {
+      const bs = interviewType === 'hr' ? hrSignals : behavioralSignals;
+      const signalCount = Object.values(bs).filter(Boolean).length;
+
+      clarity = Math.max(45, Math.min(95, 55 + Math.min(25, Math.floor(avgWordsPerTurn / 4))));
+      communication = Math.max(45, Math.min(95, 56 + Math.min(20, candidateTurns.length * 3)));
+      decomposition = Math.max(45, Math.min(95, 50 + signalCount * 10 + (candidateTurns.length >= 3 ? 8 : 0)));
+      efficiency = Math.max(45, Math.min(90, 52 + signalCount * 8));
+
+      if (interviewType === 'behavioral') {
+        if (behavioralSignals.hasResult) strengths.push('Completed STAR stories with measurable outcomes');
+        if (behavioralSignals.hasSpecifics) strengths.push('Backed claims with specific numbers and data');
+        if (behavioralSignals.hasAction) strengths.push('Clearly articulated personal actions and ownership');
+        if (!behavioralSignals.hasResult) areasForImprovement.push('Quantify outcomes with numbers, percentages, or business impact');
+        if (!behavioralSignals.hasSituation) areasForImprovement.push('Set stronger context before describing actions');
+        if (!behavioralSignals.hasSpecifics) areasForImprovement.push('Add specific metrics to make stories more credible');
+      } else {
+        if (hrSignals.hasMotivation) strengths.push('Clear articulation of career motivation and direction');
+        if (hrSignals.hasValues) strengths.push('Strong alignment with team culture and collaboration values');
+        if (hrSignals.hasSelfAwareness) strengths.push('Demonstrated self-awareness and growth mindset');
+        if (!hrSignals.hasMotivation) areasForImprovement.push('Be more specific about what draws you to this role and company');
+        if (!hrSignals.hasSelfAwareness) areasForImprovement.push('Show self-awareness by discussing a real challenge or growth area');
+      }
+    } else if (interviewType === 'system_design' || interviewType === 'system-design') {
+      clarity = Math.max(45, Math.min(95, 55 + Math.min(25, Math.floor(avgWordsPerTurn / 4))));
+      decomposition = Math.max(45, Math.min(95, 48 + (sysDesignSignals.mentionArchitecture ? 18 : 4) + (candidateTurns.length >= 3 ? 8 : 0)));
+      communication = Math.max(45, Math.min(95, 56 + Math.min(16, candidateTurns.length * 2)));
+      efficiency = Math.max(40, Math.min(95, 50 + (sysDesignSignals.mentionScalability ? 18 : 0) + (sysDesignSignals.mentionTradeoffs ? 14 : 0)));
+
+      if (sysDesignSignals.mentionArchitecture) strengths.push('Solid component identification and architecture reasoning');
+      if (sysDesignSignals.mentionScalability) strengths.push('Proactive scalability thinking with concrete strategies');
+      if (sysDesignSignals.mentionTradeoffs) strengths.push('Thoughtful trade-off analysis between design alternatives');
+      if (!sysDesignSignals.mentionScalability) areasForImprovement.push('Address scalability early — discuss sharding, replication, and load balancing');
+      if (!sysDesignSignals.mentionArchitecture) areasForImprovement.push('Name specific technologies and justify each choice');
+      if (!sysDesignSignals.mentionTradeoffs) areasForImprovement.push('Compare at least two design alternatives with concrete trade-offs');
+    } else {
+      // DSA / default
+      clarity = Math.max(45, Math.min(95, 55 + Math.min(25, Math.floor(avgWordsPerTurn / 4))));
+      decomposition = Math.max(45, Math.min(95, 52 + (dsaSignals.mentionEdgeCases ? 16 : 4) + (candidateTurns.length >= 3 ? 8 : 0)));
+      communication = Math.max(45, Math.min(95, 56 + Math.min(16, candidateTurns.length * 2)));
+      efficiency = Math.max(40, Math.min(95, 50 + (dsaSignals.mentionComplexity ? 20 : 0) + (dsaSignals.mentionTradeoffs ? 12 : 0)));
+
+      if (avgWordsPerTurn >= 35) strengths.push('Detailed verbal walkthroughs under interview pressure');
+      if (dsaSignals.mentionComplexity) strengths.push('Good complexity awareness and algorithmic rigor');
+      if (dsaSignals.mentionEdgeCases) strengths.push('Proactive attention to boundary conditions');
+      if (dsaSignals.mentionTradeoffs) strengths.push('Balanced trade-off reasoning');
+      if (!dsaSignals.mentionComplexity) areasForImprovement.push('State time and space complexity explicitly for each approach');
+      if (!dsaSignals.mentionEdgeCases) areasForImprovement.push('Call out edge cases early before implementation details');
+      if (!dsaSignals.mentionTradeoffs) areasForImprovement.push('Compare alternatives with concrete trade-offs');
+    }
+
     if (avgWordsPerTurn < 20) areasForImprovement.push('Expand explanations to improve interviewer signal quality');
+
+    const defaultStrengths = {
+      behavioral: ['Maintained conversational structure throughout the interview'],
+      hr: ['Engaged thoughtfully with cultural and motivational questions'],
+      system_design: ['Presented a structured approach to system architecture'],
+      'system-design': ['Presented a structured approach to system architecture'],
+      dsa: ['Demonstrated systematic problem-solving under timed pressure'],
+    };
+    const defaultImprovements = {
+      behavioral: ['Strengthen stories with quantified outcomes and clearer personal ownership'],
+      hr: ['Be more specific about career goals and what draws you to this role'],
+      system_design: ['Proactively discuss scalability and failure modes earlier'],
+      'system-design': ['Proactively discuss scalability and failure modes earlier'],
+      dsa: ['State time and space complexity explicitly for every approach discussed'],
+    };
+
+    // ── Dynamic follow-up problem generation based on actual gaps ─────
+    const followUpProblems = this._generateDynamicFollowUps(interviewType, areasForImprovement, strengths);
+
+    // ── Dynamic recommendation text based on actual performance ───────
+    const recommendations = this._generateDynamicRecommendations(interviewType, areasForImprovement, strengths);
 
     return {
       metrics: {
@@ -1499,16 +1841,126 @@ export class InterviewSimulatorService {
         communication,
         efficiency,
       },
-      strengths: strengths.length > 0 ? strengths : ['Maintained a coherent structure through the interview'],
-      areasForImprovement: areasForImprovement.length > 0 ? areasForImprovement : ['Increase precision when discussing optimization choices'],
+      strengths: strengths.length > 0 ? strengths : (defaultStrengths[interviewType] || defaultStrengths.dsa),
+      areasForImprovement: areasForImprovement.length > 0 ? areasForImprovement : (defaultImprovements[interviewType] || defaultImprovements.dsa),
       criticalMistakes: [],
-      recommendations: areasForImprovement.length > 0
-        ? `Next session focus: ${areasForImprovement.slice(0, 2).join(' and ')}.`
-        : 'Great consistency. Keep practicing under timed constraints to sustain this level.',
-      followUpProblems: [
-        { problem_id: 1, title: 'Similar but harder variant', reason: 'Builds on your approach' }
-      ]
+      recommendations,
+      followUpProblems,
     };
+  }
+
+  // ── Trend Narrative: human-readable coaching from raw score data ──────
+  static _generateTrendNarrative(scoreTrend, overallScore, areasForImprovement = []) {
+    const { trend, volatility, mean } = scoreTrend || {};
+    const topGap = areasForImprovement.length > 0 ? areasForImprovement[0].toLowerCase() : null;
+
+    if (trend === 'improving' && volatility !== 'high') {
+      return 'Your performance improved steadily throughout the interview. This shows strong learning agility — keep building on that momentum.';
+    }
+    if (trend === 'declining') {
+      return 'Your answers weakened as the interview progressed. Consider pacing yourself — take a moment to organize thoughts before each question.';
+    }
+    if (volatility === 'high') {
+      return 'Your performance was inconsistent — strong on some questions, weaker on others. Focus on building a reliable baseline before pushing for depth.';
+    }
+    if (trend === 'stable' && (mean || overallScore) >= 70) {
+      return 'Consistently strong performance. You\'re ready for harder challenges.';
+    }
+    if (trend === 'stable' && (mean || overallScore) < 70) {
+      const focusArea = topGap ? ` Focus on ${topGap} to unlock the next tier.` : '';
+      return `Your performance was consistent but below target.${focusArea}`;
+    }
+    // Fallback for insufficient data
+    return 'Keep practicing — more data from future sessions will reveal your performance trajectory.';
+  }
+
+  // ── Dynamic Follow-Up Problems: tailored to actual gaps ──────────────
+  static _generateDynamicFollowUps(interviewType, areasForImprovement = [], strengths = []) {
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+    const gaps = areasForImprovement.map(a => String(a).toLowerCase());
+    const followUps = [];
+
+    if (normalizedType === 'dsa') {
+      if (gaps.some(g => g.includes('complexity') || g.includes('time') || g.includes('space'))) {
+        followUps.push({ problem_id: null, title: 'Optimize a brute-force solution under strict O(n log n) constraints', reason: 'Builds complexity reasoning under pressure' });
+      }
+      if (gaps.some(g => g.includes('edge') || g.includes('boundary'))) {
+        followUps.push({ problem_id: null, title: 'Solve a problem with tricky edge cases (empty input, single element, duplicates)', reason: 'Strengthens boundary condition awareness' });
+      }
+      if (gaps.some(g => g.includes('trade-off') || g.includes('alternative'))) {
+        followUps.push({ problem_id: null, title: 'Compare two approaches to a problem and justify your final choice', reason: 'Develops trade-off reasoning skills' });
+      }
+    } else if (normalizedType === 'system_design' || normalizedType === 'system-design') {
+      if (gaps.some(g => g.includes('scalab') || g.includes('shard') || g.includes('replica'))) {
+        followUps.push({ problem_id: null, title: 'Redesign the system for 100x traffic with specific scaling strategies', reason: 'Tests scalability thinking at production scale' });
+      }
+      if (gaps.some(g => g.includes('trade-off') || g.includes('cap') || g.includes('consistency'))) {
+        followUps.push({ problem_id: null, title: 'Compare microservices vs monolith for a given scenario with concrete trade-offs', reason: 'Builds architectural trade-off vocabulary' });
+      }
+      if (gaps.some(g => g.includes('architecture') || g.includes('technolog'))) {
+        followUps.push({ problem_id: null, title: 'Design a system component using specific technologies and justify each choice', reason: 'Strengthens technology selection reasoning' });
+      }
+    } else if (normalizedType === 'behavioral') {
+      if (gaps.some(g => g.includes('quantif') || g.includes('number') || g.includes('metric'))) {
+        followUps.push({ problem_id: null, title: 'Tell a STAR story where you drove measurable impact (with specific numbers)', reason: 'Builds habit of quantifying outcomes' });
+      }
+      if (gaps.some(g => g.includes('context') || g.includes('situation'))) {
+        followUps.push({ problem_id: null, title: 'Describe a complex situation with multiple stakeholders and competing priorities', reason: 'Practices setting strong context before action' });
+      }
+      if (strengths.some(s => String(s).toLowerCase().includes('star'))) {
+        followUps.push({ problem_id: null, title: 'Cross-functional conflict resolution under a tight deadline', reason: 'Challenges strong STAR candidates with higher complexity' });
+      }
+    } else if (normalizedType === 'hr') {
+      if (gaps.some(g => g.includes('motivation') || g.includes('draws you'))) {
+        followUps.push({ problem_id: null, title: 'Articulate what specifically draws you to this company and role', reason: 'Strengthens career motivation narrative' });
+      }
+      if (gaps.some(g => g.includes('self-aware') || g.includes('challenge') || g.includes('weakness'))) {
+        followUps.push({ problem_id: null, title: 'Describe a real professional weakness and your concrete improvement plan', reason: 'Develops authentic self-awareness' });
+      }
+    }
+
+    // Always include at least one follow-up
+    if (followUps.length === 0) {
+      const defaultFollowUps = {
+        behavioral: { problem_id: null, title: 'Leadership under ambiguity scenario', reason: 'Tests decision-making with incomplete information' },
+        hr: { problem_id: null, title: 'Culture-fit challenge scenario', reason: 'Explores values alignment under pressure' },
+        system_design: { problem_id: null, title: 'Higher-scale design variant', reason: 'Tests resilience at 100x traffic' },
+        'system-design': { problem_id: null, title: 'Higher-scale design variant', reason: 'Tests resilience at 100x traffic' },
+        dsa: { problem_id: null, title: 'Algorithm variant with tighter constraints', reason: 'Tests optimization under stricter time/space bounds' },
+      };
+      followUps.push(defaultFollowUps[normalizedType] || defaultFollowUps.dsa);
+    }
+
+    return followUps.slice(0, 3);
+  }
+
+  // ── Dynamic Recommendations: actionable coaching based on performance ─
+  static _generateDynamicRecommendations(interviewType, areasForImprovement = [], strengths = []) {
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+    const gaps = areasForImprovement.map(a => String(a).toLowerCase());
+
+    // Build recommendation from actual gaps
+    if (areasForImprovement.length > 0) {
+      const topGaps = areasForImprovement.slice(0, 2);
+      const actionableAdvice = {
+        dsa: `Next session: ${topGaps.join(' and ')}. Try solving 2-3 medium-level problems with explicit complexity proofs before coding.`,
+        system_design: `Next session: ${topGaps.join(' and ')}. Practice drawing architecture diagrams with capacity estimates before your next mock.`,
+        'system-design': `Next session: ${topGaps.join(' and ')}. Practice drawing architecture diagrams with capacity estimates before your next mock.`,
+        behavioral: `Next session: ${topGaps.join(' and ')}. Write down 3 STAR stories with specific metrics before your next practice round.`,
+        hr: `Next session: ${topGaps.join(' and ')}. Prepare a concise 90-second career narrative that connects your past to this role.`,
+      };
+      return actionableAdvice[normalizedType] || `Next session focus: ${topGaps.join(' and ')}.`;
+    }
+
+    // Strong performance — push to next level
+    const typeRecommendations = {
+      behavioral: 'Strong communication with well-structured stories. Challenge yourself with cross-functional conflict scenarios next.',
+      hr: 'Excellent self-presentation. Practice answering "why this company specifically?" with researched, specific reasons.',
+      system_design: 'Solid architecture instincts. Next level: practice capacity estimation and failure mode analysis under time pressure.',
+      'system-design': 'Solid architecture instincts. Next level: practice capacity estimation and failure mode analysis under time pressure.',
+      dsa: 'Great consistency. Push further by practicing hard-level problems with strict time limits (20 min/problem).',
+    };
+    return typeRecommendations[normalizedType] || typeRecommendations.dsa;
   }
 
   static _calculateScores(analysis, transcript, interviewType = 'dsa') {
@@ -1548,12 +2000,17 @@ export class InterviewSimulatorService {
     }
 
     if (existing) {
-      // Update existing trend
+      // Update existing trend — proper incremental mean
+      const prevCount = Number(existing.interview_count || 0);
+      const prevAvg = Number(existing.avg_score || 0);
+      const newCount = prevCount + 1;
+      const newAvg = prevAvg + (scores.interviewScore - prevAvg) / newCount;
+
       await supabaseAdmin
         .from('interview_performance_trends')
         .update({
-          interview_count: (existing.interview_count || 0) + 1,
-          avg_score: ((existing.avg_score || 0) + scores.interviewScore) / 2,
+          interview_count: newCount,
+          avg_score: Math.round(newAvg * 10) / 10,
           last_interview_date: new Date().toISOString()
         })
         .eq('id', existing.id);
@@ -1590,4 +2047,5 @@ export default {
   CodeReviewService,
   InterviewSimulatorService,
   analyzeAnswerQuality,
+  analyzeAnswerQualityHeuristic,
 };

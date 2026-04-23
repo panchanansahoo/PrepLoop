@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import './CompanyPrep.css';
 import {
   Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle,
   Bookmark, BookmarkCheck, Star, Clock, Flame, StickyNote, ArrowRight,

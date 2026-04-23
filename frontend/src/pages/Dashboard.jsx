@@ -1,9 +1,24 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Sparkles, SlidersHorizontal, X, Star, Eye, EyeOff, GripVertical, Loader2 } from 'lucide-react';
 import useDashboardData from '../hooks/useDashboardData';
-
+import QuickStats from '../components/QuickStats';
+import { StreakHeatmap } from '../components/QuickStats';
+import QuickActions from '../components/QuickActions';
+import ReadinessScore from '../components/ReadinessScore';
+import RecentActivity from '../components/RecentActivity';
+import SkillRadar from '../components/SkillRadar';
+import DailyChallenge from '../components/DailyChallenge';
+import UpcomingContests from '../components/UpcomingContests';
+import CalendarWidget from '../components/CalendarWidget';
+import PomodoroTimer from '../components/PomodoroTimer';
+import WeeklyStats from '../components/WeeklyStats';
+import SkillMatchJobs from '../components/SkillMatchJobs';
+import TodoList from '../components/TodoList';
+import LearningStreakWidget from '../components/LearningStreakWidget';
+import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -45,22 +60,7 @@ function getDailyQuote(date = new Date()) {
     return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
 }
 
-import QuickStats from '../components/QuickStats';
-import { StreakHeatmap } from '../components/QuickStats';
-import QuickActions from '../components/QuickActions';
-import ReadinessScore from '../components/ReadinessScore';
-import RecentActivity from '../components/RecentActivity';
-import SkillRadar from '../components/SkillRadar';
-import DailyChallenge from '../components/DailyChallenge';
-import UpcomingContests from '../components/UpcomingContests';
-import CalendarWidget from '../components/CalendarWidget';
-import PomodoroTimer from '../components/PomodoroTimer';
-import WeeklyStats from '../components/WeeklyStats';
-import SkillMatchJobs from '../components/SkillMatchJobs';
 
-import TodoList from '../components/TodoList';
-import LearningStreakWidget from '../components/LearningStreakWidget';
-import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [

@@ -52,37 +52,53 @@ const PROVIDER_COOLDOWN_MS = 60000; // 1 minute cooldown after failures
 
 const groq = providers.groq ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
-// ─── Kokoro TTS — lazy-loaded singleton ───
+// ─── Kokoro TTS — lazy-loaded singleton (Promise-based, no polling race) ───
 let _kokoroInstance = null;
 let _kokoroInitFailed = false;
-let _kokoroWarming = false;
+let _kokoroInitPromise = null; // shared Promise prevents race condition
+
+const KOKORO_RETRY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes before retrying after init failure
+let _kokoroFailedAt = 0;
 
 async function getKokoroTTS() {
-    if (_kokoroInitFailed) return null;
+    // If previously failed, allow retry after cooldown period
+    if (_kokoroInitFailed) {
+        if (Date.now() - _kokoroFailedAt < KOKORO_RETRY_COOLDOWN_MS) return null;
+        // Cooldown elapsed — reset and allow retry
+        _kokoroInitFailed = false;
+        console.log('[Kokoro] Retry cooldown elapsed, attempting re-initialization...');
+    }
     if (_kokoroInstance) return _kokoroInstance;
-    if (_kokoroWarming) {
-        // Wait for ongoing initialization
-        await new Promise(resolve => setTimeout(resolve, 100));
+
+    // All concurrent callers share the same init Promise —
+    // no polling, no returning null while init is still running.
+    if (_kokoroInitPromise) {
+        await _kokoroInitPromise;
         return _kokoroInstance;
     }
-    
-    _kokoroWarming = true;
-    try {
-        const { KokoroTTS } = await import('kokoro-js');
-        console.log('[Kokoro] Loading model (first-time, ~2s)...');
-        _kokoroInstance = await KokoroTTS.from_pretrained(
-            'onnx-community/Kokoro-82M-v1.0-ONNX',
-            { dtype: 'q8', device: 'cpu' }
-        );
-        console.log('[Kokoro] Model ready ✓');
-        _kokoroWarming = false;
-        return _kokoroInstance;
-    } catch (err) {
-        console.warn('[Kokoro] Init failed (will use fallback providers):', err.message?.substring(0, 120));
-        _kokoroInitFailed = true;
-        _kokoroWarming = false;
-        return null;
-    }
+
+    _kokoroInitPromise = (async () => {
+        try {
+            const { KokoroTTS } = await import('kokoro-js');
+            console.log('[Kokoro] Loading model (first-time, ~2s)...');
+            _kokoroInstance = await KokoroTTS.from_pretrained(
+                'onnx-community/Kokoro-82M-v1.0-ONNX',
+                { dtype: 'q8', device: 'cpu' }
+            );
+            console.log('[Kokoro] Model ready ✓');
+            _kokoroFailedAt = 0; // Clear failure timestamp on success
+            return _kokoroInstance;
+        } catch (err) {
+            console.warn('[Kokoro] Init failed (will use fallback providers):', err.message?.substring(0, 120));
+            _kokoroInitFailed = true;
+            _kokoroFailedAt = Date.now();
+            return null;
+        } finally {
+            _kokoroInitPromise = null; // allow retry on next call if init failed
+        }
+    })();
+
+    return _kokoroInitPromise;
 }
 
 // ─── Voice Presets ───
@@ -267,14 +283,24 @@ export async function speechToTextChunk(audioBuffer, mimeType = 'audio/webm') {
     // MediaRecorder sends 'audio/webm;codecs=opus' → strip to 'audio/webm'
     const cleanMimeType = String(mimeType).split(';')[0].trim() || 'audio/webm';
 
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&diarize=false&filler_words=true', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Token ${apiKey}`,
-            'Content-Type':  cleanMimeType,
-        },
-        body: audioBuffer,
-    });
+    const DEEPGRAM_CHUNK_TIMEOUT_MS = 10_000; // 10s max for chunk STT
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), DEEPGRAM_CHUNK_TIMEOUT_MS);
+
+    let response;
+    try {
+        response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&diarize=false&filler_words=true', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Token ${apiKey}`,
+                'Content-Type':  cleanMimeType,
+            },
+            body: audioBuffer,
+            signal: ac.signal,
+        });
+    } finally {
+        clearTimeout(timer);
+    }
 
     if (!response.ok) {
         const errBody = await response.text().catch(() => '');
@@ -305,13 +331,12 @@ export async function speechToTextChunk(audioBuffer, mimeType = 'audio/webm') {
 }
 
 /**
- * Get Deepgram token for frontend WebSocket STT.
- * The /api/voice/deepgram-token route is auth-protected (authenticateToken),
- * so this is safe to expose to authenticated users.
+ * Check Deepgram availability for STT.
+ * SECURITY: Never expose the raw API key to the frontend.
+ * All STT should be proxied through backend endpoints (/stt, /stt-chunk).
  */
-export function getDeepgramToken() {
-    if (!providers.deepgram) return null;
-    return process.env.DEEPGRAM_API_KEY;
+export function isDeepgramAvailable() {
+    return providers.deepgram;
 }
 
 /**
@@ -386,6 +411,7 @@ async function groqOrpheusTTS(text, persona, gender = 'female') {
     const chunkLimit  = 200 - direction.length;
     const chunks      = chunkText(text, chunkLimit);
 
+    const GROQ_TTS_TIMEOUT_MS = 10_000; // 10s max per chunk
     const buffers = [];
     for (const chunk of chunks) {
         if (!chunk.trim()) continue;
@@ -394,7 +420,7 @@ async function groqOrpheusTTS(text, persona, gender = 'female') {
             input:           direction + chunk,
             voice,
             response_format: 'wav',
-        });
+        }, { timeout: GROQ_TTS_TIMEOUT_MS });
         const buf = Buffer.from(await response.arrayBuffer());
         if (buf.length > 100) buffers.push(buf);
     }
@@ -414,8 +440,8 @@ async function kokoroTTS(text, persona, gender = 'female') {
     const t0 = Date.now();
     
     // Limit text length to reduce generation time while keeping questions intact.
-    // 300 chars covers most interview questions without truncation.
-    const maxChars = 300;
+    // 500 chars covers most interview questions + context without truncation.
+    const maxChars = 500;
     const truncatedText = text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
     
     try {
@@ -434,7 +460,10 @@ async function kokoroTTS(text, persona, gender = 'female') {
 }
 
 async function googleTranslateTTS(text, language) {
-    const tl = /^hi/i.test(language) ? 'hi' : 'en';
+    // SECURITY: Strict allowlist for the `tl` parameter to prevent SSRF/injection
+    const ALLOWED_LANGUAGES = new Set(['en', 'hi', 'es', 'fr', 'de', 'ja', 'ko', 'zh', 'pt', 'ar']);
+    const normalizedLang = String(language || 'en').toLowerCase().slice(0, 2);
+    const tl = ALLOWED_LANGUAGES.has(normalizedLang) ? normalizedLang : 'en';
     const googleTtsUrl = new URL('https://translate.google.com/translate_tts');
     googleTtsUrl.search = new URLSearchParams({ ie: 'UTF-8', client: 'tw-ob', tl, q: String(text) }).toString();
 
@@ -442,9 +471,19 @@ async function googleTranslateTTS(text, language) {
         throw new Error('Blocked unexpected Google TTS host');
     }
 
-    const response = await fetch(googleTtsUrl, {
-        headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
-    });
+    const GOOGLE_TTS_TIMEOUT_MS = 8_000; // 8s max
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), GOOGLE_TTS_TIMEOUT_MS);
+
+    let response;
+    try {
+        response = await fetch(googleTtsUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
+            signal: ac.signal,
+        });
+    } finally {
+        clearTimeout(timer);
+    }
 
     if (!response.ok) throw new Error(`Google TTS error: ${response.status}`);
     const buffer = Buffer.from(await response.arrayBuffer());
@@ -457,11 +496,21 @@ async function deepgramSTT(filePath) {
     const safeFilePath = resolveSafeAudioPath(filePath);
     const audioBuffer = fs.readFileSync(safeFilePath);
 
-    const response = await fetch(DEEPGRAM_STT_URL, {
-        method:  'POST',
-        headers: { 'Authorization': `Token ${apiKey}`, 'Content-Type': 'audio/wav' },
-        body:    audioBuffer,
-    });
+    const DEEPGRAM_FILE_TIMEOUT_MS = 15_000; // 15s max for file STT
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), DEEPGRAM_FILE_TIMEOUT_MS);
+
+    let response;
+    try {
+        response = await fetch(DEEPGRAM_STT_URL, {
+            method:  'POST',
+            headers: { 'Authorization': `Token ${apiKey}`, 'Content-Type': 'audio/wav' },
+            body:    audioBuffer,
+            signal:  ac.signal,
+        });
+    } finally {
+        clearTimeout(timer);
+    }
 
     if (!response.ok) throw new Error(`Deepgram API error: ${response.status}`);
 
@@ -479,11 +528,13 @@ async function deepgramSTT(filePath) {
 
 async function groqWhisperSTT(filePath) {
     const safeFilePath = resolveSafeAudioPath(filePath);
+
+    const GROQ_WHISPER_TIMEOUT_MS = 15_000; // 15s max for Whisper STT
     const transcription = await groq.audio.transcriptions.create({
         model:           'whisper-large-v3-turbo',
         file:            fs.createReadStream(safeFilePath),
         response_format: 'json',
-    });
+    }, { timeout: GROQ_WHISPER_TIMEOUT_MS });
 
     return {
         text:     transcription.text || '',
@@ -510,11 +561,14 @@ async function preloadKokoroTTS() {
     }
 }
 
+// Expose Groq client for reuse by voice routes (avoids duplicate SDK instances)
+export { groq as groqClient };
+
 export default {
     textToSpeech,
     speechToText,
     speechToTextChunk,
-    getDeepgramToken,
+    isDeepgramAvailable,
     getAvailableProviders,
     generateBackchannelClips,
     preloadKokoroTTS,

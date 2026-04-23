@@ -52,12 +52,18 @@ const trackIPActivity = (ip, action, severity = 'low') => {
 
 // Check for suspicious patterns in request
 const detectSuspiciousPatterns = (req) => {
-  const checkString = JSON.stringify({
+  // SECURITY (M4): Limit the size of stringified request data before
+  // regex testing to prevent ReDoS attacks on very large payloads
+  const MAX_CHECK_LENGTH = 10240; // 10KB
+  const rawCheckString = JSON.stringify({
     url: req.originalUrl,
     query: req.query,
     body: req.body,
     headers: req.headers,
   });
+  const checkString = rawCheckString.length > MAX_CHECK_LENGTH 
+    ? rawCheckString.slice(0, MAX_CHECK_LENGTH) 
+    : rawCheckString;
 
   for (const pattern of THRESHOLDS.SUSPICIOUS_PATTERNS) {
     if (pattern.test(checkString)) {
@@ -131,11 +137,17 @@ export const enhancedSecurity = () => {
     // Validate content-type for POST/PUT/PATCH
     if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
       const contentType = req.headers['content-type'];
-      if (!contentType || (!contentType.includes('application/json') && !contentType.includes('multipart/form-data'))) {
+      // SECURITY (M5): Accept form-urlencoded in addition to JSON and multipart
+      if (!contentType || (
+        !contentType.includes('application/json') && 
+        !contentType.includes('multipart/form-data') &&
+        !contentType.includes('application/x-www-form-urlencoded') &&
+        !contentType.includes('text/plain')
+      )) {
         logger.warn('Invalid content-type', { ip, requestId, contentType });
         return res.status(415).json({ 
           error: 'Unsupported Media Type',
-          message: 'Content-Type must be application/json or multipart/form-data'
+          message: 'Content-Type must be application/json, multipart/form-data, or application/x-www-form-urlencoded'
         });
       }
     }
@@ -148,7 +160,7 @@ export const enhancedSecurity = () => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    // SECURITY: H7 — Allow microphone on same-origin for voice interviews,\n    // keep camera and geolocation disabled\n    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
 
     next();
   };

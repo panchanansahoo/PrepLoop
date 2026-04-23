@@ -20,6 +20,7 @@ services:
       - GROQ_API_KEY=${GROQ_API_KEY}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
       - DB_POOL_MAX=20
       - DB_POOL_MIN=2
     volumes:
@@ -73,18 +74,19 @@ services:
     image: redis:7-alpine
     container_name: preploop-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # SECURITY: Do NOT expose Redis port publicly — only accessible within the Docker network
+    # ports:
+    #   - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - preploop-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
     logging:
       driver: "json-file"
       options:

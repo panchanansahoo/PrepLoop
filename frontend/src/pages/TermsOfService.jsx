@@ -4,7 +4,7 @@ import { FileText, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
 
 export default function TermsOfService() {
     return (
-        <div style={{ minHeight: '100vh', background: '#020203', color: 'white', position: 'relative' }}>
+        <div style={{ minHeight: '100vh', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', position: 'relative' }}>
 
 
             <div className="container" style={{ paddingTop: '120px', paddingBottom: '80px', position: 'relative', zIndex: 10, maxWidth: '800px' }}>
@@ -16,7 +16,7 @@ export default function TermsOfService() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
 
-                    <section style={{ background: 'rgba(255,255,255,0.03)', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
+                    <section style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.03))', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
                             <FileText size={24} color="#a78bfa" />
                             <h2 style={{ fontSize: '24px', margin: 0 }}>1. Agreement to Terms</h2>

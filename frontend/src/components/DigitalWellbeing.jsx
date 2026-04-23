@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import './DigitalWellbeing.css';
 import { Heart, Clock, Eye, Zap, Coffee, PauseCircle, PlayCircle, Trophy, Flame, Target, TrendingUp } from 'lucide-react';
 
 const STORAGE_KEY = 'preploop_wb_data';

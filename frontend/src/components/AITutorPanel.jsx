@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import './AITutorPanel.css';
 import { Brain, X, ChevronDown, ChevronUp, Sparkles, Send, ArrowLeft } from 'lucide-react';
 import {
     getDSAPatternGuide, getDSAProblemAnalysis, getCodeReview,

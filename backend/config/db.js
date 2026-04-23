@@ -17,8 +17,14 @@ const poolConfig = {
   connectionTimeoutMillis: toPositiveInt(process.env.DB_CONNECTION_TIMEOUT || process.env.PG_POOL_CONNECTION_TIMEOUT_MS, 10000),
   maxUses: toPositiveInt(process.env.DB_MAX_USES || process.env.PG_POOL_MAX_USES, 7500),
   allowExitOnIdle: process.env.DB_ALLOW_EXIT_ON_IDLE !== 'false',
+  // SECURITY: Enable SSL with proper certificate verification in production.
+  // Set DB_CA_CERT env var to the PEM-encoded CA certificate for your database provider.
+  // rejectUnauthorized: true prevents man-in-the-middle attacks.
   ssl: process.env.DB_SSL === 'true' || process.env.NODE_ENV === 'production' 
-    ? { rejectUnauthorized: false } 
+    ? { 
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+        ...(process.env.DB_CA_CERT ? { ca: process.env.DB_CA_CERT } : {})
+      } 
     : false
 };
 

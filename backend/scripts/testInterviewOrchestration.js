@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { InterviewSimulatorService } from '../services/aiService.js';
-import { InterviewOrchestratorService } from '../services/interviewOrchestrator.js';
 import { InterviewStateMachineService } from '../services/interviewStateMachine.js';
 
 function run() {
@@ -13,12 +12,12 @@ function run() {
   assert.ok(Array.isArray(initialState.stageHistory), 'Initial state should include stage history');
   assert.equal(initialState.stageHistory.length, 1, 'Initial stage history should include intake entry');
 
-  const orchestratorPlan = InterviewOrchestratorService.buildStagePlan('dsa');
-  assert.ok(Array.isArray(orchestratorPlan), 'Orchestrator stage plan should be an array');
-  assert.equal(orchestratorPlan[0].key, 'intake', 'Orchestrator plan should start at intake');
+  const orchestratorPlan = InterviewStateMachineService.buildStagePlan('dsa');
+  assert.ok(Array.isArray(orchestratorPlan), 'State machine stage plan (via orchestrator alias) should be an array');
+  assert.equal(orchestratorPlan[0].key, 'intake', 'State machine plan should start at intake');
   assert.ok(
     orchestratorPlan.every((stage) => typeof stage?.key === 'string' && typeof stage?.label === 'string'),
-    'Orchestrator stage plan should expose key/label objects',
+    'State machine stage plan should expose key/label objects',
   );
 
   const dsaPlan = InterviewSimulatorService._buildStagePlan('dsa');

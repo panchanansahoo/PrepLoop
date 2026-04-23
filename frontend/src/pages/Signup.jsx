@@ -64,7 +64,7 @@ const styles = {
   rightPanel: {
     flex: '1 1 50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '40px', position: 'relative', zIndex: 1,
+    padding: '40px', paddingTop: '80px', position: 'relative', zIndex: 1,
   },
   formCard: {
     width: '100%', maxWidth: '440px',

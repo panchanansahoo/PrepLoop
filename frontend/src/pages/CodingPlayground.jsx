@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import './CodingPlayground.css';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';

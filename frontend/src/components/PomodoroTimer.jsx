@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import './PomodoroTimer.css';
 import { Play, Pause, RotateCcw, Coffee, Brain, Timer, Settings, SkipForward, Volume2, VolumeX, BarChart3 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import './AlgorithmPlayground.css';
 import {
     Play, Pause, SkipForward, SkipBack, RotateCcw,
     ChevronRight, ChevronLeft, Zap, Clock, Cpu,

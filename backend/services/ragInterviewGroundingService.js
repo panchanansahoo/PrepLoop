@@ -9,10 +9,40 @@ const STAGE_TO_COMPANY_STAGE = {
   feedback: 'HR',
 };
 
+// Behavioral/HR interviews should pull from Behavioral/HR question banks, not Technical
+const STAGE_TO_COMPANY_STAGE_BEHAVIORAL = {
+  intake: 'Behavioral',
+  warmup: 'Behavioral',
+  technical: 'Behavioral',
+  followup: 'Behavioral',
+  challenge: 'Behavioral',
+  feedback: 'HR',
+};
+
+const STAGE_TO_COMPANY_STAGE_HR = {
+  intake: 'HR',
+  warmup: 'HR',
+  technical: 'HR',
+  followup: 'HR',
+  challenge: 'HR',
+  feedback: 'HR',
+};
+
+function getStageMapping(interviewType) {
+  const t = String(interviewType || 'dsa').toLowerCase();
+  if (t === 'hr') return STAGE_TO_COMPANY_STAGE_HR;
+  if (t === 'behavioral') return STAGE_TO_COMPANY_STAGE_BEHAVIORAL;
+  return STAGE_TO_COMPANY_STAGE;
+}
+
 const MISSING_AREA_HINTS = {
   'complexity analysis': 'Quantify time and space complexity before concluding the answer.',
   'edge cases': 'Call out at least two edge cases and explain behavior for each.',
   'trade-off discussion': 'Compare at least two approaches and justify the final choice.',
+  'STAR structure': 'Structure the answer as Situation → Task → Action → Result.',
+  'quantified impact': 'Add specific numbers, percentages, or measurable outcomes.',
+  'career motivation': 'Explain what specifically draws you to this role or company.',
+  'scalability discussion': 'Discuss how the design handles increased load or traffic.',
 };
 
 const normalizeText = (value) => String(value || '').trim();
@@ -93,23 +123,51 @@ const buildHintPatterns = (missingAreas = [], resumeContext = {}) => {
 
 const buildFallbackQuestions = ({ company, stage, interviewType, missingAreas = [], limit = 5 }) => {
   const stageName = String(stage || 'technical');
-  const typeName = String(interviewType || 'dsa');
+  const typeName = String(interviewType || 'dsa').toLowerCase();
   const areaPrompt = missingAreas.length > 0 ? missingAreas[0] : 'trade-offs';
-  const prompts = [
-    `Walk through your ${stageName} approach step-by-step and justify each decision.`,
-    `What constraints would you clarify first for this ${typeName} problem?`,
-    `Which edge cases are most likely to break your current approach?`,
-    `How would your approach change at 10x scale?`,
-    `What is the time and space complexity, and why is it acceptable?`,
-    `Give one alternative solution and compare trade-offs against your current plan.`,
-    `You mentioned ${areaPrompt}. Expand on it with a concrete example.`,
-  ];
+
+  let prompts;
+
+  if (typeName === 'behavioral' || typeName === 'hr') {
+    prompts = [
+      `Tell me about a time you had to influence a decision without formal authority.`,
+      `Describe a situation where you faced a significant setback. How did you recover?`,
+      `Walk me through a project where you had to collaborate across teams.`,
+      `Give an example of when you received tough feedback and how you acted on it.`,
+      `What is the most impactful initiative you have led, and how do you measure that impact?`,
+      typeName === 'hr'
+        ? `What specifically draws you to this role and how does it fit your career trajectory?`
+        : `Describe a conflict with a colleague and how you resolved it.`,
+    ];
+  } else if (typeName === 'system_design' || typeName === 'system-design') {
+    prompts = [
+      `Walk through the high-level architecture and justify each major component.`,
+      `What constraints would you clarify first before designing this system?`,
+      `How would your design handle a 10x increase in traffic?`,
+      `What are the failure modes and how does your system recover gracefully?`,
+      `Compare at least two database choices and explain the trade-offs.`,
+      `How would you ensure data consistency across distributed services?`,
+    ];
+  } else {
+    // DSA / default
+    prompts = [
+      `Walk through your ${stageName} approach step-by-step and justify each decision.`,
+      `What constraints would you clarify first for this ${typeName} problem?`,
+      `Which edge cases are most likely to break your current approach?`,
+      `How would your approach change at 10x scale?`,
+      `What is the time and space complexity, and why is it acceptable?`,
+      `Give one alternative solution and compare trade-offs against your current plan.`,
+      `You mentioned ${areaPrompt}. Expand on it with a concrete example.`,
+    ];
+  }
+
+  const fallbackRole = (typeName === 'behavioral' || typeName === 'hr') ? 'General' : 'SDE';
 
   return prompts.slice(0, limit).map((question, index) => ({
     id: `fallback_${index + 1}`,
     company: String(company || 'general').toLowerCase().replace(/\s+/g, '_'),
-    role: 'SDE',
-    stage: 'Technical',
+    role: fallbackRole,
+    stage: (typeName === 'hr') ? 'HR' : (typeName === 'behavioral') ? 'Behavioral' : 'Technical',
     difficulty: 'Medium',
     question,
     tags: ['fallback'],
@@ -129,7 +187,8 @@ export class InterviewGroundingService {
   } = {}) {
     const startedAt = Date.now();
     const safeLimit = Math.min(8, Math.max(1, Number(limit) || 5));
-    const normalizedStage = STAGE_TO_COMPANY_STAGE[stage] || 'Technical';
+    const stageMap = getStageMapping(interviewType);
+    const normalizedStage = stageMap[stage] || 'Technical';
     const normalizedDifficulty = normalizeDifficulty(difficulty);
     const normalizedResumeContext = normalizeResumeContext(resumeContext);
 

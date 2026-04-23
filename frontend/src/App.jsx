@@ -1,4 +1,4 @@
-import React, { useState, Component, useEffect, lazy, Suspense } from 'react';
+import React, { useState, Component, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -7,84 +7,87 @@ import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
 import AIAssistantOrb from './components/AIAssistantOrb';
 import LoadingScreen from './components/LoadingScreen';
-import { Code2 } from 'lucide-react';
+import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
+import AppFooter from './components/AppFooter';
+import { lazyWithRecovery } from './utils/lazyWithRecovery';
 
-const Home = lazy(() => import('./pages/Home'));
-const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
-const Overview = lazy(() => import('./pages/Overview'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const DSAPatterns = lazy(() => import('./pages/DSAPatterns'));
-const PatternDetail = lazy(() => import('./pages/PatternDetail'));
-const ProblemSolver = lazy(() => import('./pages/ProblemSolver'));
-const LanguageRoadmap = lazy(() => import('./pages/LanguageRoadmap'));
-const SystemDesignRoadmap = lazy(() => import('./pages/SystemDesignRoadmap'));
-const WebDevRoadmap = lazy(() => import('./pages/WebDevRoadmap'));
-const Pricing = lazy(() => import('./pages/Pricing'));
-const Payment = lazy(() => import('./pages/Payment'));
-const BlogList = lazy(() => import('./pages/BlogList'));
-const BlogPost = lazy(() => import('./pages/BlogPost'));
-const CreateBlog = lazy(() => import('./pages/CreateBlog'));
-const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('./pages/TermsOfService'));
-const About = lazy(() => import('./pages/About'));
-const Library = lazy(() => import('./pages/Library'));
-const Contact = lazy(() => import('./pages/Contact'));
-const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
-const CheckEmail = lazy(() => import('./pages/VerifyEmail'));
-const Onboarding = lazy(() => import('./pages/Onboarding'));
-const Profile = lazy(() => import('./pages/Profile'));
-const History = lazy(() => import('./pages/History'));
-const CoinWallet = lazy(() => import('./pages/CoinWallet'));
-const ResumeAnalyzer = lazy(() => import('./pages/ResumeAnalyzer'));
-const Analytics = lazy(() => import('./pages/Analytics'));
-const Settings = lazy(() => import('./pages/Settings'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const DSACodeEditor = lazy(() => import('./pages/DSACodeEditor'));
-const SQLProblemExplorer = lazy(() => import('./pages/SQLProblemExplorer'));
-const SQLCodeEditor = lazy(() => import('./pages/SQLCodeEditor'));
-const InterviewPlatform = lazy(() => import('./components/InterviewPlatform'));
-const AptitudeHub = lazy(() => import('./pages/AptitudeHub'));
-const AptitudePractice = lazy(() => import('./pages/AptitudePractice'));
-const AptitudeResults = lazy(() => import('./pages/AptitudeResults'));
-const ExamHub = lazy(() => import('./pages/ExamHub'));
-const ExamPractice = lazy(() => import('./pages/ExamPractice'));
-const ProblemExplorer = lazy(() => import('./pages/ProblemExplorer'));
-const QuizArena = lazy(() => import('./pages/QuizArena'));
-const AlgorithmPlayground = lazy(() => import('./pages/AlgorithmPlayground'));
-const LearningPath = lazy(() => import('./pages/LearningPath'));
-const TopicLearning = lazy(() => import('./pages/TopicLearning'));
-const DSALearningPath = lazy(() => import('./pages/DSALearningPath'));
-const DSATopicLearning = lazy(() => import('./pages/DSATopicLearning'));
-const TechnicalLearningPath = lazy(() => import('./pages/TechnicalLearningPath'));
-const TechnicalTopicLearning = lazy(() => import('./pages/TechnicalTopicLearning'));
-const AdvancedLearningPathPage = lazy(() => import('./pages/AdvancedLearningPathPage'));
-const HRLearningPath = lazy(() => import('./pages/HRLearningPath'));
-const HRTopicLearning = lazy(() => import('./pages/HRTopicLearning'));
-const SystemDesignPath = lazy(() => import('./pages/SystemDesignPath'));
-const SystemDesignTopicLearning = lazy(() => import('./pages/SystemDesignTopicLearning'));
-const SystemDesignSimulator = lazy(() => import('./pages/SystemDesignSimulator'));
-const AITutorHub = lazy(() => import('./pages/AITutorHub'));
-const CompanyPrep = lazy(() => import('./pages/CompanyPrep'));
+const Home = lazyWithRecovery(() => import('./pages/Home'));
+const Login = lazyWithRecovery(() => import('./pages/Login'));
+const Signup = lazyWithRecovery(() => import('./pages/Signup'));
+const Overview = lazyWithRecovery(() => import('./pages/Overview'));
+const Dashboard = lazyWithRecovery(() => import('./pages/Dashboard'));
+const DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
+const PatternDetail = lazyWithRecovery(() => import('./pages/PatternDetail'));
+const ProblemSolver = lazyWithRecovery(() => import('./pages/ProblemSolver'));
+const LanguageRoadmap = lazyWithRecovery(() => import('./pages/LanguageRoadmap'));
+const SystemDesignRoadmap = lazyWithRecovery(() => import('./pages/SystemDesignRoadmap'));
+const WebDevRoadmap = lazyWithRecovery(() => import('./pages/WebDevRoadmap'));
+const Pricing = lazyWithRecovery(() => import('./pages/Pricing'));
+const Payment = lazyWithRecovery(() => import('./pages/Payment'));
+const BlogList = lazyWithRecovery(() => import('./pages/BlogList'));
+const BlogPost = lazyWithRecovery(() => import('./pages/BlogPost'));
+const CreateBlog = lazyWithRecovery(() => import('./pages/CreateBlog'));
+const PrivacyPolicy = lazyWithRecovery(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazyWithRecovery(() => import('./pages/TermsOfService'));
+const About = lazyWithRecovery(() => import('./pages/About'));
+const Library = lazyWithRecovery(() => import('./pages/Library'));
+const Contact = lazyWithRecovery(() => import('./pages/Contact'));
+const VerifyEmailPage = lazyWithRecovery(() => import('./pages/VerifyEmailPage'));
+const CheckEmail = lazyWithRecovery(() => import('./pages/VerifyEmail'));
+const Onboarding = lazyWithRecovery(() => import('./pages/Onboarding'));
+const Profile = lazyWithRecovery(() => import('./pages/Profile'));
+const History = lazyWithRecovery(() => import('./pages/History'));
+const CoinWallet = lazyWithRecovery(() => import('./pages/CoinWallet'));
+const ResumeAnalyzer = lazyWithRecovery(() => import('./pages/ResumeAnalyzer'));
+const Analytics = lazyWithRecovery(() => import('./pages/Analytics'));
+const Settings = lazyWithRecovery(() => import('./pages/Settings'));
+const ForgotPassword = lazyWithRecovery(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazyWithRecovery(() => import('./pages/ResetPassword'));
+const DSACodeEditor = lazyWithRecovery(() => import('./pages/DSACodeEditor'));
+const SQLProblemExplorer = lazyWithRecovery(() => import('./pages/SQLProblemExplorer'));
+const SQLCodeEditor = lazyWithRecovery(() => import('./pages/SQLCodeEditor'));
+const InterviewPlatform = lazyWithRecovery(() => import('./components/InterviewPlatform'));
+const AptitudeHub = lazyWithRecovery(() => import('./pages/AptitudeHub'));
+const AptitudePractice = lazyWithRecovery(() => import('./pages/AptitudePractice'));
+const AptitudeResults = lazyWithRecovery(() => import('./pages/AptitudeResults'));
+const ExamHub = lazyWithRecovery(() => import('./pages/ExamHub'));
+const ExamPractice = lazyWithRecovery(() => import('./pages/ExamPractice'));
+const ProblemExplorer = lazyWithRecovery(() => import('./pages/ProblemExplorer'));
+const QuizArena = lazyWithRecovery(() => import('./pages/QuizArena'));
+const AlgorithmPlayground = lazyWithRecovery(() => import('./pages/AlgorithmPlayground'));
+const LearningPath = lazyWithRecovery(() => import('./pages/LearningPath'));
+const TopicLearning = lazyWithRecovery(() => import('./pages/TopicLearning'));
+const DSALearningPath = lazyWithRecovery(() => import('./pages/DSALearningPath'));
+const DSATopicLearning = lazyWithRecovery(() => import('./pages/DSATopicLearning'));
+const TechnicalLearningPath = lazyWithRecovery(() => import('./pages/TechnicalLearningPath'));
+const TechnicalTopicLearning = lazyWithRecovery(() => import('./pages/TechnicalTopicLearning'));
+const AdvancedLearningPathPage = lazyWithRecovery(() => import('./pages/AdvancedLearningPathPage'));
+const HRLearningPath = lazyWithRecovery(() => import('./pages/HRLearningPath'));
+const HRTopicLearning = lazyWithRecovery(() => import('./pages/HRTopicLearning'));
+const SystemDesignPath = lazyWithRecovery(() => import('./pages/SystemDesignPath'));
+const SystemDesignTopicLearning = lazyWithRecovery(() => import('./pages/SystemDesignTopicLearning'));
+const SystemDesignSimulator = lazyWithRecovery(() => import('./pages/SystemDesignSimulator'));
+const AITutorHub = lazyWithRecovery(() => import('./pages/AITutorHub'));
+const CompanyPrep = lazyWithRecovery(() => import('./pages/CompanyPrep'));
 
-const MultiRoundInterview = lazy(() => import('./pages/MultiRoundInterview'));
-const InterviewAnalytics = lazy(() => import('./pages/InterviewAnalytics'));
-const InterviewHistory = lazy(() => import('./pages/InterviewHistory'));
-const InterviewSuite = lazy(() => import('./pages/InterviewSuite'));
-const DebuggingInterview = lazy(() => import('./pages/DebuggingInterview'));
-const CodeReviewInterview = lazy(() => import('./pages/CodeReviewInterview'));
-const CodingPlayground = lazy(() => import('./pages/CodingPlayground'));
-const DailyChallengesPage = lazy(() => import('./pages/DailyChallengesPage'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const AdminLibrary = lazy(() => import('./pages/AdminLibrary'));
-const JobUpdates = lazy(() => import('./pages/JobUpdates'));
-const AIJobCopilot = lazy(() => import('./pages/AIJobCopilot'));
-const HRLogin = lazy(() => import('./pages/HRLogin'));
-const HRDashboard = lazy(() => import('./pages/HRDashboard'));
-const AIInterviewPage = lazy(() => import('./pages/AIInterviewPage'));
-const SimpleVoiceTest = lazy(() => import('./pages/SimpleVoiceTest'));
-const CommunityHub = lazy(() => import('./pages/CommunityHub'));
+const MultiRoundInterview = lazyWithRecovery(() => import('./pages/MultiRoundInterview'));
+const InterviewAnalytics = lazyWithRecovery(() => import('./pages/InterviewAnalytics'));
+const InterviewHistory = lazyWithRecovery(() => import('./pages/InterviewHistory'));
+const InterviewSuite = lazyWithRecovery(() => import('./pages/InterviewSuite'));
+const DebuggingInterview = lazyWithRecovery(() => import('./pages/DebuggingInterview'));
+const CodeReviewInterview = lazyWithRecovery(() => import('./pages/CodeReviewInterview'));
+const CodingPlayground = lazyWithRecovery(() => import('./pages/CodingPlayground'));
+const DailyChallengesPage = lazyWithRecovery(() => import('./pages/DailyChallengesPage'));
+const AdminDashboard = lazyWithRecovery(() => import('./pages/AdminDashboard'));
+const AdminLibrary = lazyWithRecovery(() => import('./pages/AdminLibrary'));
+const JobUpdates = lazyWithRecovery(() => import('./pages/JobUpdates'));
+const AIJobCopilot = lazyWithRecovery(() => import('./pages/AIJobCopilot'));
+const HRLogin = lazyWithRecovery(() => import('./pages/HRLogin'));
+const HRDashboard = lazyWithRecovery(() => import('./pages/HRDashboard'));
+const AIInterviewPage = lazyWithRecovery(() => import('./pages/AIInterviewPage'));
+const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest'));
+const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
+const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
   const { user } = useAuth();
@@ -121,14 +124,24 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 40, color: '#ef4444', background: '#050507', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
-          <h1>Something went wrong</h1>
-          <pre style={{ whiteSpace: 'pre-wrap', marginTop: 20, fontSize: 14, color: '#f87171', background: 'rgba(239, 68, 68, 0.1)', padding: 20, borderRadius: 12 }}>
-            {this.state.error?.toString()}
-          </pre>
-          <button onClick={this.handleReloadPage} className="btn btn-primary" style={{ marginTop: 24 }}>
-            Reload Page
-          </button>
+        <div className="error-boundary-page">
+          <div className="error-boundary-orb" />
+          <div className="error-boundary-card">
+            <div className="error-boundary-icon">⚠️</div>
+            <h1 className="error-boundary-title">Something went wrong</h1>
+            <p className="error-boundary-subtitle">An unexpected error occurred. This has been logged automatically.</p>
+            <pre className="error-boundary-detail">
+              {this.state.error?.toString()}
+            </pre>
+            <div className="error-boundary-actions">
+              <button onClick={this.handleReloadPage} className="error-boundary-btn primary">
+                Reload Page
+              </button>
+              <button onClick={() => window.history.back()} className="error-boundary-btn secondary">
+                Go Back
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -216,7 +229,7 @@ function AppContent() {
         )}
 
         <div className={showSidebar && !isFullBleedCodingRoute ? 'page-content' : ''}>
-          <Suspense fallback={<div style={{ padding: 24 }}>Loading...</div>}>
+          <Suspense fallback={<RouteLoadingSkeleton />}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
@@ -274,6 +287,9 @@ function AppContent() {
             <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
             <Route path="/voice-test" element={<SimpleVoiceTest />} />
             <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
+            <Route path="/interview" element={<Navigate to="/interview-suite" replace />} />
+            <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
+            <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
             <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
             <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
             <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
@@ -313,68 +329,19 @@ function AppContent() {
             <Route path="/hr/dashboard" element={<HRDashboard />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
+            <Route path="*" element={<NotFound />} />
 
           </Routes>
           </Suspense>
         </div>
 
-        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <Footer />}
+        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <AppFooter />}
       </div>
     </div>
   );
 }
 
-function Footer() {
-  return (
-    <footer className="footer">
-      <div className="container">
-        <div className="footer-grid">
-          <div className="footer-brand">
-            <h3 className="text-gradient">
-              <Code2 size={24} />
-              PrepLoop
-            </h3>
-            <p>
-              Comprehensive interview preparation platform helping engineers land their dream jobs at top tech companies.
-            </p>
-          </div>
 
-          <div className="footer-col">
-            <h4>Product</h4>
-            <ul className="footer-links">
-              <li><a href="/#features">Features</a></li>
-              <li><Link to="/pricing">Pricing</Link></li>
-              <li><Link to="/blog">Blog</Link></li>
-            </ul>
-          </div>
-
-          <div className="footer-col">
-            <h4>Resources</h4>
-            <ul className="footer-links">
-
-
-
-              <li><a href="/#faq">FAQ</a></li>
-            </ul>
-          </div>
-
-          <div className="footer-col">
-            <h4>Support</h4>
-            <ul className="footer-links">
-              <li><Link to="/contact">Contact Us</Link></li>
-              <li><Link to="/privacy">Privacy Policy</Link></li>
-              <li><Link to="/terms">Terms of Service</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="footer-bottom">
-          © 2026 PrepLoop. All rights reserved. Made with ❤️ for engineers.
-        </div>
-      </div>
-    </footer>
-  );
-}
 
 function App() {
   const [appReady, setAppReady] = useState(false);

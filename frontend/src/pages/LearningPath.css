@@ -2063,3 +2063,560 @@
     justify-content: center;
   }
 }
+
+/* ═══════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ═══════════════════════════════════════════════ */
+[data-theme="light"] .lp-hero {
+  background: linear-gradient(135deg,
+    rgba(129, 140, 248, 0.12) 0%,
+    rgba(99, 102, 241, 0.08) 35%,
+    rgba(139, 92, 246, 0.06) 65%,
+    rgba(168, 85, 247, 0.04) 100%);
+  border-color: rgba(99, 102, 241, 0.18);
+}
+[data-theme="light"] .lp-hero::before {
+  background: radial-gradient(ellipse at 65% 25%, rgba(129, 140, 248, 0.08) 0%, transparent 55%);
+}
+[data-theme="light"] .lp-hero--aptitude {
+  background: linear-gradient(135deg,
+    rgba(234, 179, 8, 0.12) 0%,
+    rgba(250, 204, 21, 0.08) 40%,
+    rgba(249, 115, 22, 0.06) 100%);
+  border-color: rgba(234, 179, 8, 0.22);
+}
+[data-theme="light"] .lp-hero--dsa {
+  background: linear-gradient(135deg,
+    rgba(129, 140, 248, 0.12) 0%,
+    rgba(99, 102, 241, 0.08) 35%,
+    rgba(244, 114, 182, 0.06) 100%);
+  border-color: rgba(129, 140, 248, 0.20);
+}
+[data-theme="light"] .lp-hero--tech {
+  background: linear-gradient(135deg,
+    rgba(52, 211, 153, 0.12) 0%,
+    rgba(16, 185, 129, 0.08) 40%,
+    rgba(6, 182, 212, 0.06) 100%);
+  border-color: rgba(16, 185, 129, 0.22);
+}
+[data-theme="light"] .lp-hero--hr {
+  background: linear-gradient(135deg,
+    rgba(244, 114, 182, 0.12) 0%,
+    rgba(236, 72, 153, 0.08) 40%,
+    rgba(168, 85, 247, 0.06) 100%);
+  border-color: rgba(236, 72, 153, 0.22);
+}
+[data-theme="light"] .lp-hero--sd {
+  background: linear-gradient(135deg,
+    rgba(16, 185, 129, 0.12) 0%,
+    rgba(6, 182, 212, 0.08) 40%,
+    rgba(59, 130, 246, 0.06) 100%);
+  border-color: rgba(16, 185, 129, 0.22);
+}
+
+/* Hero text */
+[data-theme="light"] .lp-hero-badge {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.10);
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .lp-hero-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-hero-subtitle {
+  color: rgba(30, 27, 75, 0.55);
+}
+
+/* Stats strip */
+[data-theme="light"] .lp-stat-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-stat-value {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-stat-label {
+  color: rgba(30, 27, 75, 0.50);
+}
+
+/* Section headers */
+[data-theme="light"] .lp-section-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-section-subtitle {
+  color: rgba(30, 27, 75, 0.50);
+}
+
+/* Glass cards */
+[data-theme="light"] .lp-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+}
+[data-theme="light"] .lp-card-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-card-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-card-meta {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-card-meta-item {
+  color: rgba(30, 27, 75, 0.50);
+}
+
+/* Step indicators */
+[data-theme="light"] .lp-step {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-step-label {
+  color: rgba(30, 27, 75, 0.45);
+}
+[data-theme="light"] .lp-step--done .lp-step-label {
+  color: #4338ca;
+}
+
+/* SVG Progress Ring text */
+[data-theme="light"] .lp-progress-ring text {
+  fill: #1e1b4b !important;
+}
+[data-theme="light"] .lp-progress-ring circle:first-child {
+  stroke: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Methodology cards */
+[data-theme="light"] .lp-methodology-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .lp-methodology-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-methodology-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+
+/* Stage accordion */
+[data-theme="light"] .lp-stage-header {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-stage-header:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+[data-theme="light"] .lp-stage-name {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-stage-info {
+  color: rgba(30, 27, 75, 0.50);
+}
+[data-theme="light"] .lp-stage-chevron {
+  color: rgba(30, 27, 75, 0.40);
+}
+[data-theme="light"] .lp-stage-body {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Timeline */
+[data-theme="light"] .lp-timeline-line {
+  background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-timeline-dot {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .lp-timeline-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-timeline-card:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.14);
+}
+[data-theme="light"] .lp-timeline-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-timeline-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-timeline-tag {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(30, 27, 75, 0.60);
+}
+[data-theme="light"] .lp-timeline-mastery-value {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-timeline-mastery-label {
+  color: rgba(30, 27, 75, 0.45);
+}
+
+/* Track selector */
+[data-theme="light"] .lp-track {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-track:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+[data-theme="light"] .lp-track--active {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.30);
+}
+[data-theme="light"] .lp-track-label {
+  color: rgba(30, 27, 75, 0.65);
+}
+[data-theme="light"] .lp-track-desc {
+  color: rgba(30, 27, 75, 0.45);
+}
+[data-theme="light"] .lp-track-per-day {
+  color: rgba(30, 27, 75, 0.45);
+}
+
+/* Hub cards */
+[data-theme="light"] .lp-hub-card {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-hub-card:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.10);
+}
+[data-theme="light"] .lp-hub-card-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-hub-card-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-hub-card-footer {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-hub-card-stat-label {
+  color: rgba(30, 27, 75, 0.45);
+}
+[data-theme="light"] .lp-hub-card-arrow {
+  background: rgba(0, 0, 0, 0.05);
+  color: rgba(30, 27, 75, 0.50);
+}
+[data-theme="light"] .lp-hub-card:hover .lp-hub-card-arrow {
+  background: rgba(0, 0, 0, 0.10);
+  color: #1e1b4b;
+}
+
+/* Radar wrap */
+[data-theme="light"] .lp-radar-wrap {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Empty state */
+[data-theme="light"] .lp-empty {
+  color: rgba(30, 27, 75, 0.40);
+}
+
+/* ─── Stage Section Headers ─── */
+[data-theme="light"] .lp-stage-section-header {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-stage-section-title {
+  color: #1e1b4b;
+}
+
+/* ═══════════════════════════════════════════════
+   TOPIC DETAIL PAGE — LIGHT MODE
+   ═══════════════════════════════════════════════ */
+[data-theme="light"] .lp-topic-page {
+  background: #f8f9fc;
+  color: #1e1b4b;
+}
+
+/* Topic hero */
+[data-theme="light"] .lp-topic-hero {
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-hero-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-hero-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-topic-back {
+  color: rgba(30, 27, 75, 0.50);
+}
+[data-theme="light"] .lp-topic-back:hover {
+  color: #1e1b4b;
+}
+
+/* Topic badges */
+[data-theme="light"] .lp-topic-badge--muted {
+  background: rgba(0, 0, 0, 0.04);
+  color: rgba(30, 27, 75, 0.55);
+}
+
+/* Topic mastery */
+[data-theme="light"] .lp-topic-mastery-label {
+  color: rgba(30, 27, 75, 0.50);
+}
+
+/* Topic steps */
+[data-theme="light"] .lp-topic-step {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-step-label {
+  color: rgba(30, 27, 75, 0.45);
+}
+
+/* Mastery bar */
+[data-theme="light"] .lp-topic-mastery-bar-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Tabs */
+[data-theme="light"] .lp-topic-tabs {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-tab {
+  color: rgba(30, 27, 75, 0.55);
+}
+
+/* Section cards */
+[data-theme="light"] .lp-topic-section {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-section-header {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-section-title {
+  color: #1e1b4b;
+}
+
+/* Step items */
+[data-theme="light"] .lp-topic-step-item {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .lp-topic-step-text {
+  color: #334155;
+}
+
+/* Headings */
+[data-theme="light"] .lp-topic-heading {
+  color: #1e1b4b;
+}
+
+/* Visual diagrams */
+[data-theme="light"] .lp-topic-visual-label span:last-child {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-topic-visual {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(99, 102, 241, 0.20);
+}
+[data-theme="light"] .lp-topic-visual pre {
+  color: #4338ca;
+}
+
+/* Code blocks */
+[data-theme="light"] .lp-topic-code-title {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-topic-code {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(16, 185, 129, 0.20);
+}
+[data-theme="light"] .lp-topic-code pre {
+  color: #065f46;
+}
+
+/* Banner */
+[data-theme="light"] .lp-topic-banner-count {
+  color: rgba(30, 27, 75, 0.50);
+}
+
+/* Decision tree */
+[data-theme="light"] .lp-topic-decision {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Trick cards */
+[data-theme="light"] .lp-topic-trick-tip {
+  color: #334155;
+}
+
+/* Pitfall */
+[data-theme="light"] .lp-topic-pitfall {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+/* Reference cards */
+[data-theme="light"] .lp-topic-ref-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-ref-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-ref-item {
+  background: rgba(0, 0, 0, 0.03);
+  color: #334155;
+}
+
+/* Invariants */
+[data-theme="light"] .lp-topic-invariant {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: rgba(99, 102, 241, 0.15);
+}
+
+/* Pattern cards */
+[data-theme="light"] .lp-topic-patterns {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-pattern-card {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-pattern-desc {
+  color: rgba(30, 27, 75, 0.55);
+}
+
+/* Progress bar */
+[data-theme="light"] .lp-topic-progress-label {
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-topic-progress-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Problem rows */
+[data-theme="light"] .lp-topic-problem {
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-problem:hover {
+  border-color: rgba(0, 0, 0, 0.14);
+}
+[data-theme="light"] .lp-topic-problem-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-problem-pattern {
+  color: rgba(30, 27, 75, 0.45);
+}
+
+/* Glass card */
+[data-theme="light"] .lp-topic-glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Flashcard */
+[data-theme="light"] .lp-topic-flashcard {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-flashcard-counter {
+  color: rgba(30, 27, 75, 0.50);
+}
+[data-theme="light"] .lp-topic-flashcard-area {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.10);
+}
+
+/* Flipcard faces */
+[data-theme="light"] .lp-topic-flipcard-face {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-flipcard-formula {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-flipcard-hint {
+  color: rgba(30, 27, 75, 0.45);
+}
+
+/* Accordion */
+[data-theme="light"] .lp-topic-accordion {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-accordion-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .lp-topic-accordion-body {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Shortcut cards */
+[data-theme="light"] .lp-topic-shortcut-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+/* Quiz */
+[data-theme="light"] .lp-topic-quiz-filter-btn {
+  border-color: rgba(0, 0, 0, 0.10);
+  color: rgba(30, 27, 75, 0.55);
+}
+[data-theme="light"] .lp-topic-quiz-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .lp-topic-quiz-option {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-quiz-option:hover:not(:disabled) {
+  border-color: rgba(0, 0, 0, 0.14);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Example answer cards */
+[data-theme="light"] .lp-topic-example {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .lp-topic-example-question {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-example-answer {
+  color: #334155;
+  border-left-color: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .lp-topic-example-info {
+  color: #334155;
+}
+
+/* Scenario widget */
+[data-theme="light"] .lp-topic-scenario {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .lp-topic-scenario-header:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+[data-theme="light"] .lp-topic-scenario-title {
+  color: #1e1b4b;
+}
+[data-theme="light"] .lp-topic-scenario-body {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+/* STAR builder */
+[data-theme="light"] .lp-topic-star-section {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.06);
+}

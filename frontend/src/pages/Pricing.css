@@ -146,6 +146,80 @@
   line-height: 1.6;
 }
 
+/* ---------- BILLING TOGGLE ---------- */
+.pricing-billing-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 32px;
+}
+
+.pricing-billing-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b6f85;
+  transition: color 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pricing-billing-label.active {
+  color: #f0f0f5;
+  font-weight: 600;
+}
+
+.pricing-billing-save {
+  font-size: 11px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #00d2be 0%, #00b8a9 100%);
+  color: #050510;
+  padding: 2px 8px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pricing-toggle-pill {
+  width: 52px;
+  height: 28px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s ease;
+  padding: 0;
+}
+
+.pricing-toggle-pill:hover {
+  border-color: rgba(0, 210, 190, 0.4);
+}
+
+.pricing-toggle-pill .pricing-toggle-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #f0f0f5;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.pricing-toggle-pill.annual {
+  background: linear-gradient(135deg, #00d2be 0%, #00b8a9 100%);
+  border-color: rgba(0, 210, 190, 0.5);
+  box-shadow: 0 0 16px rgba(0, 210, 190, 0.2);
+}
+
+.pricing-toggle-pill.annual .pricing-toggle-thumb {
+  transform: translateX(24px);
+  background: #050510;
+}
+
 /* ---------- PLANS GRID ---------- */
 .pricing-plans-section {
   padding: 60px 24px 40px;
@@ -185,7 +259,8 @@
 /* ---------- POPULAR CARD ---------- */
 .pricing-plan-card.pricing-popular {
   background: rgba(0, 210, 190, 0.04);
-  border-color: rgba(0, 210, 190, 0.35);
+  border-color: rgba(0, 210, 190, 0.5);
+  border-width: 1.5px;
   box-shadow:
     0 0 40px rgba(0, 210, 190, 0.08),
     0 20px 60px rgba(0, 0, 0, 0.3);
@@ -198,6 +273,21 @@
   box-shadow:
     0 0 60px rgba(0, 210, 190, 0.12),
     0 24px 70px rgba(0, 0, 0, 0.4);
+}
+
+.pricing-popular-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: linear-gradient(135deg, #00d2be 0%, #00b8a9 100%);
+  color: #050510;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 12px;
 }
 
 /* ---------- CARD INTERNALS ---------- */
@@ -569,7 +659,7 @@
 
 @media (max-width: 600px) {
   .pricing-hero {
-    padding: 60px 16px 16px;
+    padding: 100px 16px 16px;
   }
 
   .pricing-hero h1 {
@@ -587,4 +677,144 @@
   .pricing-price-amount {
     font-size: 36px;
   }
+}
+
+/* ---------- LIGHT MODE ---------- */
+[data-theme="light"] .pricing-page {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .pricing-page::before {
+  background:
+    radial-gradient(ellipse 90% 45% at 50% 105%, rgba(79, 70, 229, 0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 55% at 95% 60%, rgba(99, 102, 241, 0.06) 0%, transparent 65%);
+}
+
+[data-theme="light"] .pricing-page::after {
+  display: none;
+}
+
+[data-theme="light"] .pricing-hero h1 { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-hero p { color: var(--color-text-secondary); }
+
+[data-theme="light"] .pricing-plan-card {
+  background: var(--color-bg-card);
+  border-color: var(--color-border);
+}
+
+[data-theme="light"] .pricing-plan-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .pricing-plan-card.pricing-popular {
+  background: rgba(79, 70, 229, 0.04);
+  border-color: rgba(79, 70, 229, 0.4);
+  box-shadow: 0 0 30px rgba(79, 70, 229, 0.06), 0 12px 40px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .pricing-popular-badge {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+}
+
+[data-theme="light"] .pricing-plan-name { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-popular .pricing-plan-name { color: #4f46e5; }
+[data-theme="light"] .pricing-plan-tagline { color: var(--color-text-secondary); }
+[data-theme="light"] .pricing-price-amount { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-price-period { color: var(--color-text-muted); }
+
+[data-theme="light"] .pricing-price-discount {
+  background: rgba(79, 70, 229, 0.1);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .pricing-whats-included { color: var(--color-text-muted); }
+[data-theme="light"] .pricing-features-list li { color: var(--color-text-secondary); }
+
+[data-theme="light"] .pricing-feature-check {
+  background: rgba(79, 70, 229, 0.08);
+  border-color: rgba(79, 70, 229, 0.2);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .pricing-cta-btn.pricing-btn-outline {
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+[data-theme="light"] .pricing-cta-btn.pricing-btn-outline:hover {
+  border-color: rgba(79, 70, 229, 0.4);
+  background: rgba(79, 70, 229, 0.04);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .pricing-cta-btn.pricing-btn-primary {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  color: white;
+  box-shadow: 0 4px 16px rgba(79, 70, 229, 0.2);
+}
+
+[data-theme="light"] .pricing-cta-btn.pricing-btn-teal {
+  background: rgba(79, 70, 229, 0.06);
+  border-color: rgba(79, 70, 229, 0.2);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .pricing-enterprise-banner p {
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+  background: var(--color-bg-card);
+}
+
+[data-theme="light"] .pricing-enterprise-banner a { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-enterprise-banner a:hover { color: #4f46e5; }
+
+[data-theme="light"] .pricing-faq-header h2 { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-faq-header p { color: var(--color-text-secondary); }
+
+[data-theme="light"] .pricing-faq-item {
+  border-color: var(--color-border);
+  background: var(--color-bg-card);
+}
+
+[data-theme="light"] .pricing-faq-item.pricing-faq-open {
+  border-color: rgba(79, 70, 229, 0.2);
+  background: rgba(79, 70, 229, 0.02);
+}
+
+[data-theme="light"] .pricing-faq-question-btn { color: var(--color-text-primary); }
+[data-theme="light"] .pricing-faq-question-btn:hover { color: #4f46e5; }
+[data-theme="light"] .pricing-faq-open .pricing-faq-chevron { color: #4f46e5; }
+[data-theme="light"] .pricing-faq-answer p { color: var(--color-text-secondary); }
+[data-theme="light"] .pricing-addon-label { color: var(--color-text-secondary); }
+[data-theme="light"] .pricing-addon-price { color: var(--color-text-muted); }
+
+[data-theme="light"] .pricing-billing-label { color: var(--color-text-muted); }
+[data-theme="light"] .pricing-billing-label.active { color: var(--color-text-primary); }
+
+[data-theme="light"] .pricing-billing-save {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+}
+
+[data-theme="light"] .pricing-toggle-pill {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: var(--color-border);
+}
+
+[data-theme="light"] .pricing-toggle-pill .pricing-toggle-thumb {
+  background: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .pricing-toggle-pill.annual {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  border-color: rgba(79, 70, 229, 0.5);
+  box-shadow: 0 0 12px rgba(79, 70, 229, 0.15);
+}
+
+[data-theme="light"] .pricing-toggle-pill.annual .pricing-toggle-thumb {
+  background: white;
 }

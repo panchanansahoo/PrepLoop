@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import './CalendarWidget.css';
 import { ChevronLeft, ChevronRight, Calendar, Plus, X, Clock, Edit2, Trash2 } from 'lucide-react';
 import useCalendarEvents from '../hooks/useCalendarEvents';
 import { useTheme } from '../context/ThemeContext';

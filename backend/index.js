@@ -5,11 +5,6 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
-// Comprehensive Improvements
-import advancedCache from './utils/advancedCache.js';
-import databaseOptimizer from './utils/databaseOptimizer.js';
-import errorTracker from './utils/errorTracker.js';
-import security from './middleware/advancedSecurity.js';
 import { apiCache } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import collaborationService from './services/collaborationService.js';
@@ -105,23 +100,32 @@ async function initializeServer() {
       legacyHeaders: false,
     });
 
+    // SECURITY: H4 — Dedicated signup rate limiter (stricter than general auth)
+    const signupLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 5,
+      message: { error: 'Too many signup attempts. Please try again in 15 minutes.' },
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => req.ip,
+    });
+
     // Middleware setup
     
-  // Advanced security middleware
-  app.use(security.securityHeaders());
-  app.use(security.ipBlocker());
-  app.use(security.sqlInjectionProtection());
-  app.use(security.xssProtection());
-
-    app.use(enhancedSecurity());
+  // Enhanced security: IP blocking, SQL injection, XSS, rate limiting, security headers
+  app.use(enhancedSecurity());
 
   app.use(helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           scriptSrc: ["'self'"],
           imgSrc: ["'self'", 'data:', 'https:'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          connectSrc: ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
+          mediaSrc: ["'self'", 'blob:'],
+          frameAncestors: ["'none'"],  // SECURITY: H5 — prevent clickjacking via CSP
         },
       },
       hsts: {
@@ -153,6 +157,7 @@ async function initializeServer() {
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
     
     // Rate limiting
+    app.use('/api/auth/signup', signupLimiter); // SECURITY: H4 — stricter signup limit
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
     app.use('/api/ai-features', aiEndpointsLimiter);
@@ -232,7 +237,6 @@ async function initializeServer() {
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
-    app.use('/api/ai', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
     app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
     app.use('/api/interview-suite', interviewSuiteRoutes);
@@ -353,19 +357,17 @@ process.on('uncaughtException', (error) => {
 });
 
 // Graceful shutdown will be registered after server starts
-let shutdownManager = null;
 
 // Initialize server and start listening
 initializeServer().then(async () => {
   const port = await resolveServerPort(DEFAULT_PORT);
   const server = startServer(port);
 
-  // Setup graceful shutdown with configurable timeouts
-  shutdownManager = 
   // Initialize collaboration service
   collaborationService.initialize(server);
   console.log('✅ Collaboration service initialized');
 
+  // Setup graceful shutdown with configurable timeouts
   setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
     forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
