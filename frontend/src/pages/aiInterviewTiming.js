@@ -5,7 +5,8 @@
  *  – thinking delays (human-like pause before AI responds)
  *  – deterministic scoring heuristics (replaces Math.random())
  *  – per-question time budgets
- *  – interviewer reactions
+ *  – interviewer reactions (type-aware)
+ *  – stage-specific silence encouragement
  */
 
 // ── Thinking Delay ──────────────────────────────────────────────────
@@ -18,11 +19,92 @@ export function getThinkingDelayMs(text = '') {
 }
 
 // ── Interviewer Reaction ────────────────────────────────────────────
-// Pick a reaction emoji + phrase based on the score (0-100).
-export function getInterviewerReaction(score) {
+// Pick a reaction emoji + phrase based on the score (0-100) and
+// optionally the interview type for richer, contextual feedback.
+const TYPE_REACTIONS = {
+    dsa: {
+        high: { emoji: '🎯', text: 'Clean approach with solid complexity analysis.' },
+        mid: { emoji: '🤔', text: 'Good direction — let me probe deeper on trade-offs.' },
+        low: { emoji: '💡', text: "Let's think through the approach step by step." },
+    },
+    'system-design': {
+        high: { emoji: '🏗️', text: 'Strong architecture with clear trade-offs.' },
+        mid: { emoji: '🤔', text: 'Interesting approach — how would it handle scale?' },
+        low: { emoji: '💡', text: "Let's break the system into smaller components." },
+    },
+    behavioral: {
+        high: { emoji: '⭐', text: 'Great example with clear impact.' },
+        mid: { emoji: '🤔', text: 'Good story — can you share the specific outcome?' },
+        low: { emoji: '💡', text: 'Can you recall a concrete situation to illustrate?' },
+    },
+    hr: {
+        high: { emoji: '👏', text: 'Authentic answer — that resonates well.' },
+        mid: { emoji: '😊', text: "That's a good start — let me follow up." },
+        low: { emoji: '💬', text: "Let's explore that a bit more." },
+    },
+    technical: {
+        high: { emoji: '👍', text: 'Solid technical understanding.' },
+        mid: { emoji: '🤔', text: 'Let me follow up on that.' },
+        low: { emoji: '💡', text: "Let's explore that further." },
+    },
+};
+
+export function getInterviewerReaction(score, interviewType = null) {
+    const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
+    const typeReactions = TYPE_REACTIONS[normalizedType];
+
+    if (typeReactions) {
+        if (score >= 80) return typeReactions.high;
+        if (score >= 60) return typeReactions.mid;
+        return typeReactions.low;
+    }
+
+    // Default (generic) reactions — backward compatible
     if (score >= 80) return { emoji: '👍', text: "That's a strong answer." };
     if (score >= 60) return { emoji: '🤔', text: 'Let me follow up on that.' };
     return { emoji: '😐', text: "Let's explore that further." };
+}
+
+// ── Stage-Specific Silence Encouragement ────────────────────────────
+// Used by the silence handler to show type-appropriate prompts instead
+// of the generic "Take your time, no rush..."
+const SILENCE_PROMPTS = {
+    dsa: [
+        'Feel free to think out loud about your approach...',
+        'You can start by describing your thought process...',
+        'Take a moment to consider the data structure...',
+    ],
+    'system-design': [
+        'Consider starting with the high-level architecture...',
+        'Think about what components you would need...',
+        'You could start with the data flow...',
+    ],
+    behavioral: [
+        'Take a moment to recall a specific example...',
+        'Think of a situation where you faced a similar challenge...',
+        'A concrete story would work well here...',
+    ],
+    hr: [
+        'Take your time — there is no wrong answer here...',
+        'Feel free to share what comes to mind naturally...',
+        'You can start with what motivates you...',
+    ],
+    technical: [
+        'Take your time to think through the approach...',
+        'Feel free to start with what you know...',
+        'You can walk through it step by step...',
+    ],
+};
+
+/**
+ * Get a stage-appropriate silence encouragement prompt.
+ * @param {string} interviewType - e.g., 'dsa', 'behavioral', 'hr'
+ * @param {number} silenceIndex - which silence prompt to show (cycles through available prompts)
+ */
+export function getSilencePrompt(interviewType = 'technical', silenceIndex = 0) {
+    const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
+    const prompts = SILENCE_PROMPTS[normalizedType] || SILENCE_PROMPTS.technical;
+    return prompts[Math.abs(silenceIndex) % prompts.length];
 }
 
 // ── Deterministic Scoring Heuristics ────────────────────────────────

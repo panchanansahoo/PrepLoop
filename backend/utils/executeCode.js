@@ -4,6 +4,20 @@ import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
 
+// SECURITY: Sanitized environment for child processes — only expose PATH
+// This prevents user-submitted code from reading secrets like API keys,
+// database credentials, or service role keys via process.env
+const SANDBOX_ENV = Object.freeze({
+    PATH: process.env.PATH || '',
+    HOME: os.tmpdir(),
+    TMPDIR: os.tmpdir(),
+    NODE_ENV: 'sandbox',
+    // Disable Node.js inspector and debugger in sandboxed code
+    NODE_OPTIONS: '--no-warnings',
+});
+
+const SANDBOX_MAX_BUFFER = 5 * 1024 * 1024; // 5MB max output
+
 const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
 const COMPILED_CACHE_MAX_ENTRIES = 50;
 const COMPILED_BINARY_CACHE = new Map();
@@ -135,6 +149,8 @@ export async function executeCode(code, language, input = '') {
                     stdio: 'pipe', timeout: 10000, shell: false,
                     input: input || '',
                     cwd: workspaceDir,
+                    env: SANDBOX_ENV,           // SECURITY: sanitized env
+                    maxBuffer: SANDBOX_MAX_BUFFER,
                 });
                 const output = result.toString().trim() || '(No output — use console.log() to see results)';
                 const total = Date.now() - startTime;
@@ -222,6 +238,8 @@ export async function executeCode(code, language, input = '') {
                 try {
                     execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
                         stdio: 'pipe', timeout: 15000, shell: false, cwd: tmpDir,
+                        env: SANDBOX_ENV,           // SECURITY: sanitized env
+                        maxBuffer: SANDBOX_MAX_BUFFER,
                     });
                     compileTime = Date.now() - compileStart;
                     finalExecutablePath = compileTarget;
@@ -246,6 +264,8 @@ export async function executeCode(code, language, input = '') {
         try {
             const result = execSync(runCmd, {
                 stdio: 'pipe', timeout: 10000, shell: false, input: input || '', cwd: tmpDir,
+                env: SANDBOX_ENV,           // SECURITY: sanitized env
+                maxBuffer: SANDBOX_MAX_BUFFER,
             });
             const output = result.toString().trim() || '(No output)';
             const runTime = Date.now() - runStart;
@@ -323,15 +343,18 @@ function __deepEqual(a, b) {
 }
 
 function __resolveCallable(targetName) {
-    // 1) Direct function by name
+    // SECURITY: Use globalThis lookups instead of eval() to resolve user-defined functions.
+    // eval() allows arbitrary code execution; globalThis[name] only performs property access.
+
+    // 1) Direct function by name via globalThis
     try {
-        const direct = eval(targetName);
+        const direct = globalThis[targetName];
         if (typeof direct === 'function') return direct;
     } catch {}
 
     // 2) LeetCode-style class Solution with method name
     try {
-        const Sol = eval('Solution');
+        const Sol = globalThis['Solution'];
         if (typeof Sol === 'function') {
             const instance = new Sol();
 

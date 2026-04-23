@@ -4,7 +4,7 @@ import { Shield, Lock, Eye, Database, FileText } from 'lucide-react';
 
 export default function PrivacyPolicy() {
   return (
-    <div style={{ minHeight: '100vh', background: '#020203', color: 'white', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', position: 'relative' }}>
 
 
       <div className="container" style={{ paddingTop: '120px', paddingBottom: '80px', position: 'relative', zIndex: 10, maxWidth: '800px' }}>
@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
 
-          <section style={{ background: 'rgba(255,255,255,0.03)', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
+          <section style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.03))', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <Shield size={24} color="#a78bfa" />
               <h2 style={{ fontSize: '24px', margin: 0 }}>1. Introduction</h2>
@@ -33,16 +33,16 @@ export default function PrivacyPolicy() {
               <h2 style={{ fontSize: '24px', margin: 0 }}>2. Information We Collect</h2>
             </div>
             <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--zinc-400)' }}>
-              <li style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px' }}>
-                <strong style={{ color: 'white', display: 'block', marginBottom: '4px' }}>Account Information</strong>
+              <li style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '8px' }}>
+                <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '4px' }}>Account Information</strong>
                 Name, email address, and password provided during registration.
               </li>
-              <li style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px' }}>
-                <strong style={{ color: 'white', display: 'block', marginBottom: '4px' }}>Performance Data</strong>
+              <li style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '8px' }}>
+                <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '4px' }}>Performance Data</strong>
                 Code submissions, mock interview recordings (audio/text), and progress metrics to provide personalized AI feedback.
               </li>
-              <li style={{ background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '8px' }}>
-                <strong style={{ color: 'white', display: 'block', marginBottom: '4px' }}>Usage Data</strong>
+              <li style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '8px' }}>
+                <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '4px' }}>Usage Data</strong>
                 Information about how you interact with our platform to improve user experience.
               </li>
             </ul>

@@ -9,9 +9,53 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
-import voiceService from '../services/voiceService.js';
+import voiceService, { groqClient } from '../services/voiceService.js';
+// SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();
+
+// ── Rate limiter for sensitive endpoints (in-memory, per-user) ──
+const tokenRateLimits = new Map();
+const TOKEN_RATE_WINDOW_MS = 60_000; // 1 minute
+const TOKEN_RATE_MAX = 10;           // max 10 requests per window
+
+function tokenRateLimit(req, res, next) {
+    const userId = req.user?.id || req.ip || 'anon';
+    const now = Date.now();
+    const entry = tokenRateLimits.get(userId);
+    if (entry && now - entry.windowStart < TOKEN_RATE_WINDOW_MS) {
+        if (entry.count >= TOKEN_RATE_MAX) {
+            return res.status(429).json({ error: 'Too many token requests. Try again later.' });
+        }
+        entry.count++;
+    } else {
+        tokenRateLimits.set(userId, { windowStart: now, count: 1 });
+    }
+    // Periodic cleanup (every 100 entries)
+    if (tokenRateLimits.size > 100) {
+        for (const [key, val] of tokenRateLimits) {
+            if (now - val.windowStart > TOKEN_RATE_WINDOW_MS * 2) tokenRateLimits.delete(key);
+        }
+    }
+    next();
+}
+
+// Periodic cleanup of stale rate-limit entries (every 5 minutes)
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, val] of tokenRateLimits) {
+        if (now - val.windowStart > TOKEN_RATE_WINDOW_MS * 2) tokenRateLimits.delete(key);
+    }
+}, 5 * 60 * 1000).unref();
+
+// ── Input validation for TTS parameters ──
+const VALID_GENDERS = ['female', 'male'];
+const VALID_PERSONAS = ['friendly', 'analytical', 'formal', 'casual'];
+const VALID_LANGUAGES = ['en', 'en-us', 'hi', 'es', 'fr', 'de', 'ja', 'ko', 'zh'];
+
+function sanitizeGender(val)   { const g = String(val || '').toLowerCase().trim(); return VALID_GENDERS.includes(g) ? g : 'female'; }
+function sanitizePersona(val)  { const p = String(val || '').toLowerCase().trim(); return VALID_PERSONAS.includes(p) ? p : 'friendly'; }
+function sanitizeLanguage(val) { const l = String(val || '').toLowerCase().trim(); return VALID_LANGUAGES.includes(l) ? l : 'en'; }
 const TMP_UPLOAD_DIR = path.resolve(os.tmpdir());
 
 const isPathInsideTmp = (filePath) => {
@@ -29,9 +73,8 @@ const safeDeleteTempFile = (filePath) => {
     }
 };
 
-// Fix #1: module-level Groq client — reused across requests
-import Groq from 'groq-sdk';
-const groqClient = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+// Groq client: reuse the shared instance from voiceService (no duplicate SDK)
+// Falls back to null if GROQ_API_KEY is not set.
 
 // Fix #10: use crypto.randomBytes for unique filenames
 const upload = multer({
@@ -53,7 +96,8 @@ const rawUpload = multer({
 });
 
 // ─── Get available providers ───
-router.get('/providers', (req, res) => {
+// Auth required to prevent leaking which API keys are configured
+router.get('/providers', optionalAuth, (req, res) => {
     res.json(voiceService.getAvailableProviders());
 });
 
@@ -63,7 +107,10 @@ router.get('/providers', (req, res) => {
 // Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/tts', optionalAuth, async (req, res) => {
-    const { text, persona, provider, language, gender } = req.body;
+    const { text, provider } = req.body;
+    const persona  = sanitizePersona(req.body.persona);
+    const language = sanitizeLanguage(req.body.language);
+    const gender   = sanitizeGender(req.body.gender);
 
     if (!text || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
@@ -72,10 +119,10 @@ router.post('/tts', optionalAuth, async (req, res) => {
     try {
         const result = await voiceService.textToSpeech(
             text,
-            persona || 'friendly',
+            persona,
             provider || null,
-            language || 'en',
-            gender  || 'female'
+            language,
+            gender
         );
 
         if (result.fallback) {
@@ -105,7 +152,9 @@ router.post('/tts', optionalAuth, async (req, res) => {
 });
 
 router.post('/tts-fast', optionalAuth, async (req, res) => {
-    const { text, persona, gender } = req.body;
+    const { text } = req.body;
+    const persona = sanitizePersona(req.body.persona);
+    const gender  = sanitizeGender(req.body.gender);
 
     if (!text || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
@@ -114,10 +163,10 @@ router.post('/tts-fast', optionalAuth, async (req, res) => {
     try {
         const result = await voiceService.textToSpeech(
             text.substring(0, 150),
-            persona || 'friendly',
+            persona,
             'kokoro',
             'en',
-            gender || 'female'
+            gender
         );
 
         if (result.fallback) {
@@ -152,7 +201,10 @@ router.post('/tts-fast', optionalAuth, async (req, res) => {
 // so existing frontend callers continue to work without code changes.
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/tts-stream', optionalAuth, async (req, res) => {
-    const { text, persona, language, gender } = req.body;
+    const { text } = req.body;
+    const persona  = sanitizePersona(req.body.persona);
+    const language = sanitizeLanguage(req.body.language);
+    const gender   = sanitizeGender(req.body.gender);
 
     if (!text || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
@@ -161,10 +213,10 @@ router.post('/tts-stream', optionalAuth, async (req, res) => {
     try {
         const result = await voiceService.textToSpeech(
             text,
-            persona  || 'friendly',
+            persona,
             null,
-            language || 'en',
-            gender   || 'female'
+            language,
+            gender
         );
 
         if (result.fallback) {
@@ -234,7 +286,11 @@ router.post('/stt-chunk', optionalAuth, rawUpload.single('audio'), async (req, r
 // Returns: { needsFollowUp, followUpQuestion, clarityScore, specificityScore, starUsed }
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/analyze-answer', optionalAuth, async (req, res) => {
-    const { question, answer, interviewType } = req.body;
+    const { question, answer } = req.body;
+    // Sanitize interviewType against allowlist to prevent prompt injection
+    const VALID_INTERVIEW_TYPES = ['technical', 'behavioral', 'coding', 'dsa', 'system-design', 'hr'];
+    const rawType = String(req.body.interviewType || '').toLowerCase().trim();
+    const interviewType = VALID_INTERVIEW_TYPES.includes(rawType) ? rawType : 'technical';
 
     if (!answer || answer.trim().length < 10) {
         return res.json({ needsFollowUp: false, followUpQuestion: null, clarityScore: 5, specificityScore: 5, starUsed: false });
@@ -246,10 +302,14 @@ router.post('/analyze-answer', optionalAuth, async (req, res) => {
             return res.json({ needsFollowUp: false, followUpQuestion: null, clarityScore: 6, specificityScore: 6, starUsed: false });
         }
 
+        // Strip potential control chars from user-provided strings before LLM interpolation
+        const safeQuestion = (question || 'General interview question').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500);
+        const safeAnswer = answer.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 800);
+
         const analysisPrompt = `You are an expert interview coach analyzing a candidate's answer.
 
-Question: "${question || 'General interview question'}"
-Answer: "${answer.substring(0, 800)}"
+Question: "${safeQuestion}"
+Answer: "${safeAnswer}"
 Interview type: ${interviewType || 'technical'}
 
 Analyze this answer and respond ONLY with valid JSON (no markdown, no explanation):
@@ -270,12 +330,20 @@ Rules:
 - starUsed = true if answer uses Situation/Task/Action/Result structure
 - confidenceScore based on language assertiveness (avoid "I think", "maybe", "I guess")`;
 
-        const completion = await groqClient.chat.completions.create({
-            model:       'llama-3.1-8b-instant',
-            messages:    [{ role: 'user', content: analysisPrompt }],
-            temperature: 0.3,
-            max_tokens:  300,
-        });
+        const ANALYZE_TIMEOUT_MS = 8_000; // 8s max for LLM analysis
+
+        let completion;
+        try {
+            completion = await groqClient.chat.completions.create({
+                model:       'llama-3.1-8b-instant',
+                messages:    [{ role: 'user', content: analysisPrompt }],
+                temperature: 0.3,
+                max_tokens:  300,
+            }, { timeout: ANALYZE_TIMEOUT_MS });
+        } catch (error) {
+            console.error('[voice/analyze-answer] Completion failed:', error.message);
+            throw error;
+        }
 
         const raw = completion.choices?.[0]?.message?.content?.trim() || '';
 
@@ -308,7 +376,8 @@ Rules:
 // Returns: { mmhmm: "data:audio/mpeg;base64,...", isee: ..., ... }
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/backchannel-clips', optionalAuth, async (req, res) => {
-    const { persona = 'friendly', gender = 'female' } = req.query;
+    const persona = sanitizePersona(req.query.persona);
+    const gender  = sanitizeGender(req.query.gender);
 
     try {
         const clips = await voiceService.generateBackchannelClips(persona, gender);
@@ -326,19 +395,24 @@ router.get('/backchannel-clips', optionalAuth, async (req, res) => {
 // DEEPGRAM TOKEN — For frontend WebSocket STT (if enabled)
 // GET /api/voice/deepgram-token  (requires auth)
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/deepgram-token', optionalAuth, (req, res) => {
-    const token = voiceService.getDeepgramToken();
-    if (!token) {
+// SECURITY: No longer exposes raw API keys to the frontend.
+// All STT is proxied through /stt and /stt-chunk endpoints.
+// This endpoint only reports availability so the frontend can decide
+// whether to show the "use backend STT" option.
+router.get('/deepgram-token', authenticateToken, tokenRateLimit, (req, res) => {
+    const available = voiceService.isDeepgramAvailable();
+    if (!available) {
         return res.status(200).json({ available: false, message: 'Deepgram not configured. Using browser speech recognition.' });
     }
-    res.json({ available: true, token });
+    // Return availability only — the frontend should use /stt-chunk for all transcription
+    res.json({ available: true, useBackendProxy: true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TTS HEALTH CHECK — Monitor provider performance
 // GET /api/voice/tts-health
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/tts-health', optionalAuth, (req, res) => {
+router.get('/tts-health', authenticateToken, (req, res) => {
     const stats = voiceService.getProviderStats();
     const providers = voiceService.getAvailableProviders();
     

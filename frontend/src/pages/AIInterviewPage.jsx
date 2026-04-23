@@ -1,241 +1,51 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../context/AuthContext';
-// Legacy useVoiceInterview removed — all voice handled by useDeepgramVoice
+// Legacy useVoiceInterview removed ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â all voice handled by useDeepgramVoice
 import { useDeepgramVoice } from '../hooks/useDeepgramVoice';
 import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
 import VoiceWaveform from '../components/VoiceWaveform';
+import InterviewResults from '../components/interview/InterviewResults';
+import InterviewLobby from '../components/interview/InterviewLobby';
+import InterviewControls from '../components/interview/InterviewControls';
+import LiveCaptions from '../components/interview/LiveCaptions';
+import InterviewWorkspace from '../components/interview/InterviewWorkspace';
+import ChatSidebar from '../components/interview/ChatSidebar';
+import InterviewTopBar from '../components/interview/InterviewTopBar';
 import {
-    Mic, MicOff, Phone, Flag, Code2, FileText, Palette,
-    Clock, Search, Bell, Settings, RotateCcw, Sparkles,
-    Send, MessageSquare, X, ChevronRight, Zap, Play, Pause,
-    Bookmark, Volume2, VolumeX, Wifi, User, Building2,
-    ArrowLeft, ArrowRight, CheckCircle, Star,
-    Award, TrendingUp, BarChart3, Target, Brain, Shield,
-    ThumbsUp, ThumbsDown, AlertTriangle, Download, Share2,
-    RefreshCw, ChevronDown, ChevronUp, Eye, Timer,
-    Lightbulb, Trophy, Gauge, CircleDot,
-    Video, VideoOff, PanelRightOpen, PanelRightClose,
-    Captions, CaptionsOff, GraduationCap, Briefcase
+    Mic, MicOff, Sparkles,
+    MessageSquare, Volume2, Wifi, User, Building2,
+    AlertTriangle, Brain, Code2, Shield,
 } from 'lucide-react';
 import {
     getThinkingDelayMs,
     getInterviewerReaction,
+    getSilencePrompt,
     communicationScore as calcCommunication,
     technicalScore as calcTechnical,
     problemSolvingScore as calcProblemSolving,
     codeQualityScore as calcCodeQuality,
     getQuestionTimeLimit,
 } from './aiInterviewTiming';
+import {
+    BOILERPLATE,
+    AI_INTERVIEW_GENDER_STORAGE_KEY,
+    AI_INTERVIEW_SESSION_KEY,
+    readStoredInterviewerGender,
+    HR_INTERVIEWER_VIDEOS,
+    COMPANY_INTERVIEWERS,
+    DEFAULT_INTERVIEWER,
+    STAGE_MAP,
+    formatTime,
+} from './aiInterviewConfig';
 import './AIInterviewPage.css';
 
-/* ═══ Constants ═══ */
-const LANGUAGES = [
-    { id: 'python', label: 'Python', icon: '🐍' },
-    { id: 'javascript', label: 'JavaScript', icon: '🟨' },
-    { id: 'java', label: 'Java', icon: '☕' },
-    { id: 'cpp', label: 'C++', icon: '⚙️' },
-    { id: 'typescript', label: 'TypeScript', icon: '🔷' },
-    { id: 'go', label: 'Go', icon: '🔵' },
-];
-
-const BOILERPLATE = {
-    python: `def solution(nums, k):
-    """
-    Solve the problem here.
-
-    Args:
-        nums: Input array
-        k: Parameter k
-
-    Returns:
-        Result
-    """
-    # Your solution here
-    pass
-
-# Test your solution
-if __name__ == "__main__":
-    test_nums = [1, 2, 3]
-    test_k = 1
-    result = solution(test_nums, test_k)
-    print(f"Result: {result}")
-`,
-    javascript: `// Write your solution here
-function solution(nums, target) {
-    const seen = new Map();
-    for (let i = 0; i < nums.length; i++) {
-        const complement = target - nums[i];
-        if (seen.has(complement)) {
-            return [seen.get(complement), i];
-        }
-        seen.set(nums[i], i);
-    }
-    return [];
-}
-
-// Test cases
-console.log(solution([2, 7, 11, 15], 9));  // [0, 1]
-console.log(solution([3, 2, 4], 6));       // [1, 2]
-`,
-    java: `// Write your solution here
-import java.util.*;
-
-class Solution {
-    public int[] twoSum(int[] nums, int target) {
-        Map<Integer, Integer> seen = new HashMap<>();
-        for (int i = 0; i < nums.length; i++) {
-            int complement = target - nums[i];
-            if (seen.containsKey(complement)) {
-                return new int[]{seen.get(complement), i};
-            }
-            seen.put(nums[i], i);
-        }
-        return new int[]{};
-    }
-}
-`,
-    cpp: `// Write your solution here
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-using namespace std;
-
-vector<int> twoSum(vector<int>& nums, int target) {
-    unordered_map<int, int> seen;
-    for (int i = 0; i < nums.size(); i++) {
-        int complement = target - nums[i];
-        if (seen.count(complement)) {
-            return {seen[complement], i};
-        }
-        seen[nums[i]] = i;
-    }
-    return {};
-}
-
-int main() {
-    vector<int> nums = {2, 7, 11, 15};
-    auto result = twoSum(nums, 9);
-    cout << result[0] << ", " << result[1] << endl;
-    return 0;
-}
-`,
-    typescript: `// Write your solution here
-function solution(nums: number[], target: number): number[] {
-    const seen = new Map<number, number>();
-    for (let i = 0; i < nums.length; i++) {
-        const complement = target - nums[i];
-        if (seen.has(complement)) {
-            return [seen.get(complement)!, i];
-        }
-        seen.set(nums[i], i);
-    }
-    return [];
-}
-
-// Test cases
-console.log(solution([2, 7, 11, 15], 9));
-console.log(solution([3, 2, 4], 6));
-`,
-    go: `package main
-
-import "fmt"
-
-func twoSum(nums []int, target int) []int {
-    seen := make(map[int]int)
-    for i, num := range nums {
-        complement := target - num
-        if j, ok := seen[complement]; ok {
-            return []int{j, i}
-        }
-        seen[num] = i
-    }
-    return []int{}
-}
-
-func main() {
-    fmt.Println(twoSum([]int{2, 7, 11, 15}, 9))
-}
-`,
-};
-
-const AI_INTERVIEW_GENDER_STORAGE_KEY = 'preploop-ai-interview-gender-v1';
-const AI_INTERVIEW_SESSION_KEY = 'preploop-ai-interview-session-v1'; // I9: session persistence
-
-const readStoredInterviewerGender = () => {
-    if (typeof window === 'undefined') return 'male';
-
-    try {
-        const stored = window.localStorage.getItem(AI_INTERVIEW_GENDER_STORAGE_KEY);
-        return stored === 'female' ? 'female' : 'male';
-    } catch {
-        return 'male';
-    }
-};
-
-const HR_INTERVIEWER_VIDEOS = {
-    male: {
-        speaking: '/malespeaking.mp4',
-        listening: '/malelisrning.mp4',
-    },
-    female: {
-        speaking: '/HannahChenSpeaking.mp4',
-        listening: '/HannahChenListening.mp4',
-    },
-};
-
-const COMPANY_INTERVIEWERS = {
-    'Google':      { male: { name: 'Ryan Mitchell', role: 'Senior Software Engineer' },   female: { name: 'Hannah Chen', role: 'Senior Software Engineer' } },
-    'Apple':       { male: { name: 'James Park', role: 'Staff Engineer' },                female: { name: 'Megan Liu', role: 'Staff Engineer' } },
-    'Meta':        { male: { name: 'Kevin Patel', role: 'Engineering Manager' },           female: { name: 'Priya Sharma', role: 'Engineering Manager' } },
-    'Amazon':      { male: { name: 'David Kim', role: 'Principal SDE' },                  female: { name: 'Emily Torres', role: 'Principal SDE' } },
-    'Netflix':     { male: { name: 'Marcus Lee', role: 'Senior Engineer' },                female: { name: 'Sarah Johnson', role: 'Senior Engineer' } },
-    'Microsoft':   { male: { name: 'Alex Rodriguez', role: 'Principal Engineer' },         female: { name: 'Jessica Wang', role: 'Principal Engineer' } },
-    'Infosys':     { male: { name: 'Rajesh Nair', role: 'Technical Lead' },                female: { name: 'Megha Iyer', role: 'Technical Lead' } },
-    'TCS':         { male: { name: 'Suresh Kumar', role: 'Solution Architect' },            female: { name: 'Ananya Gupta', role: 'Solution Architect' } },
-    'Wipro':       { male: { name: 'Karthik Menon', role: 'Senior Developer' },             female: { name: 'Lavanya Reddy', role: 'Senior Developer' } },
-    'Flipkart':    { male: { name: 'Arjun Das', role: 'SDE-3' },                           female: { name: 'Sneha Patel', role: 'SDE-3' } },
-    'Razorpay':    { male: { name: 'Arjun Mehta', role: 'Backend Lead' },                  female: { name: 'Ritu Saxena', role: 'Backend Lead' } },
-    'Swiggy':      { male: { name: 'Varun Srinivasan', role: 'Engineering Manager' },      female: { name: 'Divya Krishnan', role: 'Engineering Manager' } },
-    'Zomato':      { male: { name: 'Rohit Verma', role: 'Staff Engineer' },                female: { name: 'Pooja Bansal', role: 'Staff Engineer' } },
-    'Paytm':       { male: { name: 'Nikhil Jain', role: 'Tech Lead' },                     female: { name: 'Neha Agarwal', role: 'Tech Lead' } },
-    'Meesho':      { male: { name: 'Vikram Singh', role: 'Senior SDE' },                   female: { name: 'Aditi Sharma', role: 'Senior SDE' } },
-    'Dream11':     { male: { name: 'Aditya Joshi', role: 'Platform Engineer' },             female: { name: 'Tanvi Desai', role: 'Platform Engineer' } },
-    'PhonePe':     { male: { name: 'Harish Rao', role: 'Engineering Lead' },                female: { name: 'Kavitha Raman', role: 'Engineering Lead' } },
-    'CRED':        { male: { name: 'Siddharth Rao', role: 'Senior Backend Engineer' },     female: { name: 'Nisha Kapoor', role: 'Senior Backend Engineer' } },
-    'Spotify':     { male: { name: 'Erik Lindström', role: 'Senior Engineer' },             female: { name: 'Sofia Andersson', role: 'Senior Engineer' } },
-    'Airbnb':      { male: { name: 'Tyler Brooks', role: 'Staff Engineer' },                female: { name: 'Michelle Wu', role: 'Staff Engineer' } },
-    'Uber':        { male: { name: 'Carlos Mendez', role: 'Senior SDE' },                  female: { name: 'Aisha Patel', role: 'Senior SDE' } },
-    'Stripe':      { male: { name: 'Nathan Cole', role: 'Engineering Lead' },               female: { name: 'Emma Clarke', role: 'Engineering Lead' } },
-    'Salesforce':  { male: { name: 'Michael Torres', role: 'Principal Engineer' },          female: { name: 'Laura Chen', role: 'Principal Engineer' } },
-    'Adobe':       { male: { name: 'Brian Zhang', role: 'Staff Software Engineer' },        female: { name: 'Lisa Wang', role: 'Staff Software Engineer' } },
-    'Oracle':      { male: { name: 'Robert Chen', role: 'Senior Architect' },               female: { name: 'Sandra Lee', role: 'Senior Architect' } },
-    'IBM':         { male: { name: 'Thomas Reed', role: 'Distinguished Engineer' },          female: { name: 'Nadia Okonkwo', role: 'Distinguished Engineer' } },
-    'Twitter / X': { male: { name: 'Jake Morrison', role: 'Senior Backend Engineer' },     female: { name: 'Maya Singh', role: 'Senior Backend Engineer' } },
-    'LinkedIn':    { male: { name: 'Daniel Park', role: 'Senior Software Engineer' },       female: { name: 'Rachel Kim', role: 'Senior Software Engineer' } },
-    'Nvidia':      { male: { name: 'Daniel Liu', role: 'Senior CUDA Engineer' },            female: { name: 'Wei Lin', role: 'Senior CUDA Engineer' } },
-    'Tesla':       { male: { name: 'Mark Johnson', role: 'Firmware Lead' },                 female: { name: 'Anna Kowalski', role: 'Firmware Lead' } },
-};
-
-const DEFAULT_INTERVIEWER = {
-    male:   { name: 'Ryan Mitchell', role: 'Senior Software Engineer' },
-    female: { name: 'Hannah Chen', role: 'Senior Software Engineer' },
-};
-
-/* ═══ Helper: Format elapsed time ═══ */
-function formatTime(seconds) {
-    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const s = (seconds % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-}
-
-/* ═══ Main Component ═══ */
 export default function AIInterviewPage() {
     const { user, getAuthHeaders } = useAuth();
     const navigate = useNavigate();
 
-    // ── Interview Config ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Interview Config ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [phase, setPhase] = useState('lobby'); // lobby | connecting | interview | summary
     const [interviewType, setInterviewType] = useState('technical');
     const [realtimeMode, setRealtimeMode] = useState(false); // Pipecat real-time voice mode
@@ -249,42 +59,43 @@ export default function AIInterviewPage() {
         }
     }, [interviewerGender]);
 
-    // ── Prevent hook instantiation before dependencies are ready ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Prevent hook instantiation before dependencies are ready ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     // We'll initialize voice hook lazily after speakerMuted is set up (see below)
     const voiceHookRef = useRef(null);
 
-    // ── Tab State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Tab State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [activeTab, setActiveTab] = useState('code'); // code | design | notes
 
-    // ── Code Editor State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Code Editor State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [language, setLanguage] = useState('python');
     const [code, setCode] = useState(BOILERPLATE.python);
     const [lineCount, setLineCount] = useState(1);
 
-    // ── Timer ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Timer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [elapsed, setElapsed] = useState(0);
     const timerRef = useRef(null);
 
-    // ── Pause / Resume ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Pause / Resume ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [isPaused, setIsPaused] = useState(false);
     const [totalPauseTime, setTotalPauseTime] = useState(0);
     const pauseStartRef = useRef(null);
 
-    // ── Per-Question Timer ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Per-Question Timer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [questionElapsed, setQuestionElapsed] = useState(0);
     const questionTimerRef = useRef(null);
 
-    // ── Interview State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Interview State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [currentQuestion, setCurrentQuestion] = useState('');
     const [questionIndex, setQuestionIndex] = useState(0);
     const [totalQuestions, setTotalQuestions] = useState(6);
+    const [stageLabel, setStageLabel] = useState('');
     const [loading, setLoading] = useState(false);
     const [consecutiveSilentQuestions, setConsecutiveSilentQuestions] = useState(0); // Track silent questions
 
-    // ── Analysis Loading State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Analysis Loading State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [analysisLoading, setAnalysisLoading] = useState(false);
 
-    // ── Controls ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Controls ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [cameraOn, setCameraOn] = useState(true);
     const [bookmarked, setBookmarked] = useState(false);
     const [speakerMuted, setSpeakerMuted] = useState(false);
@@ -292,7 +103,7 @@ export default function AIInterviewPage() {
     const [interviewerVideoReady, setInterviewerVideoReady] = useState({ speaking: false, listening: false });
     const [interviewerVisibleMode, setInterviewerVisibleMode] = useState('listening');
 
-    // ── Voice State (previously from legacy useVoiceInterview) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Voice State (previously from legacy useVoiceInterview) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const sendAnswerRef = useRef(null);
     const [aiSpeaking, setAiSpeaking] = useState(false);
     const [transcript, setTranscriptRaw] = useState('');
@@ -310,7 +121,7 @@ export default function AIInterviewPage() {
         }
     }, []);
 
-    // ── Deepgram Streaming Voice Hook ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Deepgram Streaming Voice Hook ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     // Runs the real-time STT (Deepgram) + TTS (Kokoro local) pipeline.
     // `onAnswer` bridges detected speech directly into sendAnswer().
     const dgVoice = useDeepgramVoice({
@@ -342,7 +153,7 @@ export default function AIInterviewPage() {
         getAuthHeaders,
     });
 
-    // ── Interview Intelligence (filler detection + answer analysis) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Interview Intelligence (filler detection + answer analysis) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const intelligence = useInterviewIntelligence({ getAuthHeaders });
 
     // isListening now derived from dgVoice.state so the UI accurately reflects
@@ -370,10 +181,10 @@ export default function AIInterviewPage() {
         }
     }, [dgVoice.interruptDetected, setAiSpeaking, ttsAudioRef]);
 
-    // ── Upgraded voice controls ──
-    // speakInterviewerText → routes through backend TTS (Kokoro local → Groq Orpheus → browser)
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Upgraded voice controls ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
+    // speakInterviewerText ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ routes through backend TTS (Kokoro local ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Groq Orpheus ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ browser)
     const speakInterviewerText = useCallback(async (text) => {
-        // Fix #6: Respect speaker mute — don't speak when muted
+        // Fix #6: Respect speaker mute ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â don't speak when muted
         if (!text || speakerMuted) return;
         setAiSpeaking(true);
         try {
@@ -387,7 +198,7 @@ export default function AIInterviewPage() {
         }
     }, [dgVoice, setAiSpeaking, speakerMuted]);
 
-    // speakSequence — speak multiple texts without aiSpeaking flicker between segments.
+    // speakSequence ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â speak multiple texts without aiSpeaking flicker between segments.
     // Keeps the interviewer video in "speaking" mode across all segments.
     const speakSequenceCancelledRef = useRef(false);
     const speakSequence = useCallback(async (segments, { pauseMs = 150 } = {}) => {
@@ -419,7 +230,7 @@ export default function AIInterviewPage() {
         }
     }, [dgVoice, setAiSpeaking, speakerMuted]);
 
-    // startVoiceRecording / stopVoiceRecording → Deepgram MediaRecorder pipeline
+    // startVoiceRecording / stopVoiceRecording ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ Deepgram MediaRecorder pipeline
     const startVoiceRecording = useCallback(() => {
         dgVoice.start();
     }, [dgVoice]);
@@ -428,7 +239,7 @@ export default function AIInterviewPage() {
         dgVoice.stop();
     }, [dgVoice]);
 
-    // ── Chat ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Chat ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [chatOpen, setChatOpen] = useState(false);
     const [conversation, setConversation] = useState([]);
     const [userInput, setUserInput] = useState('');
@@ -438,30 +249,30 @@ export default function AIInterviewPage() {
     const [silenceStage, setSilenceStage] = useState(0);
     const silenceStageTimerRef = useRef(null);
 
-    // ── State Refs for Auto-Send Check (tracks current state values in closures) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ State Refs for Auto-Send Check (tracks current state values in closures) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const stateRefs = useRef({ userInput: '', transcript: '', code: '', language: 'python' });
     useEffect(() => {
         stateRefs.current = { userInput, transcript, code, language };
     }, [userInput, transcript, code, language]);
 
-    // ── Intelligence: feed live transcript to filler detector ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Intelligence: feed live transcript to filler detector ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (transcript && transcript.trim().length > 0) {
             intelligence.ingestTranscript(transcript);
         }
     }, [transcript, intelligence]);
 
-    // ── Intelligence: feed audio RMS to confidence scorer ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Intelligence: feed audio RMS to confidence scorer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (dgVoice.inputLevel > 0) {
             intelligence.ingestAudioConfidence(dgVoice.inputLevel);
         }
     }, [dgVoice.inputLevel, intelligence]);
 
-    // ── Notes ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Notes ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [notes, setNotes] = useState('');
 
-    // ── I9: Session Persistence ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ I9: Session Persistence ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [savedSession, setSavedSession] = useState(null); // Recoverable session from localStorage
 
     // I9: Check for saved session on mount
@@ -478,7 +289,7 @@ export default function AIInterviewPage() {
                 }
             }
         } catch {
-            // Corrupted data — clean up
+            // Corrupted data ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â clean up
             try { window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY); } catch {}
         }
     }, []);
@@ -502,7 +313,7 @@ export default function AIInterviewPage() {
             };
             window.localStorage.setItem(AI_INTERVIEW_SESSION_KEY, JSON.stringify(sessionData));
         } catch {
-            // Storage full or unavailable — silently skip
+            // Storage full or unavailable ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â silently skip
         }
     }, [conversation, phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -529,7 +340,7 @@ export default function AIInterviewPage() {
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
 
-    // ── Webcam ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Webcam ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const videoRef = useRef(null);
     // Fix #3: Track questionIndex in a ref so sendAnswer closures always read the latest value
     const questionIndexRef = useRef(1);
@@ -546,10 +357,10 @@ export default function AIInterviewPage() {
     const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true);
     const [workspaceDropdownOpen, setWorkspaceDropdownOpen] = useState(false);
 
-    // ── Captions ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Captions ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [captionsOn, setCaptionsOn] = useState(true);
 
-    // ── API Error Logger ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ API Error Logger ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     /**
      * Log API errors with context for debugging.
      * @param {string} endpoint - The API endpoint called
@@ -561,9 +372,10 @@ export default function AIInterviewPage() {
         const timestamp = new Date().toISOString();
         const errorContext = {
             timestamp,
-          endpoint,
+            endpoint,
             stage,
-            questionIndex,
+            // Read from refs to avoid dependency churn on every question change
+            questionIndex: questionIndexRef.current,
             totalQuestions,
             phase,
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
@@ -581,7 +393,7 @@ export default function AIInterviewPage() {
             ...errorContext,
             payloadKeys: Object.keys(payload),
         });
-    }, [questionIndex, totalQuestions, phase]);
+    }, [totalQuestions, phase]);
 
     const createHttpError = useCallback((status, statusText = '') => {
         const normalizedStatusText = statusText && statusText.trim().length > 0 ? statusText : 'Request failed';
@@ -610,7 +422,7 @@ export default function AIInterviewPage() {
         return null;
     }, []);
 
-    // ── Setup Wizard State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Setup Wizard State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [setupStep, setSetupStep] = useState(0); // 0-5
     const [experienceLevel, setExperienceLevel] = useState('fresher'); // 'fresher' | 'experienced'
     const [targetRole, setTargetRole] = useState('');
@@ -620,7 +432,7 @@ export default function AIInterviewPage() {
     const [resumeFile, setResumeFile] = useState(null);
     const [activeResumeContext, setActiveResumeContext] = useState(null);
 
-    // ── Auto-adjust question count based on experience level ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Auto-adjust question count based on experience level ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     React.useEffect(() => {
         if (experienceLevel === 'fresher') {
             setTotalQuestions(13);
@@ -629,12 +441,12 @@ export default function AIInterviewPage() {
         }
     }, [experienceLevel]);
 
-    // ── Results State ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Results State ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const [resultTab, setResultTab] = useState('overview');
     const [analysisResult, setAnalysisResult] = useState(null);
     const [expandedMoment, setExpandedMoment] = useState(null);
 
-    // ── Derived: pick interviewer based on selected company + gender ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Derived: pick interviewer based on selected company + gender ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const companyPool = targetCompany && COMPANY_INTERVIEWERS[targetCompany]
         ? COMPANY_INTERVIEWERS[targetCompany]
         : DEFAULT_INTERVIEWER;
@@ -645,7 +457,7 @@ export default function AIInterviewPage() {
         avatar: '/interviewer-avatar.png',
     };
 
-    // ── Generate Analysis from conversation data (AI-powered with fallback) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Generate Analysis from conversation data (AI-powered with fallback) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const generateAnalysis = useCallback(async () => {
         const totalMessages = conversation.length;
         const userMessages = conversation.filter(m => m.role === 'candidate');
@@ -764,7 +576,7 @@ export default function AIInterviewPage() {
         setAnalysisLoading(false);
     }, [conversation, elapsed, questionIndex, code, lineCount, language, targetCompany, targetRole, interviewType, getAuthHeaders, INTERVIEWER.name]);
 
-    // ── Timer Logic (pauses when isPaused) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Timer Logic (pauses when isPaused) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (phase === 'interview' && !isPaused) {
             timerRef.current = setInterval(() => {
@@ -774,7 +586,7 @@ export default function AIInterviewPage() {
         return () => clearInterval(timerRef.current);
     }, [phase, isPaused]);
 
-    // ── Per-Question Timer (pauses when isPaused) ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Per-Question Timer (pauses when isPaused) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (phase === 'interview' && !isPaused) {
             questionTimerRef.current = setInterval(() => {
@@ -791,18 +603,17 @@ export default function AIInterviewPage() {
         countdownWarnedRef.current = false;  // I8: reset on new question
     }, [questionIndex]);
 
-    // ── Auto-submit when per-question timer expires ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Auto-submit when per-question timer expires ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (phase !== 'interview' || isPaused) return;
-        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
-        const resolvedStage = stageMap[interviewType] || 'Technical';
+        const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
         const limit = getQuestionTimeLimit(resolvedStage);
         const remaining = limit - questionElapsed;
 
         // I8: Fire a one-time 30-second countdown warning
         if (remaining === 30 && !countdownWarnedRef.current) {
             countdownWarnedRef.current = true;
-            setInterviewerStatus('⏰ 30 seconds remaining for this question');
+            setInterviewerStatus('ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â° 30 seconds remaining for this question');
             setTimeout(() => setInterviewerStatus(''), 4000);
         }
 
@@ -817,24 +628,24 @@ export default function AIInterviewPage() {
 
 
 
-    // ── Generate analysis when summary phase starts ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Generate analysis when summary phase starts ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (phase === 'summary') {
             generateAnalysis();
         }
     }, [phase, generateAnalysis]);
 
-    // ── Auto-scroll chat ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Auto-scroll chat ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [conversation]);
 
-    // ── Code line count ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Code line count ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         setLineCount(code ? code.split('\n').length : 1);
     }, [code]);
 
-    // ── Webcam init/cleanup ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Webcam init/cleanup ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         if (phase === 'interview' && cameraOn) {
             navigator.mediaDevices?.getUserMedia({ video: true, audio: false })
@@ -852,7 +663,7 @@ export default function AIInterviewPage() {
         };
     }, [phase, cameraOn]);
 
-    // ── Language change handler ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Language change handler ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const handleLanguageChange = (newLang) => {
         setLanguage(newLang);
         if (!code || code === BOILERPLATE[language]) {
@@ -931,44 +742,10 @@ export default function AIInterviewPage() {
         };
     }, [aiSpeaking, interviewerVideoReady]);
 
-    // ── Speak interviewer text via TTS ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Speak interviewer text via TTS ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     // Helper: pick a natural-sounding browser voice
-    const getBrowserVoice = useCallback((gender = interviewerGender) => {
-        if (!('speechSynthesis' in window)) return null;
-        const voices = window.speechSynthesis.getVoices();
-        // Male-first priority: actual male voices before any female fallbacks
-        const preferred = gender === 'male'
-            ? [
-                'Google UK English Male', 'Microsoft David', 'Microsoft Mark', 'Daniel', 'Alex',
-                'Google US English', 'Google UK English Female', 'Samantha', 'Karen',
-                'Microsoft Zira', 'Microsoft Jenny', 'Moira', 'Fiona',
-            ]
-            : [
-                'Google UK English Female', 'Samantha', 'Karen', 'Microsoft Zira',
-                'Microsoft Jenny', 'Moira', 'Fiona', 'Google US English',
-                'Google UK English Male', 'Alex', 'Daniel', 'Microsoft David',
-            ];
-        for (const name of preferred) {
-            const v = voices.find(v => v.name.includes(name));
-            if (v) return v;
-        }
-        // Fallback: any English voice that matches the selected gender when possible
-        const genderedVoice = gender === 'male'
-            ? voices.find(v => v.lang.startsWith('en') && /male|man|david|alex|daniel|mark/i.test(v.name))
-            : voices.find(v => v.lang.startsWith('en') && /female|woman|samantha|jenny|karen|zira/i.test(v.name));
-        if (genderedVoice) return genderedVoice;
-
-        // Any English voice
-        return voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
-    }, [interviewerGender]);
-
-    // Preload voices
-    useEffect(() => {
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.getVoices(); // triggers loading
-            window.speechSynthesis.onvoiceschanged = () => {}; // ensure loaded
-        }
-    }, []);
+    // NOTE: Browser voice selection is handled entirely by useDeepgramVoice.pickBrowserVoice.
+    // Voice preloading is also handled by the hook. No duplicate logic needed here.
 
     const splitTextForTTS = useCallback((input, maxLen = 220) => {
         const normalized = String(input || '').replace(/\s+/g, ' ').trim();
@@ -1007,7 +784,7 @@ export default function AIInterviewPage() {
 
 
 
-    // ── Cleanup Voice Resources on Unmount ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Cleanup Voice Resources on Unmount ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
         return () => {
             dgVoice.cleanup();
@@ -1018,7 +795,7 @@ export default function AIInterviewPage() {
         };
     }, [dgVoice.cleanup]);
 
-    // ── Start Interview ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Start Interview ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const startInterview = async () => {
         // Show connecting phase first
         setPhase('connecting');
@@ -1041,7 +818,7 @@ export default function AIInterviewPage() {
         const resolvedCompany = targetCompany || 'Google';
         const resolvedRole = targetRole || 'Software Engineer';
 
-        // ── Pipecat Real-Time Mode ──
+        // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Pipecat Real-Time Mode ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
         if (realtimeMode) {
                 console.warn('[Pipecat] Real-time mode is temporarily unavailable, falling back to classic flow.');
                 setRealtimeMode(false);
@@ -1124,7 +901,7 @@ export default function AIInterviewPage() {
                 'System Design': `Welcome! Let's dive into system design. How would you design a URL shortening service like bit.ly? Think about the key components.`,
                 'Behavioral': `Welcome! I'd love to get to know you better. Can you tell me about a challenging project you worked on and how you handled it?`,
                 'Technical': technicalOpeningFallback,
-                'HR': `Welcome! I'm excited to chat with you. Tell me a bit about yourself — what are you studying and what excites you about this role?`,
+                'HR': `Welcome! I'm excited to chat with you. Tell me a bit about yourself ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â what are you studying and what excites you about this role?`,
             };
             const questionText = data.question || stageFallbacks[resolvedStage] || `Welcome! Let's start this ${resolvedStage.toLowerCase()} interview. Tell me about a project you've worked on that you're proud of.`;
             setCurrentQuestion(questionText);
@@ -1150,7 +927,7 @@ export default function AIInterviewPage() {
             // Speak the greeting (audio already pre-fetched, plays instantly)
             await speakInterviewerText(questionText);
             
-            // Auto-start mic after first question — micOn syncs via effect
+            // Auto-start mic after first question ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â micOn syncs via effect
             startVoiceRecording();
         } catch (error) {
             const statusCode = getHttpStatus(error);
@@ -1186,7 +963,7 @@ export default function AIInterviewPage() {
         }
     };
 
-    // ── Send Answer ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Send Answer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const sendAnswer = async (isAutoSkip = false, answerOverride = null) => {
         /**
          * CRITICAL QUESTION NUMBERING CONTRACT:
@@ -1222,18 +999,27 @@ export default function AIInterviewPage() {
 
         // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
         // pass the answer text directly, bypassing stale React state.
+        // Bug 3 fix: Read from stateRefs to avoid stale closure on userInput/transcript
         const answer = isAutoSkip === true
             ? "I do not have a response to this question."
-            : (answerOverride?.trim() || userInput.trim() || transcript.trim());
+            : (answerOverride?.trim() || stateRefs.current.userInput.trim() || stateRefs.current.transcript.trim());
+
+        // Bug 1 fix: Track consecutive silent auto-skips for graceful early-exit
+        if (isAutoSkip === true) {
+            setConsecutiveSilentQuestions(prev => prev + 1);
+        } else if (answer && answer.length > 10) {
+            setConsecutiveSilentQuestions(0);
+        }
 
         // Trigger answer analysis (non-blocking, fire-and-forget)
         if (answer && answer.length > 10) {
             intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
         }
-        if (!answer && !code.trim() && isAutoSkip !== true) { isSendingRef.current = false; return; }
+        if (!answer && !stateRefs.current.code.trim() && isAutoSkip !== true) { isSendingRef.current = false; return; }
 
-        const fullAnswer = code.trim()
-            ? `${answer}\n\n--- Code ---\n${code}`
+        const currentCode = stateRefs.current.code.trim();
+        const fullAnswer = currentCode
+            ? `${answer}\n\n--- Code ---\n${currentCode}`
             : answer;
 
         setConversation(prev => [...prev, {
@@ -1245,13 +1031,7 @@ export default function AIInterviewPage() {
         setTranscript('');
         setLoading(true);
 
-        const stageMap = {
-            'coding': 'DSA / Coding', 'dsa': 'DSA / Coding',
-            'system-design': 'System Design', 'behavioral': 'Behavioral',
-            'product': 'Technical', 'data-science': 'Technical', 'ai-llm': 'Technical',
-            'hr': 'HR', 'technical': 'Technical',
-        };
-        const resolvedStage = stageMap[interviewType] || 'Technical';
+        const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
         const resolvedCompany = targetCompany || 'Google';
         const resolvedRole = targetRole || 'Software Engineer';
 
@@ -1317,15 +1097,20 @@ export default function AIInterviewPage() {
 
             const data = await res.json();
 
-            // ── Extract feedback score for interviewer reactions (no in-chat feedback card) ──
+            // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Extract feedback score for interviewer reactions (no in-chat feedback card) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
             const feedbackScore = data.feedback?.score || data.score || 0;
 
-            // ── Resolve next question ──
+            // Update stage label from backend state machine
+            if (data.stageLabel) {
+                setStageLabel(data.stageLabel);
+            }
+
+            // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Resolve next question ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
             const nextQ = data.followUpQuestion || data.nextQuestion || data.question;
             const closingRemark = data.closingRemark;
 
             // ONLY end the interview when the backend explicitly signals completion.
-            // DO NOT use closingRemark alone — the AI LLM can hallucinate it on any question.
+            // DO NOT use closingRemark alone ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â the AI LLM can hallucinate it on any question.
             const isInterviewOver = data.complete === true || questionIndex >= totalQuestions;
             const followUpFallbackByStage = {
                 'DSA / Coding': 'Can you walk me through your approach step by step, and then share the time and space complexity?',
@@ -1345,7 +1130,7 @@ export default function AIInterviewPage() {
             }
 
             // Shared speak-and-handoff logic (used in both try and catch)
-            // SPEED FIX: Only speak the question — feedback is text-only in chat.
+            // SPEED FIX: Only speak the question ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â feedback is text-only in chat.
             const speakAndHandoff = async (questionSegment, isEnding = false) => {
                 setLoading(false);
                 if (isEnding) {
@@ -1361,7 +1146,7 @@ export default function AIInterviewPage() {
             };
 
             if (isInterviewOver) {
-                // Last question — speak closing remark and end
+                // Last question ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â speak closing remark and end
                 const closingText = data.closingRemark || closingRemark || 'Great job today! Thank you for your time. We\'ll be in touch soon.';
                 setConversation(prev => [...prev, {
                     role: 'interviewer',
@@ -1370,7 +1155,7 @@ export default function AIInterviewPage() {
                 }]);
                 await speakAndHandoff(closingText, true);
             } else if (consecutiveSilentQuestions >= 3) {
-                // User has been silent for 3 consecutive questions — end interview gracefully
+                // User has been silent for 3 consecutive questions ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â end interview gracefully
                 const earlyEndText = "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
                 setConversation(prev => [...prev, {
                     role: 'interviewer',
@@ -1388,9 +1173,9 @@ export default function AIInterviewPage() {
                     content: continueQ,
                     timestamp: Date.now(),
                 }]);
-                // No artificial delay — speak the next question immediately.
+                // No artificial delay ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â speak the next question immediately.
                 // Feedback is already added to conversation as text above.
-                const reaction = getInterviewerReaction(feedbackScore);
+                const reaction = getInterviewerReaction(feedbackScore, interviewType);
                 setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
                 await speakAndHandoff(continueQ);
                 setInterviewerStatus('');
@@ -1466,7 +1251,7 @@ export default function AIInterviewPage() {
         silenceStageTimerRef.current = setTimeout(() => {
             if (!isListeningRef.current || stateRefs.current.transcript.trim()) return;
             setSilenceStage(1);
-            setInterviewerStatus('Take your time, no rush...');
+            setInterviewerStatus(getSilencePrompt(interviewType, 0));
 
             // Stage 2: After 10s total -> Ask to rephrase
             silenceStageTimerRef.current = setTimeout(() => {
@@ -1479,7 +1264,7 @@ export default function AIInterviewPage() {
                 speakInterviewerText(rephraseText).then(() => {
                     // Stage 3: After rephrase finishes + 5s silence -> Auto-skip
                     silenceStageTimerRef.current = setTimeout(() => {
-                        // NOTE: Mic may have dropped — auto-skip doesn't need the mic
+                        // NOTE: Mic may have dropped ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â auto-skip doesn't need the mic
                         // since its answer is hardcoded ("I do not have a response").
                         // Only bail if user actually started typing/speaking.
                         if (stateRefs.current.transcript.trim()) return;
@@ -1501,7 +1286,7 @@ export default function AIInterviewPage() {
         }
     }, [isListening, transcript, aiSpeaking, startSilenceHandling, stopSilenceHandling]);
 
-    // ── End Interview ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ End Interview ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     // Bug 1+2 fix: useCallback with proper deps + full resource cleanup
     const endInterview = useCallback(() => {
         clearInterval(timerRef.current);
@@ -1520,20 +1305,43 @@ export default function AIInterviewPage() {
             const stats = dgVoice.getAnalytics();
             console.info('[AI Interview] Voice analytics:', stats);
         } catch {}
-        // I9: Clear saved session — interview completed normally
+        // I9: Clear saved session ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â interview completed normally
         clearSavedSession();
         setPhase('summary');
     }, [dgVoice, stopVoiceRecording, clearSavedSession]);
 
-    // ── Auto-end interview when global time budget expires ──
+
+    // Pause/Resume toggle ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â extracted for InterviewControls
+    const togglePause = useCallback(() => {
+        if (isPaused) {
+            if (pauseStartRef.current) {
+                setTotalPauseTime(prev => prev + (Date.now() - pauseStartRef.current));
+                pauseStartRef.current = null;
+            }
+            setIsPaused(false);
+            setInterviewerStatus('');
+            if (!isListeningRef.current) startVoiceRecording();
+        } else {
+            pauseStartRef.current = Date.now();
+            setIsPaused(true);
+            setInterviewerStatus('Interview paused');
+            stopVoiceRecording();
+            dgVoice.interrupt();
+            speakSequenceCancelledRef.current = true;
+            if (ttsAudioRef.current) {
+                ttsAudioRef.current.pause();
+            }
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+        }
+    }, [isPaused, startVoiceRecording, stopVoiceRecording, dgVoice]);
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Auto-end interview when global time budget expires ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const endInterviewRef = useRef(null); // Avoids stale closure in effect
     useEffect(() => {
         endInterviewRef.current = endInterview;
     }, [endInterview]);
     useEffect(() => {
         if (phase !== 'interview' || isPaused) return;
-        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
-        const resolvedStage = stageMap[interviewType] || 'Technical';
+        const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
         const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
         if (elapsed >= totalBudget) {
             console.info(`[AI Interview] Global timer expired (${formatTime(totalBudget)}). Auto-ending interview.`);
@@ -1541,20 +1349,20 @@ export default function AIInterviewPage() {
         }
     }, [elapsed, phase, isPaused, interviewType, totalQuestions]);
 
-    // ── Toggle Mic (also controls STT) ──
-    const toggleMic = () => {
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Toggle Mic (also controls STT) ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
+    const toggleMic = useCallback(() => {
         if (isListening) {
-            // Currently listening — stop recording and process
+            // Currently listening ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â stop recording and process
             stopVoiceRecording();
             // micOn syncs automatically via useEffect
         } else {
-            // Not listening — start recording
+            // Not listening ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â start recording
             startVoiceRecording();
             // micOn syncs automatically via useEffect
         }
-    };
+    }, [isListening, stopVoiceRecording, startVoiceRecording]);
 
-    // ── Dedicated voice record button for workspace input ──
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Dedicated voice record button for workspace input ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const handleVoiceInput = () => {
         if (isListening) {
             stopVoiceRecording();
@@ -1564,567 +1372,73 @@ export default function AIInterviewPage() {
         }
     };
 
-    // ── Toggle Camera ──
-    const toggleCamera = () => {
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Toggle Camera ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
+    const toggleCamera = useCallback(() => {
         if (cameraOn && streamRef.current) {
             streamRef.current.getTracks().forEach(t => t.stop());
             streamRef.current = null;
             if (videoRef.current) videoRef.current.srcObject = null;
         }
         setCameraOn(prev => !prev);
-    };
+    }, [cameraOn, streamRef, videoRef]);
 
-    // ── User info ──
+
+    // -- Keyboard Shortcuts (interview phase only) --
+    useEffect(() => {
+        if (phase !== 'interview') return;
+        const handler = (e) => {
+            const tag = document.activeElement?.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+            if (document.activeElement?.classList?.contains('inputarea')) return;
+            switch (e.key.toLowerCase()) {
+                case 'm': toggleMic(); break;
+                case 'v': toggleCamera(); break;
+                case 'p': togglePause(); break;
+                case 'escape': endInterview(); break;
+                default: break;
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [phase, toggleMic, toggleCamera, togglePause, endInterview]);
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ User info ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬
     const userName = user?.user_metadata?.full_name || 'Panchanan Sahoo';
     const userInitial = userName[0]?.toUpperCase() || 'P';
 
-    // ── Workspace dropdown options ──
-    const workspaceOptions = [
-        { id: 'code', label: 'Code Editor', icon: <Code2 size={14} /> },
-        { id: 'design', label: 'Design Canvas', icon: <Palette size={14} /> },
-        { id: 'notes', label: 'Notes', icon: <FileText size={14} /> },
-    ];
-
-    // ═══════════════════════════════════
-    //  LOBBY PHASE — Multi-Step Setup Wizard
-    // ═══════════════════════════════════
-
-    const TOPIC_PILLS = [
-        { id: 'hr', label: 'HR Round' },
-        { id: 'technical', label: 'Technical Round' },
-    ];
-
-    const SETUP_STEPS = [
-        'Experience',
-        'Interview Type',
-        'Resume',
-        'Target Role',
-        'Company',
-        'Start',
-    ];
-
-    const STEP_DESCRIPTIONS = [
-        'Are you a fresher or an experienced professional?',
-        'Choose the type of interview you want to practice',
-        'Upload your resume for personalized questions',
-        'Enter your target role for tailored preparation',
-        'Choose the target company for your interview',
-        'Review your setup and start your interview',
-    ];
-
-    const COMPANIES = [
-        { name: 'Google', industry: 'Technology', icon: '🔍', category: 'faang', starred: true },
-        { name: 'Apple', industry: 'Technology', icon: '🍎', category: 'faang' },
-        { name: 'Meta', industry: 'Social Media', icon: '📘', category: 'faang' },
-        { name: 'Amazon', industry: 'E-Commerce', icon: '📦', category: 'faang' },
-        { name: 'Netflix', industry: 'Entertainment', icon: '🎬', category: 'faang' },
-        { name: 'Microsoft', industry: 'Technology', icon: '🪟', category: 'faang' },
-        { name: 'Infosys', industry: 'IT Services', icon: '💼', category: 'indian' },
-        { name: 'TCS', industry: 'IT Services', icon: '🏢', category: 'indian' },
-        { name: 'Wipro', industry: 'IT Services', icon: '🔧', category: 'indian' },
-        { name: 'Flipkart', industry: 'E-Commerce', icon: '🛒', category: 'indian' },
-        { name: 'Razorpay', industry: 'Fintech', icon: '💳', category: 'indian' },
-        { name: 'Swiggy', industry: 'Food Delivery', icon: '🍔', category: 'indian' },
-        { name: 'Zomato', industry: 'Food Delivery', icon: '🍕', category: 'indian' },
-        { name: 'Paytm', industry: 'Fintech', icon: '💰', category: 'indian' },
-        { name: 'Meesho', industry: 'E-Commerce', icon: '🛍️', category: 'indian' },
-        { name: 'Dream11', industry: 'Gaming', icon: '🎮', category: 'indian' },
-        { name: 'PhonePe', industry: 'Fintech', icon: '📱', category: 'indian' },
-        { name: 'CRED', industry: 'Fintech', icon: '💎', category: 'indian' },
-        { name: 'Spotify', industry: 'Music', icon: '🎵', category: 'global' },
-        { name: 'Airbnb', industry: 'Travel', icon: '🏠', category: 'global' },
-        { name: 'Uber', industry: 'Transport', icon: '🚗', category: 'global' },
-        { name: 'Stripe', industry: 'Fintech', icon: '💳', category: 'global' },
-        { name: 'Salesforce', industry: 'CRM', icon: '☁️', category: 'global' },
-        { name: 'Adobe', industry: 'Software', icon: '🎨', category: 'global' },
-        { name: 'Oracle', industry: 'Database', icon: '🗄️', category: 'global' },
-        { name: 'IBM', industry: 'Technology', icon: '💻', category: 'global' },
-        { name: 'Twitter / X', industry: 'Social Media', icon: '🐦', category: 'global' },
-        { name: 'LinkedIn', industry: 'Professional', icon: '🔗', category: 'global' },
-        { name: 'Nvidia', industry: 'Hardware', icon: '🟢', category: 'global' },
-        { name: 'Tesla', industry: 'Automotive', icon: '⚡', category: 'global' },
-    ];
-
-    const SUGGESTED_COMPANIES = ['Amazon', 'Google', 'Netflix', 'Spotify', 'Airbnb'];
-
-    const COMPANY_TABS = [
-        { id: 'all', label: `All (${COMPANIES.length})` },
-        { id: 'faang', label: `FAANG (${COMPANIES.filter(c => c.category === 'faang').length})` },
-        { id: 'indian', label: `Indian (${COMPANIES.filter(c => c.category === 'indian').length})` },
-        { id: 'global', label: `Global (${COMPANIES.filter(c => c.category === 'global').length})` },
-    ];
-
-    const filteredCompanies = COMPANIES.filter(c => {
-        const matchTab = companyTab === 'all' || c.category === companyTab;
-        const matchSearch = !companySearch || c.name.toLowerCase().includes(companySearch.toLowerCase());
-        return matchTab && matchSearch;
-    });
-
-    // Fix #7: Stable handlers for session recovery banner hover — avoids re-renders from inline arrows
-    const onResumeMouseEnter = useCallback((e) => { e.currentTarget.style.opacity = '0.85'; }, []);
-    const onResumeMouseLeave = useCallback((e) => { e.currentTarget.style.opacity = '1'; }, []);
-    const onDiscardMouseEnter = useCallback((e) => {
-        e.currentTarget.style.background = 'rgba(239,68,68,0.15)';
-        e.currentTarget.style.color = '#ef4444';
-        e.currentTarget.style.borderColor = 'rgba(239,68,68,0.3)';
-    }, []);
-    const onDiscardMouseLeave = useCallback((e) => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-        e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-    }, []);
-
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
+    //  LOBBY PHASE ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Delegated to InterviewLobby
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
     if (phase === 'lobby') {
         return (
-            <div className="ai-interview-page">
-                <div className="ai-setup-backdrop">
-                    <div className="ai-setup-glow ai-setup-glow--purple" />
-                    <div className="ai-setup-glow ai-setup-glow--blue" />
-
-                    <div className="ai-setup-modal ai-setup-modal--wizard">
-                        {/* Header */}
-                        <div className="ai-setup-header">
-                            <div>
-                                <h1 className="ai-setup-title">Interview Setup</h1>
-                                <p className="ai-setup-subtitle">{STEP_DESCRIPTIONS[setupStep]}</p>
-                            </div>
-                            <button className="ai-setup-close" onClick={() => navigate('/interview-suite')} title="Close">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* I9: Session Recovery Banner */}
-                        {savedSession && (
-                            <div className="ai-session-recovery" style={{
-                                margin: '0 24px 12px',
-                                padding: '14px 18px',
-                                borderRadius: 12,
-                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08))',
-                                border: '1px solid rgba(99, 102, 241, 0.25)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 14,
-                                animation: 'fadeIn 0.3s ease both',
-                            }}>
-                                <div style={{
-                                    width: 40, height: 40, borderRadius: 10,
-                                    background: 'rgba(99, 102, 241, 0.2)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    flexShrink: 0,
-                                }}>
-                                    <RefreshCw size={18} style={{ color: '#818cf8' }} />
-                                </div>
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 2 }}>
-                                        Resume Previous Session
-                                    </div>
-                                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-                                        {savedSession.interviewType} · Q{savedSession.questionIndex}/{savedSession.totalQuestions} · {formatTime(savedSession.elapsed || 0)} elapsed
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={() => restoreSession(savedSession)}
-                                    style={{
-                                        padding: '7px 16px', borderRadius: 8,
-                                        background: 'rgba(99, 102, 241, 0.85)', border: 'none',
-                                        color: '#fff', fontSize: 12, fontWeight: 600,
-                                        cursor: 'pointer', transition: 'opacity 0.2s',
-                                    }}
-                                    onMouseEnter={onResumeMouseEnter}
-                                    onMouseLeave={onResumeMouseLeave}
-                                >
-                                    Resume
-                                </button>
-                                <button
-                                    onClick={clearSavedSession}
-                                    style={{
-                                        padding: '7px 12px', borderRadius: 8,
-                                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                                        color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 500,
-                                        cursor: 'pointer', transition: 'all 0.2s',
-                                    }}
-                                    onMouseEnter={onDiscardMouseEnter}
-                                    onMouseLeave={onDiscardMouseLeave}
-                                >
-                                    Discard
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Stepper */}
-                        <div className="ai-wizard-stepper">
-                            {SETUP_STEPS.map((step, i) => (
-                                <React.Fragment key={i}>
-                                    <div
-                                        className={`ai-wizard-step ${i < setupStep ? 'completed' : ''} ${i === setupStep ? 'active' : ''}`}
-                                        onClick={() => i <= setupStep && setSetupStep(i)}
-                                    >
-                                        {i < setupStep ? <CheckCircle size={22} /> : <span>{i + 1}</span>}
-                                    </div>
-                                    {i < SETUP_STEPS.length - 1 && (
-                                        <div className={`ai-wizard-connector ${i < setupStep ? 'completed' : ''}`} />
-                                    )}
-                                </React.Fragment>
-                            ))}
-                        </div>
-
-                        {/* Step Content */}
-                        <div className="ai-wizard-content">
-
-                            {/* ─── Step 0: Experience Level ─── */}
-                            {setupStep === 0 && (
-                                <div className="ai-wizard-step-body">
-                                    <div className="ai-setup-experience-grid">
-                                        <button
-                                            className={`ai-setup-experience-card ${experienceLevel === 'fresher' ? 'selected' : ''}`}
-                                            onClick={() => setExperienceLevel('fresher')}
-                                        >
-                                            <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--fresher">
-                                                <GraduationCap size={32} />
-                                            </div>
-                                            <div className="ai-setup-experience-info">
-                                                <span className="ai-setup-experience-title">Fresher</span>
-                                                <span className="ai-setup-experience-desc">Fresh graduate or 0–1 years of experience. Questions focus on fundamentals, aptitude, and college projects.</span>
-                                            </div>
-                                            {experienceLevel === 'fresher' && <CheckCircle size={22} className="ai-setup-experience-check" />}
-                                        </button>
-                                        <button
-                                            className={`ai-setup-experience-card ${experienceLevel === 'experienced' ? 'selected' : ''}`}
-                                            onClick={() => setExperienceLevel('experienced')}
-                                        >
-                                            <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--experienced">
-                                                <Briefcase size={32} />
-                                            </div>
-                                            <div className="ai-setup-experience-info">
-                                                <span className="ai-setup-experience-title">Experienced</span>
-                                                <span className="ai-setup-experience-desc">1+ years of industry experience. Questions focus on system design, leadership, and real-world problem solving.</span>
-                                            </div>
-                                            {experienceLevel === 'experienced' && <CheckCircle size={22} className="ai-setup-experience-check" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ─── Step 1: Interview Type ─── */}
-                            {setupStep === 1 && (
-                                <div className="ai-wizard-step-body">
-                                    <div className="ai-setup-experience-grid">
-                                        <button
-                                            className={`ai-setup-experience-card ${interviewType === 'hr' ? 'selected' : ''}`}
-                                            onClick={() => setInterviewType('hr')}
-                                        >
-                                            <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--fresher">
-                                                <MessageSquare size={32} />
-                                            </div>
-                                            <div className="ai-setup-experience-info">
-                                                <span className="ai-setup-experience-title">HR Round</span>
-                                                <span className="ai-setup-experience-desc">Behavioral and situational questions. Focus on culture fit, teamwork, and leadership.</span>
-                                            </div>
-                                            {interviewType === 'hr' && <CheckCircle size={22} className="ai-setup-experience-check" />}
-                                        </button>
-                                        <button
-                                            className={`ai-setup-experience-card ${interviewType === 'technical' ? 'selected' : ''}`}
-                                            onClick={() => setInterviewType('technical')}
-                                        >
-                                            <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--experienced">
-                                                <Code2 size={32} />
-                                            </div>
-                                            <div className="ai-setup-experience-info">
-                                                <span className="ai-setup-experience-title">Technical Round</span>
-                                                <span className="ai-setup-experience-desc">Core technical skills, data structures, algorithms, and system design concepts.</span>
-                                            </div>
-                                            {interviewType === 'technical' && <CheckCircle size={22} className="ai-setup-experience-check" />}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ─── Step 1: Resume Upload ─── */}
-                            {setupStep === 2 && (
-                                <div className="ai-wizard-step-body">
-                                    <div className="ai-setup-resume-section ai-setup-resume-section--open">
-                                        <div className="ai-setup-resume-toggle" style={{ pointerEvents: 'none' }}>
-                                            <div className="ai-setup-resume-left">
-                                                <div className="ai-setup-resume-icon">
-                                                    <FileText size={20} />
-                                                </div>
-                                                <div>
-                                                    <div className="ai-setup-resume-title">
-                                                        Add your resume
-                                                        <span className="ai-setup-badge-rec">recommended</span>
-                                                    </div>
-                                                    <div className="ai-setup-resume-desc">
-                                                        Personalizes questions to your background & projects
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-setup-resume-body expanded">
-                                            <div
-                                                className={`ai-setup-drop-zone ${resumeFile ? 'has-file' : ''}`}
-                                                onClick={() => document.getElementById('resume-file-input')?.click()}
-                                                onDragOver={handleResumeDragOver}
-                                                onDragLeave={handleResumeDragLeave}
-                                                onDrop={handleResumeDrop}
-                                            >
-                                                {resumeFile ? (
-                                                    <>
-                                                        <CheckCircle size={28} className="ai-setup-drop-icon" style={{ color: '#22c55e' }} />
-                                                        <p className="ai-setup-drop-text" style={{ color: '#22c55e' }}>{resumeFile.name}</p>
-                                                        <p className="ai-setup-drop-hint">Click to replace</p>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <FileText size={28} className="ai-setup-drop-icon" />
-                                                        <p className="ai-setup-drop-text">Drop your resume here or <span>browse files</span></p>
-                                                        <p className="ai-setup-drop-hint">PDF, DOCX up to 5MB</p>
-                                                    </>
-                                                )}
-                                                <input
-                                                    id="resume-file-input"
-                                                    type="file"
-                                                    accept=".pdf,.doc,.docx"
-                                                    style={{ display: 'none' }}
-                                                    onChange={handleResumeFileChange}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ─── Step 2: Target Role ─── */}
-                            {setupStep === 3 && (
-                                <div className="ai-wizard-step-body">
-                                    <div className="ai-wizard-field">
-                                        <label className="ai-wizard-label">
-                                            <span className="ai-wizard-label-dot" />
-                                            Target Role
-                                            <span className="ai-wizard-label-optional">(optional but Recommended)</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="ai-wizard-input"
-                                            placeholder="e.g. Senior Software Engineer, Backend Developer, Data Scientist..."
-                                            value={targetRole}
-                                            onChange={(e) => setTargetRole(e.target.value)}
-                                            autoFocus
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ─── Step 3: Company & Interviewer Preference ─── */}
-                            {setupStep === 4 && (
-                                <div className="ai-wizard-step-body">
-                                    {/* Gender Preference */}
-                                    <div className="ai-wizard-gender-picker">
-                                        <span className="ai-wizard-gender-label">Interviewer Preference</span>
-                                        <div className="ai-wizard-gender-toggle">
-                                            <button
-                                                className={`ai-wizard-gender-btn ${interviewerGender === 'male' ? 'selected' : ''}`}
-                                                onClick={() => setInterviewerGender('male')}
-                                            >
-                                                <span className="ai-wizard-gender-emoji">👨‍💼</span>
-                                                Male
-                                            </button>
-                                            <button
-                                                className={`ai-wizard-gender-btn ${interviewerGender === 'female' ? 'selected' : ''}`}
-                                                onClick={() => setInterviewerGender('female')}
-                                            >
-                                                <span className="ai-wizard-gender-emoji">👩‍💼</span>
-                                                Female
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {/* Suggested pills */}
-                                    <div className="ai-wizard-suggested">
-                                        <span className="ai-wizard-suggested-label">Suggested for this problem</span>
-                                        <div className="ai-wizard-suggested-pills">
-                                            {SUGGESTED_COMPANIES.map((name) => (
-                                                <button
-                                                    key={name}
-                                                    className={`ai-wizard-company-pill ${targetCompany === name ? 'selected' : ''}`}
-                                                    onClick={() => setTargetCompany(name)}
-                                                >
-                                                    {name}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    {/* Search */}
-                                    <div className="ai-wizard-search">
-                                        <Search size={16} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search companies..."
-                                            value={companySearch}
-                                            onChange={(e) => setCompanySearch(e.target.value)}
-                                        />
-                                    </div>
-
-                                    {/* Tabs */}
-                                    <div className="ai-wizard-tabs">
-                                        {COMPANY_TABS.map((tab) => (
-                                            <button
-                                                key={tab.id}
-                                                className={`ai-wizard-tab ${companyTab === tab.id ? 'active' : ''}`}
-                                                onClick={() => setCompanyTab(tab.id)}
-                                            >
-                                                {tab.label}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Company grid */}
-                                    <div className="ai-wizard-company-grid">
-                                        {filteredCompanies.map((company) => (
-                                            <button
-                                                key={company.name}
-                                                className={`ai-wizard-company-card ${targetCompany === company.name ? 'selected' : ''}`}
-                                                onClick={() => setTargetCompany(company.name)}
-                                            >
-                                                <div className="ai-wizard-company-top">
-                                                    <span className="ai-wizard-company-icon">{company.icon}</span>
-                                                    <span className="ai-wizard-company-name">{company.name}</span>
-                                                    {company.starred && <Star size={14} className="ai-wizard-company-star" />}
-                                                </div>
-                                                <span className="ai-wizard-company-industry">{company.industry}</span>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ─── Step 4: Review & Start ─── */}
-                            {setupStep === 5 && (
-                                <div className="ai-wizard-step-body">
-                                    <div className="ai-wizard-review">
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Experience</span>
-                                            <span className="ai-wizard-review-value">
-                                                {experienceLevel === 'fresher' ? '🎓 Fresher' : '💼 Experienced'}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Interview Type</span>
-                                            <span className="ai-wizard-review-value">
-                                                {TOPIC_PILLS.find(t => t.id === interviewType)?.label || 'Technical Round'}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Resume</span>
-                                            <span className="ai-wizard-review-value">
-                                                {resumeFile ? resumeFile.name : '—  Not uploaded'}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Target Role</span>
-                                            <span className="ai-wizard-review-value">
-                                                {targetRole || '—  Not specified'}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Target Company</span>
-                                            <span className="ai-wizard-review-value">
-                                                {targetCompany || '—  Not specified'}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row">
-                                            <span className="ai-wizard-review-label">Interviewer</span>
-                                            <span className="ai-wizard-review-value">
-                                                {interviewerGender === 'male' ? '👨‍💼' : '👩‍💼'} {INTERVIEWER.name} · {INTERVIEWER.role}
-                                            </span>
-                                        </div>
-                                        <div className="ai-wizard-review-row" style={{ borderTop: '1px solid rgba(139,92,246,0.15)', paddingTop: 12, marginTop: 8 }}>
-                                            <span className="ai-wizard-review-label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                <Zap size={14} style={{ color: '#a78bfa' }} /> Real-Time Voice
-                                                <span style={{ fontSize: '0.65rem', background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)', padding: '2px 6px', borderRadius: 4, color: '#fff', fontWeight: 600, letterSpacing: '0.5px' }}>BETA</span>
-                                            </span>
-                                            <button
-                                                onClick={() => setRealtimeMode(m => !m)}
-                                                style={{
-                                                    position: 'relative',
-                                                    width: 44, height: 24, borderRadius: 12, border: 'none',
-                                                    background: realtimeMode ? 'linear-gradient(135deg, #8b5cf6, #06b6d4)' : 'rgba(100,116,139,0.3)',
-                                                    cursor: 'pointer', transition: 'background 0.2s',
-                                                }}
-                                            >
-                                                <div style={{
-                                                    position: 'absolute', top: 2, left: realtimeMode ? 22 : 2,
-                                                    width: 20, height: 20, borderRadius: '50%', background: '#fff',
-                                                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                                                }} />
-                                            </button>
-                                        </div>
-                                        {realtimeMode && (
-                                            <div style={{ fontSize: '0.75rem', color: '#94a3b8', padding: '8px 0 0 0', lineHeight: 1.5 }}>
-                                                ⚡ Deepgram STT + Kokoro TTS — ultra-low latency, 100% Node.js. No Python required.
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Navigation Bar */}
-                        <div className="ai-wizard-nav">
-                            <button
-                                className="ai-wizard-nav-btn ai-wizard-nav-btn--back"
-                                onClick={() => setSetupStep(s => Math.max(0, s - 1))}
-                                disabled={setupStep === 0}
-                            >
-                                <ArrowLeft size={16} /> Back
-                            </button>
-                            <div className="ai-wizard-nav-right">
-                                {setupStep < 5 && (
-                                    <button
-                                        className="ai-wizard-nav-btn ai-wizard-nav-btn--skip"
-                                        onClick={() => setSetupStep(s => Math.min(5, s + 1))}
-                                    >
-                                        Skip
-                                    </button>
-                                )}
-                                {setupStep < 5 ? (
-                                    <button
-                                        className="ai-wizard-nav-btn ai-wizard-nav-btn--next"
-                                        onClick={() => setSetupStep(s => Math.min(5, s + 1))}
-                                    >
-                                        Next <ArrowRight size={16} />
-                                    </button>
-                                ) : (
-                                    <button
-                                        className="ai-wizard-nav-btn ai-wizard-nav-btn--next ai-setup-start-btn"
-                                        onClick={startInterview}
-                                        disabled={loading}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <Sparkles size={18} className="ai-setup-spin" />
-                                                Connecting...
-                                            </>
-                                        ) : (
-                                            <>Start Interview <ArrowRight size={16} /></>
-                                        )}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        <p className="ai-setup-privacy">
-                            🔒 Your data is encrypted and never shared. Sessions are private.
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <InterviewLobby
+                setupStep={setupStep} setSetupStep={setSetupStep}
+                experienceLevel={experienceLevel} setExperienceLevel={setExperienceLevel}
+                interviewType={interviewType} setInterviewType={setInterviewType}
+                interviewerGender={interviewerGender} setInterviewerGender={setInterviewerGender}
+                targetRole={targetRole} setTargetRole={setTargetRole}
+                targetCompany={targetCompany} setTargetCompany={setTargetCompany}
+                companySearch={companySearch} setCompanySearch={setCompanySearch}
+                companyTab={companyTab} setCompanyTab={setCompanyTab}
+                resumeFile={resumeFile}
+                realtimeMode={realtimeMode} setRealtimeMode={setRealtimeMode}
+                loading={loading}
+                savedSession={savedSession}
+                interviewer={INTERVIEWER}
+                formatTime={formatTime}
+                onStartInterview={startInterview}
+                onRestoreSession={restoreSession}
+                onClearSavedSession={clearSavedSession}
+                onResumeDragOver={handleResumeDragOver}
+                onResumeDragLeave={handleResumeDragLeave}
+                onResumeDrop={handleResumeDrop}
+                onResumeFileChange={handleResumeFileChange}
+            />
         );
     }
 
-    // ═══════════════════════════════════
-    //  CONNECTING PHASE — Matchmaking animation with audio pre-generation
-    // ═══════════════════════════════════
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
+    //  CONNECTING PHASE ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Matchmaking animation with audio pre-generation
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
     if (phase === 'connecting') {
         return (
             <div className="ai-interview-page">
@@ -2137,7 +1451,7 @@ export default function AIInterviewPage() {
                         {/* Title with animated status */}
                         <div className="ai-connect-status-text">
                             <Wifi size={18} className="ai-connect-wifi-icon" />
-                            Connecting to your interviewer…
+                            Connecting to your interviewerÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦
                         </div>
                         
                         {/* Progress steps */}
@@ -2207,512 +1521,64 @@ export default function AIInterviewPage() {
                         <div className="ai-connect-progress">
                             <div className="ai-connect-progress-bar" />
                         </div>
-                        <p className="ai-connect-hint">Setting up your personalized session…</p>
+                        <p className="ai-connect-hint">Setting up your personalized sessionÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</p>
                     </div>
                 </div>
             </div>
         );
     }
 
-    // ═══════════════════════════════════
-    //  SUMMARY PHASE — Results & Analysis
-    // ═══════════════════════════════════
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
+    //  SUMMARY PHASE ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Delegated to InterviewResults
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
     if (phase === 'summary') {
-        const a = analysisResult; // shorthand
-
-        // Show loading state during AI analysis
-        if (analysisLoading && !a) {
-            return (
-                <div className="ai-interview-page" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', gap: '24px' }}>
-                    <div style={{
-                        width: 64, height: 64, borderRadius: '50%',
-                        border: '3px solid rgba(139,92,246,0.2)',
-                        borderTopColor: '#8b5cf6',
-                        animation: 'spin 1s linear infinite'
-                    }} />
-                    <div style={{ color: '#e2e8f0', fontSize: '1.15rem', fontWeight: 600 }}>Analyzing your interview with AI...</div>
-                    <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>This may take a few seconds</div>
-                    <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-                </div>
-            );
-        }
-
         return (
-            <div className="ai-interview-page">
-                <header className="ai-topbar">
-                    <div className="ai-topbar-left">
-                        <div className="ai-breadcrumb">
-                            <span className="ai-breadcrumb-link" onClick={() => navigate('/interview-suite')}>← Interview Suite</span>
-                            <ChevronRight size={12} className="ai-breadcrumb-sep" />
-                            <span className="ai-breadcrumb-current">Session Results</span>
-                        </div>
-                    </div>
-                    <div className="ai-topbar-center">
-                        <div className="ai-mode-badge" style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e' }}>
-                            <CheckCircle size={12} />
-                            Complete
-                        </div>
-                    </div>
-                    <div className="ai-topbar-right">
-                        <button className="ai-result-action-btn" onClick={() => navigate('/interview-history')}>
-                            <Clock size={14} /> History
-                        </button>
-                        <button className="ai-result-action-btn">
-                            <Share2 size={14} /> Share
-                        </button>
-                        <button className="ai-result-action-btn ai-result-action-btn--primary">
-                            <Download size={14} /> Export
-                        </button>
-                    </div>
-                </header>
-
-                <div className="ai-result-page">
-                    {/* ── Hero Section ── */}
-                    <div className="ai-result-hero">
-                        <div className="ai-result-hero-left">
-                            <div className="ai-result-label">Interview Feedback</div>
-                            <h1 className="ai-result-title">
-                                  {interviewType === 'hr' ? 'HR Round' :
-                                   interviewType === 'technical' ? 'Technical Round' :
-                                   'General'} Interview
-                            </h1>
-                            <div className="ai-result-meta">
-                                <span><Building2 size={13} /> {INTERVIEWER.company}</span>
-                                <span><User size={13} /> {INTERVIEWER.name}</span>
-                                <span><Clock size={13} /> {a?.stats?.duration || '00:00'}</span>
-                            </div>
-                        </div>
-                        <div className="ai-result-hero-right">
-                            <div className="ai-result-score-ring">
-                                <svg viewBox="0 0 120 120" className="ai-result-score-svg">
-                                    <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
-                                    <circle cx="60" cy="60" r="52"
-                                        fill="none"
-                                        stroke={a?.performanceColor || '#8b5cf6'}
-                                        strokeWidth="8"
-                                        strokeLinecap="round"
-                                        strokeDasharray={`${(a?.overallScore || 0) / 10 * 327} 327`}
-                                        transform="rotate(-90 60 60)"
-                                        className="ai-result-score-circle"
-                                    />
-                                </svg>
-                                <div className="ai-result-score-value">
-                                    <span className="ai-result-score-num" style={{ color: a?.performanceColor }}>{a?.overallScore || '—'}</span>
-                                    <span className="ai-result-score-of">/10</span>
-                                </div>
-                            </div>
-                            <div className="ai-result-verdict" style={{ background: `${a?.performanceColor}18`, color: a?.performanceColor, borderColor: `${a?.performanceColor}40` }}>
-                                {a?.overallScore >= 7 ? <Trophy size={14} /> : a?.overallScore >= 5 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
-                                {a?.performanceLabel || 'Analyzing...'}
-                            </div>
-                            {a?.aiGenerated && (
-                                <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.7rem', color: '#8b5cf6', opacity: 0.85 }}>
-                                    <Sparkles size={11} /> AI-Analyzed by Groq
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── AI Summary ── */}
-                    {a?.summary && (
-                        <div style={{
-                            background: 'rgba(139,92,246,0.06)',
-                            border: '1px solid rgba(139,92,246,0.15)',
-                            borderRadius: 12, padding: '16px 20px', marginBottom: 20,
-                            color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.6
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: '#e2e8f0', fontWeight: 600, fontSize: '0.85rem' }}>
-                                <Brain size={14} style={{ color: '#8b5cf6' }} /> AI Summary
-                            </div>
-                            {a.summary}
-                        </div>
-                    )}
-
-                    {/* ── Quick Stats ── */}
-                    <div className="ai-result-stats-row">
-                        <div className="ai-result-stat">
-                            <div className="ai-result-stat-icon"><Award size={18} /></div>
-                            <div className="ai-result-stat-info">
-                                <div className="ai-result-stat-label">Performance</div>
-                                <div className="ai-result-stat-value">{a?.performanceLabel || '—'}</div>
-                            </div>
-                        </div>
-                        <div className="ai-result-stat">
-                            <div className="ai-result-stat-icon" style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}><BarChart3 size={18} /></div>
-                            <div className="ai-result-stat-info">
-                                <div className="ai-result-stat-label">Category</div>
-                                <div className="ai-result-stat-value">{interviewType}</div>
-                            </div>
-                        </div>
-                        <div className="ai-result-stat">
-                            <div className="ai-result-stat-icon" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}><Star size={18} /></div>
-                            <div className="ai-result-stat-info">
-                                <div className="ai-result-stat-label">Key Moments</div>
-                                <div className="ai-result-stat-value">{a?.keyMoments?.length || 0}</div>
-                            </div>
-                        </div>
-                        <div className="ai-result-stat">
-                            <div className="ai-result-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}><Gauge size={18} /></div>
-                            <div className="ai-result-stat-info">
-                                <div className="ai-result-stat-label">Categories</div>
-                                <div className="ai-result-stat-value">{a?.categories?.length || 0}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* ── Tabs ── */}
-                    <div className="ai-result-tabs">
-                        {[
-                            { id: 'overview', label: 'Overview', icon: TrendingUp },
-                            { id: 'analysis', label: 'Detailed Analysis', icon: BarChart3 },
-                            { id: 'moments', label: 'Key Moments', icon: Star },
-                            { id: 'session', label: 'Session Details', icon: FileText },
-                        ].map(tab => (
-                            <button
-                                key={tab.id}
-                                className={`ai-result-tab ${resultTab === tab.id ? 'ai-result-tab--active' : ''}`}
-                                onClick={() => setResultTab(tab.id)}
-                            >
-                                <tab.icon size={14} />
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* ── Tab Content ── */}
-                    <div className="ai-result-content">
-                        {/* OVERVIEW TAB */}
-                        {resultTab === 'overview' && a && (
-                            <div className="ai-result-overview">
-                                {/* Category Scores */}
-                                <div className="ai-result-card">
-                                    <h3 className="ai-result-card-title"><Target size={16} /> Competency Breakdown</h3>
-                                    <div className="ai-result-categories">
-                                        {a.categories.map((cat, i) => (
-                                            <div key={i} className="ai-result-cat">
-                                                <div className="ai-result-cat-header">
-                                                    <div className="ai-result-cat-label">
-                                                        <cat.icon size={14} style={{ color: cat.color }} />
-                                                        {cat.name}
-                                                    </div>
-                                                    <span className="ai-result-cat-score" style={{ color: cat.color }}>{cat.score}/10</span>
-                                                </div>
-                                                <div className="ai-result-cat-bar">
-                                                    <div className="ai-result-cat-fill" style={{ width: `${cat.score * 10}%`, background: cat.color }} />
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Strengths & Improvements */}
-                                <div className="ai-result-two-col">
-                                    <div className="ai-result-card ai-result-card--green">
-                                        <h3 className="ai-result-card-title"><ThumbsUp size={16} style={{ color: '#22c55e' }} /> Strengths</h3>
-                                        <ul className="ai-result-list">
-                                            {a.strengths.map((s, i) => (
-                                                <li key={i}><CheckCircle size={14} className="ai-result-list-icon ai-result-list-icon--green" /> {s}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                    <div className="ai-result-card ai-result-card--amber">
-                                        <h3 className="ai-result-card-title"><Lightbulb size={16} style={{ color: '#f59e0b' }} /> Areas to Improve</h3>
-                                        <ul className="ai-result-list">
-                                            {a.improvements.map((s, i) => (
-                                                <li key={i}><AlertTriangle size={14} className="ai-result-list-icon ai-result-list-icon--amber" /> {s}</li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* DETAILED ANALYSIS TAB */}
-                        {resultTab === 'analysis' && a && (
-                            <div className="ai-result-analysis">
-                                <div className="ai-result-card">
-                                    <h3 className="ai-result-card-title"><Brain size={16} /> AI Analysis Summary</h3>
-                                    <p className="ai-result-analysis-text">
-                                        Based on your {a.stats.questionsAnswered} questions answered across {a.stats.duration} of interview time,
-                                        here is a detailed breakdown of your performance across each competency area.
-                                        Your strongest area was <strong>{a.categories.reduce((a, b) => a.score > b.score ? a : b).name}</strong> with
-                                        a score of {a.categories.reduce((a, b) => a.score > b.score ? a : b).score}/10.
-                                    </p>
-                                </div>
-                                {a.categories.map((cat, i) => (
-                                    <div key={i} className="ai-result-card">
-                                        <div className="ai-result-analysis-cat-header">
-                                            <div className="ai-result-cat-label">
-                                                <cat.icon size={18} style={{ color: cat.color }} />
-                                                <strong>{cat.name}</strong>
-                                            </div>
-                                            <div className="ai-result-analysis-score" style={{ color: cat.color }}>
-                                                {cat.score}/10
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-cat-bar" style={{ marginTop: 12 }}>
-                                            <div className="ai-result-cat-fill" style={{ width: `${cat.score * 10}%`, background: cat.color }} />
-                                        </div>
-                                        <p className="ai-result-analysis-detail">
-                                            {cat.detail || (cat.score >= 7
-                                                ? `Excellent performance in ${cat.name.toLowerCase()}. You demonstrated strong competency and clear understanding.`
-                                                : cat.score >= 5
-                                                ? `Solid foundation in ${cat.name.toLowerCase()}. Consider deepening your knowledge in edge cases and advanced patterns.`
-                                                : `Focus on improving your ${cat.name.toLowerCase()} skills. Practice structured approaches and review fundamentals.`)}
-                                        </p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* KEY MOMENTS TAB */}
-                        {resultTab === 'moments' && a && (
-                            <div className="ai-result-moments">
-                                {a.keyMoments.length === 0 ? (
-                                    <div className="ai-result-card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-                                        <Star size={32} style={{ color: 'rgba(255,255,255,0.2)', marginBottom: 12 }} />
-                                        <p style={{ color: 'rgba(255,255,255,0.4)' }}>No key moments recorded for this session</p>
-                                    </div>
-                                ) : (
-                                    a.keyMoments.map((moment, i) => (
-                                        <div
-                                            key={i}
-                                            className={`ai-result-moment ${expandedMoment === i ? 'ai-result-moment--expanded' : ''}`}
-                                            onClick={() => setExpandedMoment(expandedMoment === i ? null : i)}
-                                        >
-                                            <div className="ai-result-moment-header">
-                                                <div className="ai-result-moment-left">
-                                                    <div className={`ai-result-moment-icon ai-result-moment-icon--${moment.type}`}>
-                                                        {moment.type === 'question' ? <MessageSquare size={14} /> : <ThumbsUp size={14} />}
-                                                    </div>
-                                                    <div className="ai-result-moment-info">
-                                                        <div className="ai-result-moment-type">{moment.type === 'question' ? 'Question Asked' : 'Strong Response'}</div>
-                                                        <div className="ai-result-moment-time"><Timer size={11} /> {moment.time}</div>
-                                                    </div>
-                                                </div>
-                                                {expandedMoment === i ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                                            </div>
-                                            {expandedMoment === i && (
-                                                <div className="ai-result-moment-body">{moment.text}</div>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
-
-                        {/* SESSION DETAILS TAB */}
-                        {resultTab === 'session' && a && (
-                            <div className="ai-result-session">
-                                <div className="ai-result-card">
-                                    <h3 className="ai-result-card-title"><FileText size={16} /> Session Info</h3>
-                                    <div className="ai-result-session-grid">
-                                        <div className="ai-result-session-item">
-                                            <Clock size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Duration</div>
-                                                <div className="ai-result-session-value">{a.stats.duration}</div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-session-item">
-                                            <MessageSquare size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Questions</div>
-                                                <div className="ai-result-session-value">{a.stats.questionsAnswered}</div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-session-item">
-                                            <Code2 size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Lines of Code</div>
-                                                <div className="ai-result-session-value">{a.stats.linesOfCode}</div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-session-item">
-                                            <Zap size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Language</div>
-                                                <div className="ai-result-session-value">{a.stats.language}</div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-session-item">
-                                            <User size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Interviewer</div>
-                                                <div className="ai-result-session-value">{INTERVIEWER.name}</div>
-                                            </div>
-                                        </div>
-                                        <div className="ai-result-session-item">
-                                            <Building2 size={16} />
-                                            <div>
-                                                <div className="ai-result-session-label">Company</div>
-                                                <div className="ai-result-session-value">{INTERVIEWER.company}</div>
-                                            </div>
-                                        </div>
-                                        {a.stats.pauseTime && (
-                                            <div className="ai-result-session-item">
-                                                <Pause size={16} />
-                                                <div>
-                                                    <div className="ai-result-session-label">Time Paused</div>
-                                                    <div className="ai-result-session-value">{a.stats.pauseTime}</div>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Conversation Transcript */}
-                                <div className="ai-result-card">
-                                    <h3 className="ai-result-card-title"><Eye size={16} /> Conversation Transcript</h3>
-                                    <div className="ai-result-transcript">
-                                        {conversation.length === 0 ? (
-                                            <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: 24 }}>No conversation data available</p>
-                                        ) : (
-                                            conversation.map((msg, i) => (
-                                                <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
-                                                    <div className="ai-result-transcript-role">
-                                                        {msg.role === 'interviewer' ? <Sparkles size={12} /> : <User size={12} />}
-                                                        {msg.role === 'interviewer' ? INTERVIEWER.name : 'You'}
-                                                    </div>
-                                                    <div className="ai-result-transcript-text">{msg.content || msg.text}</div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* ── AI Next Steps ── */}
-                    {a?.nextSteps && a.nextSteps.length > 0 && (
-                        <div style={{
-                            background: 'rgba(34,197,94,0.04)',
-                            border: '1px solid rgba(34,197,94,0.12)',
-                            borderRadius: 12, padding: '16px 20px', marginBottom: 20, marginTop: 8,
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#22c55e', fontWeight: 600, fontSize: '0.9rem' }}>
-                                <Target size={15} /> Recommended Next Steps
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {a.nextSteps.map((step, i) => (
-                                    <div key={i} style={{
-                                        display: 'flex', alignItems: 'flex-start', gap: 10,
-                                        padding: '10px 14px', borderRadius: 8,
-                                        background: 'rgba(255,255,255,0.02)',
-                                        border: '1px solid rgba(255,255,255,0.04)',
-                                        color: '#cbd5e1', fontSize: '0.85rem', lineHeight: 1.5,
-                                    }}>
-                                        <span style={{
-                                            minWidth: 22, height: 22, borderRadius: '50%',
-                                            background: 'rgba(34,197,94,0.15)', color: '#22c55e',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontSize: '0.72rem', fontWeight: 700, flexShrink: 0, marginTop: 1,
-                                        }}>{i + 1}</span>
-                                        {step}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Bottom Actions ── */}
-                    <div className="ai-result-actions">
-                        <button className="ai-result-cta" onClick={() => { setPhase('lobby'); setSetupStep(0); setElapsed(0); setConversation([]); setQuestionIndex(0); setResultTab('overview'); setAnalysisResult(null); setInterviewerGender('female'); setExperienceLevel('fresher'); }}>
-                            <RefreshCw size={16} /> Start New Interview
-                        </button>
-                        <button className="ai-result-cta ai-result-cta--secondary" onClick={() => navigate('/interview-suite')}>
-                            <ArrowLeft size={16} /> Back to Interview Suite
-                        </button>
-                    </div>
-                </div>
-            </div>
+            <InterviewResults
+                analysisResult={analysisResult}
+                analysisLoading={analysisLoading}
+                interviewer={INTERVIEWER}
+                interviewType={interviewType}
+                conversation={conversation}
+                onStartNew={() => {
+                    setPhase('lobby');
+                    setSetupStep(0);
+                    setElapsed(0);
+                    setConversation([]);
+                    setQuestionIndex(0);
+                    setAnalysisResult(null);
+                    setInterviewerGender('female');
+                    setExperienceLevel('fresher');
+                }}
+            />
         );
     }
 
-    // ═══════════════════════════════════
-    //  INTERVIEW PHASE — Real Video Call
-    // ═══════════════════════════════════
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
+    //  INTERVIEW PHASE ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Real Video Call
+    // ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â
     return (
         <div className="ai-interview-page ai-interview-page--videocall">
-            {/* ── Minimal Top Bar ── */}
-            <header className="ai-vc-topbar">
-                <div className="ai-vc-topbar-left">
-                    <div className="ai-vc-logo" onClick={() => navigate('/interview-suite')}>
-                        <Sparkles size={16} />
-                        <span>PrepLoop</span>
-                    </div>
-                    <div className="ai-vc-separator" />
-                    <div className="ai-mode-badge">
-                        🔒 Interview Mode
-                    </div>
-                </div>
-                <div className="ai-vc-topbar-center">
-                    <div className="ai-vc-timer">
-                        <div className={`ai-vc-timer-dot ${isPaused ? 'ai-vc-timer-dot--paused' : ''}`} />
-                        <Clock size={13} />
-                        {(() => {
-                            const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
-                            const resolvedStage = stageMap[interviewType] || 'Technical';
-                            const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
-                            return formatTime(Math.max(0, totalBudget - elapsed));
-                        })()}
-                        {isPaused && <span style={{ marginLeft: 6, color: '#fbbf24', fontSize: '0.7rem', fontWeight: 600 }}>PAUSED</span>}
-                    </div>
-                    {/* Per-Question Timer */}
-                    {(() => {
-                        const stageMap = { 'coding': 'DSA / Coding', 'dsa': 'DSA / Coding', 'system-design': 'System Design', 'behavioral': 'Behavioral', 'technical': 'Technical', 'hr': 'HR' };
-                        const resolvedStage = stageMap[interviewType] || 'Technical';
-                        const limit = getQuestionTimeLimit(resolvedStage);
-                        const remaining = Math.max(0, limit - questionElapsed);
-                        const isWarning = remaining <= 30 && remaining > 0;
-                        const isExpired = remaining <= 0;
-                        return (
-                            <div className="ai-vc-q-timer" style={{
-                                display: 'flex', alignItems: 'center', gap: 4,
-                                padding: '2px 8px', borderRadius: 6, fontSize: '0.72rem', fontWeight: 600,
-                                background: isExpired ? 'rgba(239,68,68,0.15)' : isWarning ? 'rgba(251,191,36,0.12)' : 'rgba(255,255,255,0.06)',
-                                color: isExpired ? '#ef4444' : isWarning ? '#fbbf24' : 'rgba(255,255,255,0.5)',
-                                border: `1px solid ${isExpired ? 'rgba(239,68,68,0.3)' : isWarning ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.08)'}`,
-                                transition: 'all 0.3s ease',
-                                animation: isWarning ? 'pulse 1.5s ease-in-out infinite' : 'none',
-                            }}>
-                                <Timer size={11} />
-                                Q{questionIndex}: {formatTime(remaining)}
-                            </div>
-                        );
-                    })()}
-                    <div className="ai-vc-progress">
-                        {Array.from({ length: totalQuestions }).map((_, i) => (
-                            <div
-                                key={i}
-                                className={`ai-vc-progress-pip ${i < questionIndex - 1 ? 'done' : i === questionIndex - 1 ? 'active' : ''}`}
-                            />
-                        ))}
-                        <span className="ai-vc-progress-label">Q{questionIndex}/{totalQuestions}</span>
-                    </div>
-                </div>
-                <div className="ai-vc-topbar-right">
-                    <button
-                        className="ai-vc-panel-toggle"
-                        onClick={() => setWorkspacePanelOpen(p => !p)}
-                        title={workspacePanelOpen ? 'Hide workspace' : 'Show workspace'}
-                    >
-                        {workspacePanelOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
-                        <span>{workspacePanelOpen ? 'Hide Panel' : 'Show Panel'}</span>
-                    </button>
-                    <button className="ai-vc-end-btn" onClick={endInterview}>
-                        <Phone size={14} style={{ transform: 'rotate(135deg)' }} />
-                        End Interview
-                    </button>
-                </div>
-            </header>
+            {/* ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Minimal Top Bar ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ */}
+            {/* -- Minimal Top Bar -- */}
+            <InterviewTopBar
+                interviewType={interviewType}
+                totalQuestions={totalQuestions}
+                questionIndex={questionIndex}
+                elapsed={elapsed}
+                questionElapsed={questionElapsed}
+                isPaused={isPaused}
+                stageLabel={stageLabel}
+                workspacePanelOpen={workspacePanelOpen}
+                setWorkspacePanelOpen={setWorkspacePanelOpen}
+                endInterview={endInterview}
+                onNavigateBack={() => navigate('/interview-suite')}
+            />
 
-            {/* ── Main Video Call Layout ── */}
+            {/* ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Main Video Call Layout ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ */}
             <div className="ai-vc-body">
                 {/* === LEFT: Video Call Area === */}
                 <div className={`ai-vc-video-area ${!workspacePanelOpen ? 'ai-vc-video-area--full' : ''}`}>
-                    {/* AI Interviewer – Large Video Tile */}
+                    {/* AI Interviewer ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ Large Video Tile */}
                     <div className={`ai-vc-tile ai-vc-tile--interviewer ${aiSpeaking ? 'ai-vc-tile--speaking' : ''}`}>
                         <div className="ai-vc-tile-bg">
                             <video
@@ -2772,9 +1638,9 @@ export default function AIInterviewPage() {
                         <div className="ai-vc-tile-badge">
                             <div className="ai-vc-tile-badge-dot" />
                             <span className="ai-vc-tile-badge-name">{INTERVIEWER.name}</span>
-                            <span className="ai-vc-tile-badge-role">{INTERVIEWER.role} · {INTERVIEWER.company}</span>
+                            <span className="ai-vc-tile-badge-role">{INTERVIEWER.role} ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· {INTERVIEWER.company}</span>
                         </div>
-                        {/* Speaking wave overlay — Deepgram real-time waveform */}
+                        {/* Speaking wave overlay ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â Deepgram real-time waveform */}
                         {aiSpeaking ? (
                             <div className="ai-vc-wave-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 12px 10px' }}>
                                 <VoiceWaveform
@@ -2829,7 +1695,7 @@ export default function AIInterviewPage() {
                         </div>
                     </div>
 
-                    {/* User Camera – PIP (Picture-in-Picture) */}
+                    {/* User Camera ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ PIP (Picture-in-Picture) */}
                     <div className="ai-vc-tile ai-vc-tile--user">
                         {cameraOn ? (
                             <video
@@ -2852,505 +1718,62 @@ export default function AIInterviewPage() {
                         </div>
                     </div>
 
-                    {/* ── Live Captions Overlay ── */}
-                    {captionsOn && (() => {
-                        // Advanced: Show live interim text from Deepgram when user is speaking
-                        const liveInterim = isListening && dgVoice.interimText ? dgVoice.interimText : '';
-                        const liveTranscript = isListening && transcript ? transcript : '';
-                        const isUserSpeaking = isListening && (liveInterim || liveTranscript);
+                    {/* -- Live Captions Overlay -- */}
+                    <LiveCaptions
+                        captionsOn={captionsOn}
+                        isListening={isListening}
+                        aiSpeaking={aiSpeaking}
+                        interimText={dgVoice.interimText}
+                        transcript={transcript}
+                        conversation={conversation}
+                        interviewerName={INTERVIEWER.name}
+                    />
 
-                        const lastMsg = [...conversation].reverse().find(m => m.role === 'interviewer' || m.role === 'candidate' || m.role === 'feedback');
-                        const currentSpeech = isUserSpeaking
-                            ? (liveTranscript + (liveInterim ? ' ' + liveInterim : '')).trim()
-                            : aiSpeaking
-                                ? (conversation.filter(m => m.role === 'interviewer' || m.role === 'feedback').slice(-1)[0]?.content || 'Thinking...')
-                                : lastMsg?.content;
-                        const speakerName = isUserSpeaking
-                            ? 'You'
-                            : aiSpeaking
-                                ? INTERVIEWER.name
-                                : lastMsg?.role === 'interviewer'
-                                    ? INTERVIEWER.name
-                                    : lastMsg?.role === 'feedback'
-                                        ? `${INTERVIEWER.name} (Feedback)`
-                                        : lastMsg?.role === 'candidate'
-                                            ? 'You'
-                                            : null;
-                        if (!speakerName) return null;
-
-                        // Word-by-word animation (Phase 3)
-                        const displayText = currentSpeech && currentSpeech.length > 200
-                            ? '...' + currentSpeech.slice(-200)
-                            : currentSpeech || '';
-                        const words = displayText.split(/\s+/).filter(Boolean);
-
-                        return (
-                            <div className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''}`}>
-                                <div className="ai-vc-captions-inner">
-                                    <span className={`ai-vc-captions-speaker ${aiSpeaking ? 'ai-vc-captions-speaker--ai' : ''} ${isUserSpeaking ? 'ai-vc-captions-speaker--user-live' : ''}`}>
-                                        {speakerName}:
-                                    </span>
-                                    <span className="ai-vc-captions-text">
-                                        {words.map((word, i) => {
-                                            // Interim words (unfinished) get a subtle pulse
-                                            const isInterimWord = isUserSpeaking && liveInterim && displayText.indexOf(liveInterim) !== -1 && i >= words.length - liveInterim.split(/\s+/).length;
-                                            return (
-                                                <span
-                                                    key={`${word}-${i}`}
-                                                    className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''}`}
-                                                    style={{ animationDelay: `${i * 0.06}s` }}
-                                                >
-                                                    {word}{' '}
-                                                </span>
-                                            );
-                                        })}
-                                        {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
-                                    </span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* Floating Controls Bar (Zoom/Meet style) */}
-                    <div className="ai-vc-controls">
-                        <div className="ai-vc-controls-group">
-                            <button
-                                className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''}`}
-                                onClick={toggleMic}
-                                title={micOn ? (isListening ? 'Stop listening' : 'Mute') : 'Unmute & start listening'}
-                                aria-label={micOn ? (isListening ? 'Microphone on, actively listening. Click to stop.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.'}
-                                aria-pressed={micOn}
-                            >
-                                {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-                                <span className="ai-vc-ctrl-label">{isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted'}</span>
-                                {isListening && <span className="ai-vc-listening-dot" />}
-                                {/* Debug: Show connection mode */}
-                                {isListening && (
-                                    <span style={{ fontSize: '9px', opacity: 0.6, marginLeft: 4 }}>
-                                        {dgVoice.connectionMode === 'websocket' ? 'WS' : dgVoice.connectionMode === 'rest' ? 'REST' : 'OFF'}
-                                    </span>
-                                )}
-                                {/* I6: Connection health indicator */}
-                                {dgVoice.connectionMode === 'rest' && isListening && (
-                                    <span className="ai-vc-conn-indicator ai-vc-conn-indicator--rest" title="Using REST fallback (slower transcription)">⚡</span>
-                                )}
-                            </button>
-                            <button
-                                className={`ai-vc-ctrl ${!cameraOn ? 'ai-vc-ctrl--off' : ''}`}
-                                onClick={toggleCamera}
-                                title={cameraOn ? 'Turn off camera' : 'Turn on camera'}
-                                aria-label={cameraOn ? 'Camera on. Click to turn off.' : 'Camera off. Click to turn on.'}
-                                aria-pressed={cameraOn}
-                            >
-                                {cameraOn ? <Video size={18} /> : <VideoOff size={18} />}
-                                <span className="ai-vc-ctrl-label">{cameraOn ? 'Camera' : 'Off'}</span>
-                            </button>
-                            <button
-                                className={`ai-vc-ctrl ${speakerMuted ? 'ai-vc-ctrl--off' : ''}`}
-                                onClick={() => setSpeakerMuted(p => !p)}
-                                title={speakerMuted ? 'Unmute speaker' : 'Mute speaker'}
-                                aria-label={speakerMuted ? 'Speaker muted. Click to unmute.' : 'Speaker on. Click to mute.'}
-                                aria-pressed={!speakerMuted}
-                            >
-                                {speakerMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-                                <span className="ai-vc-ctrl-label">{speakerMuted ? 'Speaker Off' : 'Speaker'}</span>
-                            </button>
-                        </div>
-                        <div className="ai-vc-controls-divider" />
-                        <div className="ai-vc-controls-group">
-                            <button
-                                className={`ai-vc-ctrl ${isPaused ? 'ai-vc-ctrl--active' : ''}`}
-                                onClick={() => {
-                                    if (isPaused) {
-                                        // Resume
-                                        if (pauseStartRef.current) {
-                                            setTotalPauseTime(prev => prev + (Date.now() - pauseStartRef.current));
-                                            pauseStartRef.current = null;
-                                        }
-                                        setIsPaused(false);
-                                        setInterviewerStatus('');
-                                        if (!isListeningRef.current) startVoiceRecording();
-                                    } else {
-                                        // Pause
-                                        pauseStartRef.current = Date.now();
-                                        setIsPaused(true);
-                                        setInterviewerStatus('Interview paused');
-                                        stopVoiceRecording();
-                                        // Stop ALL TTS pipelines — dgVoice (Kokoro), legacy Audio, and browser synth
-                                        dgVoice.interrupt();
-                                        speakSequenceCancelledRef.current = true;
-                                        if (ttsAudioRef.current) {
-                                            ttsAudioRef.current.pause();
-                                        }
-                                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-                                    }
-                                }}
-                                title={isPaused ? 'Resume interview' : 'Pause interview'}
-                                aria-label={isPaused ? 'Interview paused. Click to resume.' : 'Interview running. Click to pause.'}
-                                aria-pressed={isPaused}
-                            >
-                                {isPaused ? <Play size={18} /> : <Pause size={18} />}
-                                <span className="ai-vc-ctrl-label">{isPaused ? 'Resume' : 'Pause'}</span>
-                            </button>
-                        </div>
-                        <div className="ai-vc-controls-divider" />
-                        <div className="ai-vc-controls-group">
-                            <button
-                                className={`ai-vc-ctrl ${captionsOn ? 'ai-vc-ctrl--active' : ''}`}
-                                onClick={() => setCaptionsOn(p => !p)}
-                                title={captionsOn ? 'Turn off captions' : 'Turn on captions'}
-                                aria-label={captionsOn ? 'Captions on. Click to turn off.' : 'Captions off. Click to turn on.'}
-                                aria-pressed={captionsOn}
-                            >
-                                {captionsOn ? <Captions size={18} /> : <CaptionsOff size={18} />}
-                                <span className="ai-vc-ctrl-label">{captionsOn ? 'CC' : 'CC Off'}</span>
-                            </button>
-                            <button
-                                className={`ai-vc-ctrl ${chatOpen ? 'ai-vc-ctrl--active' : ''}`}
-                                onClick={() => setChatOpen(p => !p)}
-                                title="Chat"
-                            >
-                                <MessageSquare size={18} />
-                                <span className="ai-vc-ctrl-label">Chat</span>
-                            </button>
-                            <button
-                                className={`ai-vc-ctrl ${bookmarked ? 'ai-vc-ctrl--active' : ''}`}
-                                onClick={() => setBookmarked(p => !p)}
-                                title="Bookmark"
-                            >
-                                <Bookmark size={18} />
-                                <span className="ai-vc-ctrl-label">Bookmark</span>
-                            </button>
-                        </div>
-                        <div className="ai-vc-controls-divider" />
-                        <button className="ai-vc-ctrl ai-vc-ctrl--end" onClick={endInterview} title="End" aria-label="End the interview session">
-                            <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
-                            <span className="ai-vc-ctrl-label">End</span>
-                        </button>
-                    </div>
+                    {/* Floating Controls Bar */}
+                    <InterviewControls
+                        micOn={micOn} toggleMic={toggleMic} isListening={isListening}
+                        cameraOn={cameraOn} toggleCamera={toggleCamera}
+                        speakerMuted={speakerMuted} setSpeakerMuted={setSpeakerMuted}
+                        isPaused={isPaused} onTogglePause={togglePause}
+                        captionsOn={captionsOn} setCaptionsOn={setCaptionsOn}
+                        chatOpen={chatOpen} setChatOpen={setChatOpen}
+                        bookmarked={bookmarked} setBookmarked={setBookmarked}
+                        endInterview={endInterview}
+                        connectionMode={dgVoice.connectionMode}
+                    />
                 </div>
 
                 {/* === RIGHT: Workspace Panel (Collapsible) === */}
+                {/* === RIGHT: Workspace Panel (Collapsible) === */}
                 {workspacePanelOpen && (
-                    <div className="ai-vc-workspace">
-                        {/* Workspace Dropdown Header */}
-                        <div className="ai-vc-ws-header">
-                            <div className="ai-vc-ws-dropdown" onClick={() => setWorkspaceDropdownOpen(p => !p)}>
-                                <div className="ai-vc-ws-dropdown-selected">
-                                    {activeTab === 'code' && <><Code2 size={14} /> Code Editor</>}
-                                    {activeTab === 'design' && <><Palette size={14} /> Design Canvas</>}
-                                    {activeTab === 'notes' && <><FileText size={14} /> Notes</>}
-                                </div>
-                                <ChevronDown size={14} className={`ai-vc-ws-chevron ${workspaceDropdownOpen ? 'ai-vc-ws-chevron--open' : ''}`} />
-                            </div>
-                            {workspaceDropdownOpen && (
-                                <div className="ai-vc-ws-dropdown-menu">
-                                    {workspaceOptions.map(opt => (
-                                        <button
-                                            key={opt.id}
-                                            className={`ai-vc-ws-dropdown-item ${activeTab === opt.id ? 'active' : ''}`}
-                                            onClick={() => { setActiveTab(opt.id); setWorkspaceDropdownOpen(false); }}
-                                        >
-                                            {opt.icon}
-                                            {opt.label}
-                                            {activeTab === opt.id && <CheckCircle size={12} className="ai-vc-ws-check" />}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="ai-vc-ws-header-right">
-                                <div className="ai-live-sync">
-                                    <span className="ai-live-sync-dot" />
-                                    <Sparkles size={11} />
-                                    Synced
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Workspace Content */}
-                        <div className="ai-vc-ws-content">
-                            {activeTab === 'code' && (
-                                <div className="ai-vc-ws-editor">
-                                    <div className="ai-editor-toolbar">
-                                        <div className="ai-editor-toolbar-left">
-                                            <div className="ai-lang-icon"><Code2 size={12} /></div>
-                                            <select
-                                                className="ai-lang-selector"
-                                                value={language}
-                                                onChange={(e) => handleLanguageChange(e.target.value)}
-                                            >
-                                                {LANGUAGES.map(lang => (
-                                                    <option key={lang.id} value={lang.id}>
-                                                        {lang.icon} {lang.label}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button className="ai-reset-btn" onClick={handleReset}>
-                                                <RotateCcw size={12} /> Reset
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="ai-editor-body">
-                                        <Editor
-                                            height="100%"
-                                            language={language === 'cpp' ? 'cpp' : language}
-                                            value={code}
-                                            onChange={(value) => setCode(value || '')}
-                                            theme="vs-dark"
-                                            options={{
-                                                fontSize: 13,
-                                                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                                                minimap: { enabled: false },
-                                                scrollBeyondLastLine: false,
-                                                lineNumbers: 'on',
-                                                wordWrap: 'on',
-                                                tabSize: 4,
-                                                automaticLayout: true,
-                                                padding: { top: 12, bottom: 12 },
-                                                suggestOnTriggerCharacters: true,
-                                                bracketPairColorization: { enabled: true },
-                                                smoothScrolling: true,
-                                                cursorBlinking: 'smooth',
-                                                cursorSmoothCaretAnimation: 'on',
-                                                renderLineHighlight: 'all',
-                                                lineHeight: 20,
-                                            }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'design' && (
-                                <div className="ai-design-canvas">
-                                    <Palette size={48} />
-                                    <p>Design Canvas — coming soon</p>
-                                    <p style={{ fontSize: 12, opacity: 0.5 }}>Draw system design diagrams here</p>
-                                </div>
-                            )}
-
-                            {activeTab === 'notes' && (
-                                <div className="ai-notes-panel">
-                                    <textarea
-                                        value={notes}
-                                        onChange={(e) => setNotes(e.target.value)}
-                                        placeholder={"Take notes during the interview...\n\n• Key points to mention\n• Edge cases to consider\n• Time/space complexity analysis"}
-                                    />
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Voice transcript indicator */}
-                        {isListening && transcript && (
-                            <div style={{
-                                padding: '6px 12px',
-                                background: 'rgba(16, 185, 129, 0.1)',
-                                borderTop: '1px solid rgba(16, 185, 129, 0.2)',
-                                fontSize: '12px',
-                                color: '#10b981',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                            }}>
-                                <span style={{
-                                    width: 6, height: 6, borderRadius: '50%',
-                                    background: '#10b981',
-                                    animation: 'pulse 1.5s ease-in-out infinite',
-                                    display: 'inline-block',
-                                }} />
-                                <span style={{ opacity: 0.8 }}>🎙️ "{transcript}"</span>
-                            </div>
-                        )}
-                        {/* Text input for chat at bottom of workspace */}
-                        <div className="ai-vc-ws-input">
-                            <button
-                                className={`ai-vc-ws-voice ${isListening ? 'ai-vc-ws-voice--active' : ''}`}
-                                onClick={handleVoiceInput}
-                                title={isListening ? 'Stop listening' : 'Speak your answer'}
-                                style={{
-                                    background: isListening ? '#ef4444' : 'rgba(255,255,255,0.08)',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    padding: '8px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: isListening ? '#fff' : 'rgba(255,255,255,0.6)',
-                                    transition: 'all 0.2s ease',
-                                    position: 'relative',
-                                    flexShrink: 0,
-                                }}
-                            >
-                                {isListening ? <MicOff size={14} /> : <Mic size={14} />}
-                                {isListening && <span style={{
-                                    position: 'absolute', inset: -3,
-                                    borderRadius: '10px',
-                                    border: '2px solid #ef4444',
-                                    animation: 'pulse 1.5s ease-in-out infinite',
-                                    pointerEvents: 'none',
-                                }} />}
-                            </button>
-                            {/* Auto-send silence countdown indicator */}
-                            {isListening && silenceCountdown > 0 && (
-                                <div style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    padding: '4px 10px',
-                                    background: 'rgba(251,191,36,0.12)',
-                                    border: '1px solid rgba(251,191,36,0.25)',
-                                    borderRadius: 8,
-                                    fontSize: 11,
-                                    color: '#fbbf24',
-                                    flexShrink: 0,
-                                    animation: 'fadeIn 0.3s ease',
-                                }}
-                                >
-                                    <svg width="18" height="18" viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
-                                        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(251,191,36,0.2)" strokeWidth="3" />
-                                        <circle cx="18" cy="18" r="15"
-                                            fill="none" stroke="#fbbf24" strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeDasharray={`${(silenceCountdown / 4) * 94.2} 94.2`}
-                                            transform="rotate(-90 18 18)"
-                                            style={{ transition: 'stroke-dasharray 0.3s ease' }}
-                                        />
-                                    </svg>
-                                    <span>Sending in {silenceCountdown}s</span>
-                                </div>
-                            )}
-                            <input
-                                type="text"
-                                value={userInput || transcript}
-                                onChange={(e) => { setUserInput(e.target.value); setTranscript(''); }}
-                                placeholder={isListening
-                                    ? (silenceCountdown > 0 ? `Auto-sending in ${silenceCountdown}s...` : "Listening... speak now")
-                                    : "Type or speak your response..."}
-                                onKeyDown={(e) => { if (e.key === 'Enter') sendAnswer(); }}
-                            />
-                            <button
-                                className="ai-vc-ws-send"
-                                onClick={sendAnswer}
-                                disabled={(!userInput.trim() && !transcript.trim() && !code.trim()) || loading}
-                            >
-                                <Send size={14} />
-                            </button>
-                        </div>
-                    </div>
+                    <InterviewWorkspace
+                        activeTab={activeTab} setActiveTab={setActiveTab}
+                        workspaceDropdownOpen={workspaceDropdownOpen} setWorkspaceDropdownOpen={setWorkspaceDropdownOpen}
+                        language={language} onLanguageChange={handleLanguageChange}
+                        code={code} setCode={setCode}
+                        onReset={handleReset}
+                        notes={notes} setNotes={setNotes}
+                        isListening={isListening} transcript={transcript}
+                        silenceCountdown={silenceCountdown}
+                        onVoiceInput={handleVoiceInput}
+                        userInput={userInput} setUserInput={setUserInput} setTranscript={setTranscript}
+                        onSendAnswer={sendAnswer}
+                        loading={loading}
+                    />
                 )}
 
                 {/* Chat Sidebar (togglable, overlays) */}
                 {chatOpen && (
-                    <div className="ai-vc-chat-overlay">
-                        <div className="ai-chat-header">
-                            <h3><MessageSquare size={14} /> Live Chat</h3>
-                            <button className="ai-topbar-icon-btn" onClick={() => setChatOpen(false)}>
-                                <X size={14} />
-                            </button>
-                        </div>
-                        <div className="ai-chat-messages">
-                            {conversation.map((msg, idx) => {
-                                if (msg.role === 'feedback') {
-                                    const scoreColor = msg.score >= 80 ? '#4ade80' : msg.score >= 60 ? '#fbbf24' : '#f87171';
-                                    const scoreBg = msg.score >= 80 ? 'rgba(74,222,128,0.08)' : msg.score >= 60 ? 'rgba(251,191,36,0.08)' : 'rgba(248,113,113,0.08)';
-                                    const scoreBorder = msg.score >= 80 ? 'rgba(74,222,128,0.2)' : msg.score >= 60 ? 'rgba(251,191,36,0.2)' : 'rgba(248,113,113,0.2)';
-                                    return (
-                                        <div key={idx} className="ai-chat-feedback-card" style={{
-                                            borderLeft: `3px solid ${scoreColor}`,
-                                            background: scoreBg,
-                                            borderRadius: 10,
-                                            padding: '12px 14px',
-                                            margin: '6px 0',
-                                            fontSize: '0.82rem',
-                                            lineHeight: 1.5,
-                                        }}>
-                                            {/* Score Badge */}
-                                            <div style={{
-                                                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                                                marginBottom: 8,
-                                            }}>
-                                                <div style={{
-                                                    display: 'flex', alignItems: 'center', gap: 6,
-                                                    color: scoreColor, fontWeight: 700, fontSize: '0.85rem',
-                                                }}>
-                                                    {msg.score >= 80 ? '🌟' : msg.score >= 60 ? '👍' : '📝'}
-                                                    <span>Score: {msg.score}%</span>
-                                                </div>
-                                                <div style={{
-                                                    padding: '2px 10px', borderRadius: 20,
-                                                    background: scoreBorder, color: scoreColor,
-                                                    fontSize: '0.7rem', fontWeight: 600,
-                                                }}>
-                                                    {msg.score >= 80 ? 'Excellent' : msg.score >= 60 ? 'Good' : 'Needs Work'}
-                                                </div>
-                                            </div>
-                                            {/* Feedback Text */}
-                                            <div style={{ color: '#e2e8f0', marginBottom: 8 }}>{msg.content}</div>
-                                            {/* Strengths */}
-                                            {msg.strengths && msg.strengths.length > 0 && (
-                                                <div style={{ marginBottom: 6 }}>
-                                                    <div style={{ color: '#4ade80', fontSize: '0.72rem', fontWeight: 600, marginBottom: 3 }}>✓ Strengths</div>
-                                                    {msg.strengths.map((s, i) => (
-                                                        <div key={i} style={{ color: '#a7f3d0', fontSize: '0.76rem', paddingLeft: 10 }}>• {s}</div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {/* Improvements */}
-                                            {msg.improvements && msg.improvements.length > 0 && (
-                                                <div style={{ marginBottom: 6 }}>
-                                                    <div style={{ color: '#fbbf24', fontSize: '0.72rem', fontWeight: 600, marginBottom: 3 }}>⬆ Improve</div>
-                                                    {msg.improvements.map((s, i) => (
-                                                        <div key={i} style={{ color: '#fde68a', fontSize: '0.76rem', paddingLeft: 10 }}>• {s}</div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {/* Hint */}
-                                            {msg.hint && (
-                                                <div style={{
-                                                    marginTop: 6, padding: '6px 10px', borderRadius: 6,
-                                                    background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.15)',
-                                                    color: '#a5b4fc', fontSize: '0.74rem',
-                                                }}>
-                                                    💡 Hint: {msg.hint}
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                }
-                                return (
-                                    <div key={idx} className={`ai-chat-msg ${msg.role === 'interviewer' ? 'interviewer' : 'candidate'}`}>
-                                        <div className="msg-sender">
-                                            {msg.role === 'interviewer' ? `${INTERVIEWER.name}` : 'You'}
-                                        </div>
-                                        {msg.content}
-                                    </div>
-                                );
-                            })}
-                            {loading && (
-                                <div className="ai-typing-indicator">
-                                    <span /><span /><span />
-                                </div>
-                            )}
-                            <div ref={chatEndRef} />
-                        </div>
-                        <div className="ai-chat-input-area">
-                            <input
-                                type="text"
-                                className="ai-chat-input"
-                                value={userInput}
-                                onChange={(e) => setUserInput(e.target.value)}
-                                placeholder="Type your answer..."
-                                onKeyDown={(e) => { if (e.key === 'Enter') sendAnswer(); }}
-                            />
-                            <button
-                                className="ai-chat-send-btn"
-                                onClick={sendAnswer}
-                                disabled={(!userInput.trim() && !code.trim()) || loading}
-                            >
-                                <Send size={14} />
-                            </button>
-                        </div>
-                    </div>
+                    <ChatSidebar
+                        conversation={conversation}
+                        interviewerName={INTERVIEWER.name}
+                        loading={loading}
+                        userInput={userInput} setUserInput={setUserInput}
+                        onSendAnswer={sendAnswer}
+                        onClose={() => setChatOpen(false)}
+                        chatEndRef={chatEndRef}
+                        code={code}
+                    />
                 )}
             </div>
         </div>

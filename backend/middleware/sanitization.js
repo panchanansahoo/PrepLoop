@@ -22,19 +22,15 @@ function sanitizeString(input) {
   
   let sanitized = input;
   
-  // Remove XSS patterns
+  // Remove dangerous XSS patterns (script tags, event handlers, etc.)
   XSS_PATTERNS.forEach(pattern => {
     sanitized = sanitized.replace(pattern, '');
   });
   
-  // Encode HTML entities
-  sanitized = sanitized
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+  // SECURITY FIX (M1): Removed HTML entity encoding (&amp;, &lt;, etc.)
+  // Input encoding was corrupting user-submitted code, search queries, and
+  // names with special characters. HTML encoding must be done at the
+  // output/rendering layer instead (React already escapes JSX expressions).
   
   return sanitized.trim();
 }

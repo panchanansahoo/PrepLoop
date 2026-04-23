@@ -1,0 +1,360 @@
+﻿   POMODORO TIMER WIDGET
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.pomo-widget {
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 24px;
+  backdrop-filter: blur(20px);
+  text-align: center;
+}
+
+.pomo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.pomo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pomo-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pomo-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 2px;
+  text-align: left;
+}
+
+.pomo-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+  text-align: left;
+}
+
+.pomo-mode-toggle {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.pomo-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.4);
+  background: transparent;
+  transition: all 0.25s;
+}
+
+.pomo-mode-btn.active {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.pomo-mode-btn:hover:not(.active) {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.pomo-ring-container {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 24px;
+}
+
+.pomo-svg {
+  display: block;
+}
+
+.pomo-time-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pomo-time {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.pomo-mode-label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.pomo-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.pomo-ctrl-btn {
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.25s;
+}
+
+.pomo-reset {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.pomo-reset:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.pomo-play {
+  width: 52px;
+  height: 52px;
+  color: #fff;
+  border: none;
+}
+
+.pomo-play:hover {
+  transform: scale(1.08);
+}
+
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+   ADVANCED POMODORO TIMER
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+.pomo-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.pomo-settings-btn,
+.pomo-skip-btn {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pomo-settings-btn:hover,
+.pomo-skip-btn:hover {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a78bfa;
+  transform: scale(1.05);
+}
+
+.pomo-settings-btn.active {
+  background: rgba(99, 102, 241, 0.25);
+  color: #a78bfa;
+  border-color: rgba(99, 102, 241, 0.35);
+}
+
+.pomo-settings-panel {
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.2s ease;
+}
+
+.pomo-settings-title {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.pomo-setting-group {
+  margin-bottom: 10px;
+}
+
+.pomo-setting-group:last-child {
+  margin-bottom: 0;
+}
+
+.pomo-setting-label {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-bottom: 6px;
+  display: block;
+  font-weight: 500;
+}
+
+.pomo-preset-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pomo-preset-btn {
+  background: rgba(15, 17, 28, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 38px;
+  text-align: center;
+}
+
+.pomo-preset-btn:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a78bfa;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.pomo-preset-btn.active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #c4b5fd;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.15);
+}
+
+.pomo-session-dots {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pomo-session-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid rgba(99, 102, 241, 0.3);
+  background: transparent;
+  transition: all 0.3s;
+}
+
+.pomo-session-dot.completed {
+  background: #6366f1;
+  border-color: #6366f1;
+  box-shadow: 0 0 6px rgba(99, 102, 241, 0.4);
+}
+
+.pomo-session-dot.current {
+  border-color: #a78bfa;
+  animation: pomoPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pomoPulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 0 4px rgba(167, 139, 250, 0);
+  }
+}
+
+.pomo-history {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.pomo-history-title {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.pomo-history-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 50px;
+  padding: 0 2px;
+}
+
+.pomo-history-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-height: 3px;
+  transition: height 0.3s ease;
+  position: relative;
+  cursor: default;
+}
+
+.pomo-history-bar:hover {
+  filter: brightness(1.2);
+}
+
+.pomo-history-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+}
+
+.pomo-history-label {
+  font-size: 0.55rem;
+  color: rgba(255, 255, 255, 0.2);
+}
+
+.pomo-quote {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.25);
+  font-style: italic;
+  padding: 0 8px;
+  line-height: 1.4;
+}

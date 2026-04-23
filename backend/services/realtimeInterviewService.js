@@ -3,9 +3,22 @@
  * Handles instant answer processing, live feedback, and streaming responses
  */
 import { WebSocketServer } from 'ws';
-import Groq from 'groq-sdk';
 
-const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+// Lazy-initialize Groq to avoid duplicate SDK instances across the process.
+// Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
+let _groqPromise = null;
+async function getGroqClient() {
+  if (_groqPromise) return _groqPromise;
+  _groqPromise = (async () => {
+    try {
+      const { default: Groq } = await import('groq-sdk');
+      return process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+    } catch {
+      return null;
+    }
+  })();
+  return _groqPromise;
+}
 
 class RealtimeInterviewService {
   constructor() {
@@ -195,6 +208,7 @@ class RealtimeInterviewService {
   }
 
   async generateQuestion(context) {
+    const groq = await getGroqClient();
     if (!groq) {
       return this.getFallbackQuestion(context);
     }
@@ -226,6 +240,7 @@ Question:`;
   }
 
   async generateNextQuestion(context) {
+    const groq = await getGroqClient();
     if (!groq) {
       return this.getFallbackQuestion(context);
     }
@@ -264,6 +279,7 @@ Next question:`;
   }
 
   async generateFeedback(context, answer) {
+    const groq = await getGroqClient();
     if (!groq) {
       return {
         comment: 'Good answer. Let me ask you a follow-up.',

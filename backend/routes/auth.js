@@ -7,6 +7,52 @@ import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getV
 
 const router = express.Router();
 
+// SECURITY: Common weak passwords blocklist (top entries from breach databases)
+const COMMON_PASSWORDS = new Set([
+  'password', 'password1', 'password123', '123456', '12345678', '123456789',
+  '1234567890', 'qwerty', 'abc123', 'monkey', 'master', 'dragon',
+  'login', 'princess', 'qwerty123', 'solo', 'passw0rd', 'starwars',
+  'admin', 'welcome', 'hello', 'charlie', 'donald', 'football',
+  'shadow', 'sunshine', 'trustno1', 'iloveyou', 'batman', 'access',
+  'letmein', '696969', 'mustang', 'michael', 'ashley', 'baseball',
+  'test123', 'pass123', 'qwerty1', 'welcome1', 'Password1', 'password1!',
+]);
+
+/**
+ * Validate password meets security requirements:
+ * - At least 12 characters
+ * - At least 1 uppercase letter
+ * - At least 1 lowercase letter
+ * - At least 1 digit
+ * - At least 1 special character
+ * - Not in common passwords list
+ * Returns null if valid, or an error message string.
+ */
+function validatePasswordStrength(password) {
+  if (!password || typeof password !== 'string') {
+    return 'Password is required';
+  }
+  if (password.length < 12) {
+    return 'Password must be at least 12 characters long';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one uppercase letter';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one lowercase letter';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one digit';
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return 'Password must contain at least one special character';
+  }
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) {
+    return 'This password is too common. Please choose a stronger password';
+  }
+  return null;
+}
+
 // Reuse a single transporter instance (connection pooling — fix #17)
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
@@ -37,9 +83,10 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: 'Email, password, and full name are required' });
   }
 
-  // Fix #23: raise minimum password length to 8
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  // SECURITY: Enforce strong password policy
+  const passwordError = validatePasswordStrength(password);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
 
   try {
@@ -124,11 +171,84 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// SECURITY: Account lockout — track failed login attempts per email+IP
+const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const MAX_LOGIN_ATTEMPTS = 5;
+const loginAttempts = new Map(); // key: "email:ip" => { count, firstAttempt, lockedUntil }
+
+function checkLoginLockout(email, ip) {
+  const key = `${email.toLowerCase()}:${ip}`;
+  const record = loginAttempts.get(key);
+  if (!record) return { locked: false };
+
+  // Auto-expire old lockouts
+  if (record.lockedUntil && Date.now() > record.lockedUntil) {
+    loginAttempts.delete(key);
+    return { locked: false };
+  }
+
+  // Check if currently locked
+  if (record.lockedUntil && Date.now() < record.lockedUntil) {
+    const remainingMs = record.lockedUntil - Date.now();
+    return { locked: true, remainingMinutes: Math.ceil(remainingMs / 60000) };
+  }
+
+  // Reset if outside the tracking window
+  if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+    loginAttempts.delete(key);
+    return { locked: false };
+  }
+
+  return { locked: false };
+}
+
+function recordFailedLogin(email, ip) {
+  const key = `${email.toLowerCase()}:${ip}`;
+  const record = loginAttempts.get(key) || { count: 0, firstAttempt: Date.now() };
+
+  // Reset if outside the tracking window
+  if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+    record.count = 0;
+    record.firstAttempt = Date.now();
+  }
+
+  record.count += 1;
+
+  if (record.count >= MAX_LOGIN_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOGIN_ATTEMPT_WINDOW_MS;
+  }
+
+  loginAttempts.set(key, record);
+
+  // Prune old entries every so often
+  if (loginAttempts.size > 5000) {
+    const now = Date.now();
+    for (const [k, v] of loginAttempts) {
+      if (now - v.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS * 2) {
+        loginAttempts.delete(k);
+      }
+    }
+  }
+}
+
+function clearLoginAttempts(email, ip) {
+  loginAttempts.delete(`${email.toLowerCase()}:${ip}`);
+}
+
 router.post('/login', authLoginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  // SECURITY: Check account lockout before attempting authentication
+  const lockout = checkLoginLockout(email, req.ip);
+  if (lockout.locked) {
+    return res.status(429).json({
+      error: `Account temporarily locked due to too many failed attempts. Try again in ${lockout.remainingMinutes} minute(s).`,
+      code: 'ACCOUNT_LOCKED'
+    });
   }
 
   try {
@@ -138,8 +258,21 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     });
 
     if (error) {
+      // Record the failed attempt
+      recordFailedLogin(email, req.ip);
+
+      if (error.message === 'Email not confirmed') {
+        return res.status(403).json({
+          error: 'Please verify your email before logging in',
+          code: 'EMAIL_NOT_VERIFIED',
+          email: email
+        });
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+
+    // Clear failed attempts on successful login
+    clearLoginAttempts(email, req.ip);
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -457,9 +590,10 @@ router.post('/reset-password', async (req, res) => {
   if (!accessToken || !newPassword) {
     return res.status(400).json({ error: 'Access token and new password are required' });
   }
-  // Fix #23: raise minimum password length to 8
-  if (newPassword.length < 8) {
-    return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  // SECURITY: Enforce strong password policy
+  const passwordError = validatePasswordStrength(newPassword);
+  if (passwordError) {
+    return res.status(400).json({ error: passwordError });
   }
   try {
     const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(accessToken);

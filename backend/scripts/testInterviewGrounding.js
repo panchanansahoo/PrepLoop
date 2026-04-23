@@ -46,6 +46,46 @@ async function run() {
   assert.ok(typeof emptySafe.retrievalLatencyMs === 'number', 'fallback retrievalLatencyMs should be numeric');
   assert.ok(typeof emptySafe.count === 'number', 'fallback count should be numeric');
 
+  // ── Type-aware grounding tests ──────────────────────────────────────
+
+  // Behavioral interview should get behavioral-stage fallbacks, not 'Technical'
+  const behavGrounding = await groundingService.fetchContext({
+    company: 'unknown-behavioral-co',
+    role: 'SDE',
+    difficulty: 'medium',
+    stage: 'technical',
+    interviewType: 'behavioral',
+    missingAreas: ['STAR structure'],
+    limit: 3,
+  });
+  assert.ok(Array.isArray(behavGrounding.retrievedQuestions), 'behavioral grounding should return questions');
+  const behavFallbacks = behavGrounding.retrievedQuestions.filter(q => q.tags?.includes('fallback'));
+  if (behavFallbacks.length > 0) {
+    assert.equal(behavFallbacks[0].stage, 'Behavioral', `Behavioral fallback stage should be 'Behavioral', got ${behavFallbacks[0].stage}`);
+    assert.equal(behavFallbacks[0].role, 'General', `Behavioral fallback role should be 'General', got ${behavFallbacks[0].role}`);
+  }
+
+  // HR interview fallbacks should use 'HR' stage and 'General' role
+  const hrGrounding = await groundingService.fetchContext({
+    company: 'unknown-hr-co',
+    role: 'SDE',
+    stage: 'intake',
+    interviewType: 'hr',
+    missingAreas: ['career motivation'],
+    limit: 3,
+  });
+  const hrFallbacks = hrGrounding.retrievedQuestions.filter(q => q.tags?.includes('fallback'));
+  if (hrFallbacks.length > 0) {
+    assert.equal(hrFallbacks[0].stage, 'HR', `HR fallback stage should be 'HR', got ${hrFallbacks[0].stage}`);
+    assert.equal(hrFallbacks[0].role, 'General', `HR fallback role should be 'General', got ${hrFallbacks[0].role}`);
+  }
+
+  // Behavioral missing area hints should resolve (STAR structure, quantified impact)
+  assert.ok(
+    behavGrounding.hintPatterns.some(h => /STAR|Situation/i.test(h)),
+    `Behavioral hints should include STAR guidance, got: ${behavGrounding.hintPatterns.join(' | ')}`
+  );
+
   console.log('Interview grounding tests passed');
 }
 

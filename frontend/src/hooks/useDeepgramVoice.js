@@ -153,6 +153,42 @@ export function isAudioContentType(contentType = '') {
     return /^audio\//i.test(String(contentType).trim());
 }
 
+/**
+ * Browser speechSynthesis fallback — shared helper.
+ * Used when TTS backend fails or returns invalid audio.
+ * Resolves when speech ends, errors, is aborted, or hits the guard timer.
+ */
+function playBrowserSpeechFallback(text, { voice, gender, controller, guardMs }) {
+    if (!('speechSynthesis' in window)) return Promise.resolve();
+    return new Promise((resolve) => {
+        let guardTimer = null;
+        let settled = false;
+        const settle = () => {
+            if (settled) return;
+            settled = true;
+            if (guardTimer) clearTimeout(guardTimer);
+            resolve();
+        };
+        const utter = new SpeechSynthesisUtterance(text);
+        if (voice) utter.voice = voice;
+        utter.rate = 1.0;
+        utter.pitch = gender === 'male' ? 0.9 : 1.0;
+        utter.onend = settle;
+        utter.onerror = settle;
+        if (controller?.signal) {
+            controller.signal.addEventListener('abort', () => {
+                window.speechSynthesis.cancel();
+                settle();
+            }, { once: true });
+        }
+        guardTimer = setTimeout(() => {
+            window.speechSynthesis.cancel();
+            settle();
+        }, guardMs || 30000);
+        window.speechSynthesis.speak(utter);
+    });
+}
+
 export function shouldTreatTtsResponseAsFallback({ contentType = '', blobSize = 0 } = {}) {
     return !isAudioContentType(contentType) || Number(blobSize) < 100;
 }
@@ -413,11 +449,29 @@ export function useDeepgramVoice({
                 ok: tokenRes.ok,
                 requestId: tokenRes.headers.get('x-request-id') || tokenRequest.requestId,
             });
+
+            // Handle auth/rate-limit failures gracefully → REST fallback
+            if (tokenRes.status === 401) {
+                console.warn('[useDeepgramVoice] Auth required for Deepgram token, falling back to REST');
+                return false;
+            }
+            if (tokenRes.status === 429) {
+                console.warn('[useDeepgramVoice] Token rate limited, falling back to REST');
+                return false;
+            }
+
             const tokenData = await tokenRes.json();
-            console.log('[useDeepgramVoice] Token response:', tokenData);
-            if (!tokenData.available || !tokenData.token) {
+            if (!tokenData.available) {
                 logVoiceDebug('deepgram-token unavailable payload', tokenData);
-                console.warn('[useDeepgramVoice] Deepgram token not available, falling back to REST');
+                console.warn('[useDeepgramVoice] Deepgram not available, falling back to REST');
+                return false;
+            }
+
+            // SECURITY: Backend no longer exposes raw Deepgram API keys.
+            // All STT is proxied through /stt-chunk (REST). WebSocket mode requires
+            // a raw key, so we gracefully fall back to REST which is equally functional.
+            if (tokenData.useBackendProxy || !tokenData.token) {
+                logVoiceDebug('deepgram backend proxy mode — using REST STT');
                 return false;
             }
 
@@ -511,7 +565,9 @@ export function useDeepgramVoice({
                         analyticsRef.current.restFallbacks++; // I14
                         const attempt = wsReconnectAttemptRef.current;
                         if (attempt < WS_RECONNECT_MAX_RETRIES) {
-                            const delay = WS_RECONNECT_BASE_MS * Math.pow(2, attempt);
+                            const baseDelay = WS_RECONNECT_BASE_MS * Math.pow(2, attempt);
+                            // Add random jitter (±50%) to prevent thundering herd on mass reconnect
+                            const delay = Math.round(baseDelay * (0.5 + Math.random()));
                             console.info(`[useDeepgramVoice] Reconnecting in ${delay}ms (attempt ${attempt + 1}/${WS_RECONNECT_MAX_RETRIES})`);
                             wsReconnectTimerRef.current = setTimeout(async () => {
                                 wsReconnectAttemptRef.current = attempt + 1;
@@ -881,7 +937,7 @@ export function useDeepgramVoice({
                 console.log('[useDeepgramVoice] Sending TTS request for text:', spokenText.substring(0, 50) + '...');
                 
                 // SPEED FIX: Short timeout — fall back to instant browser speech quickly
-                const TTS_TIMEOUT_MS = 8000; // 8s max wait for TTS (browser fallback is instant)
+                const TTS_TIMEOUT_MS = 5000; // 5s max wait for TTS (browser fallback is instant)
                 
                 // I12: TTS fetch with 1 retry attempt and progressive timeout
                 const fetchTts = async (timeoutMs = TTS_TIMEOUT_MS) => {
@@ -956,36 +1012,14 @@ export function useDeepgramVoice({
 
             // ── Browser speechSynthesis fallback ──
             if (isFallback || !blob) {
-                if ('speechSynthesis' in window) {
-                    analyticsRef.current.ttsFallbacks++; // I14
-                    console.info('[useDeepgramVoice] TTS fallback → browser speechSynthesis');
-                    await new Promise((resolve) => {
-                        let guardTimer = null;
-                        let settled = false;
-                        const settle = () => {
-                            if (settled) return;
-                            settled = true;
-                            if (guardTimer) clearTimeout(guardTimer);
-                            resolve();
-                        };
-                        const utter = new SpeechSynthesisUtterance(spokenText);
-                        const selectedVoice = pickBrowserVoice(personaGender);
-                        if (selectedVoice) utter.voice = selectedVoice;
-                        utter.rate = 1.0;
-                        utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
-                        utter.onend = settle;
-                        utter.onerror = settle;
-                        controller.signal.addEventListener('abort', () => {
-                            window.speechSynthesis.cancel();
-                            settle();
-                        }, { once: true });
-                        guardTimer = setTimeout(() => {
-                            window.speechSynthesis.cancel();
-                            settle();
-                        }, TTS_PLAYBACK_GUARD_MS);
-                        window.speechSynthesis.speak(utter);
-                    });
-                }
+                analyticsRef.current.ttsFallbacks++; // I14
+                console.info('[useDeepgramVoice] TTS fallback → browser speechSynthesis');
+                await playBrowserSpeechFallback(spokenText, {
+                    voice: pickBrowserVoice(personaGender),
+                    gender: personaGender,
+                    controller,
+                    guardMs: TTS_PLAYBACK_GUARD_MS,
+                });
             } else {
                 // ── Normal audio playback ──
                 const playbackBlob = cachedContentType ? new Blob([blob], { type: cachedContentType }) : blob;
@@ -1007,31 +1041,11 @@ export function useDeepgramVoice({
                     if ('speechSynthesis' in window) {
                         analyticsRef.current.ttsFallbacks++; // I14
                         console.info('[useDeepgramVoice] Audio playback failed, using speechSynthesis fallback');
-                        await new Promise((resolve) => {
-                            let guardTimer = null;
-                            let settled = false;
-                            const settle = () => {
-                                if (settled) return;
-                                settled = true;
-                                if (guardTimer) clearTimeout(guardTimer);
-                                resolve();
-                            };
-                            const utter = new SpeechSynthesisUtterance(spokenText);
-                            const selectedVoice = pickBrowserVoice(personaGender);
-                            if (selectedVoice) utter.voice = selectedVoice;
-                            utter.rate = 1.0;
-                            utter.pitch = personaGender === 'male' ? 0.9 : 1.0;
-                            utter.onend = settle;
-                            utter.onerror = settle;
-                            controller.signal.addEventListener('abort', () => {
-                                window.speechSynthesis.cancel();
-                                settle();
-                            }, { once: true });
-                            guardTimer = setTimeout(() => {
-                                window.speechSynthesis.cancel();
-                                settle();
-                            }, TTS_PLAYBACK_GUARD_MS);
-                            window.speechSynthesis.speak(utter);
+                        await playBrowserSpeechFallback(spokenText, {
+                            voice: pickBrowserVoice(personaGender),
+                            gender: personaGender,
+                            controller,
+                            guardMs: TTS_PLAYBACK_GUARD_MS,
                         });
                         return;
                     }
@@ -1078,7 +1092,18 @@ export function useDeepgramVoice({
                 });
                 console.warn('[useDeepgramVoice] speak error:', err.message);
             }
+            // Defensive: clean up any dangling audio src / blob URL on error
+            if (audioRef.current) {
+                try {
+                    audioRef.current.pause();
+                    if (audioRef.current.src && audioRef.current.src.startsWith('blob:')) {
+                        URL.revokeObjectURL(audioRef.current.src);
+                    }
+                    audioRef.current.src = '';
+                } catch { /* no-op */ }
+            }
         } finally {
+            setOutputAudioEl(null);
             if (!controller.signal.aborted) {
                 setState('idle');
                 onEnd?.();

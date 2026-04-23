@@ -61,7 +61,24 @@ export const errorHandler = (err, req, res, next) => {
 
   if (process.env.NODE_ENV === 'development') {
     response.stack = err.stack;
-    response.details = err;
+    // SECURITY (M2): Sanitize error details — strip sensitive properties
+    // that might contain connection strings, passwords, or API keys
+    const SENSITIVE_KEYS = ['password', 'secret', 'connectionString', 'authorization', 'cookie', 'apiKey', 'token'];
+    const sanitizeDetails = (obj) => {
+      if (!obj || typeof obj !== 'object') return obj;
+      const safe = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (SENSITIVE_KEYS.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+          safe[key] = '[REDACTED]';
+        } else if (typeof value === 'object' && value !== null) {
+          safe[key] = sanitizeDetails(value);
+        } else {
+          safe[key] = value;
+        }
+      }
+      return safe;
+    };
+    response.details = sanitizeDetails({ code: err.code, name: err.name, message: err.message });
   }
 
   res.status(error.statusCode).json(response);

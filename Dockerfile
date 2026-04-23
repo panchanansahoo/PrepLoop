@@ -1,5 +1,5 @@
 # Backend Dockerfile
-FROM node:18-alpine AS backend
+FROM node:20-alpine AS backend
 
 WORKDIR /app/backend
 
@@ -12,6 +12,11 @@ RUN npm ci --only=production
 # Copy backend source
 COPY backend/ ./
 
+# SECURITY: Run as non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN chown -R appuser:appgroup /app
+USER appuser
+
 # Expose port
 EXPOSE 5000
 
@@ -23,7 +28,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 CMD ["node", "index.js"]
 
 # Frontend build stage
-FROM node:18-alpine AS frontend-build
+FROM node:20-alpine AS frontend-build
 
 WORKDIR /app/frontend
 
