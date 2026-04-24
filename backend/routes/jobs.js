@@ -437,7 +437,7 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
     // Fetch user profile to get skills and preferences
     const { data: profileData, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('skills, experience_summary, experience_level, preferred_role, preferred_location')
+      .select('*')
       .eq('id', req.user.id)
       .single();
 
