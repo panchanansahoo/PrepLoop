@@ -155,7 +155,7 @@ export function getAvailableProviders() {
             browser:  true,
         },
         recommended: {
-            tts: (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : providers.groq ? 'groq' : 'browser',
+            tts: providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
             stt: providers.deepgram ? 'deepgram' : providers.groq ? 'groq' : 'browser',
         }
     };
@@ -195,22 +195,6 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     };
 
-    // Kokoro — local, free, fastest (English only)
-    if (!multilingual && (!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
-        try {
-            const t0 = Date.now();
-            const result = await kokoroTTS(cleanText, persona, g);
-            if (result) {
-                updateStats('kokoro', true, Date.now() - t0);
-                return result;
-            }
-            updateStats('kokoro', false);
-        } catch (err) {
-            console.warn('[TTS] Kokoro failed:', err.message?.substring(0, 120));
-            updateStats('kokoro', false);
-        }
-    }
-
     // Groq Orpheus — cloud fallback (chunks long text automatically)
     if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         try {
@@ -224,6 +208,22 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         } catch (err) {
             console.warn('[TTS] Groq Orpheus failed:', err.message?.substring(0, 120));
             updateStats('groq', false);
+        }
+    }
+
+    // Kokoro — local, free, fallback (English only)
+    if (!multilingual && (!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
+        try {
+            const t0 = Date.now();
+            const result = await kokoroTTS(cleanText, persona, g);
+            if (result) {
+                updateStats('kokoro', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('kokoro', false);
+        } catch (err) {
+            console.warn('[TTS] Kokoro failed:', err.message?.substring(0, 120));
+            updateStats('kokoro', false);
         }
     }
 

@@ -1,10 +1,18 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: path.resolve('c:/Users/panch/Desktop/Preploop/backend/.env') });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
-const connectionString = `postgres://postgres:${encodeURIComponent(process.env.SUPABASE_DB_PASSWORD)}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
+const url = new URL(process.env.SUPABASE_URL);
+const ref = url.hostname.split('.')[0];
+const host = `db.${ref}.supabase.co`;
+
+const connectionString = `postgres://postgres:${encodeURIComponent(process.env.SUPABASE_DB_PASSWORD)}@${host}:5432/postgres?sslmode=require`;
+
+console.log('Connecting to', host);
 
 const { Pool } = pg;
 const pool = new Pool({
@@ -13,8 +21,9 @@ const pool = new Pool({
 });
 
 async function run() {
-  const client = await pool.connect();
   try {
+    const client = await pool.connect();
+    console.log('Connected!');
     await client.query(`
       ALTER TABLE profiles 
       ADD COLUMN IF NOT EXISTS skills TEXT,
@@ -23,10 +32,10 @@ async function run() {
       ADD COLUMN IF NOT EXISTS preferred_location TEXT;
     `);
     console.log('Successfully added columns to profiles table');
-  } catch (err) {
-    console.error(err);
-  } finally {
     client.release();
+  } catch (err) {
+    console.error(err.message);
+  } finally {
     pool.end();
   }
 }

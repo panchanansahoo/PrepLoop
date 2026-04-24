@@ -164,7 +164,7 @@ router.post('/tts-fast', optionalAuth, async (req, res) => {
         const result = await voiceService.textToSpeech(
             text.substring(0, 150),
             persona,
-            'kokoro',
+            req.body.provider || null,
             'en',
             gender
         );
@@ -285,7 +285,7 @@ router.post('/stt-chunk', optionalAuth, rawUpload.single('audio'), async (req, r
 // Body: { question, answer }
 // Returns: { needsFollowUp, followUpQuestion, clarityScore, specificityScore, starUsed }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/analyze-answer', optionalAuth, async (req, res) => {
+router.post('/analyze-answer', authenticateToken, async (req, res) => {
     const { question, answer } = req.body;
     // Sanitize interviewType against allowlist to prevent prompt injection
     const VALID_INTERVIEW_TYPES = ['technical', 'behavioral', 'coding', 'dsa', 'system-design', 'hr'];
