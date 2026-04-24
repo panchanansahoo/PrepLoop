@@ -1,4 +1,4 @@
-const DEFAULT_API_ORIGIN = 'http://localhost:5000';
+const DEFAULT_API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export function resolveApiOrigin(rawBaseUrl) {
   try {
