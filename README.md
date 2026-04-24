@@ -10,15 +10,38 @@
 
 PrepLoop empowers job seekers in the tech industry with a unified, intelligent platform that seamlessly bridges the gap between raw technical practice (DSA/System Design) and actual interview execution. PrepLoop acts as your personal AI interviewer, coding environment, progress tracker, and community hub.
 
+<<<<<<< HEAD
 ---
+=======
+- `frontend/` - React + Vite app
+- `backend/` - Node.js + Express API server
+- `discord-bot/` - community bot (commands, onboarding, moderation helpers)
+- `docs/` - architecture and API references
+- `scripts/` - content/data generation helpers
+- `Company_Interview/` - company-specific interview datasets
+- `Dsa_pattern/` - DSA pattern resources
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 ## ✨ Core Features
 
+<<<<<<< HEAD
 ### 🧠 Type-Aware AI Interview Simulations
 - **Dynamic Scenarios**: Covering DSA, System Design, Behavioral, and HR interviews.
 - **Experience-Based Scoring**: Custom rubrics for candidates ranging from Fresher to Experienced.
 - **Low-Latency Voice Interactions**: High-performance TTS/STT pipelines using Kokoro (local), Deepgram, and Groq with intelligent provider fallback to maintain sub-800ms latency.
 - **Silence & Nuance Detection**: Naturally handles user pauses and interruptions.
+=======
+- DSA problem practice and editor workflows
+- AI coaching and interview simulation endpoints
+- **AI Interview Improvement Plans** - Personalized improvement plans based on interview performance
+- **Skill-Match Live Job Recommendations** - Real-time job matching based on user skills with auto-refresh
+- System design preparation modules
+- Community/blog/contact flows
+- Notes, activity tracking, and user profile APIs
+- Job updates integration
+- Payment integration (Razorpay)
+- Voice-related routes/services
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 ### 💻 Technical Practice Workflows
 - **DSA Playgrounds**: In-browser coding environments with syntax highlighting, execution, and test cases validation.
@@ -137,7 +160,81 @@ npm run verify:setup
 
 ### 3) Run the Application
 
+<<<<<<< HEAD
 From root, start both the frontend and backend concurrently:
+=======
+```bash
+# Require specific integration keys
+node scripts/verifySetup.js --require=GROQ_API_KEY,RAZORPAY_KEY_ID
+
+# Require all known keys (strict mode)
+npm run verify:setup:strict
+```
+
+If env files do not exist yet:
+
+```bash
+npm run setup:env
+```
+
+Create `backend/.env`:
+
+```env
+# App
+NODE_ENV=development
+PORT=5000
+FRONTEND_URL=http://localhost:5173
+
+# Supabase
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+# AI
+GROQ_API_KEY=your_groq_api_key
+
+# Email (optional, used by auth/contact flows)
+SMTP_USER=your_smtp_user
+SMTP_PASS=your_smtp_password
+
+# CAPTCHA (optional)
+RECAPTCHA_SECRET_KEY=your_recaptcha_secret
+
+# Voice (optional — Kokoro TTS runs locally, no key needed)
+DEEPGRAM_API_KEY=your_deepgram_key
+
+# Jobs integrations (optional)
+RAPIDAPI_KEY=your_rapidapi_key
+ADZUNA_APP_ID=your_adzuna_app_id
+ADZUNA_APP_KEY=your_adzuna_app_key
+
+# Payments (optional)
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
+
+# Migration utility (optional)
+SUPABASE_DB_PASSWORD=your_supabase_db_password
+SUPABASE_KEY=your_supabase_key
+```
+
+Create `frontend/.env`:
+
+```env
+VITE_API_URL=http://localhost:5000
+VITE_SUPABASE_URL=your_supabase_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Reference files:
+
+- `backend/.env.example`
+- `frontend/.env.example`
+
+### 3) Run the app (frontend + backend)
+
+From root:
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 ```bash
 npm run dev
@@ -171,6 +268,7 @@ npm run dev
 
 The backend exposes grouped routes under `/api`, protected by Helmet, rate limiting, and JWT-based authorization (`authenticateToken`).
 
+<<<<<<< HEAD
 - 🔐 **Auth**: `/api/auth` (Login, registration, token refreshes, email verification)
 - 👩‍💻 **Practice**: `/api/dsa`, `/api/practice`, `/api/system-design`
 - 🤖 **AI & Voice**: `/api/ai`, `/api/ai-features`, `/api/voice`, `/api/voice/realtime`
@@ -184,6 +282,29 @@ The backend exposes grouped routes under `/api`, protected by Helmet, rate limit
 ## 📚 Extensive Documentation
 
 Dive deeper into specific modules and guides available in the `docs/` folder:
+=======
+## Project Documentation
+
+- Main docs index: `docs/README.md`
+- System architecture: `docs/ARCHITECTURE.md`
+- Backend API quick reference: `docs/BACKEND_API_QUICK_REFERENCE.md`
+- **Security Guide**: `docs/SECURITY.md`
+- **Performance Optimization**: `docs/PERFORMANCE.md`
+- AI features API: `docs/AI_FEATURES_API.md`
+- **AI Improvement Plan**: `docs/AI_IMPROVEMENT_PLAN.md`
+- **Skill-Match Jobs**: `docs/SKILL_MATCH_JOBS.md`
+- **Indian Job APIs**: `docs/INDIAN_JOB_APIS.md`
+- Interview suite API: `docs/INTERVIEW_SUITE_API.md`
+- Library API and admin guides:
+  - `docs/LIBRARY_API.md`
+  - `docs/ADMIN_LIBRARY_GUIDE.md`
+- Email verification guide: `docs/EMAIL_VERIFICATION_GUIDE.md`
+- Discord bot command spec: `docs/DISCORD_BOT_COMMAND_SPEC.md`
+- Discord community blueprint: `docs/DISCORD_COMMUNITY_BLUEPRINT.md`
+- Observability deployment quick guide: `QUICK_START.md`
+- Changelog: `CHANGELOG.md`
+- Contribution guide: `CONTRIBUTING.md`
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 - 🏗️ **[System Architecture](docs/ARCHITECTURE.md)**
 - 🔒 **[Security Guide](docs/SECURITY.md)**
@@ -194,13 +315,55 @@ Dive deeper into specific modules and guides available in the `docs/` folder:
 
 ---
 
+<<<<<<< HEAD
 ## 🛠 Troubleshooting
+=======
+## Discord Bot Commands
+
+From repository root:
+
+```bash
+npm run discord:install
+npm run discord:setup-env
+npm run discord:bootstrap
+npm run discord:dev
+```
+
+Additional commands:
+
+- `npm run discord:start` - start bot without watch mode
+- `npm run discord:deploy` - register/deploy slash commands
+- `npm run discord:doctor` - environment and runtime diagnostics
+- `npm run discord:check` - quick validation checks
+
+## API Overview
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 - If port `5000` is occupied, the backend automatically retries on the next available port.
 - Ensure CORS is correctly configured by matching `FRONTEND_URL` in the backend to your active frontend origin.
 - Missing API keys (e.g., Groq, Razorpay) will safely disable their respective integrations without crashing the server.
 
+<<<<<<< HEAD
 ---
+=======
+- `/api/auth`
+- `/api/dsa`
+- `/api/practice`
+- `/api/ai`
+- `/api/ai-features`
+- `/api/improvement-plan`
+- `/api/system-design`
+- `/api/community`
+- `/api/contact`
+- `/api/blog`
+- `/api/activity`
+- `/api/company-interview`
+- `/api/payment`
+- `/api/voice`
+- `/api/notes`
+- `/api/admin`
+- `/api/jobs`
+>>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
 
 <p align="center">
   Made with ❤️ by the PrepLoop Team.
