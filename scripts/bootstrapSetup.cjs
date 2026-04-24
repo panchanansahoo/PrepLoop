@@ -24,7 +24,7 @@ function runVerificationIfRequested() {
   if (!shouldVerify) return;
 
   console.log('\nRunning setup verification...');
-  const result = spawnSync(process.execPath, ['scripts/verifySetup.js'], {
+  const result = spawnSync(process.execPath, ['scripts/verifySetup.cjs'], {
     cwd: process.cwd(),
     stdio: 'inherit',
   });
