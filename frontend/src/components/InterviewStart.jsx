@@ -28,7 +28,8 @@ export default function InterviewStart({ onStartInterview }) {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5003/api/interview/start', {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      const response = await fetch(`${API_URL}/api/interview/start`, {
         method: 'POST',
         headers: buildAuthHeaders(),
         body: JSON.stringify({
