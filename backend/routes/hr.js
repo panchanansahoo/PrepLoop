@@ -2,10 +2,18 @@ import express from 'express';
 import pool from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireHR } from '../middleware/auth.js';
 import { hrLoginLimiter } from '../middleware/rateLimiter.js';
 
 const router = express.Router();
+
+const getJwtSigningSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET is required');
+  }
+  return secret;
+};
 
 // HR Registration
 router.post('/register', async (req, res) => {
@@ -34,7 +42,7 @@ router.post('/register', async (req, res) => {
     const user = result.rows[0];
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: 'hr' },
-      process.env.JWT_SECRET || 'preploop-jwt-secret-key',
+      getJwtSigningSecret(),
       { expiresIn: '7d' }
     );
 
@@ -75,7 +83,7 @@ router.post('/login', hrLoginLimiter, async (req, res) => {
 
     const token = jwt.sign(
       { userId: user.id, email: user.email, role: 'hr' },
-      process.env.JWT_SECRET || 'preploop-jwt-secret-key',
+      getJwtSigningSecret(),
       { expiresIn: '7d' }
     );
 
@@ -90,7 +98,7 @@ router.post('/login', hrLoginLimiter, async (req, res) => {
 });
 
 // HR: Create interview slot
-router.post('/slots', authenticateToken, async (req, res) => {
+router.post('/slots', authenticateToken, requireHR, async (req, res) => {
   try {
     const { slotDate, startTime, endTime, maxBookings } = req.body;
 
@@ -102,7 +110,7 @@ router.post('/slots', authenticateToken, async (req, res) => {
       `INSERT INTO interview_slots (hr_id, slot_date, start_time, end_time, max_bookings, status)
        VALUES ($1, $2, $3, $4, $5, 'available')
        RETURNING *`,
-      [req.user.userId, slotDate, startTime, endTime, maxBookings || 1]
+      [req.user.id, slotDate, startTime, endTime, maxBookings || 1]
     );
 
     res.status(201).json(result.rows[0]);
@@ -113,7 +121,7 @@ router.post('/slots', authenticateToken, async (req, res) => {
 });
 
 // HR: Get their slots
-router.get('/my-slots', authenticateToken, async (req, res) => {
+router.get('/my-slots', authenticateToken, requireHR, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT s.*, 
@@ -121,7 +129,7 @@ router.get('/my-slots', authenticateToken, async (req, res) => {
        FROM interview_slots s
        WHERE s.hr_id = $1
        ORDER BY s.slot_date DESC, s.start_time ASC`,
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
@@ -131,11 +139,11 @@ router.get('/my-slots', authenticateToken, async (req, res) => {
 });
 
 // HR: Delete a slot
-router.delete('/slots/:id', authenticateToken, async (req, res) => {
+router.delete('/slots/:id', authenticateToken, requireHR, async (req, res) => {
   try {
     await pool.query(
       `DELETE FROM interview_slots WHERE id = $1 AND hr_id = $2`,
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.id]
     );
     res.json({ message: 'Slot deleted' });
   } catch (error) {
@@ -145,7 +153,7 @@ router.delete('/slots/:id', authenticateToken, async (req, res) => {
 });
 
 // HR: Get their bookings (interviews assigned to them)
-router.get('/my-bookings', authenticateToken, async (req, res) => {
+router.get('/my-bookings', authenticateToken, requireHR, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT b.*, 
@@ -156,7 +164,7 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
        JOIN users u ON b.user_id = u.id
        WHERE s.hr_id = $1
        ORDER BY s.slot_date DESC, s.start_time ASC`,
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
@@ -166,16 +174,24 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
 });
 
 // HR: Complete an interview with feedback
-router.put('/complete/:bookingId', authenticateToken, async (req, res) => {
+router.put('/complete/:bookingId', authenticateToken, requireHR, async (req, res) => {
   try {
     const { rating, feedback } = req.body;
 
-    await pool.query(
-      `UPDATE interview_bookings 
+    const result = await pool.query(
+      `UPDATE interview_bookings AS b
        SET status = 'completed', rating = $1, feedback = $2
-       WHERE id = $3`,
-      [rating || null, feedback || null, req.params.bookingId]
+       FROM interview_slots AS s
+       WHERE b.id = $3
+         AND b.slot_id = s.id
+         AND s.hr_id = $4
+       RETURNING b.id`,
+      [rating || null, feedback || null, req.params.bookingId, req.user.id]
     );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'Booking not found for this HR user' });
+    }
 
     res.json({ message: 'Interview marked as completed' });
   } catch (error) {
@@ -185,7 +201,7 @@ router.put('/complete/:bookingId', authenticateToken, async (req, res) => {
 });
 
 // HR: Post a job
-router.post('/jobs', authenticateToken, async (req, res) => {
+router.post('/jobs', authenticateToken, requireHR, async (req, res) => {
   try {
     const { title, company, location, type, salary, description, requirements, applyUrl } = req.body;
 
@@ -197,7 +213,7 @@ router.post('/jobs', authenticateToken, async (req, res) => {
       `INSERT INTO job_listings (posted_by, title, company, location, type, salary_range, description, requirements, apply_link, source, is_active, created_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'hr', true, NOW())
        RETURNING *`,
-      [req.user.userId, title, company, location || null, type || 'full-time', salary || null, description, requirements ? JSON.stringify(requirements.split(',').map(r => r.trim())) : '[]', applyUrl || null]
+      [req.user.id, title, company, location || null, type || 'full-time', salary || null, description, requirements ? JSON.stringify(requirements.split(',').map(r => r.trim())) : '[]', applyUrl || null]
     );
 
     res.status(201).json(result.rows[0]);
@@ -208,11 +224,11 @@ router.post('/jobs', authenticateToken, async (req, res) => {
 });
 
 // HR: Get their posted jobs
-router.get('/my-jobs', authenticateToken, async (req, res) => {
+router.get('/my-jobs', authenticateToken, requireHR, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT * FROM job_listings WHERE posted_by = $1 ORDER BY created_at DESC`,
-      [req.user.userId]
+      [req.user.id]
     );
     res.json(result.rows);
   } catch (error) {
@@ -222,11 +238,11 @@ router.get('/my-jobs', authenticateToken, async (req, res) => {
 });
 
 // HR: Delete a job posting
-router.delete('/jobs/:id', authenticateToken, async (req, res) => {
+router.delete('/jobs/:id', authenticateToken, requireHR, async (req, res) => {
   try {
     await pool.query(
       `DELETE FROM job_listings WHERE id = $1 AND posted_by = $2`,
-      [req.params.id, req.user.userId]
+      [req.params.id, req.user.id]
     );
     res.json({ message: 'Job posting deleted' });
   } catch (error) {

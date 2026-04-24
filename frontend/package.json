@@ -75,5 +75,8 @@
         "tailwindcss": "^4.1.18",
         "vite": "^5.1.0",
         "vitest": "^4.0.18"
+    },
+    "overrides": {
+        "uuid": "^14.0.0"
     }
 }

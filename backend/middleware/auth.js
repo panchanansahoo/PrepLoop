@@ -102,6 +102,13 @@ export const requireAdmin = (req, res, next) => {
   next();
 };
 
+export const requireHR = (req, res, next) => {
+  if (!req.user || (req.user.role !== 'hr' && req.user.role !== 'admin')) {
+    return res.status(403).json({ error: 'HR or Admin access required' });
+  }
+  next();
+};
+
 export const optionalAuth = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
