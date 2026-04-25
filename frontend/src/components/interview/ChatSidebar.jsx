@@ -82,6 +82,16 @@ function ChatSidebar({
                     if (msg.role === 'feedback') {
                         return <FeedbackCard key={idx} msg={msg} />;
                     }
+                    if (msg.role === 'clarification') {
+                        return (
+                            <div key={idx} className="ai-chat-msg ai-chat-msg--clarification">
+                                <div className="msg-sender">
+                                    ℹ️ {interviewerName} (clarification)
+                                </div>
+                                {msg.content}
+                            </div>
+                        );
+                    }
                     return (
                         <div key={idx} className={`ai-chat-msg ${msg.role === 'interviewer' ? 'interviewer' : 'candidate'}`}>
                             <div className="msg-sender">

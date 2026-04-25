@@ -15,6 +15,7 @@ function LiveCaptions({
     transcript,
     conversation,
     interviewerName,
+    silenceCountdown = 0,
 }) {
     // Compute caption content
     const captionData = useMemo(() => {
@@ -81,6 +82,11 @@ function LiveCaptions({
                         );
                     })}
                     {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
+                    {silenceCountdown > 0 && isListening && !aiSpeaking && (
+                        <span className="ai-vc-silence-countdown">
+                            submitting in {silenceCountdown}s...
+                        </span>
+                    )}
                 </span>
             </div>
         </div>

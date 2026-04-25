@@ -12,6 +12,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { EdgeTTS } from 'node-edge-tts';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
@@ -37,13 +38,19 @@ function resolveSafeAudioPath(filePath) {
 
 // ─── Provider availability ───
 const providers = {
-    kokoro:   true,  // always available — local model, no API key needed
-    deepgram: !!process.env.DEEPGRAM_API_KEY,
-    groq:     !!process.env.GROQ_API_KEY,
+    kokoro:     true,  // always available — local model, no API key needed
+    edge:       true,  // Microsoft Edge TTS — free human voice, no API key needed
+    deepgram:   false, // REMOVED — using client-side Web Speech API (free forever)
+    groq:       !!process.env.GROQ_API_KEY,
+    elevenlabs: !!process.env.ELEVENLABS_API_KEY,
+    openai:     !!process.env.OPENAI_API_KEY,
 };
 
 // Provider performance tracking
 const providerStats = {
+    elevenlabs: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
+    openai: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
+    edge: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
     kokoro: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
     groq: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
 };
@@ -102,6 +109,27 @@ async function getKokoroTTS() {
 }
 
 // ─── Voice Presets ───
+const ELEVENLABS_VOICES = {
+    female: { friendly: 'Rachel', analytical: 'Freya', formal: 'Mimi', casual: 'Nicole', default: 'Rachel' },
+    male:   { friendly: 'Clyde', analytical: 'Drew', formal: 'Fin', casual: 'Brian', default: 'Clyde' }
+};
+
+const ELEVENLABS_VOICE_IDS = {
+    'Rachel': '21m00Tcm4TlvDq8ikWAM',
+    'Freya': 'jsCqWAovK2zikvvJCGLz',
+    'Mimi': 'zrHiDhphv9ZnVXBqCLjz',
+    'Nicole': 'piTKgcLEGmPE4e6mJC43',
+    'Clyde': '2EiwWnXFnvU5JabPnv8n',
+    'Drew': '29vD33N1CtxCmqQRPOHJ',
+    'Fin': 'pNInz6obpgDQGcFmaJgB',
+    'Brian': 'nPczCjzI2devNBz1zQrb'
+};
+
+const OPENAI_VOICES = {
+    female: { friendly: 'nova', analytical: 'shimmer', formal: 'alloy', casual: 'nova', default: 'nova' },
+    male:   { friendly: 'echo', analytical: 'onyx', formal: 'fable', casual: 'echo', default: 'echo' }
+};
+
 const GROQ_VOICES = {
     female: { friendly: 'hannah', analytical: 'hannah', formal: 'hannah', casual: 'autumn', default: 'hannah' },
     male:   { friendly: 'austin', analytical: 'austin', formal: 'austin', casual: 'austin', default: 'austin' }
@@ -145,34 +173,36 @@ function normalizeGender(gender) {
 export function getAvailableProviders() {
     return {
         tts: {
+            elevenlabs: providers.elevenlabs,
+            openai:  providers.openai,
+            edge:    providers.edge,
             kokoro:  providers.kokoro && !_kokoroInitFailed,
             groq:    providers.groq,
             browser: true,
         },
         stt: {
-            deepgram: providers.deepgram,
-            groq:     providers.groq,
+            // STT is now 100% client-side via Web Speech API (free forever).
+            // No server-side STT providers are used.
             browser:  true,
         },
         recommended: {
-            tts: providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
-            stt: providers.deepgram ? 'deepgram' : providers.groq ? 'groq' : 'browser',
+            tts: providers.elevenlabs ? 'elevenlabs' : providers.openai ? 'openai' : providers.edge ? 'edge' : providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
+            stt: 'browser', // Always use client-side Web Speech API
         }
     };
 }
 
 /**
  * Text-to-Speech — returns audio buffer
- * Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
- * Now with intelligent provider selection based on performance
+ * Chain: Groq Orpheus → Kokoro (local) → { fallback: true }
+ * When fallback: true is returned, the frontend should use browser speechSynthesis.
+ * Now with intelligent provider selection based on performance.
  */
 export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, language = 'en', gender = 'female') {
     if (!text || text.trim().length === 0) throw new Error('Text is required for TTS');
 
     const cleanText = String(text).trim();
     const g = normalizeGender(gender);
-    const lang = String(language || 'en').toLowerCase();
-    const multilingual = lang !== 'en' && lang !== 'en-us';
 
     // Helper to check if provider is in cooldown
     const isInCooldown = (provider) => {
@@ -195,7 +225,55 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     };
 
-    // Groq Orpheus — cloud fallback (chunks long text automatically)
+    // ElevenLabs — ultra-realistic human TTS
+    if (providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs') && !isInCooldown('elevenlabs')) {
+        try {
+            const t0 = Date.now();
+            const result = await elevenLabsTTS(cleanText, persona, g);
+            if (result) {
+                updateStats('elevenlabs', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('elevenlabs', false);
+        } catch (err) {
+            console.warn('[TTS] ElevenLabs failed:', err.message?.substring(0, 120));
+            updateStats('elevenlabs', false);
+        }
+    }
+
+    // OpenAI — very high quality TTS
+    if (providers.openai && (!preferredProvider || preferredProvider === 'openai') && !isInCooldown('openai')) {
+        try {
+            const t0 = Date.now();
+            const result = await openAITTS(cleanText, persona, g);
+            if (result) {
+                updateStats('openai', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('openai', false);
+        } catch (err) {
+            console.warn('[TTS] OpenAI failed:', err.message?.substring(0, 120));
+            updateStats('openai', false);
+        }
+    }
+
+    // Edge TTS — Free, High Quality Human TTS (Azure Neural)
+    if (providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
+        try {
+            const t0 = Date.now();
+            const result = await edgeNeuralTTS(cleanText, persona, g);
+            if (result) {
+                updateStats('edge', true, Date.now() - t0);
+                return result;
+            }
+            updateStats('edge', false);
+        } catch (err) {
+            console.warn('[TTS] Edge TTS failed:', err.message?.substring(0, 120));
+            updateStats('edge', false);
+        }
+    }
+
+    // Groq Orpheus — cloud TTS (free tier, chunks long text automatically)
     if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         try {
             const t0 = Date.now();
@@ -211,8 +289,8 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     }
 
-    // Kokoro — local, free, fallback (English only)
-    if (!multilingual && (!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
+    // Kokoro — local, free, CPU-only (English only)
+    if ((!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
         try {
             const t0 = Date.now();
             const result = await kokoroTTS(cleanText, persona, g);
@@ -227,117 +305,23 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     }
 
-    // Google Translate — free multilingual last resort
-    if (multilingual && (!preferredProvider || preferredProvider === 'browser')) {
-        try {
-            const result = await googleTranslateTTS(cleanText, lang);
-            if (result) return result;
-        } catch (err) {
-            console.warn('[TTS] Google Translate failed:', err.message?.substring(0, 120));
-        }
-    }
-
+    // All server-side TTS failed — signal frontend to use browser speechSynthesis
     return { fallback: true };
 }
 
 /**
  * Speech-to-Text from audio file
- * Deepgram Nova-2 → Groq Whisper → { fallback: true }
+ * DEPRECATED: STT is now handled client-side via Web Speech API.
+ * This function returns { fallback: true } to signal the frontend
+ * to use the browser's built-in SpeechRecognition.
  */
 export async function speechToText(filePath, preferredProvider = null) {
-    const safeFilePath = resolveSafeAudioPath(filePath);
-
-    if (providers.deepgram && (!preferredProvider || preferredProvider === 'deepgram')) {
-        try {
-            const result = await deepgramSTT(safeFilePath);
-            if (result) return result;
-        } catch (err) {
-            console.warn('[STT] Deepgram failed:', err.message?.substring(0, 120));
-        }
-    }
-
-    if (providers.groq && (!preferredProvider || preferredProvider === 'groq')) {
-        try {
-            const result = await groqWhisperSTT(safeFilePath);
-            if (result) return result;
-        } catch (err) {
-            console.warn('[STT] Groq Whisper failed:', err.message?.substring(0, 120));
-        }
-    }
-
+    // All STT is now client-side via Web Speech API (free forever)
+    console.info('[STT] Server-side STT removed — using client-side Web Speech API');
     return { fallback: true, text: '' };
 }
 
-/**
- * Speech-to-Text from raw audio buffer (for real-time chunks from MediaRecorder)
- * Used by /api/voice/stt-chunk endpoint.
- * Returns { transcript, isFinal, confidence, words }
- */
-export async function speechToTextChunk(audioBuffer, mimeType = 'audio/webm') {
-    if (!providers.deepgram) {
-        return { fallback: true, transcript: '', isFinal: false, confidence: 0 };
-    }
 
-    const apiKey = process.env.DEEPGRAM_API_KEY;
-    // Deepgram REST API requires clean MIME types without codec params
-    // MediaRecorder sends 'audio/webm;codecs=opus' → strip to 'audio/webm'
-    const cleanMimeType = String(mimeType).split(';')[0].trim() || 'audio/webm';
-
-    const DEEPGRAM_CHUNK_TIMEOUT_MS = 10_000; // 10s max for chunk STT
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), DEEPGRAM_CHUNK_TIMEOUT_MS);
-
-    let response;
-    try {
-        response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&diarize=false&filler_words=true', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Token ${apiKey}`,
-                'Content-Type':  cleanMimeType,
-            },
-            body: audioBuffer,
-            signal: ac.signal,
-        });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!response.ok) {
-        const errBody = await response.text().catch(() => '');
-        throw new Error(`Deepgram chunk STT error: ${response.status} — ${errBody.substring(0, 200)}`);
-    }
-
-    const data = await response.json();
-    const channel   = data.results?.channels?.[0];
-    const alt       = channel?.alternatives?.[0];
-    const transcript = alt?.transcript || '';
-    const confidence = alt?.confidence || 0;
-    const words     = alt?.words || [];
-
-    // Extract filler words for intelligence layer
-    const FILLERS = ['um', 'uh', 'like', 'you know', 'basically', 'sort of', 'literally', 'right'];
-    const fillerWords = words
-        .filter(w => FILLERS.includes((w.word || '').toLowerCase()))
-        .map(w => w.word.toLowerCase());
-
-    return {
-        transcript,
-        isFinal:    true,  // REST endpoint always returns final
-        confidence,
-        words,
-        fillerWords,
-        provider:   'deepgram',
-    };
-}
-
-/**
- * Check Deepgram availability for STT.
- * SECURITY: Never expose the raw API key to the frontend.
- * All STT should be proxied through backend endpoints (/stt, /stt-chunk).
- */
-export function isDeepgramAvailable() {
-    return providers.deepgram;
-}
 
 /**
  * Generate short backchannel audio clips ("mm-hmm", "I see", "go on")
@@ -354,8 +338,9 @@ export async function generateBackchannelClips(persona = 'friendly', gender = 'f
     const results = {};
     for (const [key, text] of Object.entries(clips)) {
         try {
-            const result = await kokoroTTS(text, persona, normalizeGender(gender));
-            if (result?.audio) {
+            // Use the top-level textToSpeech so backchannels match the main interview voice perfectly
+            const result = await textToSpeech(text, persona, null, 'en', gender);
+            if (result && !result.fallback && result.audio) {
                 results[key] = `data:${result.contentType};base64,${result.audio.toString('base64')}`;
             }
         } catch (err) {
@@ -402,6 +387,93 @@ function combineWavContent(buffers) {
     out.writeUInt32LE(out.length - 8, 4);
     out.writeUInt32LE(combined.length, 40);
     return out;
+}
+
+async function elevenLabsTTS(text, persona, gender = 'female') {
+    const genderDict = ELEVENLABS_VOICES[gender] || ELEVENLABS_VOICES.female;
+    const voiceName = genderDict[persona] || genderDict.default;
+    const voiceId = ELEVENLABS_VOICE_IDS[voiceName];
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'xi-api-key': process.env.ELEVENLABS_API_KEY
+        },
+        body: JSON.stringify({
+            text: text,
+            model_id: "eleven_turbo_v2_5",
+            voice_settings: {
+                similarity_boost: 0.75,
+                stability: 0.5,
+                style: 0.0,
+                use_speaker_boost: true
+            }
+        })
+    });
+
+    if (!response.ok) {
+        let errText = await response.text().catch(() => '');
+        throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText} ${errText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return { audio: buffer, contentType: 'audio/mpeg', provider: 'elevenlabs', voice: voiceName };
+}
+
+async function openAITTS(text, persona, gender = 'female') {
+    const genderDict = OPENAI_VOICES[gender] || OPENAI_VOICES.female;
+    const voice = genderDict[persona] || genderDict.default;
+
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            model: 'tts-1',
+            input: text,
+            voice: voice,
+            response_format: 'mp3'
+        })
+    });
+
+    if (!response.ok) {
+        let errText = await response.text().catch(() => '');
+        throw new Error(`OpenAI TTS API error: ${response.status} ${response.statusText} ${errText}`);
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    return { audio: buffer, contentType: 'audio/mpeg', provider: 'openai', voice };
+}
+
+async function edgeNeuralTTS(text, persona, gender = 'female') {
+    const edgeVoices = {
+        female: { friendly: 'en-US-JennyNeural', analytical: 'en-US-AriaNeural', formal: 'en-GB-SoniaNeural', casual: 'en-US-AnaNeural', default: 'en-US-JennyNeural' },
+        male: { friendly: 'en-US-GuyNeural', analytical: 'en-US-ChristopherNeural', formal: 'en-GB-RyanNeural', casual: 'en-US-EricNeural', default: 'en-US-GuyNeural' }
+    };
+    
+    const voice = (edgeVoices[gender] || edgeVoices.female)[persona] || (edgeVoices[gender] || edgeVoices.female).default;
+    
+    const tts = new EdgeTTS({
+        voice: voice,
+        lang: 'en-US',
+        outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+    });
+    
+    const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`);
+    
+    await tts.ttsPromise(text, tempFilePath);
+    
+    const buffer = await fs.promises.readFile(tempFilePath);
+    
+    // Cleanup fire-and-forget
+    fs.promises.unlink(tempFilePath).catch(() => {});
+    
+    return { audio: buffer, contentType: 'audio/mpeg', provider: 'edge', voice };
 }
 
 async function groqOrpheusTTS(text, persona, gender = 'female') {
@@ -459,72 +531,15 @@ async function kokoroTTS(text, persona, gender = 'female') {
     }
 }
 
-async function googleTranslateTTS(text, language) {
-    // SECURITY: Strict allowlist for the `tl` parameter to prevent SSRF/injection
-    const ALLOWED_LANGUAGES = new Set(['en', 'hi', 'es', 'fr', 'de', 'ja', 'ko', 'zh', 'pt', 'ar']);
-    const normalizedLang = String(language || 'en').toLowerCase().slice(0, 2);
-    const tl = ALLOWED_LANGUAGES.has(normalizedLang) ? normalizedLang : 'en';
-    const googleTtsUrl = new URL('https://translate.google.com/translate_tts');
-    googleTtsUrl.search = new URLSearchParams({ ie: 'UTF-8', client: 'tw-ob', tl, q: String(text) }).toString();
+// ── Google Translate TTS — REMOVED ──
+// Google Translate TTS was unreliable (scraping-based, breaks frequently).
+// Multilingual TTS should use browser speechSynthesis on the client side.
 
-    if (googleTtsUrl.protocol !== 'https:' || googleTtsUrl.hostname !== 'translate.google.com') {
-        throw new Error('Blocked unexpected Google TTS host');
-    }
 
-    const GOOGLE_TTS_TIMEOUT_MS = 8_000; // 8s max
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), GOOGLE_TTS_TIMEOUT_MS);
+// ── Deepgram STT — REMOVED ──
+// STT is now 100% client-side via Web Speech API.
+// Deepgram API calls have been removed to achieve zero recurring cost.
 
-    let response;
-    try {
-        response = await fetch(googleTtsUrl, {
-            headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://translate.google.com/' },
-            signal: ac.signal,
-        });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!response.ok) throw new Error(`Google TTS error: ${response.status}`);
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (buffer.length < 100) throw new Error('Google TTS returned empty audio');
-    return { audio: buffer, contentType: 'audio/mpeg', provider: 'google-translate' };
-}
-
-async function deepgramSTT(filePath) {
-    const apiKey      = process.env.DEEPGRAM_API_KEY;
-    const safeFilePath = resolveSafeAudioPath(filePath);
-    const audioBuffer = fs.readFileSync(safeFilePath);
-
-    const DEEPGRAM_FILE_TIMEOUT_MS = 15_000; // 15s max for file STT
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), DEEPGRAM_FILE_TIMEOUT_MS);
-
-    let response;
-    try {
-        response = await fetch(DEEPGRAM_STT_URL, {
-            method:  'POST',
-            headers: { 'Authorization': `Token ${apiKey}`, 'Content-Type': 'audio/wav' },
-            body:    audioBuffer,
-            signal:  ac.signal,
-        });
-    } finally {
-        clearTimeout(timer);
-    }
-
-    if (!response.ok) throw new Error(`Deepgram API error: ${response.status}`);
-
-    const data       = await response.json();
-    const alt        = data.results?.channels?.[0]?.alternatives?.[0];
-    const transcript = alt?.transcript || '';
-
-    return {
-        text:       transcript,
-        confidence: alt?.confidence || 0,
-        language:   'en',
-        provider:   'deepgram',
-    };
-}
 
 async function groqWhisperSTT(filePath) {
     const safeFilePath = resolveSafeAudioPath(filePath);
@@ -567,8 +582,6 @@ export { groq as groqClient };
 export default {
     textToSpeech,
     speechToText,
-    speechToTextChunk,
-    isDeepgramAvailable,
     getAvailableProviders,
     generateBackchannelClips,
     preloadKokoroTTS,

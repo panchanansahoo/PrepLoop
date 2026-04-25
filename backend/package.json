@@ -11,7 +11,7 @@
         "lint": "node --check index.js && node --check routes/jobs.js && node --check routes/voice.js && node --check routes/ai-features.js && node --check services/voiceService.js && node --check services/aiService.js && node --check services/interviewStateMachine.js && node --check services/interviewScoringService.js && node --check services/interviewFollowUpRules.js && node --check services/interviewConversationService.js && node --check services/interviewPromptService.js && node --check services/interviewTelemetryService.js && node --check services/ragInterviewGroundingService.js && node --check services/realtimeInterviewService.js && node --check services/interviewGroundingService.js && node --check utils/careerOps.js && node --check utils/voiceTelemetry.js && node --check utils/telemetry.js && node --check scripts/testStartup.js && node --check scripts/testCareerOpsSerialization.js && node --check scripts/testCareerOpsHistory.js && node --check scripts/testInterviewOrchestration.js && node --check scripts/testInterviewGrounding.js && node --check scripts/testInterviewTelemetry.js && node --check scripts/testInterviewTelemetryService.js && node --check scripts/testVoiceTelemetry.js && node --check scripts/testVoiceInterviewIntelligence.js && node --check scripts/smokeInterviewSuite.js && node --check scripts/runInterviewSuiteSmokeLocal.js && node --check scripts/smokeDsaCodeEditor.js && node --check scripts/smokeFresherTechnicalInterview.js && node --check scripts/testVoiceServiceUnit.js && node --check scripts/testInterviewStateMachine.js && node --check scripts/testScoringAndFollowUp.js && node --check scripts/testInterviewConversationService.js && node --check scripts/testInterviewScoringRules.js && node --check scripts/testInterviewImprovements.js",
         "lint:fix": "echo 'Run prettier to format code'",
         "format": "prettier --write \"**/*.js\"",
-        "test": "node scripts/testStartup.js && node scripts/testVoiceServiceUnit.js && node scripts/testInterviewStateMachine.js && node scripts/testScoringAndFollowUp.js && node scripts/testInterviewGrounding.js && node scripts/testInterviewGroundingService.js && node scripts/testInterviewTelemetry.js && node scripts/testInterviewTelemetryService.js && node scripts/testInterviewConversationService.js && node scripts/testInterviewOrchestration.js && node scripts/testInterviewScoringRules.js && node scripts/testInterviewImprovements.js && node scripts/testSecurityFixes.js",
+        "test": "node scripts/testStartup.js && node scripts/testVoiceServiceUnit.js && node scripts/testInterviewStateMachine.js && node scripts/testScoringAndFollowUp.js && node scripts/testInterviewGrounding.js && node scripts/testInterviewGroundingService.js && node scripts/testInterviewTelemetry.js && node scripts/testInterviewTelemetryService.js && node scripts/testInterviewConversationService.js && node scripts/testInterviewOrchestration.js && node scripts/testInterviewScoringRules.js && node scripts/testInterviewImprovements.js && node scripts/testInterviewIntelligence.js && node scripts/testSecurityFixes.js",
         "test:all": "npm run test && node scripts/testInterviewFeedback.js && node scripts/testVoiceInterviewIntelligence.js && node scripts/testCareerOpsSerialization.js && node scripts/testCareerOpsHistory.js",
         "test:voice:unit": "node scripts/testVoiceServiceUnit.js",
         "test:interview:state-machine": "node scripts/testInterviewStateMachine.js",
@@ -45,7 +45,9 @@
         "test:copilot": "node test-copilot.js"
     },
     "dependencies": {
+        "@google/genai": "^1.50.1",
         "@supabase/supabase-js": "^2.95.3",
+        "@upstash/redis": "^1.37.0",
         "bcryptjs": "^3.0.3",
         "compression": "^1.8.1",
         "cors": "^2.8.5",
@@ -60,6 +62,7 @@
         "kokoro-js": "^1.2.1",
         "mailparser": "^3.9.6",
         "multer": "^2.0.0",
+        "node-edge-tts": "^1.2.10",
         "nodemailer": "^8.0.4",
         "pdf-parse": "^1.1.1",
         "pg": "^8.18.0",

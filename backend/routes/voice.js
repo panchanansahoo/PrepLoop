@@ -245,39 +245,7 @@ router.post('/tts-stream', optionalAuth, async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// STT CHUNK — Real-time Deepgram (250ms chunks from MediaRecorder)
-// POST /api/voice/stt-chunk
-// Body: multipart/form-data with audio field (raw webm blob)
-// Returns: { transcript, isFinal, confidence, words, fillerWords }
-// ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt-chunk', optionalAuth, rawUpload.single('audio'), async (req, res) => {
-    if (!req.file || !req.file.buffer || req.file.buffer.length < 100) {
-        return res.status(400).json({ error: 'Audio chunk is required', transcript: '', isFinal: false });
-    }
 
-    const mimeType = req.file.mimetype || req.body.mimeType || 'audio/webm';
-
-    try {
-        const result = await voiceService.speechToTextChunk(req.file.buffer, mimeType);
-
-        if (result.fallback) {
-            return res.status(200).json({ transcript: '', isFinal: false, confidence: 0, fallback: true });
-        }
-
-        res.json({
-            transcript:  result.transcript,
-            isFinal:     result.isFinal,
-            confidence:  result.confidence,
-            words:       result.words,
-            fillerWords: result.fillerWords,
-            provider:    result.provider,
-        });
-    } catch (error) {
-        console.error('[voice/stt-chunk] Error:', error.message?.substring(0, 200));
-        res.status(200).json({ transcript: '', isFinal: false, confidence: 0, error: error.message });
-    }
-});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANALYZE ANSWER — Groq-powered post-answer intelligence
@@ -391,22 +359,7 @@ router.get('/backchannel-clips', optionalAuth, async (req, res) => {
     }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DEEPGRAM TOKEN — For frontend WebSocket STT (if enabled)
-// GET /api/voice/deepgram-token  (requires auth)
-// ─────────────────────────────────────────────────────────────────────────────
-// SECURITY: No longer exposes raw API keys to the frontend.
-// All STT is proxied through /stt and /stt-chunk endpoints.
-// This endpoint only reports availability so the frontend can decide
-// whether to show the "use backend STT" option.
-router.get('/deepgram-token', authenticateToken, tokenRateLimit, (req, res) => {
-    const available = voiceService.isDeepgramAvailable();
-    if (!available) {
-        return res.status(200).json({ available: false, message: 'Deepgram not configured. Using browser speech recognition.' });
-    }
-    // Return availability only — the frontend should use /stt-chunk for all transcription
-    res.json({ available: true, useBackendProxy: true });
-});
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TTS HEALTH CHECK — Monitor provider performance

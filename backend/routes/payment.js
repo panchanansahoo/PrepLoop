@@ -458,10 +458,13 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             return res.status(400).json({ error: 'Missing webhook signature' });
         }
 
-        const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+        const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : 
+                        typeof req.body === 'string' ? req.body : 
+                        JSON.stringify(req.body);
+
         const expectedSignature = crypto
             .createHmac('sha256', webhookSecret)
-            .update(body)
+            .update(rawBody)
             .digest('hex');
 
         // Fix #6: use timing-safe comparison to prevent timing attacks
@@ -475,7 +478,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
-        const event = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+        const event = Buffer.isBuffer(req.body) ? JSON.parse(req.body.toString('utf8')) :
+                      typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const eventType = event.event;
 
         if (eventType === 'payment.captured') {

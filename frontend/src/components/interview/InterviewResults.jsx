@@ -33,6 +33,10 @@ function InterviewResults({
     const [expandedMoment, setExpandedMoment] = useState(null);
 
     const a = analysisResult; // shorthand
+    // Enrichment fields from backend intelligence
+    const benchmarkTier = a?.benchmark_tier || a?.benchmarkTier;
+    const timingAnalysis = a?.timing_analysis || a?.timingAnalysis;
+    const perQBreakdown = a?.per_question_breakdown || a?.perQuestionBreakdown;
 
     // Show loading state during AI analysis
     if (analysisLoading && !a) {
@@ -111,8 +115,13 @@ function InterviewResults({
                         </div>
                         <div className="ai-result-verdict" style={{ background: `${a?.performanceColor}18`, color: a?.performanceColor, borderColor: `${a?.performanceColor}40` }}>
                             {a?.overallScore >= 7 ? <Trophy size={14} /> : a?.overallScore >= 5 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
-                            {a?.performanceLabel || 'Analyzing...'}
+                            {benchmarkTier ? `${benchmarkTier.emoji || ''} ${benchmarkTier.label}` : (a?.performanceLabel || 'Analyzing...')}
                         </div>
+                        {benchmarkTier?.description && (
+                            <div className="ai-results-ai-badge" style={{ marginTop: 4, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                                {benchmarkTier.description}
+                            </div>
+                        )}
                         {a?.aiGenerated && (
                             <div className="ai-results-ai-badge">
                                 <Sparkles size={11} /> AI-Analyzed by Groq
@@ -161,6 +170,15 @@ function InterviewResults({
                             <div className="ai-result-stat-value">{a?.categories?.length || 0}</div>
                         </div>
                     </div>
+                    {timingAnalysis && (
+                        <div className="ai-result-stat">
+                            <div className="ai-result-stat-icon" style={{ background: 'rgba(34,211,238,0.1)', color: '#22d3ee' }}><Timer size={18} /></div>
+                            <div className="ai-result-stat-info">
+                                <div className="ai-result-stat-label">Avg Response</div>
+                                <div className="ai-result-stat-value">{timingAnalysis.avg_response_seconds || timingAnalysis.avgResponseSeconds || '—'}s</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Tabs ── */}
@@ -168,6 +186,7 @@ function InterviewResults({
                     {[
                         { id: 'overview', label: 'Overview', icon: TrendingUp },
                         { id: 'analysis', label: 'Detailed Analysis', icon: BarChart3 },
+                        { id: 'breakdown', label: 'Question Breakdown', icon: Target },
                         { id: 'moments', label: 'Key Moments', icon: Star },
                         { id: 'session', label: 'Session Details', icon: FileText },
                     ].map(tab => (
@@ -265,6 +284,52 @@ function InterviewResults({
                                     </p>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {/* QUESTION BREAKDOWN TAB */}
+                    {resultTab === 'breakdown' && a && (
+                        <div className="ai-result-analysis">
+                            {timingAnalysis?.recommendation && (
+                                <div className="ai-result-card">
+                                    <h3 className="ai-result-card-title"><Timer size={16} /> Pacing Feedback</h3>
+                                    <p className="ai-result-analysis-text">
+                                        You averaged <strong>{timingAnalysis.avg_response_seconds || timingAnalysis.avgResponseSeconds || '—'}s</strong> per response
+                                        across <strong>{timingAnalysis.total_turns || timingAnalysis.totalTurns || '—'}</strong> turns.
+                                        {' '}{timingAnalysis.recommendation}
+                                    </p>
+                                </div>
+                            )}
+                            {perQBreakdown && perQBreakdown.length > 0 ? (
+                                <div className="ai-result-card">
+                                    <h3 className="ai-result-card-title"><Target size={16} /> Per-Question Scores</h3>
+                                    <div className="ai-result-q-breakdown">
+                                        {perQBreakdown.map((q, i) => (
+                                            <div key={i} className="ai-result-q-row">
+                                                <div className="ai-result-q-num">Q{q.questionNumber || i + 1}</div>
+                                                <div className="ai-result-q-content">
+                                                    <div className="ai-result-q-question">{q.question}</div>
+                                                    {q.answerSummary && <div className="ai-result-q-answer">{q.answerSummary}</div>}
+                                                    <div className="ai-result-q-tags">
+                                                        {q.strength && <span className="ai-result-q-tag ai-result-q-tag--strength">✓ {q.strength}</span>}
+                                                        {q.gap && <span className="ai-result-q-tag ai-result-q-tag--gap">△ {q.gap}</span>}
+                                                    </div>
+                                                </div>
+                                                <div className="ai-result-analysis-score" style={{
+                                                    color: (q.scoreEstimate || 0) >= 7 ? '#22c55e' : (q.scoreEstimate || 0) >= 5 ? '#f59e0b' : '#ef4444'
+                                                }}>
+                                                    {q.scoreEstimate || '—'}/10
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="ai-result-card ai-result-empty-state">
+                                    <Target size={32} className="ai-result-empty-icon" />
+                                    <p className="ai-result-empty-text">No per-question data available for this session</p>
+                                </div>
+                            )}
                         </div>
                     )}
 

@@ -74,7 +74,6 @@ resource webAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
     RAZORPAY_KEY_ID: ''
     RAZORPAY_KEY_SECRET: ''
     RAZORPAY_WEBHOOK_SECRET: ''
-    DEEPGRAM_API_KEY: ''
     SMTP_HOST: ''
     SMTP_PORT: ''
     SMTP_USER: ''

@@ -2,7 +2,9 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './App.css'
 import App from './App.jsx'
+import axios from 'axios';
 import { buildInterviewAuthInit } from './utils/interviewRequestAuth';
+import { getConfiguredApiOrigin, routeApiRequestInput } from './utils/apiRequestRouting';
 import { registerServiceWorker } from './utils/serviceWorkerRegistration';
 import { registerDynamicImportErrorRecovery } from './utils/importErrorRecovery';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -50,8 +52,18 @@ try {
 }
 
 if (typeof window !== 'undefined' && !window.__preploopInterviewFetchPatched) {
+  const apiOrigin = getConfiguredApiOrigin();
+
+  if (apiOrigin) {
+    axios.defaults.baseURL = apiOrigin;
+  }
+
   const nativeFetch = window.fetch.bind(window);
-  window.fetch = (input, init) => nativeFetch(input, buildInterviewAuthInit(input, init));
+  window.fetch = (input, init) => {
+    const routedInput = routeApiRequestInput(input, apiOrigin);
+    const patchedInit = buildInterviewAuthInit(routedInput, init);
+    return nativeFetch(routedInput, patchedInit);
+  };
   window.__preploopInterviewFetchPatched = true;
 }
 

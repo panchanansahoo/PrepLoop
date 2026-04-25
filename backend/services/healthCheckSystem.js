@@ -166,6 +166,34 @@ class HealthCheckSystem {
         details: { services },
       };
     }, { critical: false, timeout: 5000 });
+
+    // AI Budget check (free-tier quota monitoring)
+    this.registerCheck('ai-budget', async () => {
+      try {
+        const { getBudgetStats } = await import('../utils/rateLimitBudget.js');
+        const stats = getBudgetStats();
+        
+        // Check if any provider is critically close to exhaustion
+        const geminiUsage = stats.gemini?.daily?.used || 0;
+        const geminiLimit = stats.gemini?.daily?.limit || 230;
+        const geminiUtilization = (geminiUsage / geminiLimit) * 100;
+        
+        return {
+          healthy: geminiUtilization < 95,
+          message: geminiUtilization >= 95
+            ? 'Gemini free-tier daily budget nearly exhausted'
+            : geminiUtilization >= 80
+            ? 'Gemini free-tier budget at warning level'
+            : 'AI budget healthy',
+          details: stats,
+        };
+      } catch (error) {
+        return {
+          healthy: true,
+          message: `AI budget check skipped: ${error.message}`,
+        };
+      }
+    }, { critical: false, timeout: 1000 });
   }
 
   /**

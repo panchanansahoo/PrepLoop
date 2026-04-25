@@ -137,7 +137,6 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # AI & Voice
 GROQ_API_KEY=your_groq_api_key
-DEEPGRAM_API_KEY=your_deepgram_key # Optional — Kokoro TTS runs locally
 
 # Integrations (Optional)
 SMTP_USER=your_smtp_user
@@ -201,7 +200,6 @@ SMTP_PASS=your_smtp_password
 RECAPTCHA_SECRET_KEY=your_recaptcha_secret
 
 # Voice (optional — Kokoro TTS runs locally, no key needed)
-DEEPGRAM_API_KEY=your_deepgram_key
 
 # Jobs integrations (optional)
 RAPIDAPI_KEY=your_rapidapi_key

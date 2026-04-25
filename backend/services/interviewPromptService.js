@@ -27,6 +27,54 @@ function getTypeStyleRules(interviewType) {
   return TYPE_STYLE_RULES[normalized] || TYPE_STYLE_RULES.dsa;
 }
 
+// ── Company-specific interviewer personas ───────────────────────────
+const COMPANY_PERSONAS = {
+  'google': 'Methodical and Socratic. Loves exploring trade-offs. Asks "what if" to probe depth. Values clarity of thought over speed.',
+  'amazon': 'Leadership Principles-driven. Asks "tell me about a time" frequently. Cares about ownership, customer obsession, and data.',
+  'meta': 'Fast-paced and action-oriented. Prefers practical solutions. Asks "how would you ship this tomorrow?"',
+  'microsoft': 'Collaborative and structured. Values growth mindset. Probes design decisions methodically.',
+  'apple': 'Detail-oriented and quality-focused. Cares about craft and user experience. Asks about design rationale.',
+  'netflix': 'Values independence and judgment. Probes decision-making under ambiguity. Expects context, not just answers.',
+  'uber': 'Practical and systems-oriented. Cares about scale and reliability. Asks about failure modes.',
+  'stripe': 'Precise and API-focused. Values correctness and developer experience. Asks about edge cases.',
+  'flipkart': 'Scale-focused with e-commerce domain awareness. Probes inventory and concurrency challenges.',
+  'razorpay': 'Fintech-aware. Values idempotency and consistency. Probes payment edge cases.',
+  'swiggy': 'Geo and logistics-oriented. Probes real-time matching and operational scale.',
+  'zomato': 'Consumer-tech focused. Cares about user experience and real-time systems.',
+};
+
+function getCompanyPersona(companyFocus) {
+  if (!companyFocus) return 'Balanced senior engineer. Professional, direct, and encouraging.';
+  const key = String(companyFocus).toLowerCase();
+  return COMPANY_PERSONAS[key] || `Calibrated to ${companyFocus} interview expectations. Professional and direct.`;
+}
+
+// ── Natural speech prefixes (30% injection rate) ────────────────────
+const NATURAL_PREFIXES = [
+  'Okay, ', 'Right, ', 'Interesting — ', 'Got it. ', 'Mm-hmm. ',
+  'Sure. ', 'Alright, ', 'Fair enough. ', 'Makes sense. ',
+];
+
+function maybeAddNaturalPrefix(message) {
+  if (Math.random() > 0.3) return message;
+  const prefix = NATURAL_PREFIXES[Math.floor(Math.random() * NATURAL_PREFIXES.length)];
+  // Don't double-prefix if message already starts with a natural word
+  if (/^(okay|right|interesting|got it|mm|sure|alright|fair|makes)/i.test(message)) return message;
+  return prefix + message.charAt(0).toLowerCase() + message.slice(1);
+}
+
+// ── Conversation summary builder ────────────────────────────────────
+function buildConversationSummary(turnSummaries = [], askedTopics = []) {
+  const parts = [];
+  if (turnSummaries.length > 0) {
+    parts.push(`KEY CLAIMS FROM EARLIER TURNS:\n${turnSummaries.slice(-5).map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
+  }
+  if (askedTopics.length > 0) {
+    parts.push(`ALREADY ASKED (do not repeat these topics):\n${askedTopics.slice(-6).map(t => `- ${t}`).join('\n')}`);
+  }
+  return parts.length > 0 ? '\n' + parts.join('\n\n') : '';
+}
+
 // ── Code excerpt sanitizer ──────────────────────────────────────────
 function extractCodeExcerpt(candidateResponse, maxLines = 15) {
   const codeMatch = candidateResponse.match(/---\s*Code\s*---\n?([\s\S]*)/i);
@@ -144,7 +192,18 @@ export class InterviewPromptService {
     // ── Voice constraint (relaxed for realtime: 35 words, was 24) ─────
     const wordLimit = interviewMode === 'full_realtime' ? 35 : 38;
 
+    // ── Conversation memory: summary + anti-repetition ──────────────
+    const conversationMemory = buildConversationSummary(
+      interviewContext.turnSummaries || [],
+      interviewContext.askedTopics || [],
+    );
+
+    // ── Interviewer persona based on company focus ────────────────────
+    const persona = getCompanyPersona(interviewContext.companyFocus || null);
+
     return `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
+
+INTERVIEWER PERSONA: ${persona}
 
 PROBLEM: ${problemStatement}
 CANDIDATE JUST SAID: "${candidateResponse.slice(0, 500)}"
@@ -153,6 +212,7 @@ ${codeSection}
 INTERVIEW HISTORY (last 2 exchanges):
 ${transcript.slice(-4).map((t) => `${t.role}: ${t.text}`).join('\n')}
 ${resumeSection}
+${conversationMemory}
 
 INTERVIEW CONTEXT:
 - Type: ${interviewType}
@@ -163,6 +223,7 @@ INTERVIEW CONTEXT:
 - Candidate likely missing: ${missingAreas.join(', ') || 'none'}
 - Current difficulty: ${interviewContext.currentDifficulty || 'medium'}
 - Last candidate summary: ${interviewContext.lastCandidateSummary || 'n/a'}
+- Stuck count: ${interviewContext.stuckCount || 0}${interviewContext.stuckCount >= 1 ? ` (STUCK_LEVEL=${Math.min(3, interviewContext.stuckCount)} — provide progressive hints)` : ''}
 ${groundingSection}
 ${followUpSection}
 
@@ -189,3 +250,5 @@ Generate a JSON response:
 }`;
   }
 }
+
+export { maybeAddNaturalPrefix };

@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+const { spawn } = require('node:child_process');
 
 const allowedNodeEnvs = new Set(['development', 'production', 'test', 'staging']);
 const currentNodeEnv = (process.env.NODE_ENV || '').trim().toLowerCase();

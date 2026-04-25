@@ -1,4 +1,7 @@
 import { randomUUID } from 'crypto';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import { createLogger } from '../utils/structuredLogger.js';
 import { supabaseAdmin } from '../db/index.js';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
@@ -9,8 +12,40 @@ import { InterviewScoringService } from './interviewScoringService.js';
 import { InterviewFollowUpRulesService } from './interviewFollowUpRules.js';
 import { InterviewTelemetryService } from './interviewTelemetryService.js';
 import { addSpanEvent, setSpanAttribute } from '../utils/telemetry.js';
-import { groqClient as groq } from './voiceService.js';
+import { GoogleGenAI } from '@google/genai';
+import { canMakeRequest, recordRequest, getBudgetStats } from '../utils/rateLimitBudget.js';
+import { getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from '../utils/interviewBenchmarks.js';
 
+// ── Problem Bank (loaded once from JSON) ────────────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+let _problemBank = null;
+function loadProblemBank() {
+  if (_problemBank) return _problemBank;
+  try {
+    const raw = readFileSync(join(__dirname, '..', 'data', 'interviewProblemBank.json'), 'utf-8');
+    _problemBank = JSON.parse(raw);
+  } catch (err) {
+    _problemBank = null;
+  }
+  return _problemBank;
+}
+
+// Per-user dedup: track last 10 problem IDs used to avoid repeats
+const _userRecentProblems = new Map(); // userId -> string[]
+const DEDUP_WINDOW = 10;
+function recordUsedProblem(userId, problemId) {
+  if (!userId || !problemId) return;
+  const recent = _userRecentProblems.get(userId) || [];
+  recent.push(problemId);
+  if (recent.length > DEDUP_WINDOW) recent.shift();
+  _userRecentProblems.set(userId, recent);
+}
+function getRecentProblems(userId) {
+  return _userRecentProblems.get(userId) || [];
+}
+
+const geminiAi = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
 const logger = createLogger('AIService');
 
 /**
@@ -85,14 +120,16 @@ const isInterviewSchemaCompatibilityError = (error) => {
 };
 
 // AI Model Configuration
+// NOTE: gemini-1.5-flash is deprecated (retiring June 2026).
+// Using gemini-2.5-flash — free tier: ~10 RPM, ~250 RPD.
 const MODEL_CONFIG = {
-  model: 'mixtral-8x7b-32768', // Fast, cost-effective for both features
+  model: 'gemini-2.5-flash',
   temperature: 0.7, // Balanced creativity vs consistency
   max_tokens: 2048,
 };
 
 const INTERVIEW_MODEL_CONFIG = {
-  model: 'mixtral-8x7b-32768',
+  model: 'gemini-2.5-flash',
   temperature: 0.8, // Slightly more natural for interviews
   max_tokens: 1500,
 };
@@ -192,29 +229,41 @@ function analyzeAnswerQualityHeuristic(answer = '', question = '', interviewType
 export async function analyzeAnswerQuality(answer = '', question = '', interviewType = '') {
   const heuristic = analyzeAnswerQualityHeuristic(answer, question, interviewType);
 
-  if (!process.env.GROQ_API_KEY) {
+  // Heuristic-first gate: if heuristic confidence is high, skip LLM call entirely.
+  // This saves ~60% of free-tier API requests.
+  const heuristicConfidence = (heuristic.clarityScore + heuristic.specificityScore + heuristic.confidenceScore) / 3;
+  if (heuristicConfidence >= 75 || heuristicConfidence <= 20) {
+    logger.debug('analyzeAnswerQuality: heuristic confidence sufficient, skipping LLM', {
+      heuristicConfidence: heuristicConfidence.toFixed(1),
+    });
+    return heuristic;
+  }
+
+  // Check Gemini budget before making the call
+  const geminiBudget = canMakeRequest('gemini');
+  if (!geminiAi || !geminiBudget.allowed) {
+    if (!geminiBudget.allowed) {
+      logger.info('analyzeAnswerQuality: Gemini budget exhausted, using heuristic', {
+        reason: geminiBudget.reason,
+      });
+    }
     return heuristic;
   }
 
   try {
-    const completion = await groq.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
-      temperature: 0.2,
-      max_tokens: 220,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are an interview evaluator. Return strict JSON only with keys: clarityScore, specificityScore, confidenceScore, needsFollowUp, followUpQuestion, rationale.'
-        },
-        {
-          role: 'user',
-          content: `Question: ${question || 'N/A'}\nAnswer: ${answer || 'N/A'}`,
-        },
-      ],
-      response_format: { type: 'json_object' },
+    recordRequest('gemini');
+    const response = await geminiAi.models.generateContent({
+      model: MODEL_CONFIG.model,
+      contents: `Question: ${question || 'N/A'}\nAnswer: ${answer || 'N/A'}`,
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 220,
+        responseMimeType: "application/json",
+        systemInstruction: "You are an interview evaluator. Return strict JSON only with keys: clarityScore, specificityScore, confidenceScore, needsFollowUp, followUpQuestion, rationale."
+      }
     });
 
-    const raw = completion?.choices?.[0]?.message?.content || '{}';
+    const raw = response.text || '{}';
     const parsed = JSON.parse(raw);
 
     return {
@@ -225,11 +274,13 @@ export async function analyzeAnswerQuality(answer = '', question = '', interview
       needsFollowUp: Boolean(parsed.needsFollowUp ?? heuristic.needsFollowUp),
       followUpQuestion: String(parsed.followUpQuestion || heuristic.followUpQuestion),
       rationale: String(parsed.rationale || heuristic.rationale),
-      source: 'groq',
+      source: 'gemini',
     };
   } catch (error) {
+    // On 429 or any Gemini failure, fall back to heuristic
     logger.warn('analyzeAnswerQuality fell back to heuristic scoring', {
       error: error.message,
+      isRateLimit: error.status === 429 || error.message?.includes('429'),
     });
     return heuristic;
   }
@@ -257,28 +308,42 @@ export class CodeReviewService {
       
       let response = null;
       let reviewContent = '';
-      try {
-        response = await groq.chat.completions.create({
-          ...MODEL_CONFIG,
-          messages: [
-            {
-              role: 'user',
-              content: reviewPrompt
-            }
-          ]
+
+      // Check Gemini budget before code review
+      const codeBudget = canMakeRequest('gemini');
+      if (!geminiAi || !codeBudget.allowed) {
+        logger.info('Code review: Gemini unavailable or budget exhausted, using fallback', {
+          reason: codeBudget.reason || 'No Gemini API key',
         });
-        reviewContent = response.choices[0]?.message?.content || '';
-      } catch (error) {
-        logger.warn('Groq unavailable for code review; using fallback analysis', {
+      } else {
+        try {
+          recordRequest('gemini');
+          response = await geminiAi.models.generateContent({
+            model: MODEL_CONFIG.model,
+            contents: reviewPrompt,
+            config: {
+              temperature: MODEL_CONFIG.temperature,
+              maxOutputTokens: MODEL_CONFIG.max_tokens,
+              responseMimeType: "application/json"
+            }
+          });
+          reviewContent = response.text || '';
+        } catch (error) {
+          logger.warn('Gemini unavailable for code review; using fallback analysis', {
           userId,
           problemId,
           requestId,
-          error: error.message,
-        });
+            error: error.message,
+          });
+        }
+      }
+
+      // Fallback if no LLM response was obtained
+      if (!reviewContent) {
         reviewContent = JSON.stringify({
           timeComplexity: 'Not determined',
           spaceComplexity: 'Not determined',
-          complexityAnalysis: 'Fallback analysis used because AI provider was unavailable.',
+          complexityAnalysis: 'Fallback analysis used because AI provider was unavailable or budget exhausted.',
           optimizationSuggestions: [
             {
               title: 'Add explicit edge-case checks',
@@ -370,7 +435,12 @@ export class CodeReviewService {
       }
 
       // 4. Log service usage
-      await this._logAIServiceUsage(userId, 'code_review', reviewRecord.id, response?.usage, Date.now() - startTime, requestId);
+      const usage = response?.usageMetadata ? {
+        prompt_tokens: response.usageMetadata.promptTokenCount,
+        completion_tokens: response.usageMetadata.candidatesTokenCount,
+        total_tokens: response.usageMetadata.totalTokenCount
+      } : null;
+      await this._logAIServiceUsage(userId, 'code_review', reviewRecord.id, usage, Date.now() - startTime, requestId);
 
       logger.info('Code review completed', {
         userId,
@@ -758,7 +828,7 @@ export class InterviewSimulatorService {
       const problem = await interviewTelemetryService.withSpan(
         'interview.session.problem_select',
         { attributes: telemetryAttributes },
-        async () => this._generateProblemStatement(interviewType, difficulty, companyFocus)
+        async () => this._generateProblemStatement(interviewType, difficulty, companyFocus, userId)
       );
 
       // Update session with problem
@@ -847,6 +917,40 @@ export class InterviewSimulatorService {
         requestId
       });
 
+      // ── Clarification detection: don't penalize for asking questions ──
+      const clarificationResult = this._detectClarificationRequest(candidateResponse);
+      if (clarificationResult.isClarification) {
+        const session = await this.getInterviewSession(sessionId, userId);
+        const currentContext = session.interview_context || {};
+        const lastInterviewerMsg = currentContext.lastInterviewerPrompt || session.problem_statement || '';
+
+        logger.info('Clarification request detected — repeating without score penalty', {
+          sessionId, userId, requestId, clarificationType: clarificationResult.type,
+        });
+
+        return {
+          interviewerMessage: clarificationResult.type === 'repeat'
+            ? `Sure — ${lastInterviewerMsg}`
+            : `To clarify: ${lastInterviewerMsg}`,
+          feedback: 'Asking clarifying questions is a strong interviewer signal. Take your time.',
+          clarifications: [],
+          hints: [],
+          encouragement: 'Good instinct to clarify before answering.',
+          continueInterview: true,
+          stage: currentContext.stage || currentContext.interviewState?.stage || 'intake',
+          stageLabel: currentContext.stageLabel || currentContext.interviewState?.stageLabel || 'In Progress',
+          stagePlan: currentContext.interviewState?.stagePlan || null,
+          interviewMode: this._normalizeInterviewMode(interviewMode || currentContext.mode),
+          runtime: this._buildInterviewRuntime(this._normalizeInterviewMode(interviewMode || currentContext.mode)),
+          current_scores: currentContext.currentScores || null,
+          adaptive_update: null,
+          adaptive_followup: null,
+          score_trend: null,
+          telemetry: null,
+          is_clarification: true,
+        };
+      }
+
       // Get current session
       const session = await this.getInterviewSession(sessionId, userId);
       const currentContext = session.interview_context || {};
@@ -882,6 +986,22 @@ export class InterviewSimulatorService {
         ])
       ).slice(-5);
 
+      // ── Turn summary for conversation memory ─────────────────────────
+      const turnSummary = this._generateTurnSummary(candidateResponse, interviewType, responseSignals);
+      const prevSummaries = Array.isArray(currentContext.turnSummaries) ? currentContext.turnSummaries : [];
+      const turnSummaries = [...prevSummaries, turnSummary].slice(-8);
+
+      // ── Topic tracking for anti-repetition ──────────────────────────
+      const prevTopics = Array.isArray(currentContext.askedTopics) ? currentContext.askedTopics : [];
+      // Extract primary topic from the last interviewer message
+      const lastInterviewerTopic = this._extractPrimaryTopic(
+        currentContext.lastInterviewerPrompt || '',
+        interviewType,
+      );
+      const askedTopics = lastInterviewerTopic
+        ? [...prevTopics, lastInterviewerTopic].slice(-8)
+        : prevTopics;
+
       const interviewContext = {
         ...currentContext,
         mode: normalizedMode,
@@ -891,6 +1011,9 @@ export class InterviewSimulatorService {
         lastSignals: responseSignals,
         missingAreas: mergedMissingAreas,
         interviewType,
+        turnSummaries,
+        askedTopics,
+        companyFocus: session.company_focus || null,
       };
 
       const priorInterviewState = currentContext.interviewState
@@ -1096,6 +1219,17 @@ export class InterviewSimulatorService {
         analysisScore: analysis.score,
       });
 
+      // ── Stuck count tracking + progressive hints ───────────────────
+      const prevStuckCount = Number(currentContext.stuckCount || 0);
+      const stuckCount = analysis.candidateStuck ? prevStuckCount + 1 : 0;
+      let progressiveHint = null;
+      if (analysis.candidateStuck && stuckCount >= 1) {
+        progressiveHint = this._buildProgressiveHint(interviewType, stuckCount, interviewContext);
+        logger.info('Progressive hint triggered', {
+          sessionId, stuckCount, hintTier: progressiveHint.hintTier,
+        });
+      }
+
       const updatePayload = {
         transcript: updatedTranscript,
         questions_asked: (session.questions_asked || 0) + 1,
@@ -1111,6 +1245,7 @@ export class InterviewSimulatorService {
           adaptiveFollowUp,
           scoreHistory,
           telemetry,
+          stuckCount,
         },
         updated_at: new Date().toISOString()
       };
@@ -1176,6 +1311,8 @@ export class InterviewSimulatorService {
         adaptive_followup: adaptiveFollowUp,
         score_trend: adaptiveFollowUp?.scoreTrend || null,
         telemetry,
+        progressive_hint: progressiveHint || null,
+        score_cue: this._buildScoreCue(currentScores, interviewType),
       };
 
     } catch (error) {
@@ -1246,6 +1383,14 @@ export class InterviewSimulatorService {
       // ── Generate human-readable trend narrative ──────────────────────
       const trendNarrative = this._generateTrendNarrative(finalScoreTrend, scores.interviewScore, analysis.areasForImprovement);
 
+      // ── Benchmark tier & enrichment (no LLM calls) ─────────────────
+      const benchmarkTier = getBenchmarkTier(scores.interviewScore, session.interview_type);
+      const perQuestionBreakdown = generatePerQuestionBreakdown(
+        session.transcript || [],
+        session.interview_context || {},
+      );
+      const timingAnalysis = computeTimingAnalysis(session.transcript || []);
+
       // Update session with final analysis
       const completionPayload = {
         status: 'completed',
@@ -1269,6 +1414,21 @@ export class InterviewSimulatorService {
           stdDev: finalScoreTrend.stdDev,
           delta: finalScoreTrend.delta,
           turnsTracked: finalScoreHistory.length,
+        },
+        benchmark_tier: {
+          label: benchmarkTier.label,
+          emoji: benchmarkTier.emoji,
+          description: benchmarkTier.description,
+        },
+        per_question_breakdown: perQuestionBreakdown.slice(0, 10),
+        timing_analysis: {
+          avg_response_seconds: timingAnalysis.avgResponseSeconds,
+          total_turns: timingAnalysis.totalTurns,
+          recommendation: timingAnalysis.avgResponseSeconds < 30
+            ? 'You answered quickly. Take a few more seconds to structure your thoughts.'
+            : timingAnalysis.avgResponseSeconds > 120
+            ? 'Your responses were quite long. Practice being more concise.'
+            : 'Good pacing — your response times are in line with top candidates.',
         },
       };
 
@@ -1370,92 +1530,47 @@ export class InterviewSimulatorService {
     return `${focusLine} Here is your problem: ${problem.statement} ${difficultyTone[difficulty] || difficultyTone.medium}`;
   }
 
-  static async _generateProblemStatement(interviewType, difficulty, companyFocus) {
-    const problems = {
-      dsa: {
-        easy: [
-          { statement: 'Given an array of integers, find the maximum product of any two elements.', requirements: 'Time: O(n), Space: O(1). Handle negative numbers.' },
-          { statement: 'Given a string, determine if it is a valid palindrome considering only alphanumeric characters.', requirements: 'Time: O(n), Space: O(1). Ignore case differences.' },
-          { statement: 'Given two sorted arrays, merge them into one sorted array without extra space proportional to their combined length.', requirements: 'Time: O(n+m), Space: O(1) extra. Handle empty arrays.' },
-        ],
-        medium: [
-          { statement: 'Design an LRU (Least Recently Used) Cache with get() and put() operations.', requirements: 'Both operations should be O(1). Support custom capacity.' },
-          { statement: 'Given a binary tree, return the level order traversal of its nodes values grouped by level.', requirements: 'Time: O(n). Handle empty trees and single-node trees.' },
-          { statement: 'Find the length of the longest substring without repeating characters in a given string.', requirements: 'Time: O(n), Space: O(min(n, alphabet)). Handle empty strings and single characters.' },
-        ],
-        hard: [
-          { statement: 'Implement a data structure for Median Finder that supports addNum() and findMedian() operations.', requirements: 'addNum() in O(log n), findMedian() in O(1). Support continuous stream of numbers.' },
-          { statement: 'Given a matrix of 0s and 1s, find the largest rectangle containing only 1s and return its area.', requirements: 'Time: O(rows * cols), Space: O(cols). Handle edge cases with empty or single-element matrices.' },
-          { statement: 'Implement a trie-based autocomplete system that returns the top 3 suggestions for each character typed.', requirements: 'Insert in O(word length), search in O(prefix length + k). Support ranking by frequency.' },
-        ],
-      },
-      system_design: {
-        easy: [
-          { statement: 'Design a URL shortening service like bit.ly.', requirements: 'Handle 100M URLs, support custom aliases, track click analytics.' },
-          { statement: 'Design a paste bin service that allows users to share text snippets via unique links.', requirements: 'Support expiry, access control (public/private), and 10K concurrent users.' },
-          { statement: 'Design a task queue system that processes background jobs reliably.', requirements: 'Support retries, priority, and dead-letter queues. Handle at-least-once delivery.' },
-        ],
-        medium: [
-          { statement: 'Design a real-time chat application supporting 1-on-1 and group messaging.', requirements: 'Support 1M concurrent users, message delivery guarantees, and read receipts.' },
-          { statement: 'Design a notification system that delivers push, email, and SMS notifications.', requirements: 'Support rate limiting, user preferences, and 10M notifications/day throughput.' },
-          { statement: 'Design a ride-sharing service like Uber for matching drivers and riders in real-time.', requirements: 'Support geo-proximity matching, surge pricing, and ETA calculation.' },
-        ],
-        hard: [
-          { statement: 'Design a distributed video streaming platform similar to YouTube.', requirements: 'Support adaptive bitrate, CDN distribution, 100M daily active users, and live streaming.' },
-          { statement: 'Design a global-scale social media news feed (like Twitter/X) with real-time updates.', requirements: 'Support fan-out, ranking, 500M users, and sub-second latency for hot users.' },
-          { statement: 'Design a distributed search engine that indexes and queries billions of web pages.', requirements: 'Support relevance ranking, real-time indexing, and horizontal scaling.' },
-        ],
-      },
-      behavioral: {
-        easy: [
-          { statement: 'Tell me about a time when you had to learn a new technology or tool quickly to meet a project deadline.', requirements: 'Focus on learning approach, time management, and outcome.' },
-          { statement: 'Describe a situation where you received constructive criticism. How did you respond?', requirements: 'Focus on self-awareness, growth mindset, and concrete changes made.' },
-          { statement: 'Tell me about a time you helped a teammate who was struggling with their work.', requirements: 'Focus on empathy, communication, and team impact.' },
-        ],
-        medium: [
-          { statement: 'Tell me about a time you had to make a difficult technical decision with incomplete information.', requirements: 'Focus on decision-making framework, risk assessment, and outcome.' },
-          { statement: 'Describe a situation where you disagreed with your manager or team lead about a technical approach.', requirements: 'Focus on professional conflict resolution, evidence-based arguments, and relationship preservation.' },
-          { statement: 'Tell me about a project that failed or did not meet expectations. What was your role and what did you learn?', requirements: 'Focus on accountability, root cause analysis, and applied lessons.' },
-        ],
-        hard: [
-          { statement: 'Describe a time when you had to lead a cross-functional initiative under tight deadlines and shifting priorities.', requirements: 'Focus on stakeholder management, prioritization, and measurable business impact.' },
-          { statement: 'Tell me about a time you identified and drove a significant technical improvement that required buy-in from multiple teams.', requirements: 'Focus on influence without authority, technical vision, and quantified results.' },
-          { statement: 'Describe a high-pressure production incident you managed. Walk me through your decision-making process.', requirements: 'Focus on incident leadership, communication under pressure, and post-mortem actions.' },
-        ],
-      },
-      hr: {
-        easy: [
-          { statement: 'Tell me about yourself and what excites you about this career direction.', requirements: 'Focus on career narrative, motivation, and role alignment.' },
-          { statement: 'What are your greatest strengths, and how have they helped you in your work or studies?', requirements: 'Focus on self-awareness, concrete examples, and relevance to the role.' },
-          { statement: 'Where do you see yourself in 3-5 years?', requirements: 'Focus on growth mindset, realistic ambition, and alignment with company trajectory.' },
-        ],
-        medium: [
-          { statement: 'What kind of work environment brings out the best in you? Describe your ideal team culture.', requirements: 'Focus on self-knowledge, collaboration style, and cultural fit signals.' },
-          { statement: 'How do you handle work-life balance, especially during high-pressure periods?', requirements: 'Focus on sustainability, boundary-setting, and professional maturity.' },
-          { statement: 'What is a professional challenge you are currently working on improving?', requirements: 'Focus on honest self-assessment, active improvement plan, and growth examples.' },
-        ],
-        hard: [
-          { statement: 'Describe a time when your values conflicted with a company decision. How did you navigate it?', requirements: 'Focus on ethical reasoning, professional judgment, and constructive resolution.' },
-          { statement: 'If you had to choose between delivering a feature on time with technical debt or delaying for quality, how would you decide?', requirements: 'Focus on trade-off reasoning, stakeholder awareness, and communication approach.' },
-          { statement: 'What would you do in your first 90 days if you joined our team?', requirements: 'Focus on learning orientation, relationship building, and early contribution strategy.' },
-        ],
-      },
-    };
-
-    // Normalize type aliases
+  static async _generateProblemStatement(interviewType, difficulty, companyFocus, userId = null) {
+    const bank = loadProblemBank();
     const normalizedType = String(interviewType || 'dsa').toLowerCase().replace('system-design', 'system_design');
     const normalizedDifficulty = String(difficulty || 'medium').toLowerCase();
 
-    // Select problem pool — fall back to DSA medium if type/difficulty unknown
-    const typePool = problems[normalizedType] || problems.dsa;
-    const difficultyPool = typePool[normalizedDifficulty] || typePool.medium || typePool.easy;
-    const pool = Array.isArray(difficultyPool) ? difficultyPool : [difficultyPool];
+    // Resolve pool from bank, with graceful fallback to hardcoded defaults
+    let pool = bank?.[normalizedType]?.[normalizedDifficulty]
+      || bank?.[normalizedType]?.medium
+      || bank?.dsa?.medium
+      || null;
 
-    // Random selection within the difficulty tier
-    const selected = pool[Math.floor(Math.random() * pool.length)];
+    // Fallback: if bank loading failed, use minimal inline defaults
+    if (!pool || !Array.isArray(pool) || pool.length === 0) {
+      pool = [
+        { id: 'fallback-1', statement: 'Design an LRU Cache with get() and put() operations.', requirements: 'Both operations should be O(1). Support custom capacity.', tags: [], companies: [] },
+        { id: 'fallback-2', statement: 'Find the length of the longest substring without repeating characters.', requirements: 'Time: O(n), Space: O(min(n, alphabet)).', tags: [], companies: [] },
+      ];
+    }
+
+    // Dedup: filter out recently-used problems for this user
+    const recentIds = userId ? getRecentProblems(userId) : [];
+    let candidates = pool.filter(p => !recentIds.includes(p.id));
+    if (candidates.length === 0) candidates = pool; // All exhausted, allow repeats
+
+    // Company-weighted selection: prefer problems tagged for the target company
+    if (companyFocus) {
+      const companyLower = String(companyFocus).toLowerCase();
+      const companyMatches = candidates.filter(
+        p => Array.isArray(p.companies) && p.companies.some(c => c.toLowerCase() === companyLower)
+      );
+      // 70% chance to pick a company-tagged problem if available
+      if (companyMatches.length > 0 && Math.random() < 0.7) {
+        candidates = companyMatches;
+      }
+    }
+
+    const selected = candidates[Math.floor(Math.random() * candidates.length)];
+    if (userId && selected.id) recordUsedProblem(userId, selected.id);
 
     return {
-      problem_id: null,
+      problem_id: selected.id || null,
       statement: selected.statement,
       requirements: selected.requirements,
     };
@@ -1578,12 +1693,147 @@ export class InterviewSimulatorService {
     return InterviewScoringService.buildTypeRubric(interviewType);
   }
 
+  // ── Live score cue: short qualitative badge for frontend ──────────────
+  static _buildScoreCue(currentScores, interviewType) {
+    if (!currentScores || !currentScores.overall) return null;
+    const overall = Number(currentScores.overall);
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+
+    if (overall >= 8) return { level: 'strong', text: 'Strong answer ✓', color: 'green' };
+    if (overall >= 6) {
+      // Type-specific coaching cue for "good but could be better"
+      const cues = {
+        dsa: 'Good — add complexity analysis',
+        system_design: 'Good — discuss trade-offs',
+        behavioral: 'Good — quantify the impact',
+        hr: 'Good — add a specific example',
+      };
+      return { level: 'good', text: cues[normalizedType] || 'Good — add more depth', color: 'yellow' };
+    }
+    if (overall >= 4) return { level: 'fair', text: 'Try adding more detail', color: 'orange' };
+    return { level: 'weak', text: 'Think through your approach first', color: 'red' };
+  }
+
   static _calculateRollingScores(analysis, transcript, interviewType = 'dsa', experienceLevel = null) {
     return InterviewScoringService.calculateRollingScores(analysis, transcript, interviewType, experienceLevel);
   }
 
   static _deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend = null) {
     return InterviewScoringService.deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend);
+  }
+
+  // ── Clarification request detector ────────────────────────────────────
+  static _detectClarificationRequest(candidateResponse) {
+    const lower = String(candidateResponse || '').trim().toLowerCase();
+    const words = lower.split(/\s+/).filter(Boolean);
+
+    // Only check very short responses (< 12 words) — real answers won't match
+    if (words.length > 12) return { isClarification: false };
+
+    const repeatPatterns = /^(what\??|huh\??|sorry\??|come again|repeat|say that again|can you repeat|didn'?t catch|didn'?t hear|pardon)/;
+    const clarifyPatterns = /(can you clarify|what do you mean|could you explain|i don'?t understand|what exactly|can you rephrase|not sure i follow)/;
+
+    // Check clarify first — more specific patterns take priority
+    if (clarifyPatterns.test(lower)) return { isClarification: true, type: 'clarify' };
+    if (repeatPatterns.test(lower)) return { isClarification: true, type: 'repeat' };
+    return { isClarification: false };
+  }
+
+  // ── 3-tier progressive hint system ────────────────────────────────────
+  // Tier 1 (Nudge): gentle redirect to simpler approach
+  // Tier 2 (Scaffold): suggest specific data structure or technique
+  // Tier 3 (Teach): give high-level approach, ask candidate to implement a piece
+  static _buildProgressiveHint(interviewType, stuckCount, interviewContext = {}) {
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+    const tier = Math.min(3, Math.max(1, stuckCount));
+
+    const hintsByType = {
+      dsa: {
+        1: "Let's simplify. What would a brute-force approach look like, even if it's not optimal?",
+        2: `Consider using a ${['hash map', 'two-pointer technique', 'stack', 'sliding window'][Math.floor(Math.random() * 4)]}. How might that help here?`,
+        3: "Here's the key insight: try breaking the problem into smaller subproblems. Can you implement just the core logic for the base case?",
+      },
+      system_design: {
+        1: "Let's step back. What are the core entities and their relationships?",
+        2: "Start with a single-server design first. What components do you need? We can scale it later.",
+        3: "The typical architecture here uses a load balancer, app servers, a database, and a cache layer. Can you walk me through how data flows through these?",
+      },
+      behavioral: {
+        1: "Take a moment. Think of a specific project or situation — what was the context?",
+        2: "Try the STAR format: Situation, Task, Action, Result. Start with the situation — what was happening?",
+        3: "Let me help: think of a time you faced a deadline or conflict. Describe the situation, then tell me what you personally did.",
+      },
+      hr: {
+        1: "No pressure — just share what comes to mind naturally. There are no wrong answers here.",
+        2: "Think about what specifically drew you to technology or this field. What was the moment that got you excited?",
+        3: "Here's a simple framework: mention what you've done, what you learned, and where you want to go next.",
+      },
+    };
+
+    const typeHints = hintsByType[normalizedType] || hintsByType.dsa;
+    return {
+      hintTier: tier,
+      hintMessage: typeHints[tier] || typeHints[1],
+      isHint: true,
+    };
+  }
+
+  // ── Turn summary: distill candidate response into 1-sentence claim ──
+  static _generateTurnSummary(candidateResponse, interviewType, signals = {}) {
+    const text = String(candidateResponse || '').trim();
+    const words = text.split(/\s+/).filter(Boolean);
+    if (words.length < 5) return 'Candidate gave a very brief response.';
+
+    const normalizedType = String(interviewType || 'dsa').toLowerCase();
+    const lower = text.toLowerCase();
+    const parts = [];
+
+    if (normalizedType === 'behavioral' || normalizedType === 'hr') {
+      if (/(situation|context|we were facing)/.test(lower)) parts.push('described a situation');
+      if (/(i decided|i led|i took|i implemented)/.test(lower)) parts.push('explained personal actions');
+      if (/(result|outcome|impact|achieved|reduced|improved)/.test(lower)) parts.push('shared measurable outcome');
+      if (parts.length === 0) parts.push('shared a general response without STAR structure');
+    } else if (normalizedType === 'system_design' || normalizedType === 'system-design') {
+      if (signals.hasTradeoffs) parts.push('discussed trade-offs');
+      if (/scale|shard|replica|cache/.test(lower)) parts.push('addressed scalability');
+      if (/microservice|api gateway|database/.test(lower)) parts.push('proposed architecture components');
+      if (parts.length === 0) parts.push('described a high-level design approach');
+    } else {
+      if (signals.hasComplexity) parts.push('analyzed complexity');
+      if (signals.hasEdgeCases) parts.push('covered edge cases');
+      if (signals.hasTradeoffs) parts.push('compared approaches');
+      if (parts.length === 0) parts.push('described an approach');
+    }
+
+    // Add first 12 words of the response as context anchor
+    const preview = words.slice(0, 12).join(' ');
+    return `Candidate ${parts.join(', ')}. ("${preview}...")`;
+  }
+
+  // ── Topic extractor: identify primary probing area from interviewer message ──
+  static _extractPrimaryTopic(interviewerMessage, interviewType) {
+    const lower = String(interviewerMessage || '').toLowerCase();
+    if (!lower || lower.length < 10) return null;
+
+    // Check for common probing patterns and return the topic label
+    const topicPatterns = [
+      [/time complexity|space complexity|big.?o|runtime/, 'complexity analysis'],
+      [/edge case|boundary|corner case|empty input|null/, 'edge cases'],
+      [/trade.?off|alternative|compare|pros and cons/, 'trade-offs'],
+      [/scale|shard|partition|replica|throughput/, 'scalability'],
+      [/star|situation|task|action|result|outcome/, 'STAR structure'],
+      [/why did you|walk me through|explain your|reasoning/, 'reasoning depth'],
+      [/failure|incident|mistake|went wrong/, 'failure handling'],
+      [/how would you test|test case|validate/, 'testing strategy'],
+      [/optimize|improve|faster|better approach/, 'optimization'],
+      [/motivation|why this|career|excite/, 'career motivation'],
+      [/team|collaborate|conflict|disagree/, 'teamwork/conflict'],
+    ];
+
+    for (const [pattern, topic] of topicPatterns) {
+      if (pattern.test(lower)) return topic;
+    }
+    return null;
   }
 
   static _buildInterviewTelemetrySnapshot({
