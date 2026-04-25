@@ -32,8 +32,12 @@ Before setting secrets, gather these values:
 
 | Secret | Value | Source |
 |--------|-------|--------|
-| `AZURE_WEBAPP_NAME` | `preploop-api-staging` | Azure App Service name |
-| `AZURE_WEBAPP_PUBLISH_PROFILE` | XML content | Azure portal (Download publish profile) |
+| `STAGING_AZURE_WEBAPP_NAME` | `preploop-api-staging` | Azure App Service name |
+| `STAGING_AZURE_WEBAPP_PUBLISH_PROFILE` | XML content | Azure portal (Download publish profile) |
+| `PRODUCTION_AZURE_WEBAPP_NAME` | `preploop-api-prod` | Azure App Service name |
+| `PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE` | XML content | Azure portal (Download publish profile) |
+| `AZURE_WEBAPP_NAME` | optional fallback | Backward compatibility fallback |
+| `AZURE_WEBAPP_PUBLISH_PROFILE` | optional fallback | Backward compatibility fallback |
 | `BACKEND_HEALTHCHECK_URL` | `https://preploop-api-staging.azurewebsites.net/health` | Your Azure App Service URL |
 
 ### Vercel Secrets
@@ -95,11 +99,23 @@ Value: [Your Razorpay key secret]
 #### Azure Deployment Secrets
 
 ```
-Name: AZURE_WEBAPP_NAME
+Name: STAGING_AZURE_WEBAPP_NAME
 Value: preploop-api-staging
 
-Name: AZURE_WEBAPP_PUBLISH_PROFILE
+Name: STAGING_AZURE_WEBAPP_PUBLISH_PROFILE
 Value: [XML content from Azure portal → App Service → Get Publish Profile]
+
+Name: PRODUCTION_AZURE_WEBAPP_NAME
+Value: preploop-api-prod
+
+Name: PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE
+Value: [XML content from Azure portal → App Service → Get Publish Profile]
+
+Name: AZURE_WEBAPP_NAME
+Value: [Optional fallback for legacy workflows]
+
+Name: AZURE_WEBAPP_PUBLISH_PROFILE
+Value: [Optional fallback for legacy workflows]
 
 Name: BACKEND_HEALTHCHECK_URL
 Value: https://preploop-api-staging.azurewebsites.net/health

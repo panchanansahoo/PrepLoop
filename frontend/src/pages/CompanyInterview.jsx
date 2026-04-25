@@ -705,7 +705,6 @@ export default function CompanyInterview() {
                 body: JSON.stringify({
                     text: spokenText,
                     persona: ttsPersona,
-                    provider: 'groq-orpheus',
                     gender: config.interviewerGender
                 })
             });

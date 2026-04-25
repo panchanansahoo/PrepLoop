@@ -59,6 +59,34 @@ jobs:
           fi
           echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
 
+      - name: Resolve staging Azure deployment target
+        id: resolve_staging_azure
+        shell: bash
+        run: |
+          APP_NAME="${{ secrets.STAGING_AZURE_WEBAPP_NAME }}"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          fi
+
+          PUBLISH_PROFILE="${{ secrets.STAGING_AZURE_WEBAPP_PUBLISH_PROFILE }}"
+          if [ -z "$PUBLISH_PROFILE" ]; then
+            PUBLISH_PROFILE="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
+          fi
+
+          if [ -z "$APP_NAME" ] || [ -z "$PUBLISH_PROFILE" ]; then
+            echo "Missing staging Azure deployment secrets"
+            echo "Set STAGING_AZURE_WEBAPP_NAME / STAGING_AZURE_WEBAPP_PUBLISH_PROFILE (preferred),"
+            echo "or AZURE_WEBAPP_NAME / AZURE_WEBAPP_PUBLISH_PROFILE as fallback."
+            exit 1
+          fi
+
+          {
+            echo "app_name=$APP_NAME"
+            echo "publish_profile<<EOF"
+            echo "$PUBLISH_PROFILE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -72,8 +100,8 @@ jobs:
       - name: Deploy to Azure Web App (staging)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ steps.resolve_staging_azure.outputs.app_name }}
+          publish-profile: ${{ steps.resolve_staging_azure.outputs.publish_profile }}
           package: ./backend
 
       - name: Health check (staging)
@@ -113,6 +141,34 @@ jobs:
           fi
           echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
 
+      - name: Resolve production Azure deployment target
+        id: resolve_production_azure
+        shell: bash
+        run: |
+          APP_NAME="${{ secrets.PRODUCTION_AZURE_WEBAPP_NAME }}"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
+          fi
+
+          PUBLISH_PROFILE="${{ secrets.PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE }}"
+          if [ -z "$PUBLISH_PROFILE" ]; then
+            PUBLISH_PROFILE="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
+          fi
+
+          if [ -z "$APP_NAME" ] || [ -z "$PUBLISH_PROFILE" ]; then
+            echo "Missing production Azure deployment secrets"
+            echo "Set PRODUCTION_AZURE_WEBAPP_NAME / PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE (preferred),"
+            echo "or AZURE_WEBAPP_NAME / AZURE_WEBAPP_PUBLISH_PROFILE as fallback."
+            exit 1
+          fi
+
+          {
+            echo "app_name=$APP_NAME"
+            echo "publish_profile<<EOF"
+            echo "$PUBLISH_PROFILE"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -126,8 +182,8 @@ jobs:
       - name: Deploy to Azure Web App (production)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          app-name: ${{ steps.resolve_production_azure.outputs.app_name }}
+          publish-profile: ${{ steps.resolve_production_azure.outputs.publish_profile }}
           package: ./backend
 
       - name: Health check (production)

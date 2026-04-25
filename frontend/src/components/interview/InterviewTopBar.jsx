@@ -40,6 +40,9 @@ function InterviewTopBar({
     questionElapsed,
     isPaused,
     stageLabel,
+    stagePlan,
+    targetCompany,
+    connectionMode,
     workspacePanelOpen,
     setWorkspacePanelOpen,
     endInterview,
@@ -107,9 +110,44 @@ function InterviewTopBar({
                     ))}
                     <span className="ai-vc-progress-label">Q{questionIndex}/{totalQuestions}</span>
                 </div>
-                {stageLabel && (
+                {/* Stage Stepper or fallback badge */}
+                {stagePlan && stagePlan.length > 0 ? (
+                    <div className="ai-vc-stage-stepper">
+                        {stagePlan.map((stage, i) => (
+                            <div key={i} className="ai-vc-stage-step">
+                                <div className={`ai-vc-stage-dot ${
+                                    stage.status === 'completed' ? 'ai-vc-stage-dot--completed' :
+                                    stage.status === 'active' ? 'ai-vc-stage-dot--active' : ''
+                                }`} />
+                                <span className={`ai-vc-stage-label ${
+                                    stage.status === 'active' ? 'ai-vc-stage-label--active' :
+                                    stage.status === 'completed' ? 'ai-vc-stage-label--completed' : ''
+                                }`}>{stage.label || stage.name}</span>
+                                {i < stagePlan.length - 1 && (
+                                    <div className={`ai-vc-stage-line ${
+                                        stage.status === 'completed' ? 'ai-vc-stage-line--completed' : ''
+                                    }`} />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                ) : stageLabel ? (
                     <div className="ai-vc-stage-badge" title={`Current stage: ${stageLabel}`}>
                         {stageLabel}
+                    </div>
+                ) : null}
+                {/* Company persona badge */}
+                {targetCompany && (
+                    <div className="ai-vc-persona-badge">
+                        🎭 {targetCompany}-style
+                    </div>
+                )}
+                {/* Connection health badge */}
+                {connectionMode && connectionMode !== 'offline' && (
+                    <div className={`ai-vc-connection-badge ai-vc-connection-badge--${connectionMode}`}
+                         title={connectionMode === 'websocket' ? 'Streaming mode (best quality)' : 'REST fallback mode'}>
+                        <span className="ai-vc-connection-dot" />
+                        {connectionMode === 'websocket' ? 'Live' : 'REST'}
                     </div>
                 )}
             </div>

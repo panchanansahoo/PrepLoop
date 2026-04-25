@@ -3,7 +3,7 @@
  * Coordinates voice, video, transcription, and answer submission
  */
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useDeepgramVoice } from './useDeepgramVoice';
+import { useWebSpeech } from './useWebSpeech';
 import useWebRTCVideo from './useWebRTCVideo';
 
 const ANSWER_MIN_LENGTH = 10;
@@ -28,7 +28,7 @@ export function useRealtimeInterview({
   const maxDurationTimerRef = useRef(null);
 
   // Voice pipeline (Deepgram STT + Kokoro TTS)
-  const voice = useDeepgramVoice({
+  const voice = useWebSpeech({
     onAnswer: useCallback((text) => {
       // Voice detected answer completion
       submitAnswer(text);

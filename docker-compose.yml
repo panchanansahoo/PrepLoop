@@ -1,3 +1,16 @@
+# =============================================================================
+# Docker Compose — LOCAL DEVELOPMENT ONLY
+# =============================================================================
+# Production runs on:
+#   Frontend: Vercel (free)
+#   Backend:  Koyeb (free)
+#   Cache:    Upstash Redis (free, cloud-hosted)
+#   Database: Supabase PostgreSQL (free)
+#
+# This file is for running the backend locally with docker-compose.
+# Redis is included for local dev; production uses Upstash (no self-hosted Redis).
+# =============================================================================
+
 version: '3.8'
 
 services:
@@ -11,18 +24,18 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - PORT=5000
       - FRONTEND_URL=${FRONTEND_URL}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
-      - DB_POOL_MAX=20
-      - DB_POOL_MIN=2
+      # Local dev: use Docker Redis. Production: use UPSTASH_REDIS_REST_URL instead.
+      - REDIS_URL=redis://redis:6379
     volumes:
       - ./backend/voices:/app/backend/voices:ro
     networks:
@@ -39,54 +52,23 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: frontend
-      args:
-        - VITE_API_URL=${VITE_API_URL}
-        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
-        - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
-    container_name: preploop-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - preploop-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
   redis:
     image: redis:7-alpine
-    container_name: preploop-redis
+    container_name: preploop-redis-dev
     restart: unless-stopped
-    # SECURITY: Do NOT expose Redis port publicly — only accessible within the Docker network
-    # ports:
-    #   - "6379:6379"
+    # Local dev only — no auth needed for dev Redis
+    ports:
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - preploop-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
     logging:
       driver: "json-file"
       options:
