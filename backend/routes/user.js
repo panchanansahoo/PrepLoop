@@ -942,65 +942,6 @@ router.get("/profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
-
-            phone: '',
-            location: '',
-            website: '',
-            company: '',
-            years_of_experience: '',
-            specialization: '',
-            social_links: '{}',
-            twitter: '',
-            linkedin: '',
-            portfolio: '',
-            dribbble: ''
-          }),
-          profileCreated: false,
-        });
-      }
-
-      return res.json({
-        ...buildProfileResponse(req, newProfile),
-        profileCreated: true,
-      });
-    }
-
-    let rewardResult = { coinsAwarded: 0, coinBalance: profile?.coins ?? 0, applied: false };
-    let rewardDegraded = false;
-
-    try {
-      rewardResult = await awardProfileCompletionCoins(req.user.id, profile);
-    } catch (rewardError) {
-      rewardDegraded = true;
-      console.error('Profile completion reward error:', rewardError);
-    }
-
-    res.json({
-      ...buildProfileResponse(req, profile),
-      coinsAwarded: rewardResult.coinsAwarded,
-      coinBalance: rewardResult.coinBalance,
-      profileCompletionRewardApplied: rewardResult.applied,
-      profileCompletionRewardDegraded: rewardDegraded,
-    });
-  } catch (error) {
-    console.error("Error fetching profile:", error);
-    if (isProfilesAccessBlocked(error)) {
-      return res.json({
-        ...buildProfileResponse(req, {
-          id: req.user.id,
-          email: req.user.email,
-          full_name: req.user.user_metadata?.full_name || '',
-          subscription_tier: 'free',
-          experience_level: 'beginner',
-          role: req.user.role || 'user',
-        }),
-        degraded: true,
-      });
-    }
-    res.status(500).json({ error: "Failed to fetch profile" });
-  }
-});
-
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
     if (!req.user?.id) {

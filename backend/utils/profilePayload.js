@@ -1,22 +1,75 @@
 const normalizeProfileUpdatePayload = (body = {}) => {
   const updates = {};
 
-  const fullName = body.fullName || body.full_name;
-  const experienceLevel = body.experienceLevel || body.experience_level;
-  const currentRole = body.currentRole || body.current_role || body.designation;
-  const bio = body.bio;
-  const skills = body.skills;
-  const education = body.education;
+  const fullNameRaw = body.fullName || body.full_name;
+  const experienceLevelRaw = body.experienceLevel || body.experience_level;
+  const currentRoleRaw = body.currentRole || body.current_role || body.designation;
+  const bioRaw = body.bio;
+  const skillsRaw = body.skills;
+  const educationRaw = body.education;
 
-  if (fullName) updates.full_name = fullName;
-  if (experienceLevel) updates.experience_level = experienceLevel;
-  if (currentRole) updates.designation = currentRole;
-  if (bio !== undefined) updates.bio = bio;
-  if (skills !== undefined) updates.skills = skills;
-  if (education !== undefined) updates.education = education;
+  if (fullNameRaw !== undefined) {
+    const trimmed = String(fullNameRaw || '').trim();
+    if (trimmed !== '') updates.full_name = trimmed;
+  }
+  if (experienceLevelRaw !== undefined) {
+    const trimmed = String(experienceLevelRaw || '').trim();
+    if (trimmed !== '') updates.experience_level = trimmed;
+  }
+  if (currentRoleRaw !== undefined) {
+    const trimmed = String(currentRoleRaw || '').trim();
+    if (trimmed !== '') updates.designation = trimmed;
+  }
+  if (bioRaw !== undefined) {
+    if (typeof bioRaw === 'string') {
+      const trimmed = bioRaw.trim();
+      if (trimmed !== '') updates.bio = trimmed;
+    } else {
+      updates.bio = bioRaw;
+    }
+  }
+  if (skillsRaw !== undefined) {
+    if (typeof skillsRaw === 'string') {
+      const trimmed = skillsRaw.trim();
+      if (trimmed !== '') updates.skills = trimmed;
+    } else {
+      updates.skills = skillsRaw;
+    }
+  }
+  if (educationRaw !== undefined) {
+    if (typeof educationRaw === 'string') {
+      const trimmed = educationRaw.trim();
+      if (trimmed !== '') updates.education = trimmed;
+    } else {
+      updates.education = educationRaw;
+    }
+  }
 
   const githubUsername = body.githubUsername || body.github_username;
-  if (githubUsername !== undefined) updates.github_username = githubUsername;
+  if (githubUsername !== undefined) {
+    let trimmed = String(githubUsername || '').trim();
+    // If a GitHub URL was provided, extract the username
+    try {
+      const urlLike = trimmed.replace(/^git@github:\/\//, '');
+      if (/^https?:\/\//i.test(urlLike) || urlLike.includes('github.com')) {
+        // Normalize and parse
+        let u = urlLike;
+        if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+        const parsed = new URL(u);
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (parts.length > 0) {
+          trimmed = parts[0];
+        }
+      }
+    } catch (e) {
+      // ignore URL parse errors and fall back to raw trimmed value
+    }
+    // Remove leading @ if present
+    if (trimmed.startsWith('@')) trimmed = trimmed.substring(1);
+    // Validate GitHub username (1-39 chars, alphanumeric or hyphens, cannot start/end with hyphen)
+    const ghValid = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$/.test(trimmed);
+    if (ghValid) updates.github_username = trimmed;
+  }
 
   const experienceValue = body.experienceSummary || body.experience_summary || body.experience;
   if (experienceValue !== undefined && experienceValue !== null && String(experienceValue).trim() !== '') {
@@ -43,11 +96,11 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   // Validate and sanitize inputs
   if (phone !== undefined) {
     const sanitizedPhone = String(phone || '').trim().substring(0, 20);
-    updates.phone = sanitizedPhone;
+    if (sanitizedPhone !== '') updates.phone = sanitizedPhone;
   }
   if (location !== undefined) {
     const sanitizedLocation = String(location || '').trim().substring(0, 100);
-    updates.location = sanitizedLocation;
+    if (sanitizedLocation !== '') updates.location = sanitizedLocation;
   }
   if (website !== undefined) {
     let sanitizedWebsite = String(website || '').trim();
@@ -57,19 +110,20 @@ const normalizeProfileUpdatePayload = (body = {}) => {
         ? `https://${sanitizedWebsite}` 
         : `https://${sanitizedWebsite}`;
     }
-    updates.website = sanitizedWebsite.substring(0, 200);
+    sanitizedWebsite = sanitizedWebsite.substring(0, 200);
+    if (sanitizedWebsite !== '') updates.website = sanitizedWebsite;
   }
   if (company !== undefined) {
     const sanitizedCompany = String(company || '').trim().substring(0, 100);
-    updates.company = sanitizedCompany;
+    if (sanitizedCompany !== '') updates.company = sanitizedCompany;
   }
   if (yearsOfExperience !== undefined) {
     const sanitizedYears = String(yearsOfExperience || '').trim().substring(0, 20);
-    updates.years_of_experience = sanitizedYears;
+    if (sanitizedYears !== '') updates.years_of_experience = sanitizedYears;
   }
   if (specialization !== undefined) {
     const sanitizedSpecialization = String(specialization || '').trim().substring(0, 100);
-    updates.specialization = sanitizedSpecialization;
+    if (sanitizedSpecialization !== '') updates.specialization = sanitizedSpecialization;
   }
   if (socialLinks !== undefined) {
     // Ensure social_links is a valid JSON object
@@ -84,10 +138,22 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   }
 
   // Individual social links
-  if (body.twitter !== undefined) updates.twitter = String(body.twitter || '').trim().substring(0, 50);
-  if (body.linkedin !== undefined) updates.linkedin = String(body.linkedin || '').trim().substring(0, 50);
-  if (body.portfolio !== undefined) updates.portfolio = String(body.portfolio || '').trim().substring(0, 200);
-  if (body.dribbble !== undefined) updates.dribbble = String(body.dribbble || '').trim().substring(0, 50);
+  if (body.twitter !== undefined) {
+    const t = String(body.twitter || '').trim().substring(0, 50);
+    if (t !== '') updates.twitter = t;
+  }
+  if (body.linkedin !== undefined) {
+    const l = String(body.linkedin || '').trim().substring(0, 50);
+    if (l !== '') updates.linkedin = l;
+  }
+  if (body.portfolio !== undefined) {
+    const p = String(body.portfolio || '').trim().substring(0, 200);
+    if (p !== '') updates.portfolio = p;
+  }
+  if (body.dribbble !== undefined) {
+    const d = String(body.dribbble || '').trim().substring(0, 50);
+    if (d !== '') updates.dribbble = d;
+  }
 
   return updates;
 };

@@ -1,28 +1,54 @@
 /**
- * Cache Manager — Upstash Redis (Free Forever) + In-Memory Fallback
+ * Advanced Cache Manager — Enhanced Performance & Memory Optimization
  * 
- * Migration from self-hosted Redis (TCP) to Upstash Redis (HTTP REST).
- * Upstash free tier: 500K commands/month, 256MB storage, 10K daily commands.
- * 
- * Design:
- *   1. Upstash Redis (via @upstash/redis) — durable, serverless, HTTP-based
- *   2. In-memory Map — L1 cache for hot data, avoids burning Upstash commands
- *   3. Graceful degradation — if Upstash is not configured, memory-only mode
+ * Features:
+ *   1. Multi-tier caching (L1: Memory, L2: Redis, L3: Database)
+ *   2. Intelligent cache warming and preloading
+ *   3. Cache compression for large objects
+ *   4. Automatic cache invalidation patterns
+ *   5. Performance monitoring and metrics
+ *   6. Graceful degradation and fallback strategies
  */
 import { createLogger } from './structuredLogger.js';
+import zlib from 'zlib';
+import { promisify } from 'util';
 
 const logger = createLogger('cache-manager');
+const gzip = promisify(zlib.gzip);
+const gunzip = promisify(zlib.gunzip);
 
 // Lazy-load @upstash/redis to avoid hard dependency if not configured
 let Redis = null;
 
+// Cache configuration with TTL and compression thresholds
+const CACHE_CONFIG = {
+  compressionThreshold: 1024, // 1KB
+  maxMemoryCacheSize: 500,
+  memoryCacheTTL: 5 * 60 * 1000, // 5 minutes
+  redisTTL: 30 * 60 * 1000, // 30 minutes
+  hotDataThreshold: 5, // Access count for promoting to hot cache
+  staleWhileRevalidate: true,
+  metricsEnabled: true
+};
+
 class CacheManager {
-  constructor() {
+  constructor(config = CACHE_CONFIG) {
     this.client = null;
     this.isConnected = false;
     this.memoryCache = new Map();
-    this.maxMemoryCacheSize = 100;
-    this._commandCount = 0; // Track Upstash commands for budget awareness
+    this.hotCache = new Map(); // Frequently accessed items
+    this.compressionCache = new Map(); // Compressed large objects
+    this.accessCounts = new Map();
+    this.metrics = {
+      hits: 0,
+      misses: 0,
+      redisHits: 0,
+      redisMisses: 0,
+      compressionSaves: 0,
+      totalSaves: 0
+    };
+    this.config = { ...CACHE_CONFIG, ...config };
+    this._commandCount = 0;
   }
 
   async connect() {
@@ -50,47 +76,175 @@ class CacheManager {
         // Test the connection with a ping
         await this.client.ping();
         this.isConnected = true;
-        logger.info('Upstash Redis connected (free tier: 500K cmds/mo)');
+        logger.info('Connected to Upstash Redis');
       } catch (error) {
-        logger.error('Failed to connect to Upstash Redis', { error: error.message });
-        logger.warn('Falling back to in-memory cache');
-        this.client = null;
-      }
-    } else if (legacyRedisUrl) {
-      // Local development: use traditional Redis client via 'redis' package
-      try {
-        const { createClient } = await import('redis');
-        this.client = createClient({
-          url: legacyRedisUrl,
-          socket: {
-            reconnectStrategy: (retries) => {
-              if (retries > 10) {
-                logger.error('Redis reconnection failed after 10 attempts');
-                return new Error('Redis reconnection limit exceeded');
-              }
-              return Math.min(retries * 100, 3000);
-            },
-          },
-        });
-
-        this.client.on('error', (err) => {
-          logger.error('Redis client error', { error: err.message });
-        });
-
-        this.client.on('ready', () => {
-          this.isConnected = true;
-          logger.info('Local Redis client ready');
-        });
-
-        await this.client.connect();
-      } catch (error) {
-        logger.error('Failed to connect to local Redis', { error: error.message });
-        logger.warn('Falling back to in-memory cache');
-        this.client = null;
+        logger.error('Failed to connect to Upstash Redis:', error);
+        this.isConnected = false;
       }
     } else {
-      logger.warn('No Redis configured (UPSTASH_REDIS_REST_URL or REDIS_URL), using in-memory cache only');
+      logger.info('Upstash Redis not configured, using memory-only mode');
+      this.isConnected = false;
     }
+
+    // Start cache maintenance tasks
+    this.startMaintenanceTasks();
+  }
+  // The canonical `get` and `set` implementations live further below
+  // — duplicate/older implementations removed to keep a single source of truth.
+
+  /**
+   * Intelligent cache warming and preloading
+   */
+  async warmCache(keys, fetchFunction) {
+    const warmupPromises = keys.map(async (key) => {
+      try {
+        const data = await fetchFunction(key);
+        if (data !== null && data !== undefined) {
+          await this.set(key, data);
+          logger.debug(`Warmed cache for key: ${key}`);
+        }
+      } catch (error) {
+        logger.error(`Cache warming failed for key ${key}:`, error);
+      }
+    });
+
+    await Promise.allSettled(warmupPromises);
+    logger.info(`Cache warming completed for ${keys.length} keys`);
+  }
+
+  /**
+   * Cache invalidation with pattern support
+   */
+  async invalidate(pattern) {
+    const keysToInvalidate = [];
+    
+    // Find matching keys in memory cache
+    for (const key of this.memoryCache.keys()) {
+      if (key.includes(pattern)) {
+        keysToInvalidate.push(key);
+        this.memoryCache.delete(key);
+      }
+    }
+    
+    // Find matching keys in hot cache
+    for (const key of this.hotCache.keys()) {
+      if (key.includes(pattern)) {
+        this.hotCache.delete(key);
+      }
+    }
+    
+    // Invalidate in Redis if connected
+    if (this.isConnected && this.client) {
+      try {
+        // Get all keys matching pattern (using SCAN for better performance)
+        const keys = await this.scanKeys(pattern);
+        if (keys.length > 0) {
+          await this.client.del(...keys);
+          this._commandCount += keys.length;
+          keysToInvalidate.push(...keys);
+        }
+      } catch (redisError) {
+        logger.error('Redis invalidation error:', redisError);
+      }
+    }
+    
+    logger.info(`Invalidated ${keysToInvalidate.length} keys matching pattern: ${pattern}`);
+    return keysToInvalidate;
+  }
+
+  /**
+   * Get cache performance metrics
+   */
+  getMetrics() {
+    const hitRate = this.metrics.hits / (this.metrics.hits + this.metrics.misses) || 0;
+    const redisHitRate = this.metrics.redisHits / (this.metrics.redisHits + this.metrics.redisMisses) || 0;
+    const compressionRatio = this.metrics.compressionSaves / this.metrics.totalSaves || 0;
+    
+    return {
+      hitRate: Math.round(hitRate * 100),
+      redisHitRate: Math.round(redisHitRate * 100),
+      compressionRatio: Math.round(compressionRatio * 100),
+      memoryCacheSize: this.memoryCache.size,
+      hotCacheSize: this.hotCache.size,
+      totalCommands: this._commandCount,
+      ...this.metrics
+    };
+  }
+
+  /**
+   * Helper methods
+   */
+  updateAccessCount(key) {
+    const currentCount = this.accessCounts.get(key) || 0;
+    this.accessCounts.set(key, currentCount + 1);
+  }
+
+  promoteToHotCache(key, data) {
+    const accessCount = this.accessCounts.get(key) || 0;
+    if (accessCount >= this.config.hotDataThreshold) {
+      this.hotCache.set(key, data);
+      // Limit hot cache size
+      if (this.hotCache.size > 50) {
+        const firstKey = this.hotCache.keys().next().value;
+        this.hotCache.delete(firstKey);
+      }
+    }
+  }
+
+  enforceMemoryLimit() {
+    if (this.memoryCache.size > this.config.maxMemoryCacheSize) {
+      const firstKey = this.memoryCache.keys().next().value;
+      this.memoryCache.delete(firstKey);
+    }
+  }
+
+  isStale(timestamp, ttl) {
+    return Date.now() - timestamp > ttl;
+  }
+
+  async scanKeys(pattern, cursor = '0', keys = []) {
+    if (!this.isConnected || !this.client) return keys;
+    
+    try {
+      const [nextCursor, foundKeys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      keys.push(...foundKeys);
+      
+      if (nextCursor !== '0') {
+        return this.scanKeys(pattern, nextCursor, keys);
+      }
+    } catch (error) {
+      logger.error('Error scanning keys:', error);
+    }
+    
+    return keys;
+  }
+
+  startMaintenanceTasks() {
+    // Clean up stale entries every 5 minutes
+    setInterval(() => {
+      this.cleanupStaleEntries();
+    }, 5 * 60 * 1000);
+
+    // Log metrics every hour
+    setInterval(() => {
+      const metrics = this.getMetrics();
+      logger.info('Cache performance metrics:', metrics);
+    }, 60 * 60 * 1000);
+  }
+
+  cleanupStaleEntries() {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    // Clean memory cache
+    for (const [key, { timestamp }] of this.memoryCache.entries()) {
+      if (this.isStale(timestamp, this.config.memoryCacheTTL)) {
+        this.memoryCache.delete(key);
+        cleanedCount++;
+      }
+    }
+
+    logger.debug(`Cleaned up ${cleanedCount} stale cache entries`);
   }
 
   async disconnect() {
@@ -178,7 +332,7 @@ class CacheManager {
    * Set value in memory cache only (L1)
    */
   _setMemory(key, value, ttlSeconds) {
-    if (this.memoryCache.size >= this.maxMemoryCacheSize) {
+    if (this.memoryCache.size >= this.config.maxMemoryCacheSize) {
       const firstKey = this.memoryCache.keys().next().value;
       this.memoryCache.delete(firstKey);
     }

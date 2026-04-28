@@ -623,6 +623,61 @@ export const LEARNING_TOPICS = [
       { id:'lp_di5', difficulty:'hard', question:'Population grows from 50000 to 72000 in 2 years (compound). Annual growth rate:', options:['20%','18%','15%','22%'], correct:0, timeTarget:60, solution:'50000×(1+r)²=72000 → (1+r)²=1.44 → r=0.2=20%', hint:'Set up compound growth equation' },
     ]
   },
+  {
+    id: 'machineLearning',
+    title: 'Machine Learning',
+    icon: 'Brain',
+    color: '#8b5cf6',
+    gradient: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
+    description: 'ML fundamentals, algorithms, and interview preparation',
+    estimatedTime: '8 hours',
+    theory: { sections: [
+      { title: 'ML Fundamentals', content: ['ML studies algorithms that improve through experience. Types: Supervised, Unsupervised, Reinforcement.', 'Key: Features, Labels, Overfitting, Underfitting, Bias-Variance.'], formulas: [
+        { formula: 'Accuracy = (TP + TN) / Total', example: 'Correct predictions / Total' },
+        { formula: 'F1 = 2 × (P × R) / (P + R)', example: 'Harmonic mean' },
+      ]},
+    ]},
+    practice: [
+      { id:'ml_lp1', difficulty:'easy', question:'What is overfitting?', options:['Too simple','Memorizes training data','Ignores features'], correct:1 },
+      { id:'ml_lp2', difficulty:'medium', question:'Binary classification?', options:['Linear Regression','Logistic Regression'], correct:1 },
+    ]
+  },
+  {
+    id: 'devops',
+    title: 'DevOps',
+    icon: 'Settings',
+    color: '#f59e0b',
+    gradient: 'linear-gradient(135deg, #f59e0b, #d97706)',
+    description: 'CI/CD, Docker, Kubernetes, and infrastructure',
+    estimatedTime: '6 hours',
+    theory: { sections: [
+      { title: 'CI/CD Pipeline', content: ['CI: Frequent commits + automated builds. CD: Automated release to production.'] },
+      { title: 'Docker', content: ['Containers package app + dependencies. docker build, run, ps, exec.'] },
+      { title: 'Kubernetes', content: ['K8s orchestrates containers. Pods=smallest unit, Services=expose, Deployments=replicas.'] },
+    ]},
+    practice: [
+      { id:'dv_lp1', difficulty:'easy', question:'CI stands for?', options:['Continuous Integration','Container Infrastructure'], correct:0 },
+      { id:'dv_lp2', difficulty:'medium', question:'K8s smallest unit?', options:['Service','Deployment','Pod'], correct:2 },
+    ]
+  },
+  {
+    id: 'dataEngineering',
+    title: 'Data Engineering',
+    icon: 'Database',
+    color: '#06b6d4',
+    gradient: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+    description: 'Data pipelines, warehousing, Spark, SQL',
+    estimatedTime: '7 hours',
+    theory: { sections: [
+      { title: 'ETL/ELT', content: ['ETL: Extract, Transform, Load. Pipeline orchestrates data flow.'] },
+      { title: 'Data Warehousing', content: ['Star Schema: Fact + Dimensions. Snowflake: normalized. Data Lake: raw storage.'] },
+      { title: 'Spark', content: ['RDD: Resilient Distributed Datasets. Distributed computing for big data.'] },
+    ]},
+    practice: [
+      { id:'de_lp1', difficulty:'easy', question:'ETL stands for?', options:['Extract Transform Load','Extract Transfer Load'], correct:0 },
+      { id:'de_lp2', difficulty:'medium', question:'Spark RDD?', options:['Resilient Distributed Dataset'], correct:0 },
+    ]
+  },
 ];
 
 export const getTopicById = (id) => LEARNING_TOPICS.find(t => t.id === id);

@@ -54,5 +54,8 @@
     "security:audit": "node backend/scripts/securityAudit.js",
     "performance:report": "node backend/scripts/performanceReport.js",
     "collaboration:test": "node backend/scripts/testCollaboration.js"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

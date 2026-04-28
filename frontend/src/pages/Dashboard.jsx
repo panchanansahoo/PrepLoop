@@ -20,6 +20,7 @@ import TodoList from '../components/TodoList';
 import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
+import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -282,6 +283,7 @@ export default function Dashboard() {
             <div className="dash-bg-gradient" />
             <div className="dash-bg-orb dash-bg-orb-1" />
             <div className="dash-bg-orb dash-bg-orb-2" />
+            <ImprovementPlanNotification />
 
             <div className="dash-container">
 
