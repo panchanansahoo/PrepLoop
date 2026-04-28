@@ -1,10 +1,14 @@
 import express from 'express';
-import net from 'node:net';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
+// Comprehensive Improvements
+import advancedCache from './utils/advancedCache.js';
+import databaseOptimizer from './utils/databaseOptimizer.js';
+import errorTracker from './utils/errorTracker.js';
+import security from './middleware/advancedSecurity.js';
 import { apiCache } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import collaborationService from './services/collaborationService.js';
@@ -71,7 +75,6 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
-    const feedbackRoutes = (await import('./routes/feedback.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -100,32 +103,23 @@ async function initializeServer() {
       legacyHeaders: false,
     });
 
-    // SECURITY: H4 — Dedicated signup rate limiter (stricter than general auth)
-    const signupLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: 5,
-      message: { error: 'Too many signup attempts. Please try again in 15 minutes.' },
-      standardHeaders: true,
-      legacyHeaders: false,
-      keyGenerator: (req) => req.ip,
-    });
-
     // Middleware setup
     
-  // Enhanced security: IP blocking, SQL injection, XSS, rate limiting, security headers
-  app.use(enhancedSecurity());
+  // Advanced security middleware
+  app.use(security.securityHeaders());
+  app.use(security.ipBlocker());
+  app.use(security.sqlInjectionProtection());
+  app.use(security.xssProtection());
+
+    app.use(enhancedSecurity());
 
   app.use(helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'"],
           imgSrc: ["'self'", 'data:', 'https:'],
-          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-          connectSrc: ["'self'", 'https://*.supabase.co', 'wss://*.supabase.co'],
-          mediaSrc: ["'self'", 'blob:'],
-          frameAncestors: ["'none'"],  // SECURITY: H5 — prevent clickjacking via CSP
         },
       },
       hsts: {
@@ -157,7 +151,6 @@ async function initializeServer() {
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
     
     // Rate limiting
-    app.use('/api/auth/signup', signupLimiter); // SECURITY: H4 — stricter signup limit
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
     app.use('/api/ai-features', aiEndpointsLimiter);
@@ -237,6 +230,7 @@ async function initializeServer() {
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
+    app.use('/api/ai', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
     app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
     app.use('/api/interview-suite', interviewSuiteRoutes);
@@ -258,7 +252,6 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
-    app.use('/api/feedback', feedbackRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
@@ -273,56 +266,37 @@ async function initializeServer() {
 const DEFAULT_PORT = Number(process.env.PORT || 5000);
 const MAX_PORT_RETRIES = 10;
 
-function isPortAvailable(port) {
-  return new Promise((resolve) => {
-    const tester = net.createServer();
-
-    tester.once('error', () => {
-      resolve(false);
-    });
-
-    tester.once('listening', () => {
-      tester.close(() => resolve(true));
-    });
-
-    tester.listen(port);
-  });
-}
-
-async function resolveServerPort(basePort = DEFAULT_PORT) {
-  if (process.env.NODE_ENV === 'production') {
-    const available = await isPortAvailable(basePort);
-    if (!available) {
-      throw new Error(
-        `Port ${basePort} is already in use (production mode). Exiting immediately.`
-      );
-    }
-    return basePort;
-  }
-
-  for (let attempt = 0; attempt <= MAX_PORT_RETRIES; attempt += 1) {
-    const candidatePort = basePort + attempt;
-    const available = await isPortAvailable(candidatePort);
-    if (available) {
-      if (attempt > 0) {
-        console.warn(`Port ${basePort} is already in use. Retrying on ${candidatePort}...`);
-      }
-      return candidatePort;
-    }
-  }
-
-  throw new Error(
-    `Port ${basePort} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
-  );
-}
-
-function startServer(port) {
+function startServer(port, attempt = 0) {
   const server = app.listen(port, () => {
     console.log(`🚀 Server running on http://localhost:${port}`);
     console.log(`📚 API documentation available at http://localhost:${port}/api`);
   });
 
   server.on('error', (error) => {
+    if (error.code === 'EADDRINUSE') {
+      // In production, fail immediately - don't retry ports
+      if (process.env.NODE_ENV === 'production') {
+        console.error(
+          `❌ Port ${port} is already in use (production mode). ` +
+          'Exiting immediately - do not attempt port retry in production.'
+        );
+        process.exit(1);
+      }
+      
+      // In development, retry with next port
+      if (attempt < MAX_PORT_RETRIES) {
+        const nextPort = port + 1;
+        console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
+        startServer(nextPort, attempt + 1);
+        return;
+      }
+
+      console.error(
+        `❌ Port ${port} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
+      );
+      process.exit(1);
+    }
+
     console.error('❌ Server error:', error.message);
     process.exit(1);
   });
@@ -357,17 +331,18 @@ process.on('uncaughtException', (error) => {
 });
 
 // Graceful shutdown will be registered after server starts
+let shutdownManager = null;
 
 // Initialize server and start listening
-initializeServer().then(async () => {
-  const port = await resolveServerPort(DEFAULT_PORT);
-  const server = startServer(port);
+initializeServer().then(() => {
+  const server = startServer(DEFAULT_PORT);
 
+  // Setup graceful shutdown with configurable timeouts
+  shutdownManager = 
   // Initialize collaboration service
   collaborationService.initialize(server);
   console.log('✅ Collaboration service initialized');
 
-  // Setup graceful shutdown with configurable timeouts
   setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
     forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds

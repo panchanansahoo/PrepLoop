@@ -9,6 +9,7 @@ import lldLearningPath from "../data/lldLearningPath.js";
 import aiLearningPath from "../data/aiLearningPath.js";
 import { applyCoinTransaction } from "../utils/coinTransactions.js";
 import { calculateDashboardStreak } from "../utils/dashboardStreak.js";
+import { normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
 
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
@@ -90,6 +91,19 @@ const buildProfileResponse = (req, profile) => {
     githubUsername: profile?.github_username || '',
     github_username: profile?.github_username || '',
     coins: profile?.coins ?? 0,
+    
+    // New profile fields
+    phone: profile?.phone || '',
+    location: profile?.location || '',
+    website: profile?.website || '',
+    yearsOfExperience: profile?.years_of_experience || '',
+    specialization: profile?.specialization || '',
+    socialLinks: profile?.social_links || {
+      twitter: profile?.twitter || '',
+      linkedin: profile?.linkedin || '',
+      portfolio: profile?.portfolio || '',
+      dribbble: profile?.dribbble || ''
+    }
   };
 
   return {
@@ -115,6 +129,18 @@ const buildProfileResponse = (req, profile) => {
       github_username: flatProfile.githubUsername,
       githubUsername: flatProfile.githubUsername,
       coins: flatProfile.coins,
+      
+      // New profile fields
+      phone: flatProfile.phone,
+      location: flatProfile.location,
+      website: flatProfile.website,
+      years_of_experience: flatProfile.yearsOfExperience,
+      specialization: flatProfile.specialization,
+      social_links: flatProfile.socialLinks,
+      twitter: flatProfile.socialLinks?.twitter,
+      linkedin: flatProfile.socialLinks?.linkedin,
+      portfolio: flatProfile.socialLinks?.portfolio,
+      dribbble: flatProfile.socialLinks?.dribbble
     },
     profile: flatProfile,
     ...flatProfile,
@@ -130,6 +156,7 @@ const isProfileCompleteForReward = (profile) => {
     profile?.experience_level ??
     '';
 
+  // Check for basic required fields plus new enhanced fields
   return [
     profile?.full_name,
     profile?.designation,
@@ -137,6 +164,8 @@ const isProfileCompleteForReward = (profile) => {
     profile?.skills,
     profile?.education,
     profile?.bio,
+    profile?.location,  // New field
+    profile?.company   // New field
   ].every(hasText);
 };
 
@@ -208,42 +237,6 @@ const awardProfileCompletionCoins = async (userId, profile) => {
     coinBalance: newBalance,
     applied: true,
   };
-};
-
-const normalizeProfileUpdatePayload = (body = {}) => {
-  const updates = {};
-
-  const fullName = body.fullName || body.full_name;
-  const experienceLevel = body.experienceLevel || body.experience_level;
-  const currentRole = body.currentRole || body.current_role || body.designation;
-  const bio = body.bio;
-  const skills = body.skills;
-  const education = body.education;
-
-  if (fullName) updates.full_name = fullName;
-  if (experienceLevel) updates.experience_level = experienceLevel;
-  if (currentRole) updates.designation = currentRole;
-  if (bio !== undefined) updates.bio = bio;
-  if (skills !== undefined) updates.skills = skills;
-  if (education !== undefined) updates.education = education;
-
-  const githubUsername = body.githubUsername || body.github_username;
-  if (githubUsername !== undefined) updates.github_username = githubUsername;
-
-  const experienceValue = body.experienceSummary || body.experience_summary || body.experience;
-  if (experienceValue !== undefined && experienceValue !== null && String(experienceValue).trim() !== '') {
-    const trimmed = String(experienceValue).trim();
-    const numericExperience = Number(trimmed);
-
-    if (Number.isFinite(numericExperience) && /^\d+(?:\.\d+)?$/.test(trimmed)) {
-      updates.experience_years = numericExperience;
-      updates.experience_summary = null;
-    } else {
-      updates.experience_summary = trimmed;
-    }
-  }
-
-  return updates;
 };
 
 const XP_BY_DIFFICULTY = {
@@ -869,6 +862,19 @@ router.get("/profile", authenticateToken, async (req, res) => {
           subscription_tier: 'free',
           experience_level: 'beginner',
           role: req.user.role || 'user',
+          
+          // New profile fields
+          phone: '',
+          location: '',
+          website: '',
+          company: '',
+          years_of_experience: '',
+          specialization: '',
+          social_links: '{}',
+          twitter: '',
+          linkedin: '',
+          portfolio: '',
+          dribbble: ''
         })
         .select()
         .single();
@@ -883,6 +889,71 @@ router.get("/profile", authenticateToken, async (req, res) => {
             subscription_tier: 'free',
             experience_level: 'beginner',
             role: req.user.role || 'user',
+            
+            // New profile fields for degraded response
+            phone: '',
+            location: '',
+            website: '',
+            company: '',
+            years_of_experience: '',
+            specialization: '',
+            social_links: '{}',
+            twitter: '',
+            linkedin: '',
+            portfolio: '',
+            dribbble: ''
+          }),
+          degraded: true,
+        });
+      }
+
+      return res.json(buildProfileResponse(req, newProfile));
+    }
+
+    return res.json(buildProfileResponse(req, profile));
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    if (isProfilesAccessBlocked(error)) {
+      return res.json({
+        ...buildProfileResponse(req, {
+          id: req.user.id,
+          email: req.user.email,
+          full_name: req.user.user_metadata?.full_name || '',
+          subscription_tier: 'free',
+          experience_level: 'beginner',
+          role: req.user.role || 'user',
+          
+          // New profile fields for degraded response
+          phone: '',
+          location: '',
+          website: '',
+          company: '',
+          years_of_experience: '',
+          specialization: '',
+          social_links: '{}',
+          twitter: '',
+          linkedin: '',
+          portfolio: '',
+          dribbble: ''
+        }),
+        degraded: true,
+      });
+    }
+    res.status(500).json({ error: "Failed to fetch profile" });
+  }
+});
+
+            phone: '',
+            location: '',
+            website: '',
+            company: '',
+            years_of_experience: '',
+            specialization: '',
+            social_links: '{}',
+            twitter: '',
+            linkedin: '',
+            portfolio: '',
+            dribbble: ''
           }),
           profileCreated: false,
         });

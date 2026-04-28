@@ -28,7 +28,7 @@ const SILENCE_LONG   = 1200;
 const MAX_TRANSCRIPT_LENGTH = 10_000;
 
 // TTS retry
-const TTS_RETRY_DELAY_MS = 500;
+const TTS_RETRY_DELAYS_MS = [500, 1000, 2000]; // Exponential backoff for TTS retries
 const TTS_PLAYBACK_GUARD_MS = 30000;
 
 // Interrupt detection
@@ -101,6 +101,18 @@ export function getPostSpeechAutoSubmitMs(textLength) {
     return Math.min(getAdaptiveSilenceMs(textLength), SILENCE_AFTER_SPEECH_MAX_MS);
 }
 
+export function shouldAutoSubmitAnswer({
+    transcriptLength = 0,
+    inputLevel = 0,
+    utteranceEnded = false,
+    minTranscriptLength = MIN_ANSWER_LENGTH,
+    interruptLevel = INTERRUPT_LEVEL,
+} = {}) {
+    if (!utteranceEnded) return false;
+    if (Number(transcriptLength) < Number(minTranscriptLength)) return false;
+    return Number(inputLevel) < Number(interruptLevel);
+}
+
 export function isAudioContentType(contentType = '') {
     return /^audio\//i.test(String(contentType).trim());
 }
@@ -158,6 +170,7 @@ export function useVoiceAI({
     const [interruptDetected, setInterruptDetected] = useState(false);
     const [connectionMode, setConnectionMode] = useState('browser'); // Always browser for STT
     const [silenceCountdown, setSilenceCountdown] = useState(0);
+    const [connectionHealth, setConnectionHealth] = useState('good'); // 'good' | 'degraded' | 'fallback'
 
     const transcriptListener = onTranscriptUpdate || onTranscript;
     const inputLevelRef = useRef(0);
@@ -603,21 +616,34 @@ export function useVoiceAI({
                     if (controller.signal.aborted) throw firstErr;
                     
                     if (firstErr.message !== 'TTS timeout' && !firstErr.message.includes('timeout')) {
-                        analyticsRef.current.ttsRetries++; 
-                        logVoiceDebug('tts retry after first failure', { error: firstErr.message });
-                        await new Promise(r => setTimeout(r, TTS_RETRY_DELAY_MS));
-                        if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
-                        try {
-                            res = await fetchTts(4000);
-                        } catch (secondErr) {
-                            console.warn('[useVoiceAI] TTS failed twice, falling back to browser speech');
+                        // Exponential backoff: retry up to TTS_RETRY_DELAYS_MS.length times
+                        let retrySuccess = false;
+                        for (let i = 0; i < TTS_RETRY_DELAYS_MS.length; i++) {
+                            analyticsRef.current.ttsRetries++;
+                            setConnectionHealth('degraded');
+                            logVoiceDebug(`tts retry ${i + 1}/${TTS_RETRY_DELAYS_MS.length}`, { error: firstErr.message, delayMs: TTS_RETRY_DELAYS_MS[i] });
+                            await new Promise(r => setTimeout(r, TTS_RETRY_DELAYS_MS[i]));
+                            if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+                            try {
+                                res = await fetchTts(4000);
+                                setConnectionHealth('good');
+                                retrySuccess = true;
+                                break;
+                            } catch (retryErr) {
+                                console.warn(`[useVoiceAI] TTS retry ${i + 1} failed:`, retryErr.message);
+                            }
+                        }
+                        if (!retrySuccess) {
+                            console.warn('[useVoiceAI] TTS failed all retries, falling back to browser speech');
                             analyticsRef.current.ttsFallbacks++;
+                            setConnectionHealth('fallback');
                             isFallback = true;
                             blob = null;
                         }
                     } else {
                         console.warn('[useVoiceAI] TTS timeout, falling back to browser speech');
                         analyticsRef.current.ttsFallbacks++;
+                        setConnectionHealth('fallback');
                         isFallback = true;
                         blob = null;
                     }
@@ -639,7 +665,8 @@ export function useVoiceAI({
             if (controller.signal.aborted) return;
 
             if (isFallback || !blob) {
-                analyticsRef.current.ttsFallbacks++; 
+                if (!isFallback) analyticsRef.current.ttsFallbacks++;
+                setConnectionHealth('fallback');
                 console.info('[useVoiceAI] TTS fallback → browser speechSynthesis');
                 await playBrowserSpeechFallback(spokenText, {
                     voice: pickBrowserVoice(personaGender),
@@ -795,6 +822,7 @@ export function useVoiceAI({
         errorMessage,
         interruptDetected,
         connectionMode,
+        connectionHealth,
         silenceCountdown,
         start,
         stop,

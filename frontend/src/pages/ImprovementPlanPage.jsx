@@ -2,6 +2,7 @@ import { useState } from 'react';
 import ImprovementPlanSimple from '../components/ImprovementPlanSimple';
 import ImprovementProgressChart from '../components/ImprovementProgressChart';
 import { useImprovementPlan } from '../hooks/useImprovementPlan';
+import './ImprovementPlanPage.css';
 
 export default function ImprovementPlanPage() {
   const [activeTab, setActiveTab] = useState('plan');
@@ -11,43 +12,39 @@ export default function ImprovementPlanPage() {
   const nextMilestone = plan ? getNextMilestone() : null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="imp-page">
       {/* Header */}
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-800">
-            AI Interview Improvement Plan
-          </h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Personalized practice plans based on your interview performance
-          </p>
+      <div className="imp-header">
+        <div className="imp-header-inner">
+          <h1>AI Interview Improvement Plan</h1>
+          <p>Personalized practice plans based on your interview performance</p>
         </div>
       </div>
 
       {/* Stats Bar (if plan exists) */}
       {stats && (
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-          <div className="max-w-6xl mx-auto px-6 py-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="imp-stats-bar">
+          <div className="imp-stats-inner">
+            <div className="imp-stats-grid">
               <div>
-                <div className="text-xs opacity-90">Current Day</div>
-                <div className="text-2xl font-bold">
+                <div className="imp-stat-label">Current Day</div>
+                <div className="imp-stat-value">
                   {stats.currentDay}/{stats.totalDays}
                 </div>
               </div>
               <div>
-                <div className="text-xs opacity-90">Tasks Completed</div>
-                <div className="text-2xl font-bold">
+                <div className="imp-stat-label">Tasks Completed</div>
+                <div className="imp-stat-value">
                   {stats.completedCount}/{stats.totalTasks}
                 </div>
               </div>
               <div>
-                <div className="text-xs opacity-90">Overall Progress</div>
-                <div className="text-2xl font-bold">{stats.completionRate}%</div>
+                <div className="imp-stat-label">Overall Progress</div>
+                <div className="imp-stat-value">{stats.completionRate}%</div>
               </div>
               <div>
-                <div className="text-xs opacity-90">Today's Progress</div>
-                <div className="text-2xl font-bold">
+                <div className="imp-stat-label">Today's Progress</div>
+                <div className="imp-stat-value">
                   {stats.todaysTasksCompleted}/{stats.todaysTotalTasks}
                 </div>
               </div>
@@ -57,72 +54,58 @@ export default function ImprovementPlanPage() {
       )}
 
       {/* Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex gap-6">
-            <button
-              onClick={() => setActiveTab('plan')}
-              className={`py-3 px-1 border-b-2 font-medium text-sm transition ${
-                activeTab === 'plan'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              Current Plan
-            </button>
-            <button
-              onClick={() => setActiveTab('progress')}
-              className={`py-3 px-1 border-b-2 font-medium text-sm transition ${
-                activeTab === 'progress'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              Progress History
-            </button>
-            <button
-              onClick={() => setActiveTab('resources')}
-              className={`py-3 px-1 border-b-2 font-medium text-sm transition ${
-                activeTab === 'resources'
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              Resources
-            </button>
-          </div>
+      <div className="imp-tabs">
+        <div className="imp-tabs-inner">
+          <button
+            onClick={() => setActiveTab('plan')}
+            className={`imp-tab ${activeTab === 'plan' ? 'imp-tab--active' : ''}`}
+          >
+            Current Plan
+          </button>
+          <button
+            onClick={() => setActiveTab('progress')}
+            className={`imp-tab ${activeTab === 'progress' ? 'imp-tab--active' : ''}`}
+          >
+            Progress History
+          </button>
+          <button
+            onClick={() => setActiveTab('resources')}
+            className={`imp-tab ${activeTab === 'resources' ? 'imp-tab--active' : ''}`}
+          >
+            Resources
+          </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="imp-content">
+        <div className="imp-grid">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div>
             {activeTab === 'plan' && <ImprovementPlanSimple />}
             
             {activeTab === 'progress' && (
-              <div className="space-y-6">
+              <div className="imp-section">
                 <ImprovementProgressChart />
                 
                 {/* Additional Stats */}
                 {plan && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">Plan Details</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Plan Created:</span>
-                        <span className="font-medium">
+                  <div className="imp-card" style={{ marginTop: '1.5rem' }}>
+                    <h3>Plan Details</h3>
+                    <div>
+                      <div className="imp-detail-row">
+                        <span className="imp-detail-label">Plan Created:</span>
+                        <span className="imp-detail-value">
                           {new Date(plan.created_at).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Status:</span>
-                        <span className="font-medium capitalize">{plan.status}</span>
+                      <div className="imp-detail-row">
+                        <span className="imp-detail-label">Status:</span>
+                        <span className="imp-detail-value">{plan.status}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Overall Trend:</span>
-                        <span className="font-medium capitalize">
+                      <div className="imp-detail-row">
+                        <span className="imp-detail-label">Overall Trend:</span>
+                        <span className="imp-detail-value">
                           {plan.plan_data.overallTrend.replace(/_/g, ' ')}
                         </span>
                       </div>
@@ -133,21 +116,19 @@ export default function ImprovementPlanPage() {
             )}
 
             {activeTab === 'resources' && plan && (
-              <div className="space-y-6">
+              <div className="imp-section">
                 {/* Recommendations */}
                 {plan.plan_data.recommendations && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">AI Recommendations</h3>
+                  <div className="imp-card">
+                    <h3>AI Recommendations</h3>
                     
                     {plan.plan_data.recommendations.immediate_actions && (
-                      <div className="mb-4">
-                        <h4 className="font-medium text-sm text-gray-700 mb-2">
-                          Immediate Actions
-                        </h4>
-                        <ul className="space-y-2">
+                      <div className="imp-section-mb">
+                        <h4>Immediate Actions</h4>
+                        <ul className="imp-list">
                           {plan.plan_data.recommendations.immediate_actions.map((action, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-blue-600 mt-0.5">→</span>
+                            <li key={idx}>
+                              <span className="imp-list-icon imp-list-icon--blue">→</span>
                               <span>{action}</span>
                             </li>
                           ))}
@@ -156,14 +137,12 @@ export default function ImprovementPlanPage() {
                     )}
 
                     {plan.plan_data.recommendations.practice_focus && (
-                      <div className="mb-4">
-                        <h4 className="font-medium text-sm text-gray-700 mb-2">
-                          Practice Focus
-                        </h4>
-                        <ul className="space-y-2">
+                      <div className="imp-section-mb">
+                        <h4>Practice Focus</h4>
+                        <ul className="imp-list">
                           {plan.plan_data.recommendations.practice_focus.map((focus, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-green-600 mt-0.5">✓</span>
+                            <li key={idx}>
+                              <span className="imp-list-icon imp-list-icon--green">✓</span>
                               <span>{focus}</span>
                             </li>
                           ))}
@@ -173,13 +152,11 @@ export default function ImprovementPlanPage() {
 
                     {plan.plan_data.recommendations.mindset_tips && (
                       <div>
-                        <h4 className="font-medium text-sm text-gray-700 mb-2">
-                          Mindset Tips
-                        </h4>
-                        <ul className="space-y-2">
+                        <h4>Mindset Tips</h4>
+                        <ul className="imp-list">
                           {plan.plan_data.recommendations.mindset_tips.map((tip, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-sm">
-                              <span className="text-purple-600 mt-0.5">💡</span>
+                            <li key={idx}>
+                              <span className="imp-list-icon imp-list-icon--purple">💡</span>
                               <span>{tip}</span>
                             </li>
                           ))}
@@ -191,23 +168,20 @@ export default function ImprovementPlanPage() {
 
                 {/* Resources */}
                 {plan.plan_data.resources && plan.plan_data.resources.length > 0 && (
-                  <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold mb-4">Recommended Resources</h3>
-                    <div className="space-y-3">
+                  <div className="imp-card" style={{ marginTop: '1.5rem' }}>
+                    <h3>Recommended Resources</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       {plan.plan_data.resources.map((resource, idx) => (
-                        <div
-                          key={idx}
-                          className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
-                        >
-                          <span className="text-2xl">
+                        <div key={idx} className="imp-resource">
+                          <span className="imp-resource-icon">
                             {resource.type === 'book' ? '📚' :
                              resource.type === 'course' ? '🎓' :
                              resource.type === 'video' ? '🎥' :
                              resource.type === 'practice' ? '💻' : '📄'}
                           </span>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-sm">{resource.title}</h4>
-                            <p className="text-xs text-gray-600 capitalize">{resource.type}</p>
+                          <div className="imp-resource-body">
+                            <h4>{resource.title}</h4>
+                            <p>{resource.type}</p>
                           </div>
                         </div>
                       ))}
@@ -219,25 +193,21 @@ export default function ImprovementPlanPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="imp-sidebar">
             {/* Next Milestone */}
             {nextMilestone && (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold mb-3">Next Milestone</h3>
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-4 border border-purple-100">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">🎯</span>
-                    <span className="font-semibold">Day {nextMilestone.day}</span>
+              <div className="imp-card">
+                <h3>Next Milestone</h3>
+                <div className="imp-milestone">
+                  <div className="imp-milestone-header">
+                    <span>🎯</span>
+                    <span>Day {nextMilestone.day}</span>
                   </div>
-                  <h4 className="font-medium text-sm capitalize mb-2">
-                    {nextMilestone.title}
-                  </h4>
-                  <p className="text-xs text-gray-600 mb-3">
-                    {nextMilestone.description}
-                  </p>
-                  <div className="text-xs text-gray-600">
+                  <h4>{nextMilestone.title}</h4>
+                  <p>{nextMilestone.description}</p>
+                  <div className="imp-criteria">
                     <strong>Criteria:</strong>
-                    <ul className="mt-1 space-y-1">
+                    <ul>
                       {nextMilestone.criteria.map((criterion, idx) => (
                         <li key={idx}>• {criterion}</li>
                       ))}
@@ -248,45 +218,33 @@ export default function ImprovementPlanPage() {
             )}
 
             {/* Quick Tips */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-3">Quick Tips</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-start gap-2">
-                  <span className="text-blue-600">💡</span>
-                  <p className="text-gray-700">
-                    Complete tasks daily for best results
-                  </p>
+            <div className="imp-card">
+              <h3>Quick Tips</h3>
+              <div className="imp-tips">
+                <div className="imp-tip">
+                  <span>💡</span>
+                  <p>Complete tasks daily for best results</p>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-green-600">✓</span>
-                  <p className="text-gray-700">
-                    Track your progress with notes
-                  </p>
+                <div className="imp-tip">
+                  <span>✓</span>
+                  <p>Track your progress with notes</p>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-purple-600">🎯</span>
-                  <p className="text-gray-700">
-                    Focus on one area at a time
-                  </p>
+                <div className="imp-tip">
+                  <span>🎯</span>
+                  <p>Focus on one area at a time</p>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span className="text-orange-600">🔄</span>
-                  <p className="text-gray-700">
-                    Generate new plans as you improve
-                  </p>
+                <div className="imp-tip">
+                  <span>🔄</span>
+                  <p>Generate new plans as you improve</p>
                 </div>
               </div>
             </div>
 
             {/* Support */}
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100">
-              <h3 className="font-semibold mb-2">Need Help?</h3>
-              <p className="text-sm text-gray-700 mb-3">
-                Stuck on a task or need guidance? We're here to help!
-              </p>
-              <button className="w-full px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
-                Get Support
-              </button>
+            <div className="imp-support">
+              <h3>Need Help?</h3>
+              <p>Stuck on a task or need guidance? We're here to help!</p>
+              <button className="imp-support-btn">Get Support</button>
             </div>
           </div>
         </div>

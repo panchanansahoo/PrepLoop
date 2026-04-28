@@ -3,9 +3,11 @@ import { randomUUID } from 'crypto';
 import { supabaseAdmin } from '../db/index.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import { getRedisClient } from '../config/redis.js';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 const logger = createLogger('ImprovementPlanService');
+const redis = getRedisClient();
 
 const SKILL_AREAS = [
   'communication',
@@ -27,6 +29,22 @@ export class ImprovementPlanService {
     try {
       logger.info('Generating improvement plan', { userId, sessionIds, focusAreas, timeframe });
 
+      // Create cache key with checksum to avoid extremely long keys
+      const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({sessionIds, focusAreas, timeframe})}`;
+      
+      // Try to get from cache first
+      if (redis) {
+        try {
+          const cachedPlan = await redis.get(cacheKey);
+          if (cachedPlan) {
+            logger.info('Returning cached improvement plan', { userId });
+            return JSON.parse(cachedPlan);
+          }
+        } catch (cacheErr) {
+          logger.warn('Cache retrieval failed, continuing with generation', { error: cacheErr.message });
+        }
+      }
+
       // Fetch interview sessions
       const sessions = await this._fetchInterviewSessions(userId, sessionIds);
       
@@ -43,19 +61,35 @@ export class ImprovementPlanService {
       // Save to database
       const savedPlan = await this._savePlan(userId, plan, sessions.map(s => s.id));
 
+      // Cache the result if Redis is available
+      if (redis) {
+        try {
+          await redis.setex(cacheKey, 60 * 60, JSON.stringify(savedPlan)); // Cache for 1 hour
+        } catch (cacheErr) {
+          logger.warn('Cache storage failed, plan still generated successfully', { error: cacheErr.message });
+        }
+      }
+
       logger.info('Improvement plan generated', { userId, planId: savedPlan.id });
 
       return savedPlan;
     } catch (error) {
-      logger.error('Plan generation failed', { userId, error: error.message });
+      logger.error('Plan generation failed', { userId, error: error.message, stack: error.stack });
       throw error;
     }
+  }
+
+  // Helper to generate shorter cache key
+  static _generateCacheKeyHash(params) {
+    // Create a short hash of the params to avoid long keys
+    const str = JSON.stringify(params);
+    return createHash('md5').update(str).digest('hex').substring(0, 16);
   }
 
   static async _fetchInterviewSessions(userId, sessionIds = null) {
     let query = supabaseAdmin
       .from('interview_sessions')
-      .select('*')
+      .select('id, user_id, performance_metrics, interview_score, overall_score, completed_at, status')
       .eq('user_id', userId)
       .eq('status', 'completed')
       .order('completed_at', { ascending: false });
@@ -68,7 +102,11 @@ export class ImprovementPlanService {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      logger.error('_fetchInterviewSessions failed', { userId, error: error.message });
+      throw error;
+    }
+    
     return data || [];
   }
 
@@ -269,6 +307,7 @@ export class ImprovementPlanService {
       problem_solving: 'Break down problems systematically',
       technical_depth: 'Demonstrate strong fundamentals',
       complexity_analysis: 'Analyze and explain complexity confidently',
+      complexity_analysis: 'Analyze and explain complexity confidently',
       edge_case_handling: 'Identify edge cases proactively',
       system_design: 'Design scalable systems with clear tradeoffs',
       behavioral_storytelling: 'Tell compelling stories with impact',
@@ -420,7 +459,118 @@ Provide recommendations in JSON format with keys:
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      logger.error('_savePlan failed', { userId, error: error.message });
+      throw error;
+    }
+    return data;
+  }
+  
+  /**
+   * Get user's latest improvement plan with additional analytics
+   */
+  static async getLatestPlan(userId) {
+    const { data: plan, error } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+
+    return plan || null;
+  }
+  
+  /**
+   * Update progress on an improvement plan with enhanced validation
+   */
+  static async updatePlanProgress(planId, userId, progressUpdates) {
+    const { completedTasks, notes } = progressUpdates;
+    
+    const { data: plan, error: fetchError } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*')
+      .eq('id', planId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !plan) {
+      throw new Error('Plan not found or unauthorized');
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('improvement_plans')
+      .update({
+        progress: {
+          ...(plan.progress || {}),
+          completedTasks: completedTasks || [],
+          lastUpdated: new Date().toISOString(),
+          notes: notes || ''
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', planId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Invalidate cache if Redis is available
+    if (redis) {
+      try {
+        const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({planId})}`;
+        await redis.del(cacheKey);
+      } catch (cacheErr) {
+        logger.warn('Cache invalidation failed', { error: cacheErr.message });
+      }
+    }
+
+    return updated;
+  }
+  
+  /**
+   * Get improvement plan by ID
+   */
+  static async getPlanById(planId, userId) {
+    const { data: plan, error } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*')
+      .eq('id', planId)
+      .eq('user_id', userId)
+      .single();
+
+    if (error) {
+      logger.error('Failed to fetch plan by ID', { planId, userId, error: error.message });
+      throw error;
+    }
+
+    return plan;
+  }
+  
+  /**
+   * Mark plan as completed
+   */
+  static async markPlanCompleted(planId, userId) {
+    const { data, error } = await supabaseAdmin
+      .from('improvement_plans')
+      .update({ 
+        status: 'completed', 
+        completed_at: new Date().toISOString() 
+      })
+      .eq('id', planId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) {
+      logger.error('Failed to mark plan as completed', { planId, userId, error: error.message });
+      throw error;
+    }
+
     return data;
   }
 }

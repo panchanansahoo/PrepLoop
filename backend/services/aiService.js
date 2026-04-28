@@ -3,18 +3,22 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createLogger } from '../utils/structuredLogger.js';
-import { supabaseAdmin } from '../db/index.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
+import { isMissingColumnError, isInterviewSchemaCompatibilityError, _knownPayloadIndex, virtualInterviewSessions } from './interviewUtils.js';
+import { interviewTelemetryService } from './interviewTelemetryService.js';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
-import interviewGroundingService from './interviewGroundingService.js';
-import { InterviewPromptService } from './interviewPromptService.js';
+import { InterviewScoringService, getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from './interviewScoringService.js';
 import { InterviewConversationService } from './interviewConversationService.js';
-import { InterviewScoringService } from './interviewScoringService.js';
-import { InterviewFollowUpRulesService } from './interviewFollowUpRules.js';
-import { InterviewTelemetryService } from './interviewTelemetryService.js';
-import { addSpanEvent, setSpanAttribute } from '../utils/telemetry.js';
-import { GoogleGenAI } from '@google/genai';
-import { canMakeRequest, recordRequest, getBudgetStats } from '../utils/rateLimitBudget.js';
-import { getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from '../utils/interviewBenchmarks.js';
+import { InterviewPromptService } from './interviewPromptService.js';
+import { InterviewFollowUpRulesService } from './interviewFollowUpRulesService.js';
+import { interviewGroundingService } from './interviewGroundingService.js';
+import { CodeReviewService } from './codeReviewService.js';
+
+// Use the createLogger function instead of importing logger directly
+const logger = createLogger('AIService');
+
+// Initialize cache with 10 minute TTL for interview data
+const interviewCache = new NodeCache({ stdTTL: 600, checkperiod: 630 });
 
 // ── Problem Bank (loaded once from JSON) ────────────────────────────────
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +30,7 @@ function loadProblemBank() {
     const raw = readFileSync(join(__dirname, '..', 'data', 'interviewProblemBank.json'), 'utf-8');
     _problemBank = JSON.parse(raw);
   } catch (err) {
+    _problemBank = null;
     _problemBank = null;
   }
   return _problemBank;
@@ -46,7 +51,6 @@ function getRecentProblems(userId) {
 }
 
 const geminiAi = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
-const logger = createLogger('AIService');
 
 /**
  * IMPORTANT: Virtual interview sessions are stored in-memory as a fallback mechanism
@@ -61,8 +65,9 @@ const logger = createLogger('AIService');
  * - Implement proper locking mechanisms for concurrent access
  * - Ensure database schema is up-to-date to avoid fallback usage
  */
-const virtualInterviewSessions = new Map();
-const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+
+// ── Constants ────────────────────────────────────────────────────────────
+const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (keep using imported virtualInterviewSessions)
 const SESSION_MAX_SIZE = 500;
 const SESSION_CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -91,8 +96,6 @@ const _sessionCleanupTimer = setInterval(() => {
     }
 }, SESSION_CLEANUP_INTERVAL_MS);
 _sessionCleanupTimer.unref(); // Don't prevent process exit
-
-const interviewTelemetryService = new InterviewTelemetryService();
 
 const isMissingColumnError = (error, columnName) => {
   const message = String(error?.message || '').toLowerCase();
@@ -676,11 +679,23 @@ export class InterviewSimulatorService {
   }
 
   static async getInterviewSession(sessionId, userId) {
-    const virtualSession = virtualInterviewSessions.get(sessionId);
+    // Try to get from cache first
+    const cacheKey = `interview_session_${sessionId}`;
+    let virtualSession = interviewCache.get(cacheKey);
+    
     if (virtualSession && virtualSession.user_id === userId) {
       return virtualSession;
     }
+    
+    // Check in-memory store
+    virtualSession = virtualInterviewSessions.get(sessionId);
+    if (virtualSession && virtualSession.user_id === userId) {
+      // Cache the result
+      interviewCache.set(cacheKey, virtualSession);
+      return virtualSession;
+    }
 
+    // Try to get from database
     const { data: persistedSession, error } = await supabaseAdmin
       .from('interview_sessions')
       .select('*')
@@ -689,6 +704,8 @@ export class InterviewSimulatorService {
       .single();
 
     if (!error && persistedSession) {
+      // Cache the result
+      interviewCache.set(cacheKey, persistedSession);
       return persistedSession;
     }
 
@@ -871,7 +888,16 @@ export class InterviewSimulatorService {
           stageLabel: initialInterviewState.stageLabel,
         };
         virtualInterviewSessions.set(sessionData.id, { ...sessionData, _createdAt: Date.now() });
+        
+        // Cache the virtual session
+        const cacheKey = `interview_session_${sessionData.id}`;
+        interviewCache.set(cacheKey, sessionData);
+        
         updatedSession = sessionData;
+      } else {
+        // Cache the database session
+        const cacheKey = `interview_session_${updatedSession.id}`;
+        interviewCache.set(cacheKey, updatedSession);
       }
 
       logger.info('Interview session created', {
@@ -1464,6 +1490,10 @@ export class InterviewSimulatorService {
         virtualInterviewSessions.set(sessionId, { ...completedSession, _createdAt: Date.now() });
       } else {
         virtualInterviewSessions.delete(sessionId);
+        
+        // Remove from cache since interview is completed
+        const cacheKey = `interview_session_${sessionId}`;
+        interviewCache.del(cacheKey);
       }
 
       logger.info('Interview completed', {
