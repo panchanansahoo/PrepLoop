@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getThinkingDelayMs, getQuestionTimeLimit } from './aiInterviewTiming';
-import { shouldAutoSubmitAnswer, getAdaptiveSilenceMs } from '../hooks/useDeepgramVoice';
+import { shouldAutoSubmitAnswer, getAdaptiveSilenceMs } from '../hooks/useVoiceAI';
 
 describe('AI interview timing helpers', () => {
   it('caps thinking delay at 800ms', () => {

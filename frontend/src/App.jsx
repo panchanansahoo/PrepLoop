@@ -87,6 +87,7 @@ const HRDashboard = lazyWithRecovery(() => import('./pages/HRDashboard'));
 const AIInterviewPage = lazyWithRecovery(() => import('./pages/AIInterviewPage'));
 const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest'));
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
+const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
@@ -295,6 +296,7 @@ function AppContent() {
             <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
             <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
             <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
+            <Route path="/improvement-plan" element={<PrivateRoute><ImprovementPlanPage /></PrivateRoute>} />
 
             <Route path="/playground" element={<CodingPlayground />} />
             <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />

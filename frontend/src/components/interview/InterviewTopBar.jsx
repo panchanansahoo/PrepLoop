@@ -43,6 +43,7 @@ function InterviewTopBar({
     stagePlan,
     targetCompany,
     connectionMode,
+    connectionHealth,
     workspacePanelOpen,
     setWorkspacePanelOpen,
     endInterview,
@@ -144,10 +145,15 @@ function InterviewTopBar({
                 )}
                 {/* Connection health badge */}
                 {connectionMode && connectionMode !== 'offline' && (
-                    <div className={`ai-vc-connection-badge ai-vc-connection-badge--${connectionMode}`}
-                         title={connectionMode === 'websocket' ? 'Streaming mode (best quality)' : 'REST fallback mode'}>
+                    <div className={`ai-vc-connection-badge ai-vc-connection-badge--${connectionHealth || 'good'}`}
+                         title={
+                             connectionHealth === 'fallback' ? 'Using browser voice (TTS server unreachable)' :
+                             connectionHealth === 'degraded' ? 'Reconnecting to voice server...' :
+                             'Voice pipeline active'
+                         }>
                         <span className="ai-vc-connection-dot" />
-                        {connectionMode === 'websocket' ? 'Live' : 'REST'}
+                        {connectionHealth === 'fallback' ? 'Browser Voice' :
+                         connectionHealth === 'degraded' ? 'Reconnecting' : 'Live'}
                     </div>
                 )}
             </div>

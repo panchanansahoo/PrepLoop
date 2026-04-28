@@ -4986,6 +4986,44 @@
   border-color: rgba(245, 158, 11, 0.2);
 }
 
+/* Health-based badge variants (Phase 2) */
+.ai-vc-connection-badge--good .ai-vc-connection-dot {
+  background: #22c55e;
+  box-shadow: 0 0 4px rgba(34, 197, 94, 0.5);
+  animation: none;
+}
+
+.ai-vc-connection-badge--good {
+  color: #22c55e;
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.ai-vc-connection-badge--degraded .ai-vc-connection-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
+  animation: connectionPulse 1.2s ease-in-out infinite;
+}
+
+.ai-vc-connection-badge--degraded {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+.ai-vc-connection-badge--fallback .ai-vc-connection-dot {
+  background: #fb923c;
+  box-shadow: 0 0 4px rgba(251, 146, 60, 0.5);
+}
+
+.ai-vc-connection-badge--fallback {
+  color: #fb923c;
+  border-color: rgba(251, 146, 60, 0.2);
+}
+
+@keyframes connectionPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
 /* ═══ Silence Countdown ═══ */
 .ai-vc-silence-countdown {
   display: inline-block;

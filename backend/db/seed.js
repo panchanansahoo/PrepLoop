@@ -201,3 +201,43 @@ export async function seedDatabase() {
     throw error;
   }
 }
+
+// Example of creating a profile with new fields
+async function createExampleProfile() {
+  const { data: newProfile, error } = await supabaseAdmin
+    .from("profiles")
+    .insert({
+      id: 'example-user-id',
+      email: 'example@example.com',
+      full_name: 'Example User',
+      subscription_tier: 'free',
+      experience_level: 'intermediate',
+      role: 'user',
+      
+      // New profile fields
+      phone: '+1234567890',
+      location: 'San Francisco, CA',
+      website: 'https://example.com',
+      company: 'Tech Corp',
+      years_of_experience: '5',
+      specialization: 'Frontend Development',
+      social_links: {
+        twitter: 'example_user',
+        linkedin: 'example-user',
+        portfolio: 'https://portfolio.example.com',
+        dribbble: 'example_user'
+      },
+      twitter: 'example_user',
+      linkedin: 'example-user',
+      portfolio: 'https://portfolio.example.com',
+      dribbble: 'example_user'
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating example profile:', error);
+  } else {
+    console.log('Example profile created:', newProfile);
+  }
+}
