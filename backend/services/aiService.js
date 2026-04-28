@@ -3,16 +3,20 @@ import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { createLogger } from '../utils/structuredLogger.js';
+import NodeCache from 'node-cache';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { isMissingColumnError, isInterviewSchemaCompatibilityError, _knownPayloadIndex, virtualInterviewSessions } from './interviewUtils.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
-import { InterviewScoringService, getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from './interviewScoringService.js';
+import InterviewScoringService from './interviewScoringService.js';
+import { getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from '../utils/interviewBenchmarks.js';
 import { InterviewConversationService } from './interviewConversationService.js';
 import { InterviewPromptService } from './interviewPromptService.js';
 import { InterviewFollowUpRulesService } from './interviewFollowUpRulesService.js';
-import { interviewGroundingService } from './interviewGroundingService.js';
-import { CodeReviewService } from './codeReviewService.js';
+import interviewGroundingService from './interviewGroundingService.js';
+// Note: Code review implementation is provided in this file; avoid importing
+// a non-existent `codeReviewService.js` module which would conflict with the
+// local `CodeReviewService` class defined below.
 
 // Use the createLogger function instead of importing logger directly
 const logger = createLogger('AIService');
@@ -50,7 +54,29 @@ function getRecentProblems(userId) {
   return _userRecentProblems.get(userId) || [];
 }
 
-const geminiAi = process.env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }) : null;
+// Initialize Gemini provider safely. The GoogleGenAI class may not be
+// available in all environments (dev machines, CI without provider libs).
+// Use a guarded dynamic import and fall back to `null` if unavailable.
+let geminiAi = null;
+if (process.env.GEMINI_API_KEY) {
+  try {
+    // Try a few common package exports; prefer the official package if installed.
+    const mod = await import('@google/generative-ai').catch(() => null) ||
+                await import('google-gen-ai').catch(() => null) ||
+                null;
+
+    const GoogleGenAI = mod?.GoogleGenAI || mod?.default?.GoogleGenAI || mod?.default || null;
+    if (GoogleGenAI) {
+      geminiAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    } else {
+      logger.warn('GoogleGenAI provider module not found; Gemini disabled');
+      geminiAi = null;
+    }
+  } catch (err) {
+    logger.warn('Failed to initialize GoogleGenAI; Gemini disabled', { error: err.message });
+    geminiAi = null;
+  }
+}
 
 /**
  * IMPORTANT: Virtual interview sessions are stored in-memory as a fallback mechanism
@@ -97,30 +123,9 @@ const _sessionCleanupTimer = setInterval(() => {
 }, SESSION_CLEANUP_INTERVAL_MS);
 _sessionCleanupTimer.unref(); // Don't prevent process exit
 
-const isMissingColumnError = (error, columnName) => {
-  const message = String(error?.message || '').toLowerCase();
-  const code = String(error?.code || '').toUpperCase();
-  return (
-    code === 'PGRST204' ||
-    code === '42703' ||
-    (message.includes('could not find') && message.includes(columnName.toLowerCase())) ||
-    (message.includes('column') && message.includes(columnName.toLowerCase()))
-  );
-};
-
-const isInterviewSchemaCompatibilityError = (error) => {
-  const message = String(error?.message || '').toLowerCase();
-  const code = String(error?.code || '').toUpperCase();
-  return (
-    code === 'PGRST204' ||
-    code === 'PGRST205' ||
-    code === '42703' ||
-    message.includes('schema cache') ||
-    message.includes('could not find the') ||
-    message.includes('column') ||
-    message.includes('interview_sessions')
-  );
-};
+// `isMissingColumnError` and `isInterviewSchemaCompatibilityError` are imported
+// from `interviewUtils.js` at the top of the file. Use the shared helpers to
+// avoid duplicate definitions and keep schema-compatibility logic centralized.
 
 // AI Model Configuration
 // NOTE: gemini-1.5-flash is deprecated (retiring June 2026).
@@ -142,7 +147,8 @@ const INTERVIEW_RUNTIME_MODES = ['full_realtime'];
 const ANSWER_FILLERS = ['um', 'uh', 'like', 'you know', 'basically', 'literally', 'sort of', 'right'];
 
 // Cached index of the working DB schema shape (avoids re-probing on every initializeInterview call)
-let _knownPayloadIndex = null;
+// `_knownPayloadIndex` is imported from `interviewUtils.js` to centralize schema-shape
+// probing and caching logic across modules.
 
 const clampScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
 

@@ -147,3 +147,7 @@ export class InterviewTelemetryService {
     };
   }
 }
+
+// Convenience: export a shared singleton instance for callers that expect
+// an instantiated service (many modules import `interviewTelemetryService`).
+export const interviewTelemetryService = new InterviewTelemetryService();

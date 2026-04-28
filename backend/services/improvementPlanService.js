@@ -1,9 +1,18 @@
 import Groq from 'groq-sdk';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { supabaseAdmin } from '../db/index.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRedisClient } from '../config/redis.js';
+import { 
+  DIFFICULTY_LEVELS, 
+  ACHIEVEMENTS, 
+  calculateDifficulty, 
+  adjustDayDifficulty, 
+  calculateTaskPoints,
+  getPotentialAchievements,
+  calculateStreak
+} from './improvementPlanEnhancements.js';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 const logger = createLogger('ImprovementPlanService');
@@ -199,7 +208,7 @@ export class ImprovementPlanService {
   static async _buildImprovementPlan(analysis, timeframe) {
     const { topWeaknesses, overallTrend } = analysis;
 
-    // Build daily tasks
+    // Build daily tasks with adaptive difficulty
     const dailyPlan = this._generateDailyTasks(topWeaknesses, timeframe);
 
     // Generate AI recommendations if available
@@ -220,7 +229,10 @@ export class ImprovementPlanService {
       resources: this._generateResources(topWeaknesses),
       milestones: this._generateMilestones(topWeaknesses, timeframe),
       timeframe,
-      overallTrend
+      overallTrend,
+      // Add adaptive difficulty and gamification metadata
+      difficulty: 'intermediate', // Default, will be adjusted per day based on user progress
+      achievements: getPotentialAchievements(timeframe)
     };
   }
 

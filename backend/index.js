@@ -5,11 +5,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
 // Comprehensive Improvements
-import advancedCache from './utils/advancedCache.js';
-import databaseOptimizer from './utils/databaseOptimizer.js';
-import errorTracker from './utils/errorTracker.js';
-import security from './middleware/advancedSecurity.js';
-import { apiCache } from './middleware/apiCache.js';
+import { apiCacheMiddleware } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import collaborationService from './services/collaborationService.js';
 
@@ -106,10 +102,6 @@ async function initializeServer() {
     // Middleware setup
     
   // Advanced security middleware
-  app.use(security.securityHeaders());
-  app.use(security.ipBlocker());
-  app.use(security.sqlInjectionProtection());
-  app.use(security.xssProtection());
 
     app.use(enhancedSecurity());
 
@@ -158,7 +150,7 @@ async function initializeServer() {
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
-  app.use('/api', apiCache());
+  app.use('/api', apiCacheMiddleware());
 
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
@@ -360,3 +352,7 @@ initializeServer().then(() => {
 });
 
 export default app;
+
+// trigger restart
+
+// trigger restart 2

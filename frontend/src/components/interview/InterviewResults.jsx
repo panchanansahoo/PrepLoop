@@ -471,7 +471,10 @@ function InterviewResults({
 
                 {/* ── Bottom Actions ── */}
                 <div className="ai-result-actions">
-                    <button className="ai-result-cta" onClick={onStartNew}>
+                    <button className="ai-result-cta" style={{ background: '#8b5cf6', color: '#fff', borderColor: '#8b5cf6' }} onClick={() => navigate('/improvement-plan')}>
+                        <TrendingUp size={16} /> View Improvement Plan
+                    </button>
+                    <button className="ai-result-cta ai-result-cta--secondary" onClick={onStartNew}>
                         <RefreshCw size={16} /> Start New Interview
                     </button>
                     <button className="ai-result-cta ai-result-cta--secondary" onClick={() => navigate('/interview-suite')}>
