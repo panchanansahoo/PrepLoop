@@ -17,6 +17,9 @@ app.use('/test-api/interview', interviewEnhancedRouter);
 
 console.log('🧪 Testing Enhanced AI Interview Features...\n');
 
+// Helper to check methods in a case-insensitive way (Express stores keys lowercase)
+const methodHas = (methods, m) => methods && (methods[m.toLowerCase()] || methods[m.toUpperCase()]);
+
 // Test 1: Check if the adaptive questions endpoint exists
 try {
   // Since we can't actually call the API without proper auth headers and environment,
@@ -25,7 +28,7 @@ try {
   const adaptiveRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/questions/adaptive' && 
-    layer.route.methods.POST
+    methodHas(layer.route.methods, 'post')
   );
   
   if (adaptiveRoute) {
@@ -43,7 +46,7 @@ try {
   const feedbackRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/feedback/realtime' && 
-    layer.route.methods.POST
+    methodHas(layer.route.methods, 'post')
   );
   
   if (feedbackRoute) {
@@ -61,7 +64,7 @@ try {
   const analysisRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/analysis/detailed' && 
-    layer.route.methods.POST
+    methodHas(layer.route.methods, 'post')
   );
   
   if (analysisRoute) {
@@ -79,7 +82,7 @@ try {
   const recRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/recommendations/personalized' && 
-    layer.route.methods.GET
+    methodHas(layer.route.methods, 'get')
   );
   
   if (recRoute) {
@@ -97,7 +100,7 @@ try {
   const companyRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/prepare/:company' && 
-    layer.route.methods.GET
+    methodHas(layer.route.methods, 'get')
   );
   
   if (companyRoute) {
@@ -115,7 +118,7 @@ try {
   const trendsRoute = routes.find(layer => 
     layer.route && 
     layer.route.path === '/trends/performance' && 
-    layer.route.methods.GET
+    methodHas(layer.route.methods, 'get')
   );
   
   if (trendsRoute) {

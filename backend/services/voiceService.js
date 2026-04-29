@@ -13,6 +13,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { EdgeTTS } from 'node-edge-tts';
+import { circuitBreakers } from '../utils/circuitBreaker.js';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
@@ -225,11 +226,11 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     };
 
-    // ElevenLabs — ultra-realistic human TTS
+    // ElevenLabs — ultra-realistic human TTS (circuit-breaker protected)
     if (providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs') && !isInCooldown('elevenlabs')) {
         try {
             const t0 = Date.now();
-            const result = await elevenLabsTTS(cleanText, persona, g);
+            const result = await circuitBreakers.elevenlabs.execute(() => elevenLabsTTS(cleanText, persona, g));
             if (result) {
                 updateStats('elevenlabs', true, Date.now() - t0);
                 return result;
@@ -273,11 +274,11 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     }
 
-    // Groq Orpheus — cloud TTS (free tier, chunks long text automatically)
+    // Groq Orpheus — cloud TTS (circuit-breaker protected)
     if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         try {
             const t0 = Date.now();
-            const result = await groqOrpheusTTS(cleanText, persona, g);
+            const result = await circuitBreakers.groq.execute(() => groqOrpheusTTS(cleanText, persona, g));
             if (result) {
                 updateStats('groq', true, Date.now() - t0);
                 return result;

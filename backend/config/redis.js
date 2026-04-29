@@ -11,9 +11,21 @@ let redisClient = null;
  */
 export const initializeRedis = async () => {
   try {
-    if (process.env.REDIS_URL) {
+    if (process.env.REDIS_URL || process.env.NODE_ENV !== 'production') {
+      const url = process.env.REDIS_URL || 'redis://localhost:6379';
       redisClient = createClient({
-        url: process.env.REDIS_URL
+        url: url,
+        socket: {
+          reconnectStrategy: (retries, error) => {
+            if (error && error.code === 'ECONNREFUSED') {
+              logger.error('Redis server connection refused');
+            }
+            if (retries > 1200) { // Approx 1 hour (1200 * 3s)
+              return new Error('Retry time exhausted');
+            }
+            return Math.min(retries * 100, 3000);
+          }
+        }
       });
 
       redisClient.on('error', (err) => {

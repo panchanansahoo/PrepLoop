@@ -4,6 +4,7 @@ import {
     Code2, Palette, FileText, ChevronDown, CheckCircle,
     Sparkles, RotateCcw, Mic, MicOff, Send,
 } from 'lucide-react';
+import DesignCanvas from './DesignCanvas';
 
 /**
  * WORKSPACE_OPTIONS — Static array hoisted outside component to prevent
@@ -49,6 +50,8 @@ function InterviewWorkspace({
     userInput, setUserInput, setTranscript,
     onSendAnswer,
     loading,
+    onCanvasChange,
+    broadcastEvent,
 }) {
     // Monaco editor options — stable reference
     const editorOptions = useMemo(() => ({
@@ -116,7 +119,13 @@ function InterviewWorkspace({
                                 <select
                                     className="ai-lang-selector"
                                     value={language}
-                                    onChange={(e) => onLanguageChange(e.target.value)}
+                                    onChange={(e) => {
+                                        const newLang = e.target.value;
+                                        onLanguageChange(newLang);
+                                        if (broadcastEvent) {
+                                            broadcastEvent('interview_update', { event: 'code_update', data: { language: newLang, code } });
+                                        }
+                                    }}
                                 >
                                     {LANGUAGES.map(lang => (
                                         <option key={lang.id} value={lang.id}>
@@ -134,7 +143,13 @@ function InterviewWorkspace({
                                 height="100%"
                                 language={language === 'cpp' ? 'cpp' : language}
                                 value={code}
-                                onChange={(value) => setCode(value || '')}
+                                onChange={(value) => {
+                                    const newVal = value || '';
+                                    setCode(newVal);
+                                    if (broadcastEvent) {
+                                        broadcastEvent('interview_update', { event: 'code_update', data: { language, code: newVal } });
+                                    }
+                                }}
                                 theme="vs-dark"
                                 options={editorOptions}
                             />
@@ -143,11 +158,7 @@ function InterviewWorkspace({
                 )}
 
                 {activeTab === 'design' && (
-                    <div className="ai-design-canvas">
-                        <Palette size={48} />
-                        <p>Design Canvas — coming soon</p>
-                        <p className="ai-ws-design-sub">Draw system design diagrams here</p>
-                    </div>
+                    <DesignCanvas onCanvasChange={onCanvasChange} />
                 )}
 
                 {activeTab === 'notes' && (

@@ -91,52 +91,63 @@ export class InterviewScoringService {
    * @param {number} turns - Number of turns completed
    * @param {object} scoreTrend - Trend data from calculateTrendFromHistory
    * @param {string} experienceLevel - 'fresher' or 'experienced' (optional)
+   * @param {Array<string>} skillGaps - Areas where the candidate consistently scores low
+   * @param {number} avgResponseTimeMs - Average time per response in ms
    */
-  static deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend = null, experienceLevel = null) {
+  static deriveAdaptiveDifficulty(currentDifficulty, rollingOverallTen, turns, scoreTrend = null, experienceLevel = null, skillGaps = [], avgResponseTimeMs = 0) {
     const current = String(currentDifficulty || 'medium').toLowerCase();
     const overall = Number(rollingOverallTen || 0);
     const safeTurns = Number(turns || 0);
     const trend = scoreTrend || { trend: 'stable', volatility: 'stable' };
     const isFresher = String(experienceLevel || '').toLowerCase() === 'fresher';
 
-    // Block escalation for volatile candidates — they need stability, not harder problems
-    const isVolatile = trend.volatility === 'volatile';
-    // Also block escalation for declining-trend candidates — one good turn doesn't reverse a decline
-    const isDeclining = trend.trend === 'declining';
-
-    // Freshers get more patience: base escalation at turn 4 instead of 3
-    // Improving-trend candidates still get fast-tracked
-    const baseEscalateTurns = isFresher ? 4 : 3;
-    const escalateTurns = trend.trend === 'improving' ? Math.max(2, baseEscalateTurns - 1) : baseEscalateTurns;
-
-    if (safeTurns >= escalateTurns && overall >= 8.2 && !isVolatile && !isDeclining) {
-      if (current === 'easy') {
-        return { changed: true, previousDifficulty: 'easy', newDifficulty: 'medium', reason: 'Strong consistency, escalating challenge.' };
-      }
-      if (current === 'medium') {
-        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'hard', reason: 'High performance, moving to hard-level probing.' };
-      }
+    if (safeTurns < 2) {
+      return { changed: false, previousDifficulty: current, newDifficulty: current, reason: 'Not enough turns to adapt difficulty.' };
     }
 
-    // De-escalate sooner when trend is declining (lower threshold)
-    const deescalateThreshold = trend.trend === 'declining' ? 6.0 : 5.5;
-    const deescalateTurns = trend.trend === 'declining' ? 1 : 2;
+    let difficultyChange = 0;
+    
+    // Adjust based on trend
+    if (trend.trend === 'improving' && trend.volatility !== 'volatile') {
+      difficultyChange += 0.2;
+    } else if (trend.trend === 'declining') {
+      difficultyChange -= 0.3;
+    }
+    
+    // Adjust based on performance level
+    if (overall >= 8) difficultyChange += 0.3;
+    else if (overall <= 5.5) difficultyChange -= 0.2;
+    
+    // Adjust based on skill gaps and time pressure
+    if (skillGaps && skillGaps.includes('complexity-analysis')) difficultyChange -= 0.1;
+    if (skillGaps && skillGaps.length >= 2) difficultyChange -= 0.2;
+    if (avgResponseTimeMs > 120000) difficultyChange -= 0.1; // Penalty for taking too long
 
-    if (safeTurns >= deescalateTurns && overall <= deescalateThreshold) {
-      if (current === 'hard') {
-        return { changed: true, previousDifficulty: 'hard', newDifficulty: 'medium', reason: 'Reducing complexity to rebuild momentum.' };
-      }
-      if (current === 'medium') {
-        return { changed: true, previousDifficulty: 'medium', newDifficulty: 'easy', reason: 'Switching to foundational depth before scaling up.' };
-      }
+    // Freshers need higher thresholds to escalate
+    if (isFresher) {
+      difficultyChange -= 0.1;
     }
 
-    // Volatile candidate with medium+ difficulty — consider de-escalation to stabilize
-    if (isVolatile && current === 'hard' && safeTurns >= 2) {
-      return { changed: true, previousDifficulty: 'hard', newDifficulty: 'medium', reason: 'Volatile performance detected, reducing difficulty to stabilize.' };
-    }
+    // Apply change with bounds checking
+    // Threshold to actually step up/down is +/- 0.35
+    const difficultyLevels = ['easy', 'medium', 'hard'];
+    const currentIndex = difficultyLevels.indexOf(current) !== -1 ? difficultyLevels.indexOf(current) : 1;
+    
+    let step = 0;
+    if (difficultyChange >= 0.35) step = 1;
+    else if (difficultyChange <= -0.35) step = -1;
 
-    return { changed: false, previousDifficulty: current, newDifficulty: current, reason: 'Difficulty remains stable.' };
+    const newIndex = Math.max(0, Math.min(difficultyLevels.length - 1, currentIndex + step));
+    const newDifficulty = difficultyLevels[newIndex];
+
+    const changed = current !== newDifficulty;
+
+    return { 
+      changed, 
+      previousDifficulty: current, 
+      newDifficulty: newDifficulty, 
+      reason: changed ? 'Adapted based on performance trends, skill gaps, and timing' : 'Difficulty remains stable.' 
+    };
   }
 
   /**
@@ -225,6 +236,30 @@ export class InterviewScoringService {
     else if (stdDev >= 10) volatility = 'moderate';
 
     return { mean: Number(mean.toFixed(1)), stdDev: Number(stdDev.toFixed(1)), trend, volatility, delta: Number(delta.toFixed(1)) };
+  }
+
+  static calculateMultiDimensionalScore(analysis, transcript, interviewType, context) {
+    const metrics = analysis?.metrics || {};
+    const rubric = this.buildTypeRubric(interviewType, context?.experienceLevel);
+    
+    // Instead of using dummy _assess functions, we use the metrics provided by the LLM analysis
+    const dimensions = {
+      communication: Math.max(0, Math.min(100, Number(metrics.communication || 65))),
+      technical_accuracy: Math.max(0, Math.min(100, Number(metrics.technicalAccuracy || metrics.efficiency || 65))),
+      problem_solving: Math.max(0, Math.min(100, Number(metrics.problemDecomposition || 65))),
+      completeness: Math.max(0, Math.min(100, Number(metrics.completeness || 60))),
+      efficiency: Math.max(0, Math.min(100, Number(metrics.efficiency || 65)))
+    };
+    
+    // Weight based on interview type (normalize our 3-part rubric for 5 dimensions if needed)
+    // For simplicity, we use the robust rubric from buildTypeRubric for core parts
+    const overallScore = Number((
+      (dimensions.communication * rubric.communication) +
+      (dimensions.problem_solving * rubric.decomposition) +
+      (dimensions.technical_accuracy * rubric.technical)
+    ).toFixed(1));
+    
+    return { ...dimensions, overall: overallScore / 10 }; // Normalize to 10
   }
 }
 

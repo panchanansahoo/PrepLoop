@@ -30,7 +30,7 @@
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "lint:fix": "npm run lint:fix --prefix backend && npm run lint:fix --prefix frontend",
     "format": "npm run format --prefix backend && npm run format --prefix frontend",
-    "scan:secrets": "node scripts/scan-secrets.cjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
     "redis:guardrails": "node scripts/redis-azure-guardrails.mjs",
     "redis:guardrails:strict": "node scripts/redis-azure-guardrails.mjs --strict",
     "backup:db": "node backend/scripts/backup-db.js",

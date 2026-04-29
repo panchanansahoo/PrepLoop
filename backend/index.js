@@ -71,10 +71,17 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
+
+    // Phase 2-6: New improvement routes
+    const gdprRoutes = (await import('./routes/gdpr.js')).default;
+    const metricsRoutes = (await import('./routes/metrics.js')).default;
+    const analyticsEventsRoutes = (await import('./routes/analytics-events.js')).default;
+    const { tracingMiddleware } = await import('./utils/tracer.js');
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
     const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
+    const { metrics } = await import('./utils/metrics.js');
 
     console.log('✅ Routes loaded successfully');
 
@@ -138,6 +145,7 @@ async function initializeServer() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
+    app.use(tracingMiddleware()); // Distributed tracing spans
     
     // Input sanitization (skip for webhooks)
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
@@ -220,6 +228,20 @@ async function initializeServer() {
     app.use('/api/system-design', systemDesignRoutes);
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
+
+    // Monitoring middleware for interview endpoints
+    app.use('/api/ai/interview', (req, res, next) => {
+      metrics.increment('interview.api.requests');
+      const startTime = Date.now();
+      
+      res.on('finish', () => {
+        metrics.timing('interview.api.response.time', Date.now() - startTime);
+        metrics.increment('interview.api.responses', { statusCode: res.statusCode });
+      });
+      
+      next();
+    });
+
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
     app.use('/api/ai', interviewEnhancedRoutes);
@@ -244,6 +266,11 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
+
+    // Phase 2-6: New routes
+    app.use('/api/gdpr', gdprRoutes);
+    app.use('/metrics', metricsRoutes);
+    app.use('/api/analytics', analyticsEventsRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
@@ -334,6 +361,14 @@ initializeServer().then(() => {
   // Initialize collaboration service
   collaborationService.initialize(server);
   console.log('✅ Collaboration service initialized');
+
+  // Initialize interview WebSocket observability service
+  import('./services/websocketService.js')
+    .then(({ initWebSocket }) => {
+      initWebSocket(server);
+      console.log('✅ Interview WebSocket service initialized on /ws');
+    })
+    .catch(err => console.warn('[startup] WebSocket service init failed (non-fatal):', err.message));
 
   setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds

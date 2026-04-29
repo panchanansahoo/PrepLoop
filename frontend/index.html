@@ -50,11 +50,44 @@
 
   <title>PrepLoop — AI Interview Prep Platform | DSA, System Design & Mock Interviews</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+
+  <!-- Performance: Preconnect to critical origins (establishes TCP + TLS early) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Performance: DNS prefetch for API and Supabase (varies per deployment) -->
+  <link rel="dns-prefetch" href="https://api.preploop.me">
+  <link rel="dns-prefetch" href="https://supabase.preploop.me">
+
+  <!-- Performance: Load fonts with display=swap to avoid FOIT -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" crossorigin="anonymous">
+
+  <!-- Preload critical main entry point -->
+  <link rel="modulepreload" href="/src/main.jsx">
+
+  <!-- Critical inline styles for initial paint (avoid CLS from layout shifts) -->
+  <style>
+    /* Prevent FOUC: hide root until React hydrates, show loading skeleton */
+    #root:empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #050507;
+    }
+    #root:empty::after {
+      content: '';
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #818cf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 
 <body>

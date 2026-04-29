@@ -50,17 +50,56 @@
 
   <title>PrepLoop — AI Interview Prep Platform | DSA, System Design & Mock Interviews</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+
+  <!-- Performance: Preconnect to critical origins (establishes TCP + TLS early) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+  <!-- Performance: DNS prefetch for API and Supabase (varies per deployment) -->
+  <link rel="dns-prefetch" href="https://api.preploop.me">
+  <link rel="dns-prefetch" href="https://supabase.preploop.me">
+
+  <!-- Performance: Load fonts with display=swap to avoid FOIT -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" crossorigin="anonymous">
-  <script type="module" crossorigin src="/assets/js/index-CXju56G_.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/js/vendor-monaco-ZDp7Dc1-.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/vendor-tiptap-C9RxlnaJ.js">
-  <link rel="modulepreload" crossorigin href="/assets/js/vendor-blocknote-DxX3fFHx.js">
-  <link rel="stylesheet" crossorigin href="/assets/vendor-blocknote-Cgzy66y4.css">
-  <link rel="stylesheet" crossorigin href="/assets/index-Bf9CBhua.css">
+
+  <!-- Preload critical main entry point -->
+  <link rel="modulepreload" href="data:text/jsx;base64,aW1wb3J0IHsgY3JlYXRlUm9vdCB9IGZyb20gJ3JlYWN0LWRvbS9jbGllbnQnCmltcG9ydCAnLi9pbmRleC5jc3MnCmltcG9ydCAnLi9BcHAuY3NzJwppbXBvcnQgQXBwIGZyb20gJy4vQXBwLmpzeCcKaW1wb3J0IGF4aW9zIGZyb20gJ2F4aW9zJzsKaW1wb3J0IHsgYnVpbGRJbnRlcnZpZXdBdXRoSW5pdCB9IGZyb20gJy4vdXRpbHMvaW50ZXJ2aWV3UmVxdWVzdEF1dGgnOwppbXBvcnQgeyBnZXRDb25maWd1cmVkQXBpT3JpZ2luLCByb3V0ZUFwaVJlcXVlc3RJbnB1dCB9IGZyb20gJy4vdXRpbHMvYXBpUmVxdWVzdFJvdXRpbmcnOwppbXBvcnQgeyByZWdpc3RlclNlcnZpY2VXb3JrZXIgfSBmcm9tICcuL3V0aWxzL3NlcnZpY2VXb3JrZXJSZWdpc3RyYXRpb24nOwppbXBvcnQgeyByZWdpc3RlckR5bmFtaWNJbXBvcnRFcnJvclJlY292ZXJ5IH0gZnJvbSAnLi91dGlscy9pbXBvcnRFcnJvclJlY292ZXJ5JzsKaW1wb3J0IEVycm9yQm91bmRhcnkgZnJvbSAnLi9jb21wb25lbnRzL0Vycm9yQm91bmRhcnknOwppbXBvcnQgcGVyZm9ybWFuY2VNb25pdG9yIGZyb20gJy4vdXRpbHMvcGVyZm9ybWFuY2VNb25pdG9yJzsKaW1wb3J0IGFuYWx5dGljcyBmcm9tICcuL3V0aWxzL2FuYWx5dGljcyc7CgppbXBvcnQgeyB2YWxpZGF0ZUZyb250ZW5kUnVudGltZUNvbmZpZyB9IGZyb20gJy4vdXRpbHMvcnVudGltZUNvbmZpZyc7CgovLyBWYWxpZGF0ZSBjb25maWd1cmF0aW9uIGZpcnN0IC0gZmFpbCBpbW1lZGlhdGVseSBpZiBpbnZhbGlkCnRyeSB7CiAgdmFsaWRhdGVGcm9udGVuZFJ1bnRpbWVDb25maWcoKTsKfSBjYXRjaCAoZXJyb3IpIHsKICBjb25zb2xlLmVycm9yKCdBcHBsaWNhdGlvbiBpbml0aWFsaXphdGlvbiBmYWlsZWQ6JywgZXJyb3IubWVzc2FnZSk7CiAgZG9jdW1lbnQuYm9keS5pbm5lckhUTUwgPSBgCiAgICA8ZGl2IHN0eWxlPSIKICAgICAgZm9udC1mYW1pbHk6IHN5c3RlbS11aSwgLWFwcGxlLXN5c3RlbSwgc2Fucy1zZXJpZjsKICAgICAgZGlzcGxheTogZmxleDsKICAgICAgYWxpZ24taXRlbXM6IGNlbnRlcjsKICAgICAganVzdGlmeS1jb250ZW50OiBjZW50ZXI7CiAgICAgIGhlaWdodDogMTAwdmg7CiAgICAgIGJhY2tncm91bmQ6ICMxYTFhMWE7CiAgICAgIGNvbG9yOiAjZmZmOwogICAgICBwYWRkaW5nOiAyMHB4OwogICAgIj4KICAgICAgPGRpdiBzdHlsZT0iCiAgICAgICAgbWF4LXdpZHRoOiA2MDBweDsKICAgICAgICB0ZXh0LWFsaWduOiBjZW50ZXI7CiAgICAgICAgYmFja2dyb3VuZDogcmdiYSgyNTUsMjU1LDI1NSwwLjA1KTsKICAgICAgICBib3JkZXI6IDFweCBzb2xpZCByZ2JhKDI1NSwyNTUsMjU1LDAuMSk7CiAgICAgICAgYm9yZGVyLXJhZGl1czogOHB4OwogICAgICAgIHBhZGRpbmc6IDQwcHg7CiAgICAgICI+CiAgICAgICAgPGgxIHN0eWxlPSJtYXJnaW46IDAgMCAyMHB4OyBjb2xvcjogI2ZmNmI2YjsiPuKaoO+4jyBDb25maWd1cmF0aW9uIEVycm9yPC9oMT4KICAgICAgICA8cCBzdHlsZT0ibWFyZ2luOiAwOyBjb2xvcjogI2NjYzsgbGluZS1oZWlnaHQ6IDEuNjsiPgogICAgICAgICAgVGhlIGFwcGxpY2F0aW9uIGNhbm5vdCBzdGFydCBkdWUgdG8gbWlzc2luZyBvciBpbnZhbGlkIGNvbmZpZ3VyYXRpb24uPGJyLz4KICAgICAgICAgIENoZWNrIHRoZSBicm93c2VyIGNvbnNvbGUgZm9yIGRldGFpbGVkIGVycm9yIGluZm9ybWF0aW9uLgogICAgICAgIDwvcD4KICAgICAgICA8cCBzdHlsZT0ibWFyZ2luOiAyMHB4IDAgMDsgZm9udC1mYW1pbHk6IG1vbm9zcGFjZTsgY29sb3I6ICM4ODg7IGZvbnQtc2l6ZTogMTJweDsiPgogICAgICAgICAgRXJyb3I6ICR7ZXJyb3IubWVzc2FnZX0KICAgICAgICA8L3A+CiAgICAgIDwvZGl2PgogICAgPC9kaXY+CiAgYDsKICB0aHJvdyBlcnJvcjsKfQoKaWYgKHR5cGVvZiB3aW5kb3cgIT09ICd1bmRlZmluZWQnICYmICF3aW5kb3cuX19wcmVwbG9vcEludGVydmlld0ZldGNoUGF0Y2hlZCkgewogIGNvbnN0IGFwaU9yaWdpbiA9IGdldENvbmZpZ3VyZWRBcGlPcmlnaW4oKTsKCiAgaWYgKGFwaU9yaWdpbikgewogICAgYXhpb3MuZGVmYXVsdHMuYmFzZVVSTCA9IGFwaU9yaWdpbjsKICB9CgogIGNvbnN0IG5hdGl2ZUZldGNoID0gd2luZG93LmZldGNoLmJpbmQod2luZG93KTsKICB3aW5kb3cuZmV0Y2ggPSAoaW5wdXQsIGluaXQpID0+IHsKICAgIGNvbnN0IHJvdXRlZElucHV0ID0gcm91dGVBcGlSZXF1ZXN0SW5wdXQoaW5wdXQsIGFwaU9yaWdpbik7CiAgICBjb25zdCBwYXRjaGVkSW5pdCA9IGJ1aWxkSW50ZXJ2aWV3QXV0aEluaXQocm91dGVkSW5wdXQsIGluaXQpOwogICAgcmV0dXJuIG5hdGl2ZUZldGNoKHJvdXRlZElucHV0LCBwYXRjaGVkSW5pdCk7CiAgfTsKICB3aW5kb3cuX19wcmVwbG9vcEludGVydmlld0ZldGNoUGF0Y2hlZCA9IHRydWU7Cn0KCi8vIEhhbmRsZSBzdGFsZSBkZXBsb3kgY2h1bmtzIG9uY2UgYnkgcmVsb2FkaW5nIHRoZSBhcHAuCnJlZ2lzdGVyRHluYW1pY0ltcG9ydEVycm9yUmVjb3ZlcnkoKTsKCi8vIFJlZ2lzdGVyIHNlcnZpY2Ugd29ya2VyIGZvciBvZmZsaW5lIHN1cHBvcnQKcmVnaXN0ZXJTZXJ2aWNlV29ya2VyKCk7CgovLyBJbml0aWFsaXplIHBlcmZvcm1hbmNlIG1vbml0b3JpbmcKcGVyZm9ybWFuY2VNb25pdG9yLmluaXQoKTsKCi8vIEluaXRpYWxpemUgYW5hbHl0aWNzCmFuYWx5dGljcy5pbml0KHsKICB0cmFja1BhZ2VWaWV3czogdHJ1ZSwKICB0cmFja0NsaWNrczogdHJ1ZSwKICB0cmFja0Vycm9yczogdHJ1ZSwKfSk7Cgpjb25zb2xlLmxvZygn4pyFIE1vbml0b3JpbmcgYW5kIGFuYWx5dGljcyBpbml0aWFsaXplZCcpOwoKCmNyZWF0ZVJvb3QoZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3Jvb3QnKSkucmVuZGVyKAogIDxFcnJvckJvdW5kYXJ5PgogICAgPEFwcCAvPgogIDwvRXJyb3JCb3VuZGFyeT4sCikK">
+
+  <!-- Critical inline styles for initial paint (avoid CLS from layout shifts) -->
+  <style>
+    /* Prevent FOUC: hide root until React hydrates, show loading skeleton */
+    #root:empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #050507;
+    }
+    #root:empty::after {
+      content: '';
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: #818cf8;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script type="module" crossorigin src="/assets/js/index-Dn0UmkM2.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-react-D9Mk2NeZ.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-flow-s0dgB33P.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-tiptap-DdrADIaL.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-ui-bdtNnm_v.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-blocknote-B96qDsJK.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-router-b81dwjPp.js">
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-supabase-DZxFKcQQ.js">
+  <link rel="stylesheet" crossorigin href="/assets/vendor-flow-Fd0xVSp_.css">
+  <link rel="stylesheet" crossorigin href="/assets/vendor-ui-BNJUMo-t.css">
+  <link rel="stylesheet" crossorigin href="/assets/vendor-blocknote-Cn1i8HbQ.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-CvYBZbbP.css">
 </head>
 
 <body>

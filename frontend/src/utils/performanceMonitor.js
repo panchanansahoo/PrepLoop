@@ -1,57 +1,107 @@
 /**
- * Performance Monitoring
- * Tracks Core Web Vitals, custom metrics, and performance bottlenecks
+ * Performance Monitoring Utility
+ * 
+ * Tracks key performance metrics and provides real-time monitoring
+ * for optimization efforts and user experience improvements.
  */
 
 class PerformanceMonitor {
   constructor() {
-    this.metrics = new Map();
-    this.observers = [];
-    this.initialized = false;
+    this.metrics = {
+      pageLoadTime: 0,
+      firstContentfulPaint: 0,
+      largestContentfulPaint: 0,
+      firstInputDelay: 0,
+      cumulativeLayoutShift: 0,
+      timeToInteractive: 0,
+      resourceLoadTimes: new Map(),
+      apiResponseTimes: new Map(),
+      bundleLoadTimes: new Map()
+    };
+    
+    this.thresholds = {
+      pageLoadTime: 3000,        // 3 seconds
+      firstContentfulPaint: 1800, // 1.8 seconds
+      largestContentfulPaint: 2500, // 2.5 seconds
+      firstInputDelay: 100,        // 100ms
+      cumulativeLayoutShift: 0.1,  // 0.1
+      timeToInteractive: 5000,    // 5 seconds
+      apiResponseTime: 500,        // 500ms
+      bundleLoadTime: 2000       // 2 seconds
+    };
+    
+    this.listeners = new Set();
+    this.isMonitoring = false;
   }
 
   /**
-   * Initialize performance monitoring
+   * Start performance monitoring
    */
-  init() {
-    if (this.initialized || typeof window === 'undefined') return;
-
-    this.trackWebVitals();
-    this.trackNavigationTiming();
-    this.trackResourceTiming();
-    this.initialized = true;
+  start() {
+    if (this.isMonitoring) return;
+    
+    this.isMonitoring = true;
+    this.setupWebVitals();
+    this.setupResourceTiming();
+    this.setupAPIMonitoring();
+    this.setupBundleMonitoring();
+    
+    console.log('🚀 Performance monitoring started');
   }
 
   /**
-   * Track Core Web Vitals (LCP, FID, CLS)
+   * Stop performance monitoring
    */
-  trackWebVitals() {
-    // Largest Contentful Paint
+  stop() {
+    this.isMonitoring = false;
+    console.log('⏹️ Performance monitoring stopped');
+  }
+
+  /**
+   * Setup Web Vitals monitoring
+   */
+  setupWebVitals() {
     if ('PerformanceObserver' in window) {
+      // First Contentful Paint
+      try {
+        const fcpObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            this.metrics.firstContentfulPaint = entry.startTime;
+            this.checkThreshold('firstContentfulPaint', entry.startTime);
+            this.notifyListeners('fcp', entry.startTime);
+          }
+        });
+        fcpObserver.observe({ entryTypes: ['paint'] });
+      } catch (e) {
+        console.warn('FCP monitoring not supported');
+      }
+
+      // Largest Contentful Paint
       try {
         const lcpObserver = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1];
-          this.recordMetric('LCP', lastEntry.renderTime || lastEntry.loadTime);
+          for (const entry of list.getEntries()) {
+            this.metrics.largestContentfulPaint = entry.startTime;
+            this.checkThreshold('largestContentfulPaint', entry.startTime);
+            this.notifyListeners('lcp', entry.startTime);
+          }
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
-        this.observers.push(lcpObserver);
       } catch (e) {
-        console.warn('LCP observer failed:', e.message);
+        console.warn('LCP monitoring not supported');
       }
 
       // First Input Delay
       try {
         const fidObserver = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach((entry) => {
-            this.recordMetric('FID', entry.processingStart - entry.startTime);
-          });
+          for (const entry of list.getEntries()) {
+            this.metrics.firstInputDelay = entry.processingStart - entry.startTime;
+            this.checkThreshold('firstInputDelay', this.metrics.firstInputDelay);
+            this.notifyListeners('fid', this.metrics.firstInputDelay);
+          }
         });
         fidObserver.observe({ entryTypes: ['first-input'] });
-        this.observers.push(fidObserver);
       } catch (e) {
-        console.warn('FID observer failed:', e.message);
+        console.warn('FID monitoring not supported');
       }
 
       // Cumulative Layout Shift
@@ -61,150 +111,199 @@ class PerformanceMonitor {
           for (const entry of list.getEntries()) {
             if (!entry.hadRecentInput) {
               clsValue += entry.value;
-              this.recordMetric('CLS', clsValue);
+            }
+          }
+          this.metrics.cumulativeLayoutShift = clsValue;
+          this.checkThreshold('cumulativeLayoutShift', clsValue);
+          this.notifyListeners('cls', clsValue);
+        });
+        clsObserver.observe({ entryTypes: ['layout-shift'] });
+      } catch (e) {
+        console.warn('CLS monitoring not supported');
+      }
+    }
+
+    // Time to Interactive
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        this.metrics.timeToInteractive = performance.now();
+        this.checkThreshold('timeToInteractive', this.metrics.timeToInteractive);
+        this.notifyListeners('tti', this.metrics.timeToInteractive);
+      }, 0);
+    });
+  }
+
+  /**
+   * Setup Resource Timing monitoring
+   */
+  setupResourceTiming() {
+    if ('PerformanceObserver' in window) {
+      try {
+        const resourceObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.initiatorType === 'fetch' || entry.initiatorType === 'xmlhttprequest') {
+              // API calls will be handled by API monitoring
+              continue;
+            }
+            
+            this.metrics.resourceLoadTimes.set(entry.name, {
+              duration: entry.duration,
+              size: entry.transferSize,
+              type: entry.initiatorType
+            });
+            
+            // Track bundle loading specifically
+            if (entry.name.includes('.js') && entry.name.includes('chunk')) {
+              this.metrics.bundleLoadTimes.set(entry.name, entry.duration);
+              this.checkThreshold('bundleLoadTime', entry.duration);
             }
           }
         });
-        clsObserver.observe({ entryTypes: ['layout-shift'] });
-        this.observers.push(clsObserver);
+        resourceObserver.observe({ entryTypes: ['resource'] });
       } catch (e) {
-        console.warn('CLS observer failed:', e.message);
+        console.warn('Resource timing monitoring not supported');
       }
     }
   }
 
   /**
-   * Track navigation timing
+   * Setup API response time monitoring
    */
-  trackNavigationTiming() {
-    if (typeof window === 'undefined' || !window.performance) return;
-
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        const timing = performance.getEntriesByType('navigation')[0];
-        if (timing) {
-          this.recordMetric('TTFB', timing.responseStart - timing.requestStart);
-          this.recordMetric('DOMContentLoaded', timing.domContentLoadedEventEnd - timing.domContentLoadedEventStart);
-          this.recordMetric('LoadComplete', timing.loadEventEnd - timing.loadEventStart);
-        }
-      }, 0);
-    });
-  }
-
-  /**
-   * Track resource timing
-   */
-  trackResourceTiming() {
-    if (typeof window === 'undefined' || !window.performance) return;
-
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        const resources = performance.getEntriesByType('resource');
-        const slowResources = resources
-          .filter((r) => r.duration > 1000)
-          .map((r) => ({
-            name: r.name,
-            duration: r.duration,
-            type: r.initiatorType,
-          }));
-
-        if (slowResources.length > 0) {
-          this.recordMetric('SlowResources', slowResources);
-        }
-      }, 0);
-    });
-  }
-
-  /**
-   * Record custom metric
-   */
-  recordMetric(name, value) {
-    this.metrics.set(name, {
-      value,
-      timestamp: Date.now(),
-    });
-
-    // Send to analytics (implement your analytics service)
-    this.sendToAnalytics(name, value);
-  }
-
-  /**
-   * Mark custom timing
-   */
-  mark(name) {
-    if (typeof window !== 'undefined' && window.performance) {
-      performance.mark(name);
-    }
-  }
-
-  /**
-   * Measure between marks
-   */
-  measure(name, startMark, endMark) {
-    if (typeof window !== 'undefined' && window.performance) {
+  setupAPIMonitoring() {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      const startTime = performance.now();
+      const url = args[0];
+      
       try {
-        performance.measure(name, startMark, endMark);
-        const measure = performance.getEntriesByName(name)[0];
-        this.recordMetric(name, measure.duration);
-      } catch (e) {
-        console.warn('Performance measure failed:', e.message);
+        const response = await originalFetch(...args);
+        const endTime = performance.now();
+        const duration = endTime - startTime;
+        
+        this.metrics.apiResponseTimes.set(url, duration);
+        this.checkThreshold('apiResponseTime', duration);
+        this.notifyListeners('apiResponse', { url, duration, status: response.status });
+        
+        return response;
+      } catch (error) {
+        const endTime = performance.now();
+        const duration = endTime - startTime;
+        
+        this.metrics.apiResponseTimes.set(url, duration);
+        this.notifyListeners('apiError', { url, duration, error });
+        throw error;
       }
-    }
-  }
-
-  /**
-   * Get all metrics
-   */
-  getMetrics() {
-    return Object.fromEntries(this.metrics);
-  }
-
-  /**
-   * Send metrics to analytics service
-   */
-  sendToAnalytics(name, value) {
-    // Implement your analytics integration here
-    if (import.meta.env.DEV) {
-      console.log(`[Performance] ${name}:`, value);
-    }
-
-    // Example: Send to Google Analytics
-    if (typeof window !== 'undefined' && window.gtag) {
-      window.gtag('event', 'performance_metric', {
-        metric_name: name,
-        metric_value: typeof value === 'number' ? value : JSON.stringify(value),
-      });
-    }
-  }
-
-  /**
-   * Get performance report
-   */
-  getReport() {
-    const metrics = this.getMetrics();
-    return {
-      webVitals: {
-        LCP: metrics.LCP?.value,
-        FID: metrics.FID?.value,
-        CLS: metrics.CLS?.value,
-      },
-      timing: {
-        TTFB: metrics.TTFB?.value,
-        DOMContentLoaded: metrics.DOMContentLoaded?.value,
-        LoadComplete: metrics.LoadComplete?.value,
-      },
-      slowResources: metrics.SlowResources?.value || [],
     };
   }
 
   /**
-   * Cleanup observers
+   * Setup bundle loading monitoring
    */
-  cleanup() {
-    this.observers.forEach((observer) => observer.disconnect());
-    this.observers = [];
-    this.initialized = false;
+  setupBundleMonitoring() {
+    // Monitor main bundle loading
+    window.addEventListener('load', () => {
+      const navigationEntry = performance.getEntriesByType('navigation')[0];
+      if (navigationEntry) {
+        this.metrics.pageLoadTime = navigationEntry.loadEventEnd - navigationEntry.fetchStart;
+        this.checkThreshold('pageLoadTime', this.metrics.pageLoadTime);
+        this.notifyListeners('pageLoad', this.metrics.pageLoadTime);
+      }
+    });
+  }
+
+  /**
+   * Check if metric exceeds threshold
+   */
+  checkThreshold(metric, value) {
+    const threshold = this.thresholds[metric];
+    if (threshold && value > threshold) {
+      console.warn(`⚠️ Performance warning: ${metric} (${value.toFixed(2)}ms) exceeds threshold (${threshold}ms)`);
+      this.notifyListeners('thresholdExceeded', { metric, value, threshold });
+    }
+  }
+
+  /**
+   * Get current metrics
+   */
+  getMetrics() {
+    return {
+      ...this.metrics,
+      resourceLoadTimes: Object.fromEntries(this.metrics.resourceLoadTimes),
+      apiResponseTimes: Object.fromEntries(this.metrics.apiResponseTimes),
+      bundleLoadTimes: Object.fromEntries(this.metrics.bundleLoadTimes)
+    };
+  }
+
+  /**
+   * Get performance score (0-100)
+   */
+  getPerformanceScore() {
+    const weights = {
+      firstContentfulPaint: 0.25,
+      largestContentfulPaint: 0.25,
+      firstInputDelay: 0.20,
+      cumulativeLayoutShift: 0.15,
+      timeToInteractive: 0.15
+    };
+
+    let score = 100;
+    
+    Object.entries(weights).forEach(([metric, weight]) => {
+      const value = this.metrics[metric];
+      const threshold = this.thresholds[metric];
+      
+      if (value && threshold) {
+        const ratio = value / threshold;
+        if (ratio > 1) {
+          score -= (ratio - 1) * 100 * weight;
+        }
+      }
+    });
+    
+    return Math.max(0, Math.round(score));
+  }
+
+  /**
+   * Add performance listener
+   */
+  addListener(callback) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+
+  /**
+   * Notify all listeners
+   */
+  notifyListeners(event, data) {
+    this.listeners.forEach(listener => {
+      try {
+        listener(event, data);
+      } catch (error) {
+        console.error('Error in performance listener:', error);
+      }
+    });
+  }
+
+  /**
+   * Export metrics for analytics
+   */
+  exportMetrics() {
+    return {
+      timestamp: Date.now(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      metrics: this.getMetrics(),
+      performanceScore: this.getPerformanceScore()
+    };
   }
 }
 
-export default new PerformanceMonitor();
+// Create singleton instance
+const performanceMonitor = new PerformanceMonitor();
+
+// Auto-start in development
+if (process.env.NODE_ENV === 'development') {
+  performanceMonitor.start();
+}
+
+export default performanceMonitor;

@@ -5,6 +5,7 @@ import {
     FileText, Search, Star, Code2, MessageSquare, X,
     GraduationCap, Briefcase, RefreshCw, Zap,
 } from 'lucide-react';
+import PreflightChecks from './PreflightChecks';
 
 // ─── Static data (hoisted outside component to avoid recreation) ───
 const TOPIC_PILLS = [
@@ -122,6 +123,7 @@ function InterviewLobby({
     onResumeFileChange,
 }) {
     const navigate = useNavigate();
+    const [preflightPassed, setPreflightPassed] = useState(false);
 
     // Derived: filtered companies
     const filteredCompanies = useMemo(() => COMPANIES.filter(c => {
@@ -493,12 +495,18 @@ function InterviewLobby({
                                             <div className="ai-lobby-toggle-knob" style={{ left: realtimeMode ? 22 : 2 }} />
                                         </button>
                                     </div>
-                                    {realtimeMode && (
+                                {realtimeMode && (
                                         <div className="ai-lobby-realtime-desc">
                                             ⚡ Deepgram STT + Kokoro TTS — ultra-low latency, 100% Node.js. No Python required.
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Pre-flight hardware checks */}
+                                <PreflightChecks
+                                    interviewType={interviewType}
+                                    onAllChecksPassed={() => setPreflightPassed(true)}
+                                />
                             </div>
                         )}
                     </div>
@@ -532,7 +540,7 @@ function InterviewLobby({
                                 <button
                                     className="ai-wizard-nav-btn ai-wizard-nav-btn--next ai-setup-start-btn"
                                     onClick={onStartInterview}
-                                    disabled={loading}
+                                    disabled={loading || !preflightPassed}
                                 >
                                     {loading ? (
                                         <>

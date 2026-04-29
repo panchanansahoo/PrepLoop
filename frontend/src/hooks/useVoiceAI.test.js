@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    appendTranscriptCapped,
     buildVoiceApiUrl,
     getAdaptiveSilenceMs,
     getPostSpeechAutoSubmitMs,
@@ -53,5 +54,13 @@ describe('useVoiceAI helpers', () => {
                 blobSize: 1024,
             })
         ).toBe(false);
+    });
+
+    it('caps accumulated transcript length while appending new chunks', () => {
+        expect(appendTranscriptCapped('hello', 'world', 20)).toBe('hello world');
+
+        const capped = appendTranscriptCapped('1234567890', 'abcdefghij', 12);
+        expect(capped.length).toBe(12);
+        expect(capped).toBe('90 abcdefghij');
     });
 });

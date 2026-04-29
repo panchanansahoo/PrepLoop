@@ -10,6 +10,10 @@ import LoadingScreen from './components/LoadingScreen';
 import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
 import AppFooter from './components/AppFooter';
 import { lazyWithRecovery } from './utils/lazyWithRecovery';
+import performanceMonitor from './utils/performanceMonitor';
+import { OfflineBanner } from './hooks/useOffline';
+import { SkipToContent } from './utils/a11y';
+import RouteErrorBoundary from './components/RouteErrorBoundary';
 
 const Home = lazyWithRecovery(() => import('./pages/Home'));
 const Login = lazyWithRecovery(() => import('./pages/Login'));
@@ -118,6 +122,10 @@ class ErrorBoundary extends Component {
   }
   componentDidCatch(error, info) {
     console.error('App crash:', error, info);
+    // Log performance metrics on error for debugging
+    performanceMonitor.getMetrics().then(metrics => {
+      console.error('Performance metrics at error:', metrics);
+    });
   }
   handleReloadPage() {
     window.location.reload();
@@ -211,6 +219,8 @@ function AppContent() {
 
   return (
     <div className="app-layout">
+      <SkipToContent targetId="main-content" />
+      <OfflineBanner />
       <AIAssistantOrb />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
@@ -229,7 +239,8 @@ function AppContent() {
           />
         )}
 
-        <div className={showSidebar && !isFullBleedCodingRoute ? 'page-content' : ''}>
+        <div className={showSidebar && !isFullBleedCodingRoute ? 'page-content' : ''} id="main-content">
+          <RouteErrorBoundary routeName="page">
           <Suspense fallback={<RouteLoadingSkeleton />}>
           <Routes>
             <Route path="/" element={<Home />} />
@@ -335,6 +346,7 @@ function AppContent() {
 
           </Routes>
           </Suspense>
+          </RouteErrorBoundary>
         </div>
 
         {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <AppFooter />}

@@ -97,3 +97,7 @@ Thumbs.db
 *.code-workspace
 node_modules
 node_modules
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md

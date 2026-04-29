@@ -5049,3 +5049,326 @@
     font-size: 10px;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PREFLIGHT CHECKS — Hardware verification before interview
+   ═══════════════════════════════════════════════════════════ */
+.preflight-checks {
+  padding: 8px 0;
+  animation: fadeIn 0.4s ease;
+}
+
+.preflight-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 4px;
+}
+
+.preflight-subtitle {
+  font-size: 12px;
+  color: rgba(255,255,255,0.45);
+  margin: 0 0 18px;
+}
+
+.preflight-items {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.preflight-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.5);
+  transition: all 0.3s ease;
+}
+
+.preflight-item.pass {
+  border-color: rgba(34,197,94,0.2);
+  background: rgba(34,197,94,0.06);
+  color: #22c55e;
+}
+
+.preflight-item.fail {
+  border-color: rgba(239,68,68,0.2);
+  background: rgba(239,68,68,0.06);
+  color: #ef4444;
+}
+
+.preflight-item.testing {
+  border-color: rgba(139,92,246,0.2);
+  background: rgba(139,92,246,0.06);
+  color: #a78bfa;
+}
+
+.preflight-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preflight-item-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.preflight-item-status {
+  font-size: 11px;
+}
+
+.preflight-icon--pending {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.1);
+}
+
+.preflight-icon--testing { color: #a78bfa; }
+.preflight-icon--pass    { color: #22c55e; }
+.preflight-icon--fail    { color: #ef4444; }
+
+.preflight-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.preflight-mic-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.preflight-mic-level {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  border-radius: 3px;
+  transition: width 0.05s linear;
+}
+
+.preflight-camera-preview {
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto 16px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.1);
+  aspect-ratio: 4/3;
+}
+
+.preflight-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scaleX(-1);
+}
+
+.preflight-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(239,68,68,0.08);
+  border: 1px solid rgba(239,68,68,0.2);
+  color: #fca5a5;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-bottom: 14px;
+  white-space: pre-line;
+}
+
+.preflight-error svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #ef4444;
+}
+
+.preflight-tips {
+  background: rgba(99,102,241,0.06);
+  border: 1px solid rgba(99,102,241,0.12);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.preflight-tips-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a5b4fc;
+  margin: 0 0 10px;
+}
+
+.preflight-tips-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.preflight-tips-list li {
+  font-size: 12px;
+  color: rgba(255,255,255,0.6);
+  line-height: 1.5;
+  padding-left: 4px;
+}
+
+.preflight-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.5);
+}
+
+.preflight-summary--ready {
+  background: rgba(34,197,94,0.08);
+  border: 1px solid rgba(34,197,94,0.2);
+  color: #22c55e;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN CANVAS — Drawing tools for system design
+   ═══════════════════════════════════════════════════════════ */
+.design-canvas-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1a1a2e;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.design-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-wrap: wrap;
+}
+
+.design-toolbar-tools,
+.design-toolbar-colors,
+.design-toolbar-widths,
+.design-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.design-toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+.design-tool-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.design-tool-btn:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+.design-tool-btn.active {
+  background: rgba(139,92,246,0.2);
+  color: #a78bfa;
+}
+
+.design-tool-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.design-color-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.design-color-btn:hover {
+  transform: scale(1.2);
+}
+
+.design-color-btn.active {
+  border-color: rgba(255,255,255,0.6);
+  box-shadow: 0 0 0 2px rgba(139,92,246,0.5);
+}
+
+.design-width-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.design-width-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.design-width-btn.active {
+  background: rgba(139,92,246,0.2);
+}
+
+.design-width-dot {
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  transition: all 0.15s ease;
+}
+
+.design-width-btn.active .design-width-dot {
+  background: #a78bfa;
+}
+
+.design-canvas-el {
+  flex: 1;
+  display: block;
+  touch-action: none;
+}

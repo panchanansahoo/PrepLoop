@@ -25,6 +25,21 @@ class MetricsCollector {
     }
   }
 
+  increment(metricName, tags = {}) {
+    if (!this.metrics.custom) this.metrics.custom = {};
+    const key = metricName + (tags.statusCode ? `_${tags.statusCode}` : '');
+    this.metrics.custom[key] = (this.metrics.custom[key] || 0) + 1;
+  }
+
+  timing(metricName, ms) {
+    if (!this.metrics.timings) this.metrics.timings = {};
+    if (!this.metrics.timings[metricName]) this.metrics.timings[metricName] = [];
+    this.metrics.timings[metricName].push(ms);
+    if (this.metrics.timings[metricName].length > 1000) {
+      this.metrics.timings[metricName].shift();
+    }
+  }
+
   recordCacheHit(hit = true) {
     if (hit) {
       this.metrics.cacheHits++;

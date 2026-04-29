@@ -46,6 +46,12 @@ const TTS_ENDPOINT         = buildVoiceApiUrl('/voice/tts-stream');
 const ANALYZE_ENDPOINT     = buildVoiceApiUrl('/voice/analyze-answer');
 const BACKCHANNEL_ENDPOINT = buildVoiceApiUrl('/voice/backchannel-clips');
 
+export function appendTranscriptCapped(existing = '', chunk = '', maxLength = MAX_TRANSCRIPT_LENGTH) {
+    const appended = `${existing} ${chunk}`.trim();
+    if (appended.length <= maxLength) return appended;
+    return appended.slice(-maxLength);
+}
+
 function isVoiceDebugEnabled() {
     if (!import.meta.env.DEV) return false;
     try {
@@ -386,9 +392,11 @@ export function useVoiceAI({
                         }
                     }
                     if (finalText) {
-                        const appended = (finalTextRef.current + ' ' + finalText).trim();
-                        finalTextRef.current = appended.length > MAX_TRANSCRIPT_LENGTH
-                            ? appended.slice(-MAX_TRANSCRIPT_LENGTH) : appended;
+                        finalTextRef.current = appendTranscriptCapped(
+                            finalTextRef.current,
+                            finalText,
+                            MAX_TRANSCRIPT_LENGTH
+                        );
                         interimRef.current = '';
                         setTranscript(finalTextRef.current);
                         setInterimText('');

@@ -21,6 +21,7 @@ import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
 import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
+import PerformanceMonitor from '../components/PerformanceMonitor';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -84,6 +85,7 @@ const WIDGET_REGISTRY = [
     { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
     { id: 'improvementPlan', name: 'Improvement Plan', component: ImprovementPlanWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Personalized AI interview improvement plan' },
+    { id: 'performanceMonitor', name: 'Performance Monitor', component: PerformanceMonitor, defaultVisible: false, premium: false, layout: 'full', description: 'Real-time performance metrics and optimization insights' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';

@@ -1,8 +1,8 @@
-import NodeCache from 'node-cache';
+import { InterviewCacheManager } from './interviewCacheManager.js';
 import { InterviewSimulatorService } from './aiService.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
-// Initialize cache with 10 minute TTL for interview data
-const interviewCache = new NodeCache({ stdTTL: 600, checkperiod: 630 });
+const logger = createLogger('CachedInterviewService');
 
 /**
  * Cached Interview Service
@@ -12,20 +12,25 @@ export class CachedInterviewService {
   /**
    * Get interview session with caching
    */
-  static async getInterviewSession(sessionId, userId) {
-    // Try to get from cache first
+  static async getInterviewSession(sessionId, userId, requestId = null) {
     const cacheKey = `interview_session_${sessionId}`;
-    let cachedSession = interviewCache.get(cacheKey);
+    
+    // Try to get from cache first
+    let cachedSession = await InterviewCacheManager.get(cacheKey);
     
     if (cachedSession && cachedSession.user_id === userId) {
+      logger.info('Cache hit for interview session', { sessionId, userId, requestId });
       return cachedSession;
     }
     
+    logger.info('Cache miss for interview session, fetching from DB', { sessionId, userId, requestId });
     // If not in cache, get from the original service
     const session = await InterviewSimulatorService.getInterviewSession(sessionId, userId);
     
     // Cache the result
-    interviewCache.set(cacheKey, session);
+    if (session) {
+      await InterviewCacheManager.set(cacheKey, session);
+    }
     
     return session;
   }
@@ -65,7 +70,8 @@ export class CachedInterviewService {
       stageLabel: result.stageLabel
     };
     
-    interviewCache.set(cacheKey, sessionMetadata);
+    await InterviewCacheManager.set(cacheKey, sessionMetadata);
+    logger.info('Cached new interview session', { sessionId: result.sessionId, userId, requestId });
     
     return result;
   }
@@ -94,10 +100,12 @@ export class CachedInterviewService {
         continueInterview: result.continueInterview
       };
       
-      interviewCache.set(cacheKey, sessionMetadata);
+      await InterviewCacheManager.set(cacheKey, sessionMetadata);
+      logger.info('Updated cached interview session after response', { sessionId, userId, requestId, stage: result.stage });
       
       return result;
     } catch (error) {
+      logger.error('Error processing interview response', { error: error.message, sessionId, userId, requestId });
       // Return graceful fallback response
       return {
         interviewerMessage: "I'm having trouble processing your response. Could you rephrase?",
@@ -113,14 +121,20 @@ export class CachedInterviewService {
   }
   
   /**
-   * Complete interview and remove from cache
+   * Complete interview and update cache
    */
   static async completeInterview(sessionId, userId, requestId = null) {
     const result = await InterviewSimulatorService.completeInterview(sessionId, userId, requestId);
     
-    // Remove from cache since interview is completed
     const cacheKey = `interview_session_${sessionId}`;
-    interviewCache.del(cacheKey);
+    // Instead of deleting, we update with the completed state to trigger longer TTL
+    const cachedSession = await InterviewCacheManager.get(cacheKey);
+    if (cachedSession) {
+      cachedSession.stage = 'completed';
+      cachedSession.continueInterview = false;
+      await InterviewCacheManager.set(cacheKey, cachedSession);
+      logger.info('Marked cached interview session as completed (extended TTL)', { sessionId, userId, requestId });
+    }
     
     return result;
   }
@@ -128,15 +142,16 @@ export class CachedInterviewService {
   /**
    * Get cached session if available
    */
-  static getCachedSession(sessionId) {
-    return interviewCache.get(`interview_session_${sessionId}`);
+  static async getCachedSession(sessionId) {
+    return await InterviewCacheManager.get(`interview_session_${sessionId}`);
   }
   
   /**
    * Clear session from cache
    */
-  static clearCachedSession(sessionId) {
+  static async clearCachedSession(sessionId) {
     const cacheKey = `interview_session_${sessionId}`;
-    return interviewCache.del(cacheKey);
+    logger.info('Explicitly clearing cached session', { sessionId });
+    return await InterviewCacheManager.del(cacheKey);
   }
 }

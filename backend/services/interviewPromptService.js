@@ -1,4 +1,5 @@
 import { InterviewStateMachineService } from './interviewStateMachine.js';
+import { InterviewSummarizationService } from './interviewSummarizationService.js';
 
 // ── Type-specific voice and style modifiers ─────────────────────────
 const TYPE_STYLE_RULES = {
@@ -43,10 +44,35 @@ const COMPANY_PERSONAS = {
   'zomato': 'Consumer-tech focused. Cares about user experience and real-time systems.',
 };
 
-function getCompanyPersona(companyFocus) {
+const COMPANY_TYPE_MODIFIERS = {
+  google: {
+    dsa: "Focus heavily on algorithmic efficiency, edge cases, and system constraints. Ask for Big O analysis.",
+    'system-design': "Emphasize scalability to millions of users, cost optimization, and reliability.",
+    system_design: "Emphasize scalability to millions of users, cost optimization, and reliability.",
+    behavioral: "Probe Googleyness: intellectual humility, collaboration, and comfort with ambiguity."
+  },
+  amazon: {
+    dsa: "Include real-world constraints, consider trade-offs, and ask for multiple approaches.",
+    'system-design': "Focus on AWS services, fault tolerance, and customer obsession principles.",
+    system_design: "Focus on AWS services, fault tolerance, and customer obsession principles.",
+    behavioral: "Map every answer to a Leadership Principle. Ask for metrics and data."
+  },
+  meta: {
+    dsa: "Focus on speed and pragmatic problem solving. Less emphasis on obscure algorithms, more on practical data structures.",
+    'system-design': "Focus on massive scale, caching, and eventual consistency. How to handle billions of requests.",
+    system_design: "Focus on massive scale, caching, and eventual consistency. How to handle billions of requests."
+  }
+};
+
+function getCompanyPersona(companyFocus, interviewType) {
   if (!companyFocus) return 'Balanced senior engineer. Professional, direct, and encouraging.';
   const key = String(companyFocus).toLowerCase();
-  return COMPANY_PERSONAS[key] || `Calibrated to ${companyFocus} interview expectations. Professional and direct.`;
+  const basePersona = COMPANY_PERSONAS[key] || `Calibrated to ${companyFocus} interview expectations. Professional and direct.`;
+  
+  const typeKey = String(interviewType || '').toLowerCase();
+  const typeModifier = COMPANY_TYPE_MODIFIERS[key]?.[typeKey] || '';
+  
+  return typeModifier ? `${basePersona} ${typeModifier}` : basePersona;
 }
 
 // ── Natural speech prefixes (30% injection rate) ────────────────────
@@ -199,7 +225,7 @@ export class InterviewPromptService {
     );
 
     // ── Interviewer persona based on company focus ────────────────────
-    const persona = getCompanyPersona(interviewContext.companyFocus || null);
+    const persona = getCompanyPersona(interviewContext.companyFocus || null, interviewType);
 
     return `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
 
@@ -209,8 +235,8 @@ PROBLEM: ${problemStatement}
 CANDIDATE JUST SAID: "${candidateResponse.slice(0, 500)}"
 ${codeSection}
 
-INTERVIEW HISTORY (last 2 exchanges):
-${transcript.slice(-4).map((t) => `${t.role}: ${t.text}`).join('\n')}
+INTERVIEW HISTORY:
+${InterviewSummarizationService.summarizeTranscript(transcript)}
 ${resumeSection}
 ${conversationMemory}
 

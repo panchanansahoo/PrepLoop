@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 // Legacy useVoiceInterview removed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â all voice handled by useVoiceAI
 import { useVoiceAI } from '../hooks/useVoiceAI';
 import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
+import { useInterviewRecovery } from '../hooks/useInterviewRecovery';
 import VoiceWaveform from '../components/VoiceWaveform';
 import InterviewResults from '../components/interview/InterviewResults';
 import InterviewLobby from '../components/interview/InterviewLobby';
@@ -60,6 +61,58 @@ export default function AIInterviewPage() {
             // Ignore storage failures and keep the in-memory selection.
         }
     }, [interviewerGender]);
+
+    // --- WebSocket Observability ---
+    const wsRef = useRef(null);
+
+    const broadcastEvent = useCallback((type, payload) => {
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type, payload: { roomId: user?.id, ...payload } }));
+        }
+    }, [user?.id]);
+
+    const handleCanvasChange = useCallback((dataUrl) => {
+        broadcastEvent('interview_update', { event: 'canvas_update', data: { image: dataUrl } });
+    }, [broadcastEvent]);
+
+    useEffect(() => {
+        let ws;
+        if (phase === 'interview') {
+            const token = localStorage.getItem('token');
+            if (token) {
+                const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
+                const wsProtocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:';
+                const host = baseUrl.replace(/^https?:\/\//, '');
+                
+                // For local dev where frontend is 5173 and backend is 5000
+                const finalHost = host.includes('5173') ? host.replace('5173', '5000') : host;
+                const wsUrl = `${wsProtocol}//${finalHost}/ws?token=${token}`;
+                
+                ws = new WebSocket(wsUrl);
+                wsRef.current = ws;
+
+                ws.onopen = () => {
+                    console.log('[WebSocket] Connected for observability');
+                    ws.send(JSON.stringify({ type: 'join_room', payload: { roomId: user?.id } }));
+                };
+
+                ws.onerror = (error) => {
+                    console.error('[WebSocket] Error:', error);
+                };
+
+                ws.onclose = () => {
+                    console.log('[WebSocket] Connection closed');
+                };
+            }
+        }
+
+        return () => {
+            if (ws) {
+                ws.close();
+            }
+        };
+    }, [phase, user?.id]);
+
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Prevent hook instantiation before dependencies are ready ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
     // We'll initialize voice hook lazily after speakerMuted is set up (see below)
@@ -280,71 +333,30 @@ export default function AIInterviewPage() {
     const [notes, setNotes] = useState('');
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ I9: Session Persistence ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
-    const [savedSession, setSavedSession] = useState(null); // Recoverable session from localStorage
-
-    // I9: Check for saved session on mount
-    useEffect(() => {
-        try {
-            const raw = window.localStorage.getItem(AI_INTERVIEW_SESSION_KEY);
-            if (raw) {
-                const session = JSON.parse(raw);
-                // Only offer recovery if session is less than 2 hours old
-                if (session.timestamp && Date.now() - session.timestamp < 2 * 60 * 60 * 1000) {
-                    setSavedSession(session);
-                } else {
-                    window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
-                }
-            }
-        } catch {
-            // Corrupted data ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â clean up
-            try { window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY); } catch {}
-        }
-    }, []);
-
-    // I9: Save session to localStorage when conversation changes during interview
-    useEffect(() => {
-        if (phase !== 'interview' || conversation.length === 0) return;
-        try {
-            const sessionData = {
-                conversation,
-                questionIndex,
-                currentQuestion,
-                elapsed,
-                totalQuestions,
-                interviewType,
-                interviewerGender,
-                code,
-                language,
-                notes,
-                timestamp: Date.now(),
-            };
-            window.localStorage.setItem(AI_INTERVIEW_SESSION_KEY, JSON.stringify(sessionData));
-        } catch {
-            // Storage full or unavailable ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â silently skip
-        }
-    }, [conversation, phase]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    // I9: Clear saved session helper
-    const clearSavedSession = useCallback(() => {
-        setSavedSession(null);
-        try { window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY); } catch {}
-    }, []);
-
-    // I9: Restore session from saved data
-    const restoreSession = useCallback((session) => {
-        setConversation(session.conversation || []);
-        setQuestionIndex(session.questionIndex || 1);
-        setCurrentQuestion(session.currentQuestion || '');
-        setElapsed(session.elapsed || 0);
-        setTotalQuestions(session.totalQuestions || 6);
-        setInterviewType(session.interviewType || 'technical');
-        setInterviewerGender(session.interviewerGender || 'male');
-        setCode(session.code || BOILERPLATE.python);
-        setLanguage(session.language || 'python');
-        setNotes(session.notes || '');
-        setSavedSession(null);
-        setPhase('interview');
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const { savedSession, clearSavedSession, restoreSession } = useInterviewRecovery({
+        phase,
+        conversation,
+        questionIndex,
+        currentQuestion,
+        elapsed,
+        totalQuestions,
+        interviewType,
+        interviewerGender,
+        code,
+        language,
+        notes,
+        setConversation,
+        setQuestionIndex,
+        setCurrentQuestion,
+        setElapsed,
+        setTotalQuestions,
+        setInterviewType,
+        setInterviewerGender,
+        setCode,
+        setLanguage,
+        setNotes,
+        setPhase
+    });
 
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Webcam ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
@@ -1787,6 +1799,8 @@ export default function AIInterviewPage() {
                         userInput={userInput} setUserInput={setUserInput} setTranscript={setTranscript}
                         onSendAnswer={sendAnswer}
                         loading={loading}
+                        broadcastEvent={broadcastEvent}
+                        onCanvasChange={handleCanvasChange}
                     />
                 )}
 
