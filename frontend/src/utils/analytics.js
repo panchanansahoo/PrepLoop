@@ -9,6 +9,33 @@ const EVENT_BUFFER = [];
 const BATCH_SIZE = 10;
 const FLUSH_INTERVAL = 30000; // 30 seconds
 let flushTimer = null;
+let clickTrackingEnabled = false;
+let errorTrackingEnabled = false;
+
+export function init(options = {}) {
+  if (typeof window === 'undefined') return;
+
+  const {
+    trackPageViews = false,
+    trackClicks = false,
+    trackErrors = false,
+  } = options;
+
+  if (trackPageViews) {
+    analytics.trackPageView(window.location.pathname);
+  }
+
+  if (trackClicks && !clickTrackingEnabled) {
+    window.addEventListener('click', handleDocumentClick);
+    clickTrackingEnabled = true;
+  }
+
+  if (trackErrors && !errorTrackingEnabled) {
+    window.addEventListener('error', handleWindowError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    errorTrackingEnabled = true;
+  }
+}
 
 export function trackEvent(eventName, properties = {}) {
   EVENT_BUFFER.push({
@@ -27,6 +54,31 @@ export function trackPageView(path) {
 
 export function trackFeatureUsage(featureName, action = 'used') {
   trackEvent('feature_usage', { feature: featureName, action });
+}
+
+function handleDocumentClick(event) {
+  const target = event.target?.closest?.('button, a, [data-analytics-id]');
+  if (!target) return;
+
+  analytics.trackEvent('click', {
+    element: target.tagName?.toLowerCase(),
+    analyticsId: target.dataset?.analyticsId,
+    href: target instanceof HTMLAnchorElement ? target.pathname : undefined,
+  });
+}
+
+function handleWindowError(event) {
+  analytics.trackEvent('client_error', {
+    message: event.message,
+    source: event.filename,
+  });
+}
+
+function handleUnhandledRejection(event) {
+  analytics.trackEvent('client_error', {
+    message: event.reason?.message || String(event.reason || 'Unhandled promise rejection'),
+    source: 'unhandledrejection',
+  });
 }
 
 function getSessionId() {
@@ -57,4 +109,6 @@ if (typeof window !== 'undefined') {
   window.addEventListener('beforeunload', () => { flushEvents(); clearInterval(flushTimer); });
 }
 
-export default { trackEvent, trackPageView, trackFeatureUsage };
+const analytics = { init, trackEvent, trackPageView, trackFeatureUsage };
+
+export default analytics;
