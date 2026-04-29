@@ -1,0 +1,28 @@
+name: Live Endpoints Smoke Test
+
+on:
+  push:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/live-endpoints.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/live-endpoints.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run live endpoints harness
+        env:
+          SUPABASE_URL: http://localhost/dummy
+          SUPABASE_ANON_KEY: anon
+          GROQ_API_KEY: ''
+        run: |
+          node backend/test-live-endpoints.js
