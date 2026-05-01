@@ -26,6 +26,7 @@ dist
 dist-ssr
 build
 frontend/dist/
+frontend/dist/**
 frontend/build/
 backend/dist/
 discord-bot/dist/
@@ -99,5 +100,4 @@ node_modules
 node_modules
 
 
-#Ignore vscode AI rules
-.github\instructions\codacy.instructions.md
+
