@@ -10,6 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   process.exit(1);
 }
 
+// Production requires service role key for admin operations
 if (process.env.NODE_ENV === 'production' && !supabaseServiceKey) {
   console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY in production');
   process.exit(1);
@@ -18,7 +19,8 @@ if (process.env.NODE_ENV === 'production' && !supabaseServiceKey) {
 // Public client (respects RLS)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Admin client (bypasses RLS, for server-side operations)
+// Admin client (bypasses RLS for server-side operations)
+// In test/dev without SERVICE_ROLE_KEY, falls back to anon key with RLS active
 export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
   auth: {
     autoRefreshToken: false,

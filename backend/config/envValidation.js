@@ -11,7 +11,6 @@ const REQUIRED_VARS = [
   'FRONTEND_URL',
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
   'JWT_SECRET',
 ];
 
@@ -19,6 +18,7 @@ const REQUIRED_VARS = [
  * Required environment variables for production only
  */
 const PRODUCTION_REQUIRED_VARS = [
+  'SUPABASE_SERVICE_ROLE_KEY',
   'JWT_REFRESH_SECRET',
   'PRODUCTION_FRONTEND_URL',
 ];

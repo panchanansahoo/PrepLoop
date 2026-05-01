@@ -21,6 +21,7 @@ const PRODUCTION_ENV = process.env.NODE_ENV === 'production';
  */
 export function getProductionEnvValidationErrors() {
   const errors = [];
+  const isProduction = process.env.NODE_ENV === 'production';
 
   // Check Supabase configuration
   if (!process.env.SUPABASE_URL) {
@@ -31,8 +32,9 @@ export function getProductionEnvValidationErrors() {
     errors.push('❌ SUPABASE_ANON_KEY is not configured. Client-side API calls will fail.');
   }
 
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is not configured. Server-side operations will fail.');
+  // Service role key only required in production
+  if (isProduction && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is not configured. Server-side admin operations will fail in production.');
   }
 
   // Security check: reject insecure JWT defaults in production
