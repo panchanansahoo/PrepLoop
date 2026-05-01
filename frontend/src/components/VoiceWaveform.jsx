@@ -1,6 +1,10 @@
 /**
  * VoiceWaveform — Animated equalizer-style waveform bar visualization
  *
+ * Optimized with React.memo to prevent re-renders when props don't change.
+ * This is critical during STT capture where parent components may re-render
+ * frequently due to other state changes (timers, UI updates, etc).
+ *
  * Props:
  *   bars      number[]   — 0..1 normalized amplitude per bar
  *   color     string     — CSS color for bars (can be gradient via CSS var)
@@ -9,7 +13,7 @@
  *   voiceState string    — 'idle' | 'listening' | 'speaking' | 'processing'
  *   className string     — extra class names
  */
-import React from 'react';
+import React, { useMemo } from 'react';
 import './VoiceWaveform.css';
 
 const IDLE_PATTERN = [0.15, 0.25, 0.35, 0.25, 0.15, 0.25, 0.35, 0.25];
@@ -21,7 +25,7 @@ const STATE_COLORS = {
     processing: 'var(--waveform-processing, #f59e0b)',
 };
 
-export default function VoiceWaveform({
+function VoiceWaveformComponent({
     bars       = IDLE_PATTERN,
     color      = null,
     height     = 48,
@@ -31,10 +35,14 @@ export default function VoiceWaveform({
     className  = '',
 }) {
     const resolvedState = state || voiceState || 'idle';
-    const normalizedBars = bars.map(b => {
-        const v = typeof b === 'number' ? b : 0;
-        return v > 1 ? v / 100 : Math.max(0, Math.min(1, v));
-    });
+    
+    // Memoize normalized bars calculation to prevent recalculation on every render
+    const normalizedBars = useMemo(() => {
+        return bars.map(b => {
+            const v = typeof b === 'number' ? b : 0;
+            return v > 1 ? v / 100 : Math.max(0, Math.min(1, v));
+        });
+    }, [bars]);
 
     const resolvedColor = color || STATE_COLORS[resolvedState] || STATE_COLORS.idle;
     const stateClass = `vw-${resolvedState}`;
@@ -61,3 +69,29 @@ export default function VoiceWaveform({
         </div>
     );
 }
+
+// Memoize component with custom comparison for array props
+const VoiceWaveform = React.memo(VoiceWaveformComponent, (prevProps, nextProps) => {
+    // Return true if props are equal (skip re-render), false if different (re-render)
+    // Custom comparison for bars array to do shallow comparison instead of reference check
+    const barsChanged = 
+        prevProps.bars?.length !== nextProps.bars?.length ||
+        (prevProps.bars && nextProps.bars && 
+         prevProps.bars.some((val, idx) => val !== nextProps.bars[idx]));
+    
+    if (barsChanged) return false; // Props changed, re-render
+    
+    // For other props, use reference equality
+    return (
+        prevProps.color === nextProps.color &&
+        prevProps.height === nextProps.height &&
+        prevProps.active === nextProps.active &&
+        prevProps.state === nextProps.state &&
+        prevProps.voiceState === nextProps.voiceState &&
+        prevProps.className === nextProps.className
+    );
+});
+
+VoiceWaveform.displayName = 'VoiceWaveform';
+
+export default VoiceWaveform;
