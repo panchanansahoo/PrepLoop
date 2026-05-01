@@ -464,6 +464,22 @@ router.get('/best-provider', (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// TTS CACHE STATUS — Service Worker cache statistics
+// GET /api/voice/cache-status
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/cache-status', (req, res) => {
+    // Service Worker cache stats are managed client-side
+    // This endpoint provides server-side cache info (for future sync/debugging)
+    res.json({
+        sw_cache_enabled: true,
+        cache_name: 'tts-v1',
+        cache_ttl_ms: 24 * 60 * 60 * 1000,
+        timestamp: Date.now(),
+        description: 'Service Worker TTS cache — query client-side via useServiceWorkerTTS hook',
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STT FILE — Legacy file-based STT (still used by other features)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────

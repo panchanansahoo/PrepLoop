@@ -13,6 +13,7 @@ import { lazyWithRecovery } from './utils/lazyWithRecovery';
 import performanceMonitor from './utils/performanceMonitor';
 import { OfflineBanner } from './hooks/useOffline';
 import { SkipToContent } from './utils/a11y';
+import useServiceWorkerTTS from './hooks/useServiceWorkerTTS';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 
 const Home = lazyWithRecovery(() => import('./pages/Home'));
@@ -161,6 +162,9 @@ function AppContent() {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  // Initialize TTS Service Worker
+  useServiceWorkerTTS();
 
   // Close mobile sidebar on route change
   useEffect(() => {
