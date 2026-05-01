@@ -197,11 +197,27 @@ export function buildAdaptivePointTooltip(entry = {}) {
   return `Turn ${turn}: ${difficultyLabel} — ${adaptiveNote}`;
 }
 
+function normalizeCodeForSubmission(value) {
+  return String(value || '').replace(/\r\n/g, '\n').trim();
+}
+
+export function hasMeaningfulCode(code = '', { boilerplate = '' } = {}) {
+  const normalizedCode = normalizeCodeForSubmission(code);
+  const normalizedBoilerplate = normalizeCodeForSubmission(boilerplate);
+
+  if (!normalizedCode) {
+    return false;
+  }
+
+  return !normalizedBoilerplate || normalizedCode !== normalizedBoilerplate;
+}
+
 export function resolveSubmittedAnswer({
   providedAnswer = '',
   userInput = '',
   transcript = '',
   code = '',
+  boilerplate = '',
 } = {}) {
   const normalizedProvidedAnswer = typeof providedAnswer === 'string'
     ? providedAnswer.trim()
@@ -210,12 +226,16 @@ export function resolveSubmittedAnswer({
   const answer = [normalizedProvidedAnswer, userInput, transcript]
     .map((value) => String(value || '').trim())
     .find((value) => value.length > 0) || '';
-  const normalizedCode = String(code || '').trim();
+  const normalizedCode = hasMeaningfulCode(code, { boilerplate })
+    ? normalizeCodeForSubmission(code)
+    : '';
 
   return {
     answer,
-    fullAnswer: normalizedCode
+    fullAnswer: normalizedCode && answer
       ? `${answer}\n\n--- Code ---\n${normalizedCode}`
-      : answer,
+      : normalizedCode
+        ? `--- Code ---\n${normalizedCode}`
+        : answer,
   };
 }

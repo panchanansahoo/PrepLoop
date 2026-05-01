@@ -206,11 +206,20 @@ class CacheManager {
     if (!this.isConnected || !this.client) return keys;
     
     try {
-      const [nextCursor, foundKeys] = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      let nextCursor, foundKeys;
+      if (this._isUpstash()) {
+        // Upstash REST client: scan(cursor, { match, count })
+        const result = await this.client.scan(Number(cursor), { match: pattern, count: 100 });
+        [nextCursor, foundKeys] = result;
+      } else {
+        // Legacy node-redis TCP client: scan(cursor, 'MATCH', pattern, 'COUNT', count)
+        const result = await this.client.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+        [nextCursor, foundKeys] = result;
+      }
       keys.push(...foundKeys);
       
-      if (nextCursor !== '0') {
-        return this.scanKeys(pattern, nextCursor, keys);
+      if (String(nextCursor) !== '0') {
+        return this.scanKeys(pattern, String(nextCursor), keys);
       }
     } catch (error) {
       logger.error('Error scanning keys:', error);
@@ -366,21 +375,20 @@ class CacheManager {
     try {
       if (this.isConnected && this.client) {
         if (this._isUpstash()) {
-          // Upstash: use SCAN-based key listing (avoids KEYS command on large datasets)
-          // For small free-tier datasets, direct keys() is acceptable
-          const keys = await this.client.keys(pattern);
+          // Use SCAN-based iteration to avoid blocking O(N) KEYS command
+          const keys = await this.scanKeys(`*${pattern}*`);
           if (keys.length > 0) {
-            this._commandCount += 2; // keys + del
+            this._commandCount += keys.length + 1;
             await this.client.del(...keys);
-            logger.debug('Cache pattern deleted (Upstash)', { pattern, count: keys.length });
+            logger.debug('Cache pattern deleted (Upstash SCAN)', { pattern, count: keys.length });
           }
         } else {
-          // Legacy Redis TCP
-          const keys = await this.client.keys(pattern);
+          // Legacy Redis TCP — also use SCAN
+          const keys = await this.scanKeys(`*${pattern}*`);
           if (keys.length > 0) {
-            this._commandCount += 2;
+            this._commandCount += keys.length + 1;
             await this.client.del(keys);
-            logger.debug('Cache pattern deleted', { pattern, count: keys.length });
+            logger.debug('Cache pattern deleted (SCAN)', { pattern, count: keys.length });
           }
         }
       }

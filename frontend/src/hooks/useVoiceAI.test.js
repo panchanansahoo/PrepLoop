@@ -61,6 +61,6 @@ describe('useVoiceAI helpers', () => {
 
         const capped = appendTranscriptCapped('1234567890', 'abcdefghij', 12);
         expect(capped.length).toBe(12);
-        expect(capped).toBe('90 abcdefghij');
+        expect(capped).toBe('0 abcdefghij');
     });
 });

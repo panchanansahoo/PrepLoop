@@ -123,9 +123,7 @@ class ErrorBoundary extends Component {
   componentDidCatch(error, info) {
     console.error('App crash:', error, info);
     // Log performance metrics on error for debugging
-    performanceMonitor.getMetrics().then(metrics => {
-      console.error('Performance metrics at error:', metrics);
-    });
+    console.error('Performance metrics at error:', performanceMonitor.getMetrics());
   }
   handleReloadPage() {
     window.location.reload();

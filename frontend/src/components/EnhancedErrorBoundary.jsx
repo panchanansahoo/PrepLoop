@@ -37,44 +37,12 @@ class EnhancedErrorBoundary extends Component {
       console.error('Error Boundary caught:', error, errorInfo);
     }
 
-    // Send error to monitoring service in production
-    if (import.meta.env.PROD) {
-      this.reportError(error, errorInfo);
-    }
-
     // Auto-reload if too many errors in short time
     if (newErrorCount >= 3) {
       console.error('Multiple errors detected, forcing reload...');
       setTimeout(() => window.location.reload(), 2000);
     }
   }
-
-  reportError = async (error, errorInfo) => {
-    try {
-      // Send to backend error tracking endpoint
-      await fetch('/api/errors/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          error: {
-            message: error.message,
-            stack: error.stack,
-            name: error.name,
-          },
-          errorInfo: {
-            componentStack: errorInfo.componentStack,
-          },
-          context: {
-            url: window.location.href,
-            userAgent: navigator.userAgent,
-            timestamp: new Date().toISOString(),
-          },
-        }),
-      });
-    } catch (err) {
-      console.error('Failed to report error:', err);
-    }
-  };
 
   handleReload = () => {
     window.location.reload();

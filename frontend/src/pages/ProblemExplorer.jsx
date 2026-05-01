@@ -789,7 +789,7 @@ export default function ProblemExplorer() {
                     initialLoading={initialLoading}
                     roman={ROMAN}
                     getExplanationSnippet={getExplanationSnippet}
-                    onSolveProblem={(problemId) => navigate(`/problem/${problemId}`)}
+                    onSolveProblem={goToProblem}
                 />
 
                 {/* ══════════ ALL QUESTIONS VIEW ══════════ */}
@@ -802,7 +802,7 @@ export default function ProblemExplorer() {
                     sortDir={sortDir}
                     setSortBy={setSortBy}
                     setSortDir={setSortDir}
-                    onSolveProblem={(problemId) => navigate(`/problem/${problemId}`)}
+                    onSolveProblem={goToProblem}
                     getExplanationSnippet={getExplanationSnippet}
                 />
 

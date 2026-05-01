@@ -22,8 +22,7 @@ import {
     AlertTriangle, Brain, Code2, Shield,
 } from 'lucide-react';
 import {
-    getThinkingDelayMs,
-    getInterviewerReaction,
+    getTurnTransition,
     getSilencePrompt,
     communicationScore as calcCommunication,
     technicalScore as calcTechnical,
@@ -42,6 +41,10 @@ import {
     STAGE_MAP,
     formatTime,
 } from './aiInterviewConfig';
+import {
+    hasMeaningfulCode,
+    resolveSubmittedAnswer,
+} from './aiInterviewRuntime';
 import './AIInterviewPage.css';
 
 export default function AIInterviewPage() {
@@ -314,6 +317,7 @@ export default function AIInterviewPage() {
     useEffect(() => {
         stateRefs.current = { userInput, transcript, code, language };
     }, [userInput, transcript, code, language]);
+    const codeIsSubmittable = hasMeaningfulCode(code, { boilerplate: BOILERPLATE[language] });
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Intelligence: feed live transcript to filler detector ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
     useEffect(() => {
@@ -1035,9 +1039,17 @@ export default function AIInterviewPage() {
         // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
         // pass the answer text directly, bypassing stale React state.
         // Bug 3 fix: Read from stateRefs to avoid stale closure on userInput/transcript
-        const answer = isAutoSkip === true
-            ? "I do not have a response to this question."
-            : (answerOverride?.trim() || stateRefs.current.userInput.trim() || stateRefs.current.transcript.trim());
+        const currentBoilerplate = BOILERPLATE[stateRefs.current.language] || '';
+        const codeIsSubmittableForAnswer = hasMeaningfulCode(stateRefs.current.code, {
+            boilerplate: currentBoilerplate,
+        });
+        const { answer, fullAnswer } = resolveSubmittedAnswer({
+            providedAnswer: isAutoSkip === true ? "I do not have a response to this question." : answerOverride,
+            userInput: stateRefs.current.userInput,
+            transcript: stateRefs.current.transcript,
+            code: stateRefs.current.code,
+            boilerplate: currentBoilerplate,
+        });
 
         // Bug 1 fix: Track consecutive silent auto-skips for graceful early-exit
         if (isAutoSkip === true) {
@@ -1050,12 +1062,7 @@ export default function AIInterviewPage() {
         if (answer && answer.length > 10) {
             intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
         }
-        if (!answer && !stateRefs.current.code.trim() && isAutoSkip !== true) { isSendingRef.current = false; return; }
-
-        const currentCode = stateRefs.current.code.trim();
-        const fullAnswer = currentCode
-            ? `${answer}\n\n--- Code ---\n${currentCode}`
-            : answer;
+        if (!answer && !codeIsSubmittableForAnswer && isAutoSkip !== true) { isSendingRef.current = false; return; }
 
         setConversation(prev => [...prev, {
             role: 'candidate',
@@ -1166,14 +1173,20 @@ export default function AIInterviewPage() {
 
             // Shared speak-and-handoff logic (used in both try and catch)
             // SPEED FIX: Only speak the question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â feedback is text-only in chat.
-            const speakAndHandoff = async (questionSegment, isEnding = false) => {
+            const speakAndHandoff = async (questionSegment, isEnding = false, leadIn = '') => {
                 setLoading(false);
                 if (isEnding) {
                     await speakInterviewerText(questionSegment);
                     setTimeout(() => endInterview(), 1500);
                 } else {
-                    // Speak only the next question (no feedback speech)
-                    await speakInterviewerText(questionSegment);
+                    const segments = [leadIn, questionSegment]
+                        .map((segment) => String(segment || '').trim())
+                        .filter(Boolean);
+                    if (segments.length > 1) {
+                        await speakSequence(segments, { pauseMs: 220 });
+                    } else {
+                        await speakInterviewerText(questionSegment);
+                    }
                     if (!isListeningRef.current) {
                         startVoiceRecording();
                     }
@@ -1208,11 +1221,15 @@ export default function AIInterviewPage() {
                     content: continueQ,
                     timestamp: Date.now(),
                 }]);
-                // No artificial delay ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â speak the next question immediately.
-                // Feedback is already added to conversation as text above.
-                const reaction = getInterviewerReaction(feedbackScore, interviewType);
-                setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
-                await speakAndHandoff(continueQ);
+                const transition = getTurnTransition({
+                    score: feedbackScore,
+                    interviewType,
+                    answerText: fullAnswer,
+                });
+                setInterviewerStatus(transition.statusText);
+                await new Promise(resolve => setTimeout(resolve, transition.pauseMs));
+                setInterviewerStatus(transition.spokenLeadIn);
+                await speakAndHandoff(continueQ, false, transition.spokenLeadIn);
                 setInterviewerStatus('');
             }
         } catch (error) {
@@ -1791,6 +1808,7 @@ export default function AIInterviewPage() {
                         workspaceDropdownOpen={workspaceDropdownOpen} setWorkspaceDropdownOpen={setWorkspaceDropdownOpen}
                         language={language} onLanguageChange={handleLanguageChange}
                         code={code} setCode={setCode}
+                        canSubmitCode={codeIsSubmittable}
                         onReset={handleReset}
                         notes={notes} setNotes={setNotes}
                         isListening={isListening} transcript={transcript}
@@ -1814,7 +1832,7 @@ export default function AIInterviewPage() {
                         onSendAnswer={sendAnswer}
                         onClose={() => setChatOpen(false)}
                         chatEndRef={chatEndRef}
-                        code={code}
+                        canSubmitCode={codeIsSubmittable}
                     />
                 )}
 
@@ -1825,7 +1843,3 @@ export default function AIInterviewPage() {
         </div>
     );
 }
-
-
-
-

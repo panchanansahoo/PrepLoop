@@ -1,0 +1,541 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "15118414004044602957"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "centralindia"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "defaultValue": "preploop-backend"
+    },
+    "appServicePlanName": {
+      "type": "string",
+      "defaultValue": "preploop-backend-plan"
+    },
+    "webAppName": {
+      "type": "string",
+      "defaultValue": "preploop-api-staging"
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "staging"
+    },
+    "logAnalyticsWorkspaceName": {
+      "type": "string",
+      "defaultValue": "preploop-law"
+    },
+    "monitorWorkspaceName": {
+      "type": "string",
+      "defaultValue": "preploop-amw"
+    },
+    "grafanaName": {
+      "type": "string",
+      "defaultValue": "preploop-grafana"
+    },
+    "appInsightsName": {
+      "type": "string",
+      "defaultValue": "preploop-ai"
+    },
+    "alertEmail": {
+      "type": "string",
+      "defaultValue": ""
+    }
+  },
+  "variables": {
+    "tags": {
+      "environment": "[parameters('environment')]",
+      "project": "preploop",
+      "createdBy": "azd"
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('resourceGroupName')]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "appService-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "appServicePlanName": {
+            "value": "[parameters('appServicePlanName')]"
+          },
+          "webAppName": {
+            "value": "[parameters('webAppName')]"
+          },
+          "environment": {
+            "value": "[parameters('environment')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "4317439388874855737"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "appServicePlanName": {
+              "type": "string"
+            },
+            "webAppName": {
+              "type": "string"
+            },
+            "environment": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2024-04-01",
+              "name": "[parameters('appServicePlanName')]",
+              "location": "[parameters('location')]",
+              "kind": "linux",
+              "sku": {
+                "name": "B1",
+                "tier": "Basic",
+                "capacity": 1
+              },
+              "properties": {
+                "reserved": true
+              },
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2024-04-01",
+              "name": "[parameters('webAppName')]",
+              "location": "[parameters('location')]",
+              "kind": "app,linux",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]",
+                "httpsOnly": true,
+                "publicNetworkAccess": "Enabled"
+              },
+              "tags": "[parameters('tags')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2024-04-01",
+              "name": "[format('{0}/{1}', parameters('webAppName'), 'web')]",
+              "properties": {
+                "linuxFxVersion": "NODE|20-lts",
+                "appCommandLine": "npm start",
+                "alwaysOn": false,
+                "http20Enabled": true,
+                "minTlsVersion": "1.2",
+                "ftpsState": "FtpsOnly",
+                "nodeVersion": "",
+                "use32BitWorkerProcess": true,
+                "detailedErrorLoggingEnabled": true,
+                "requestTracingEnabled": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2024-04-01",
+              "name": "[format('{0}/{1}', parameters('webAppName'), 'appsettings')]",
+              "properties": {
+                "NODE_ENV": "[if(equals(parameters('environment'), 'production'), 'production', 'staging')]",
+                "WEBSITE_NODE_DEFAULT_VERSION": "~20",
+                "SCM_DO_BUILD_DURING_DEPLOYMENT": "true",
+                "SUPABASE_URL": "",
+                "SUPABASE_ANON_KEY": "",
+                "SUPABASE_SERVICE_ROLE_KEY": "",
+                "SUPABASE_DB_PASSWORD": "",
+                "JWT_SECRET": "",
+                "FRONTEND_URL": "",
+                "GROQ_API_KEY": "",
+                "RAZORPAY_KEY_ID": "",
+                "RAZORPAY_KEY_SECRET": "",
+                "RAZORPAY_WEBHOOK_SECRET": "",
+                "SMTP_HOST": "",
+                "SMTP_PORT": "",
+                "SMTP_USER": "",
+                "SMTP_PASS": "",
+                "RAPIDAPI_KEY": "",
+                "ADZUNA_APP_ID": "",
+                "ADZUNA_APP_KEY": "",
+                "USE_REDIS": "",
+                "REDIS_URL": "",
+                "RECAPTCHA_SECRET_KEY": ""
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "appServicePlanId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/serverfarms', parameters('appServicePlanName'))]"
+            },
+            "webAppId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+            },
+            "webAppUrl": {
+              "type": "string",
+              "value": "[format('https://{0}', reference(resourceId('Microsoft.Web/sites', parameters('webAppName')), '2024-04-01').defaultHostName)]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "monitoring-deployment",
+      "resourceGroup": "[parameters('resourceGroupName')]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "webAppName": {
+            "value": "[parameters('webAppName')]"
+          },
+          "logAnalyticsWorkspaceName": {
+            "value": "[parameters('logAnalyticsWorkspaceName')]"
+          },
+          "monitorWorkspaceName": {
+            "value": "[parameters('monitorWorkspaceName')]"
+          },
+          "grafanaName": {
+            "value": "[parameters('grafanaName')]"
+          },
+          "appInsightsName": {
+            "value": "[parameters('appInsightsName')]"
+          },
+          "actionGroupEmail": {
+            "value": "[parameters('alertEmail')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.42.1.51946",
+              "templateHash": "5227373884463142433"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            },
+            "webAppName": {
+              "type": "string"
+            },
+            "logAnalyticsWorkspaceName": {
+              "type": "string"
+            },
+            "monitorWorkspaceName": {
+              "type": "string"
+            },
+            "grafanaName": {
+              "type": "string"
+            },
+            "appInsightsName": {
+              "type": "string"
+            },
+            "actionGroupEmail": {
+              "type": "string",
+              "defaultValue": ""
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('logAnalyticsWorkspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "retentionInDays": 30,
+                "features": {
+                  "searchVersion": 1,
+                  "enableLogAccessUsingOnlyResourcePermissions": true
+                },
+                "sku": {
+                  "name": "PerGB2018"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[parameters('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+                "IngestionMode": "LogAnalytics",
+                "DisableIpMasking": false
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Monitor/accounts",
+              "apiVersion": "2023-04-03",
+              "name": "[parameters('monitorWorkspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "properties": {}
+            },
+            {
+              "type": "Microsoft.Dashboard/grafana",
+              "apiVersion": "2023-09-01",
+              "name": "[parameters('grafanaName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "apiKey": "Disabled",
+                "deterministicOutboundIP": "Enabled",
+                "publicNetworkAccess": "Enabled",
+                "zoneRedundancy": "Enabled",
+                "grafanaMajorVersion": "11",
+                "autoGeneratedDomainNameLabelScope": "TenantReuse",
+                "grafanaIntegrations": {
+                  "azureMonitorWorkspaceIntegrations": [
+                    {
+                      "azureMonitorWorkspaceResourceId": "[resourceId('Microsoft.Monitor/accounts', parameters('monitorWorkspaceName'))]"
+                    }
+                  ]
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Monitor/accounts', parameters('monitorWorkspaceName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Insights/diagnosticSettings",
+              "apiVersion": "2021-05-01-preview",
+              "scope": "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]",
+              "name": "send-to-law",
+              "properties": {
+                "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]",
+                "logs": [
+                  {
+                    "category": "AppServiceHTTPLogs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "AppServiceConsoleLogs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "AppServiceAppLogs",
+                    "enabled": true
+                  },
+                  {
+                    "category": "AppServicePlatformLogs",
+                    "enabled": true
+                  }
+                ],
+                "metrics": [
+                  {
+                    "category": "AllMetrics",
+                    "enabled": true
+                  }
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+              ]
+            },
+            {
+              "condition": "[not(empty(parameters('actionGroupEmail')))]",
+              "type": "Microsoft.Insights/actionGroups",
+              "apiVersion": "2023-01-01",
+              "name": "[format('{0}-ops-ag', replace(parameters('grafanaName'), '_', '-'))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "groupShortName": "prepops",
+                "enabled": true,
+                "emailReceivers": [
+                  {
+                    "name": "ops-email",
+                    "emailAddress": "[parameters('actionGroupEmail')]",
+                    "useCommonAlertSchema": true
+                  }
+                ]
+              }
+            },
+            {
+              "type": "Microsoft.Insights/metricAlerts",
+              "apiVersion": "2018-03-01",
+              "name": "[format('{0}-appservice-5xx', replace(parameters('grafanaName'), '_', '-'))]",
+              "location": "global",
+              "tags": "[parameters('tags')]",
+              "properties": {
+                "description": "App Service HTTP 5xx alert for preploop backend",
+                "severity": 2,
+                "enabled": true,
+                "scopes": [
+                  "[resourceId('Microsoft.Web/sites', parameters('webAppName'))]"
+                ],
+                "evaluationFrequency": "PT5M",
+                "windowSize": "PT5M",
+                "criteria": {
+                  "allOf": [
+                    {
+                      "criterionType": "StaticThresholdCriterion",
+                      "name": "http5xx-threshold",
+                      "metricNamespace": "Microsoft.Web/sites",
+                      "metricName": "Http5xx",
+                      "operator": "GreaterThan",
+                      "timeAggregation": "Total",
+                      "threshold": 5
+                    }
+                  ],
+                  "odata.type": "Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria"
+                },
+                "autoMitigate": true,
+                "targetResourceType": "Microsoft.Web/sites",
+                "targetResourceRegion": "[parameters('location')]",
+                "actions": "[if(not(empty(parameters('actionGroupEmail'))), createArray(createObject('actionGroupId', resourceId('Microsoft.Insights/actionGroups', format('{0}-ops-ag', replace(parameters('grafanaName'), '_', '-'))))), createArray())]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/actionGroups', format('{0}-ops-ag', replace(parameters('grafanaName'), '_', '-')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('logAnalyticsWorkspaceName'))]"
+            },
+            "monitorWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Monitor/accounts', parameters('monitorWorkspaceName'))]"
+            },
+            "grafanaId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName'))]"
+            },
+            "grafanaUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Dashboard/grafana', parameters('grafanaName')), '2023-09-01').endpoint]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', parameters('appInsightsName')), '2020-02-02').ConnectionString]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "resourceGroupId": {
+      "type": "string",
+      "value": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', parameters('resourceGroupName'))]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[parameters('resourceGroupName')]"
+    },
+    "appServicePlanId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'appService-deployment'), '2025-04-01').outputs.appServicePlanId.value]"
+    },
+    "webAppId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'appService-deployment'), '2025-04-01').outputs.webAppId.value]"
+    },
+    "webAppUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'appService-deployment'), '2025-04-01').outputs.webAppUrl.value]"
+    },
+    "logAnalyticsWorkspaceId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+    },
+    "monitorWorkspaceId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.monitorWorkspaceId.value]"
+    },
+    "grafanaId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.grafanaId.value]"
+    },
+    "grafanaUrl": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.grafanaUrl.value]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('resourceGroupName')), 'Microsoft.Resources/deployments', 'monitoring-deployment'), '2025-04-01').outputs.appInsightsConnectionString.value]"
+    }
+  }
+}

@@ -42,6 +42,7 @@ function InterviewWorkspace({
     workspaceDropdownOpen, setWorkspaceDropdownOpen,
     language, onLanguageChange,
     code, setCode,
+    canSubmitCode = false,
     onReset,
     notes, setNotes,
     isListening, transcript,
@@ -220,7 +221,7 @@ function InterviewWorkspace({
                 <button
                     className="ai-vc-ws-send"
                     onClick={onSendAnswer}
-                    disabled={(!userInput.trim() && !transcript.trim() && !code.trim()) || loading}
+                    disabled={(!userInput.trim() && !transcript.trim() && !canSubmitCode) || loading}
                 >
                     <Send size={14} />
                 </button>

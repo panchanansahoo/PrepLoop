@@ -18,13 +18,9 @@ const logger = createLogger('metrics');
 
 // Simple API key auth for metrics endpoint
 function metricsAuth(req, res, next) {
-  const apiKey = req.headers['x-metrics-key'] || req.query.key;
+  const rawApiKey = req.headers['x-metrics-key'];
+  const apiKey = Array.isArray(rawApiKey) ? rawApiKey[0] : rawApiKey;
   const expectedKey = process.env.METRICS_API_KEY;
-
-  // If no key configured, allow access in development
-  if (!expectedKey && process.env.NODE_ENV !== 'production') {
-    return next();
-  }
 
   if (!expectedKey || apiKey !== expectedKey) {
     return res.status(401).json({ error: 'Unauthorized' });

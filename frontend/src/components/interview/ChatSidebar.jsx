@@ -67,7 +67,7 @@ function ChatSidebar({
     onSendAnswer,
     onClose,
     chatEndRef,
-    code,
+    canSubmitCode = false,
 }) {
     return (
         <div className="ai-vc-chat-overlay">
@@ -120,7 +120,7 @@ function ChatSidebar({
                 <button
                     className="ai-chat-send-btn"
                     onClick={onSendAnswer}
-                    disabled={(!userInput.trim() && !code.trim()) || loading}
+                    disabled={(!userInput.trim() && !canSubmitCode) || loading}
                 >
                     <Send size={14} />
                 </button>

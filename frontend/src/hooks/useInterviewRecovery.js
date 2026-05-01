@@ -48,6 +48,21 @@ export function useInterviewRecovery({
 
     // Use a ref to hold latest state to avoid re-triggering the interval
     const stateRef = useRef({});
+    const saveCurrentSession = useCallback(() => {
+        const state = stateRef.current;
+        if (!state.conversation || state.conversation.length === 0) return;
+
+        try {
+            const sessionData = {
+                ...state,
+                timestamp: Date.now(),
+            };
+            window.localStorage.setItem(AI_INTERVIEW_SESSION_KEY, JSON.stringify(sessionData));
+        } catch {
+            // Storage full or unavailable
+        }
+    }, []);
+
     useEffect(() => {
         stateRef.current = {
             conversation,
@@ -67,23 +82,11 @@ export function useInterviewRecovery({
     useEffect(() => {
         if (phase !== 'interview') return;
 
-        const intervalId = setInterval(() => {
-            const state = stateRef.current;
-            if (!state.conversation || state.conversation.length === 0) return;
-            
-            try {
-                const sessionData = {
-                    ...state,
-                    timestamp: Date.now(),
-                };
-                window.localStorage.setItem(AI_INTERVIEW_SESSION_KEY, JSON.stringify(sessionData));
-            } catch {
-                // Storage full or unavailable
-            }
-        }, 15000); // Save every 15 seconds
+        saveCurrentSession();
+        const intervalId = setInterval(saveCurrentSession, 15000); // Save every 15 seconds
 
         return () => clearInterval(intervalId);
-    }, [phase]);
+    }, [phase, saveCurrentSession]);
 
     const clearSavedSession = useCallback(() => {
         setSavedSession(null);

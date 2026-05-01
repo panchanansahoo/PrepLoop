@@ -91,7 +91,7 @@ export function useDsaPatterns(solvedSet) {
                     difficulty: problem.difficulty,
                     status: solvedSet.has(problem.id) ? 'solved' : 'pending',
                     leetcodeLink: problem.leetcodeLink,
-                    link: `/problem/${problem.id}`,
+                    link: `/code-editor/${problem.id}`,
                 }));
 
                 results.push({

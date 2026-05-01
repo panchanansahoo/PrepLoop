@@ -1,10 +1,24 @@
 import express from 'express';
 import Groq from 'groq-sdk';
+import rateLimit from 'express-rate-limit';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
+
+// Per-user rate limit applied after authenticateToken so req.user is available
+const perUserAiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id ?? req.ip,
+  message: { error: 'Too many AI requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply auth + per-user limiter to all routes in this router
+router.use(authenticateToken, perUserAiLimiter);
 
 const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -57,7 +71,7 @@ const resolveProblemId = async (problemIdentifier) => {
   return null;
 };
 
-router.post('/code-feedback', authenticateToken, async (req, res) => {
+router.post('/code-feedback', async (req, res) => {
   const { code, language, problemId } = req.body;
 
   if (!code || !language) {
@@ -155,7 +169,7 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/mock-interview', authenticateToken, async (req, res) => {
+router.post('/mock-interview', async (req, res) => {
   const { interviewType, difficulty, userResponse } = req.body;
 
   try {
@@ -190,7 +204,7 @@ router.post('/mock-interview', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/hint', authenticateToken, async (req, res) => {
+router.post('/hint', async (req, res) => {
   const { problemId, currentCode } = req.body;
 
   try {
@@ -239,7 +253,7 @@ router.post('/hint', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/explain', authenticateToken, async (req, res) => {
+router.post('/explain', async (req, res) => {
   const { code, language } = req.body;
 
   try {
@@ -273,7 +287,7 @@ router.post('/explain', authenticateToken, async (req, res) => {
 });
 
 // ─── Playground AI Assistant ───
-router.post('/playground-assist', authenticateToken, async (req, res) => {
+router.post('/playground-assist', async (req, res) => {
   const { code, language, mode, prompt, history } = req.body;
 
   if (!code && mode !== 'ask') {

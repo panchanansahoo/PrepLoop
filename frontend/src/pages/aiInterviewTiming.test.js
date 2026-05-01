@@ -8,30 +8,56 @@ import {
     codeQualityScore,
     getQuestionTimeLimit,
     getSilencePrompt,
+    getTurnTransition,
     QUESTION_TIME_LIMITS,
 } from './aiInterviewTiming';
 
 describe('aiInterviewTiming', () => {
     describe('getThinkingDelayMs', () => {
         it('returns 200ms baseline for empty input', () => {
-            expect(getThinkingDelayMs('')).toBe(200);
-            expect(getThinkingDelayMs()).toBe(200);
-            expect(getThinkingDelayMs(null)).toBe(200);
+            expect(getThinkingDelayMs('')).toBe(650);
+            expect(getThinkingDelayMs()).toBe(650);
+            expect(getThinkingDelayMs(null)).toBe(650);
         });
 
-        it('scales linearly with text length', () => {
-            const short = getThinkingDelayMs('hello');   // 5 chars → 200 + 7.5 = 207.5 → 207.5
-            const medium = getThinkingDelayMs('a'.repeat(100)); // 200 + 150 = 350
+        it('scales with text length for more natural turn-taking', () => {
+            const short = getThinkingDelayMs('hello');
+            const medium = getThinkingDelayMs('a'.repeat(100));
             expect(short).toBeLessThan(medium);
         });
 
-        it('caps at 800ms for very long answers', () => {
-            expect(getThinkingDelayMs('a'.repeat(1000))).toBe(800);
-            expect(getThinkingDelayMs('a'.repeat(5000))).toBe(800);
+        it('caps at 1800ms for very long answers', () => {
+            expect(getThinkingDelayMs('a'.repeat(1000))).toBe(1800);
+            expect(getThinkingDelayMs('a'.repeat(5000))).toBe(1800);
         });
 
         it('handles whitespace-only input as empty', () => {
-            expect(getThinkingDelayMs('   ')).toBe(200);
+            expect(getThinkingDelayMs('   ')).toBe(650);
+        });
+    });
+
+    describe('getTurnTransition', () => {
+        it('builds a short spoken acknowledgement and status', () => {
+            const transition = getTurnTransition({
+                score: 82,
+                interviewType: 'dsa',
+                answerText: 'I would use a hash map and discuss O(n) time.',
+            });
+
+            expect(transition.statusText).toContain('Reviewing');
+            expect(transition.spokenLeadIn).toContain('Good');
+            expect(transition.pauseMs).toBeGreaterThanOrEqual(650);
+            expect(transition.pauseMs).toBeLessThanOrEqual(1800);
+        });
+
+        it('uses supportive wording for lower-scoring HR answers', () => {
+            const transition = getTurnTransition({
+                score: 42,
+                interviewType: 'hr',
+                answerText: 'I am not sure.',
+            });
+
+            expect(transition.spokenLeadIn).toContain('That is okay');
         });
     });
 
@@ -203,4 +229,3 @@ describe('aiInterviewTiming', () => {
         });
     });
 });
-

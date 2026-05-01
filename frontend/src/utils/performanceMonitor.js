@@ -7,17 +7,7 @@
 
 class PerformanceMonitor {
   constructor() {
-    this.metrics = {
-      pageLoadTime: 0,
-      firstContentfulPaint: 0,
-      largestContentfulPaint: 0,
-      firstInputDelay: 0,
-      cumulativeLayoutShift: 0,
-      timeToInteractive: 0,
-      resourceLoadTimes: new Map(),
-      apiResponseTimes: new Map(),
-      bundleLoadTimes: new Map()
-    };
+    this.metrics = this.createEmptyMetrics();
     
     this.thresholds = {
       pageLoadTime: 3000,        // 3 seconds
@@ -32,6 +22,25 @@ class PerformanceMonitor {
     
     this.listeners = new Set();
     this.isMonitoring = false;
+    this.originalFetch = null;
+  }
+
+  createEmptyMetrics() {
+    return {
+      pageLoadTime: 0,
+      firstContentfulPaint: 0,
+      largestContentfulPaint: 0,
+      firstInputDelay: 0,
+      cumulativeLayoutShift: 0,
+      timeToInteractive: 0,
+      resourceLoadTimes: new Map(),
+      apiResponseTimes: new Map(),
+      bundleLoadTimes: new Map()
+    };
+  }
+
+  init() {
+    this.start();
   }
 
   /**
@@ -61,6 +70,8 @@ class PerformanceMonitor {
    * Setup Web Vitals monitoring
    */
   setupWebVitals() {
+    if (typeof window === 'undefined') return;
+
     if ('PerformanceObserver' in window) {
       // First Contentful Paint
       try {
@@ -137,6 +148,8 @@ class PerformanceMonitor {
    * Setup Resource Timing monitoring
    */
   setupResourceTiming() {
+    if (typeof window === 'undefined') return;
+
     if ('PerformanceObserver' in window) {
       try {
         const resourceObserver = new PerformanceObserver((list) => {
@@ -170,13 +183,20 @@ class PerformanceMonitor {
    * Setup API response time monitoring
    */
   setupAPIMonitoring() {
-    const originalFetch = window.fetch;
+    // Avoid double-patching: main.jsx may have already wrapped window.fetch for
+    // API routing. We wrap the *current* fetch (whatever it is) and store a
+    // reference so we never wrap our own wrapper on hot-reload.
+    if (typeof window === 'undefined' || !window.fetch) return;
+    if (window.__perfMonitorPatched) return;
+    window.__perfMonitorPatched = true;
+
+    this.originalFetch = window.fetch;
     window.fetch = async (...args) => {
       const startTime = performance.now();
       const url = args[0];
       
       try {
-        const response = await originalFetch(...args);
+        const response = await this.originalFetch(...args);
         const endTime = performance.now();
         const duration = endTime - startTime;
         
@@ -200,6 +220,8 @@ class PerformanceMonitor {
    * Setup bundle loading monitoring
    */
   setupBundleMonitoring() {
+    if (typeof window === 'undefined') return;
+
     // Monitor main bundle loading
     window.addEventListener('load', () => {
       const navigationEntry = performance.getEntriesByType('navigation')[0];
@@ -218,7 +240,12 @@ class PerformanceMonitor {
     const threshold = this.thresholds[metric];
     if (threshold && value > threshold) {
       console.warn(`⚠️ Performance warning: ${metric} (${value.toFixed(2)}ms) exceeds threshold (${threshold}ms)`);
-      this.notifyListeners('thresholdExceeded', { metric, value, threshold });
+      this.notifyListeners('thresholdExceeded', {
+        metric,
+        value,
+        threshold,
+        message: `${metric} exceeded ${threshold}ms`,
+      });
     }
   }
 
@@ -226,8 +253,20 @@ class PerformanceMonitor {
    * Get current metrics
    */
   getMetrics() {
+    const apiTimes = Array.from(this.metrics.apiResponseTimes.values());
+    const bundleTimes = Array.from(this.metrics.bundleLoadTimes.values());
+    const averageApiResponseTime = apiTimes.length
+      ? apiTimes.reduce((sum, value) => sum + value, 0) / apiTimes.length
+      : 0;
+    const bundleLoadTime = bundleTimes.length
+      ? bundleTimes.reduce((sum, value) => sum + value, 0) / bundleTimes.length
+      : 0;
+
     return {
       ...this.metrics,
+      averageApiResponseTime,
+      bundleLoadTime,
+      overallScore: this.getPerformanceScore(),
       resourceLoadTimes: Object.fromEntries(this.metrics.resourceLoadTimes),
       apiResponseTimes: Object.fromEntries(this.metrics.apiResponseTimes),
       bundleLoadTimes: Object.fromEntries(this.metrics.bundleLoadTimes)
@@ -271,13 +310,22 @@ class PerformanceMonitor {
     return () => this.listeners.delete(callback);
   }
 
+  removeListener(callback) {
+    this.listeners.delete(callback);
+  }
+
+  resetMetrics() {
+    this.metrics = this.createEmptyMetrics();
+    this.notifyListeners('reset', this.getMetrics());
+  }
+
   /**
    * Notify all listeners
    */
   notifyListeners(event, data) {
     this.listeners.forEach(listener => {
       try {
-        listener(event, data);
+        listener(data, event);
       } catch (error) {
         console.error('Error in performance listener:', error);
       }
@@ -290,8 +338,8 @@ class PerformanceMonitor {
   exportMetrics() {
     return {
       timestamp: Date.now(),
-      userAgent: navigator.userAgent,
-      url: window.location.href,
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+      url: typeof window !== 'undefined' ? window.location.href : '',
       metrics: this.getMetrics(),
       performanceScore: this.getPerformanceScore()
     };
@@ -302,7 +350,7 @@ class PerformanceMonitor {
 const performanceMonitor = new PerformanceMonitor();
 
 // Auto-start in development
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
   performanceMonitor.start();
 }
 

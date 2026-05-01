@@ -85,6 +85,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preploop_test
           NODE_ENV: test
+          PORT: 5000
+          FRONTEND_URL: http://localhost:3000
+          SUPABASE_URL: https://dummy.supabase.co
+          SUPABASE_ANON_KEY: dummy-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role-key
+          JWT_SECRET: dummy-jwt-secret-minimum-32-chars-long-1234
 
       - name: Run performance tests
         run: node backend/utils/performanceTest.js

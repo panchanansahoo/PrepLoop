@@ -28,6 +28,7 @@ function run() {
   const hrRoutes = read('routes/hr.js');
   const voiceRoutes = read('routes/voice.js');
   const authMiddleware = read('middleware/auth.js');
+  const apiCacheMiddleware = read('middleware/apiCache.js');
 
   // No insecure JWT fallback literals.
   assertNotRegex(
@@ -66,6 +67,20 @@ function run() {
     voiceRoutes,
     /router\.post\('\/analyze-answer',\s*authenticateToken,\s*async/s,
     'voice analyze-answer endpoint must require authenticateToken',
+  );
+
+  // API cache must never trust client-controlled identity or cache anonymous
+  // responses unless a route explicitly opts in to anonymous caching.
+  assertNotRegex(
+    apiCacheMiddleware,
+    /headers\[['"]x-user-id['"]\]/,
+    'apiCacheMiddleware must not build cache keys from spoofable x-user-id headers',
+  );
+
+  assertRegex(
+    apiCacheMiddleware,
+    /allowAnonymous/,
+    'apiCacheMiddleware must require explicit anonymous-cache opt-in',
   );
 
   console.log('Security fixes regression test passed.');

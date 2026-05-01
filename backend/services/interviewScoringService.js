@@ -101,17 +101,31 @@ export class InterviewScoringService {
     const trend = scoreTrend || { trend: 'stable', volatility: 'stable' };
     const isFresher = String(experienceLevel || '').toLowerCase() === 'fresher';
 
-    if (safeTurns < 2) {
+    if (safeTurns < 2 && trend.trend !== 'declining') {
       return { changed: false, previousDifficulty: current, newDifficulty: current, reason: 'Not enough turns to adapt difficulty.' };
     }
 
     let difficultyChange = 0;
-    
+
+    // Bonus for sustained performance over many turns
+    if (overall >= 8) {
+      if (isFresher && safeTurns >= 4) {
+        difficultyChange += 0.2;
+      } else if (!isFresher && safeTurns >= 3) {
+        difficultyChange += 0.1;
+      }
+    }
+
     // Adjust based on trend
     if (trend.trend === 'improving' && trend.volatility !== 'volatile') {
       difficultyChange += 0.2;
     } else if (trend.trend === 'declining') {
-      difficultyChange -= 0.3;
+      difficultyChange -= 0.4;
+    }
+
+    // Penalize high volatility
+    if (trend.volatility === 'volatile') {
+      difficultyChange -= 0.4;
     }
     
     // Adjust based on performance level

@@ -7,6 +7,7 @@ import {
   describeDifficultyLevel,
   getDefaultInterviewRuntimeMode,
   getAdaptiveCoachingSignal,
+  hasMeaningfulCode,
   buildRealtimeFailureMessage,
   getInteractionFormat,
   getSupportedInterviewRuntimeModes,
@@ -44,6 +45,43 @@ describe('aiInterviewRuntime', () => {
     ).toEqual({
       answer: 'Final spoken answer',
       fullAnswer: 'Final spoken answer\n\n--- Code ---\nprint("hello")',
+    });
+  });
+
+  it('does not treat unchanged starter code as a code-only answer', () => {
+    const boilerplate = 'def solution():\n    pass\n';
+
+    expect(hasMeaningfulCode(boilerplate, { boilerplate })).toBe(false);
+    expect(
+      resolveSubmittedAnswer({
+        providedAnswer: '',
+        userInput: '',
+        transcript: '',
+        code: boilerplate,
+        boilerplate,
+      })
+    ).toEqual({
+      answer: '',
+      fullAnswer: '',
+    });
+  });
+
+  it('formats edited code-only answers without a leading blank answer block', () => {
+    const boilerplate = 'def solution():\n    pass\n';
+    const code = 'def solution():\n    return 42\n';
+
+    expect(hasMeaningfulCode(code, { boilerplate })).toBe(true);
+    expect(
+      resolveSubmittedAnswer({
+        providedAnswer: '',
+        userInput: '',
+        transcript: '',
+        code,
+        boilerplate,
+      })
+    ).toEqual({
+      answer: '',
+      fullAnswer: '--- Code ---\ndef solution():\n    return 42',
     });
   });
 

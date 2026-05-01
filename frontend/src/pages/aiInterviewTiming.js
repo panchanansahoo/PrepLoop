@@ -11,11 +11,11 @@
 
 // ── Thinking Delay ──────────────────────────────────────────────────
 // Returns a deterministic delay in ms that scales with answer length,
-// simulating the interviewer "reading" the response. Capped at 800 ms
-// for snappy conversational feel.
+// simulating the interviewer "reading" the response. Capped at 1800 ms
+// so the flow feels human without becoming sluggish.
 export function getThinkingDelayMs(text = '') {
     const length = String(text || '').trim().length;
-    return Math.min(800, 200 + length * 1.5);
+    return Math.min(1800, 650 + length * 1.2);
 }
 
 // ── Interviewer Reaction ────────────────────────────────────────────
@@ -63,6 +63,36 @@ export function getInterviewerReaction(score, interviewType = null) {
     if (score >= 80) return { emoji: '👍', text: "That's a strong answer." };
     if (score >= 60) return { emoji: '🤔', text: 'Let me follow up on that.' };
     return { emoji: '😐', text: "Let's explore that further." };
+}
+
+export function getTurnTransition({
+    score = 0,
+    interviewType = 'technical',
+    answerText = '',
+} = {}) {
+    const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
+    const pauseMs = getThinkingDelayMs(answerText);
+
+    let spokenLeadIn;
+    if (score >= 80) {
+        spokenLeadIn = normalizedType === 'dsa'
+            ? 'Good, I followed your approach and the complexity trade-off.'
+            : 'Good, that gives me a clear signal.';
+    } else if (score >= 60) {
+        spokenLeadIn = normalizedType === 'hr'
+            ? 'Thanks, that is a useful starting point.'
+            : 'Thanks, let me build on that.';
+    } else {
+        spokenLeadIn = normalizedType === 'hr'
+            ? 'That is okay, let us keep it practical.'
+            : 'That is okay, we can work through it step by step.';
+    }
+
+    return {
+        pauseMs,
+        statusText: 'Reviewing your answer...',
+        spokenLeadIn,
+    };
 }
 
 // ── Stage-Specific Silence Encouragement ────────────────────────────

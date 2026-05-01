@@ -61,10 +61,19 @@ const pendingRevalidations = new Map();
 
 const isStale = (timestamp, ttl) => (Date.now() - timestamp) > ttl;
 
-function getCacheKey(req) {
+function getCacheKey(req, { allowAnonymous = false } = {}) {
   const url = req.originalUrl || req.url;
-  const userId = req.user?.id || req.headers['x-user-id'] || 'anon';
-  return `apicache:${req.method}:${userId}:${url}`;
+  const userId = req.user?.id;
+
+  if (userId) {
+    return `apicache:${req.method}:user:${userId}:${url}`;
+  }
+
+  if (allowAnonymous) {
+    return `apicache:${req.method}:anon:${url}`;
+  }
+
+  return null;
 }
 
 function getRouteTTL(path) {
@@ -98,15 +107,16 @@ export function apiCacheMiddleware(options = {}) {
       // Skip cache for excluded routes
       if (shouldSkipCache(path)) return next();
 
+      const key = getCacheKey(req, { allowAnonymous: options.allowAnonymous === true });
+      if (!key) return next();
+
       // Cache bypass
       if (req.query._bust === '1') {
-        const key = getCacheKey(req);
         cache.delete(key);
         cacheTimestamps.delete(key);
         return next();
       }
 
-      const key = getCacheKey(req);
       const ttl = options.ttl ?? getRouteTTL(path);
 
       // === L1 in-memory hit ===

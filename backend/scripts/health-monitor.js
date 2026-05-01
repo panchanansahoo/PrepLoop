@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import fetch from 'node-fetch';
-import { createLogger } from '../backend/utils/structuredLogger.js';
+import { createLogger } from '../utils/structuredLogger.js';
+
 
 const logger = createLogger('health-monitor');
 

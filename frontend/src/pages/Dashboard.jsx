@@ -89,6 +89,7 @@ const WIDGET_REGISTRY = [
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
+const ORDER_STORAGE_KEY = 'preploop_dashboard_order';
 
 function getInitialVisibility() {
     const defaults = WIDGET_REGISTRY.reduce((acc, w) => ({ ...acc, [w.id]: w.defaultVisible }), {});
@@ -103,13 +104,29 @@ function getInitialVisibility() {
     return defaults;
 }
 
+function getInitialOrder() {
+    const defaultOrder = WIDGET_REGISTRY.map(w => w.id);
+    try {
+        const saved = localStorage.getItem(ORDER_STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            const missing = defaultOrder.filter(id => !parsed.includes(id));
+            const validParsed = parsed.filter(id => defaultOrder.includes(id));
+            return [...validParsed, ...missing];
+        }
+    } catch { }
+    return defaultOrder;
+}
+
 export default function Dashboard() {
     const { user } = useAuth();
     const { data: dashboardData, loading: dashLoading } = useDashboardData();
     const userName = user?.fullName?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Engineer';
     const dailyQuote = useMemo(() => getDailyQuote(), []);
     const [widgetVisibility, setWidgetVisibility] = useState(getInitialVisibility);
+    const [widgetOrder, setWidgetOrder] = useState(getInitialOrder);
     const [showCustomize, setShowCustomize] = useState(false);
+    const [draggedWidgetId, setDraggedWidgetId] = useState(null);
 
     const toggleWidget = useCallback((id) => {
         setWidgetVisibility(prev => {
@@ -128,19 +145,53 @@ export default function Dashboard() {
     }, []);
 
     const resetToDefaults = useCallback(() => {
-        const defaults = WIDGET_REGISTRY.reduce((acc, w) => ({ ...acc, [w.id]: w.defaultVisible }), {});
-        setWidgetVisibility(defaults);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaults));
+        const defaultVisibility = WIDGET_REGISTRY.reduce((acc, w) => ({ ...acc, [w.id]: w.defaultVisible }), {});
+        const defaultOrder = WIDGET_REGISTRY.map(w => w.id);
+        
+        setWidgetVisibility(defaultVisibility);
+        setWidgetOrder(defaultOrder);
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultVisibility));
+        localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(defaultOrder));
     }, []);
 
-    // Filter visible widgets
-    const visible = useMemo(() => WIDGET_REGISTRY.filter(w => widgetVisibility[w.id]), [widgetVisibility]);
+    const handleDragStart = (e, id) => {
+        setDraggedWidgetId(id);
+        if (e.dataTransfer) {
+            e.dataTransfer.setData('text/plain', id);
+            e.dataTransfer.effectAllowed = 'move';
+        }
+    };
 
-    // Group by layout
-    const fullWidgets = visible.filter(w => w.layout === 'full');
-    const twoColLeft = visible.filter(w => w.layout === '2col-left');
-    const twoColRight = visible.filter(w => w.layout === '2col-right');
-    const threeCol = visible.filter(w => w.layout === '3col');
+    const handleDragOver = (e, id) => {
+        e.preventDefault();
+        if (!draggedWidgetId || draggedWidgetId === id) return;
+        
+        const draggedIndex = widgetOrder.indexOf(draggedWidgetId);
+        const hoverIndex = widgetOrder.indexOf(id);
+        
+        if (draggedIndex === -1 || hoverIndex === -1) return;
+        
+        const newOrder = [...widgetOrder];
+        newOrder.splice(draggedIndex, 1);
+        newOrder.splice(hoverIndex, 0, draggedWidgetId);
+        
+        setWidgetOrder(newOrder);
+    };
+
+    const handleDragEnd = () => {
+        setDraggedWidgetId(null);
+        localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(widgetOrder));
+    };
+
+    const orderedWidgets = useMemo(() => {
+        return widgetOrder
+            .map(id => WIDGET_REGISTRY.find(w => w.id === id))
+            .filter(Boolean);
+    }, [widgetOrder]);
+
+    // Filter visible widgets
+    const visibleWidgets = orderedWidgets.filter(w => widgetVisibility[w.id]);
 
     // Build props for each widget based on DB data
     const getWidgetProps = (widgetId) => {
@@ -210,72 +261,47 @@ export default function Dashboard() {
         const rows = [];
         let rowKey = 0;
 
-        // QuickStats (full)
-        const quickStats = visible.find(w => w.id === 'quickStats');
-        if (quickStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickStats)}</div>);
-
-        // Daily Challenge (2nd from top)
-        const dailyChallenge = visible.find(w => w.id === 'dailyChallenge');
-        if (dailyChallenge) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(dailyChallenge)}</div>);
-
-        // Weekly Stats (right after daily challenge)
-        const weeklyStats = visible.find(w => w.id === 'weeklyStats');
-        if (weeklyStats) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(weeklyStats)}</div>);
-
-        // Upcoming Contests (right after Weekly Stats)
-        const upcomingContests = visible.find(w => w.id === 'upcomingContests');
-        if (upcomingContests) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(upcomingContests)}</div>);
-
-        // QuickActions (full)
-        const quickActions = visible.find(w => w.id === 'quickActions');
-        if (quickActions) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(quickActions)}</div>);
-
-        // Skill-Matched Jobs (right after QuickActions)
-        const skillMatchJobs = visible.find(w => w.id === 'skillMatchJobs');
-        if (skillMatchJobs) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(skillMatchJobs)}</div>);
-
-        // 2-col rows: pair up left/right
-        const maxTwoCol = Math.max(twoColLeft.length, twoColRight.length);
-        for (let i = 0; i < maxTwoCol; i++) {
-            const left = twoColLeft[i];
-            const right = twoColRight[i];
-            if (left && right) {
+        for (let i = 0; i < visibleWidgets.length; i++) {
+            const w = visibleWidgets[i];
+            
+            if (w.layout === 'full') {
+                rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
+            } else if (w.layout === '2col-left' || w.layout === '2col-right') {
+                const nextW = visibleWidgets[i + 1];
+                if (nextW && (nextW.layout === '2col-left' || nextW.layout === '2col-right')) {
+                    rows.push(
+                        <div key={`row-${rowKey++}`} className="dash-row-2col">
+                            {renderWidget(w)}
+                            {renderWidget(nextW)}
+                        </div>
+                    );
+                    i++; // skip next widget
+                } else {
+                    rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
+                }
+            } else if (w.layout === '3col') {
+                const group = [w];
+                let j = i + 1;
+                while (j < visibleWidgets.length && group.length < 3) {
+                    if (visibleWidgets[j].layout === '3col') {
+                        group.push(visibleWidgets[j]);
+                        j++;
+                    } else {
+                        break;
+                    }
+                }
                 rows.push(
-                    <div key={`row-${rowKey++}`} className="dash-row-2col">
-                        {renderWidget(left)}
-                        {renderWidget(right)}
+                    <div key={`row-${rowKey++}`} className="dash-row-3col">
+                        {group.map(gw => renderWidget(gw))}
                     </div>
                 );
-            } else if (left) {
-                rows.push(<div key={`row-${rowKey++}`}>{renderWidget(left)}</div>);
-            } else if (right) {
-                rows.push(<div key={`row-${rowKey++}`}>{renderWidget(right)}</div>);
+                i += group.length - 1; // skip widgets in group
             }
         }
-
-        // 3-col row
-        if (threeCol.length > 0) {
-            rows.push(
-                <div key={`row-${rowKey++}`} className="dash-row-3col">
-                    {threeCol.map(w => renderWidget(w))}
-                </div>
-            );
-        }
-
-        // Remaining full-width widgets (exclude quickStats, quickActions, dailyChallenge, upcomingContests, weeklyStats, skillMatchJobs)
-        const remainingFull = fullWidgets.filter(w => w.id !== 'quickStats' && w.id !== 'streakHeatmap' && w.id !== 'quickActions' && w.id !== 'dailyChallenge' && w.id !== 'upcomingContests' && w.id !== 'weeklyStats' && w.id !== 'skillMatchJobs');
-        remainingFull.forEach(w => {
-            rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
-        });
-
-        // Streak heatmap goes last
-        const streakHeatmap = visible.find(w => w.id === 'streakHeatmap');
-        if (streakHeatmap) rows.push(<div key={`row-${rowKey++}`}>{renderWidget(streakHeatmap)}</div>);
-
         return rows;
     };
 
-    const visibleCount = visible.length;
+    const visibleCount = visibleWidgets.length;
     const totalCount = WIDGET_REGISTRY.length;
 
     return (
@@ -308,7 +334,7 @@ export default function Dashboard() {
                             onClick={() => setShowCustomize(true)}
                         >
                             <SlidersHorizontal size={16} />
-                            Customize
+                            Open Layout
                             <span className="dash-customize-count">{visibleCount}/{totalCount}</span>
                         </button>
                         <Link to="/company-interview" className="dash-hero-cta">
@@ -349,12 +375,20 @@ export default function Dashboard() {
                         </div>
 
                         <div className="dash-modal-body">
-                            {WIDGET_REGISTRY.map(widget => (
+                            {orderedWidgets.map(widget => (
                                 <div
                                     key={widget.id}
-                                    className={`dash-widget-toggle-item ${widgetVisibility[widget.id] ? 'active' : ''}`}
+                                    draggable
+                                    onDragStart={(e) => handleDragStart(e, widget.id)}
+                                    onDragOver={(e) => handleDragOver(e, widget.id)}
+                                    onDragEnd={handleDragEnd}
+                                    className={`dash-widget-toggle-item ${widgetVisibility[widget.id] ? 'active' : ''} ${draggedWidgetId === widget.id ? 'dragging' : ''}`}
                                     onClick={() => toggleWidget(widget.id)}
+                                    style={{ cursor: 'move', opacity: draggedWidgetId === widget.id ? 0.5 : 1 }}
                                 >
+                                    <div className="dash-widget-drag-handle" style={{ marginRight: '12px', color: 'var(--text-muted)' }}>
+                                        <GripVertical size={16} />
+                                    </div>
                                     <div className="dash-widget-toggle-info">
                                         <div className="dash-widget-toggle-name">
                                             {widget.name}

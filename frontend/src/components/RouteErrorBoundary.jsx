@@ -25,18 +25,6 @@ class RouteErrorBoundary extends React.Component {
       }, 1000);
       return;
     }
-
-    // Report error to backend (fire-and-forget)
-    fetch('/api/errors', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: error?.message,
-        stack: error?.stack?.slice(0, 2000),
-        url: window.location.href,
-        timestamp: new Date().toISOString(),
-      }),
-    }).catch(() => {});
   }
 
   handleRetry = () => {
