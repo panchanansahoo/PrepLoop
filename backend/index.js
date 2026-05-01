@@ -152,7 +152,12 @@ async function initializeServer() {
     // Input sanitization (skip for payment webhook to preserve raw body for signature verification)
     app.use(sanitizeInput({ skipPaths: ['/api/payment/webhook'] }));
     
-    // Rate limiting
+    // API cache middleware (before rate limiting)
+    // Safe cacheable GET requests are served from cache, bypassing rate limits
+    app.use('/api', apiCacheMiddleware());
+    
+    // Rate limiting (after cache middleware)
+    // Cache hits never reach this middleware
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
     app.use('/api/ai-features', aiEndpointsLimiter);
@@ -160,7 +165,6 @@ async function initializeServer() {
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
-    app.use('/api', apiCacheMiddleware());
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {
