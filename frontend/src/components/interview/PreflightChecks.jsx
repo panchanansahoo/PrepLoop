@@ -194,6 +194,56 @@ function PreflightChecks({ interviewType, onAllChecksPassed }) {
     testMicrophone();
     testCamera();
     testNetwork();
+    
+    // OPTIMIZATION (Phase 2): Pre-warm backchannel clips and pre-generate questions
+    // These run in parallel without blocking the checks
+    const preWarmBackchannel = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const backchannelUrl = `${apiUrl}/api/voice/backchannel-clips?persona=friendly&gender=female`;
+        
+        const response = await fetch(backchannelUrl);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.clips) {
+            // Pre-load audio elements (cached by browser for fast playback)
+            Object.entries(data.clips).forEach(([, audioDataUri]) => {
+              if (audioDataUri && typeof audioDataUri === 'string' && audioDataUri.startsWith('data:')) {
+                const audio = new Audio(audioDataUri);
+                audio.preload = 'auto';
+                // Don't play, just ensure it's cached
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.debug('[PreflightChecks] Backchannel pre-warm failed (non-blocking):', err.message);
+      }
+    };
+    
+    const preGenerateQuestions = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const preGenUrl = `${apiUrl}/api/interview/pregen/start?types=technical,behavioral,system-design&difficulties=easy,medium`;
+        
+        // Use CORS-safe no-cors mode if needed; graceful fail if backend doesn't support
+        const response = await fetch(preGenUrl, { 
+          credentials: 'include',
+          method: 'GET'
+        }).catch(() => null);
+        
+        if (response?.ok) {
+          const data = await response.json();
+          console.debug('[PreflightChecks] Question pre-generation started:', data);
+        }
+      } catch (err) {
+        console.debug('[PreflightChecks] Question pre-gen request failed (non-blocking):', err.message);
+      }
+    };
+    
+    // Kick off pre-warming in background (don't await)
+    preWarmBackchannel();
+    preGenerateQuestions();
 
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);

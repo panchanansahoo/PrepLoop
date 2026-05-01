@@ -4,6 +4,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import { getCachedQuestion, preGenerateQuestions, getQuestionCacheStats, clearQuestionCache } from '../services/questionPreGenService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -551,8 +552,13 @@ router.post('/start', authenticateToken, async (req, res) => {
     }
     didCharge = true;
 
-    // Try to get AI question first
-    const aiQuestion = await generateAIQuestion(type, difficulty);
+    // OPTIMIZATION (Phase 2): Try cached question first (pre-generated during lobby)
+    let aiQuestion = getCachedQuestion(type, difficulty, 0);
+    
+    // If not cached, generate fresh question
+    if (!aiQuestion) {
+      aiQuestion = await generateAIQuestion(type, difficulty);
+    }
 
     if (aiQuestion) {
       res.json({
@@ -980,6 +986,97 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching feedback history:', error);
     res.status(500).json({ error: 'Failed to fetch feedback', message: error.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 OPTIMIZATION: Question Pre-generation
+// Pre-warm interview questions during lobby to reduce first-question latency
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GET /api/interview/pregen/start?types=technical,behavioral&difficulties=easy,medium
+// Async endpoint that initiates pre-generation; returns immediately with status
+router.get('/pregen/start', authenticateToken, async (req, res) => {
+  try {
+    const { types = 'technical,behavioral', difficulties = 'easy,medium' } = req.query;
+    
+    const typeList = types.split(',').map(t => t.trim().toLowerCase()).filter(t => t);
+    const diffList = difficulties.split(',').map(d => d.trim().toLowerCase()).filter(d => d);
+    
+    if (typeList.length === 0 || diffList.length === 0) {
+      return res.status(400).json({ error: 'At least one type and difficulty required' });
+    }
+    
+    // Validate inputs
+    const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
+    const validDiffs = ['easy', 'medium', 'hard'];
+    
+    const types_valid = typeList.filter(t => validTypes.includes(t));
+    const diffs_valid = diffList.filter(d => validDiffs.includes(d));
+    
+    if (types_valid.length === 0 || diffs_valid.length === 0) {
+      return res.status(400).json({ 
+        error: 'Invalid type or difficulty',
+        validTypes,
+        validDifficulties: validDiffs
+      });
+    }
+    
+    // Kick off pre-generation asynchronously (don't wait for completion)
+    // This improves perceived latency since we return immediately
+    setImmediate(async () => {
+      try {
+        for (const type of types_valid) {
+          for (const difficulty of diffs_valid) {
+            await preGenerateQuestions(type, difficulty, generateAIQuestion);
+          }
+        }
+      } catch (err) {
+        console.error('Background pre-generation error:', err);
+      }
+    });
+    
+    res.json({
+      status: 'warming',
+      message: 'Question pre-generation started in background',
+      types: types_valid,
+      difficulties: diffs_valid,
+      estimatedMs: 2000 * types_valid.length * diffs_valid.length
+    });
+  } catch (error) {
+    console.error('Error starting pre-generation:', error);
+    res.status(500).json({ error: 'Failed to start pre-generation', message: error.message });
+  }
+});
+
+// GET /api/interview/pregen/stats
+// Get pre-generation cache statistics
+router.get('/pregen/stats', authenticateToken, (req, res) => {
+  try {
+    const stats = getQuestionCacheStats();
+    res.json({ cacheStats: stats });
+  } catch (error) {
+    console.error('Error fetching pre-gen stats:', error);
+    res.status(500).json({ error: 'Failed to fetch stats', message: error.message });
+  }
+});
+
+// POST /api/interview/pregen/clear
+// Clear question cache (admin use or testing)
+router.post('/pregen/clear', authenticateToken, (req, res) => {
+  try {
+    const { type, difficulty } = req.body;
+    
+    if (type && difficulty) {
+      clearQuestionCache(type, difficulty);
+      res.json({ cleared: `${type}/${difficulty}` });
+    } else {
+      clearQuestionCache();
+      res.json({ cleared: 'all' });
+    }
+  } catch (error) {
+    console.error('Error clearing cache:', error);
+    res.status(500).json({ error: 'Failed to clear cache', message: error.message });
   }
 });
 
