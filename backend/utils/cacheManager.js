@@ -387,7 +387,7 @@ class CacheManager {
           const keys = await this.scanKeys(`*${pattern}*`);
           if (keys.length > 0) {
             this._commandCount += keys.length + 1;
-            await this.client.del(keys);
+            await this.client.del(...keys);
             logger.debug('Cache pattern deleted (SCAN)', { pattern, count: keys.length });
           }
         }
