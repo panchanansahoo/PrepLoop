@@ -245,7 +245,6 @@ async function initializeServer() {
 
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
-    app.use('/api/ai', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
     app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
     app.use('/api/interview-suite', interviewSuiteRoutes);
