@@ -152,7 +152,17 @@ async function initializeServer() {
     
     // CORS with secure configuration
     app.use(cors(corsOptions));
-    app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
+    
+    // CRITICAL: Raw body parsing for webhook signature verification
+    // Must be applied BEFORE express.json() to prevent body parsing
+    // Only applies to /api/payment/webhook, other routes use JSON parser
+    app.use('/api/payment/webhook', express.raw({
+      type: 'application/json',
+      limit: '1mb',
+    }));
+    
+    // JSON body parsing for all other routes
+    // This will NOT parse /api/payment/webhook because it was already handled above
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting

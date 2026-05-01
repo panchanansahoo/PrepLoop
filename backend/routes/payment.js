@@ -440,8 +440,10 @@ router.post('/verify', authenticateToken, async (req, res) => {
 // POST /api/payment/webhook
 // SECURITY: Server-to-server webhook from Razorpay
 // Uses express.raw() to preserve the raw request body, which is required for
-// signature verification. The raw body is skipped by sanitizeInput middleware
-// (see index.js line 153: skipPaths: ['/api/payment/webhook'])
+// signature verification. The raw body is:
+//   1. Handled by express.raw() middleware in index.js (applied BEFORE express.json)
+//   2. Also explicitly handled in this route for defense-in-depth
+//   3. Skipped by sanitizeInput middleware (see index.js: skipPaths: ['/api/payment/webhook'])
 // This ensures payments are recorded even if the user closes the browser mid-payment
 // ─────────────────────────────────────────────
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
