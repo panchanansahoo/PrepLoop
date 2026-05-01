@@ -45,6 +45,7 @@
         "test:copilot": "node test-copilot.js"
     },
     "dependencies": {
+        "applicationinsights": "^3.3.1",
         "@google/genai": "^1.50.1",
         "@supabase/supabase-js": "^2.95.3",
         "@upstash/redis": "^1.37.0",

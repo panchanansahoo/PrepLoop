@@ -19,6 +19,20 @@ import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, admi
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import cacheManager from './utils/cacheManager.js';
+// Initialize Application Insights if connection string provided
+if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
+  try {
+    const ai = await import('applicationinsights');
+    ai.setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
+      .setAutoCollectConsole(false, true)
+      .setAutoCollectRequests(true)
+      .setAutoCollectDependencies(true)
+      .start();
+    console.log('✅ Application Insights initialized');
+  } catch (err) {
+    console.warn('⚠️ Failed to initialize Application Insights', err && err.message);
+  }
+}
 
 let app;
 const voiceHttpLogger = createLogger('voice-http');
@@ -153,6 +167,7 @@ async function initializeServer() {
     // Rate limiting
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
+ 
     app.use('/api/ai-features', aiEndpointsLimiter);
     app.use('/api/payment', paymentEndpointsLimiter);
     app.use('/api/jobs', jobsEndpointsLimiter);

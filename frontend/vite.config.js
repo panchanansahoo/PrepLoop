@@ -26,6 +26,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 10000,
     rollupOptions: {
       output: {
+        // Disable inlining of main module as data: URL
+        // Ensures main.jsx is served as separate file, not embedded in HTML
+        entryFileNames: '[name]-[hash].js',
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
 

@@ -64,6 +64,7 @@ export class InterviewCacheManager {
 
   /**
    * Get a value from cache (L1 -> L2)
+   * Handles deserialization of JSON strings from Upstash Redis
    */
   static async get(key) {
     // Check L1
@@ -75,9 +76,20 @@ export class InterviewCacheManager {
     // Check L2
     const l2Result = await this.safeRedisCall(() => redisClient.get(key));
     if (l2Result) {
+      // Deserialize JSON string from Upstash Redis
+      let deserialized = l2Result;
+      if (typeof l2Result === 'string') {
+        try {
+          deserialized = JSON.parse(l2Result);
+        } catch (parseError) {
+          // If parsing fails, return the string as-is (fallback for non-JSON values)
+          logger.debug('Failed to parse Redis value as JSON, using raw value', { key, error: parseError.message });
+        }
+      }
+
       // Backfill L1
-      memoryCache.set(key, l2Result);
-      return l2Result;
+      memoryCache.set(key, deserialized);
+      return deserialized;
     }
 
     return null;
@@ -85,15 +97,27 @@ export class InterviewCacheManager {
 
   /**
    * Set a value in cache (L1 + L2)
+   * Handles serialization of values to JSON strings for Upstash Redis
    */
   static async set(key, value, customTTL = null) {
     const ttl = customTTL || this.getSessionTTL(value);
     
-    // Set L1
+    // Set L1 - store original object
     memoryCache.set(key, value, Math.min(60, ttl));
 
-    // Set L2
-    await this.safeRedisCall(() => redisClient.set(key, value, { ex: ttl }));
+    // Set L2 - serialize to JSON string for Upstash Redis compatibility
+    let serialized = value;
+    try {
+      // Serialize objects/arrays to JSON strings for reliable Redis storage
+      if (typeof value === 'object' && value !== null) {
+        serialized = JSON.stringify(value);
+      }
+      
+      await this.safeRedisCall(() => redisClient.set(key, serialized, { ex: ttl }));
+    } catch (error) {
+      logger.error('Failed to serialize value for Redis', { key, error: error.message });
+      // Continue even if Redis fails - L1 cache is still valid
+    }
     
     return true;
   }

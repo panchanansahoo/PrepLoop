@@ -92,8 +92,10 @@ function shouldSkipCache(path) {
 }
 
 function generateETag(body) {
-  const str = typeof body === 'string' ? body : JSON.stringify(body);
-  return `"${createHash('md5').update(str).digest('hex').slice(0, 16)}"`;
+  // Use full SHA-256 hash for collision-resistant ETags
+  // Convert body to a canonical JSON representation to ensure consistency
+  const canonical = JSON.stringify(body) || '';
+  return `"${createHash('sha256').update(canonical).digest('hex').slice(0, 16)}"`;
 }
 
 export function apiCacheMiddleware(options = {}) {

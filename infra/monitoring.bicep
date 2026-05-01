@@ -110,6 +110,15 @@ resource webAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-pre
   }
 }
 
+// Inject Application Insights connection string into App Service app settings
+resource webAppAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
+  parent: webApp
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+  }
+}
+
 // Optional alerting channel via email
 resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = if (!empty(actionGroupEmail)) {
   name: '${replace(grafanaName, '_', '-')}-ops-ag'

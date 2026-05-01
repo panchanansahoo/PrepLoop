@@ -119,21 +119,63 @@ function PreflightChecks({ interviewType, onAllChecksPassed }) {
   }, []);
 
   // ── Network latency test ──
+  // Tests connectivity to backend API using configured VITE_API_URL
+  // Gracefully skips test if backend is not configured (frontend-only deployment)
   const testNetwork = useCallback(async () => {
     setNetStatus('testing');
     try {
+      // Get configured API origin from environment
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+      
+      // For frontend-only deployments without a backend, skip the network test
+      // Check if API URL is different from current origin to avoid same-origin issues
+      const apiOrigin = new URL(apiUrl).origin;
+      const currentOrigin = window.location.origin;
+      
+      // If API is on a different domain, test it; otherwise use relative path
+      const healthEndpoint = apiOrigin === currentOrigin 
+        ? '/health' 
+        : `${apiUrl}/health`;
+
       const start = performance.now();
-      await fetch('/health', { method: 'GET', cache: 'no-store' });
+      const response = await fetch(healthEndpoint, { 
+        method: 'GET', 
+        cache: 'no-store',
+        // Add timeout to avoid hanging on unreachable servers
+        signal: AbortSignal.timeout(5000)
+      });
       const latency = Math.round(performance.now() - start);
-      if (latency < 2000) {
-        setNetStatus('pass');
+      
+      if (response.ok) {
+        // Only mark as pass if latency is reasonable (< 2 seconds)
+        if (latency < 2000) {
+          setNetStatus('pass');
+        } else {
+          setNetStatus('fail');
+          setErrorMsg(prev => prev ? `${prev}\nHigh latency: ${latency}ms` : `High latency: ${latency}ms`);
+        }
       } else {
         setNetStatus('fail');
-        setErrorMsg(prev => prev ? `${prev}\nHigh latency: ${latency}ms` : `High latency: ${latency}ms`);
+        setErrorMsg(prev => prev ? `${prev}\nNetwork: Server returned ${response.status}` : `Network: Server returned ${response.status}`);
       }
-    } catch {
-      setNetStatus('fail');
-      setErrorMsg(prev => prev ? `${prev}\nNetwork: Could not reach server` : 'Network: Could not reach server');
+    } catch (error) {
+      // Check if error is due to API not being configured (frontend-only)
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (!apiUrl) {
+        // Frontend-only deployment: skip network test but allow interview to proceed
+        console.info('No backend configured (frontend-only deployment). Skipping network test.');
+        setNetStatus('pass');
+        return;
+      }
+
+      // If backend was configured but unreachable, mark as failure
+      if (error.name === 'AbortError') {
+        setNetStatus('fail');
+        setErrorMsg(prev => prev ? `${prev}\nNetwork: Request timed out (backend unreachable)` : 'Network: Request timed out (backend unreachable)');
+      } else {
+        setNetStatus('fail');
+        setErrorMsg(prev => prev ? `${prev}\nNetwork: ${error.message}` : `Network: ${error.message}`);
+      }
     }
   }, []);
 
