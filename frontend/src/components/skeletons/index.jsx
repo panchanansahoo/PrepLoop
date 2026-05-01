@@ -1,5 +1,13 @@
 /**
- * Reusable Skeleton Screen Components
+ * Reusable Skeleton Screen Components (Barrel Export)
+ *
+ * Named exports for all skeleton components:
+ * - Primitive bones: Bone, CircleBone
+ * - Page-level skeletons: DashboardSkeleton, ProblemListSkeleton, etc.
+ * - Route-aware wrapper: RouteAwareSkeleton
+ *
+ * Import as: import { Bone, DashboardSkeleton } from './components/skeletons/index.jsx'
+ * Or shorter: import { Bone } from './components/skeletons'
  *
  * Shimmer-effect loading placeholders that match page layouts
  * to eliminate content layout shift (CLS) and improve perceived performance.
@@ -284,14 +292,3 @@ export function RouteAwareSkeleton({ pathname }) {
   const SkeletonComponent = ROUTE_SKELETONS[normalizedPath] || GenericCardSkeleton;
   return <SkeletonComponent />;
 }
-
-export default {
-  Bone,
-  CircleBone,
-  DashboardSkeleton,
-  ProblemListSkeleton,
-  InterviewSkeleton,
-  ProfileSkeleton,
-  GenericCardSkeleton,
-  RouteAwareSkeleton,
-};

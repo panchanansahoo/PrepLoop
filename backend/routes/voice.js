@@ -245,6 +245,57 @@ router.post('/tts-stream', optionalAuth, async (req, res) => {
     }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TTS OPTIMIZED — Parallel provider racing (Kokoro + Groq simultaneous)
+// POST /api/voice/tts-optimized
+// OPTIMIZATION: Races Kokoro (local) + Groq (cloud) for latency reduction
+// Returns first successful response, falling back to sequential chain if both fail
+// Benefit: 1-2s latency reduction if Kokoro fails or primary provider is slow
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/tts-optimized', optionalAuth, async (req, res) => {
+    const { text } = req.body;
+    const persona  = sanitizePersona(req.body.persona);
+    const language = sanitizeLanguage(req.body.language);
+    const gender   = sanitizeGender(req.body.gender);
+
+    if (!text || text.trim().length === 0) {
+        return res.status(400).json({ error: 'Text is required' });
+    }
+
+    try {
+        const result = await voiceService.textToSpeechParallel(
+            text,
+            persona,
+            language,
+            gender
+        );
+
+        if (result.fallback) {
+            return res.status(200).json({ fallback: true });
+        }
+
+        const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
+
+        if (!audioBuffer || audioBuffer.length === 0) {
+            console.warn('[voice/tts-optimized] Empty audio buffer received');
+            return res.status(200).json({ fallback: true });
+        }
+
+        res.set({
+            'Content-Type':   result.contentType,
+            'Content-Length': audioBuffer.length,
+            'X-TTS-Provider': result.provider,
+            'X-TTS-Voice':    result.voice || '',
+            'X-TTS-Optimized': 'true',
+            'Cache-Control':  'no-cache',
+        });
+        res.type(result.contentType || 'audio/mpeg');
+        res.send(audioBuffer);
+    } catch (error) {
+        console.error('[voice/tts-optimized] Error:', error.message?.substring(0, 200));
+        if (!res.headersSent) res.status(200).json({ fallback: true });
+    }
+});
 
 
 // ─────────────────────────────────────────────────────────────────────────────

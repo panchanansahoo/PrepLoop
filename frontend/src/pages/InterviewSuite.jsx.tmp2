@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Sparkles, Target, Brain, FileText, Mic, Code2,
@@ -13,7 +13,7 @@ import './InterviewHub.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-/* ─── Interview Mode Definitions ─── */
+/* â”€â”€â”€ Interview Mode Definitions â”€â”€â”€ */
 const INTERVIEW_MODES = [
   {
     id: 'mock',
@@ -25,20 +25,20 @@ const INTERVIEW_MODES = [
     badge: 'Most Popular',
     badgeBg: 'rgba(139,92,246,0.2)',
     badgeColor: '#c4b5fd',
-    time: '20–45 min',
+    time: '20â€“45 min',
     difficulty: 'Adaptive',
   },
   {
     id: 'loop',
     title: 'Full Interview Loop',
-    desc: 'Multi-round simulation covering DSA, System Design, Behavioral, and HR — just like a real onsite.',
+    desc: 'Multi-round simulation covering DSA, System Design, Behavioral, and HR â€” just like a real onsite.',
     path: '/multi-round-interview',
     icon: Play,
     accent: '#3b82f6',
     badge: 'Comprehensive',
     badgeBg: 'rgba(59,130,246,0.18)',
     badgeColor: '#93c5fd',
-    time: '60–90 min',
+    time: '60â€“90 min',
     difficulty: 'All Levels',
   },
   {
@@ -51,38 +51,38 @@ const INTERVIEW_MODES = [
     badge: 'Real-Time',
     badgeBg: 'rgba(234,179,8,0.15)',
     badgeColor: '#fde68a',
-    time: '30–45 min',
-    difficulty: 'Easy → Hard',
+    time: '30â€“45 min',
+    difficulty: 'Easy â†’ Hard',
   },
   {
     id: 'debug',
     title: 'Debugging Challenge',
-    desc: 'Find bugs, fix code, and explain your reasoning — a critical skill tested in modern interviews.',
+    desc: 'Find bugs, fix code, and explain your reasoning â€” a critical skill tested in modern interviews.',
     path: '/debugging-interview',
     icon: Bug,
     accent: '#ef4444',
     badge: 'Skill Builder',
     badgeBg: 'rgba(239,68,68,0.15)',
     badgeColor: '#fca5a5',
-    time: '15–25 min',
+    time: '15â€“25 min',
     difficulty: 'Medium+',
   },
   {
     id: 'review',
     title: 'Code Review Sim',
-    desc: 'Review realistic pull requests — spot issues, suggest improvements, and defend your approach.',
+    desc: 'Review realistic pull requests â€” spot issues, suggest improvements, and defend your approach.',
     path: '/code-review-interview',
     icon: GitPullRequest,
     accent: '#06b6d4',
     badge: 'New',
     badgeBg: 'rgba(6,182,212,0.15)',
     badgeColor: '#67e8f9',
-    time: '20–30 min',
+    time: '20â€“30 min',
     difficulty: 'Medium',
   },
 ];
 
-/* ─── Quick Tool Definitions ─── */
+/* â”€â”€â”€ Quick Tool Definitions â”€â”€â”€ */
 const QUICK_TOOLS = [
   {
     title: 'Behavioral Coach',
@@ -111,7 +111,7 @@ function getAuthHeaders() {
   return buildAuthHeaders();
 }
 
-/* ─── Mode Icon Map for Sessions ─── */
+/* â”€â”€â”€ Mode Icon Map for Sessions â”€â”€â”€ */
 const MODE_ICONS = {
   mock: Mic,
   dsa: Code2,
@@ -155,7 +155,7 @@ function getBarColor(score) {
   return '#f87171';
 }
 
-/* ─── Main Component ─── */
+/* â”€â”€â”€ Main Component â”€â”€â”€ */
 export default function InterviewSuite() {
   const [stats, setStats] = useState({ sessions: 0, avgScore: 0, streak: 0 });
   const [heatmap, setHeatmap] = useState([]);
@@ -207,7 +207,7 @@ export default function InterviewSuite() {
 
   return (
     <div className="ihub-container">
-      {/* ═══ Hero Section ═══ */}
+      {/* â•â•â• Hero Section â•â•â• */}
       <div className="ihub-hero">
         <div className="ihub-hero-content">
           <div className="ihub-hero-top">
@@ -219,7 +219,7 @@ export default function InterviewSuite() {
                 Interview Hub
               </h1>
               <p className="ihub-hero-subtitle">
-                Your unified command center for interview mastery — mock interviews, live coding,
+                Your unified command center for interview mastery â€” mock interviews, live coding,
                 debugging challenges, code reviews, and performance analytics all in one place.
               </p>
             </div>
@@ -241,7 +241,7 @@ export default function InterviewSuite() {
             <div className="ihub-stat-pill">
               <TrendingUp size={15} color="#4ade80" />
               <div>
-                <div className="ihub-stat-value">{stats.avgScore || '—'}</div>
+                <div className="ihub-stat-value">{stats.avgScore || 'â€”'}</div>
                 <div className="ihub-stat-label">Avg Score</div>
               </div>
             </div>
@@ -263,7 +263,7 @@ export default function InterviewSuite() {
         </div>
       </div>
 
-      {/* ═══ Interview Modes ═══ */}
+      {/* â•â•â• Interview Modes â•â•â• */}
       <div className="ihub-section-header">
         <div className="ihub-section-icon" style={{ background: 'rgba(139,92,246,0.15)', color: '#a78bfa' }}>
           <Target size={17} />
@@ -311,7 +311,7 @@ export default function InterviewSuite() {
         })}
       </div>
 
-      {/* ═══ Quick Tools ═══ */}
+      {/* â•â•â• Quick Tools â•â•â• */}
       <div className="ihub-section-header">
         <div className="ihub-section-icon" style={{ background: 'rgba(16,185,129,0.15)', color: '#6ee7b7' }}>
           <BookOpen size={17} />
@@ -343,7 +343,7 @@ export default function InterviewSuite() {
         })}
       </div>
 
-      {/* ═══ Bottom Grid: Performance + Recent ═══ */}
+      {/* â•â•â• Bottom Grid: Performance + Recent â•â•â• */}
       <div className="ihub-bottom-grid">
         {/* Weakness Panel */}
         <div className="ihub-panel">
@@ -358,8 +358,8 @@ export default function InterviewSuite() {
           </div>
 
           {loading ? (
-            <div style={{ padding: '4px 0' }}>
-              {[1,2,3].map(i => <Bone key={i} height={18} style={{ marginBottom: 10 }} />)}
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
             </div>
           ) : heatmap.length === 0 ? (
             <div className="ihub-empty">
@@ -409,8 +409,8 @@ export default function InterviewSuite() {
           </div>
 
           {loading ? (
-            <div style={{ padding: '4px 0' }}>
-              {[1,2,3].map(i => <Bone key={i} height={44} style={{ marginBottom: 10 }} />)}
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
             </div>
           ) : recentSessions.length === 0 ? (
             <div className="ihub-empty">
@@ -435,7 +435,7 @@ export default function InterviewSuite() {
                         {session.company || session.type || 'Interview Session'}
                       </div>
                       <div className="ihub-session-meta">
-                        {session.type || session.roundType || 'Mock'} · {
+                        {session.type || session.roundType || 'Mock'} Â· {
                           session.createdAt
                             ? new Date(session.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
                             : 'Recent'
@@ -460,3 +460,4 @@ export default function InterviewSuite() {
     </div>
   );
 }
+

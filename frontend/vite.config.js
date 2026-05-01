@@ -23,8 +23,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    chunkSizeWarningLimit: 10000,
+    // Warning limit: warn when uncompressed chunks exceed 500 KB
+    // (roughly 100-150 KB gzipped, which is reasonable for a single chunk)
+    // Largest legitimate chunks (vendor libraries) should be <800 KB uncompressed
+    // Hard limit is enforced by checkBundleSize.js during build
+    chunkSizeWarningLimit: 500,
     rollupOptions: {
+      treeshake: {
+        moduleSideEffects: true,
+        propertyReadSideEffects: false,
+        tryCatchDeoptimization: false,
+      },
       output: {
         // Disable inlining of main module as data: URL
         // Ensures main.jsx is served as separate file, not embedded in HTML
@@ -38,6 +47,10 @@ export default defineConfig({
           if (id.includes('prettier')) return 'vendor-prettier';
           if (id.includes('reactflow')) return 'vendor-reactflow';
           if (id.includes('@react-three') || id.includes('three')) return 'vendor-3d';
+          if (id.includes('@mantine')) return 'vendor-mantine';
+          if (id.includes('@supabase')) return 'vendor-supabase';
+          if (id.includes('lucide-react')) return 'vendor-lucide';
+          if (id.includes('react-syntax-highlighter') || id.includes('highlight.js')) return 'vendor-syntax';
         },
       },
     },

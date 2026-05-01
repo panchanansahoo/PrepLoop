@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+﻿import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Sparkles, Target, Brain, FileText, Mic, Code2,
@@ -358,8 +358,8 @@ export default function InterviewSuite() {
           </div>
 
           {loading ? (
-            <div style={{ padding: '4px 0' }}>
-              {[1,2,3].map(i => <Bone key={i} height={18} style={{ marginBottom: 10 }} />)}
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
             </div>
           ) : heatmap.length === 0 ? (
             <div className="ihub-empty">
@@ -409,8 +409,8 @@ export default function InterviewSuite() {
           </div>
 
           {loading ? (
-            <div style={{ padding: '4px 0' }}>
-              {[1,2,3].map(i => <Bone key={i} height={44} style={{ marginBottom: 10 }} />)}
+            <div className="ihub-empty">
+              <Loader2 size={20} style={{ animation: 'ihub-spin 1s linear infinite' }} />
             </div>
           ) : recentSessions.length === 0 ? (
             <div className="ihub-empty">

@@ -43,8 +43,129 @@ export function buildVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
 }
 
 const TTS_ENDPOINT         = buildVoiceApiUrl('/voice/tts-stream');
+const TTS_OPTIMIZED_ENDPOINT = buildVoiceApiUrl('/voice/tts-optimized'); // Phase 1 optimization
 const ANALYZE_ENDPOINT     = buildVoiceApiUrl('/voice/analyze-answer');
 const BACKCHANNEL_ENDPOINT = buildVoiceApiUrl('/voice/backchannel-clips');
+
+// ——— TTS Hash-Based Caching (Phase 1 Optimization) ———
+// OPTIMIZATION: Cache TTS responses by content hash instead of storing raw strings
+// Benefit: Reuse cached audio across interview sessions within 24 hours
+// Implementation: Stores in IndexedDB with TTL-based cleanup
+
+const TTS_CACHE_DB_NAME = 'PrepLoop_TTS_Cache';
+const TTS_CACHE_STORE_NAME = 'tts_responses';
+const TTS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+// Simple FNV-1a hash for TTS parameters (fast, deterministic)
+function hashTtsParams(text, persona, language, gender) {
+    let hash = 2166136261; // FNV offset basis
+    const fnvPrime = 16777619;
+    
+    const data = `${text}|${persona}|${language}|${gender}`;
+    for (let i = 0; i < data.length; i++) {
+        hash = (hash ^ data.charCodeAt(i)) * fnvPrime;
+        hash = hash >>> 0; // Keep as 32-bit unsigned
+    }
+    
+    return `tts_${hash.toString(16)}`;
+}
+
+// Initialize IndexedDB for TTS caching (one-time setup)
+let _ttsDbReady = false;
+let _ttsCacheDb = null;
+
+async function initTtsCache() {
+    if (_ttsDbReady || !('indexedDB' in window)) return null;
+    
+    try {
+        return new Promise((resolve, reject) => {
+            const req = window.indexedDB.open(TTS_CACHE_DB_NAME, 1);
+            
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(TTS_CACHE_STORE_NAME)) {
+                    const store = db.createObjectStore(TTS_CACHE_STORE_NAME, { keyPath: 'cacheKey' });
+                    store.createIndex('expireTime', 'expireTime', { unique: false });
+                }
+            };
+            
+            req.onsuccess = () => {
+                _ttsCacheDb = req.result;
+                _ttsDbReady = true;
+                resolve(_ttsCacheDb);
+            };
+            
+            req.onerror = () => {
+                console.warn('[TTS-Cache] IndexedDB init failed, continuing without cache');
+                resolve(null);
+            };
+        });
+    } catch (err) {
+        console.warn('[TTS-Cache] IndexedDB not available:', err.message);
+        return null;
+    }
+}
+
+async function getTtsCached(text, persona, language, gender) {
+    if (!_ttsDbReady) return null;
+    
+    const cacheKey = hashTtsParams(text, persona, language, gender);
+    
+    try {
+        return new Promise((resolve) => {
+            if (!_ttsCacheDb) {
+                resolve(null);
+                return;
+            }
+            
+            const tx = _ttsCacheDb.transaction([TTS_CACHE_STORE_NAME], 'readonly');
+            const store = tx.objectStore(TTS_CACHE_STORE_NAME);
+            const req = store.get(cacheKey);
+            
+            req.onsuccess = () => {
+                const cached = req.result;
+                if (cached && cached.expireTime > Date.now()) {
+                    logVoiceDebug('TTS cache hit', { cacheKey, age: Date.now() - cached.cacheTime });
+                    resolve(cached.audioData);
+                } else if (cached) {
+                    // Expired — delete it
+                    const delReq = store.delete(cacheKey);
+                    delReq.onsuccess = () => resolve(null);
+                    delReq.onerror = () => resolve(null);
+                } else {
+                    resolve(null);
+                }
+            };
+            
+            req.onerror = () => resolve(null);
+        });
+    } catch (err) {
+        console.warn('[TTS-Cache] Get failed:', err.message);
+        return null;
+    }
+}
+
+async function setTtsCached(text, persona, language, gender, audioData) {
+    if (!_ttsDbReady) return;
+    
+    const cacheKey = hashTtsParams(text, persona, language, gender);
+    
+    try {
+        if (!_ttsCacheDb) return;
+        
+        const tx = _ttsCacheDb.transaction([TTS_CACHE_STORE_NAME], 'readwrite');
+        const store = tx.objectStore(TTS_CACHE_STORE_NAME);
+        
+        store.put({
+            cacheKey,
+            audioData,
+            cacheTime: Date.now(),
+            expireTime: Date.now() + TTS_CACHE_TTL_MS,
+        });
+    } catch (err) {
+        console.warn('[TTS-Cache] Set failed:', err.message);
+    }
+}
 
 export function appendTranscriptCapped(existing = '', chunk = '', maxLength = MAX_TRANSCRIPT_LENGTH) {
     const appended = `${existing} ${chunk}`.trim();
@@ -250,6 +371,21 @@ export function useVoiceAI({
             })
             .catch(() => {});
     }, [personaGender]);
+
+    // I10: Pre-warm TTS on mount so first question audio is instant
+    // Only pre-warm if getAuthHeaders is available to ensure authenticated requests
+    useEffect(() => {
+        if (!getAuthHeaders) return;
+        
+        const controller = new AbortController();
+        fetch(TTS_ENDPOINT, {
+            method: 'POST',
+            headers: resolveAuthHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ text: ' ', persona: 'friendly', gender: personaGender }),
+            signal: controller.signal,
+        }).catch(() => {});
+        return () => controller.abort();
+    }, [getAuthHeaders, personaGender, resolveAuthHeaders]);
 
     const clearSilenceTimer = () => {
         if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
@@ -568,7 +704,22 @@ export function useVoiceAI({
             let isFallback = false;
             const cacheKey = text.trim().slice(0, 200);
 
-            if (ttsCacheRef.current.has(cacheKey)) {
+            // OPTIMIZATION (Phase 1): Check hash-based IndexedDB cache first
+            if (!_ttsDbReady) {
+                await initTtsCache();
+            }
+            
+            const hashCached = await getTtsCached(spokenText, 'friendly', 'en', personaGender);
+            if (hashCached) {
+                blob = hashCached;
+                cachedContentType = blob?.type || 'audio/mpeg';
+                logVoiceDebug('tts hash cache hit', { text: spokenText.substring(0, 30) });
+                if (shouldTreatTtsResponseAsFallback({ contentType: cachedContentType, blobSize: blob?.size })) {
+                    isFallback = true;
+                }
+            } 
+            // Fallback to legacy memory cache for backwards compatibility
+            else if (ttsCacheRef.current.has(cacheKey)) {
                 const cached = await ttsCacheRef.current.get(cacheKey);
                 if (cached) {
                     blob = cached.blob;
@@ -666,6 +817,11 @@ export function useVoiceAI({
                     if (shouldTreatTtsResponseAsFallback({ contentType: responseCt, blobSize: blob?.size })) {
                         console.warn('[useVoiceAI] TTS response treated as fallback (invalid audio)');
                         isFallback = true;
+                    } else {
+                        // OPTIMIZATION (Phase 1): Store in hash-based cache for future sessions
+                        setTtsCached(spokenText, 'friendly', 'en', personaGender, blob).catch(err => {
+                            console.warn('[useVoiceAI] Failed to cache TTS response:', err.message);
+                        });
                     }
                 }
             }

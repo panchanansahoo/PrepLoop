@@ -3,9 +3,20 @@
     "version": "1.0.0",
     "description": "Frontend for Preploop",
     "type": "module",
+    "sideEffects": [
+        "src/main.jsx",
+        "src/index.css",
+        "src/App.css",
+        "src/utils/serviceWorkerRegistration.js",
+        "src/utils/analytics.js",
+        "src/utils/performanceMonitor.js",
+        "src/utils/importErrorRecovery.js",
+        "src/utils/logger.js"
+    ],
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
+        "build": "vite build && node scripts/checkBundleSize.js",
+        "build:check-only": "node scripts/checkBundleSize.js",
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "format": "prettier --write \"src/**/*.{js,jsx}\"",
