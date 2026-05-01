@@ -149,8 +149,8 @@ async function initializeServer() {
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
     app.use(tracingMiddleware()); // Distributed tracing spans
     
-    // Input sanitization (skip for webhooks)
-    app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
+    // Input sanitization (skip for payment webhook to preserve raw body for signature verification)
+    app.use(sanitizeInput({ skipPaths: ['/api/payment/webhook'] }));
     
     // Rate limiting
     app.use('/api/auth', authLimiter);
