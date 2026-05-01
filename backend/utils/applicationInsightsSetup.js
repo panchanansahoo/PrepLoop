@@ -12,6 +12,9 @@
  *   - Easier to test and mock
  */
 
+import { createLogger } from './structuredLogger.js';
+
+const logger = createLogger('applicationInsightsSetup');
 let isInitialized = false;
 
 /**
@@ -23,12 +26,12 @@ let isInitialized = false;
 export async function initializeApplicationInsights(connectionString) {
   // Prevent duplicate initialization
   if (isInitialized) {
-    console.log('ℹ️ Application Insights already initialized, skipping');
+    logger.info('Application Insights already initialized, skipping');
     return true;
   }
 
   if (!connectionString) {
-    console.log('ℹ️ Application Insights connection string not provided, skipping initialization');
+    logger.info('Application Insights connection string not provided, skipping initialization');
     return false;
   }
 
@@ -44,13 +47,20 @@ export async function initializeApplicationInsights(connectionString) {
       .start();
 
     isInitialized = true;
-    console.log('✅ Application Insights initialized successfully');
+    logger.info('Application Insights initialized successfully', {
+      module: 'applicationinsights',
+      status: 'initialized',
+    });
     return true;
   } catch (error) {
     // Log warning but don't fail - Application Insights is optional
-    console.warn(
-      '⚠️ Failed to initialize Application Insights:',
-      error instanceof Error ? error.message : String(error)
+    logger.error(
+      'Failed to initialize Application Insights',
+      {
+        module: 'applicationinsights',
+        status: 'initialization_failed',
+      },
+      error instanceof Error ? error : new Error(String(error))
     );
     return false;
   }
