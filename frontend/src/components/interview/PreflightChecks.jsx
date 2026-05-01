@@ -137,13 +137,23 @@ function PreflightChecks({ interviewType, onAllChecksPassed }) {
         ? '/health' 
         : `${apiUrl}/health`;
 
+      // Create abort signal with timeout (with fallback for older Node.js/browsers)
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), 5000);
+      let signal = abortController.signal;
+      
+      // Try to use AbortSignal.timeout() if available (Node.js 17.3.0+)
+      if (AbortSignal.timeout) {
+        signal = AbortSignal.timeout(5000);
+      }
+
       const start = performance.now();
       const response = await fetch(healthEndpoint, { 
         method: 'GET', 
         cache: 'no-store',
-        // Add timeout to avoid hanging on unreachable servers
-        signal: AbortSignal.timeout(5000)
+        signal
       });
+      clearTimeout(timeoutId);
       const latency = Math.round(performance.now() - start);
       
       if (response.ok) {
