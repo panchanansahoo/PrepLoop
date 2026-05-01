@@ -36,11 +36,13 @@ if (process.env.NODE_ENV === 'production') {
 validateEnvironment();
 validateStartupEnv();
 
-// Initialize cache manager
-await cacheManager.connect();
-
 async function initializeServer() {
   try {
+    // Initialize cache manager with error handling
+    console.log('🔄 Initializing cache manager...');
+    await cacheManager.connect();
+    console.log('✅ Cache manager connected');
+
     // Initialize Application Insights early, but don't block on failure
     void initializeApplicationInsights(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
 
@@ -406,6 +408,7 @@ initializeServer().then(() => {
     .catch(err => console.warn('[startup] Kokoro preload import failed (non-fatal):', err.message));
 }).catch((error) => {
   console.error('❌ Failed to start server:', error.message);
+  console.error(error.stack);
   process.exit(1);
 });
 
