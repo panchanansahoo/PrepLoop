@@ -7,6 +7,7 @@ import './config/env.js';
 // Comprehensive Improvements
 import { apiCacheMiddleware } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
+import cspMiddleware from './middleware/csp.js';
 import collaborationService from './services/collaborationService.js';
 
 import { disableConsoleLogs } from './utils/productionLogger.js';
@@ -115,15 +116,13 @@ async function initializeServer() {
 
     app.use(enhancedSecurity());
 
+    // CSP middleware (applies only to HTML responses, not APIs)
+    app.use(cspMiddleware({
+      reportUri: process.env.CSP_REPORT_URI,
+    }));
+
     app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
-        },
-      },
+      contentSecurityPolicy: false, // Disabled in favor of custom cspMiddleware
       hsts: {
         maxAge: 31536000,
         includeSubDomains: true,
