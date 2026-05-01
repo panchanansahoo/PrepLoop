@@ -91,7 +91,12 @@ async function initializeServer() {
     console.log('✅ Routes loaded successfully');
 
     app = express();
-    app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
+    // SECURITY: Trust proxy is opt-in (default false) to prevent IP spoofing
+    // Only enable if explicitly configured: TRUST_PROXY=1 or TRUST_PROXY=true
+    // Trusting proxies allows X-Forwarded-For header to override client IP,
+    // which affects rate limiting and other IP-based security measures.
+    // Only enable this if you are behind a trusted reverse proxy (AWS ALB, Nginx, etc.)
+    app.set('trust proxy', process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true' ? 1 : false);
 
     // Configure rate limiting
     const limiter = rateLimit({
