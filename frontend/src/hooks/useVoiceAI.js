@@ -540,22 +540,12 @@ export function useVoiceAI({
                         clearTotalSilenceTimer();
                         clearAfterSpeechSilence();
                         
-                        // OPTIMIZATION (Phase 2): More aggressive silence detection
-                        // Don't wait full duration if we have enough content + silence detected
-                        const trimmedText = finalTextRef.current.trim();
-                        let autoSubmitMs = getPostSpeechAutoSubmitMs(trimmedText.length);
-                        
-                        // If transcript is long enough (>100 chars) and we got final content, reduce wait
-                        // This prevents stalling on utteranceend delays
-                        if (trimmedText.length > 100 && finalText.length > 20) {
-                            autoSubmitMs = Math.min(autoSubmitMs, 600); // Max 600ms wait for long answers
-                        }
-                        
+                        const postMs = getPostSpeechAutoSubmitMs(finalTextRef.current.trim().length);
                         afterSpeechSilenceRef.current = setTimeout(() => {
                             if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
                                 submitAnswer();
                             }
-                        }, autoSubmitMs);
+                        }, postMs);
                     }
                     if (interim) {
                         interimRef.current = interim;

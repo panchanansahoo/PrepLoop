@@ -428,6 +428,42 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PROVIDER STATS (PHASE 3) — Regional performance analytics
+// GET /api/voice/provider-stats?region=US-East
+// Returns: { global: {...}, regions: {...}, optimalProviders: {...} }
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/provider-stats', (req, res) => {
+    const region = req.query.region || 'UNKNOWN';
+    const stats = voiceService.getProviderStatsByRegion(region);
+    
+    res.json({
+        region,
+        stats,
+        timestamp: Date.now(),
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BEST PROVIDER LOOKUP (PHASE 3) — Get optimal provider for region
+// GET /api/voice/best-provider?region=US-East&service=TTS
+// Returns: { provider: 'kokoro', score: 0.92, region: 'US-East' }
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/best-provider', (req, res) => {
+    const region = req.query.region || 'UNKNOWN';
+    const service = req.query.service || 'TTS';
+    const provider = voiceService.getBestProvider(service, region);
+    const rankedProviders = voiceService.getRankedProviders(region);
+    
+    res.json({
+        region,
+        service,
+        provider,
+        rankedProviders,
+        timestamp: Date.now(),
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STT FILE — Legacy file-based STT (still used by other features)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────

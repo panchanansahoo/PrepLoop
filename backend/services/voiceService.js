@@ -14,6 +14,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { EdgeTTS } from 'node-edge-tts';
 import { circuitBreakers } from '../utils/circuitBreaker.js';
+import providerStatsService from './providerStatsService.js';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
@@ -399,14 +400,18 @@ export async function textToSpeechParallel(text, persona = 'friendly', language 
                     const t0 = Date.now();
                     const result = await kokoroTTS(cleanText, persona, g);
                     if (result) {
-                        updateStats('kokoro', true, Date.now() - t0);
+                        const latency = Date.now() - t0;
+                        updateStats('kokoro', true, latency);
+                        providerStatsService.recordSuccess('kokoro', latency);
                         return result;
                     }
                     updateStats('kokoro', false);
+                    providerStatsService.recordFailure('kokoro', 'timeout');
                     return null;
                 } catch (err) {
                     console.warn('[TTS-Parallel] Kokoro failed:', err.message?.substring(0, 100));
                     updateStats('kokoro', false);
+                    providerStatsService.recordFailure('kokoro', err.message?.substring(0, 50) || 'unknown');
                     return null;
                 }
             })()
@@ -421,14 +426,18 @@ export async function textToSpeechParallel(text, persona = 'friendly', language 
                     const t0 = Date.now();
                     const result = await circuitBreakers.groq.execute(() => groqOrpheusTTS(cleanText, persona, g));
                     if (result) {
-                        updateStats('groq', true, Date.now() - t0);
+                        const latency = Date.now() - t0;
+                        updateStats('groq', true, latency);
+                        providerStatsService.recordSuccess('groq', latency);
                         return result;
                     }
                     updateStats('groq', false);
+                    providerStatsService.recordFailure('groq', 'timeout');
                     return null;
                 } catch (err) {
                     console.warn('[TTS-Parallel] Groq failed:', err.message?.substring(0, 100));
                     updateStats('groq', false);
+                    providerStatsService.recordFailure('groq', err.message?.substring(0, 50) || 'unknown');
                     return null;
                 }
             })()
@@ -452,13 +461,17 @@ export async function textToSpeechParallel(text, persona = 'friendly', language 
             const t0 = Date.now();
             const result = await edgeNeuralTTS(cleanText, persona, g);
             if (result) {
-                updateStats('edge', true, Date.now() - t0);
+                const latency = Date.now() - t0;
+                updateStats('edge', true, latency);
+                providerStatsService.recordSuccess('edge', latency);
                 return result;
             }
             updateStats('edge', false);
+            providerStatsService.recordFailure('edge', 'timeout');
         } catch (err) {
             console.warn('[TTS-Parallel] Edge failed:', err.message?.substring(0, 100));
             updateStats('edge', false);
+            providerStatsService.recordFailure('edge', err.message?.substring(0, 50) || 'unknown');
         }
     }
     
@@ -468,13 +481,17 @@ export async function textToSpeechParallel(text, persona = 'friendly', language 
             const t0 = Date.now();
             const result = await circuitBreakers.elevenlabs.execute(() => elevenLabsTTS(cleanText, persona, g));
             if (result) {
-                updateStats('elevenlabs', true, Date.now() - t0);
+                const latency = Date.now() - t0;
+                updateStats('elevenlabs', true, latency);
+                providerStatsService.recordSuccess('elevenlabs', latency);
                 return result;
             }
             updateStats('elevenlabs', false);
+            providerStatsService.recordFailure('elevenlabs', 'timeout');
         } catch (err) {
             console.warn('[TTS-Parallel] ElevenLabs failed:', err.message?.substring(0, 100));
             updateStats('elevenlabs', false);
+            providerStatsService.recordFailure('elevenlabs', err.message?.substring(0, 50) || 'unknown');
         }
     }
     
@@ -484,13 +501,17 @@ export async function textToSpeechParallel(text, persona = 'friendly', language 
             const t0 = Date.now();
             const result = await openAITTS(cleanText, persona, g);
             if (result) {
-                updateStats('openai', true, Date.now() - t0);
+                const latency = Date.now() - t0;
+                updateStats('openai', true, latency);
+                providerStatsService.recordSuccess('openai', latency);
                 return result;
             }
             updateStats('openai', false);
+            providerStatsService.recordFailure('openai', 'timeout');
         } catch (err) {
             console.warn('[TTS-Parallel] OpenAI failed:', err.message?.substring(0, 100));
             updateStats('openai', false);
+            providerStatsService.recordFailure('openai', err.message?.substring(0, 50) || 'unknown');
         }
     }
     
@@ -732,5 +753,8 @@ export default {
     getAvailableProviders,
     generateBackchannelClips,
     preloadKokoroTTS,
-    getProviderStats: () => providerStats, // Expose stats for monitoring
+    getProviderStats: () => providerStats.getStats(),
+    getProviderStatsByRegion: (region) => providerStats.getStats(region),
+    getBestProvider: (serviceType, region) => providerStats.getBestProvider(serviceType, region),
+    getRankedProviders: (region) => providerStats.getRankedProviders(region),
 };
