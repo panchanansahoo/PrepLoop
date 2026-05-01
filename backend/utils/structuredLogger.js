@@ -3,9 +3,15 @@
  * 
  * Provides consistent, JSON-formatted logging with:
  * - Context binding (requestId, userId, operation)
- * - Log levels (debug, info, warn, error)
+ * - Log levels (debug, info, warn, error, critical)
  * - Structured fields for log aggregation
  * - Stack traces for errors
+ * - Guaranteed output to stderr for critical logs (even in production)
+ * 
+ * Usage:
+ *   const logger = createLogger('myservice');
+ *   logger.info('User logged in', { userId: 123 });
+ *   logger.critical('Database connection lost', { retries: 3 }, error);
  */
 
 class StructuredLogger {
@@ -58,16 +64,29 @@ class StructuredLogger {
   }
 
   /**
+   * Output log to stderr (always visible, even in production)
+   * Structured logs bypass the console.log suppression in production
+   */
+  outputLog(entry) {
+    // Always use process.stderr for structured logs to bypass
+    // any console.log/console.info filtering in production
+    const json = JSON.stringify(entry);
+    
+    if (entry.level === 'ERROR' || entry.level === 'CRITICAL') {
+      process.stderr.write(json + '\n');
+    } else {
+      // Most logs still go to stderr for structured capture
+      // This ensures they're visible in container logs and log aggregation
+      process.stderr.write(json + '\n');
+    }
+  }
+
+  /**
    * Log with context
    */
   log(level, message, context = {}) {
     const entry = this.formatEntry(level, message, context);
-    
-    if (level === 'error' || level === 'warn') {
-      console.error(JSON.stringify(entry));
-    } else {
-      console.log(JSON.stringify(entry));
-    }
+    this.outputLog(entry);
   }
 
   debug(message, context = {}) {
@@ -94,6 +113,22 @@ class StructuredLogger {
       }),
     };
     this.log('error', message, fields);
+  }
+
+  /**
+   * Critical logs - always logged to stderr, guaranteed visibility in production
+   * Use for startup, shutdown, fatal errors, and other essential runtime information
+   */
+  critical(message, context = {}, error = null) {
+    const fields = {
+      ...context,
+      ...(error && {
+        errorType: error.name || 'Error',
+        errorMessage: error.message,
+        errorStack: error.stack,
+      }),
+    };
+    this.log('critical', message, fields);
   }
 }
 

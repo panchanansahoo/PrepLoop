@@ -16,6 +16,8 @@ import { validateEnvironment } from './config/envValidation.js';
 import { corsOptions } from './config/cors.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { sanitizeInput } from './middleware/sanitization.js';
+import { configureExpressTrustProxy, createProxyValidationMiddleware } from './middleware/proxyValidation.js';
+import { createMetricsSecurityMiddleware } from './middleware/metricsAuth.js';
 import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
@@ -91,12 +93,14 @@ async function initializeServer() {
     console.log('✅ Routes loaded successfully');
 
     app = express();
-    // SECURITY: Trust proxy is opt-in (default false) to prevent IP spoofing
-    // Only enable if explicitly configured: TRUST_PROXY=1 or TRUST_PROXY=true
-    // Trusting proxies allows X-Forwarded-For header to override client IP,
-    // which affects rate limiting and other IP-based security measures.
-    // Only enable this if you are behind a trusted reverse proxy (AWS ALB, Nginx, etc.)
-    app.set('trust proxy', process.env.TRUST_PROXY === '1' || process.env.TRUST_PROXY === 'true' ? 1 : false);
+    
+    // SECURITY: Configure trust proxy with hardened validation
+    // Calls proxyValidation middleware to detect and block IP spoofing attempts
+    configureExpressTrustProxy(app);
+    
+    // SECURITY: Validate proxy headers before rate limiting
+    // Prevents attackers from spoofing X-Forwarded-For to bypass rate limits
+    app.use(createProxyValidationMiddleware());
 
     // Configure rate limiting
     const limiter = rateLimit({
@@ -278,7 +282,11 @@ async function initializeServer() {
 
     // Phase 2-6: New routes
     app.use('/api/gdpr', gdprRoutes);
-    app.use('/metrics', metricsRoutes);
+    
+    // SECURITY: Protect metrics endpoint with authentication and IP allowlist
+    // Requires: METRICS_API_KEY (recommended) and/or METRICS_IP_ALLOWLIST
+    app.use('/metrics', createMetricsSecurityMiddleware(), metricsRoutes);
+    
     app.use('/api/analytics', analyticsEventsRoutes);
 
     // Error handler middleware

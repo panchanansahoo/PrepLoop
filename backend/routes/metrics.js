@@ -4,10 +4,14 @@
  * Exposes application metrics in Prometheus text format.
  * 
  * SECURITY:
- *   - Protected by API key authentication (X-Metrics-Key header)
- *   - Optional IP allowlist for additional access control
+ *   - Protected by metricsAuth middleware (see backend/middleware/metricsAuth.js)
+ *   - API key authentication via X-Metrics-Key header
+ *   - Optional IP allowlist (METRICS_IP_ALLOWLIST)
  *   - Sensitive labels minimized to prevent information leakage
  *   - Only exposes aggregated metrics, no PII or user-specific data
+ *
+ * NOTE: Authentication is handled by createMetricsSecurityMiddleware() 
+ *       called in backend/index.js before this route is mounted.
  */
 
 import { Router } from 'express';
@@ -22,69 +26,13 @@ const router = Router();
 const logger = createLogger('metrics');
 
 /**
- * Get client IP from request, accounting for proxies
- */
-function getClientIp(req) {
-  return req.ip || req.connection.remoteAddress || '';
-}
-
-/**
- * Check if client IP is in allowlist
- */
-function isIpAllowed(clientIp) {
-  const allowedIps = process.env.METRICS_IP_ALLOWLIST?.split(',').map(ip => ip.trim()) || [];
-  
-  // Always allow loopback/internal
-  if (clientIp === '127.0.0.1' || clientIp === '::1' || clientIp?.startsWith('127.')) {
-    return true;
-  }
-  
-  // Check allowlist
-  if (allowedIps.length > 0 && allowedIps.includes(clientIp)) {
-    return true;
-  }
-  
-  return allowedIps.length > 0 ? false : true; // If allowlist is configured, restrict; otherwise allow
-}
-
-/**
- * Metrics authentication middleware
- * Supports: API key auth (X-Metrics-Key) and IP allowlist (METRICS_IP_ALLOWLIST)
- */
-function metricsAuth(req, res, next) {
-  const rawApiKey = req.headers['x-metrics-key'];
-  const apiKey = Array.isArray(rawApiKey) ? rawApiKey[0] : rawApiKey;
-  const expectedKey = process.env.METRICS_API_KEY;
-  const clientIp = getClientIp(req);
-
-  // Check IP allowlist first (if configured, must pass)
-  if (process.env.METRICS_IP_ALLOWLIST) {
-    if (!isIpAllowed(clientIp)) {
-      logger.warn('Metrics access denied - IP not allowed', { clientIp });
-      return res.status(403).json({ error: 'Forbidden - IP not in allowlist' });
-    }
-  }
-
-  // Require API key (unless configured to allow IPs only)
-  if (expectedKey && apiKey !== expectedKey) {
-    logger.warn('Metrics access denied - Invalid API key', { hasApiKey: Boolean(apiKey) });
-    return res.status(401).json({ error: 'Unauthorized - Invalid API key' });
-  }
-
-  // If no API key configured and IP allowlist exists, IP check is sufficient
-  // Otherwise, API key is required
-  if (!expectedKey && !process.env.METRICS_IP_ALLOWLIST) {
-    logger.warn('Metrics endpoint has no security configured - should set METRICS_API_KEY or METRICS_IP_ALLOWLIST');
-  }
-
-  next();
-}
-
-/**
  * GET /metrics
  * Returns Prometheus-compatible text metrics
+ * 
+ * Requires: X-Metrics-Key header OR IP in METRICS_IP_ALLOWLIST
+ * (Enforced by metricsAuth middleware in backend/index.js)
  */
-router.get('/', metricsAuth, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const metrics = performanceMonitor.getMetrics();
     const queueStats = jobQueue.getStats();
