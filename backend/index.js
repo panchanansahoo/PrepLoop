@@ -111,12 +111,11 @@ async function initializeServer() {
     });
 
     // Middleware setup
-    
-  // Advanced security middleware
+    // Advanced security middleware
 
     app.use(enhancedSecurity());
 
-  app.use(helmet({
+    app.use(helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
@@ -157,14 +156,12 @@ async function initializeServer() {
     // Rate limiting
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
- 
     app.use('/api/ai-features', aiEndpointsLimiter);
     app.use('/api/payment', paymentEndpointsLimiter);
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
-  app.use('/api', apiCacheMiddleware());
-
+    app.use('/api', apiCacheMiddleware());
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {
