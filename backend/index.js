@@ -18,21 +18,8 @@ import { sanitizeInput } from './middleware/sanitization.js';
 import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
+import { initializeApplicationInsights } from './utils/applicationInsightsSetup.js';
 import cacheManager from './utils/cacheManager.js';
-// Initialize Application Insights if connection string provided
-if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING) {
-  try {
-    const ai = await import('applicationinsights');
-    ai.setup(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING)
-      .setAutoCollectConsole(false, true)
-      .setAutoCollectRequests(true)
-      .setAutoCollectDependencies(true)
-      .start();
-    console.log('✅ Application Insights initialized');
-  } catch (err) {
-    console.warn('⚠️ Failed to initialize Application Insights', err && err.message);
-  }
-}
 
 let app;
 const voiceHttpLogger = createLogger('voice-http');
@@ -51,6 +38,9 @@ await cacheManager.connect();
 
 async function initializeServer() {
   try {
+    // Initialize Application Insights early, but don't block on failure
+    void initializeApplicationInsights(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
+
     console.log('📦 Loading routes...');
     const authRoutes = (await import('./routes/auth.js')).default;
     const dsaRoutes = (await import('./routes/dsa.js')).default;
