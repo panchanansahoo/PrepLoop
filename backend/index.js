@@ -350,15 +350,10 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Graceful shutdown will be registered after server starts
-let shutdownManager = null;
-
 // Initialize server and start listening
 initializeServer().then(() => {
   const server = startServer(DEFAULT_PORT);
 
-  // Setup graceful shutdown with configurable timeouts
-  shutdownManager = 
   // Initialize collaboration service
   collaborationService.initialize(server);
   console.log('✅ Collaboration service initialized');
@@ -371,6 +366,7 @@ initializeServer().then(() => {
     })
     .catch(err => console.warn('[startup] WebSocket service init failed (non-fatal):', err.message));
 
+  // Setup graceful shutdown with configurable timeouts
   setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
     forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
