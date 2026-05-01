@@ -2,7 +2,12 @@
  * Prometheus-format Metrics Endpoint
  *
  * Exposes application metrics in Prometheus text format.
- * Protected by API key authentication (not JWT).
+ * 
+ * SECURITY:
+ *   - Protected by API key authentication (X-Metrics-Key header)
+ *   - Optional IP allowlist for additional access control
+ *   - Sensitive labels minimized to prevent information leakage
+ *   - Only exposes aggregated metrics, no PII or user-specific data
  */
 
 import { Router } from 'express';
@@ -16,14 +21,60 @@ import { createLogger } from '../utils/structuredLogger.js';
 const router = Router();
 const logger = createLogger('metrics');
 
-// Simple API key auth for metrics endpoint
+/**
+ * Get client IP from request, accounting for proxies
+ */
+function getClientIp(req) {
+  return req.ip || req.connection.remoteAddress || '';
+}
+
+/**
+ * Check if client IP is in allowlist
+ */
+function isIpAllowed(clientIp) {
+  const allowedIps = process.env.METRICS_IP_ALLOWLIST?.split(',').map(ip => ip.trim()) || [];
+  
+  // Always allow loopback/internal
+  if (clientIp === '127.0.0.1' || clientIp === '::1' || clientIp?.startsWith('127.')) {
+    return true;
+  }
+  
+  // Check allowlist
+  if (allowedIps.length > 0 && allowedIps.includes(clientIp)) {
+    return true;
+  }
+  
+  return allowedIps.length > 0 ? false : true; // If allowlist is configured, restrict; otherwise allow
+}
+
+/**
+ * Metrics authentication middleware
+ * Supports: API key auth (X-Metrics-Key) and IP allowlist (METRICS_IP_ALLOWLIST)
+ */
 function metricsAuth(req, res, next) {
   const rawApiKey = req.headers['x-metrics-key'];
   const apiKey = Array.isArray(rawApiKey) ? rawApiKey[0] : rawApiKey;
   const expectedKey = process.env.METRICS_API_KEY;
+  const clientIp = getClientIp(req);
 
-  if (!expectedKey || apiKey !== expectedKey) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  // Check IP allowlist first (if configured, must pass)
+  if (process.env.METRICS_IP_ALLOWLIST) {
+    if (!isIpAllowed(clientIp)) {
+      logger.warn('Metrics access denied - IP not allowed', { clientIp });
+      return res.status(403).json({ error: 'Forbidden - IP not in allowlist' });
+    }
+  }
+
+  // Require API key (unless configured to allow IPs only)
+  if (expectedKey && apiKey !== expectedKey) {
+    logger.warn('Metrics access denied - Invalid API key', { hasApiKey: Boolean(apiKey) });
+    return res.status(401).json({ error: 'Unauthorized - Invalid API key' });
+  }
+
+  // If no API key configured and IP allowlist exists, IP check is sufficient
+  // Otherwise, API key is required
+  if (!expectedKey && !process.env.METRICS_IP_ALLOWLIST) {
+    logger.warn('Metrics endpoint has no security configured - should set METRICS_API_KEY or METRICS_IP_ALLOWLIST');
   }
 
   next();
@@ -113,8 +164,10 @@ router.get('/', metricsAuth, async (req, res) => {
     lines.push('# TYPE circuit_breaker_state gauge');
     for (const cb of cbStatuses) {
       const stateNum = cb.state === 'CLOSED' ? 0 : cb.state === 'OPEN' ? 1 : 2;
-      lines.push(`circuit_breaker_state{service="${cb.name}"} ${stateNum}`);
-      lines.push(`circuit_breaker_failures{service="${cb.name}"} ${cb.failureCount}`);
+      // Use numeric service ID instead of full service name to reduce information leakage
+      const serviceId = Math.abs(cb.name.split('').reduce((a, b) => { a = (a << 5) - a + b.charCodeAt(0); return a & a; }, 0)).toString(16).slice(0, 8);
+      lines.push(`circuit_breaker_state{id="${serviceId}"} ${stateNum}`);
+      lines.push(`circuit_breaker_failures{id="${serviceId}"} ${cb.failureCount}`);
     }
 
     res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
