@@ -156,17 +156,12 @@ class DatabaseOptimizer {
       const startTime = performance.now();
       
       // Check if index already exists
-      const { data: existingIndex, error: checkError } = await supabase.rpc('pg_indexes', {
-        tablename: table,
-        indexname: name
-      });
+      const checkResult = await query(
+        `SELECT indexname FROM pg_indexes WHERE tablename = $1 AND indexname = $2`,
+        [table, name]
+      );
 
-      if (checkError) {
-        logger.error(`Error checking index existence:`, checkError);
-        return false;
-      }
-
-      if (existingIndex && existingIndex.length > 0) {
+      if (checkResult.rows && checkResult.rows.length > 0) {
         logger.info(`Index ${name} already exists, skipping...`);
         return true;
       }
@@ -183,18 +178,11 @@ class DatabaseOptimizer {
       }
 
       if (condition) {
-        createQuery += ` WHERE ${condition}`;
+        createQuery += ` ${condition}`;
       }
 
       // Execute index creation
-      const { error: createError } = await supabase.rpc('exec_sql', {
-        sql: createQuery
-      });
-
-      if (createError) {
-        logger.error(`Error creating index ${name}:`, createError);
-        return false;
-      }
+      await query(createQuery);
 
       const executionTime = performance.now() - startTime;
       logger.info(`Index ${name} created successfully in ${executionTime.toFixed(2)}ms`);
@@ -214,35 +202,30 @@ class DatabaseOptimizer {
       const startTime = performance.now();
       
       // Get unused indexes
-      const { data: unusedIndexes, error } = await supabase.rpc('pg_stat_user_indexes');
-      
-      if (error) {
-        logger.error('Error getting unused indexes:', error);
-        return 0;
-      }
+      const result = await query(`
+        SELECT indexrelname, idx_tup_read, idx_tup_fetch 
+        FROM pg_stat_user_indexes 
+        WHERE idx_tup_read = 0 AND idx_tup_fetch = 0
+      `);
 
       let droppedCount = 0;
+      const unusedIndexes = result.rows || [];
       
-      for (const index of unusedIndexes || []) {
-        if (index.idx_tup_read === 0 && index.idx_tup_fetch === 0) {
-          // Skip primary keys and unique constraints
-          if (index.indexrelname.includes('pkey') || index.indexrelname.includes('unique')) {
-            continue;
-          }
-          
-          logger.info(`Dropping unused index: ${index.indexrelname}`);
-          
-          const { error: dropError } = await supabase.rpc('exec_sql', {
-            sql: `DROP INDEX IF EXISTS ${index.indexrelname}`
-          });
-
-          if (dropError) {
-            logger.error(`Error dropping index ${index.indexrelname}:`, dropError);
-            continue;
-          }
-          
+      for (const index of unusedIndexes) {
+        // Skip primary keys and unique constraints
+        if (index.indexrelname.includes('pkey') || index.indexrelname.includes('unique')) {
+          continue;
+        }
+        
+        logger.info(`Dropping unused index: ${index.indexrelname}`);
+        
+        try {
+          await query(`DROP INDEX IF EXISTS ${index.indexrelname}`);
           droppedCount++;
           this.optimizationStats.indexesDropped++;
+        } catch (dropError) {
+          logger.error(`Error dropping index ${index.indexrelname}:`, dropError);
+          continue;
         }
       }
 
@@ -263,34 +246,28 @@ class DatabaseOptimizer {
       const startTime = performance.now();
       
       // Get all user tables
-      const { data: tables, error } = await supabase.rpc('pg_tables', {
-        schemaname: 'public'
-      });
-
-      if (error) {
-        logger.error('Error getting table list:', error);
-        return false;
-      }
+      const result = await query(`
+        SELECT tablename FROM pg_tables 
+        WHERE schemaname = 'public'
+      `);
 
       let updatedCount = 0;
+      const tables = result.rows || [];
       
-      for (const table of tables || []) {
+      for (const table of tables) {
         if (table.tablename.startsWith('pg_') || table.tablename.startsWith('sql_')) {
           continue; // Skip system tables
         }
         
         logger.info(`Analyzing table: ${table.tablename}`);
         
-        const { error: analyzeError } = await supabase.rpc('exec_sql', {
-          sql: `ANALYZE ${table.tablename}`
-        });
-
-        if (analyzeError) {
+        try {
+          await query(`ANALYZE ${table.tablename}`);
+          updatedCount++;
+        } catch (analyzeError) {
           logger.error(`Error analyzing table ${table.tablename}:`, analyzeError);
           continue;
         }
-        
-        updatedCount++;
       }
 
       const executionTime = performance.now() - startTime;
@@ -310,20 +287,18 @@ class DatabaseOptimizer {
       const startTime = performance.now();
       
       // Get slow query statistics
-      const { data: slowQueries, error } = await supabase.rpc('pg_stat_statements', {
-        order_by: 'total_time DESC',
-        limit: 10
-      });
+      const result = await query(`
+        SELECT query, calls, total_time, mean_time, rows
+        FROM pg_stat_statements 
+        ORDER BY total_time DESC 
+        LIMIT 10
+      `);
 
-      if (error) {
-        logger.error('Error getting slow queries:', error);
-        return 0;
-      }
-
-      logger.info(`Found ${slowQueries?.length || 0} slow queries to analyze`);
+      const slowQueries = result.rows || [];
+      logger.info(`Found ${slowQueries.length} slow queries to analyze`);
       
       // Log slow queries for manual review
-      for (const query of slowQueries || []) {
+      for (const query of slowQueries) {
         logger.warn(`Slow query detected:`, {
           query: query.query,
           calls: query.calls,
@@ -336,8 +311,8 @@ class DatabaseOptimizer {
       const executionTime = performance.now() - startTime;
       logger.info(`Query analysis completed in ${executionTime.toFixed(2)}ms`);
       
-      this.optimizationStats.queriesOptimized = slowQueries?.length || 0;
-      return slowQueries?.length || 0;
+      this.optimizationStats.queriesOptimized = slowQueries.length;
+      return slowQueries.length;
     } catch (error) {
       logger.error('Error optimizing queries:', error);
       return 0;
