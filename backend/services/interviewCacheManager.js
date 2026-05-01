@@ -65,53 +65,67 @@ export class InterviewCacheManager {
   /**
    * Get a value from cache (L1 -> L2)
    * Handles deserialization of JSON strings from Upstash Redis
+   * 
+   * Note: All values are stored as JSON strings in Redis to ensure type safety.
+   * This method handles proper deserialization of all types (objects, arrays, 
+   * primitives, null, etc.)
    */
   static async get(key) {
-    // Check L1
+    // Check L1 (memory cache)
     const l1Result = memoryCache.get(key);
-    if (l1Result) {
+    if (l1Result !== undefined) {
       return l1Result;
     }
 
-    // Check L2
+    // Check L2 (Redis/Upstash)
     const l2Result = await this.safeRedisCall(() => redisClient.get(key));
-    if (l2Result) {
-      // Deserialize JSON string from Upstash Redis
-      let deserialized = l2Result;
-      if (typeof l2Result === 'string') {
-        try {
-          deserialized = JSON.parse(l2Result);
-        } catch (parseError) {
-          // If parsing fails, return the string as-is (fallback for non-JSON values)
-          logger.debug('Failed to parse Redis value as JSON, using raw value', { key, error: parseError.message });
-        }
-      }
-
-      // Backfill L1
-      memoryCache.set(key, deserialized);
-      return deserialized;
+    if (l2Result === null || l2Result === undefined) {
+      return null;
     }
 
-    return null;
+    // Deserialize JSON string from Upstash Redis
+    // Always expect JSON strings from Redis since we always store as JSON
+    let deserialized = l2Result;
+    if (typeof l2Result === 'string') {
+      try {
+        // Parse JSON string to restore original value (handles all types)
+        deserialized = JSON.parse(l2Result);
+      } catch (parseError) {
+        // If parsing fails, it indicates corrupted/malformed data in Redis
+        logger.error('Failed to parse Redis value as JSON', { key, error: parseError.message });
+        return null;
+      }
+    }
+
+    // Backfill L1 memory cache with deserialized value
+    memoryCache.set(key, deserialized);
+    return deserialized;
   }
 
   /**
    * Set a value in cache (L1 + L2)
-   * Handles serialization of values to JSON strings for Upstash Redis
+   * Handles serialization of all values to JSON strings for Upstash Redis
+   * 
+   * Strategy:
+   * - L1 (memory): Store original value as-is (no serialization needed)
+   * - L2 (Redis): Always store as JSON.stringify() to ensure proper type handling
+   * 
+   * This prevents:
+   * - Type changes (numbers/booleans becoming strings)
+   * - Double-serialization (strings being double-encoded)
+   * - Deserialization errors on retrieval
    */
   static async set(key, value, customTTL = null) {
     const ttl = customTTL || this.getSessionTTL(value);
     
-    // Set L1 - store original object
+    // Set L1 (memory cache) - store original value unmodified
     memoryCache.set(key, value, Math.min(60, ttl));
 
-    // Set L2 - serialize to JSON string for Upstash Redis compatibility
-    let serialized = value;
+    // Set L2 (Redis/Upstash) - always serialize to JSON string for consistency
     try {
-      // Serialize objects/arrays to JSON strings for reliable Redis storage
-      if (typeof value === 'object' && value !== null) {
-        serialized = JSON.stringify(value);
-      }
+      // Always use JSON.stringify for Redis to ensure type safety
+      // This handles all types: objects, arrays, primitives, null, undefined
+      const serialized = JSON.stringify(value);
       
       await this.safeRedisCall(() => redisClient.set(key, serialized, { ex: ttl }));
     } catch (error) {
