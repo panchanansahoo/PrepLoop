@@ -162,17 +162,48 @@ export function apiCacheMiddleware(options = {}) {
         }
       }
 
-      // === Cache miss — wrap res.json to capture response ===
+      // === Cache miss — wrap res.json/send/end to capture response ===
       const start = Date.now();
       let resolveRevalidation;
-      const revalidationPromise = new Promise((resolve) => {
+      let rejectRevalidation;
+      const revalidationPromise = new Promise((resolve, reject) => {
         resolveRevalidation = resolve;
+        rejectRevalidation = reject;
       });
       pendingRevalidations.set(key, revalidationPromise);
 
-      // Clean up after 30s to prevent memory leaks
-      setTimeout(() => pendingRevalidations.delete(key), 30000);
+      // Create a timeout to clean up after 30s (prevent memory leaks)
+      let cleanupTimeout = setTimeout(() => {
+        if (pendingRevalidations.has(key)) {
+          pendingRevalidations.delete(key);
+          rejectRevalidation(new Error('Revalidation timeout'));
+        }
+      }, 30000);
 
+      // Helper to cleanup and resolve
+      const cleanup = (shouldDelete = true) => {
+        if (cleanupTimeout) {
+          clearTimeout(cleanupTimeout);
+          cleanupTimeout = null;
+        }
+        if (shouldDelete && pendingRevalidations.has(key)) {
+          pendingRevalidations.delete(key);
+        }
+      };
+
+      // Listen for response finish/close to ensure cleanup
+      const onFinish = () => cleanup(true);
+      const onClose = () => cleanup(true);
+      res.on('finish', onFinish);
+      res.on('close', onClose);
+
+      // Clean up listeners when appropriate
+      const removeListeners = () => {
+        res.removeListener('finish', onFinish);
+        res.removeListener('close', onClose);
+      };
+
+      // === Wrap res.json ===
       const originalJson = res.json.bind(res);
       res.json = (body) => {
         const entry = { body, status: res.statusCode };
@@ -195,11 +226,13 @@ export function apiCacheMiddleware(options = {}) {
 
           // Resolve stampede protection
           resolveRevalidation(entry);
-          pendingRevalidations.delete(key);
+          cleanup(true);
+          removeListeners();
         } catch (e) {
           logger.error('Failed to cache response', { key, err: e.message });
-          resolveRevalidation(null);
-          pendingRevalidations.delete(key);
+          rejectRevalidation(e);
+          cleanup(true);
+          removeListeners();
         }
 
         // Lightweight request timing
@@ -218,6 +251,46 @@ export function apiCacheMiddleware(options = {}) {
         if (entry.etag) res.setHeader('ETag', entry.etag);
         res.setHeader('Cache-Control', `private, max-age=${Math.floor(ttl / 1000)}, stale-while-revalidate=60`);
         return originalJson(body);
+      };
+
+      // === Wrap res.send for non-JSON responses ===
+      const originalSend = res.send.bind(res);
+      res.send = (data) => {
+        // Only cache if this hasn't been explicitly handled
+        if (!res.headersSent) {
+          const entry = { body: data, status: res.statusCode };
+          try {
+            entry.etag = generateETag(data);
+            cache.set(key, entry);
+            cacheTimestamps.set(key, Date.now());
+            resolveRevalidation(entry);
+          } catch (e) {
+            logger.debug('Failed to cache send response', { key, err: e.message });
+            rejectRevalidation(e);
+          }
+        }
+        cleanup(true);
+        removeListeners();
+        return originalSend(data);
+      };
+
+      // === Wrap res.end for edge cases ===
+      const originalEnd = res.end.bind(res);
+      res.end = (chunk, encoding, callback) => {
+        if (chunk && !res.headersSent && !pendingRevalidations.has(key)) {
+          const entry = { body: chunk, status: res.statusCode };
+          try {
+            entry.etag = generateETag(chunk);
+            cache.set(key, entry);
+            cacheTimestamps.set(key, Date.now());
+            resolveRevalidation(entry);
+          } catch (e) {
+            logger.debug('Failed to cache end response', { key, err: e.message });
+          }
+        }
+        cleanup(true);
+        removeListeners();
+        return originalEnd(chunk, encoding, callback);
       };
 
       return next();
