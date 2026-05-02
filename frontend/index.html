@@ -55,14 +55,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
-  <!-- Performance: DNS prefetch for API and Supabase (varies per deployment) -->
+  <!-- Performance: DNS prefetch for API -->
   <link rel="dns-prefetch" href="https://api.preploop.me">
-  <link rel="dns-prefetch" href="https://supabase.preploop.me">
 
-  <!-- Performance: Load fonts with display=swap to avoid FOIT -->
+  <!-- Performance: Non-blocking font load — preload then swap in via onload -->
   <link
+    rel="preload"
+    as="style"
     href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet" crossorigin="anonymous">
+    onload="this.onload=null;this.rel='stylesheet'"
+    crossorigin="anonymous">
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet" crossorigin="anonymous">
+  </noscript>
 
   <!-- Critical inline styles for initial paint (avoid CLS from layout shifts) -->
   <style>

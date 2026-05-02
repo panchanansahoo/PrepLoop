@@ -35,6 +35,26 @@ router.post('/feedback/realtime', authenticateToken, async (req, res) => {
   try {
     const { question, answer, type, difficulty } = req.body;
 
+    // Input validation
+    const MAX_QUESTION_LENGTH = 5000;
+    const MAX_ANSWER_LENGTH = 10000;
+
+    if (!question || typeof question !== 'string' || question.length > MAX_QUESTION_LENGTH) {
+      return res.status(400).json({ error: `Question must be a string and under ${MAX_QUESTION_LENGTH} characters` });
+    }
+
+    if (!answer || typeof answer !== 'string' || answer.length > MAX_ANSWER_LENGTH) {
+      return res.status(400).json({ error: `Answer must be a string and under ${MAX_ANSWER_LENGTH} characters` });
+    }
+
+    if (!type || typeof type !== 'string') {
+      return res.status(400).json({ error: 'Interview type is required' });
+    }
+
+    if (difficulty && typeof difficulty !== 'string') {
+      return res.status(400).json({ error: 'Difficulty must be a string' });
+    }
+
     if (!groq) {
       return res.json({
         feedback: {

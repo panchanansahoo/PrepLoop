@@ -106,6 +106,9 @@ async function flushEvents() {
 
 if (typeof window !== 'undefined') {
   flushTimer = setInterval(flushEvents, FLUSH_INTERVAL);
+  window.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushEvents();
+  });
   window.addEventListener('beforeunload', () => { flushEvents(); clearInterval(flushTimer); });
 }
 

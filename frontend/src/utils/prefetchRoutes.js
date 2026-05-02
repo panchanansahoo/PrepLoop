@@ -53,21 +53,20 @@ const prefetchedRoutes = new Set();
  * @param {string} path - Route path (e.g., '/dashboard')
  */
 export function prefetchRoute(path) {
-  // Normalize: strip trailing slash, match base path
+  if (typeof window === 'undefined') return;
   const normalized = path.replace(/\/$/, '') || '/';
 
-  // Find matching route (exact or prefix match for parameterized routes)
   const importFn = ROUTE_IMPORTS[normalized];
   if (!importFn || prefetchedRoutes.has(normalized)) return;
 
   prefetchedRoutes.add(normalized);
 
-  // Use requestIdleCallback for non-blocking prefetch, fall back to setTimeout
-  const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 100));
+  const schedulePreload = window.requestIdleCallback
+    ? (cb) => window.requestIdleCallback(cb)
+    : (cb) => setTimeout(cb, 100);
 
   schedulePreload(() => {
     importFn().catch(() => {
-      // Remove from prefetched so it can be retried
       prefetchedRoutes.delete(normalized);
     });
   });
@@ -102,7 +101,10 @@ export function usePrefetchOnHover(path) {
  * @param {string[]} paths - Array of route paths
  */
 export function prefetchRoutes(paths) {
-  const schedulePreload = window.requestIdleCallback || ((cb) => setTimeout(cb, 200));
+  if (typeof window === 'undefined') return;
+  const schedulePreload = window.requestIdleCallback
+    ? (cb) => window.requestIdleCallback(cb)
+    : (cb) => setTimeout(cb, 200);
 
   schedulePreload(() => {
     paths.forEach((path) => prefetchRoute(path));

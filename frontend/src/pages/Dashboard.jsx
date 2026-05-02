@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, SlidersHorizontal, X, Star, Eye, EyeOff, GripVertical, Loader2 } from 'lucide-react';
+import { ArrowRight, Sparkles, SlidersHorizontal, X, Star, Eye, EyeOff, GripVertical } from 'lucide-react';
 import useDashboardData from '../hooks/useDashboardData';
 import QuickStats from '../components/QuickStats';
 import { StreakHeatmap } from '../components/QuickStats';
@@ -21,7 +21,7 @@ import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
 import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
-import PerformanceMonitor from '../components/PerformanceMonitor';
+import { DashboardSkeleton } from '../components/skeletons';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -345,12 +345,8 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* ── Loading State (non-blocking) ── */}
-                {dashLoading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 18px' }}>
-                        <Loader2 size={20} className="dash-spinner" style={{ color: '#a78bfa', animation: 'spin 1s linear infinite' }} />
-                    </div>
-                )}
+                {/* ── Loading State ── */}
+                {dashLoading && <DashboardSkeleton />}
 
                 {/* ── Dashboard Widgets ── */}
                 {renderRows()}

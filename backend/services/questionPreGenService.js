@@ -12,6 +12,7 @@
 
 import NodeCache from 'node-cache';
 import { createLogger } from '../utils/structuredLogger.js';
+import * as analytics from './questionPreGenAnalytics.js';
 
 const logger = createLogger('QuestionPreGen');
 

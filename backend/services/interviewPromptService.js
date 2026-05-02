@@ -1,5 +1,6 @@
 import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { InterviewSummarizationService } from './interviewSummarizationService.js';
+import { normalizeInterviewType } from '../utils/typeNormalizer.js';
 
 // ── Type-specific voice and style modifiers ─────────────────────────
 const TYPE_STYLE_RULES = {
@@ -23,7 +24,7 @@ const TYPE_STYLE_RULES = {
 };
 
 function getTypeStyleRules(interviewType) {
-  const normalized = String(interviewType || 'dsa').toLowerCase();
+  const normalized = normalizeInterviewType(interviewType || 'dsa');
   if (normalized === 'system_design') return TYPE_STYLE_RULES['system-design'];
   return TYPE_STYLE_RULES[normalized] || TYPE_STYLE_RULES.dsa;
 }
@@ -66,10 +67,10 @@ const COMPANY_TYPE_MODIFIERS = {
 
 function getCompanyPersona(companyFocus, interviewType) {
   if (!companyFocus) return 'Balanced senior engineer. Professional, direct, and encouraging.';
-  const key = String(companyFocus).toLowerCase();
+  const key = normalizeInterviewType(companyFocus).toLowerCase(); // For company name lowercase
   const basePersona = COMPANY_PERSONAS[key] || `Calibrated to ${companyFocus} interview expectations. Professional and direct.`;
   
-  const typeKey = String(interviewType || '').toLowerCase();
+  const typeKey = normalizeInterviewType(interviewType || '');
   const typeModifier = COMPANY_TYPE_MODIFIERS[key]?.[typeKey] || '';
   
   return typeModifier ? `${basePersona} ${typeModifier}` : basePersona;
@@ -93,9 +94,12 @@ function maybeAddNaturalPrefix(message) {
 function buildConversationSummary(turnSummaries = [], askedTopics = []) {
   const parts = [];
   if (turnSummaries.length > 0) {
+    // Use slice for efficiency - it's the idiomatic way and gets optimized by V8
+    // For small arrays like this, performance impact is negligible
     parts.push(`KEY CLAIMS FROM EARLIER TURNS:\n${turnSummaries.slice(-5).map((s, i) => `${i + 1}. ${s}`).join('\n')}`);
   }
   if (askedTopics.length > 0) {
+    // Same optimization for topics
     parts.push(`ALREADY ASKED (do not repeat these topics):\n${askedTopics.slice(-6).map(t => `- ${t}`).join('\n')}`);
   }
   return parts.length > 0 ? '\n' + parts.join('\n\n') : '';

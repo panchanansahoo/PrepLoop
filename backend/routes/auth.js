@@ -210,6 +210,7 @@ function recordFailedLogin(email, ip) {
   if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
     record.count = 0;
     record.firstAttempt = Date.now();
+    delete record.lockedUntil;
   }
 
   record.count += 1;
@@ -220,11 +221,11 @@ function recordFailedLogin(email, ip) {
 
   loginAttempts.set(key, record);
 
-  // Prune old entries every so often
+  // Prune stale entries when map grows large
   if (loginAttempts.size > 5000) {
     const now = Date.now();
     for (const [k, v] of loginAttempts) {
-      if (now - v.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS * 2) {
+      if (!v.lockedUntil && now - v.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS * 2) {
         loginAttempts.delete(k);
       }
     }
@@ -468,12 +469,26 @@ router.post('/refresh', async (req, res) => {
     });
 
     if (error) {
-      return res.status(401).json({ error: 'Invalid refresh token' });
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    // Supabase rotates the refresh token on each use — the old token is
+    // automatically invalidated server-side. Return only the new pair.
+    const newAccessToken = data.session?.access_token;
+    const newRefreshToken = data.session?.refresh_token;
+
+    if (!newAccessToken || !newRefreshToken) {
+      return res.status(401).json({ error: 'Session refresh failed' });
+    }
+
+    // Reject if Supabase returned the same refresh token (rotation not working)
+    if (newRefreshToken === refreshToken) {
+      return res.status(401).json({ error: 'Token rotation failed — please log in again' });
     }
 
     res.json({
-      token: data.session.access_token,
-      refreshToken: data.session.refresh_token
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
     });
 
   } catch (error) {

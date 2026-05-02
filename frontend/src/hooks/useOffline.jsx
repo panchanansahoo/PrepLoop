@@ -12,10 +12,11 @@ export function useOffline() {
   useEffect(() => {
     const goOnline = () => {
       setIsOnline(true);
-      if (wasOffline) {
-        // Show "back online" notification briefly
-        setTimeout(() => setWasOffline(false), 3000);
-      }
+      // Use functional update to read latest wasOffline without adding it as a dep
+      setWasOffline(prev => {
+        if (prev) setTimeout(() => setWasOffline(false), 3000);
+        return prev;
+      });
     };
     const goOffline = () => {
       setIsOnline(false);
@@ -28,7 +29,7 @@ export function useOffline() {
       window.removeEventListener('online', goOnline);
       window.removeEventListener('offline', goOffline);
     };
-  }, [wasOffline]);
+  }, []); // stable — no deps needed with functional state updates
 
   return { isOnline, wasOffline };
 }

@@ -199,13 +199,17 @@ router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
 
 router.get('/posts/:id/replies', async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid post ID' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('community_replies')
       .select('*, profiles(full_name)')
       .eq('post_id', id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(200);
 
     if (error) throw error;
 

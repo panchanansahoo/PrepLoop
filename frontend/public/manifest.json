@@ -4,8 +4,8 @@
   "description": "Interview preparation platform with DSA practice, AI coaching, and system design",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#3b82f6",
+  "background_color": "#050507",
+  "theme_color": "#050507",
   "orientation": "portrait-primary",
   "icons": [
     {

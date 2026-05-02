@@ -75,11 +75,17 @@ const detectSuspiciousPatterns = (req) => {
 };
 
 // Rate limiting per IP
+const MAX_TRACKED_IPS = 10000;
 const checkRateLimit = (ip) => {
   const now = Date.now();
   const windowStart = now - 60000; // 1 minute window
 
   if (!requestPatterns.has(ip)) {
+    // Evict oldest entry if at capacity to prevent unbounded growth
+    if (requestPatterns.size >= MAX_TRACKED_IPS) {
+      const oldestKey = requestPatterns.keys().next().value;
+      if (oldestKey) requestPatterns.delete(oldestKey);
+    }
     requestPatterns.set(ip, []);
   }
 

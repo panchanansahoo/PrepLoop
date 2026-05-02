@@ -7,6 +7,7 @@ class RouteErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null, retryCount: 0, isRetrying: false };
+    this.handleRetry = this.handleRetry.bind(this);
   }
 
   static getDerivedStateFromError(error) {
@@ -27,7 +28,7 @@ class RouteErrorBoundary extends React.Component {
     }
   }
 
-  handleRetry = () => {
+  handleRetry() {
     this.setState({ hasError: false, error: null, retryCount: this.state.retryCount + 1 });
   };
 

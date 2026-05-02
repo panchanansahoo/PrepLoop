@@ -1,3 +1,5 @@
+import { normalizeInterviewType } from '../utils/typeNormalizer.js';
+
 // ── STAR detection helpers (behavioral interviews) ────────────────────
 const STAR_PATTERNS = {
   situation: /(in that situation|the context was|we were facing|at that time|when we|the problem was|the challenge was)/i,
@@ -43,7 +45,7 @@ export class InterviewFollowUpRulesService {
   static decideBranch({ analysis = {}, interviewContext = {}, candidateResponse = '', candidateCode = '', scoreHistory = [], scoreTrend = null } = {}) {
     const score = Number(analysis.score || 0);
     const previousScore = Number(interviewContext.previousScore || 0);
-    const interviewType = String(interviewContext.interviewType || '').toLowerCase();
+    const interviewType = normalizeInterviewType(interviewContext.interviewType || '');
     const missedConcepts = Array.isArray(analysis.nextFocus)
       ? [...analysis.nextFocus]
       : Array.isArray(interviewContext.missingAreas)

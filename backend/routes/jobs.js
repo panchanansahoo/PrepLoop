@@ -4,6 +4,7 @@ import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/aut
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 import { fetchAllIndianJobs } from '../utils/indianJobApis.js';
 import { getCachedJobs, setCachedJobs, checkRateLimit } from '../utils/jobCache.js';
+import { circuitBreakers } from '../utils/circuitBreaker.js';
 
 const router = express.Router();
 
@@ -116,18 +117,18 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   // ── Try JSearch (RapidAPI) - Filter for India only ──
   if (RAPIDAPI_KEY) {
     try {
-      const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(indianQuery)}&page=${page}&num_pages=1&date_posted=month`;
-      const safeUrl = ensureAllowedExternalJobUrl(url);
-      const response = await fetch(safeUrl, {
-        headers: {
-          'x-rapidapi-key': RAPIDAPI_KEY,
-          'x-rapidapi-host': JSEARCH_HOST,
-        },
-      });
-
-      if (response.ok) {
+      const jobs = await circuitBreakers.rapidapi.execute(async () => {
+        const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(indianQuery)}&page=${page}&num_pages=1&date_posted=month`;
+        const safeUrl = ensureAllowedExternalJobUrl(url);
+        const response = await fetch(safeUrl, {
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': JSEARCH_HOST,
+          },
+        });
+        if (!response.ok) throw new Error(`JSearch HTTP ${response.status}`);
         const result = await response.json();
-        const jobs = (result.data || [])
+        return (result.data || [])
           .filter(job => {
             const country = (job.job_country || '').toLowerCase();
             const location = `${job.job_city || ''} ${job.job_state || ''} ${country}`.toLowerCase();
@@ -155,12 +156,12 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
             created_at: job.job_posted_at_datetime_utc || new Date().toISOString(),
             logo_url: job.employer_logo,
           }));
+      });
 
-        if (jobs.length > 0) {
-          console.log(`✓ Fetched ${jobs.length} Indian jobs from JSearch`);
-          setCachedJobs(cacheKey, jobs);
-          return jobs;
-        }
+      if (!jobs?.fallback && jobs?.length > 0) {
+        console.log(`✓ Fetched ${jobs.length} Indian jobs from JSearch`);
+        setCachedJobs(cacheKey, jobs);
+        return jobs;
       }
     } catch (error) {
       console.error('JSearch API error:', error.message);
@@ -170,16 +171,15 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   // ── Fallback 1: Adzuna API (India-focused, free tier) ──
   if (ADZUNA_APP_ID && ADZUNA_APP_KEY) {
     try {
-      // Adzuna's URL already scopes to India (/in/), so strip "India" and "fresher" from keywords
-      const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
-      const keyword = encodeURIComponent(cleanQuery);
-      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=20&what=${keyword}&max_days_old=30`;
-      const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
-      const response = await fetch(safeAdzunaUrl);
-
-      if (response.ok) {
+      const jobs = await circuitBreakers.adzuna.execute(async () => {
+        const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
+        const keyword = encodeURIComponent(cleanQuery);
+        const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=20&what=${keyword}&max_days_old=30`;
+        const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
+        const response = await fetch(safeAdzunaUrl);
+        if (!response.ok) throw new Error(`Adzuna HTTP ${response.status}`);
         const result = await response.json();
-        const jobs = (result.results || []).map((job, idx) => ({
+        return (result.results || []).map((job, idx) => ({
           id: `adz_${job.id || idx}`,
           title: job.title,
           company: job.company?.display_name || 'Unknown',
@@ -199,12 +199,12 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
           created_at: job.created || new Date().toISOString(),
           logo_url: null,
         }));
+      });
 
-        if (jobs.length > 0) {
-          console.log(`✓ Fetched ${jobs.length} Indian jobs from Adzuna`);
-          setCachedJobs(cacheKey, jobs);
-          return jobs;
-        }
+      if (!jobs?.fallback && jobs?.length > 0) {
+        console.log(`✓ Fetched ${jobs.length} Indian jobs from Adzuna`);
+        setCachedJobs(cacheKey, jobs);
+        return jobs;
       }
     } catch (error) {
       console.error('Adzuna API error:', error.message);
@@ -927,12 +927,15 @@ router.get('/career-ops/history', authenticateToken, async (req, res) => {
 // ─── GET /api/jobs/:id — Single job detail ───────────────────────
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id) || id <= 0) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('job_listings')
       .select('*')
-      .eq('id', parseInt(id))
+      .eq('id', id)
       .single();
 
     if (error) throw error;

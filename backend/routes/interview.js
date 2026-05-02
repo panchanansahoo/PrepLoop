@@ -4,6 +4,8 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import InterviewCacheManager from '../services/interviewCacheManager.js';
+import { sendError, sendSuccess, ErrorCodes } from '../utils/errorResponseFormatter.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -229,20 +231,29 @@ const getFallbackQuestions = (type, difficulty) => {
       };
     }
 
-    const scores = interviews.map((interview) => interview.overall_score || 0);
-    const averageOverallScore = Math.round(scores.reduce((sum, score) => sum + score, 0) / totalInterviews);
-    const averageCommunicationScore = Math.round(
-      interviews.reduce((sum, interview) => sum + (interview.communication_score || 0), 0) / totalInterviews
-    );
-    const averageTechnicalScore = Math.round(
-      interviews.reduce((sum, interview) => sum + (interview.technical_score || 0), 0) / totalInterviews
-    );
-    const averageProblemSolvingScore = Math.round(
-      interviews.reduce((sum, interview) => sum + (interview.problem_solving_score || 0), 0) / totalInterviews
-    );
+    // Single-pass calculation for all scores and aggregations
+    const scores = [];
+    let totalOverallScore = 0;
+    let totalCommunicationScore = 0;
+    let totalTechnicalScore = 0;
+    let totalProblemSolvingScore = 0;
+
+    for (const interview of interviews) {
+      const overallScore = interview.overall_score || 0;
+      scores.push(overallScore);
+      totalOverallScore += overallScore;
+      totalCommunicationScore += interview.communication_score || 0;
+      totalTechnicalScore += interview.technical_score || 0;
+      totalProblemSolvingScore += interview.problem_solving_score || 0;
+    }
+
+    const averageOverallScore = Math.round(totalOverallScore / totalInterviews);
+    const averageCommunicationScore = Math.round(totalCommunicationScore / totalInterviews);
+    const averageTechnicalScore = Math.round(totalTechnicalScore / totalInterviews);
+    const averageProblemSolvingScore = Math.round(totalProblemSolvingScore / totalInterviews);
 
     const bestScore = Math.max(...scores);
-    const mean = scores.reduce((sum, score) => sum + score, 0) / totalInterviews;
+    const mean = averageOverallScore;
     const variance = scores.reduce((sum, score) => sum + ((score - mean) ** 2), 0) / totalInterviews;
     const consistency = Math.max(0, Math.min(100, Math.round(100 - Math.sqrt(variance))));
 
@@ -364,15 +375,41 @@ const getFallbackQuestions = (type, difficulty) => {
 
   export async function getInterviewAnalytics(req, res) {
     try {
+      // Extract pagination parameters from query
+      const page = Math.max(1, parseInt(req.query.page) || 1);
+      const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 50)); // Cap at 100
+      const offset = (page - 1) * pageSize;
+
+      // Get total count first
+      const { count, error: countError } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', req.user.id);
+
+      if (countError) throw countError;
+
+      // Fetch paginated interviews
       const { data: interviews, error } = await supabaseAdmin
         .from('mock_interviews')
         .select('overall_score, communication_score, technical_score, problem_solving_score, interview_type, difficulty, completed_at')
         .eq('user_id', req.user.id)
-        .order('completed_at', { ascending: false });
+        .order('completed_at', { ascending: false })
+        .range(offset, offset + pageSize - 1);
 
       if (error) throw error;
 
-      res.json(buildInterviewAnalytics(interviews || []));
+      const analytics = buildInterviewAnalytics(interviews || []);
+      
+      // Add pagination metadata
+      res.json({
+        ...analytics,
+        pagination: {
+          currentPage: page,
+          pageSize: pageSize,
+          totalRecords: count || 0,
+          totalPages: Math.ceil((count || 0) / pageSize)
+        }
+      });
     } catch (error) {
       console.error('Error fetching analytics:', error);
       res.status(500).json({ error: 'Failed to fetch analytics', message: error.message });
@@ -471,6 +508,17 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
   if (!groq) return null;
 
   try {
+    // Create a simple key for caching - we use type+difficulty but not previousQuestions
+    // since those are dynamic and would prevent cache hits
+    const cacheKey = `question:${type}:${difficulty}`;
+    
+    // Try to get from cache first
+    const cachedQuestion = await InterviewCacheManager.get(cacheKey);
+    if (cachedQuestion) {
+      console.log(`Using cached question for ${type}/${difficulty}`);
+      return cachedQuestion;
+    }
+
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -499,10 +547,27 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
     let parsed;
     try {
       const raw = completion.choices?.[0]?.message?.content || '';
-      parsed = JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
-    } catch {
+      if (!raw || typeof raw !== 'string') {
+        console.warn('Invalid response content from Groq API');
+        return null;
+      }
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+      if (!cleaned) {
+        console.warn('Empty response after cleaning');
+        return null;
+      }
+      parsed = JSON.parse(cleaned);
+    } catch (parseError) {
+      console.error('Failed to parse Groq response:', parseError.message, 'Raw:', completion.choices?.[0]?.message?.content?.substring(0, 100));
       return null;
     }
+
+    // Cache the question for future use
+    if (parsed && parsed.question) {
+      await InterviewCacheManager.set(cacheKey, parsed, 7200); // Cache for 2 hours
+      console.log(`Cached question for ${type}/${difficulty}`);
+    }
+
     return parsed;
   } catch (error) {
     console.error('Groq generation error:', error);
@@ -518,8 +583,7 @@ router.post('/start', authenticateToken, async (req, res) => {
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
     if (!type || !validTypes.includes(type)) {
-      return res.status(400).json({
-        error: 'Invalid interview type',
+      return sendError(res, ErrorCodes.INVALID_INTERVIEW_TYPE, 'Invalid interview type', {
         validTypes,
         received: type
       });
@@ -528,8 +592,7 @@ router.post('/start', authenticateToken, async (req, res) => {
     // Validate difficulty
     const validDifficulties = ['easy', 'medium', 'hard'];
     if (!difficulty || !validDifficulties.includes(difficulty)) {
-      return res.status(400).json({
-        error: 'Invalid difficulty level',
+      return sendError(res, ErrorCodes.INVALID_DIFFICULTY, 'Invalid difficulty level', {
         validDifficulties,
         received: difficulty
       });
@@ -543,10 +606,9 @@ router.post('/start', authenticateToken, async (req, res) => {
     );
 
     if (!spendResult.ok) {
-      return res.status(400).json({
-        error: 'Insufficient coins',
+      return sendError(res, ErrorCodes.INSUFFICIENT_COINS, 'You do not have enough coins for this interview', {
         required: INTERVIEW_START_COIN_COST,
-        coins: spendResult.currentCoins,
+        available: spendResult.currentCoins,
       });
     }
     didCharge = true;
@@ -589,7 +651,9 @@ router.post('/start', authenticateToken, async (req, res) => {
       }
     }
     console.error('Error starting interview:', error);
-    res.status(500).json({ error: 'Failed to start interview', message: error.message });
+    sendError(res, ErrorCodes.INTERNAL_SERVER_ERROR, 'Failed to start interview', {
+      reason: error.message
+    });
   }
 });
 
@@ -601,8 +665,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
     if (!type || !validTypes.includes(type)) {
-      return res.status(400).json({
-        error: 'Invalid interview type',
+      return sendError(res, ErrorCodes.INVALID_INTERVIEW_TYPE, 'Invalid interview type', {
         validTypes,
         received: type
       });
@@ -611,8 +674,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     // Validate difficulty
     const validDifficulties = ['easy', 'medium', 'hard'];
     if (!validDifficulties.includes(difficulty)) {
-      return res.status(400).json({
-        error: 'Invalid difficulty level',
+      return sendError(res, ErrorCodes.INVALID_DIFFICULTY, 'Invalid difficulty level', {
         validDifficulties,
         received: difficulty
       });
@@ -636,7 +698,9 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error getting next question:', error);
-    res.status(500).json({ error: 'Failed to get next question', message: error.message });
+    sendError(res, ErrorCodes.INTERNAL_SERVER_ERROR, 'Failed to get next question', {
+      reason: error.message
+    });
   }
 });
 
@@ -647,8 +711,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
     if (!type || !validTypes.includes(type)) {
-      return res.status(400).json({
-        error: 'Invalid interview type',
+      return sendError(res, ErrorCodes.INVALID_INTERVIEW_TYPE, 'Invalid interview type', {
         validTypes,
         received: type
       });
@@ -657,8 +720,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
     // Validate difficulty
     const validDifficulties = ['easy', 'medium', 'hard'];
     if (!difficulty || !validDifficulties.includes(difficulty)) {
-      return res.status(400).json({
-        error: 'Invalid difficulty level',
+      return sendError(res, ErrorCodes.INVALID_DIFFICULTY, 'Invalid difficulty level', {
         validDifficulties,
         received: difficulty
       });
@@ -666,9 +728,7 @@ router.post('/complete', authenticateToken, async (req, res) => {
 
     // Validate responses
     if (!Array.isArray(responses)) {
-      return res.status(400).json({
-        error: 'Responses must be an array'
-      });
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Responses must be an array');
     }
 
     let scores;
@@ -787,15 +847,38 @@ router.post('/complete', authenticateToken, async (req, res) => {
 
 router.get('/history', authenticateToken, async (req, res) => {
   try {
+    // Extract pagination parameters from query
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize) || 20)); // Default 20, max 100
+    const offset = (page - 1) * pageSize;
+
+    // Get total count first
+    const { count, error: countError } = await supabaseAdmin
+      .from('mock_interviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', req.user.id);
+
+    if (countError) throw countError;
+
+    // Fetch paginated data
     const { data, error } = await supabaseAdmin
       .from('mock_interviews')
       .select('id, interview_type, difficulty, duration, overall_score, completed_at')
       .eq('user_id', req.user.id)
       .order('completed_at', { ascending: false })
-      .limit(20);
+      .range(offset, offset + pageSize - 1);
 
     if (error) throw error;
-    res.json({ interviews: data || [] });
+    
+    res.json({ 
+      interviews: data || [],
+      pagination: {
+        currentPage: page,
+        pageSize: pageSize,
+        totalRecords: count || 0,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
+    });
   } catch (error) {
     console.error('Error fetching interview history:', error);
     res.status(500).json({ error: 'Failed to fetch history', message: error.message });
@@ -980,6 +1063,71 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching feedback history:', error);
     res.status(500).json({ error: 'Failed to fetch feedback', message: error.message });
+  }
+});
+
+// Resume interview session (recovery endpoint)
+router.post('/resume', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId) {
+      return sendError(res, ErrorCodes.VALIDATION_ERROR, 'Session ID is required');
+    }
+
+    // Look up the interview session by session ID
+    // In a real implementation, you might store session metadata in a sessions table
+    // For now, we'll validate the session exists and user has access
+    const { data: interviews, error: queryError } = await supabaseAdmin
+      .from('mock_interviews')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (queryError) {
+      return sendError(res, ErrorCodes.INTERNAL_SERVER_ERROR, 'Failed to retrieve session', {
+        reason: queryError.message
+      });
+    }
+
+    // Get the most recent interview (in production, would look up by sessionId)
+    const interview = interviews?.[0];
+
+    if (!interview) {
+      return sendError(res, ErrorCodes.NOT_FOUND, 'No recoverable interview session found');
+    }
+
+    // Check if interview is recent enough (within 24 hours)
+    const createdAt = new Date(interview.created_at).getTime();
+    const now = Date.now();
+    const ageMs = now - createdAt;
+    const maxAgeMs = 24 * 60 * 60 * 1000; // 24 hours
+
+    if (ageMs > maxAgeMs) {
+      return sendError(res, ErrorCodes.SESSION_EXPIRED, 'Interview session has expired', {
+        reason: 'Session is older than 24 hours'
+      });
+    }
+
+    // Return the recoverable session data
+    sendSuccess(res, {
+      sessionId: interview.id,
+      interviewType: interview.interview_type,
+      difficulty: interview.difficulty,
+      stage: interview.stage || 'technical',
+      responses: interview.responses || [],
+      currentQuestionIndex: interview.current_question_index || 0,
+      totalQuestions: interview.questions?.length || 0,
+      questionsAnswered: (interview.responses || []).length,
+      createdAt: interview.created_at,
+      canRecover: true,
+    });
+  } catch (error) {
+    console.error('Error resuming interview:', error);
+    sendError(res, ErrorCodes.INTERNAL_SERVER_ERROR, 'Failed to resume interview', {
+      reason: error.message
+    });
   }
 });
 

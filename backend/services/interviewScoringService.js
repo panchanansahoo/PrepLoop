@@ -1,3 +1,5 @@
+import { normalizeInterviewType, normalizeExperienceLevel, isFresher as checkIsFresher } from '../utils/typeNormalizer.js';
+
 export class InterviewScoringService {
   /**
    * Build scoring rubric weights based on interview type and experience level.
@@ -8,8 +10,8 @@ export class InterviewScoringService {
    * @returns {{ communication: number, decomposition: number, technical: number }}
    */
   static buildTypeRubric(interviewType, experienceLevel = null) {
-    const normalizedType = String(interviewType || 'dsa').toLowerCase();
-    const isFresher = String(experienceLevel || '').toLowerCase() === 'fresher';
+    const normalizedType = normalizeInterviewType(interviewType || 'dsa');
+    const isFresherCandidate = checkIsFresher(experienceLevel);
 
     // Base rubrics by interview type
     const rubrics = {
@@ -25,7 +27,7 @@ export class InterviewScoringService {
 
     // Fresher adjustment: shift weight from technical → communication
     // Freshers are evaluated more on clarity and structure than raw depth
-    if (isFresher && (normalizedType === 'dsa' || normalizedType === 'system_design' || normalizedType === 'system-design' || normalizedType === 'mixed')) {
+    if (isFresherCandidate && (normalizedType === 'dsa' || normalizedType === 'system_design' || normalizedType === 'system-design' || normalizedType === 'mixed')) {
       return {
         communication: Math.min(0.50, base.communication + 0.06),
         decomposition: base.decomposition,

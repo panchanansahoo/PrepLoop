@@ -58,11 +58,22 @@ export function checkRateLimit(identifier) {
 }
 
 // Clean up old rate limit entries every 5 minutes
+const RATE_LIMIT_MAX_ENTRIES = 20000;
 setInterval(() => {
   const now = Date.now();
   for (const [key, value] of rateLimits.entries()) {
     if (now > value.resetTime) {
       rateLimits.delete(key);
+    }
+  }
+  // Safety cap: if still over limit after cleanup, evict oldest entries
+  if (rateLimits.size > RATE_LIMIT_MAX_ENTRIES) {
+    const excess = rateLimits.size - RATE_LIMIT_MAX_ENTRIES;
+    let evicted = 0;
+    for (const key of rateLimits.keys()) {
+      if (evicted >= excess) break;
+      rateLimits.delete(key);
+      evicted++;
     }
   }
 }, 5 * 60 * 1000);

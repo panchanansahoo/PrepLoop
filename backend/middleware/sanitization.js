@@ -56,19 +56,20 @@ function sanitizeHTML(input) {
 }
 
 /**
- * Recursively sanitize object properties
+ * Recursively sanitize object properties (max depth: 10)
  */
-function sanitizeObject(obj, allowHTML = false) {
+function sanitizeObject(obj, allowHTML = false, _depth = 0) {
+  if (_depth > 10) return obj; // Prevent stack overflow on deeply nested payloads
   if (obj === null || obj === undefined) return obj;
   
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item, allowHTML));
+    return obj.map(item => sanitizeObject(item, allowHTML, _depth + 1));
   }
   
   if (typeof obj === 'object') {
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
-      sanitized[key] = sanitizeObject(value, allowHTML);
+      sanitized[key] = sanitizeObject(value, allowHTML, _depth + 1);
     }
     return sanitized;
   }

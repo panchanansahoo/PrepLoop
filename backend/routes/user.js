@@ -280,6 +280,7 @@ const getDashboardPatternCatalog = async () => {
   if (patternsResult.error) throw patternsResult.error;
   if (problemsResult.error) throw problemsResult.error;
 
+  // Build fresh Maps — don't mutate the old ones to avoid partial-update races
   const patternMap = new Map();
   (patternsResult.data || []).forEach((pattern) => {
     patternMap.set(pattern.id, pattern);
@@ -295,6 +296,7 @@ const getDashboardPatternCatalog = async () => {
     );
   });
 
+  // Atomic replacement — assign a new object so concurrent readers see a consistent snapshot
   dashboardPatternCatalogCache = {
     fetchedAt: now,
     patternMap,

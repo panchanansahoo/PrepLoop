@@ -93,8 +93,12 @@ apiClient.interceptors.response.use(
           refreshToken,
         });
 
-        const { token } = response.data;
+        const { token, refreshToken: newRefreshToken } = response.data;
         localStorage.setItem('token', token);
+        // Rotate the stored refresh token — old one is now invalidated server-side
+        if (newRefreshToken) {
+          localStorage.setItem('refreshToken', newRefreshToken);
+        }
         
         apiClient.defaults.headers.common.Authorization = `Bearer ${token}`;
         originalRequest.headers.Authorization = `Bearer ${token}`;
@@ -262,10 +266,11 @@ function handleApiError(error) {
 }
 
 /**
- * Cache wrapper for GET requests
+ * Cache wrapper for GET requests (auto-evicts stale entries)
  */
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX_SIZE = 200;
 
 export const cachedApi = {
   get: async (url, config = {}) => {
@@ -276,20 +281,30 @@ export const cachedApi = {
       return cached.data;
     }
 
+    // Evict stale entries before adding new ones
+    if (cache.size >= CACHE_MAX_SIZE) {
+      const now = Date.now();
+      for (const [key, entry] of cache.entries()) {
+        if (now - entry.timestamp >= CACHE_DURATION) {
+          cache.delete(key);
+        }
+      }
+      // If still at limit, evict oldest
+      if (cache.size >= CACHE_MAX_SIZE) {
+        cache.delete(cache.keys().next().value);
+      }
+    }
+
     const data = await api.get(url, config);
     cache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
   },
 
-  clear: () => {
-    cache.clear();
-  },
+  clear: () => cache.clear(),
 
   clearKey: (url) => {
     for (const key of cache.keys()) {
-      if (key.startsWith(url)) {
-        cache.delete(key);
-      }
+      if (key.startsWith(url)) cache.delete(key);
     }
   },
 };

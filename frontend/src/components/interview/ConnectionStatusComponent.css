@@ -1,0 +1,174 @@
+/* Connection Status Component Styles */
+
+.connection-status-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+  color: white;
+  z-index: 999;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.connection-status-content {
+  max-width: 100%;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-icon {
+  flex-shrink: 0;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+}
+
+.icon-warning {
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.status-message {
+  flex: 1;
+  min-width: 200px;
+}
+
+.status-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.status-description {
+  margin: 4px 0 0 0;
+  font-size: 13px;
+  opacity: 0.95;
+  line-height: 1.4;
+}
+
+.status-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.countdown-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+.retry-btn {
+  background: white;
+  color: #ff6b6b;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  letter-spacing: 0.3px;
+}
+
+.retry-btn:hover {
+  background: #f8f8f8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translateY(-1px);
+}
+
+.retry-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Responsive design */
+@media (max-width: 600px) {
+  .connection-status-content {
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .status-icon {
+    font-size: 20px;
+  }
+
+  .status-title {
+    font-size: 14px;
+  }
+
+  .status-description {
+    font-size: 12px;
+  }
+
+  .status-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .countdown-badge {
+    width: 100%;
+    text-align: center;
+    padding: 10px 12px;
+  }
+
+  .retry-btn {
+    width: 100%;
+    padding: 10px 12px;
+  }
+
+  .status-message {
+    min-width: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .connection-status-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .status-icon {
+    text-align: center;
+  }
+
+  .status-message {
+    text-align: center;
+  }
+
+  .status-actions {
+    justify-content: center;
+  }
+}

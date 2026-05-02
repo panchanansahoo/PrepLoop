@@ -7,11 +7,44 @@ export default function AIAvatar({ speaking, pose = 'neutral', companyColor, com
     const phaseRef = useRef(0);
     const imgRef = useRef(null);
     const imgLoadedRef = useRef(false);
+    const retryCountRef = useRef(0);
+    const MAX_RETRIES = 3;
+    const [retryCount, setRetryCount] = useState(0);
+    const [loadError, setLoadError] = useState(false);
 
-    useEffect(() => {
+    // Load image with retry logic
+    const loadImage = () => {
         const img = new Image();
         img.src = '/ai-interviewer.png';
-        img.onload = () => { imgRef.current = img; imgLoadedRef.current = true; };
+        
+        img.onload = () => { 
+            imgRef.current = img; 
+            imgLoadedRef.current = true;
+            retryCountRef.current = 0;
+            setRetryCount(0);
+            setLoadError(false);
+            console.log('✅ AI avatar image loaded successfully');
+        };
+        
+        img.onerror = () => {
+            imgLoadedRef.current = false;
+            retryCountRef.current += 1;
+            setRetryCount(retryCountRef.current);
+            
+            if (retryCountRef.current < MAX_RETRIES) {
+                console.warn(`⚠️ Failed to load AI avatar image (attempt ${retryCountRef.current}/${MAX_RETRIES}), retrying...`);
+                // Exponential backoff: 1s, 2s, 4s
+                const delayMs = Math.pow(2, retryCountRef.current - 1) * 1000;
+                setTimeout(loadImage, delayMs);
+            } else {
+                console.error('❌ Failed to load AI avatar image after max retries, using fallback');
+                setLoadError(true);
+            }
+        };
+    };
+
+    useEffect(() => {
+        loadImage();
     }, []);
 
     useEffect(() => {
@@ -137,7 +170,7 @@ export default function AIAvatar({ speaking, pose = 'neutral', companyColor, com
                     ctx.fill();
                 }
             } else {
-                // Fallback glow while image loads
+                // Fallback glow while image loads or on error
                 const innerGlow = ctx.createRadialGradient(cx, cy, baseRadius * 0.3, cx, cy, baseRadius);
                 innerGlow.addColorStop(0, `${companyColor}30`);
                 innerGlow.addColorStop(1, `${companyColor}08`);
@@ -146,12 +179,48 @@ export default function AIAvatar({ speaking, pose = 'neutral', companyColor, com
                 ctx.fillStyle = innerGlow;
                 ctx.fill();
 
-                // Company logo emoji as fallback
                 const fontSize = size === 'large' ? 38 : 22;
-                ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(companyLogo, cx, cy);
+
+                // Animated loading/error state indicator
+                if (loadError) {
+                    // Error state: show X with pulsing background
+                    ctx.fillStyle = `${companyColor}40`;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, baseRadius * 0.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Pulsing X indicator
+                    const pulse = 0.7 + Math.sin(phaseRef.current * 2) * 0.3;
+                    ctx.font = `${fontSize * pulse}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = companyColor;
+                    ctx.globalAlpha = 0.7 + Math.sin(phaseRef.current) * 0.3;
+                    ctx.fillText('⚠️', cx, cy);
+                    ctx.globalAlpha = 1;
+                } else {
+                    // Loading state: show spinning logo
+                    ctx.save();
+                    ctx.translate(cx, cy);
+                    ctx.rotate(phaseRef.current * 1.5);
+                    ctx.translate(-cx, -cy);
+                    
+                    ctx.font = `${fontSize}px "Segoe UI Emoji", "Apple Color Emoji", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.globalAlpha = 0.6 + Math.sin(phaseRef.current * 3) * 0.4;
+                    ctx.fillText(companyLogo, cx, cy);
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+                    
+                    // Spinning ring indicator
+                    const spinnerRadius = baseRadius + (size === 'large' ? 15 : 8);
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, spinnerRadius, phaseRef.current, phaseRef.current + 1.5);
+                    ctx.strokeStyle = `${companyColor}60`;
+                    ctx.lineWidth = size === 'large' ? 2 : 1.5;
+                    ctx.stroke();
+                }
             }
 
             // Speaking wave bars
