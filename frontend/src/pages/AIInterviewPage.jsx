@@ -79,7 +79,6 @@ export default function AIInterviewPage() {
     }, [broadcastEvent]);
 
     useEffect(() => {
-        let ws;
         if (phase === 'interview') {
             const token = localStorage.getItem('token');
             if (token) {
@@ -91,12 +90,14 @@ export default function AIInterviewPage() {
                 const finalHost = host.includes('5173') ? host.replace('5173', '5000') : host;
                 const wsUrl = `${wsProtocol}//${finalHost}/ws?token=${token}`;
                 
-                ws = new WebSocket(wsUrl);
+                const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
 
                 ws.onopen = () => {
                     console.log('[WebSocket] Connected for observability');
-                    ws.send(JSON.stringify({ type: 'join_room', payload: { roomId: user?.id } }));
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'join_room', payload: { roomId: user?.id } }));
+                    }
                 };
 
                 ws.onerror = (error) => {
@@ -110,11 +111,33 @@ export default function AIInterviewPage() {
         }
 
         return () => {
-            if (ws) {
-                ws.close();
+            // Fix BUG #1: Close from ref to prevent stale closures
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
             }
         };
     }, [phase, user?.id]);
+
+    // Fix BUG #2: Add beforeunload handler to cleanup voice on page unload
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            // Stop voice recording and clean up microphone
+            if (voiceHookRef.current?.cleanup) {
+                voiceHookRef.current.cleanup();
+            }
+            // Close WebSocket
+            if (wsRef.current) {
+                wsRef.current.close();
+                wsRef.current = null;
+            }
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
 
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Prevent hook instantiation before dependencies are ready ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬

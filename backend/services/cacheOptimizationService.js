@@ -8,6 +8,11 @@
  * - Background cache refresh for critical data
  * 
  * Phase 1 Performance: Targets 80% cache hit rate for hot queries
+ * 
+ * INTEGRATION: Works with apiCache middleware which calls:
+ * - performanceMonitor.recordCacheEvent('hit', key) on cache hits
+ * - performanceMonitor.recordCacheEvent('set', key) on cache sets
+ * - performanceMonitor.recordCacheEvent('miss', key) on cache misses
  */
 
 import cacheManager from '../utils/cacheManager.js';
@@ -22,6 +27,7 @@ class CacheOptimizationService {
       misses: 0,
       errors: 0,
       totalRequests: 0,
+      sets: 0, // Cache set operations
     };
     
     // Track cache size periodically
@@ -32,6 +38,28 @@ class CacheOptimizationService {
     
     // Warmup queue for critical data
     this.warmupQueue = [];
+  }
+
+  /**
+   * Record a cache event (called from apiCache middleware or performanceMonitor)
+   * @param {string} eventType - 'hit', 'miss', 'set', 'error'
+   * @param {string} key - Cache key
+   */
+  recordCacheEvent(eventType, key) {
+    switch (eventType) {
+      case 'hit':
+        this.recordHit();
+        break;
+      case 'miss':
+        this.recordMiss();
+        break;
+      case 'set':
+        this.stats.sets++;
+        break;
+      case 'error':
+        this.recordError();
+        break;
+    }
   }
 
   /**
@@ -47,6 +75,7 @@ class CacheOptimizationService {
       hits: this.stats.hits,
       misses: this.stats.misses,
       errors: this.stats.errors,
+      sets: this.stats.sets,
       totalRequests: this.stats.totalRequests,
       hitRate: `${hitRate}%`,
       timestamp: new Date().toISOString(),
@@ -57,7 +86,7 @@ class CacheOptimizationService {
    * Clear cache statistics (for testing/monitoring)
    */
   clearStats() {
-    this.stats = { hits: 0, misses: 0, errors: 0, totalRequests: 0 };
+    this.stats = { hits: 0, misses: 0, errors: 0, totalRequests: 0, sets: 0 };
   }
 
   /**

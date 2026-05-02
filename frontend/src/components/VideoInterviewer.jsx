@@ -106,6 +106,20 @@ const VideoInterviewer = ({
     };
   }, [state, videoReady]);
 
+  // Fix BUG #11: Cleanup video elements on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (speakingVideoRef.current) {
+        speakingVideoRef.current.pause();
+        speakingVideoRef.current.src = '';
+      }
+      if (listeningVideoRef.current) {
+        listeningVideoRef.current.pause();
+        listeningVideoRef.current.src = '';
+      }
+    };
+  }, []);
+
   // Lip-sync bars (visual indicator during speech)
   const lipSyncBars = Array.from({ length: 5 }, (_, i) => {
     const height = state === 'speaking' ? 4 + audioLevel * 20 + Math.random() * 8 : 4;
