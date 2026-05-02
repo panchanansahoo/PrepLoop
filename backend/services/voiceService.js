@@ -15,6 +15,8 @@ import { fileURLToPath } from 'url';
 import { EdgeTTS } from 'node-edge-tts';
 import { circuitBreakers } from '../utils/circuitBreaker.js';
 import providerStatsService from './providerStatsService.js';
+import * as voicePersonaManager from '../utils/voicePersonaManager.js';
+import * as providerRouter from '../utils/providerRouter.js';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
@@ -192,6 +194,173 @@ export function getAvailableProviders() {
             stt: 'browser', // Always use client-side Web Speech API
         }
     };
+}
+
+/**
+ * Get available voice personas
+ */
+export function getAvailableVoicePersonas() {
+    return {
+        personas: voicePersonaManager.VOICE_PERSONAS,
+        accents: voicePersonaManager.ACCENT_PROFILES,
+        summary: {
+            total_personas: Object.keys(voicePersonaManager.VOICE_PERSONAS).length,
+            total_accents: Object.keys(voicePersonaManager.ACCENT_PROFILES).length
+        }
+    };
+}
+
+/**
+ * Get recommended persona for interview type and difficulty
+ */
+export function getRecommendedPersona(interviewType, difficulty) {
+    return voicePersonaManager.getRecommendedPersona(interviewType, difficulty);
+}
+
+/**
+ * Select best provider for persona using intelligent routing
+ */
+export function selectProviderForPersona(personaName, accent = 'neutral', options = {}) {
+    const selection = providerRouter.selectProvider({
+        persona: personaName,
+        accent,
+        priority: options.priority || 'quality',
+        context: options.context || 'standard',
+        excludeProviders: options.excludeProviders || [],
+        userContext: {
+            latency_budget: options.latency_budget,
+            quality_min: options.quality_min,
+            cost_budget: options.cost_budget
+        }
+    });
+    
+    return {
+        best_provider: selection.best.provider,
+        best_score: selection.best.score,
+        alternatives: selection.alternatives.map(alt => ({
+            provider: alt.provider,
+            score: alt.score
+        })),
+        all_ranked: selection.all_ranked
+    };
+}
+
+/**
+ * Get provider fallback chain for persona
+ */
+export function getProviderChain(personaName, accent = 'neutral', priority = 'quality') {
+    return providerRouter.getProviderChain({
+        persona: personaName,
+        accent,
+        priority
+    });
+}
+
+/**
+ * Text-to-Speech with Persona Support
+ * Intelligently routes persona to best provider
+ */
+export async function textToSpeechWithPersona(text, personaName = 'default_neutral', accent = 'neutral', gender = 'female', options = {}) {
+    if (!text || text.trim().length === 0) throw new Error('Text is required for TTS');
+
+    const cleanText = String(text).trim();
+    const g = normalizeGender(gender);
+    
+    // Validate persona
+    const validation = voicePersonaManager.validatePersona(personaName, accent, gender);
+    if (!validation.valid) {
+        console.warn(`[TTS] Invalid persona config: ${validation.error}, using fallback`);
+        personaName = voicePersonaManager.getFallbackPersona(personaName);
+    }
+    
+    // Get provider chain using intelligent routing
+    let providerChain = getProviderChain(personaName, accent, options.priority || 'quality');
+    
+    // Filter out unavailable providers
+    providerChain = providerChain.filter(provider => {
+        if (provider === 'elevenlabs' && !providers.elevenlabs) return false;
+        if (provider === 'openai' && !providers.openai) return false;
+        if (provider === 'groq' && !providers.groq) return false;
+        if (provider === 'kokoro' && (!providers.kokoro || _kokoroInitFailed)) return false;
+        if (provider === 'edge' && !providers.edge) return false;
+        return true;
+    });
+    
+    // Try each provider in chain
+    for (const provider of providerChain) {
+        // Check health
+        if (!providerRouter.isProviderHealthy(provider)) {
+            console.warn(`[TTS] Provider ${provider} in cooldown, skipping`);
+            continue;
+        }
+        
+        try {
+            let result = null;
+            
+            switch (provider) {
+                case 'elevenlabs':
+                    result = await textToSpeech(cleanText, personaName, 'elevenlabs', 'en', g);
+                    break;
+                case 'openai':
+                    result = await textToSpeech(cleanText, personaName, 'openai', 'en', g);
+                    break;
+                case 'groq':
+                    result = await textToSpeech(cleanText, personaName, 'groq', 'en', g);
+                    break;
+                case 'kokoro':
+                    result = await textToSpeech(cleanText, personaName, 'kokoro', 'en', g);
+                    break;
+                case 'edge':
+                    result = await textToSpeech(cleanText, personaName, 'edge', 'en', g);
+                    break;
+            }
+            
+            if (result) {
+                providerRouter.recordProviderSuccess(provider);
+                return { ...result, provider_used: provider, persona: personaName };
+            }
+        } catch (err) {
+            console.warn(`[TTS] Provider ${provider} failed for persona ${personaName}:`, err.message?.substring(0, 100));
+            providerRouter.recordProviderFailure(provider);
+        }
+    }
+    
+    // Fallback to browser
+    console.warn('[TTS] All providers failed, returning browser fallback');
+    return { fallback: true, provider_used: 'browser', persona: personaName };
+}
+
+/**
+ * Get TTS Preview for UI
+ */
+export async function generateVoicePreview(text, personaName, accent, gender) {
+    const result = await textToSpeechWithPersona(text, personaName, accent, gender);
+    
+    if (result.fallback) {
+        return { success: false, reason: 'No TTS providers available' };
+    }
+    
+    // Convert audio to base64 for UI preview
+    if (result.audio_buffer) {
+        const base64Audio = result.audio_buffer.toString('base64');
+        return {
+            success: true,
+            audio_base64: base64Audio,
+            provider: result.provider_used,
+            persona: personaName
+        };
+    }
+    
+    if (result.audio_url) {
+        return {
+            success: true,
+            audio_url: result.audio_url,
+            provider: result.provider_used,
+            persona: personaName
+        };
+    }
+    
+    return { success: false, reason: 'Failed to generate preview' };
 }
 
 /**
