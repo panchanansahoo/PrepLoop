@@ -16,6 +16,7 @@ import ChatSidebar from '../components/interview/ChatSidebar';
 import InterviewTopBar from '../components/interview/InterviewTopBar';
 import ScoreCueToast from '../components/interview/ScoreCueToast';
 import HintBanner from '../components/interview/HintBanner';
+import InterviewErrorBoundary from '../components/interview/InterviewErrorBoundary';
 import {
     Mic, MicOff, Sparkles,
     MessageSquare, Volume2, Wifi, User, Building2,
@@ -47,7 +48,19 @@ import {
 } from './aiInterviewRuntime';
 import './AIInterviewPage.css';
 
-export default function AIInterviewPage() {
+export default function AIInterviewPageWithErrorBoundary() {
+    return (
+        <InterviewErrorBoundary
+            onError={(error, errorInfo) => {
+                console.error('[Interview Error Boundary]', error, errorInfo);
+            }}
+        >
+            <AIInterviewPageInner />
+        </InterviewErrorBoundary>
+    );
+}
+
+function AIInterviewPageInner() {
     const { user, getAuthHeaders } = useAuth();
     const navigate = useNavigate();
 

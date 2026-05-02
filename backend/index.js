@@ -86,6 +86,7 @@ async function initializeServer() {
     const metricsRoutes = (await import('./routes/metrics.js')).default;
     const analyticsEventsRoutes = (await import('./routes/analytics-events.js')).default;
     const performanceMetricsRoutes = (await import('./routes/performance-metrics.js')).default;
+    const questionQualityRoutes = (await import('./routes/question-quality.js')).default;
     const { tracingMiddleware } = await import('./utils/tracer.js');
     
     const { authenticateToken } = await import('./middleware/auth.js');
@@ -298,6 +299,9 @@ async function initializeServer() {
     
     // Performance Metrics Endpoints (Phase 1 Optimization)
     app.use('/api/metrics', performanceMetricsRoutes);
+    
+    // Question Quality & Recommendations (Phase 2.4)
+    app.use('/api/questions', questionQualityRoutes);
     
     // SECURITY: Protect metrics endpoint with authentication and IP allowlist
     // Requires: METRICS_API_KEY (recommended) and/or METRICS_IP_ALLOWLIST

@@ -7,6 +7,8 @@ import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import InterviewCacheManager from '../services/interviewCacheManager.js';
 import phase2Service from '../services/phase2IntegrationService.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/errorResponseFormatter.js';
+import questionMetrics from '../utils/questionMetrics.js';
+import questionRecommender from '../utils/questionRecommender.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -746,12 +748,20 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       // Phase 2.1: Track question as asked
       if (userId && aiQuestion.question) {
         try {
+          const questionId = `q-${Date.now()}`;
           phase2Service.trackQuestionAsked(userId, {
-            id: `q-${Date.now()}`,
+            id: questionId,
             text: aiQuestion.question,
             difficulty: adjustedDifficulty,
             category: type
           });
+
+          // Phase 2.4: Record question usage metrics
+          try {
+            await questionMetrics.recordUsage(questionId, type, adjustedDifficulty);
+          } catch (metricsError) {
+            console.warn('Failed to record question metrics:', metricsError.message);
+          }
         } catch (trackError) {
           console.warn('Failed to track question:', trackError.message);
         }
@@ -949,6 +959,16 @@ router.post('/complete', authenticateToken, async (req, res) => {
               questionId: `q-${i}`,
               responseTime: Math.ceil(Math.random() * 300) // Random 0-300s for now
             });
+
+            // Phase 2.4: Record question feedback and metrics
+            try {
+              const questionId = response.question?.id || `q-${i}`;
+              const isPositiveFeedback = scoreForResponse > 70;
+              await questionMetrics.recordFeedback(questionId, scores.overall, isPositiveFeedback);
+              await questionMetrics.recordTimeSpent(questionId, Math.ceil(duration / (responses?.length || 1)));
+            } catch (metricsError) {
+              console.warn('Failed to record question feedback:', metricsError.message);
+            }
           }
         }
 
