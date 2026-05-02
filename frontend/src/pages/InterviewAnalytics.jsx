@@ -5,41 +5,40 @@ import {
     Award, Zap, AlertTriangle, Loader2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { apiFetch } from '../utils/apiFetch';
+import FetchError from '../components/FetchError';
 import { Link } from 'react-router-dom';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function InterviewAnalytics() {
     const { user } = useAuth();
     const [analytics, setAnalytics] = useState(null);
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    const getAuthHeaders = () => {
-        return buildAuthHeaders(user);
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    const fetchData = async () => {
+    const fetchData = async (signal) => {
         setLoading(true);
+        setError(null);
         try {
-            const [analyticsRes, sessionsRes] = await Promise.all([
-                fetch(`${API_URL}/api/company-interview/analytics`, { headers: getAuthHeaders() }),
-                fetch(`${API_URL}/api/company-interview/sessions?limit=10`, { headers: getAuthHeaders() })
+            const [analyticsData, sessionsData] = await Promise.all([
+                apiFetch.get('/api/company-interview/analytics', { signal }),
+                apiFetch.get('/api/company-interview/sessions?limit=10', { signal })
             ]);
-            const analyticsData = await analyticsRes.json();
-            const sessionsData = await sessionsRes.json();
             setAnalytics(analyticsData);
             setSessions(Array.isArray(sessionsData) ? sessionsData : []);
         } catch (e) {
+            if (e?.code === 'ERR_CANCELED') return;
             console.error('Analytics fetch error:', e);
+            setError(e.message || 'Failed to load analytics data');
         }
-        setLoading(false);
+        if (!signal?.aborted) setLoading(false);
     };
+
+    useEffect(() => {
+        const controller = new AbortController();
+        fetchData(controller.signal);
+        return () => controller.abort();
+    }, []);
 
     // ── Score Trend Chart (Pure CSS) ──
     const ScoreTrendChart = ({ data }) => {
@@ -82,6 +81,21 @@ export default function InterviewAnalytics() {
                 display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0'
             }}>
                 <Loader2 size={32} className="spinning" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div style={{
+                minHeight: '100vh',
+                background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f23 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40,
+            }}>
+                <FetchError
+                    message={error}
+                    onRetry={() => fetchData()}
+                />
             </div>
         );
     }

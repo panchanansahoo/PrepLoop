@@ -3,6 +3,7 @@ import { getPoolStats } from '../config/dbPool.js';
 import { getActiveConnections } from '../services/websocketService.js';
 import { problemCache, companyCache, systemDesignCache } from '../utils/cache.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import queryAnalyzer from '../utils/queryAnalyzer.js';
 
 const router = express.Router();
 
@@ -170,6 +171,49 @@ router.get('/metrics', authenticateToken, requireAdmin, (req, res) => {
   } else {
     res.json(metrics);
   }
+});
+
+/**
+ * Query performance analytics endpoint
+ * Exposes slow query patterns and optimization recommendations
+ */
+router.get('/query-analytics', authenticateToken, requireAdmin, (req, res) => {
+  const analytics = queryAnalyzer.getAnalytics();
+  
+  res.json({
+    timestamp: new Date().toISOString(),
+    analytics,
+  });
+});
+
+/**
+ * Slow queries endpoint
+ * Lists currently tracked slow queries
+ */
+router.get('/slow-queries', authenticateToken, requireAdmin, (req, res) => {
+  const slowByTable = queryAnalyzer.getSlowQueriesByTable();
+  const slowByOperation = queryAnalyzer.getSlowQueriesByOperation();
+  
+  res.json({
+    timestamp: new Date().toISOString(),
+    slowQueriesByTable: slowByTable,
+    slowQueriesByOperation: slowByOperation,
+    recommendations: queryAnalyzer.getOptimizationRecommendations(),
+  });
+});
+
+/**
+ * Query patterns endpoint
+ * Shows most common slow query patterns
+ */
+router.get('/query-patterns', authenticateToken, requireAdmin, (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 10, 50);
+  const patterns = queryAnalyzer.getMostCommonSlowPatterns(limit);
+  
+  res.json({
+    timestamp: new Date().toISOString(),
+    patterns,
+  });
 });
 
 export default router;

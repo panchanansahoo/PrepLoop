@@ -6,11 +6,11 @@ function readLocal(fileName) {
 }
 
 describe('auth access policy', () => {
-  it('keeps dashboard/job-updates/library/problem explorer/blog public while protecting community, exams, and problem solver', () => {
+  it('keeps job-updates/library/problem explorer/blog public while protecting dashboard, community, exams, and problem solver', () => {
     const appSource = readLocal('./App.jsx');
 
     expect(appSource).toContain('path="/dashboard"');
-    expect(appSource).toContain('element={<Dashboard />}');
+    expect(appSource).toContain('element={<PrivateRoute><Dashboard /></PrivateRoute>}');
 
     expect(appSource).toContain('path="/job-updates" element={<JobUpdates />}');
     expect(appSource).toContain('path="/library" element={<Library />}');

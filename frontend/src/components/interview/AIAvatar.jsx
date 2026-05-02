@@ -15,7 +15,7 @@ export default function AIAvatar({ speaking, pose = 'neutral', companyColor, com
     // Load image with retry logic
     const loadImage = () => {
         const img = new Image();
-        img.src = '/ai-interviewer.png';
+        img.src = '/ai-interviewer.webp';
         
         img.onload = () => { 
             imgRef.current = img; 

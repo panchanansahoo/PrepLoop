@@ -3065,4 +3065,34 @@ router.get('/analytics', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── Serve Company Prep Question Bank ───
+// GET /company-prep-questions - Returns full question bank for offline caching
+router.get('/company-prep-questions', async (req, res) => {
+  try {
+    // Import question data
+    const mod = await import('../../frontend/src/data/companyPrepData.js').catch(() => null);
+    
+    if (!mod || !Array.isArray(mod.COMPANY_QUESTIONS)) {
+      return res.status(404).json({ 
+        error: 'Question bank not found',
+        questions: []
+      });
+    }
+
+    // Set cache headers for long-term caching (1 week)
+    res.set({
+      'Cache-Control': 'public, max-age=604800',
+      'Content-Type': 'application/json'
+    });
+
+    res.json(mod.COMPANY_QUESTIONS);
+  } catch (error) {
+    console.error('Failed to serve question bank:', error.message);
+    res.status(500).json({ 
+      error: 'Failed to load question bank',
+      questions: []
+    });
+  }
+});
+
 export default router;

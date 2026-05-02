@@ -8,10 +8,8 @@ import {
   Globe, Bookmark, TrendingUp, GraduationCap, Users,
   Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown
 } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { apiFetch } from '../utils/apiFetch';
 import '../styles/JobUpdates.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Jobs', icon: Briefcase },
@@ -126,12 +124,7 @@ export default function JobUpdates() {
       params.append('page', page.toString());
       params.append('limit', '20');
 
-      const headers = buildAuthHeaders(user);
-
-      const response = await fetch(`${API_URL}/api/jobs?${params}`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch jobs');
-
-      const data = await response.json();
+      const data = await apiFetch.get(`/api/jobs?${params}`);
       setJobs(data.jobs || []);
       setTotalPages(data.totalPages || 1);
       setHasExternalApi(data.hasExternalApi || false);
@@ -160,18 +153,7 @@ export default function JobUpdates() {
     setJobs([]);
 
     try {
-      const response = await fetch(`${API_URL}/api/jobs/ai-search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: searchText }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.error || 'AI search failed');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch.post('/api/jobs/ai-search', { query: searchText });
       setJobs(data.jobs || []);
       setAiParams(data.parsedParams || null);
       setAiSuggestions(data.suggestions || []);
@@ -234,17 +216,8 @@ export default function JobUpdates() {
   };
 
   const loadCareerOpsHistory = async () => {
-    const headers = buildAuthHeaders(user);
-    if (!headers.Authorization) return;
-
     try {
-      const response = await fetch(`${API_URL}/api/jobs/career-ops/history?limit=10`, {
-        headers,
-      });
-
-      if (!response.ok) return;
-
-      const data = await response.json().catch(() => ({}));
+      const data = await apiFetch.get('/api/jobs/career-ops/history?limit=10');
       if (Array.isArray(data.data)) {
         setCareerOpsHistory(data.data);
       }
@@ -258,8 +231,7 @@ export default function JobUpdates() {
   };
 
   const handleCareerOpsEvaluate = async () => {
-    const headers = buildAuthHeaders(user);
-    if (!headers.Authorization) {
+    if (!user) {
       setCareerOpsError('Please log in to use Career Ops evaluation.');
       return;
     }
@@ -279,25 +251,16 @@ export default function JobUpdates() {
         .map(skill => skill.trim())
         .filter(Boolean);
 
-      const response = await fetch(`${API_URL}/api/jobs/career-ops/evaluate`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          company: careerOpsInput.company,
-          role: careerOpsInput.role,
-          jobDescription: careerOpsInput.jobDescription,
-          candidateProfile: {
-            headline: careerOpsInput.candidateHeadline,
-            summary: careerOpsInput.candidateSummary,
-            coreSkills: candidateSkills,
-          },
-        }),
+      const data = await apiFetch.post('/api/jobs/career-ops/evaluate', {
+        company: careerOpsInput.company,
+        role: careerOpsInput.role,
+        jobDescription: careerOpsInput.jobDescription,
+        candidateProfile: {
+          headline: careerOpsInput.candidateHeadline,
+          summary: careerOpsInput.candidateSummary,
+          coreSkills: candidateSkills,
+        },
       });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data.error || 'Career Ops evaluation failed');
-      }
 
       setCareerOpsResult(data);
       if (data.historyItem) {

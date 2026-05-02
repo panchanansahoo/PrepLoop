@@ -123,12 +123,17 @@ export function ProblemExplorerAllQuestionsView({
     useEffect(() => {
         const el = scrollRef.current;
         if (!el) return;
-        const ro = new ResizeObserver(([entry]) => {
-            setViewportHeight(entry.contentRect.height);
-        });
-        ro.observe(el);
+        let ro = null;
+        if (typeof ResizeObserver !== 'undefined') {
+            ro = new ResizeObserver(([entry]) => {
+                setViewportHeight(entry.contentRect.height);
+            });
+            ro.observe(el);
+        }
         setViewportHeight(el.clientHeight);
-        return () => ro.disconnect();
+        return () => {
+            if (ro) ro.disconnect();
+        };
     }, []);
 
     if (viewMode !== 'all') return null;

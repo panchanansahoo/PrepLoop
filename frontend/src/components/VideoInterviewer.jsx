@@ -24,15 +24,36 @@ const VideoInterviewer = ({
   const listeningVideoRef = useRef(null);
   const playbackPositionRef = useRef({ speaking: 0, listening: 0 });
 
-  // Video sources based on gender
+  // Video sources based on gender with multi-format support
+  // Prioritizes VP9 WebM for 40% compression, falls back to H.265, then H.264
+  const getVideoSources = (mode) => {
+    let baseName;
+    if (gender === 'male') {
+      baseName = mode === 'speaking' ? 'malespeaking' : 'malelisrning';
+    } else {
+      baseName = mode === 'speaking' ? 'HannahChenSpeaking' : 'HannahChenListening';
+    }
+
+    // Return array of sources with fallbacks
+    // Browser will use first format it supports
+    return [
+      // Primary: VP9 WebM (40% smaller, supported in Chrome, Firefox, Edge)
+      { src: `/${baseName}.webm`, type: 'video/webm; codecs=vp9' },
+      // Secondary: H.265 MP4 (50% smaller, supported in Safari 13+, Edge 18+)
+      { src: `/${baseName}.h265.mp4`, type: 'video/mp4; codecs="hev1.1.6.L120"' },
+      // Fallback: Original H.264 MP4 (universal compatibility)
+      { src: `/${baseName}.mp4`, type: 'video/mp4' },
+    ];
+  };
+
   const videos = {
     male: {
-      speaking: '/malespeaking.mp4',
-      listening: '/malelisrning.mp4',
+      speaking: getVideoSources('speaking'),
+      listening: getVideoSources('listening'),
     },
     female: {
-      speaking: '/HannahChenSpeaking.mp4',
-      listening: '/HannahChenListening.mp4',
+      speaking: getVideoSources('speaking'),
+      listening: getVideoSources('listening'),
     },
   };
 
@@ -106,7 +127,6 @@ const VideoInterviewer = ({
       <div className="video-interviewer-video-container">
         <video
           ref={speakingVideoRef}
-          src={videoSources.speaking}
           className={`video-interviewer-video video-interviewer-video--speaking ${visibleMode === 'speaking' ? 'active' : 'inactive'}`}
           autoPlay
           loop
@@ -115,10 +135,14 @@ const VideoInterviewer = ({
           preload="auto"
           onCanPlay={() => handleVideoLoaded('speaking')}
           onTimeUpdate={() => handleTimeUpdate('speaking')}
-        />
+        >
+          {videoSources.speaking.map((source, idx) => (
+            <source key={idx} src={source.src} type={source.type} />
+          ))}
+          Your browser doesn't support HTML5 video.
+        </video>
         <video
           ref={listeningVideoRef}
-          src={videoSources.listening}
           className={`video-interviewer-video video-interviewer-video--listening ${visibleMode === 'listening' ? 'active' : 'inactive'}`}
           autoPlay
           loop
@@ -127,7 +151,12 @@ const VideoInterviewer = ({
           preload="auto"
           onCanPlay={() => handleVideoLoaded('listening')}
           onTimeUpdate={() => handleTimeUpdate('listening')}
-        />
+        >
+          {videoSources.listening.map((source, idx) => (
+            <source key={idx} src={source.src} type={source.type} />
+          ))}
+          Your browser doesn't support HTML5 video.
+        </video>
 
         {/* Speaking glow effect */}
         {state === 'speaking' && (

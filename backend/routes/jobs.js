@@ -96,7 +96,11 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     return cached;
   }
 
+  // Minimum number of jobs to show before supplementing with curated entries
+  const MIN_JOBS_THRESHOLD = 5;
+
   // ── Priority 1: Free Indian Job APIs (Indeed, Naukri, Foundit, LinkedIn) ──
+  let liveJobs = [];
   try {
     console.log(`Fetching Indian jobs for query: ${indianQuery}`);
     const indianJobs = await Promise.race([
@@ -105,11 +109,19 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     ]);
     
     if (indianJobs && indianJobs.length > 0) {
+      liveJobs = indianJobs;
       console.log(`✓ Fetched ${indianJobs.length} jobs from Indian job portals`);
-      setCachedJobs(cacheKey, indianJobs);
-      return indianJobs;
+
+      // If we have enough results, return them directly
+      if (indianJobs.length >= MIN_JOBS_THRESHOLD) {
+        setCachedJobs(cacheKey, indianJobs);
+        return indianJobs;
+      }
+      // Otherwise fall through to supplement with curated jobs below
+      console.log(`Only ${indianJobs.length} live jobs – will supplement with curated listings`);
+    } else {
+      console.log('No jobs from Indian portals, trying fallbacks...');
     }
-    console.log('No jobs from Indian portals, trying fallbacks...');
   } catch (error) {
     console.error('Indian job APIs error:', error.message);
   }
@@ -257,10 +269,15 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   // ── Skip Remotive API (not India-focused) ──
   // Remotive is primarily for remote jobs outside India
 
-  // ── Final fallback: curated Indian jobs ──
-  console.log('Using curated Indian fallback jobs');
-  setCachedJobs(cacheKey, CURATED_JOBS);
-  return CURATED_JOBS;
+  // ── Final fallback: merge live results with curated Indian jobs ──
+  // liveJobs may contain 0–4 scraped entries; supplement with curated listings
+  const liveIds = new Set(liveJobs.map(j => j.id));
+  const curatedSupplement = CURATED_JOBS.filter(j => !liveIds.has(j.id));
+  const combined = [...liveJobs, ...curatedSupplement];
+
+  console.log(`Returning ${combined.length} jobs (${liveJobs.length} live + ${curatedSupplement.length} curated)`);
+  setCachedJobs(cacheKey, combined);
+  return combined;
 }
 
 function detectCategory(job) {

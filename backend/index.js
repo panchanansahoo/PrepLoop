@@ -85,6 +85,7 @@ async function initializeServer() {
     const gdprRoutes = (await import('./routes/gdpr.js')).default;
     const metricsRoutes = (await import('./routes/metrics.js')).default;
     const analyticsEventsRoutes = (await import('./routes/analytics-events.js')).default;
+    const performanceMetricsRoutes = (await import('./routes/performance-metrics.js')).default;
     const { tracingMiddleware } = await import('./utils/tracer.js');
     
     const { authenticateToken } = await import('./middleware/auth.js');
@@ -294,6 +295,9 @@ async function initializeServer() {
 
     // Phase 2-6: New routes
     app.use('/api/gdpr', gdprRoutes);
+    
+    // Performance Metrics Endpoints (Phase 1 Optimization)
+    app.use('/api/metrics', performanceMetricsRoutes);
     
     // SECURITY: Protect metrics endpoint with authentication and IP allowlist
     // Requires: METRICS_API_KEY (recommended) and/or METRICS_IP_ALLOWLIST

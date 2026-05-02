@@ -18,7 +18,7 @@ const FALLBACK_JOBS = [
     matchScore: 85,
     matchedSkills: ['React', 'JavaScript', 'TypeScript'],
     apply_link: 'https://careers.google.com',
-    logo_url: 'https://logo.clearbit.com/google.com'
+    logo_url: 'https://ui-avatars.com/api/?name=Google&background=random'
   },
   {
     id: 'demo_2',
@@ -30,7 +30,7 @@ const FALLBACK_JOBS = [
     matchScore: 78,
     matchedSkills: ['Node.js', 'AWS', 'MongoDB'],
     apply_link: 'https://amazon.jobs',
-    logo_url: 'https://logo.clearbit.com/amazon.com'
+    logo_url: 'https://ui-avatars.com/api/?name=Amazon&background=random'
   },
   {
     id: 'demo_3',
@@ -42,7 +42,7 @@ const FALLBACK_JOBS = [
     matchScore: 72,
     matchedSkills: ['Python', 'Azure', 'SQL'],
     apply_link: 'https://careers.microsoft.com',
-    logo_url: 'https://logo.clearbit.com/microsoft.com'
+    logo_url: 'https://ui-avatars.com/api/?name=Microsoft&background=random'
   }
 ];
 
@@ -74,10 +74,10 @@ export default function SkillMatchJobs() {
         setProfileComplete(data.profileComplete !== false);
         setSearchQuery(data.searchQuery || '');
         
-        // Add Clearbit logos for companies that don't have logos
+        // Add ui-avatars for companies that don't have logos
         const jobsWithLogos = fetchedJobs.map(job => ({
           ...job,
-          logo_url: job.logo_url || (job.company ? `https://logo.clearbit.com/${job.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com` : null)
+          logo_url: job.logo_url || (job.company ? `https://ui-avatars.com/api/?name=${encodeURIComponent(job.company)}&background=random` : null)
         }));
         setJobs(jobsWithLogos.length > 0 ? jobsWithLogos : FALLBACK_JOBS);
         setLastUpdate(new Date());

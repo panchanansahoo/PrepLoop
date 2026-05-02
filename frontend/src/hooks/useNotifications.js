@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fetchAllContests } from '../utils/contestUtils';
+import { apiFetch } from '../utils/apiFetch';
 
 const NOTIF_CACHE_KEY = 'user_notifications_read';
 const LAST_DAILY_CHALLENGE_DATE_KEY = 'last_daily_challenge_date';
@@ -7,6 +8,7 @@ const LAST_DAILY_CHALLENGE_DATE_KEY = 'last_daily_challenge_date';
 export function useNotifications(user) {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
+    const mountedRef = useRef(true);
 
     // Load read notification IDs from local storage
     const getReadIds = () => {
@@ -42,7 +44,7 @@ export function useNotifications(user) {
         setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
     };
 
-    const fetchNotifications = useCallback(async () => {
+    const fetchNotifications = useCallback(async (signal) => {
         if (!user) {
             setNotifications([]);
             setLoading(false);
@@ -71,6 +73,8 @@ export function useNotifications(user) {
         // 2. Upcoming Contests (starting within 48 hours)
         try {
             const allContests = await fetchAllContests();
+            if (signal?.aborted) return;
+
             const now = new Date();
             const comingSoon = allContests.filter(c => {
                 const diffHrs = (c.date - now) / 3600000;
@@ -93,13 +97,13 @@ export function useNotifications(user) {
             console.error('Failed to fetch contests for notifications', e);
         }
 
-        // 3. New Blogs (posted in last 7 days)
+        // 3. New Blogs (posted in last 7 days) — uses centralized client for auth+retry
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
-            if (res.ok) {
-                const blogs = await res.json();
-                const now = new Date();
+            if (signal?.aborted) return;
+            const blogs = await apiFetch.get('/api/blog', { signal });
 
+            const now = new Date();
+            if (Array.isArray(blogs)) {
                 blogs.forEach(b => {
                     const blogDate = new Date(b.created_at);
                     const diffDays = (now - blogDate) / (1000 * 60 * 60 * 24);
@@ -117,16 +121,28 @@ export function useNotifications(user) {
                 });
             }
         } catch (e) {
+            // Ignore abort errors
+            if (e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError') return;
             console.error('Failed to fetch blogs for notifications', e);
         }
 
         // Sort notifications: unread first, then by type/date logic (currently just leaving as is)
-        setNotifications(generatedNotifs);
-        setLoading(false);
+        if (mountedRef.current && !signal?.aborted) {
+            setNotifications(generatedNotifs);
+            setLoading(false);
+        }
     }, [user]);
 
     useEffect(() => {
-        fetchNotifications();
+        mountedRef.current = true;
+        const controller = new AbortController();
+
+        fetchNotifications(controller.signal);
+
+        return () => {
+            mountedRef.current = false;
+            controller.abort();
+        };
     }, [fetchNotifications]);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;

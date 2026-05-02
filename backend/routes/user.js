@@ -10,6 +10,7 @@ import aiLearningPath from "../data/aiLearningPath.js";
 import { applyCoinTransaction } from "../utils/coinTransactions.js";
 import { calculateDashboardStreak } from "../utils/dashboardStreak.js";
 import { normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
+import DataCacheManager from "../services/dataCacheManager.js";
 
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
@@ -822,12 +823,20 @@ const fetchSqlProblemRecommendations = async (limit = 250) => {
   return [];
 };
 
+
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
     if (!req.user?.id) {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
+    // Try to get cached profile first
+    const cachedProfile = await DataCacheManager.getUserProfile(req.user.id);
+    if (cachedProfile) {
+      return res.json(buildProfileResponse(req, cachedProfile));
+    }
+
+    // If not cached, fetch from database
     const { data: profile, error } = await supabaseAdmin
       .from("profiles")
       .select("*")
@@ -977,11 +986,18 @@ router.put("/profile", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Profile not found" });
     }
 
+    // Invalidate profile cache after update
+    await DataCacheManager.invalidateUserProfile(req.user.id);
+
     let rewardResult = { coinsAwarded: 0, coinBalance: data?.coins ?? 0, applied: false };
     let rewardDegraded = false;
 
     try {
       rewardResult = await awardProfileCompletionCoins(req.user.id, data);
+      // Invalidate coins cache after reward
+      if (rewardResult.applied) {
+        await DataCacheManager.setUserCoins(req.user.id, rewardResult.coinBalance);
+      }
     } catch (rewardError) {
       rewardDegraded = true;
       console.error('Profile completion reward error:', rewardError);

@@ -230,12 +230,17 @@ function runTests() {
 
   if (failed === 0) {
     console.log('🎉 All compatibility tests passed!\n');
-    process.exit(0);
   } else {
     console.log('⚠️  Some tests failed\n');
-    process.exit(1);
+    throw new Error('Some compatibility tests failed');
   }
 }
 
+import { it, describe } from 'vitest';
+
 // Run tests automatically
-runTests();
+describe('AbortSignal.timeout() Compatibility', () => {
+  it('passes all fallback tests', () => {
+    runTests();
+  });
+});

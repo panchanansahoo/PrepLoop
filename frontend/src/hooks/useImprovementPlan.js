@@ -12,19 +12,24 @@ export function useImprovementPlan(autoFetch = true) {
   const [error, setError] = useState(null);
   const [generating, setGenerating] = useState(false);
 
-  // Fetch latest plan
-  const fetchLatest = useCallback(async () => {
+  // Fetch latest plan — accepts a signal for abort support
+  const fetchLatest = useCallback(async (signal) => {
     try {
       setLoading(true);
       setError(null);
       const data = await improvementPlan.getLatest();
+      // Don't update state if the request was aborted
+      if (signal?.aborted) return null;
       setPlan(data);
       return data;
     } catch (err) {
+      if (err?.name === 'AbortError' || signal?.aborted) return null;
       setError(err.message);
       throw err;
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -157,11 +162,16 @@ export function useImprovementPlan(autoFetch = true) {
     );
   }, [plan, getStats]);
 
-  // Auto-fetch on mount
+  // Auto-fetch on mount with proper cleanup
   useEffect(() => {
-    if (autoFetch) {
-      fetchLatest();
-    }
+    if (!autoFetch) return;
+
+    const controller = new AbortController();
+    fetchLatest(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [autoFetch, fetchLatest]);
 
   return {

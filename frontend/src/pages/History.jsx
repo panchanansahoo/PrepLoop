@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Brain, Code2, FileText, Clock, Filter, ChevronRight } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiFetch } from '../utils/apiFetch';
+import FetchError from '../components/FetchError';
 
 const typeConfig = {
   interview: { icon: <MessageSquare size={18} />, label: 'AI Interview', color: '#f472b6', bg: 'rgba(236,72,153,0.15)' },
@@ -15,22 +14,28 @@ const typeConfig = {
 export default function History() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  const fetchHistory = async () => {
+  const loadHistory = async (signal) => {
+    setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/user/history`, { headers: buildAuthHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setSessions(data.sessions || []);
-      }
-    } catch (err) { console.error(err); }
-    setLoading(false);
+      const data = await apiFetch.get('/api/user/history', { signal });
+      setSessions(data.sessions || []);
+    } catch (err) {
+      if (err?.code === 'ERR_CANCELED') return;
+      console.error(err);
+      setError(err.message || 'Failed to load session history');
+    }
+    if (!signal?.aborted) setLoading(false);
   };
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadHistory(controller.signal);
+    return () => controller.abort();
+  }, []);
 
   const displaySessions = filter === 'all' ? sessions : sessions.filter(s => s.type === filter);
 
@@ -60,6 +65,8 @@ export default function History() {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-muted)' }}>Loading history...</div>
+      ) : error ? (
+        <FetchError message={error} onRetry={() => loadHistory()} />
       ) : displaySessions.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, background: 'var(--bg-card)', borderRadius: 12, border: '1px solid var(--border)' }}>
           <Clock size={40} style={{ color: 'var(--text-muted)', margin: '0 auto 12px auto' }} />

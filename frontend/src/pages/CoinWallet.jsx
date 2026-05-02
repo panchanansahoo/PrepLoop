@@ -16,9 +16,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { useCoins } from '../context/CoinContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
-
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { apiFetch } from '../utils/apiFetch';
 const FILTERS = [
   { key: 'all', label: 'All activity' },
   { key: 'earn', label: 'Earned' },
@@ -81,14 +79,10 @@ export default function CoinWallet() {
         if (filter !== 'all') params.set('type', filter);
         if (search) params.set('q', search);
 
-        const res = await fetch(`${API_URL}/api/coins/history?${params.toString()}`, {
-          headers: buildAuthHeaders(),
-        });
-
-        const data = await res.json();
+        const data = await apiFetch.get(`/api/coins/history?${params.toString()}`);
         if (cancelled) return;
 
-        if (!res.ok) {
+        if (!data || data.error) {
           setLedger([]);
           setHasMore(false);
           setSummary({ totalEarned: 0, totalSpent: 0, totalRedeemed: 0 });

@@ -7,11 +7,9 @@ import {
   TrendingUp, Award, ChevronRight, Flame, Timer,
   Radio, BookOpen
 } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { apiFetch } from '../utils/apiFetch';
 import { Bone } from '../components/skeletons';
 import './InterviewHub.css';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 /* ─── Interview Mode Definitions ─── */
 const INTERVIEW_MODES = [
@@ -107,9 +105,7 @@ const QUICK_TOOLS = [
   },
 ];
 
-function getAuthHeaders() {
-  return buildAuthHeaders();
-}
+// Auth headers are now handled automatically by apiFetch
 
 /* ─── Mode Icon Map for Sessions ─── */
 const MODE_ICONS = {
@@ -163,25 +159,23 @@ export default function InterviewSuite() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+
     const load = async () => {
       setLoading(true);
       try {
         // Load weakness heatmap
-        const heatRes = await fetch(`${API_URL}/api/interview-suite/weakness/heatmap`, {
-          headers: getAuthHeaders(),
-        });
-        const heatData = await heatRes.json();
+        const heatData = await apiFetch.get('/api/interview-suite/weakness/heatmap', { signal });
         setHeatmap(Array.isArray(heatData?.heatmap) ? heatData.heatmap.slice(0, 6) : []);
-      } catch {
+      } catch (err) {
+        if (err?.code === 'ERR_CANCELED') return;
         setHeatmap([]);
       }
 
       try {
         // Load recent sessions
-        const sessRes = await fetch(`${API_URL}/api/interview/sessions?limit=5`, {
-          headers: getAuthHeaders(),
-        });
-        const sessData = await sessRes.json();
+        const sessData = await apiFetch.get('/api/interview/sessions?limit=5', { signal });
         const sessions = Array.isArray(sessData?.sessions) ? sessData.sessions : (Array.isArray(sessData) ? sessData : []);
         setRecentSessions(sessions.slice(0, 5));
 
@@ -195,14 +189,16 @@ export default function InterviewSuite() {
             streak: sessions.length >= 3 ? sessions.length : Math.min(sessions.length, 7),
           });
         }
-      } catch {
+      } catch (err) {
+        if (err?.code === 'ERR_CANCELED') return;
         setRecentSessions([]);
       }
 
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     };
 
     load();
+    return () => controller.abort();
   }, []);
 
   return (

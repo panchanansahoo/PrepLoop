@@ -22,6 +22,9 @@ import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
 import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
 import { DashboardSkeleton } from '../components/skeletons';
+import PerformanceMonitor from '../components/PerformanceMonitor';
+import FetchError from '../components/FetchError';
+import ErrorBoundary from '../components/ErrorBoundary';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -120,7 +123,7 @@ function getInitialOrder() {
 
 export default function Dashboard() {
     const { user } = useAuth();
-    const { data: dashboardData, loading: dashLoading } = useDashboardData();
+    const { data: dashboardData, loading: dashLoading, error: dashError, refetch } = useDashboardData();
     const userName = user?.fullName?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Engineer';
     const dailyQuote = useMemo(() => getDailyQuote(), []);
     const [widgetVisibility, setWidgetVisibility] = useState(getInitialVisibility);
@@ -251,7 +254,11 @@ export default function Dashboard() {
                     <X size={14} />
                 </button>
                 {w.premium && <span className="dash-widget-premium-badge">⭐ Premium</span>}
-                <Component {...props} />
+                <ErrorBoundary fallback={(error, resetError) => (
+                    <FetchError message="Widget crashed" compact onRetry={resetError} />
+                )}>
+                    <Component {...props} />
+                </ErrorBoundary>
             </div>
         );
     };
@@ -348,8 +355,13 @@ export default function Dashboard() {
                 {/* ── Loading State ── */}
                 {dashLoading && <DashboardSkeleton />}
 
+                {/* ── Error State ── */}
+                {dashError && !dashLoading && (
+                    <FetchError message={dashError} onRetry={refetch} />
+                )}
+
                 {/* ── Dashboard Widgets ── */}
-                {renderRows()}
+                {!dashLoading && !dashError && renderRows()}
 
             </div>
 

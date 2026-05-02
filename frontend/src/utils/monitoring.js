@@ -262,7 +262,7 @@ class InteractionTracker {
    */
   sendToAnalytics(action, data) {
     // TODO: Integrate with analytics service (Google Analytics, Mixpanel, etc.)
-    if (import.meta.env.PROD) {
+    if (import.meta.env.PROD && import.meta.env.VITE_ENABLE_ANALYTICS === 'true') {
       // Example: Send to backend analytics endpoint
       fetch('/api/analytics/track', {
         method: 'POST',

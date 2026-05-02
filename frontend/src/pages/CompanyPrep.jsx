@@ -48,12 +48,22 @@ export default function CompanyPrep() {
     setLoadingQuestions(true);
     setQuestionLoadError('');
 
-    fetch('/company-prep-questions.json')
+    const apiUrl = `${import.meta.env.VITE_API_URL || window.location.origin}/api/company-interview/company-prep-questions`;
+    const jsonUrl = '/company-prep-questions.json';
+
+    // Try API first (faster after first load due to caching), fall back to static JSON
+    fetch(apiUrl)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch question bank');
-        }
+        if (!res.ok) throw new Error('API not available');
         return res.json();
+      })
+      .catch(() => {
+        // Fall back to static JSON file
+        return fetch(jsonUrl)
+          .then((res) => {
+            if (!res.ok) throw new Error('Failed to fetch question bank');
+            return res.json();
+          });
       })
       .then((loaded) => {
         if (cancelled) return;

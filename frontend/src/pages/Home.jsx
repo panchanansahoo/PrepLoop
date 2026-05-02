@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import './Home.css';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { apiFetch } from '../utils/apiFetch';
 import { useAuth } from '../context/AuthContext';
 import {
   Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
@@ -393,8 +393,7 @@ function JobUpdatesPreview() {
           observer.disconnect();
           const fetchJobs = async () => {
             try {
-              const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-              const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+              const data = await apiFetch.get('/api/jobs?limit=3');
               setJobs(data.jobs || []);
             } catch (err) {
               console.error('Failed to fetch jobs preview:', err);
@@ -656,6 +655,16 @@ export default function Home() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
   const [activeTestimonial, setActiveTestimonial] = useState(1);
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth <= 768);
+
+  // Track window resize for responsive 3D toggle
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const nextTestimonial = () => setActiveTestimonial((i) => (i + 1) % testimonials.length);
   const prevTestimonial = () => setActiveTestimonial((i) => (i - 1 + testimonials.length) % testimonials.length);
@@ -789,17 +798,33 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Right Visual — 3D Interactive Scene */}
-            <div style={{ position: 'relative', zIndex: 10, minHeight: '480px' }} className="hero-visual-container">
-              {/* 3D Scene Background */}
-              <Suspense fallback={null}>
-                <Hero3DScene />
-              </Suspense>
+            {/* Right Visual — 3D Interactive Scene (Desktop Only) */}
+            {!isMobileView && (
+              <div style={{ position: 'relative', zIndex: 10, minHeight: '480px' }} className="hero-visual-container">
+                {/* 3D Scene Background */}
+                <Suspense fallback={null}>
+                  <Hero3DScene />
+                </Suspense>
+              </div>
+            )}
 
-
-
-
-            </div>
+            {/* Mobile Fallback — Static Hero Showcase */}
+            {isMobileView && (
+              <div style={{
+                position: 'relative', zIndex: 10, minHeight: '380px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.05))',
+                borderRadius: '24px', border: '1px solid rgba(139,92,246,0.2)', padding: '40px 20px'
+              }}>
+                <div style={{ textAlign: 'center' }}>
+                  <Sparkles size={48} style={{ color: '#a78bfa', marginBottom: '16px', display: 'block', margin: '0 auto 16px' }} />
+                  <h3 style={{ fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>AI Interview Studio</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '14px', margin: '0 auto', maxWidth: '280px', lineHeight: '1.5' }}>
+                    Master your interview skills with AI-powered feedback and real-time insights
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>

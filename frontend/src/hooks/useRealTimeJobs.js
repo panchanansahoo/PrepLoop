@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { apiFetch } from '../utils/apiFetch';
 
 export function useRealTimeJobs(query = 'software developer', options = {}) {
   const {
@@ -15,59 +14,61 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
   const [lastUpdate, setLastUpdate] = useState(null);
   const wsRef = useRef(null);
   const pollTimerRef = useRef(null);
+  // Use a ref so the polling callback never goes stale
+  const lastUpdateRef = useRef(null);
 
-  // Fetch jobs via REST API
-  const fetchJobs = useCallback(async () => {
+  // Fetch jobs via centralized API client (auto-injects auth + retries)
+  const fetchJobs = useCallback(async (signal) => {
     try {
       setLoading(true);
       setError(null);
 
-      const params = new URLSearchParams({
-        query,
-        ...(lastUpdate && { lastUpdate: lastUpdate.toISOString() })
-      });
-
-      const response = await fetch(`${API_URL}/api/jobs/live?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      const params = new URLSearchParams({ query });
+      if (lastUpdateRef.current) {
+        params.set('lastUpdate', lastUpdateRef.current.toISOString());
       }
 
-      const data = await response.json();
-      
+      const data = await apiFetch.get(`/api/jobs/live?${params}`, { signal });
+
       if (data.hasUpdates && data.jobs.length > 0) {
+        const ts = new Date(data.timestamp);
         setJobs(data.jobs);
-        setLastUpdate(new Date(data.timestamp));
+        setLastUpdate(ts);
+        lastUpdateRef.current = ts;
       }
 
       setLoading(false);
     } catch (err) {
+      // Ignore cancellations from unmount / AbortController
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
       console.error('Failed to fetch jobs:', err);
       setError(err.message);
       setLoading(false);
     }
-  }, [query, lastUpdate]);
+  }, [query]); // lastUpdate removed — use ref instead to avoid infinite loop
 
   // WebSocket connection
   const connectWebSocket = useCallback(() => {
     if (!useWebSocket || wsRef.current) return;
 
     try {
+      const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace(/\/+$/, '');
       const wsUrl = API_URL.replace('http', 'ws');
       const ws = new WebSocket(`${wsUrl}/jobs`);
 
       ws.onopen = () => {
-        console.log('WebSocket connected for job updates');
         ws.send(JSON.stringify({ type: 'subscribe', query }));
       };
 
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
+
           if (data.type === 'job_update' && data.jobs) {
+            const ts = new Date(data.timestamp);
             setJobs(data.jobs);
-            setLastUpdate(new Date(data.timestamp));
+            setLastUpdate(ts);
+            lastUpdateRef.current = ts;
             setLoading(false);
           } else if (data.type === 'error') {
             setError(data.message);
@@ -77,63 +78,50 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
         }
       };
 
-      ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
+      ws.onerror = () => {
         setError('WebSocket connection failed');
-        // Fallback to polling
-        startPolling();
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         wsRef.current = null;
-        // Fallback to polling
-        startPolling();
       };
 
       wsRef.current = ws;
     } catch (err) {
       console.error('WebSocket setup error:', err);
-      startPolling();
     }
   }, [useWebSocket, query]);
-
-  // Polling mechanism
-  const startPolling = useCallback(() => {
-    if (pollTimerRef.current) return;
-
-    fetchJobs(); // Initial fetch
-
-    pollTimerRef.current = setInterval(() => {
-      fetchJobs();
-    }, pollInterval);
-  }, [fetchJobs, pollInterval]);
-
-  const stopPolling = useCallback(() => {
-    if (pollTimerRef.current) {
-      clearInterval(pollTimerRef.current);
-      pollTimerRef.current = null;
-    }
-  }, []);
 
   // Initialize
   useEffect(() => {
     if (!enabled) return;
 
+    const controller = new AbortController();
+
     if (useWebSocket) {
       connectWebSocket();
     } else {
-      startPolling();
+      // Initial fetch
+      fetchJobs(controller.signal);
+
+      // Start polling
+      pollTimerRef.current = setInterval(() => {
+        fetchJobs(controller.signal);
+      }, pollInterval);
     }
 
     return () => {
-      stopPolling();
+      controller.abort();
+      if (pollTimerRef.current) {
+        clearInterval(pollTimerRef.current);
+        pollTimerRef.current = null;
+      }
       if (wsRef.current) {
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [enabled, useWebSocket, connectWebSocket, startPolling, stopPolling]);
+  }, [enabled, useWebSocket, connectWebSocket, fetchJobs, pollInterval]);
 
   // Refresh manually
   const refresh = useCallback(() => {
@@ -165,52 +153,69 @@ export function useJobs(filters = {}) {
     total: 0
   });
 
-  const fetchJobs = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const params = new URLSearchParams({
-        page: filters.page || 1,
-        limit: filters.limit || 20,
-        ...(filters.search && { search: filters.search }),
-        ...(filters.category && { category: filters.category }),
-        ...(filters.type && { type: filters.type }),
-        ...(filters.company && { company: filters.company }),
-        ...(filters.source && { source: filters.source })
-      });
-
-      const response = await fetch(`${API_URL}/api/jobs?${params}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      setJobs(data.jobs || []);
-      setPagination({
-        page: data.page || 1,
-        totalPages: data.totalPages || 1,
-        total: data.total || 0
-      });
-      setLoading(false);
-    } catch (err) {
-      console.error('Failed to fetch jobs:', err);
-      setError(err.message);
-      setLoading(false);
-    }
-  }, [filters]);
+  // Serialize filters to a stable string so the effect doesn't infinite-loop on object identity
+  const filtersKey = JSON.stringify(filters);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const fetchJobs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const parsed = JSON.parse(filtersKey);
+        const params = new URLSearchParams({
+          page: parsed.page || 1,
+          limit: parsed.limit || 20,
+          ...(parsed.search && { search: parsed.search }),
+          ...(parsed.category && { category: parsed.category }),
+          ...(parsed.type && { type: parsed.type }),
+          ...(parsed.company && { company: parsed.company }),
+          ...(parsed.source && { source: parsed.source })
+        });
+
+        const data = await apiFetch.get(`/api/jobs?${params}`, { signal: controller.signal });
+
+        if (!cancelled) {
+          setJobs(data.jobs || []);
+          setPagination({
+            page: data.page || 1,
+            totalPages: data.totalPages || 1,
+            total: data.total || 0
+          });
+          setLoading(false);
+        }
+      } catch (err) {
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'CanceledError') return;
+        console.error('Failed to fetch jobs:', err);
+        if (!cancelled) {
+          setError(err.message);
+          setLoading(false);
+        }
+      }
+    };
+
     fetchJobs();
-  }, [fetchJobs]);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [filtersKey]);
+
+  const refresh = useCallback(() => {
+    // Force re-run by resetting state — the effect will re-trigger via filtersKey
+    setLoading(true);
+    setError(null);
+  }, []);
 
   return {
     jobs,
     loading,
     error,
     pagination,
-    refresh: fetchJobs
+    refresh
   };
 }

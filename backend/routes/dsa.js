@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { all425Problems } from '../data/allProblems.js';
 import Groq from 'groq-sdk';
+import DataCacheManager from '../services/dataCacheManager.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -112,19 +113,13 @@ ${String(problem?.description || '').substring(0, 1500)}
 
 router.get('/patterns', optionalAuth, async (req, res) => {
   try {
-    // Get patterns with problem counts
-    const { data: patterns, error } = await supabaseAdmin
-      .from('patterns')
-      .select('*, problems(count)')
-      .order('id');
-
-    if (error) throw error;
-
+    // Try cache first
+    const patterns = await DataCacheManager.getPatterns();
+    
     // Transform to match expected format
     const transformed = (patterns || []).map(p => ({
       ...p,
-      problem_count: p.problems?.[0]?.count || 0,
-      problems: undefined
+      problem_count: p.problem_count || 0,
     }));
 
     res.json({ patterns: transformed });
@@ -138,13 +133,10 @@ router.get('/patterns/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data: pattern, error: patternError } = await supabaseAdmin
-      .from('patterns')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (patternError || !pattern) {
+    // Try cache first
+    const pattern = await DataCacheManager.getPattern(id);
+    
+    if (!pattern) {
       return res.status(404).json({ error: 'Pattern not found' });
     }
 

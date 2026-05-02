@@ -6,6 +6,14 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Primary UI font - loaded immediately for FCP/LCP
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+        // Code editor font - loaded on-demand
+        mono: ['JetBrains Mono', 'Monaco', 'Courier New', 'monospace'],
+        // Optional: headings and accent text
+        display: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+      },
       colors: {
         // Core Palette
         bg: {

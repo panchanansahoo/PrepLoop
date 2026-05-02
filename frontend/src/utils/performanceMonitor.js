@@ -190,7 +190,7 @@ class PerformanceMonitor {
     if (window.__perfMonitorPatched) return;
     window.__perfMonitorPatched = true;
 
-    this.originalFetch = window.fetch;
+    this.originalFetch = window.fetch.bind(window);
     window.fetch = async (...args) => {
       const startTime = performance.now();
       const url = args[0];

@@ -253,7 +253,7 @@ function AppContent() {
             <Route path="/community" element={<PrivateRoute><CommunityHub /></PrivateRoute>} />
             <Route
               path="/dashboard"
-              element={<Dashboard />}
+              element={<PrivateRoute><Dashboard /></PrivateRoute>}
             />
             <Route
               path="/overview"
