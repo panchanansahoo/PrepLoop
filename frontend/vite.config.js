@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { visualizer } from 'rollup-plugin-visualizer';
+import compression from 'vite-plugin-compression';
 
 export default defineConfig(({ mode }) => {
   const isProd = mode === 'production';
@@ -8,6 +9,16 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
+      isProd && compression({
+        verbose: true,
+        disable: false,
+        threshold: 1024,
+        algorithm: 'brotliCompress',
+        ext: '.br',
+        compressionOptions: {
+          level: 11, // Max compression level for Brotli (0-11)
+        },
+      }),
       isProd && visualizer({
         filename: './dist/stats.html',
         open: false,
