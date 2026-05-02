@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import {
   ArrowLeft, Bug, Play, Timer, CheckCircle, X, AlertTriangle,
   Eye, Wrench, Zap, TrendingUp, RotateCcw, ChevronRight,
@@ -219,7 +219,7 @@ export default function DebuggingInterview() {
               <Eye size={14} /> <strong>Buggy Code</strong>
               <span className="dbg-code-title">{challenge.title}</span>
             </div>
-            <Editor
+            <MonacoWrapper
               height="100%"
               language={challenge.language || 'python'}
               value={challenge.buggyCode}
@@ -312,7 +312,7 @@ export default function DebuggingInterview() {
             <div className="dbg-panel-header">
               <Wrench size={14} /> <strong>Fix the Code</strong>
             </div>
-            <Editor
+            <MonacoWrapper
               height="100%"
               language={challenge.language || 'python'}
               value={fixedCode}
@@ -482,7 +482,7 @@ export default function DebuggingInterview() {
           {challenge.fixedCode && (
             <div className="dbg-correct-answer">
               <h3><CheckCircle size={14} /> Reference Solution</h3>
-              <Editor
+              <MonacoWrapper
                 height="200px"
                 language={challenge.language || 'python'}
                 value={challenge.fixedCode}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { ArrowLeft, Play, Send, Lightbulb, CheckCircle, XCircle, Loader, Code2, Clock, Cpu, Award } from 'lucide-react';
 import HintsPanel from '../components/solver/HintsPanel';
 import { useTheme } from '../context/ThemeContext';
@@ -288,7 +288,7 @@ export default function ProblemSolver() {
 
         {/* Monaco Editor */}
         <div className="flex-1 relative">
-          <Editor
+          <MonacoWrapper
             height="100%"
             language={language === 'cpp' ? 'cpp' : language}
             value={code}

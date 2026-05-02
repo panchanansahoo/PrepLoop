@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { Code2, X, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 import './CodeEditorPanel.css';
 
@@ -90,7 +90,7 @@ export default function CodeEditorPanel({
 
             {/* Editor */}
             <div className="code-editor-body">
-                <Editor
+                <MonacoWrapper
                     height="100%"
                     language={language === 'cpp' ? 'cpp' : language}
                     value={code}

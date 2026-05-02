@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import {
   ArrowLeft, Play, Timer, Sparkles, Target, Brain, Bug, FlaskConical,
   ChevronRight, RotateCcw, Award, TrendingUp, Pause, X, Zap,
@@ -329,7 +329,7 @@ export default function LiveCodingCopilot() {
                   <RotateCcw size={14} />
                 </button>
               </div>
-              <Editor
+              <MonacoWrapper
                 height="100%"
                 language={language === 'cpp' ? 'cpp' : language}
                 value={code}

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import {
   ArrowLeft, GitPullRequest, MessageSquare, Send, CheckCircle, AlertTriangle,
   ChevronRight, RotateCcw, Award, TrendingUp, Clock, Target, Star,
@@ -253,7 +253,7 @@ export default function CodeReviewInterview() {
                 <strong>PR Description:</strong> {scenario.context}
               </div>
             )}
-            <Editor
+            <MonacoWrapper
               height="100%"
               language={scenario.language || 'javascript'}
               value={scenario.code}

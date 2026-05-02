@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../CodeEditor/MonacoWrapper';
 import { Code2, Zap, AlertTriangle, Send } from 'lucide-react';
 import { submitCodeReview } from '../../api/aiService';
 import CodeReviewDisplay from './CodeReviewDisplay';
@@ -92,7 +92,7 @@ export default function CodeReviewSubmission() {
         {/* Editor Area */}
         <div className="cr-editor-section">
           <div className="cr-editor-wrapper">
-            <Editor
+            <MonacoWrapper
               height="400px"
               language={language}
               value={code}

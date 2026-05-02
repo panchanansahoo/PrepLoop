@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { ArrowLeft, Play, Send, Clock, Lightbulb, Database, ChevronDown, X, Maximize2, Minimize2 } from 'lucide-react';
 import { getSQLProblemById, SQL_CATEGORIES } from '../data/sqlProblemsDatabase';
 import { getSchemaById } from '../data/sqlSchemas';
@@ -334,7 +334,7 @@ export default function SQLCodeEditor() {
         <div id="sql-editor-center" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 400 }}>
           {/* Editor */}
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <Editor
+            <MonacoWrapper
               height="100%"
               language="sql"
               value={code}

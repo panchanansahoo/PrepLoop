@@ -62,7 +62,6 @@ export default defineConfig(({ mode }) => {
             if (!id.includes('node_modules')) return;
             if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-monaco';
             if (id.includes('@react-three') || id.includes('/three/')) return 'vendor-3d';
-            if (id.includes('@blocknote')) return 'vendor-blocknote';
             if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
             if (id.includes('prettier')) return 'vendor-prettier';
             if (id.includes('reactflow') || id.includes('dagre')) return 'vendor-flow';

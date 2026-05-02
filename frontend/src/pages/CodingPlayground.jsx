@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import './CodingPlayground.css';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import ReactMarkdown from 'react-markdown';
 import {
     ArrowLeft, Play, Terminal, Trash2, Copy, Check,
@@ -1772,7 +1772,7 @@ export default function CodingPlayground() {
                 {/* Left: Editor + Console */}
                 <div className="pg-editor-area">
                     <div className="pg-editor-wrapper" style={{ flex: 1 }}>
-                        <Editor
+                        <MonacoWrapper
                             height="100%"
                             language={langInfo.monacoId}
                             value={code}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { ArrowLeft, Lightbulb, X, GripVertical } from 'lucide-react';
 import DSAToolbar from '../components/editor/DSAToolbar';
 import ProblemDescriptionPanel from '../components/editor/ProblemDescriptionPanel';
@@ -698,7 +698,7 @@ export default function DSACodeEditor() {
         }}>
           {/* Editor */}
           <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <Editor
+            <MonacoWrapper
               height="100%"
               language={langInfo.monacoId}
               value={code}

@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from 'react';
-import Editor from '@monaco-editor/react';
+import { MonacoWrapper } from '../CodeEditor/MonacoWrapper';
 import {
     Code2, Palette, FileText, ChevronDown, CheckCircle,
     Sparkles, RotateCcw, Mic, MicOff, Send,
@@ -140,7 +140,7 @@ function InterviewWorkspace({
                             </div>
                         </div>
                         <div className="ai-editor-body">
-                            <Editor
+                            <MonacoWrapper
                                 height="100%"
                                 language={language === 'cpp' ? 'cpp' : language}
                                 value={code}

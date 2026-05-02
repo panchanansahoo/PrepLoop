@@ -5,6 +5,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import InterviewCacheManager from '../services/interviewCacheManager.js';
+import phase2Service from '../services/phase2IntegrationService.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/errorResponseFormatter.js';
 
 const router = express.Router();
@@ -504,71 +505,101 @@ const getFallbackQuestions = (type, difficulty) => {
     }
   }
 
-const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
+const generateAIQuestion = async (type, difficulty, previousQuestions = [], userId = null) => {
   if (!groq) return null;
 
   try {
-    // Create a simple key for caching - we use type+difficulty but not previousQuestions
-    // since those are dynamic and would prevent cache hits
-    const cacheKey = `question:${type}:${difficulty}`;
-    
-    // Try to get from cache first
-    const cachedQuestion = await InterviewCacheManager.get(cacheKey);
-    if (cachedQuestion) {
-      console.log(`Using cached question for ${type}/${difficulty}`);
-      return cachedQuestion;
+    // Phase 2.1: Check for duplicates in question pool (if userId provided)
+    let questionToGenerate = null;
+    let regenerationAttempts = 0;
+    const maxAttempts = 3;
+
+    while (regenerationAttempts < maxAttempts) {
+      // Create a simple key for caching
+      const cacheKey = `question:${type}:${difficulty}:${regenerationAttempts}`;
+      
+      // Try to get from cache first
+      const cachedQuestion = await InterviewCacheManager.get(cacheKey);
+      if (cachedQuestion) {
+        console.log(`Using cached question for ${type}/${difficulty}`);
+        questionToGenerate = cachedQuestion;
+        break;
+      }
+
+      const completion = await aiCallWithRetry({
+        operation: () => groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
+            The candidate may have limited professional experience — frame questions around college projects, internships, coursework, or learning.
+            Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.
+            Avoid repeating these previously asked questions: ${JSON.stringify(previousQuestions)}.
+            ${regenerationAttempts > 0 ? `This is attempt ${regenerationAttempts + 1}. Make sure it's sufficiently different from previous attempts.` : ''}
+            
+            Format as JSON with "question" and "context" fields. Respond ONLY with valid JSON.`
+            },
+            {
+              role: 'user',
+              content: `Generate a ${difficulty} ${type} interview question.`
+            }
+          ],
+          response_format: { type: 'json_object' }
+        }),
+        timeoutMs: 12000,
+        maxRetries: 2,
+        baseDelayMs: 250,
+      });
+
+      let parsed;
+      try {
+        const raw = completion.choices?.[0]?.message?.content || '';
+        if (!raw || typeof raw !== 'string') {
+          console.warn('Invalid response content from Groq API');
+          regenerationAttempts++;
+          continue;
+        }
+        const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+        if (!cleaned) {
+          console.warn('Empty response after cleaning');
+          regenerationAttempts++;
+          continue;
+        }
+        parsed = JSON.parse(cleaned);
+      } catch (parseError) {
+        console.error('Failed to parse Groq response:', parseError.message);
+        regenerationAttempts++;
+        continue;
+      }
+
+      // Phase 2.1: Check if this question is a duplicate (if userId provided)
+      if (userId && parsed && parsed.question) {
+        const dupCheck = phase2Service.checkQuestionDuplicate(userId, parsed.question);
+        if (dupCheck.isDuplicate) {
+          console.log(`[Phase2] Question is duplicate (${dupCheck.similarityScore}% similar), regenerating...`);
+          regenerationAttempts++;
+          continue; // Try again
+        }
+      }
+
+      questionToGenerate = parsed;
+      break;
     }
 
-    const completion = await aiCallWithRetry({
-      operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
-          The candidate may have limited professional experience — frame questions around college projects, internships, coursework, or learning.
-          Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.
-          Avoid repeating these previously asked questions: ${JSON.stringify(previousQuestions)}.
-          
-          Format as JSON with "question" and "context" fields. Respond ONLY with valid JSON.`
-          },
-          {
-            role: 'user',
-            content: `Generate a ${difficulty} ${type} interview question.`
-          }
-        ],
-        response_format: { type: 'json_object' }
-      }),
-      timeoutMs: 12000,
-      maxRetries: 2,
-      baseDelayMs: 250,
-    });
-
-    let parsed;
-    try {
-      const raw = completion.choices?.[0]?.message?.content || '';
-      if (!raw || typeof raw !== 'string') {
-        console.warn('Invalid response content from Groq API');
-        return null;
-      }
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-      if (!cleaned) {
-        console.warn('Empty response after cleaning');
-        return null;
-      }
-      parsed = JSON.parse(cleaned);
-    } catch (parseError) {
-      console.error('Failed to parse Groq response:', parseError.message, 'Raw:', completion.choices?.[0]?.message?.content?.substring(0, 100));
+    if (!questionToGenerate) {
+      console.warn('Failed to generate unique question after 3 attempts');
       return null;
     }
 
     // Cache the question for future use
-    if (parsed && parsed.question) {
-      await InterviewCacheManager.set(cacheKey, parsed, 7200); // Cache for 2 hours
+    if (questionToGenerate && questionToGenerate.question) {
+      const cacheKey = `question:${type}:${difficulty}:0`;
+      await InterviewCacheManager.set(cacheKey, questionToGenerate, 7200); // Cache for 2 hours
       console.log(`Cached question for ${type}/${difficulty}`);
     }
 
-    return parsed;
+    return questionToGenerate;
   } catch (error) {
     console.error('Groq generation error:', error);
     return null;
@@ -660,7 +691,8 @@ router.post('/start', authenticateToken, async (req, res) => {
 router.post('/next-question', authenticateToken, async (req, res) => {
   try {
     const { previousResponses, type } = req.body;
-    const difficulty = req.body.difficulty || 'medium';
+    let difficulty = req.body.difficulty || 'medium';
+    const userId = req.user?.id;
 
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
@@ -680,21 +712,66 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       });
     }
 
+    // Phase 2.2: Get difficulty with auto-adjustment if user is authenticated
+    let adjustedDifficulty = difficulty;
+    let difficultyAdjusted = false;
+    let adjustmentReason = null;
+
+    if (userId) {
+      try {
+        const difficultyResult = phase2Service.getNextQuestionDifficulty(userId, type);
+        adjustedDifficulty = difficultyResult.difficulty;
+        difficultyAdjusted = difficultyResult.autoAdjusted;
+        adjustmentReason = difficultyResult.adjustmentReason;
+
+        if (difficultyAdjusted) {
+          console.log(`[Phase2] Difficulty adjusted for user ${userId}: ${difficulty} → ${adjustedDifficulty} (${adjustmentReason})`);
+        }
+      } catch (adjustmentError) {
+        console.warn('Failed to get adjusted difficulty, using default:', adjustmentError.message);
+        // Fall back to requested difficulty
+      }
+    }
+
     // Fix #11: validate previousResponses is an array before calling .map
     const safeResponses = Array.isArray(previousResponses) ? previousResponses : [];
     const previousQuestions = safeResponses
       .map(r => r?.question?.question)
       .filter(Boolean);
 
-    const aiQuestion = await generateAIQuestion(type, difficulty, previousQuestions);
+    // Phase 2.1: Pass userId to generateAIQuestion for dedup checking
+    const aiQuestion = await generateAIQuestion(type, adjustedDifficulty, previousQuestions, userId);
 
     if (aiQuestion) {
-      res.json({ question: aiQuestion });
+      // Phase 2.1: Track question as asked
+      if (userId && aiQuestion.question) {
+        try {
+          phase2Service.trackQuestionAsked(userId, {
+            id: `q-${Date.now()}`,
+            text: aiQuestion.question,
+            difficulty: adjustedDifficulty,
+            category: type
+          });
+        } catch (trackError) {
+          console.warn('Failed to track question:', trackError.message);
+        }
+      }
+
+      res.json({
+        question: aiQuestion,
+        difficulty: adjustedDifficulty,
+        difficultyAdjusted,
+        adjustmentReason
+      });
     } else {
-      const questions = getFallbackQuestions(type, difficulty);
+      const questions = getFallbackQuestions(type, adjustedDifficulty);
       // Simple random fallback
       const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
-      res.json({ question: randomQuestion });
+      res.json({
+        question: randomQuestion,
+        difficulty: adjustedDifficulty,
+        isFallback: true
+      });
     }
   } catch (error) {
     console.error('Error getting next question:', error);
@@ -707,6 +784,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
 router.post('/complete', authenticateToken, async (req, res) => {
   try {
     const { type, difficulty, duration, responses } = req.body;
+    const userId = req.user?.id;
 
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
@@ -815,10 +893,76 @@ router.post('/complete', authenticateToken, async (req, res) => {
       };
     }
 
+    // Phase 2.2 & 2.3: Record performance and determine follow-ups
+    let performanceData = null;
+    let followUpData = null;
+
+    if (userId) {
+      try {
+        // Record performance for each response
+        const responseCount = responses?.length || 0;
+        for (let i = 0; i < responseCount; i++) {
+          const response = responses[i];
+          if (response && response.answer) {
+            // Calculate component scores for this response
+            const responseLength = response.answer.length;
+            const isAnswered = responseLength > 20;
+
+            // Phase 2.3: Check for follow-ups
+            if (isAnswered && response.question?.question) {
+              try {
+                const followUpRec = phase2Service.getFollowUpRecommendation(
+                  response.question.question,
+                  response.answer,
+                  difficulty
+                );
+
+                if (followUpRec && followUpRec.canFollowUp) {
+                  // Generate follow-up prompt if needed
+                  const followUpPrompt = phase2Service.generateFollowUpPrompt(
+                    response.question.question,
+                    response.answer,
+                    difficulty
+                  );
+
+                  if (followUpPrompt) {
+                    followUpData = followUpPrompt;
+                    console.log(`[Phase2] Follow-up recommended for question ${i + 1}: ${followUpData.strategy}`);
+                  }
+                }
+              } catch (followUpError) {
+                console.warn('Failed to generate follow-up:', followUpError.message);
+              }
+            }
+
+            // Record performance
+            const scoreForResponse = isAnswered
+              ? Math.max(50, Math.min(100, scores.overall + Math.random() * 20 - 10))
+              : 30;
+
+            performanceData = phase2Service.recordAnswer(userId, {
+              category: type,
+              difficulty,
+              correctness: scoreForResponse,
+              explanation: Math.max(0, scoreForResponse - 10),
+              speed: Math.max(0, scoreForResponse - 5),
+              questionId: `q-${i}`,
+              responseTime: Math.ceil(Math.random() * 300) // Random 0-300s for now
+            });
+          }
+        }
+
+        // Finalize session
+        phase2Service.finalizeInterviewSession(userId);
+      } catch (phase2Error) {
+        console.warn('Phase 2 tracking error:', phase2Error.message);
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('mock_interviews')
       .insert({
-        user_id: req.user.id,
+        user_id: userId,
         interview_type: type,
         difficulty,
         duration,
@@ -835,10 +979,20 @@ router.post('/complete', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    res.json({
+    const result = {
       interviewId: data.id,
       scores
-    });
+    };
+
+    // Include Phase 2 data in response
+    if (performanceData) {
+      result.performanceTracking = performanceData;
+    }
+    if (followUpData) {
+      result.followUp = followUpData;
+    }
+
+    res.json(result);
   } catch (error) {
     console.error('Error completing interview:', error);
     res.status(500).json({ error: 'Failed to complete interview', message: error.message });
