@@ -80,6 +80,32 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
+    const leaderboardRoutes = (await import('./routes/leaderboard.js')).default;
+    const behavioralCoachRoutes = (await import('./routes/behavioral-coach.js')).default;
+    const dailyQuestionRoutes = (await import('./routes/daily-question.js')).default;
+    const interviewExperiencesRoutes = (await import('./routes/interview-experiences.js')).default;
+
+    // New feature routes
+    const codeReviewRoutes = (await import('./routes/code-review.js')).default;
+    const peerInterviewRoutes = (await import('./routes/peer-interview.js')).default;
+    const negotiationRoutes = (await import('./routes/negotiation.js')).default;
+    const flashcardsRoutes = (await import('./routes/flashcards.js')).default;
+    const complexityAnalyzerRoutes = (await import('./routes/complexity-analyzer.js')).default;
+    const jdQuestionsRoutes = (await import('./routes/jd-questions.js')).default;
+    const readinessCheckRoutes = (await import('./routes/readiness-check.js')).default;
+    const conceptExplainerRoutes = (await import('./routes/concept-explainer.js')).default;
+    const codeTranslatorRoutes = (await import('./routes/code-translator.js')).default;
+    const patternTrainerRoutes = (await import('./routes/pattern-trainer.js')).default;
+    const bugDebuggerRoutes = (await import('./routes/bug-debugger.js')).default;
+    const skillHeatmapRoutes = (await import('./routes/skill-heatmap.js')).default;
+    const dailyWinRoutes = (await import('./routes/daily-win.js')).default;
+    const answerTimerRoutes = (await import('./routes/answer-timer.js')).default;
+
+    // New student feature routes
+    const questionBankRoutes = (await import('./routes/question-bank.js')).default;
+    const weeklyReportRoutes = (await import('./routes/weekly-report.js')).default;
+    const rejectionAnalyzerRoutes = (await import('./routes/rejection-analyzer.js')).default;
+    const accountabilityRoutes = (await import('./routes/accountability.js')).default;
 
     // Phase 2-6: New improvement routes
     const gdprRoutes = (await import('./routes/gdpr.js')).default;
@@ -293,6 +319,32 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
+    app.use('/api/leaderboard', leaderboardRoutes);
+    app.use('/api/behavioral-coach', behavioralCoachRoutes);
+    app.use('/api/daily-question', dailyQuestionRoutes);
+    app.use('/api/interview-experiences', interviewExperiencesRoutes);
+
+    // New feature routes
+    app.use('/api/code-review', codeReviewRoutes);
+    app.use('/api/peer-interview', peerInterviewRoutes);
+    app.use('/api/negotiation', negotiationRoutes);
+    app.use('/api/flashcards', flashcardsRoutes);
+    app.use('/api/complexity', complexityAnalyzerRoutes);
+    app.use('/api/jd-questions', jdQuestionsRoutes);
+    app.use('/api/readiness', readinessCheckRoutes);
+    app.use('/api/concept-explainer', conceptExplainerRoutes);
+    app.use('/api/code-translator', codeTranslatorRoutes);
+    app.use('/api/pattern-trainer', patternTrainerRoutes);
+    app.use('/api/bug-debugger', bugDebuggerRoutes);
+    app.use('/api/skill-heatmap', skillHeatmapRoutes);
+    app.use('/api/daily-win', dailyWinRoutes);
+    app.use('/api/answer-timer', answerTimerRoutes);
+
+    // Student feature routes
+    app.use('/api/question-bank', questionBankRoutes);
+    app.use('/api/weekly-report', weeklyReportRoutes);
+    app.use('/api/rejection-analyzer', rejectionAnalyzerRoutes);
+    app.use('/api/accountability', accountabilityRoutes);
 
     // Phase 2-6: New routes
     app.use('/api/gdpr', gdprRoutes);

@@ -41,7 +41,7 @@ class InterviewErrorBoundary extends React.Component {
         }
 
         // Log to console in development
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.MODE === 'development') {
             console.error('Interview Error Boundary caught:', error, errorInfo);
         }
     }
@@ -84,7 +84,7 @@ class InterviewErrorBoundary extends React.Component {
                                 : 'An unexpected error occurred during your interview. You can try to resume or start fresh.'}
                         </p>
 
-                        {process.env.NODE_ENV === 'development' && (
+                        {import.meta.env.MODE === 'development' && (
                             <details className="ai-error-boundary-details">
                                 <summary className="ai-error-boundary-summary">
                                     Error Details (Development Only)

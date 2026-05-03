@@ -21,6 +21,9 @@ import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
 import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
 import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
+import DailyQuestionWidget from '../components/DailyQuestionWidget';
+import LeaderboardWidget from '../components/LeaderboardWidget';
+import { useLeaderboard, useUserStats } from '../hooks/useLeaderboard';
 import { DashboardSkeleton } from '../components/skeletons';
 import PerformanceMonitor from '../components/PerformanceMonitor';
 import FetchError from '../components/FetchError';
@@ -78,6 +81,7 @@ const WIDGET_REGISTRY = [
     { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadar, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
     { id: 'recentActivity', name: 'Recent Activity', component: RecentActivity, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
 
+    { id: 'dailyQuestion', name: 'Daily Questions', component: DailyQuestionWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Your personalized daily DSA and behavioral questions' },
     { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
     { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
     { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Mini monthly calendar with date picker' },
@@ -86,6 +90,7 @@ const WIDGET_REGISTRY = [
     { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
     { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
     { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
+    { id: 'leaderboard', name: 'Leaderboard', component: LeaderboardWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Weekly top performers' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
     { id: 'improvementPlan', name: 'Improvement Plan', component: ImprovementPlanWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Personalized AI interview improvement plan' },
     { id: 'performanceMonitor', name: 'Performance Monitor', component: PerformanceMonitor, defaultVisible: false, premium: false, layout: 'full', description: 'Real-time performance metrics and optimization insights' },
@@ -124,6 +129,8 @@ function getInitialOrder() {
 export default function Dashboard() {
     const { user } = useAuth();
     const { data: dashboardData, loading: dashLoading, error: dashError, refetch } = useDashboardData();
+    const { leaderboard } = useLeaderboard();
+    const { stats } = useUserStats();
     const userName = user?.fullName?.split(' ')[0] || user?.full_name?.split(' ')[0] || user?.name?.split(' ')[0] || 'Engineer';
     const dailyQuote = useMemo(() => getDailyQuote(), []);
     const [widgetVisibility, setWidgetVisibility] = useState(getInitialVisibility);
@@ -150,10 +157,10 @@ export default function Dashboard() {
     const resetToDefaults = useCallback(() => {
         const defaultVisibility = WIDGET_REGISTRY.reduce((acc, w) => ({ ...acc, [w.id]: w.defaultVisible }), {});
         const defaultOrder = WIDGET_REGISTRY.map(w => w.id);
-        
+
         setWidgetVisibility(defaultVisibility);
         setWidgetOrder(defaultOrder);
-        
+
         localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultVisibility));
         localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(defaultOrder));
     }, []);
@@ -169,16 +176,16 @@ export default function Dashboard() {
     const handleDragOver = (e, id) => {
         e.preventDefault();
         if (!draggedWidgetId || draggedWidgetId === id) return;
-        
+
         const draggedIndex = widgetOrder.indexOf(draggedWidgetId);
         const hoverIndex = widgetOrder.indexOf(id);
-        
+
         if (draggedIndex === -1 || hoverIndex === -1) return;
-        
+
         const newOrder = [...widgetOrder];
         newOrder.splice(draggedIndex, 1);
         newOrder.splice(hoverIndex, 0, draggedWidgetId);
-        
+
         setWidgetOrder(newOrder);
     };
 
@@ -214,10 +221,12 @@ export default function Dashboard() {
                     streak: dashboardData.streak,
                     bestStreak: dashboardData.bestStreak,
                 };
+            case 'leaderboard':
+                return { data: { leaderboard } };
             case 'readinessScore':
-                return { data: dashboardData.readinessData };
+                return { data: stats?.readiness || dashboardData.readinessData };
             case 'skillRadar':
-                return { data: dashboardData.skillBreakdown };
+                return { data: stats?.skillRadar || dashboardData.skillBreakdown };
             case 'recentActivity':
                 return { activities: dashboardData.recentActivity };
             case 'dailyChallenge':
@@ -270,7 +279,7 @@ export default function Dashboard() {
 
         for (let i = 0; i < visibleWidgets.length; i++) {
             const w = visibleWidgets[i];
-            
+
             if (w.layout === 'full') {
                 rows.push(<div key={`row-${rowKey++}`}>{renderWidget(w)}</div>);
             } else if (w.layout === '2col-left' || w.layout === '2col-right') {

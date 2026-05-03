@@ -7,7 +7,9 @@ import {
     CalendarDays, BarChart3, Clock, Settings, User,
     PanelLeftClose, PanelLeftOpen, Calculator, Server,
     Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase
+    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase,
+    Zap, ArrowRightLeft, Target, Bug, Activity, Star, Timer, Lightbulb,
+    Search, BarChart3 as BarChart3Icon, Shield, UserPlus
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -59,6 +61,8 @@ const navSections = [
             { path: '/interview-hub', label: 'Interview Hub', subtitle: 'All-in-one interview suite', icon: Grid3X3 },
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
+            { path: '/behavioral-coach', label: 'Behavioral Coach', subtitle: 'STAR scoring & filler detection', icon: MessageSquare },
+            { path: '/interview-experiences', label: 'Interview Experiences', subtitle: 'Community interview stories', icon: Briefcase },
             { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
             { path: '/interview-analytics', label: 'Interview Analytics', subtitle: 'Performance trends', icon: BarChart3 },
@@ -66,8 +70,43 @@ const navSections = [
         ]
     },
     {
-        category: 'Career',
+        category: 'AI Tools',
         items: [
+            { path: '/concept-explainer', label: 'Concept Explainer', subtitle: 'ELI5 to Senior level explanations', icon: Lightbulb },
+            { path: '/complexity-analyzer', label: 'Complexity Analyzer', subtitle: 'Big-O time & space analysis', icon: Zap },
+            { path: '/code-translator', label: 'Code Translator', subtitle: 'Convert code between languages', icon: ArrowRightLeft },
+            { path: '/bug-debugger', label: 'Bug Debugger', subtitle: 'Plain English bug explanations', icon: Bug },
+            { path: '/jd-questions', label: 'JD Question Generator', subtitle: 'Questions from job descriptions', icon: FileText },
+        ]
+    },
+    {
+        category: 'Skill Building',
+        items: [
+            { path: '/flashcards', label: 'Flashcards', subtitle: 'Spaced repetition review', icon: Brain },
+            { path: '/pattern-trainer', label: 'Pattern Trainer', subtitle: 'Identify DSA patterns', icon: Target },
+            { path: '/answer-timer', label: 'Answer Timer', subtitle: 'Practice within time limits', icon: Timer },
+            { path: '/readiness-check', label: 'Am I Ready?', subtitle: 'Interview readiness score', icon: Target },
+        ]
+    },
+    {
+        category: 'Progress',
+        items: [
+            { path: '/skill-heatmap', label: 'Skill Heatmap', subtitle: 'GitHub-style activity map', icon: Activity },
+            { path: '/daily-win', label: "Today's Win", subtitle: 'Log your daily practice', icon: Star },
+            { path: '/weekly-report', label: 'Weekly Report', subtitle: 'AI-powered prep summary', icon: BarChart3Icon },
+        ]
+    },
+    {
+        category: 'Interview Prep',
+        items: [
+            { path: '/question-bank', label: 'Question Bank', subtitle: 'Search 2600+ real questions', icon: Search },
+            { path: '/rejection-analyzer', label: 'Rejection Analyzer', subtitle: 'Learn from mock rejections', icon: Shield },
+        ]
+    },
+    {
+        category: 'Community',
+        items: [
+            { path: '/accountability', label: 'Accountability Partner', subtitle: 'Pair up with a study buddy', icon: UserPlus },
             { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
             { path: '/community', label: 'Community Hub', subtitle: 'Connect & discuss', icon: MessageSquare },
         ]

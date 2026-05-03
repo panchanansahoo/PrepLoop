@@ -6,22 +6,36 @@ function readLocal(fileName) {
 }
 
 describe('auth access policy', () => {
-  it('keeps job-updates/library/problem explorer/blog public while protecting dashboard, community, exams, and problem solver', () => {
+  it('opens most routes for preview while keeping personal routes private', () => {
     const appSource = readLocal('./App.jsx');
 
-    expect(appSource).toContain('path="/dashboard"');
-    expect(appSource).toContain('element={<PrivateRoute><Dashboard /></PrivateRoute>}');
+    // Dashboard, community, overview are now open (no PrivateRoute)
+    expect(appSource).toContain('path="/dashboard" element={<Dashboard />}');
+    expect(appSource).toContain('path="/community" element={<CommunityHub />}');
+    expect(appSource).toContain('path="/overview" element={<Overview />}');
 
+    // Public routes remain open
     expect(appSource).toContain('path="/job-updates" element={<JobUpdates />}');
     expect(appSource).toContain('path="/library" element={<Library />}');
     expect(appSource).toContain('path="/problems" element={<ProblemExplorer />}');
     expect(appSource).toContain('path="/blog" element={<BlogList />}');
 
-    expect(appSource).toContain('path="/community" element={<PrivateRoute><CommunityHub /></PrivateRoute>}');
-    expect(appSource).toContain('path="/exam-hub" element={<PrivateRoute><ExamHub /></PrivateRoute>}');
-    expect(appSource).toContain('path="/exam-practice/:examId" element={<PrivateRoute><ExamPractice /></PrivateRoute>}');
-    expect(appSource).toContain('path="/problems/:id"');
-    expect(appSource).toContain('element={<PrivateRoute><ProblemSolver /></PrivateRoute>}');
+    // Personal data routes stay behind PrivateRoute
+    expect(appSource).toContain('<PrivateRoute><Profile /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><History /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><CoinWallet /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><Payment /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><Settings /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><Analytics /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><ResumeAnalyzer /></PrivateRoute>');
+    expect(appSource).toContain('<PrivateRoute><Onboarding /></PrivateRoute>');
+  });
+
+  it('has AuthGateProvider and AuthGate wired in', () => {
+    const appSource = readLocal('./App.jsx');
+
+    expect(appSource).toContain('AuthGateProvider');
+    expect(appSource).toContain('<AuthGate />');
   });
 
   it('removes guest mode from auth context and auth pages', () => {

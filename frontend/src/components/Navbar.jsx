@@ -286,7 +286,102 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
   const isPublicPage = publicPaths.includes(location.pathname);
 
-  // Render Public Navbar if not logged in OR if on a public page
+  // Guest user on a sidebar page → use dashboard-style topbar (not floating pill)
+  if (!user && hasSidebar) {
+    const pageTitle = getPageTitle(location.pathname);
+    const breadcrumbItems = getBreadcrumbItems(location.pathname);
+
+    return (
+      <div className="navbar navbar-dashboard premium-topbar">
+        <div className="premium-topbar-inner">
+          <div className="topbar-left">
+            <button
+              className="icon-btn mobile-only"
+              onClick={onMobileMenuToggle}
+            >
+              <Menu size={22} />
+            </button>
+
+            <div className="topbar-page-info desktop-only">
+              {breadcrumbItems ? (
+                <nav className="topbar-breadcrumbs" aria-label="Breadcrumb">
+                  {breadcrumbItems.map((item, index) => {
+                    const isLast = index === breadcrumbItems.length - 1;
+                    return (
+                      <React.Fragment key={item.to}>
+                        {index > 0 ? <ChevronRight size={13} className="topbar-breadcrumb-separator" /> : null}
+                        {isLast ? (
+                          <span className="topbar-breadcrumb-current">{item.label}</span>
+                        ) : (
+                          <Link
+                            to={item.to}
+                            className={`topbar-breadcrumb-link ${item.icon ? 'is-icon' : ''}`}
+                            aria-label={item.label}
+                            title={item.label}
+                          >
+                            {item.icon === 'home' ? <Home size={14} /> : item.label}
+                          </Link>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </nav>
+              ) : (
+                <h2 className="topbar-page-title">{pageTitle}</h2>
+              )}
+            </div>
+          </div>
+
+          <div className="topbar-right">
+            <button
+              className="icon-btn theme-toggle-btn"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            <Link to="/login" className="btn nav-action-btn" style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.3s ease',
+              padding: '6px 14px',
+              borderRadius: '99px',
+              color: 'var(--color-text-primary)',
+              textDecoration: 'none',
+              fontSize: '13px'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-bg-card)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
+              Sign In
+            </Link>
+            <Link to="/signup" style={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+              boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
+              padding: '6px 16px',
+              borderRadius: '99px',
+              color: 'white',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.3s ease',
+              border: 'none',
+              textDecoration: 'none',
+              fontSize: '13px'
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.6)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(124, 58, 237, 0.4)' }}>
+              Get Started <ChevronRight size={14} />
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Public Navbar (floating pill) if not logged in on a public page (no sidebar)
   if (!user || isPublicPage) {
     return (
       <nav className={`navbar public-navbar ${scrolled ? 'scrolled' : ''}`}>

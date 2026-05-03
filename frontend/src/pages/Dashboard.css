@@ -81,6 +81,19 @@
   gap: 20px;
 }
 
+@media (max-width: 768px) {
+  .dash-container {
+    padding: 16px 16px 60px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dash-container {
+    padding: 12px 12px 60px;
+    gap: 16px;
+  }
+}
+
 /* â”€â”€ Hero Header â”€â”€ */
 .dash-hero {
   display: flex;

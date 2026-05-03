@@ -69,6 +69,12 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized - Token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
+      // Skip token refresh for guest users (no token = preview mode)
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return Promise.reject(error);
+      }
+
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

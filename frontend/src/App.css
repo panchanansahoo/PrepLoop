@@ -846,6 +846,8 @@ h3 {
   justify-content: center;
   gap: 8px;
   padding: 12px 24px;
+  min-height: 48px;
+  /* WCAG minimum touch target size */
   border-radius: var(--radius-full);
   font-weight: 500;
   font-size: 15px;
@@ -853,6 +855,7 @@ h3 {
   cursor: pointer;
   border: 1px solid transparent;
   text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-primary {
@@ -1006,7 +1009,12 @@ h3 {
   background: transparent;
   border: none;
   pointer-events: none;
-  transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shift navbar right when sidebar is present */
+.navbar.public-navbar.has-sidebar {
+  left: var(--sidebar-width, 260px);
 }
 
 .navbar.public-navbar .nav-content {
@@ -1110,6 +1118,61 @@ h3 {
   .navbar.public-navbar .nav-links {
     gap: 8px;
     margin-left: 8px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar.public-navbar {
+    padding: 0 16px;
+  }
+  
+  .navbar.public-navbar .nav-content {
+    height: 56px;
+    padding: 0 12px;
+    border-radius: 32px;
+  }
+  
+  .navbar.public-navbar .nav-action-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+  
+  .navbar.public-navbar .nav-links {
+    gap: 4px;
+    margin-left: 4px;
+  }
+  
+  .navbar.public-navbar .nav-link {
+    font-size: 12px;
+    padding: 4px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .navbar.public-navbar {
+    top: 12px;
+    padding: 0 8px;
+  }
+  
+  .navbar.public-navbar.has-sidebar {
+    left: auto;
+    right: 8px;
+  }
+  
+  .navbar.public-navbar .nav-content {
+    gap: 8px;
+  }
+  
+  .navbar.public-navbar .nav-links {
+    display: none;
+  }
+  
+  .navbar.public-navbar .nav-action-btn {
+    padding: 8px 10px;
+    font-size: 11px;
   }
 }
 
@@ -4395,6 +4458,82 @@ h3 {
 
   .nav-brand {
     gap: 12px;
+  }
+
+  /* ─── Mobile Form Inputs ─── */
+  input,
+  textarea,
+  select {
+    min-height: 44px;
+    /* WCAG minimum touch target */
+    font-size: 16px;
+    /* Prevents auto-zoom on iOS */
+    padding: 12px 16px;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    font-size: 14px;
+  }
+
+  /* ─── Mobile Button Sizing ─── */
+  .btn {
+    min-height: 48px;
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+
+  .btn-sm {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+
+  /* ─── Icon Button Touch Targets ─── */
+  button[type="button"],
+  .icon-btn,
+  [role="button"] {
+    min-width: 48px;
+    min-height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── Modal Responsive Width ─── */
+  .modal,
+  [role="dialog"],
+  .dialog-overlay {
+    width: min(95vw, 560px) !important;
+    max-width: calc(100vw - 32px);
+  }
+
+  /* ─── Alert/Toast Positioning ─── */
+  .toast,
+  .alert,
+  .notification {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    left: 16px;
+    right: 16px;
+    max-width: calc(100vw - 32px);
+  }
+
+  /* ─── Improve Touch Spacing ─── */
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-group + .form-group {
+    margin-top: 12px;
+  }
+
+  /* ─── Remove tap highlight ─── */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 

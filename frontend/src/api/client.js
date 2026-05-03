@@ -43,8 +43,12 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
+      const hadToken = localStorage.getItem('token');
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      // Only redirect if user was previously logged in (not guest preview)
+      if (hadToken) {
+        window.location.href = '/login';
+      }
     }
 
     return Promise.reject(error);
