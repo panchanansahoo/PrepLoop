@@ -7,6 +7,7 @@ import DataCacheManager from '../services/dataCacheManager.js';
 import HintService from '../services/hintService.js';
 import ExecutionTracer from '../services/executionTracer.js';
 import { VisualizationManager } from '../services/visualizationEngine.js';
+import StepThroughDebugger from '../services/stepThroughDebugger.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -973,6 +974,301 @@ router.post('/visualize/graph-shortest-path', authenticateToken, async (req, res
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to animate shortest path',
+    });
+  }
+});
+
+// ============================================================================
+// Phase 2.3: Step-Through Debugger
+// ============================================================================
+
+/**
+ * POST /api/dsa/debugger/create
+ * Create a new debugger session
+ * Request: {}
+ * Response: {sessionId: string}
+ */
+router.post('/debugger/create', authenticateToken, async (req, res) => {
+  try {
+    // Create a new debugger instance (in production, would store in session/DB)
+    const debugger_ = new StepThroughDebugger();
+    const sessionId = `debug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Store in memory (in production, would use Redis or database)
+    // For now, return sessionId and let client track state
+
+    res.json({
+      success: true,
+      sessionId,
+      message: 'Debug session created',
+    });
+  } catch (error) {
+    console.error('Error creating debugger:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to create debugger session',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/debugger/:sessionId/breakpoint/add
+ * Add breakpoint to debug session
+ * Request: {lineNumber: number, condition?: string}
+ * Response: {breakpointId: string}
+ */
+router.post('/debugger/:sessionId/breakpoint/add', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { lineNumber, condition } = req.body;
+
+    if (!Number.isInteger(lineNumber)) {
+      return res.status(400).json({
+        success: false,
+        error: 'lineNumber must be an integer',
+      });
+    }
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const breakpointId = debugger_.addBreakpoint(lineNumber, condition);
+
+    res.json({
+      success: true,
+      breakpointId,
+      lineNumber,
+      condition: condition || null,
+    });
+  } catch (error) {
+    console.error('Error adding breakpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to add breakpoint',
+    });
+  }
+});
+
+/**
+ * DELETE /api/dsa/debugger/:sessionId/breakpoint/:breakpointId
+ * Remove breakpoint from debug session
+ * Response: {success: boolean}
+ */
+router.delete('/debugger/:sessionId/breakpoint/:breakpointId', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, breakpointId } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const removed = debugger_.removeBreakpoint(breakpointId);
+
+    res.json({
+      success: removed,
+      message: removed ? 'Breakpoint removed' : 'Breakpoint not found',
+    });
+  } catch (error) {
+    console.error('Error removing breakpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to remove breakpoint',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/debugger/:sessionId/step-forward
+ * Step forward in debug session
+ * Response: {context: Object}
+ */
+router.post('/debugger/:sessionId/step-forward', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const ctx = debugger_.stepForward();
+
+    res.json({
+      success: true,
+      context: ctx,
+      currentStep: debugger_.currentStep,
+    });
+  } catch (error) {
+    console.error('Error stepping forward:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to step forward',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/debugger/:sessionId/step-backward
+ * Step backward in debug session
+ * Response: {context: Object}
+ */
+router.post('/debugger/:sessionId/step-backward', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const ctx = debugger_.stepBackward();
+
+    res.json({
+      success: true,
+      context: ctx,
+      currentStep: debugger_.currentStep,
+    });
+  } catch (error) {
+    console.error('Error stepping backward:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to step backward',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/debugger/:sessionId/jump-to-step
+ * Jump to specific step in debug session
+ * Request: {stepNumber: number}
+ * Response: {context: Object}
+ */
+router.post('/debugger/:sessionId/jump-to-step', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { stepNumber } = req.body;
+
+    if (!Number.isInteger(stepNumber)) {
+      return res.status(400).json({
+        success: false,
+        error: 'stepNumber must be an integer',
+      });
+    }
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const ctx = debugger_.jumpToStep(stepNumber);
+
+    res.json({
+      success: ctx !== null,
+      context: ctx,
+      currentStep: debugger_.currentStep,
+    });
+  } catch (error) {
+    console.error('Error jumping to step:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to jump to step',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/debugger/:sessionId/state
+ * Get current debug state
+ * Response: {state: Object}
+ */
+router.get('/debugger/:sessionId/state', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const state = debugger_.getDebugState();
+
+    res.json({
+      success: true,
+      state,
+    });
+  } catch (error) {
+    console.error('Error getting debug state:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get debug state',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/debugger/:sessionId/timeline
+ * Get execution timeline
+ * Response: {timeline: Array}
+ */
+router.get('/debugger/:sessionId/timeline', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const { maxSteps = 100 } = req.query;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const timeline = debugger_.getExecutionTimeline({ maxSteps: parseInt(maxSteps) });
+
+    res.json({
+      success: true,
+      timeline,
+      frameCount: timeline.length,
+    });
+  } catch (error) {
+    console.error('Error getting timeline:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get timeline',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/debugger/:sessionId/variable/:variableName/history
+ * Get variable history
+ * Response: {history: Array}
+ */
+router.get('/debugger/:sessionId/variable/:variableName/history', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, variableName } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const history = debugger_.getVariableHistory(variableName);
+
+    res.json({
+      success: true,
+      variable: variableName,
+      history,
+      entryCount: history.length,
+    });
+  } catch (error) {
+    console.error('Error getting variable history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get variable history',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/debugger/:sessionId/export
+ * Export debug session
+ * Response: {session: Object}
+ */
+router.get('/debugger/:sessionId/export', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    // In production, retrieve debugger from storage
+    const debugger_ = new StepThroughDebugger();
+    const session = debugger_.exportSession();
+
+    res.json({
+      success: true,
+      sessionId,
+      session,
+    });
+  } catch (error) {
+    console.error('Error exporting debug session:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export session',
     });
   }
 });
