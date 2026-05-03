@@ -685,6 +685,408 @@ For production, use encrypted database storage instead of JSON files for linked 
 
 ---
 
+## Coins & Rewards System
+
+PrepLoop uses a coin economy for gamification and monetization. Users earn coins from challenges and redeem for premium features.
+
+### Coin Types & Transactions
+
+**Transaction Types**:
+- `earn` — User gains coins (problem solved, bonus, challenges)
+- `spend` — Direct coin deduction (premium features)
+- `redeem` — Spend transaction with `description` starting with "Redeem:"
+
+**Limits**:
+```javascript
+const COIN_LIMITS = {
+  minSpend: 1,
+  maxSpend: 50,      // Per transaction
+  minEarn: 1,
+  maxEarn: 100,      // Per source
+  maxRedeemQuantity: 5,  // Per batch
+};
+```
+
+### Redeem Options
+
+Available coin redemptions:
+```javascript
+const REDEEM_OPTIONS = [
+  { id: 'ai_tutor_pass', title: 'AI Tutor Pass', coinCost: 20 },
+  { id: 'interview_boost', title: 'Interview Boost', coinCost: 35 },
+  { id: 'resume_review_credit', title: 'Resume Review Credit', coinCost: 15 },
+];
+```
+
+### Coin Transaction Flow
+
+```javascript
+import { applyCoinTransaction } from '../utils/coinTransactions.js';
+
+// Record transaction (atomic)
+const result = await applyCoinTransaction(
+  userId,
+  'earn',
+  10,
+  'problem_solved: DSA Array Problems'
+);
+
+// Returns: { success: true, balance: 150, transaction_id: 'xxx' }
+```
+
+### Testing Coins
+
+```bash
+npm run test:coins --prefix backend           # Full coin tests
+npm run test:coin:atomicity --prefix backend  # Atomic transaction tests
+npm run test:coin:integration --prefix backend # End-to-end tests
+```
+
+### Common Coin Patterns
+
+**Get Balance**
+```javascript
+const { data } = await supabaseAdmin
+  .from('user_coins')
+  .select('balance')
+  .eq('user_id', userId)
+  .single();
+```
+
+**History Query with Filtering**
+```javascript
+// Build query with type filter: 'earn', 'spend', 'redeem', or ''
+const query = supabaseAdmin
+  .from('coin_transactions')
+  .select('*', { count: 'exact' })
+  .eq('user_id', userId)
+  .eq('type', 'earn')  // or 'spend' or filter by 'redeem'
+  .order('created_at', { ascending: false });
+```
+
+---
+
+## Payment Integration (Razorpay)
+
+PrepLoop integrates Razorpay for payments. Payment routes require strict security and validation.
+
+### Setup
+
+```env
+# backend/.env
+RAZORPAY_KEY_ID=<your_key_id>
+RAZORPAY_KEY_SECRET=<your_key_secret>
+RAZORPAY_WEBHOOK_SECRET=<webhook_secret>
+```
+
+### Payment Flow
+
+1. **Create Order** → Backend calls Razorpay API
+2. **Frontend Checkout** → User pays via Razorpay modal
+3. **Webhook Validation** → Razorpay POSTs to `/api/payment/webhook`
+4. **Order Fulfillment** → Coins/credits added after verification
+
+### Security Guards
+
+```javascript
+// Rate limiting: 10 requests/15 minutes per IP
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: 'Too many payment attempts',
+});
+
+// Webhook signature validation
+function validateRazorpaySignature(body, signature, secret) {
+  const hash = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  return hash === signature;
+}
+```
+
+### Common Payment Patterns
+
+**Creating an Order**
+```javascript
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+const order = await razorpay.orders.create({
+  amount: 99900,  // Amount in paise (₹999)
+  currency: 'INR',
+  receipt: `order_${userId}_${Date.now()}`,
+  notes: { user_id: userId, product: 'coins' },
+});
+```
+
+**Webhook Handling**
+```javascript
+router.post('/webhook', (req, res) => {
+  const signature = req.headers['x-razorpay-signature'];
+  const body = JSON.stringify(req.body);
+  
+  if (!validateRazorpaySignature(body, signature, webhookSecret)) {
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+  
+  // Process payment success/failure
+  const { event, payload } = req.body;
+  if (event === 'payment.authorized') {
+    // Fulfill order: add coins/credits
+  }
+});
+```
+
+### Testing Payments
+
+Use Razorpay test keys in development. Test card: `4111 1111 1111 1111` with any future expiry.
+
+---
+
+## Middleware Reference
+
+PrepLoop uses layered middleware for security, logging, and request handling. **Order matters!**
+
+### Security Layer (Applied First)
+
+| Middleware | File | Purpose |
+|-----------|------|---------|
+| **Helmet** | `helmet()` | Secure HTTP headers (X-Frame-Options, CSP, etc.) |
+| **CORS** | `cors(corsOptions)` | Cross-origin request filtering; whitelists FRONTEND_URL |
+| **Proxy Validation** | `proxyValidation` | Validates X-Forwarded-For before rate limiting |
+| **Rate Limiting** | `rateLimiter` (global + per-endpoint) | 250 req/15min global, stricter for auth/payments |
+| **Request ID** | `requestId` | Assigns unique ID for tracing |
+| **Compression** | `compression()` | Gzip response bodies |
+
+### Data Processing
+
+| Middleware | File | Purpose |
+|-----------|------|---------|
+| **JSON Parser** | `express.json({ limit: '10mb' })` | Parse request bodies |
+| **URL Encoded** | `express.urlencoded({ limit: '10mb' })` | Parse form data |
+| **Sanitization** | `sanitization` | Strip malicious HTML/JS; excludes webhooks |
+
+### Authentication & Logging
+
+| Middleware | File | Purpose |
+|-----------|------|---------|
+| **Auth** | `authenticateToken`, `optionalAuth` | JWT verification; attaches user to req.user |
+| **Audit Logger** | `auditLogger` | Logs sensitive operations (auth, payments) |
+| **Metrics** | `metricsAuth` | Tracks endpoint usage |
+
+### Middleware Order in `backend/index.js`
+
+```javascript
+app.use(helmet());                           // Security headers
+app.use(corsMiddleware);                     // CORS whitelisting
+app.use(requestId);                          // Trace ID
+app.use(proxyValidation);                    // Validate X-Forwarded-For
+app.use(rateLimiter);                        // Global rate limit
+app.use(compression());                      // Gzip
+app.use(express.json({ limit: '10mb' }));    // Body parsing
+app.use(express.urlencoded({ limit: '10mb' }));
+app.use(sanitization);                       // Sanitize (excludes /webhook)
+app.use(requestId);                          // Request context
+app.use(auditLogger);                        // Audit logging
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/payment', paymentRoutes);      // With paymentLimiter
+// ...
+```
+
+**Critical**: Proxy validation **must** come before rate limiting to prevent IP spoofing attacks.
+
+---
+
+## Error Handling Patterns
+
+Consistent error handling across layers improves debugging and user experience.
+
+### Route Handler Pattern
+
+```javascript
+router.post('/api/interview/submit', authenticateToken, async (req, res, next) => {
+  try {
+    const { response, interviewId } = req.body;
+    
+    // Validate input
+    if (!response || !interviewId) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Call service
+    const result = await interviewScoringService.scoreResponse(response, interviewId);
+    
+    // Success response
+    return res.json({ success: true, score: result.score, feedback: result.feedback });
+  } catch (error) {
+    // Log and delegate to error handler middleware
+    console.error('Interview submission error:', error);
+    next(error);
+  }
+});
+```
+
+### Error Handler Middleware
+
+```javascript
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+  
+  // Log critical errors
+  if (status >= 500) {
+    console.error(`[500] ${req.method} ${req.path}: ${message}`);
+  }
+  
+  // Don't expose stack traces in production
+  const details = process.env.NODE_ENV === 'production' ? {} : { stack: err.stack };
+  
+  res.status(status).json({
+    error: message,
+    status,
+    timestamp: new Date().toISOString(),
+    ...details,
+  });
+});
+```
+
+### Supabase-Specific Errors
+
+```javascript
+// Missing relation (table doesn't exist)
+const isSchemaMissingError = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  return code === '42P01' || code === '42703'; // Missing table/column
+};
+
+// RLS policy blocking access
+const isAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  return code === '42P17'; // Policy violation
+};
+
+// Usage
+if (isSchemaMissingError(error)) {
+  return res.status(503).json({ error: 'Feature unavailable. Running migration.' });
+}
+```
+
+### Validation Errors
+
+```javascript
+import { body, validationResult } from 'express-validator';
+
+router.post('/api/coins/redeem', [
+  body('amount').isInt({ min: 1, max: 50 }),
+  body('redeemOption').isIn(['ai_tutor_pass', 'interview_boost', 'resume_review_credit']),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  // Process request
+});
+```
+
+---
+
+## Admin & Moderation Routes
+
+Certain endpoints provide admin capabilities for moderation, analytics, and system management.
+
+### Admin Middleware
+
+```javascript
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+
+// Protect admin routes
+router.get('/api/admin/analytics', requireAdmin, (req, res) => {
+  // Only users with admin role can access
+});
+```
+
+### Common Admin Operations
+
+- **User Management** — Suspend/unsuspend, reset progress
+- **Coin Management** — Adjust balances, audit transactions
+- **Content Moderation** — Flag/remove inappropriate posts
+- **Analytics** — User activity, feature adoption, revenue
+- **Library Management** — Add/edit problems, update difficulty ratings
+
+Check `.github/instructions/backend-standards.instructions.md` for admin-specific testing.
+
+---
+
+## Monitoring & Telemetry
+
+PrepLoop tracks performance, errors, and usage via structured logging and Application Insights.
+
+### Startup Health Check
+
+```bash
+# Health endpoint available at /health
+curl http://localhost:5000/health
+# Response: { status: 'ok', uptime: 123.45, timestamp: '2026-05-03T...' }
+```
+
+### Structured Logging
+
+```javascript
+import { createLogger } from '../utils/structuredLogger.js';
+const logger = createLogger();
+
+// Critical logs go to stderr even in production
+logger.critical('Database connection lost');
+
+// Or use console with emoji (emoji gets redirected to stderr)
+console.log('🚀 Server listening on port 5000');
+console.error('❌ Authentication failed for user X');
+```
+
+### Application Insights Integration
+
+```javascript
+import appInsights from 'applicationinsights';
+
+appInsights.setup(process.env.APPINSIGHTS_INSTRUMENTATION_KEY)
+  .setAutocollectConsole(true, true)
+  .start();
+
+// Automatic tracking of:
+// - Request times and failures
+// - Dependency calls (Supabase, Groq, Redis)
+// - Unhandled exceptions
+```
+
+### Metrics & Telemetry
+
+```bash
+# Interview telemetry
+npm run test:interview:telemetry --prefix backend
+
+# Voice service telemetry
+npm run test:voice:telemetry --prefix backend
+
+# Career Ops tracking
+npm run smoke:career-ops --prefix backend
+```
+
+### Performance Monitoring
+
+Monitor response times in structured logs. Look for:
+- API latency (should be <500ms for most endpoints)
+- AI service latency (Groq, TTS/STT timeouts)
+- Database query times (slow queries)
+- Cache hit rates
+
+---
+
 ## Common Development Gotchas & Debugging
 
 ### Backend
