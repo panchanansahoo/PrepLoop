@@ -4,6 +4,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { all425Problems } from '../data/allProblems.js';
 import Groq from 'groq-sdk';
 import DataCacheManager from '../services/dataCacheManager.js';
+import HintService from '../services/hintService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -342,6 +343,142 @@ router.get('/progress', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching progress:', error);
     res.status(500).json({ error: 'Failed to fetch progress' });
+  }
+});
+
+// Phase 1.1: Progressive Hint System
+const hintService = new HintService(supabaseAdmin);
+
+/**
+ * GET /api/dsa/hints/:problemId
+ * Retrieve hint for a problem with cooldown enforcement
+ * Query params: hint_type (approach|code|edge_case)
+ * Auth: required
+ */
+router.get('/hints/:problemId', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { hint_type } = req.query;
+
+    if (!hint_type) {
+      return res.status(400).json({ error: 'hint_type query parameter required' });
+    }
+
+    const result = await hintService.getHint(req.user.id, parseInt(problemId), hint_type);
+
+    res.json({
+      success: true,
+      hint: result,
+    });
+  } catch (error) {
+    console.error('Error retrieving hint:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to retrieve hint',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/hints/:problemId/all
+ * Get all hints for a problem (admin/teacher view)
+ * Auth: required (admin check in middleware)
+ */
+router.get('/hints/:problemId/all', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+
+    // TODO: Add admin check middleware
+    // if (!req.user.is_admin) return res.status(403).json({ error: 'Unauthorized' });
+
+    const result = await hintService.getAllHints(parseInt(problemId));
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching all hints:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch hints' });
+  }
+});
+
+/**
+ * PUT /api/dsa/hints/:problemId
+ * Update hints for a problem (admin/content team)
+ * Body: { hints: { approach: "", code: "", edge_case: "" } }
+ * Auth: required (admin check in middleware)
+ */
+router.put('/hints/:problemId', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { hints } = req.body;
+
+    // TODO: Add admin check middleware
+    // if (!req.user.is_admin) return res.status(403).json({ error: 'Unauthorized' });
+
+    const result = await hintService.updateHints(parseInt(problemId), hints);
+    res.json({
+      success: true,
+      message: 'Hints updated',
+      problem: result,
+    });
+  } catch (error) {
+    console.error('Error updating hints:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update hints',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/hints/stats/user
+ * Get user's hint usage statistics
+ * Auth: required
+ */
+router.get('/hints/stats/user', authenticateToken, async (req, res) => {
+  try {
+    const stats = await hintService.getUserHintStatistics(req.user.id);
+    res.json({
+      success: true,
+      stats,
+    });
+  } catch (error) {
+    console.error('Error fetching hint stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch statistics',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/hints/:problemId/reset-cooldown
+ * Reset hint cooldown (admin override)
+ * Body: { hint_type: "approach"|"code"|"edge_case" }
+ * Auth: required (admin check in middleware)
+ */
+router.post('/hints/:problemId/reset-cooldown', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { hint_type } = req.body;
+
+    // TODO: Add admin check middleware
+    // if (!req.user.is_admin) return res.status(403).json({ error: 'Unauthorized' });
+
+    if (!hint_type) {
+      return res.status(400).json({ error: 'hint_type required in body' });
+    }
+
+    await hintService.resetHintCooldown(req.user.id, parseInt(problemId), hint_type);
+
+    res.json({
+      success: true,
+      message: 'Cooldown reset',
+    });
+  } catch (error) {
+    console.error('Error resetting hint cooldown:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to reset cooldown',
+    });
   }
 });
 
