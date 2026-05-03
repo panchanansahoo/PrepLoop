@@ -9,6 +9,8 @@ import ExecutionTracer from '../services/executionTracer.js';
 import { VisualizationManager } from '../services/visualizationEngine.js';
 import StepThroughDebugger from '../services/stepThroughDebugger.js';
 import ProblemRecommender from '../services/problemRecommender.js';
+import SkillDetector from '../services/skillDetector.js';
+import { AdaptiveDifficultySelector } from '../services/adaptiveDifficultySelector.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -1481,6 +1483,175 @@ router.get('/weaknesses', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to analyze weaknesses',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/skill-profile
+ * Get user's complete skill profile with recommendations
+ * Response: {profile: Object, recommendations: Array}
+ */
+router.get('/skill-profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    // Fetch user stats
+    const { data: statsData } = await supabaseAdmin
+      .from('user_problem_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    const detector = new SkillDetector();
+    const profile = detector.getSkillProfile(statsData || {});
+
+    res.json({
+      success: true,
+      profile,
+      skillLevel: Object.keys(profile.topics).length > 0 ? 'detected' : 'new_user',
+    });
+  } catch (error) {
+    console.error('Error getting skill profile:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get skill profile',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/difficulty/initialize
+ * Initialize adaptive difficulty for a practice session
+ * Request: {difficulty: 'easy' | 'medium' | 'hard'}
+ * Response: {difficulty: string}
+ */
+router.post('/difficulty/initialize', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { difficulty = 'medium' } = req.body;
+
+    const selector = new AdaptiveDifficultySelector();
+    const initialDifficulty = selector.initializeDifficulty(userId, difficulty);
+
+    res.json({
+      success: true,
+      difficulty: initialDifficulty,
+      message: `Started at ${initialDifficulty} difficulty`,
+    });
+  } catch (error) {
+    console.error('Error initializing difficulty:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to initialize difficulty',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/difficulty/record-score
+ * Record a problem submission score and update adaptive difficulty
+ * Request: {score: number}
+ * Response: {currentDifficulty: string, trajectory: number, adjustmentReason: string}
+ */
+router.post('/difficulty/record-score', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { score } = req.body;
+
+    if (!Number.isFinite(score)) {
+      return res.status(400).json({
+        success: false,
+        error: 'score must be a valid number',
+      });
+    }
+
+    const selector = new AdaptiveDifficultySelector();
+    const result = selector.recordScoreAndUpdateDifficulty(userId, score);
+
+    res.json({
+      success: true,
+      currentDifficulty: result.currentDifficulty,
+      previousDifficulty: result.previousDifficulty,
+      trajectory: result.trajectory,
+      adjustmentReason: result.adjustmentReason,
+      adjustmentMade: result.adjustmentMade,
+      lastScore: result.lastScore,
+      averageScore: result.averageScore,
+      scoreHistory: result.scoreHistory,
+    });
+  } catch (error) {
+    console.error('Error recording score:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to record score',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/difficulty/current
+ * Get current difficulty level for user
+ * Response: {difficulty: string}
+ */
+router.get('/difficulty/current', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const selector = new AdaptiveDifficultySelector();
+    const difficulty = selector.getCurrentDifficulty(userId);
+
+    res.json({
+      success: true,
+      difficulty,
+    });
+  } catch (error) {
+    console.error('Error getting current difficulty:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get current difficulty',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/difficulty/stats
+ * Get difficulty progression statistics
+ * Response: {stats: Object}
+ */
+router.get('/difficulty/stats', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const selector = new AdaptiveDifficultySelector();
+    const stats = selector.getDifficultyStats(userId);
+
+    res.json({
+      success: true,
+      stats: stats || { message: 'No difficulty history yet' },
+    });
+  } catch (error) {
+    console.error('Error getting difficulty stats:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get difficulty stats',
     });
   }
 });
