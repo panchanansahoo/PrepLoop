@@ -388,6 +388,29 @@ export default function ProblemDescriptionPanel({
                 )}
               </div>
             )}
+
+            {/* Company tags */}
+            {problem?.companies?.length > 0 && (
+              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginTop: 6 }}>
+                <span style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: 700, marginRight: 2 }}>
+                  <Building2 size={10} style={{ display: 'inline', marginRight: 3 }} />Companies:
+                </span>
+                {problem.companies.slice(0, 4).map(company => (
+                  <span key={company} style={{
+                    padding: '3px 10px', borderRadius: 6,
+                    background: 'rgba(96,165,250,0.06)', border: '1px solid rgba(96,165,250,0.12)',
+                    color: 'rgba(96,165,250,0.8)', fontSize: 10, fontWeight: 700,
+                  }}>
+                    {company}
+                  </span>
+                ))}
+                {problem.companies.length > 4 && (
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>
+                    +{problem.companies.length - 4} more
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ─── Sub-tabs: Description | Test Cases | Hints ─── */}
@@ -582,6 +605,55 @@ export default function ProblemDescriptionPanel({
                     <p style={{ fontSize: 12, fontWeight: 600 }}>No test cases available</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── Related ── */}
+            {activeSubTab === 'related' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{
+                  fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
+                }}>Related Problems</div>
+                {relatedProblems.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)' }}>
+                    <Link2 size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
+                    <p style={{ fontSize: 12, fontWeight: 600 }}>No related problems found</p>
+                  </div>
+                ) : relatedProblems.map(p => {
+                  const diffColor = { Easy: '#4ade80', Medium: '#fbbf24', Hard: '#f87171' }[p.difficulty] || '#fbbf24';
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => navigate(`/problems/${p.id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                        textAlign: 'left', transition: 'all 0.2s ease',
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = 'rgba(139,92,246,0.06)';
+                        e.currentTarget.style.borderColor = 'rgba(139,92,246,0.15)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                      }}
+                    >
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.75)', flex: 1, marginRight: 8 }}>
+                        {p.title}
+                      </span>
+                      <span style={{
+                        fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 5,
+                        color: diffColor, background: `${diffColor}15`,
+                        border: `1px solid ${diffColor}30`, flexShrink: 0,
+                      }}>
+                        {p.difficulty}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 

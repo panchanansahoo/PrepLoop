@@ -105,6 +105,11 @@ export class InterviewTelemetryService {
     responseLatencyMs = 0,
     groundingUsed = false,
     analysisScore = null,
+    voiceProvider = null,
+    voiceLatencyMs = 0,
+    voiceFallback = false,
+    feedbackQualitySignal = null,
+    userDropoffReason = null,
   } = {}) {
     const safeTurn = Math.max(1, asInt(turnNumber, 1));
     const priorTurns = Math.max(0, asInt(previousTelemetry.totalTurns, safeTurn - 1));
@@ -135,7 +140,37 @@ export class InterviewTelemetryService {
       });
     }
 
+    // Voice provider metrics (per-stage latency)
+    const priorVoiceMetrics = Array.isArray(previousTelemetry.voiceMetrics)
+      ? [...previousTelemetry.voiceMetrics]
+      : [];
+
+    if (voiceProvider) {
+      priorVoiceMetrics.push({
+        provider: voiceProvider,
+        latencyMs: Math.max(0, asNumber(voiceLatencyMs, 0)),
+        fallback: Boolean(voiceFallback),
+        stage: nextStage || previousStage,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // Feedback quality tracking (for insights into feedback consistency)
+    const feedbackQualityHistory = Array.isArray(previousTelemetry.feedbackQualityHistory)
+      ? [...previousTelemetry.feedbackQualityHistory]
+      : [];
+
+    if (feedbackQualitySignal !== null && feedbackQualitySignal !== undefined) {
+      feedbackQualityHistory.push({
+        turn: denominatorTurns,
+        signal: asNumber(feedbackQualitySignal, 0), // 0-100 scale
+        stage: nextStage || previousStage,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     return {
+      // Core interview metrics
       totalTurns: denominatorTurns,
       stageTransitions,
       groundingHits,
@@ -143,8 +178,87 @@ export class InterviewTelemetryService {
       lastResponseLatencyMs: safeLatency,
       averageResponseLatencyMs,
       latestAnalysisScore: Number(analysisScore || 0),
+
+      // Voice/audio metrics (new)
+      voiceMetrics: priorVoiceMetrics,
+      fallbackCount: priorVoiceMetrics.filter(m => m.fallback).length,
+      fallbackRate: Number(
+        (priorVoiceMetrics.filter(m => m.fallback).length / Math.max(1, priorVoiceMetrics.length)).toFixed(2)
+      ),
+      voiceAverageLatencyMs: priorVoiceMetrics.length > 0
+        ? Number((priorVoiceMetrics.reduce((sum, m) => sum + m.latencyMs, 0) / priorVoiceMetrics.length).toFixed(1))
+        : 0,
+
+      // Feedback quality tracking (new)
+      feedbackQualityHistory,
+      feedbackQualityAverage: feedbackQualityHistory.length > 0
+        ? Number((feedbackQualityHistory.reduce((sum, f) => sum + f.signal, 0) / feedbackQualityHistory.length).toFixed(1))
+        : null,
+
+      // Dropoff tracking (new)
+      userDropoffReason: userDropoffReason ? String(userDropoffReason) : null,
+      droppedAt: userDropoffReason ? new Date().toISOString() : null,
+
       lastUpdatedAt: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Compute per-stage latency statistics from full telemetry snapshot.
+   * Returns breakdown: {stage_key: {avgLatencyMs, minLatencyMs, maxLatencyMs, count}}
+   */
+  getStageLatencyStats(telemetry = {}) {
+    const stageStats = {};
+
+    (Array.isArray(telemetry.voiceMetrics) ? telemetry.voiceMetrics : []).forEach(metric => {
+      const stage = metric.stage || 'unknown';
+      if (!stageStats[stage]) {
+        stageStats[stage] = { latencies: [], fallbackCount: 0 };
+      }
+      stageStats[stage].latencies.push(metric.latencyMs);
+      if (metric.fallback) {
+        stageStats[stage].fallbackCount += 1;
+      }
+    });
+
+    const result = {};
+    for (const [stage, { latencies, fallbackCount }] of Object.entries(stageStats)) {
+      if (latencies.length === 0) continue;
+      result[stage] = {
+        avgLatencyMs: Number((latencies.reduce((a, b) => a + b, 0) / latencies.length).toFixed(1)),
+        minLatencyMs: Math.min(...latencies),
+        maxLatencyMs: Math.max(...latencies),
+        count: latencies.length,
+        fallbackCount,
+        fallbackRate: Number((fallbackCount / latencies.length).toFixed(2)),
+      };
+    }
+    return result;
+  }
+
+  /**
+   * Compute scoring consistency check: are similar responses yielding similar scores?
+   * Returns metric 0-1 (1.0 = perfect consistency, 0.0 = no consistency).
+   * For use in telemetry dashboards.
+   */
+  estimateScoringConsistency(scoringHistory = []) {
+    if (!Array.isArray(scoringHistory) || scoringHistory.length < 2) {
+      return null;
+    }
+
+    // Simple heuristic: compare score variance within similar response categories
+    // Higher consistency = lower variance
+    const scores = scoringHistory.map(s => Number(s.score || 0)).filter(s => s > 0);
+    if (scores.length < 2) return null;
+
+    const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / scores.length;
+    const stdDev = Math.sqrt(variance);
+
+    // Normalize: assume 20% stdDev is "normal" for interview scores
+    // Result: 1.0 when stdDev is low, approaches 0 as stdDev increases
+    const consistency = Math.max(0, 1 - (stdDev / (mean * 0.2)));
+    return Number(consistency.toFixed(2));
   }
 }
 

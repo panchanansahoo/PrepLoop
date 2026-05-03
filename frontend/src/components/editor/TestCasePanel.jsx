@@ -155,6 +155,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
 }, ref) {
   const [mode, setMode] = useState('testcase'); // 'testcase' | 'result' | 'stress'
   const [activeCase, setActiveCase] = useState(0);
+  const [runningCase, setRunningCase] = useState(null); // index of individually running case
 
   // Build test cases from problem examples
   const buildTestCases = (examples) => {
@@ -184,6 +185,35 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const problemType = detectProblemType(problemDescription);
 
   useImperativeHandle(ref, () => ({ runTests: handleRun }));
+
+  /* ── Run single test case ── */
+  const handleRunSingle = async (caseIdx) => {
+    const tc = testCases[caseIdx];
+    if (!tc) return;
+    setRunningCase(caseIdx);
+    try {
+      const res = await fetch(`${API_URL}/api/practice/execute`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ code, language, input: tc.input }),
+      });
+      const data = await res.json();
+      setTestCases(prev => prev.map((c, i) => i !== caseIdx ? c : {
+        ...c,
+        status: data.success ? 'passed' : 'failed',
+        actualOutput: (data.output || data.error || 'No output').trim(),
+        runtime: data.executionTime ? `${Math.round(data.executionTime)} ms` : undefined,
+      }));
+      setMode('result');
+      setActiveCase(caseIdx);
+    } catch (err) {
+      setTestCases(prev => prev.map((c, i) => i !== caseIdx ? c : {
+        ...c, status: 'error', actualOutput: `Error: ${err.message}`,
+      }));
+    } finally {
+      setRunningCase(null);
+    }
+  };
 
   /* ── Run Tests ── */
   const handleRun = async () => {
@@ -364,26 +394,44 @@ const TestCasePanel = forwardRef(function TestCasePanel({
       {/* ── Test case / Result content ── */}
       {(mode === 'testcase' || mode === 'result') && (
         <>
-          {/* Case tabs */}
-          <div style={S.caseTabs}>
-            {testCases.map((tc, i) => (
-              <button key={tc.id} onClick={() => setActiveCase(i)} style={S.caseTab(activeCase === i)}>
-                {tc.status !== 'pending' && <div style={S.statusDot(tc.status)} />}
-                Case {i + 1}
-                {testCases.length > 1 && (
-                  <span
-                    style={S.removeBtn}
-                    onClick={(e) => { e.stopPropagation(); removeCase(i); }}
-                    title="Remove"
-                  >
-                    <X size={10} />
-                  </span>
-                )}
+          {/* Case tabs + Run Case button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <div style={{ ...S.caseTabs, borderBottom: 'none', flex: 1 }}>
+              {testCases.map((tc, i) => (
+                <button key={tc.id} onClick={() => setActiveCase(i)} style={S.caseTab(activeCase === i)}>
+                  {tc.status !== 'pending' && <div style={S.statusDot(tc.status)} />}
+                  Case {i + 1}
+                  {testCases.length > 1 && (
+                    <span
+                      style={S.removeBtn}
+                      onClick={(e) => { e.stopPropagation(); removeCase(i); }}
+                      title="Remove"
+                    >
+                      <X size={10} />
+                    </span>
+                  )}
+                </button>
+              ))}
+              <button onClick={addCase} style={S.addTab} title="Add test case">
+                <Plus size={14} />
               </button>
-            ))}
-            <button onClick={addCase} style={S.addTab} title="Add test case">
-              <Plus size={14} />
-            </button>
+            </div>
+            {mode === 'testcase' && (
+              <button
+                onClick={() => handleRunSingle(activeCase)}
+                disabled={running || runningCase !== null}
+                style={{
+                  marginRight: 12, padding: '4px 12px', borderRadius: 6, cursor: 'pointer',
+                  background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)',
+                  color: '#60a5fa', fontSize: 10, fontWeight: 700, whiteSpace: 'nowrap',
+                  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                  opacity: (running || runningCase !== null) ? 0.5 : 1,
+                }}
+              >
+                <Play size={10} />
+                {runningCase === activeCase ? 'Running...' : 'Run Case'}
+              </button>
+            )}
           </div>
 
           {/* Case body */}

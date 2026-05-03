@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import {
     Terminal, BarChart3, Eye, Layers, ChevronDown,
-    Play, Pause, SkipForward, SkipBack, RotateCcw
+    Play, Pause, SkipForward, SkipBack, RotateCcw, Zap
 } from 'lucide-react';
 import ArrayVisualizer from '../visualizer/ArrayVisualizer';
 import GraphVisualizer from '../visualizer/GraphVisualizer';
+import ComplexityBadge from './ComplexityBadge';
+import { useComplexityAnalyzer } from '../../hooks/useComplexityAnalyzer';
 
 const VIZ_TABS = [
-    { id: 'output', label: 'Output', icon: Terminal },
-    { id: 'visualize', label: 'Visualize', icon: Eye },
-    { id: 'variables', label: 'Variables', icon: Layers },
+    { id: 'output',     label: 'Output',     icon: Terminal },
+    { id: 'complexity', label: 'Complexity', icon: Zap },
+    { id: 'visualize',  label: 'Visualize',  icon: Eye },
+    { id: 'variables',  label: 'Variables',  icon: Layers },
 ];
 
 // ─── Simple Tree Visualizer ───
@@ -146,9 +149,10 @@ function EmptyState({ text }) {
 }
 
 export default function VisualizationPanel({
-    output, feedback, vizType = 'none', vizData = null, variables = {}
+    output, feedback, vizType = 'none', vizData = null, variables = {},
+    code = '', language = 'python'
 }) {
-    const [activeTab, setActiveTab] = useState('output');
+    const complexityAnalysis = useComplexityAnalyzer(code, language);
     const [selectedViz, setSelectedViz] = useState('auto');
 
     const vizOptions = [
@@ -292,6 +296,17 @@ export default function VisualizationPanel({
                                         </div>
                                     </div>
                                 )}
+                                {!output.submission && output.executionTime && (
+                                    <div style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                                        padding: '4px 10px', borderRadius: 6, marginBottom: 10,
+                                        background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.12)',
+                                        fontSize: 11, color: '#fbbf24', fontWeight: 700,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                    }}>
+                                        ⏱ {output.executionTime}
+                                    </div>
+                                )}
                                 <pre style={{
                                     whiteSpace: 'pre-wrap', fontSize: 11,
                                     fontFamily: "'JetBrains Mono', monospace",
@@ -347,6 +362,11 @@ export default function VisualizationPanel({
                             <EmptyState text="Run your code to see output here" />
                         )}
                     </div>
+                )}
+
+                {/* Complexity Tab */}
+                {activeTab === 'complexity' && (
+                    <ComplexityBadge analysis={complexityAnalysis} />
                 )}
 
                 {/* Visualize Tab */}

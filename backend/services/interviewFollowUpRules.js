@@ -41,6 +41,83 @@ function extractCodeSignals(code) {
   };
 }
 
+// ── Adaptive follow-up difficulty logic ──────────────────────────────
+/**
+ * Calculate adaptive follow-up difficulty based on performance trajectory.
+ * Uses rolling average of last 3 responses to determine if difficulty should increase/decrease.
+ * 
+ * @param {Array} scoreHistory - [{ score, turn }, ...] sorted by turn
+ * @param {string} currentFollowUpDifficulty - 'basic', 'intermediate', 'advanced'
+ * @param {object} scoreTrend - Pre-computed trend from calculateTrendFromHistory
+ * @returns {object} { newDifficulty, change, reason, trajectory }
+ */
+function calculateAdaptiveFollowUpDifficulty(scoreHistory = [], currentFollowUpDifficulty = 'intermediate', scoreTrend = null) {
+  const difficultyLevels = ['basic', 'intermediate', 'advanced'];
+  const currentIndex = difficultyLevels.indexOf(String(currentFollowUpDifficulty).toLowerCase());
+  const safeCurrentIndex = currentIndex >= 0 ? currentIndex : 1; // Default to intermediate
+
+  // Need at least 3 responses to detect trajectory
+  if (!Array.isArray(scoreHistory) || scoreHistory.length < 3) {
+    return {
+      newDifficulty: difficultyLevels[safeCurrentIndex],
+      change: 0,
+      reason: 'insufficient_data',
+      trajectory: 'stable',
+    };
+  }
+
+  // Calculate rolling average of last 3 responses (most recent weighted higher)
+  const recent = scoreHistory.slice(-3);
+  const weights = [0.2, 0.3, 0.5]; // Older → Newer (higher weight for recent)
+  let rollingAvg = 0;
+  for (let i = 0; i < recent.length; i++) {
+    rollingAvg += (recent[i].score || 0) * weights[i];
+  }
+
+  // Determine trajectory from trend if available
+  let trajectory = 'stable';
+  if (scoreTrend && scoreTrend.trend) {
+    trajectory = scoreTrend.trend; // 'improving', 'declining', or 'stable'
+  } else {
+    // Fallback: simple comparison of oldest vs newest in window
+    const scoreChange = recent[recent.length - 1].score - recent[0].score;
+    if (scoreChange >= 10) trajectory = 'improving';
+    else if (scoreChange <= -10) trajectory = 'declining';
+  }
+
+  // Decide difficulty change: max ±1 per turn to avoid jarring jumps
+  let change = 0;
+
+  if (trajectory === 'improving' && rollingAvg >= 80) {
+    // Strong performance + improving trend → increase difficulty
+    change = +1;
+  } else if (trajectory === 'improving' && rollingAvg >= 75 && safeCurrentIndex < difficultyLevels.length - 1) {
+    // Good performance + improving → slightly increase
+    change = +0.5; // Will round to +1 on next decision
+  } else if (trajectory === 'declining' || rollingAvg < 65) {
+    // Struggling or declining → reduce difficulty
+    change = -1;
+  } else if (rollingAvg < 70) {
+    // Below target but not declining drastically → maintain current
+    change = 0;
+  }
+
+  // Cap change to ±1 to prevent dramatic swings
+  const capped = Math.max(-1, Math.min(1, change));
+  // Round change for index calculation (0.5 rounds up to 1, -0.5 rounds down to -1)
+  const step = capped === 0 ? 0 : (capped > 0 ? Math.ceil(capped) : Math.floor(capped));
+  const newIndex = Math.max(0, Math.min(difficultyLevels.length - 1, safeCurrentIndex + step));
+  const newDifficulty = difficultyLevels[newIndex];
+
+  return {
+    newDifficulty,
+    change: capped,
+    reason: trajectory === 'improving' ? 'performance_improving' : trajectory === 'declining' ? 'performance_declining' : 'performance_stable',
+    trajectory,
+    rollingAverage: Number(rollingAvg.toFixed(1)),
+  };
+}
+
 export class InterviewFollowUpRulesService {
   static decideBranch({ analysis = {}, interviewContext = {}, candidateResponse = '', candidateCode = '', scoreHistory = [], scoreTrend = null } = {}) {
     const score = Number(analysis.score || 0);
@@ -87,6 +164,11 @@ export class InterviewFollowUpRulesService {
     // scoreTrend is pre-computed by InterviewScoringService.calculateTrendFromHistory()
     // If not provided, fall back to simple previousScore comparison
     const trend = scoreTrend || { mean: 0, stdDev: 0, trend: 'stable', volatility: 'stable', delta: 0 };
+
+    // ── Adaptive follow-up difficulty (NEW) ──────────────────────────
+    // Determine if next follow-up should be deeper, maintain, or simplify
+    const currentFollowUpDifficulty = interviewContext.followUpDifficulty || 'intermediate';
+    const adaptiveDifficulty = calculateAdaptiveFollowUpDifficulty(scoreHistory, currentFollowUpDifficulty, trend);
 
     // ── Determine next action ─────────────────────────────────────────
     let nextAction = 'deepen';
@@ -154,7 +236,28 @@ export class InterviewFollowUpRulesService {
       codeSignals,
       starAnalysis,
       scoreTrend: trend,
+      // NEW: Adaptive follow-up difficulty
+      adaptiveFollowUpDifficulty: adaptiveDifficulty.newDifficulty,
+      adaptiveDifficultyMetadata: {
+        change: adaptiveDifficulty.change,
+        reason: adaptiveDifficulty.reason,
+        trajectory: adaptiveDifficulty.trajectory,
+        rollingAverage: adaptiveDifficulty.rollingAverage,
+      },
     };
+  }
+
+  /**
+   * Public method: Calculate adaptive follow-up difficulty for external use.
+   * Can be called independently to determine next follow-up difficulty without full branch analysis.
+   * 
+   * @param {Array} scoreHistory - [{ score, turn }, ...] sorted by turn
+   * @param {string} currentFollowUpDifficulty - 'basic', 'intermediate', 'advanced'
+   * @param {object} scoreTrend - Pre-computed trend from calculateTrendFromHistory
+   * @returns {object} { newDifficulty, change, reason, trajectory, rollingAverage }
+   */
+  static getAdaptiveFollowUpDifficulty(scoreHistory, currentFollowUpDifficulty, scoreTrend) {
+    return calculateAdaptiveFollowUpDifficulty(scoreHistory, currentFollowUpDifficulty, scoreTrend);
   }
 }
 

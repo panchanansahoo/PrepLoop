@@ -1087,7 +1087,578 @@ Monitor response times in structured logs. Look for:
 
 ---
 
-## Common Development Gotchas & Debugging
+## WebSocket & Real-Time Communication
+
+PrepLoop uses WebSockets for live interview features, real-time collaboration, and instant notifications.
+
+### WebSocket Architecture
+
+**Connection Flow**:
+1. Client connects to `/ws` with JWT token query parameter
+2. Server authenticates token via Supabase
+3. Authorized clients can join "rooms" (e.g., interview rooms, collaboration spaces)
+4. Messages broadcast to all clients in same room
+
+### Setup
+
+```javascript
+import { initWebSocket } from '../services/websocketService.js';
+
+// In backend/index.js
+const server = http.createServer(app);
+initWebSocket(server);
+server.listen(PORT);
+```
+
+### Client Connection
+
+```javascript
+// frontend code
+const token = localStorage.getItem('auth_token');
+const ws = new WebSocket(`ws://localhost:5000/ws?token=${token}`);
+
+ws.addEventListener('open', () => {
+  console.log('Connected to real-time server');
+  // Join interview room
+  ws.send(JSON.stringify({
+    type: 'join_room',
+    roomId: 'interview_123'
+  }));
+});
+
+ws.addEventListener('message', (event) => {
+  const message = JSON.parse(event.data);
+  if (message.type === 'interview_update') {
+    // Handle real-time interview feedback
+  }
+});
+```
+
+### Room Management
+
+```javascript
+// Server-side: broadcast to all clients in a room
+export function broadcastToRoom(roomId, message) {
+  rooms.get(roomId)?.forEach(clientId => {
+    const client = clients.get(clientId);
+    if (client?.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(JSON.stringify(message));
+    }
+  });
+}
+
+// Message types
+const MESSAGE_TYPES = {
+  JOIN_ROOM: 'join_room',
+  LEAVE_ROOM: 'leave_room',
+  INTERVIEW_UPDATE: 'interview_update',
+  FEEDBACK: 'feedback',
+  CHAT: 'chat',
+  ERROR: 'error'
+};
+```
+
+### Authentication
+
+WebSocket verifyClient validates JWT before connection:
+```javascript
+verifyClient: async (info, callback) => {
+  const token = new URL(info.req.url, 'http://localhost')
+    .searchParams.get('token');
+  
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  
+  if (error || !user) {
+    callback(false, 403, 'Invalid token');
+    return;
+  }
+  
+  info.req.user = user;
+  callback(true);
+}
+```
+
+---
+
+## Email & SMTP Integration
+
+PrepLoop uses Nodemailer + Brevo SMTP for transactional emails (auth, verification, notifications).
+
+### Configuration
+
+```env
+# backend/.env
+SMTP_USER=your_email@brevo.com
+SMTP_PASS=your_brevo_api_key
+SMTP_FROM=noreply@preploop.me
+```
+
+### Common Email Patterns
+
+**Email Verification**
+```javascript
+import { sendVerificationEmail } from '../utils/emailVerification.js';
+
+await sendVerificationEmail(userEmail, verificationToken);
+// Email contains: verification link with token
+// Token validated via /api/auth/verify-email?token=XXX
+```
+
+**Password Reset**
+```javascript
+const resetToken = generateSecureToken();
+const resetLink = `${FRONTEND_URL}/reset-password?token=${resetToken}`;
+
+await sendEmail({
+  to: userEmail,
+  subject: 'Reset Your PrepLoop Password',
+  html: `<a href="${resetLink}">Click here to reset</a>`
+});
+```
+
+**Interview Reminders**
+```javascript
+// Scheduled via cron or background job
+const upcomingInterviews = await getInterviewsInNext24Hours(userId);
+for (const interview of upcomingInterviews) {
+  await sendEmail({
+    to: userEmail,
+    subject: `Reminder: Mock Interview Tomorrow at ${interview.time}`,
+    template: 'interview_reminder'
+  });
+}
+```
+
+### Email Service Pattern
+
+```javascript
+import nodemailer from 'nodemailer';
+
+const transporter = nodemailer.createTransport({
+  host: 'smtp-relay.brevo.com',
+  port: 587,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+export async function sendEmail({ to, subject, html, text }) {
+  try {
+    const info = await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to,
+      subject,
+      html,
+      text, // Fallback for clients that don't support HTML
+    });
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Email send failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+```
+
+---
+
+## Data Validation & Sanitization
+
+PrepLoop validates all user inputs at API boundaries and sanitizes HTML to prevent XSS.
+
+### Input Validation
+
+**Using express-validator**
+```javascript
+import { body, param, query, validationResult } from 'express-validator';
+
+router.post('/api/interview/submit', [
+  body('response')
+    .notEmpty().withMessage('Response cannot be empty')
+    .isLength({ max: 5000 }).withMessage('Response too long'),
+  body('interviewId')
+    .isUUID().withMessage('Invalid interview ID'),
+  body('stage')
+    .isIn(['intake', 'warmup', 'technical', 'followup', 'challenge', 'feedback'])
+    .withMessage('Invalid stage'),
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  // Process validated request
+});
+```
+
+**Using Joi (schema validation)**
+```javascript
+import Joi from 'joi';
+
+const interviewSchema = Joi.object({
+  response: Joi.string().max(5000).required(),
+  interviewId: Joi.string().uuid().required(),
+  stage: Joi.string().valid('intake', 'warmup', 'technical').required(),
+});
+
+const { error, value } = interviewSchema.validate(req.body);
+if (error) {
+  return res.status(400).json({ error: error.details[0].message });
+}
+```
+
+### HTML Sanitization
+
+**Prevent XSS in user-generated content**
+```javascript
+import sanitizeHtml from 'sanitize-html';
+
+const userBioHTML = sanitizeHtml(req.body.bio, {
+  allowedTags: ['b', 'i', 'em', 'strong', 'a'],
+  allowedAttributes: {
+    'a': ['href']
+  }
+});
+
+// Usage: blogs, notes, feedback, resume content
+```
+
+**Frontend sanitization (Defense in depth)**
+```javascript
+import DOMPurify from 'dompurify';
+
+const safeHTML = DOMPurify.sanitize(richTextContent);
+// Always render via dangerouslySetInnerHTML with sanitized content
+```
+
+---
+
+## Content Generation & Scripting
+
+PrepLoop includes helper scripts for bulk operations, data migration, and content generation.
+
+### Key Scripts
+
+| Script | Purpose | Run |
+|--------|---------|-----|
+| `scripts/bootstrapSetup.cjs` | Create env files, verify setup | `npm run setup` |
+| `scripts/verifySetup.cjs` | Validate environment configuration | `npm run verify:setup` |
+| `scripts/scan-secrets.mjs` | Detect exposed credentials | `npm run scan:secrets` |
+| `backend/scripts/testStartup.js` | Verify backend initialization | `npm run test --prefix backend` |
+| `backend/scripts/migrateData.js` | One-time data migration | Custom |
+
+### Running Custom Scripts
+
+```bash
+# From backend directory
+node scripts/myCustomScript.js --flag=value
+
+# With error handling
+node scripts/myScript.js 2>&1 | tee logs/script-output.log
+```
+
+### Script Pattern
+
+```javascript
+// scripts/myScript.js
+import dotenv from 'dotenv';
+import { supabaseAdmin } from '../db/supabaseClient.js';
+
+dotenv.config({ path: '../.env' });
+
+async function main() {
+  try {
+    console.log('Starting data migration...');
+    
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('status', 'active');
+    
+    if (error) throw error;
+    
+    console.log(`Processing ${data.length} users...`);
+    // Process data
+    
+    console.log('✅ Migration complete');
+  } catch (error) {
+    console.error('❌ Migration failed:', error);
+    process.exit(1);
+  }
+}
+
+main();
+```
+
+---
+
+## Frontend Component Patterns
+
+The PrepLoop frontend uses React 18 + Vite with composable components and hooks.
+
+### Component Structure
+
+**File Organization**
+```
+frontend/src/
+├── components/
+│   ├── common/           # Reusable (Button, Modal, Card)
+│   ├── interview/        # Interview-specific (InterviewUI, QuestionDisplay)
+│   ├── dsa/             # DSA Editor components
+│   └── editor/          # Editor & IDE components
+├── hooks/                # Custom hooks (useAuth, useInterview)
+├── api/                  # API client functions
+├── pages/                # Route pages
+└── utils/                # Helpers (formatters, validators)
+```
+
+### Component Template
+
+```jsx
+import { useState, useEffect } from 'react';
+import { useApi } from '../hooks/useApi';
+
+export function InterviewPanel({ interviewId }) {
+  const [state, setState] = useState(null);
+  const { data, loading, error } = useApi(`/api/interview/${interviewId}`);
+
+  useEffect(() => {
+    if (data) setState(data);
+  }, [data]);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div className="error">Failed to load interview</div>;
+
+  return (
+    <div className="interview-panel">
+      {/* Render state */}
+    </div>
+  );
+}
+```
+
+### Custom Hooks
+
+**useApi Hook**
+```javascript
+export function useApi(url, options = {}) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`${API_URL}${url}`, {
+          headers: { 'Authorization': `Bearer ${getToken()}` },
+          ...options,
+        });
+        if (!response.ok) throw new Error('API failed');
+        setData(await response.json());
+      } catch (err) {
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [url]);
+
+  return { data, loading, error };
+}
+```
+
+**useAuth Hook**
+```javascript
+export function useAuth() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user);
+      setLoading(false);
+    });
+  }, []);
+
+  return { user, loading, logout, login };
+}
+```
+
+### Testing Components
+
+```javascript
+// frontend/tests/components/InterviewPanel.test.jsx
+import { render, screen, waitFor } from '@testing-library/react';
+import { InterviewPanel } from '../components/interview/InterviewPanel';
+
+test('loads and displays interview data', async () => {
+  render(<InterviewPanel interviewId="123" />);
+  
+  expect(screen.getByText(/Loading/)).toBeInTheDocument();
+  
+  await waitFor(() => {
+    expect(screen.getByText(/Interview Title/)).toBeInTheDocument();
+  });
+});
+```
+
+---
+
+## Query Optimization & N+1 Prevention
+
+Prevent common database performance issues by batching queries and using selections efficiently.
+
+### Problem: N+1 Queries
+
+**Bad** ❌
+```javascript
+const users = await supabaseAdmin.from('users').select('*');
+for (const user of users.data) {
+  const interviews = await supabaseAdmin
+    .from('interviews')
+    .select('*')
+    .eq('user_id', user.id);  // ONE QUERY PER USER!
+}
+```
+
+**Good** ✅
+```javascript
+// Single query with join/relationship
+const { data } = await supabaseAdmin
+  .from('users')
+  .select(`
+    id, name,
+    interviews (id, title, score)
+  `);
+```
+
+### Efficient Selections
+
+```javascript
+// Select only needed columns
+const { data } = await supabaseAdmin
+  .from('interviews')
+  .select('id, title, score, created_at')  // NOT *
+  .eq('user_id', userId)
+  .limit(10);
+
+// Pagination (offset/limit)
+const page = 1;
+const pageSize = 20;
+const offset = (page - 1) * pageSize;
+
+const { data, count } = await supabaseAdmin
+  .from('interviews')
+  .select('*', { count: 'exact' })
+  .range(offset, offset + pageSize - 1);
+```
+
+### Caching Query Results
+
+```javascript
+import { cacheMiddleware } from '../middleware/cache.js';
+
+// Cache GET /api/users/:id for 10 minutes
+router.get('/api/users/:id', 
+  cacheMiddleware({ ttl: 600 }),
+  (req, res) => {
+    // Handler
+  }
+);
+```
+
+---
+
+## Interview Suite Advanced Patterns
+
+Going deeper into interview orchestration and context management.
+
+### Building Interview Context
+
+```javascript
+async function buildInterviewContext(userId, interviewId) {
+  return {
+    user_profile: await getUserProfile(userId),
+    weakness_areas: await getWeaknessAreas(userId),
+    company_context: await getCompanyContext(interviewId),
+    interview_history: await getInterviewHistory(userId),
+    selected_difficulty: interview.difficulty,
+    candidate_level: getCandidateLevel(userProfile),
+  };
+}
+```
+
+### Multi-Round Interview Management
+
+```javascript
+// Track interview rounds (e.g., 3 technical rounds for FAANG)
+const interview = {
+  type: 'technical',
+  rounds: [
+    { number: 1, topic: 'arrays-sorting', status: 'completed', score: 8 },
+    { number: 2, topic: 'trees', status: 'in-progress', score: null },
+    { number: 3, topic: 'system-design', status: 'pending', score: null },
+  ],
+};
+
+// Update round
+await updateRound(interviewId, roundNumber, { score, feedback });
+```
+
+### Performance Benchmarking
+
+```javascript
+import { getInterviewBenchmarks } from '../utils/interviewBenchmarks.js';
+
+// Compare user performance to benchmarks
+const benchmarks = await getInterviewBenchmarks(userProfile);
+const userScore = interview.final_score;
+
+const performanceGap = {
+  vs_average: userScore - benchmarks.average,
+  vs_peer_group: userScore - benchmarks.peersWithSimilarProfile,
+  percentile: calculatePercentile(userScore, benchmarks.distribution),
+};
+```
+
+---
+
+## Production Deployment Checklist
+
+Before deploying to production, verify these critical items.
+
+### Pre-Deployment
+
+- ✅ All tests pass: `npm run test`
+- ✅ Linting clean: `npm run lint`
+- ✅ No secrets in code: `npm run scan:secrets`
+- ✅ Security audit: `npm run audit`
+- ✅ Bundle size OK: `npm run build`
+- ✅ Environment variables set (all required keys present)
+- ✅ Database migrations applied
+- ✅ Redis/cache configured
+
+### Deployment
+
+- ✅ Frontend deployed to Vercel (automatic from `main`)
+- ✅ Backend deployed to cloud platform
+- ✅ Health check endpoint responding: `/health`
+- ✅ Webhooks configured (Razorpay, etc.)
+- ✅ Email service working (test email sent)
+- ✅ Monitoring active (Application Insights)
+
+### Post-Deployment
+
+- ✅ Smoke test critical flows (interview, payment, auth)
+- ✅ Monitor error logs for anomalies
+- ✅ Check database performance
+- ✅ Verify API response times <500ms
+- ✅ Monitor cache hit rates
+
+---
+
+
 
 ### Backend
 

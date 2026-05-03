@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Play, Send, ChevronDown, Settings, Timer, Maximize2,
-  Code2, FileCode, Braces, Keyboard, Sun, Moon, Palette
+  Code2, FileCode, Braces, Keyboard, Sun, Moon, Palette,
+  Copy, Check, RotateCcw, Sparkles
 } from 'lucide-react';
 import { LANGUAGES, ALL_TEMPLATES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES } from '../../data/dsaTemplates';
 import { EDITOR_THEMES } from '../../data/editorThemes';
@@ -11,12 +12,24 @@ export default function DSAToolbar({
   onRun, onSubmit, onInsertTemplate,
   running = false, timer = null, onToggleFocus, focusMode = false,
   editorTheme = 'one-dark-pro', onThemeChange,
+  onCopyCode, onResetCode, difficulty = null,
 }) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
+  const [copied, setCopied] = useState(false);
   const dropdownRef = useRef(null);
   const themeRef = useRef(null);
+
+  const handleCopy = () => {
+    onCopyCode?.();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const diffColors = {
+    Easy: '#4ade80', Medium: '#fbbf24', Hard: '#f87171',
+  };
 
   // Close dropdown on outside click
   // Fix #8: use || so a click outside EITHER ref closes all dropdowns
@@ -192,6 +205,17 @@ export default function DSAToolbar({
           )}
         </div>
 
+        {/* Difficulty badge */}
+        {difficulty && (
+          <span style={{
+            padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 800,
+            color: diffColors[difficulty] || '#fbbf24',
+            background: `${diffColors[difficulty] || '#fbbf24'}15`,
+            border: `1px solid ${diffColors[difficulty] || '#fbbf24'}30`,
+            textTransform: 'uppercase', letterSpacing: 0.5,
+          }}>{difficulty}</span>
+        )}
+
         {/* Keyboard shortcuts hint */}
         <div style={{
           padding: '4px 8px', borderRadius: 6,
@@ -199,12 +223,12 @@ export default function DSAToolbar({
           fontSize: 9, color: 'rgba(255,255,255,0.2)', fontWeight: 600,
           display: 'flex', alignItems: 'center', gap: 4,
         }}>
-          <Keyboard size={9} /> Ctrl+Enter to Run
+          <Keyboard size={9} /> Ctrl+Enter · Ctrl+Shift+Enter
         </div>
       </div>
 
       {/* Right side */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
         {/* Timer */}
         {timer !== null && (
           <div style={{
@@ -218,8 +242,33 @@ export default function DSAToolbar({
           </div>
         )}
 
+        {/* Copy code */}
+        <button onClick={handleCopy} title="Copy Code" aria-label="Copy Code" style={{
+          width: 32, height: 32, borderRadius: 8, cursor: 'pointer',
+          background: copied ? 'rgba(34,197,94,0.15)' : 'rgba(255,255,255,0.04)',
+          border: `1px solid ${copied ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
+          color: copied ? '#4ade80' : 'rgba(255,255,255,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all 0.2s ease',
+        }}>
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </button>
+
+        {/* Reset code */}
+        {onResetCode && (
+          <button onClick={onResetCode} title="Reset to Starter Code" aria-label="Reset Code" style={{
+            width: 32, height: 32, borderRadius: 8, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <RotateCcw size={13} />
+          </button>
+        )}
+
         {/* Focus mode */}
-        <button onClick={onToggleFocus} title="Focus Mode" style={{
+        <button onClick={onToggleFocus} title="Focus Mode" aria-label="Focus Mode" style={{
           width: 32, height: 32, borderRadius: 8, cursor: 'pointer',
           background: focusMode ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.04)',
           border: `1px solid ${focusMode ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)'}`,

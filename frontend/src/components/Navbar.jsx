@@ -84,7 +84,7 @@ function getBreadcrumbItems(pathname) {
   return null;
 }
 
-export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
+export default function Navbar({ hasSidebar, onMobileMenuToggle, onOpenCommandPalette, onOpenShortcuts }) {
   const { user, logout, isAdmin } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications(user);
@@ -110,12 +110,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Keyboard shortcut for search (Ctrl+K)
+  // Keyboard shortcut for search (Ctrl+K) — delegate to command palette
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
+        // Let App.jsx handle this globally — don't double-fire
+        return;
       }
       if (e.key === 'Escape') {
         searchInputRef.current?.blur();
@@ -581,46 +581,48 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
         {/* Right: All premium actions */}
         <div className="topbar-right">
 
-          {/* Enhanced Search */}
-          <div className={`premium-search ${searchFocused ? 'focused' : ''} desktop-only`} ref={searchContainerRef}>
-            <Search size={15} className="premium-search-icon" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Search problems, topics..."
-              className="premium-search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
-            />
-            {!searchQuery && <kbd className="premium-search-kbd">Ctrl K</kbd>}
+          {/* Command Palette trigger + Enhanced Search */}
+          <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button
+              onClick={onOpenCommandPalette}
+              title="Open Command Palette (Ctrl+K)"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 7,
+                padding: '6px 12px', borderRadius: 10, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.45)', fontSize: 12, fontWeight: 600,
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; e.currentTarget.style.color = '#c084fc'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'rgba(255,255,255,0.45)'; }}
+            >
+              <Search size={13} />
+              <span>Search</span>
+              <kbd style={{
+                padding: '2px 6px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                color: 'rgba(255,255,255,0.3)',
+              }}>⌘K</kbd>
+            </button>
 
-            {/* Search Results Dropdown */}
-            {searchFocused && searchQuery.trim().length >= 2 && (
-              <div className="search-results-dropdown">
-                {searchResults.length > 0 ? (
-                  searchResults.map(p => (
-                    <div
-                      key={p.id}
-                      className="search-result-item"
-                      onMouseDown={() => handleSearchSelect(p)}
-                    >
-                      <div className="search-result-main">
-                        <span className="search-result-title">{p.title}</span>
-                        <span className={`search-result-diff diff-${p.difficulty.toLowerCase()}`}>{p.difficulty}</span>
-                      </div>
-                      <div className="search-result-topics">
-                        {p.topics.slice(0, 3).map(t => (
-                          <span key={t} className="search-result-tag">{t}</span>
-                        ))}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="search-no-results">No problems found for "{searchQuery}"</div>
-                )}
-              </div>
-            )}
+            {/* Keyboard shortcuts hint button */}
+            <button
+              onClick={onOpenShortcuts}
+              title="Keyboard Shortcuts (?)"
+              style={{
+                width: 30, height: 30, borderRadius: 8, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: 'rgba(255,255,255,0.35)', fontSize: 13, fontWeight: 800,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)'; e.currentTarget.style.color = '#c084fc'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+            >
+              ?
+            </button>
           </div>
 
           {/* AI Mock Shortcut */}

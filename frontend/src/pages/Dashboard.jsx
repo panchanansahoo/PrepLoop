@@ -28,6 +28,10 @@ import { DashboardSkeleton } from '../components/skeletons';
 import PerformanceMonitor from '../components/PerformanceMonitor';
 import FetchError from '../components/FetchError';
 import ErrorBoundary from '../components/ErrorBoundary';
+import InterviewCountdownWidget from '../components/InterviewCountdownWidget';
+import StreakMotivationBanner from '../components/StreakMotivationBanner';
+import SmartStudyPlanner from '../components/SmartStudyPlanner';
+import InterviewPerformanceRadar from '../components/InterviewPerformanceRadar';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -93,6 +97,9 @@ const WIDGET_REGISTRY = [
     { id: 'leaderboard', name: 'Leaderboard', component: LeaderboardWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Weekly top performers' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
     { id: 'improvementPlan', name: 'Improvement Plan', component: ImprovementPlanWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Personalized AI interview improvement plan' },
+    { id: 'interviewCountdown', name: 'Interview Countdown', component: InterviewCountdownWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Countdown to your next interview with daily prep checklist' },
+    { id: 'smartStudyPlanner', name: 'Smart Study Planner', component: SmartStudyPlanner, defaultVisible: true, premium: false, layout: 'full', description: 'AI-generated personalized weekly study schedule' },
+    { id: 'performanceRadar', name: 'Performance Radar', component: InterviewPerformanceRadar, defaultVisible: true, premium: false, layout: '2col-right', description: 'Multi-dimensional interview performance tracking with radar chart' },
     { id: 'performanceMonitor', name: 'Performance Monitor', component: PerformanceMonitor, defaultVisible: false, premium: false, layout: 'full', description: 'Real-time performance metrics and optimization insights' },
 ];
 
@@ -367,6 +374,11 @@ export default function Dashboard() {
                 {/* ── Error State ── */}
                 {dashError && !dashLoading && (
                     <FetchError message={dashError} onRetry={refetch} />
+                )}
+
+                {/* ── Streak Motivation Banner ── */}
+                {!dashLoading && !dashError && dashboardData.streak >= 3 && (
+                    <StreakMotivationBanner streak={dashboardData.streak} />
                 )}
 
                 {/* ── Dashboard Widgets ── */}

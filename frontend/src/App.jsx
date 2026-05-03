@@ -17,6 +17,8 @@ import useServiceWorkerTTS from './hooks/useServiceWorkerTTS';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import { AuthGateProvider } from './context/AuthGateContext';
 import AuthGate from './components/AuthGate';
+import CommandPalette from './components/CommandPalette';
+import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
 
 const Home = lazyWithRecovery(() => import('./pages/Home'));
 const Login = lazyWithRecovery(() => import('./pages/Login'));
@@ -184,6 +186,25 @@ function AppContent() {
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+
+  // Global Ctrl+K / Cmd+K to open command palette
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdOpen(prev => !prev);
+      }
+      // ? key opens shortcuts (only when not typing in an input)
+      if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        setShortcutsOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
 
   // Initialize TTS Service Worker
   useServiceWorkerTTS();
@@ -246,6 +267,8 @@ function AppContent() {
       <SkipToContent targetId="main-content" />
       <OfflineBanner />
       <AIAssistantOrb />
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
+      <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -260,6 +283,8 @@ function AppContent() {
           <Navbar
             hasSidebar={showSidebar}
             onMobileMenuToggle={() => setMobileSidebarOpen(prev => !prev)}
+            onOpenCommandPalette={() => setCmdOpen(true)}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         )}
 

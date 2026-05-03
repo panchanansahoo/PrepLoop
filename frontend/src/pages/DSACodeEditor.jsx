@@ -361,7 +361,7 @@ export default function DSACodeEditor() {
     if (dbProblem.explanation && String(dbProblem.explanation).trim()) {
       updates.explanation = String(dbProblem.explanation).trim();
     }
-    
+
     const normalizedConstraints = normalizeConstraints(dbProblem.constraints);
     if (normalizedConstraints && !hasPlaceholderText(normalizedConstraints)) {
       updates.constraints = normalizedConstraints;
@@ -414,6 +414,26 @@ export default function DSACodeEditor() {
     setLanguage(lang);
     localStorage.setItem('dsa-editor-lang', lang);
   };
+
+  // ─── Copy code to clipboard ───
+  const handleCopyCode = useCallback(() => {
+    navigator.clipboard.writeText(code).catch(() => {});
+  }, [code]);
+
+  // ─── Reset to starter code ───
+  const handleResetCode = useCallback(() => {
+    if (!problem) return;
+    const dbStarter = dbProblem?.starter_code?.[language];
+    if (dbStarter) {
+      setCode(dbStarter);
+    } else {
+      const funcName = problem.title
+        ? problem.title.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+        : 'solve';
+      setCode(STARTER_CODE[language]?.(funcName) || '');
+    }
+    localStorage.removeItem(`dsa-code-${problem.id}-${language}`);
+  }, [problem, dbProblem, language]);
 
   // ─── Insert template ───
   const handleInsertTemplate = (template) => {
@@ -582,9 +602,9 @@ export default function DSACodeEditor() {
   // doesn't bust on every render due to spread-created object references
   const stableProblemRef = useRef(null);
   if (!stableProblemRef.current || stableProblemRef.current.id !== problem?.id ||
-      stableProblemRef.current.title !== problem?.title ||
-      stableProblemRef.current.examples !== problem?.examples ||
-      stableProblemRef.current.description !== problem?.description) {
+    stableProblemRef.current.title !== problem?.title ||
+    stableProblemRef.current.examples !== problem?.examples ||
+    stableProblemRef.current.description !== problem?.description) {
     stableProblemRef.current = problem;
   }
   const stableProblem = stableProblemRef.current;
@@ -657,7 +677,7 @@ export default function DSACodeEditor() {
         flexShrink: 0,
       }}>
         {/* Back button */}
-        <button onClick={() => navigate('/problems')} style={{
+        <button onClick={() => navigate('/problems')} aria-label="Back to Problems" style={{
           display: 'flex', alignItems: 'center', gap: 6, padding: '0 16px',
           height: 48, cursor: 'pointer',
           background: 'none', border: 'none', borderRight: '1px solid rgba(255,255,255,0.06)',
@@ -679,6 +699,9 @@ export default function DSACodeEditor() {
             focusMode={focusMode}
             editorTheme={editorTheme}
             onThemeChange={handleThemeChange}
+            onCopyCode={handleCopyCode}
+            onResetCode={handleResetCode}
+            difficulty={problem?.difficulty}
           />
         </div>
       </div>
@@ -830,6 +853,8 @@ export default function DSACodeEditor() {
             <VisualizationPanel
               output={output}
               feedback={feedback}
+              code={code}
+              language={language}
             />
           </div>
         )}
@@ -856,7 +881,7 @@ export default function DSACodeEditor() {
               }}>
                 <Lightbulb size={15} /> AI Assistant
               </span>
-              <button onClick={() => setShowHints(false)} style={{
+              <button onClick={() => setShowHints(false)} aria-label="Close AI Assistant" title="Close AI Assistant" style={{
                 width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
                 color: 'rgba(255,255,255,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center',
