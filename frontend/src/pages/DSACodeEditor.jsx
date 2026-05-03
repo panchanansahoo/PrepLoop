@@ -7,6 +7,7 @@ import ProblemDescriptionPanel from '../components/editor/ProblemDescriptionPane
 import VisualizationPanel from '../components/editor/VisualizationPanel';
 import TestCasePanel from '../components/editor/TestCasePanel';
 import HintsPanel from '../components/solver/HintsPanel';
+import EnhancedHintsPanel from '../components/solver/EnhancedHintsPanel';
 import { LANGUAGES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES, PATTERN_HINTS } from '../data/dsaTemplates';
 import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
@@ -93,6 +94,7 @@ export default function DSACodeEditor() {
 
   // UI state
   const [showHints, setShowHints] = useState(false);
+  const [hintsTab, setHintsTab] = useState('smart'); // 'smart' for new EnhancedHintsPanel, 'classic' for old HintsPanel
   const [focusMode, setFocusMode] = useState(false);
   const [leftWidth, setLeftWidth] = useState(28);
   const [rightWidth, setRightWidth] = useState(30);
@@ -875,12 +877,12 @@ export default function DSACodeEditor() {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}>
-              <span style={{
+              <div style={{
                 fontSize: 13, fontWeight: 800, color: '#fbbf24',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <Lightbulb size={15} /> AI Assistant
-              </span>
+                <Lightbulb size={15} /> Hints
+              </div>
               <button onClick={() => setShowHints(false)} aria-label="Close AI Assistant" title="Close AI Assistant" style={{
                 width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
                 background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)',
@@ -889,14 +891,63 @@ export default function DSACodeEditor() {
                 <X size={14} />
               </button>
             </div>
+            
+            {/* Hints tabs */}
+            <div style={{
+              display: 'flex', gap: 8,
+              padding: '8px 12px',
+              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(255,255,255,0.02)',
+            }}>
+              <button
+                onClick={() => setHintsTab('smart')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: hintsTab === 'smart' ? 'rgba(251, 146, 60, 0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${hintsTab === 'smart' ? 'rgba(251, 146, 60, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+                  color: hintsTab === 'smart' ? '#fb923c' : 'rgba(255,255,255,0.6)',
+                }}
+              >
+                Smart Hints
+              </button>
+              <button
+                onClick={() => setHintsTab('classic')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 4,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: hintsTab === 'classic' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255,255,255,0.04)',
+                  border: `1px solid ${hintsTab === 'classic' ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255,255,255,0.06)'}`,
+                  color: hintsTab === 'classic' ? '#3b82f6' : 'rgba(255,255,255,0.6)',
+                }}
+              >
+                Classic
+              </button>
+            </div>
+
             <div style={{ flex: 1, overflow: 'auto' }}>
-              <HintsPanel
-                problemId={problemId}
-                code={code}
-                language={language}
-                patternName={detectedPattern}
-                onInsertTemplate={handleInsertTemplate}
-              />
+              {hintsTab === 'smart' ? (
+                <EnhancedHintsPanel
+                  problemId={problemId}
+                  onHintRevealed={(hint) => {
+                    console.log('Hint revealed:', hint);
+                  }}
+                />
+              ) : (
+                <HintsPanel
+                  problemId={problemId}
+                  code={code}
+                  language={language}
+                  patternName={detectedPattern}
+                  onInsertTemplate={handleInsertTemplate}
+                />
+              )}
             </div>
           </div>
         )}
