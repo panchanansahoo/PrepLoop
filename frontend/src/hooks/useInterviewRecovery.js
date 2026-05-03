@@ -33,6 +33,12 @@ export function useInterviewRecovery({
             const raw = window.localStorage.getItem(AI_INTERVIEW_SESSION_KEY);
             if (raw) {
                 const session = JSON.parse(raw);
+                // BUG #12 FIX: Check if session is marked as completed
+                if (session.isCompleted) {
+                    // Interview was already completed — don't offer recovery
+                    window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
+                    return;
+                }
                 // Only offer recovery if session is less than 2 hours old
                 if (session.timestamp && Date.now() - session.timestamp < 2 * 60 * 60 * 1000) {
                     setSavedSession(session);
@@ -75,8 +81,9 @@ export function useInterviewRecovery({
             code,
             language,
             notes,
+            isCompleted: phase === 'summary',
         };
-    }, [conversation, questionIndex, currentQuestion, elapsed, totalQuestions, interviewType, interviewerGender, code, language, notes]);
+    }, [conversation, questionIndex, currentQuestion, elapsed, totalQuestions, interviewType, interviewerGender, code, language, notes, phase]);
 
     // Interval-based auto-save
     useEffect(() => {
