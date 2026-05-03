@@ -17,6 +17,11 @@ import InterviewTopBar from '../components/interview/InterviewTopBar';
 import ScoreCueToast from '../components/interview/ScoreCueToast';
 import HintBanner from '../components/interview/HintBanner';
 import InterviewErrorBoundary from '../components/interview/InterviewErrorBoundary';
+import { RealtimeFeedbackProvider } from '../components/interview/RealtimeFeedbackProvider';
+import ScoreCue from '../components/interview/ScoreCue';
+import PerformanceIndicator from '../components/interview/PerformanceIndicator';
+import HintSuggestion from '../components/interview/HintSuggestion';
+import BehaviorAlert from '../components/interview/BehaviorAlert';
 import {
     Mic, MicOff, Sparkles,
     MessageSquare, Volume2, Wifi, User, Building2,
@@ -746,7 +751,7 @@ function AIInterviewPageInner() {
     const handleInterviewerTimeUpdate = useCallback((mode) => {
         const video = mode === 'speaking' ? interviewerSpeakingVideoRef.current : interviewerListeningVideoRef.current;
         if (!video) return;
-        interviewerPlaybackRef.current[mode] = video.currentTime || 0;
+        if (video) interviewerPlaybackRef.current[mode] = video.currentTime || 0;
     }, []);
 
     const handleInterviewerLoadedMetadata = useCallback((mode) => {
@@ -755,7 +760,7 @@ function AIInterviewPageInner() {
         const savedTime = interviewerPlaybackRef.current[mode] || 0;
         const duration = video.duration || 0;
         if (duration > 0) {
-            video.currentTime = savedTime % duration;
+            if (video) video.currentTime = savedTime % duration;
         }
     }, []);
 
@@ -802,11 +807,11 @@ function AIInterviewPageInner() {
             setInterviewerVisibleMode(activeMode);
         }
 
-        inactiveVideo.pause();
-        activeVideo.play().catch(() => { });
+        if (inactiveVideo) inactiveVideo.pause();
+        if (activeVideo) activeVideo.play().catch(() => {});
 
         return () => {
-            interviewerPlaybackRef.current[activeMode] = activeVideo.currentTime || 0;
+            if (activeVideo) interviewerPlaybackRef.current[activeMode] = activeVideo.currentTime || 0;
         };
     }, [aiSpeaking, interviewerVideoReady]);
 
