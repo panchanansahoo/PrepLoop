@@ -19,10 +19,12 @@ export default function DSAToolbar({
   const themeRef = useRef(null);
 
   // Close dropdown on outside click
+  // Fix #8: use || so a click outside EITHER ref closes all dropdowns
   useEffect(() => {
     const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target) &&
-        themeRef.current && !themeRef.current.contains(e.target)) {
+      const outsideDrop = !dropdownRef.current || !dropdownRef.current.contains(e.target);
+      const outsideTheme = !themeRef.current || !themeRef.current.contains(e.target);
+      if (outsideDrop && outsideTheme) {
         setShowTemplates(false);
         setShowSettings(false);
         setShowThemes(false);

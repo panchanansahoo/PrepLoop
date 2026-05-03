@@ -497,7 +497,7 @@ export default function ProblemDescriptionPanel({
                     color: 'rgba(255, 255, 255, 0.7)',
                     fontSize: 13, lineHeight: 1.8
                   }}>
-                    {normalizedConstraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
+                    {normalizedConstraints.split('\n').filter(c => c.trim() !== '').map((constraint, i) => {
                       const cleanConstraint = constraint.trim().replace(/^- /, '');
                       return (
                         <li key={i} style={{ marginBottom: 6 }}>

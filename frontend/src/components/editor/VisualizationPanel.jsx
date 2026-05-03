@@ -166,11 +166,9 @@ export default function VisualizationPanel({
         if (!output?.output) return null;
         try {
             const trimmed = output.output.trim();
-            // Try parsing as JSON array
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) return parsed;
         } catch { }
-        // Try extracting numbers from output like "[1, 2, 3]"
         const match = output?.output?.match(/\[([^\]]+)\]/);
         if (match) {
             const nums = match[1].split(',').map(s => {
@@ -182,12 +180,24 @@ export default function VisualizationPanel({
         return null;
     })();
 
+    // Fix #7: derive vizType from output when not explicitly provided
+    const resolvedVizType = (() => {
+        if (vizType && vizType !== 'none') return vizType;
+        if (!output?.output) return 'array';
+        const text = output.output.toLowerCase();
+        if (text.includes('->') || text.includes('null')) return 'linkedList';
+        if (text.includes('tree') || text.includes('root')) return 'tree';
+        if (text.includes('graph') || text.includes('edge')) return 'graph';
+        return 'array';
+    })();
+
     const renderVisualization = () => {
         if (!output && !vizData) {
             return <EmptyState text="Run your code to see visualization here" />;
         }
 
-        const type = selectedViz === 'auto' ? (vizType || 'array') : selectedViz;
+        // Fix #7: use resolvedVizType (auto-detected) instead of raw vizType
+        const type = selectedViz === 'auto' ? resolvedVizType : selectedViz;
         const arrayData = vizData || (parsedData ? { array: parsedData, highlights: [], sorted: [], swapping: false, comparing: false } : null);
 
         if (!arrayData && !parsedData) {

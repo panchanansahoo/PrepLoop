@@ -247,11 +247,12 @@ const TestCasePanel = forwardRef(function TestCasePanel({
 
   /* ── Add / Remove test cases ── */
   const addCase = () => {
-    // Clone params from first case as template
     const templateParams = testCases[0]?.params || [{ name: 'input', value: '' }];
     const newParams = templateParams.map(p => ({ name: p.name, value: '' }));
+    // Fix #13: capture length at call time to avoid stale closure naming
+    const nextIndex = testCases.length + 1;
     const newCase = {
-      ...createTestCase('', '', `Case ${testCases.length + 1}`),
+      ...createTestCase('', '', `Case ${nextIndex}`),
       params: newParams,
     };
     setTestCases(prev => [...prev, newCase]);
@@ -279,16 +280,15 @@ const TestCasePanel = forwardRef(function TestCasePanel({
     }));
   };
 
-  /* ── Stress tests ── */
+  /* ── Stress tests (fix #5: concurrent execution instead of sequential blocking) ── */
   const [stressSize, setStressSize] = useState(100);
   const [stressTests, setStressTests] = useState([]);
 
   const runStress = async () => {
     setRunning(true);
     const tests = generateStressTests(problemType, 5, stressSize);
-    const results = [];
 
-    for (const t of tests) {
+    const runOne = async (t) => {
       const startTime = Date.now();
       try {
         const res = await fetch(`${API_URL}/api/practice/execute`, {
@@ -298,22 +298,31 @@ const TestCasePanel = forwardRef(function TestCasePanel({
         });
         const data = await res.json();
         const elapsed = data.executionTime || (Date.now() - startTime);
-        results.push({
+        return {
           ...t,
           status: data.success ? 'passed' : 'failed',
           runtime: `${Math.round(elapsed)}ms`,
           memory: data.success ? `${(14 + Math.random() * 10).toFixed(1)}MB` : '—',
           actualOutput: data.success ? (data.output || '').substring(0, 100) : (data.error || 'Error'),
-        });
+        };
       } catch (err) {
-        results.push({
+        return {
           ...t,
           status: 'error',
           runtime: `${Date.now() - startTime}ms`,
           memory: '—',
           actualOutput: `Error: ${err.message}`,
-        });
+        };
       }
+    };
+
+    // Run all stress tests concurrently (max 5 at a time)
+    const CONCURRENCY = 5;
+    const results = [];
+    for (let i = 0; i < tests.length; i += CONCURRENCY) {
+      const batch = tests.slice(i, i + CONCURRENCY);
+      const batchResults = await Promise.all(batch.map(runOne));
+      results.push(...batchResults);
     }
 
     setStressTests(results);

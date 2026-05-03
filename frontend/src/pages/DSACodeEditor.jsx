@@ -105,19 +105,13 @@ export default function DSACodeEditor() {
 
   // ─── Resizing ───
   const draggingRef = useRef(null);
-
-  const handleMouseDown = (panel) => (e) => {
-    e.preventDefault();
-    draggingRef.current = { panel, startX: e.clientX, startY: e.clientY, leftWidth, rightWidth, bottomHeight };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
+  const mouseMoveRef = useRef(null);
+  const mouseUpRef = useRef(null);
 
   const handleMouseMove = useCallback((e) => {
     const d = draggingRef.current;
     if (!d) return;
     const totalWidth = window.innerWidth;
-
     if (d.panel === 'left') {
       const dx = e.clientX - d.startX;
       const pct = (dx / totalWidth) * 100;
@@ -134,9 +128,28 @@ export default function DSACodeEditor() {
 
   const handleMouseUp = useCallback(() => {
     draggingRef.current = null;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
+    document.removeEventListener('mousemove', mouseMoveRef.current);
+    document.removeEventListener('mouseup', mouseUpRef.current);
+  }, []);
+
+  // Store stable refs so the unmount cleanup can remove the same function instances
+  mouseMoveRef.current = handleMouseMove;
+  mouseUpRef.current = handleMouseUp;
+
+  // Fix #1: remove drag listeners on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', mouseMoveRef.current);
+      document.removeEventListener('mouseup', mouseUpRef.current);
+    };
+  }, []);
+
+  const handleMouseDown = (panel) => (e) => {
+    e.preventDefault();
+    draggingRef.current = { panel, startX: e.clientX, startY: e.clientY, leftWidth, rightWidth, bottomHeight };
+    document.addEventListener('mousemove', mouseMoveRef.current);
+    document.addEventListener('mouseup', mouseUpRef.current);
+  };
 
   // ─── Timer ───
   useEffect(() => {
@@ -381,9 +394,15 @@ export default function DSACodeEditor() {
     }
   }, [problem, dbProblem, language]);
 
-  // ─── Auto-save code ───
+  // ─── Auto-save code (fix #4: only save when code changes, not on language switch) ───
+  const lastSavedLangRef = useRef(language);
   useEffect(() => {
     if (!problem || !code) return;
+    // Don't auto-save immediately after a language change (code was just loaded, not edited)
+    if (lastSavedLangRef.current !== language) {
+      lastSavedLangRef.current = language;
+      return;
+    }
     const timeout = setTimeout(() => {
       localStorage.setItem(`dsa-code-${problem.id}-${language}`, code);
     }, 500);
@@ -559,8 +578,23 @@ export default function DSACodeEditor() {
     return () => window.removeEventListener('keydown', handler);
   }, [handleRun, handleSubmit]);
 
+  // Fix #14: stabilize problem identity so relatedProblems memo in ProblemDescriptionPanel
+  // doesn't bust on every render due to spread-created object references
+  const stableProblemRef = useRef(null);
+  if (!stableProblemRef.current || stableProblemRef.current.id !== problem?.id ||
+      stableProblemRef.current.title !== problem?.title ||
+      stableProblemRef.current.examples !== problem?.examples ||
+      stableProblemRef.current.description !== problem?.description) {
+    stableProblemRef.current = problem;
+  }
+  const stableProblem = stableProblemRef.current;
+
   // ─── Detect pattern from problem ───
   const detectedPattern = problem?.pattern_name || null;
+
+  // Fix #2: use a ref so the Monaco action always calls the latest handleRun
+  const handleRunRef = useRef(handleRun);
+  useEffect(() => { handleRunRef.current = handleRun; }, [handleRun]);
 
   // ─── Monaco editor setup ───
   const handleBeforeMount = (monaco) => {
@@ -575,7 +609,7 @@ export default function DSACodeEditor() {
       id: 'run-code',
       label: 'Run Code',
       keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter],
-      run: () => handleRun(),
+      run: () => handleRunRef.current(),
     });
   };
 
@@ -660,7 +694,7 @@ export default function DSACodeEditor() {
               position: 'relative',
             }}>
               <ProblemDescriptionPanel
-                problem={problem}
+                problem={stableProblem}
                 problemId={problemId}
                 onShowHints={() => setShowHints(s => !s)}
                 showHints={showHints}

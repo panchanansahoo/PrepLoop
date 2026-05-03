@@ -6,7 +6,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRealtimeFeedback } from './RealtimeFeedbackProvider';
-import '../styles/PerformanceIndicator.css';
+import '../../styles/PerformanceIndicator.css';
 
 export default function PerformanceIndicator() {
   const { performanceMetrics } = useRealtimeFeedback();

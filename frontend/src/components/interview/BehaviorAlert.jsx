@@ -7,7 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRealtimeFeedback } from './RealtimeFeedbackProvider';
-import '../styles/BehaviorAlert.css';
+import '../../styles/BehaviorAlert.css';
 
 export default function BehaviorAlert() {
   const { alerts } = useRealtimeFeedback();

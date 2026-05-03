@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Lightbulb, Shield, Zap, ChevronDown, ChevronRight, Lock, Unlock, AlertTriangle, CheckCircle2, Sparkles, Target, Code2 } from 'lucide-react';
 import { HINT_LEVELS, getHintsForProblem, analyzeCodeQuality, getOptimizationTips, getSeverityColor } from '../../data/hintsEngine';
 import { PATTERN_HINTS, ALGORITHM_TEMPLATES } from '../../data/dsaTemplates';
@@ -16,7 +16,15 @@ export default function HintsPanel({ problemId, code = '', language = 'python', 
     const [animatingLevel, setAnimatingLevel] = useState(null);
 
     const hints = useMemo(() => getHintsForProblem(problemId), [problemId]);
-    const codeIssues = useMemo(() => analyzeCodeQuality(code, language), [code, language]);
+
+    // Fix #11: debounce code so analyzeCodeQuality doesn't run on every keystroke
+    const [debouncedCode, setDebouncedCode] = useState(code);
+    useEffect(() => {
+        const t = setTimeout(() => setDebouncedCode(code), 300);
+        return () => clearTimeout(t);
+    }, [code]);
+
+    const codeIssues = useMemo(() => analyzeCodeQuality(debouncedCode, language), [debouncedCode, language]);
     const optimizationTips = useMemo(() => getOptimizationTips(problemId), [problemId]);
 
     // Pattern recognition — resolve from PATTERN_HINTS + ALGORITHM_TEMPLATES

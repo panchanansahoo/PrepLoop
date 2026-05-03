@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { Code2, X, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 import './CodeEditorPanel.css';
@@ -35,15 +35,32 @@ export default function CodeEditorPanel({
     const [lineCount, setLineCount] = useState(1);
     const activeTemplate = BOILERPLATE[language] || BOILERPLATE.python;
 
+    // Fix #10: ref guard prevents infinite loop if parent doesn't memoize onCodeChange
+    const hasInitialized = useRef(false);
     useEffect(() => {
-        if (isOpen && !code) {
+        if (isOpen && !code && !hasInitialized.current) {
+            hasInitialized.current = true;
             onCodeChange(activeTemplate);
         }
-    }, [activeTemplate, code, isOpen, onCodeChange]);
+        if (!isOpen) hasInitialized.current = false;
+    }, [isOpen, code, activeTemplate, onCodeChange]);
 
     useEffect(() => {
         setLineCount(code ? code.split('\n').length : 1);
     }, [code]);
+
+    // Fix #12: Ctrl+Enter keyboard shortcut to submit
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e) => {
+            if (e.ctrlKey && e.key === 'Enter' && !loading && code?.trim()) {
+                e.preventDefault();
+                onSubmitCode?.();
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, [isOpen, loading, code, onSubmitCode]);
 
     const handleEditorMount = (editor) => {
         const model = editor.getModel();
@@ -82,7 +99,7 @@ export default function CodeEditorPanel({
                             </option>
                         ))}
                     </select>
-                    <button className="code-close-btn" onClick={onClose} title="Close Editor">
+                    <button className="code-close-btn" onClick={onClose} title="Close Editor" aria-label="Close Editor">
                         <X size={14} />
                     </button>
                 </div>
@@ -159,7 +176,7 @@ export default function CodeEditorPanel({
             <div className="code-editor-footer">
                 <span className="code-line-count">{lineCount} lines</span>
                 <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="code-close-btn" onClick={handleReset} title="Reset to template">
+                    <button className="code-close-btn" onClick={handleReset} title="Reset to template" aria-label="Reset to template">
                         <RotateCcw size={12} />
                     </button>
                     <button

@@ -6,29 +6,19 @@ const MonacoEditor = React.lazy(() => import('@monaco-editor/react'));
 /**
  * MonacoWrapper - Lazy-loads Monaco Editor with fallback
  * Prevents bundling 2.5MB editor code unless the page uses it
- * 
- * Usage:
- *   <MonacoWrapper
- *     language="javascript"
- *     value={code}
- *     onChange={(value) => setCode(value)}
- *     height="400px"
- *   />
  */
-export function MonacoWrapper(props) {
+export function MonacoWrapper({ height = '400px', ...props }) {
   return (
-    <Suspense fallback={<EditorFallback />}>
-      <MonacoEditor {...props} />
+    <Suspense fallback={<EditorFallback height={height} />}>
+      <MonacoEditor height={height} {...props} />
     </Suspense>
   );
 }
 
-/**
- * Fallback UI shown while Monaco loads (2-3 seconds on first visit)
- */
-function EditorFallback() {
+// Fix #9: accept height prop so fallback matches the container size, preventing layout shift
+function EditorFallback({ height = '400px' }) {
   return (
-    <div className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-4 flex items-center justify-center" style={{ height: '400px' }}>
+    <div className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-4 flex items-center justify-center" style={{ height }}>
       <div className="flex flex-col items-center gap-2">
         <div className="animate-spin">
           <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24">

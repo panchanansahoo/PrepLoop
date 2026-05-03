@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRealtimeFeedback } from './RealtimeFeedbackProvider';
-import '../styles/HintSuggestion.css';
+import '../../styles/HintSuggestion.css';
 
 export default function HintSuggestion() {
   const { hints, requestHint } = useRealtimeFeedback();
