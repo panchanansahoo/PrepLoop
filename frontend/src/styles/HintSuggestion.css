@@ -1,0 +1,313 @@
+/* HintSuggestion.css */
+/* Contextual hints display during interview */
+
+.hint-suggestion-container {
+  position: fixed;
+  bottom: 30px;
+  left: 12px;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 998;
+  animation: slideInLeft 0.3s ease;
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Hint Card Base */
+.hint-card {
+  background: white;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  border-left: 4px solid;
+  animation: slideInCard 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  max-width: 100%;
+}
+
+@keyframes slideInCard {
+  from {
+    opacity: 0;
+    transform: translateX(-30px) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) translateY(0);
+  }
+}
+
+/* Hint Level Colors */
+.hint-card.hint-gentle {
+  border-left-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.02) 0%, rgba(30, 144, 255, 0.02) 100%);
+}
+
+.hint-card.hint-medium {
+  border-left-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.02) 0%, rgba(251, 146, 60, 0.02) 100%);
+}
+
+.hint-card.hint-explicit {
+  border-left-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.02) 0%, rgba(248, 113, 113, 0.02) 100%);
+}
+
+/* Hint Header */
+.hint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+
+.hint-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hint-icon {
+  font-size: 18px;
+  display: inline-block;
+}
+
+.hint-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.hint-card.hint-gentle .hint-label {
+  color: #0c4a6e;
+}
+
+.hint-card.hint-medium .hint-label {
+  color: #92400e;
+}
+
+.hint-card.hint-explicit .hint-label {
+  color: #7f1d1d;
+}
+
+/* Close Button */
+.hint-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.hint-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* Hint Content */
+.hint-content {
+  margin-bottom: 10px;
+}
+
+.hint-message {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+.hint-card.hint-gentle .hint-message {
+  color: #0f172a;
+}
+
+.hint-card.hint-medium .hint-message {
+  color: #292524;
+}
+
+.hint-card.hint-explicit .hint-message {
+  color: #1f1f1f;
+}
+
+/* Hint Metadata */
+.hint-metadata {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #9ca3af;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.hint-category {
+  text-transform: capitalize;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.hint-time {
+  font-size: 10px;
+}
+
+/* Next Button */
+.hint-next-button {
+  width: 100%;
+  padding: 6px 10px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-bottom: 6px;
+}
+
+.hint-next-button:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.hint-next-button:active {
+  transform: translateY(0);
+}
+
+.hint-card.hint-medium .hint-next-button {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.hint-card.hint-medium .hint-next-button:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.hint-card.hint-explicit .hint-next-button {
+  display: none;
+}
+
+/* Progress Bar for Auto-Dismiss */
+.hint-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  border-radius: 0 0 8px 0;
+  animation: dismiss 8s linear forwards;
+}
+
+@keyframes dismiss {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
+
+.hint-card.hint-gentle .hint-progress-bar {
+  background: #3b82f6;
+}
+
+.hint-card.hint-medium .hint-progress-bar {
+  background: #f59e0b;
+}
+
+.hint-card.hint-explicit .hint-progress-bar {
+  background: #ef4444;
+}
+
+/* Hint Indicator */
+.hint-indicator {
+  position: fixed;
+  bottom: 16px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.hint-count {
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 480px) {
+  .hint-suggestion-container {
+    max-width: calc(100vw - 24px);
+    bottom: 80px;
+  }
+
+  .hint-card {
+    padding: 10px;
+  }
+
+  .hint-label {
+    font-size: 12px;
+  }
+
+  .hint-message {
+    font-size: 12px;
+  }
+
+  .hint-next-button {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+
+  .hint-metadata {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 320px) {
+  .hint-suggestion-container {
+    max-width: calc(100vw - 16px);
+    left: 8px;
+    gap: 8px;
+  }
+
+  .hint-card {
+    padding: 8px;
+  }
+
+  .hint-label {
+    font-size: 11px;
+  }
+
+  .hint-message {
+    font-size: 11px;
+  }
+
+  .hint-close {
+    width: 20px;
+    height: 20px;
+    font-size: 16px;
+  }
+}

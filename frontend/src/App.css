@@ -772,6 +772,19 @@ body {
   min-height: 100%;
 }
 
+/* Accessibility: Focus Visible Styling (WCAG 2.1 AA) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="link"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
 /* Utilities */
 .container {
   max-width: 1400px;
@@ -856,6 +869,11 @@ h3 {
   border: 1px solid transparent;
   text-decoration: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
 }
 
 .btn-primary {

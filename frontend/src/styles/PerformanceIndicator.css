@@ -1,0 +1,300 @@
+/* PerformanceIndicator.css */
+/* Live performance metrics display during interviews */
+
+.performance-indicator-container {
+  position: fixed;
+  right: 12px;
+  top: 80px;
+  width: 320px;
+  max-height: 80vh;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  padding: 16px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  z-index: 999;
+  overflow-y: auto;
+  animation: slideInRight 0.4s ease;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Header */
+.performance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.performance-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+/* Update indicator (blinking dot) */
+.update-indicator {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Overall Score Section */
+.overall-score-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(59, 130, 246, 0.05) 100%);
+  border-radius: 8px;
+}
+
+/* Radial Indicator */
+.radial-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.radial-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: center;
+}
+
+/* Detailed Metrics */
+.detailed-metrics-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.metric-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.metric-value {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.metric-bar {
+  width: 100%;
+  height: 6px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  min-width: 2px;
+}
+
+/* Score Interpretation */
+.score-interpretation {
+  padding: 10px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.interpretation {
+  padding: 8px;
+  border-radius: 6px;
+}
+
+.interpretation.excellent {
+  background: #d1fae5;
+  color: #065f46;
+  border-left: 3px solid #10b981;
+}
+
+.interpretation.good {
+  background: #dbeafe;
+  color: #1e40af;
+  border-left: 3px solid #3b82f6;
+}
+
+.interpretation.average {
+  background: #fef3c7;
+  color: #92400e;
+  border-left: 3px solid #f59e0b;
+}
+
+.interpretation.needs-improvement {
+  background: #fee2e2;
+  color: #7f1d1d;
+  border-left: 3px solid #ef4444;
+}
+
+/* Real-time Tips */
+.realtime-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.tip {
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tip.clarity {
+  background: #eff6ff;
+  color: #0c4a6e;
+  border-left: 2px solid #0284c7;
+}
+
+.tip.structure {
+  background: #fdf2f8;
+  color: #831843;
+  border-left: 2px solid #ec4899;
+}
+
+.tip.engagement {
+  background: #fef2f2;
+  color: #7c2d12;
+  border-left: 2px solid #ea580c;
+}
+
+.tip.confidence {
+  background: #fef3c7;
+  color: #78350f;
+  border-left: 2px solid #f59e0b;
+}
+
+.tip.technical {
+  background: #dcfce7;
+  color: #166534;
+  border-left: 2px solid #22c55e;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .performance-indicator-container {
+    position: fixed;
+    bottom: 20px;
+    right: auto;
+    left: 12px;
+    width: calc(100vw - 24px);
+    max-height: 50vh;
+    top: auto;
+  }
+
+  .performance-header h3 {
+    font-size: 14px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+  }
+
+  .tip {
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .performance-indicator-container {
+    width: calc(100vw - 16px);
+    padding: 12px;
+    max-height: 45vh;
+  }
+
+  .overall-score-section {
+    margin-bottom: 16px;
+  }
+
+  .detailed-metrics-section {
+    gap: 10px;
+  }
+
+  .metric-bar-container {
+    gap: 2px;
+  }
+
+  .metric-label {
+    font-size: 10px;
+  }
+
+  .tip {
+    font-size: 9px;
+    padding: 6px 8px;
+  }
+}
+
+/* Scrollbar styling */
+.performance-indicator-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.performance-indicator-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.performance-indicator-container::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.performance-indicator-container::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}

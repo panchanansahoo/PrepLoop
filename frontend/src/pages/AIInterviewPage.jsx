@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { useAuth } from '../context/AuthContext';
@@ -1198,12 +1198,12 @@ function AIInterviewPageInner() {
 
             // ONLY end the interview when the backend explicitly signals completion.
             // DO NOT use closingRemark alone ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the AI LLM can hallucinate it on any question.
-            const isInterviewOver = data.complete === true || questionIndex >= totalQuestions;
+            const isInterviewOver = data.complete === true || questionIndexRef.current >= totalQuestions;
             const followUpFallbackByStage = {
                 'DSA / Coding': 'Can you walk me through your approach step by step, and then share the time and space complexity?',
                 'System Design': 'Can you explain your architecture step by step, including key trade-offs and bottlenecks?',
                 'Behavioral': 'Can you walk me through that situation using STAR: Situation, Task, Action, and Result?',
-                'Technical': pickTechnicalFollowUpFallback(questionIndex - 1),
+                'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current - 1),
                 'HR': 'Can you share one concrete example that supports your answer?',
             };
             const fallbackQ = followUpFallbackByStage[resolvedStage] || 'Can you walk me through your approach step by step, including trade-offs?';
@@ -1291,13 +1291,13 @@ function AIInterviewPageInner() {
                 'DSA / Coding': 'Can you tell me about the time and space complexity of your solution?',
                 'System Design': 'How would this design behave at 10x scale, and what would you change first?',
                 'Behavioral': 'Can you share the specific action you took and what outcome it produced?',
-                'Technical': pickTechnicalFollowUpFallback(questionIndex),
+                'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current),
                 'HR': 'Can you give one concrete example that shows this about you?',
             };
             const fallbackQ = catchFollowUpFallbackByStage[resolvedStage] || 'Can you tell me about the time and space complexity of your solution?';
 
             // Bug 12 Fix: Check if interview should be over even in error path
-            const isInterviewOverFallback = questionIndex >= totalQuestions;
+            const isInterviewOverFallback = questionIndexRef.current >= totalQuestions;
 
             if (isInterviewOverFallback) {
                 const closingFallback = 'Great job today! Thank you for your time. We\'ll be in touch soon.';
