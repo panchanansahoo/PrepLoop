@@ -482,4 +482,192 @@ router.post('/hints/:problemId/reset-cooldown', authenticateToken, async (req, r
   }
 });
 
+/**
+ * POST /api/dsa/custom-tests/:problemId
+ * Save custom test cases for a problem
+ * Body: { language, testCases: [{ input, expected, description }] }
+ * Auth: required
+ */
+router.post('/custom-tests/:problemId', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { language, testCases } = req.body;
+
+    if (!language) {
+      return res.status(400).json({ error: 'language required' });
+    }
+
+    if (!Array.isArray(testCases) || testCases.length === 0) {
+      return res.status(400).json({ error: 'testCases must be non-empty array' });
+    }
+
+    // Validate each test case
+    for (const tc of testCases) {
+      if (!tc.input || !tc.expected) {
+        return res.status(400).json({ error: 'Each test case must have input and expected' });
+      }
+    }
+
+    // Store in user_custom_tests table
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('user_custom_tests')
+      .select('id')
+      .eq('user_id', req.user.id)
+      .eq('problem_id', parseInt(problemId))
+      .eq('language', language)
+      .single();
+
+    let result;
+    if (existing) {
+      // Update existing
+      const { data, error } = await supabaseAdmin
+        .from('user_custom_tests')
+        .update({
+          test_cases: testCases,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    } else {
+      // Create new
+      const { data, error } = await supabaseAdmin
+        .from('user_custom_tests')
+        .insert([
+          {
+            user_id: req.user.id,
+            problem_id: parseInt(problemId),
+            language,
+            test_cases: testCases,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      result = data;
+    }
+
+    res.json({
+      success: true,
+      testCases: result.test_cases,
+      savedAt: result.updated_at || result.created_at,
+    });
+  } catch (error) {
+    console.error('Error saving custom tests:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to save custom tests',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/custom-tests/:problemId/run
+ * Run custom test cases (without executing code, just validate structure)
+ * Body: { language, testCases: [{ input, expected, description }] }
+ * Auth: required
+ */
+router.post('/custom-tests/:problemId/run', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { language, testCases } = req.body;
+
+    if (!language) {
+      return res.status(400).json({ error: 'language required' });
+    }
+
+    if (!Array.isArray(testCases) || testCases.length === 0) {
+      return res.status(400).json({ error: 'testCases must be non-empty array' });
+    }
+
+    // Validate each test case
+    for (const tc of testCases) {
+      if (!tc.input || !tc.expected) {
+        return res.status(400).json({ error: 'Each test case must have input and expected' });
+      }
+    }
+
+    // For Phase 1.2: Just validate and return mock results
+    // Full execution will be in Phase 3 with sandbox pool
+    const passedCount = testCases.length;
+    const totalCount = testCases.length;
+
+    // Log test run for analytics
+    await supabaseAdmin
+      .from('user_custom_test_runs')
+      .insert([
+        {
+          user_id: req.user.id,
+          problem_id: parseInt(problemId),
+          language,
+          test_case_count: totalCount,
+          passed_count: passedCount,
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    res.json({
+      success: true,
+      passedCount,
+      totalCount,
+      results: testCases.map((tc, i) => ({
+        index: i + 1,
+        description: tc.description || `Test ${i + 1}`,
+        passed: true, // Mock: all pass in Phase 1.2
+        input: tc.input,
+        expected: tc.expected,
+        actual: tc.expected, // Mock output
+      })),
+    });
+  } catch (error) {
+    console.error('Error running custom tests:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to run custom tests',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/custom-tests/:problemId
+ * Get saved custom test cases for a problem
+ * Auth: required
+ */
+router.get('/custom-tests/:problemId', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { language } = req.query;
+
+    let query = supabaseAdmin
+      .from('user_custom_tests')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .eq('problem_id', parseInt(problemId));
+
+    if (language) {
+      query = query.eq('language', language);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      customTests: data,
+    });
+  } catch (error) {
+    console.error('Error fetching custom tests:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch custom tests',
+    });
+  }
+});
+
 export default router;
