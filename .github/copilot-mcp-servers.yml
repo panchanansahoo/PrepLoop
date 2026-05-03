@@ -1,0 +1,37 @@
+# GitHub Copilot MCP Servers Configuration for PrepLoop
+# 
+# MCP servers extend Copilot's capabilities with specialized tools.
+# Configure these servers to enable enhanced functionality for development tasks.
+#
+# Reference: https://github.com/github/copilot-cli/blob/main/docs/mcp-servers.md
+
+servers:
+  # Playwright MCP for E2E testing coordination
+  # Enables: Create/edit Playwright tests, inspect page elements, run tests, analyze results
+  playwright:
+    enabled: true
+    version: "latest"
+    description: |
+      Playwright MCP enables coordinated E2E testing for the frontend.
+      Use when:
+      - Writing or modifying Playwright E2E tests in `frontend/tests/`
+      - Debugging browser interactions and page navigation
+      - Analyzing test failures and generating test reports
+      - Creating new test scenarios for critical user workflows
+    tools:
+      - name: "create_test"
+        description: "Generate a new Playwright test file"
+      - name: "run_tests"
+        description: "Execute Playwright test suite"
+      - name: "inspect_element"
+        description: "Debug page elements and interactions"
+      - name: "analyze_report"
+        description: "Review test results and coverage"
+    context:
+      cwd: "frontend"
+      testDir: "tests"
+      configFile: "playwright.config.js"
+    notes: |
+      - Playwright is already configured in `frontend/playwright.config.js`
+      - E2E tests run with `npm run test:e2e` or `npm run test:e2e:ui`
+      - Critical paths to test: auth flows, interview suite, job search, payment
