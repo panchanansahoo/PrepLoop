@@ -8,6 +8,7 @@ import HintService from '../services/hintService.js';
 import ExecutionTracer from '../services/executionTracer.js';
 import { VisualizationManager } from '../services/visualizationEngine.js';
 import StepThroughDebugger from '../services/stepThroughDebugger.js';
+import ProblemRecommender from '../services/problemRecommender.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -1269,6 +1270,217 @@ router.get('/debugger/:sessionId/export', authenticateToken, async (req, res) =>
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to export session',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/recommendations
+ * Get personalized problem recommendations
+ * Query: ?limit=5&strategy=balanced
+ * Response: {recommendations: Array}
+ */
+router.get('/recommendations', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { limit = 5, strategy = 'balanced' } = req.query;
+
+    // Fetch user problem history
+    const { data: solvedData } = await supabaseAdmin
+      .from('problem_submissions')
+      .select('problem_id, success')
+      .eq('user_id', userId)
+      .eq('success', true);
+
+    const solvedProblems = solvedData?.map(s => s.problem_id) || [];
+
+    // Fetch user stats for skill level and weak areas
+    const { data: statsData } = await supabaseAdmin
+      .from('user_problem_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    const userStats = statsData || {
+      solvedProblems,
+      solveRate: solvedProblems.length / Math.max(1, all425Problems.length),
+      attemptHistory: {},
+      recentTopics: [],
+      solvedPatterns: {},
+    };
+
+    const recommender = new ProblemRecommender();
+
+    // Analyze weaknesses and calculate skill level
+    const weaknessAreas = recommender.analyzeWeaknesses(
+      statsData?.topicStats || { topicStats: {} }
+    );
+    const skillLevel = recommender.calculateSkillLevel(userStats);
+
+    const userProfile = {
+      weaknessAreas,
+      skillLevel,
+    };
+
+    // Get recommendations
+    const recommendations = recommender.getRecommendations(
+      userProfile,
+      all425Problems,
+      userStats,
+      {
+        limit: parseInt(limit),
+        strategy,
+      }
+    );
+
+    res.json({
+      success: true,
+      recommendations,
+      userProfile,
+      count: recommendations.length,
+    });
+  } catch (error) {
+    console.error('Error getting recommendations:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get recommendations',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/recommendations/company/:company
+ * Get company-specific problem recommendations
+ * Query: ?limit=10
+ * Response: {recommendations: Array}
+ */
+router.get('/recommendations/company/:company', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { company } = req.params;
+    const { limit = 10 } = req.query;
+
+    // Fetch user problem history
+    const { data: solvedData } = await supabaseAdmin
+      .from('problem_submissions')
+      .select('problem_id, success')
+      .eq('user_id', userId)
+      .eq('success', true);
+
+    const solvedProblems = solvedData?.map(s => s.problem_id) || [];
+    const userStats = { solvedProblems };
+
+    const recommender = new ProblemRecommender();
+    const recommendations = recommender.getCompanySpecificProblems(
+      company,
+      all425Problems,
+      userStats,
+      parseInt(limit)
+    );
+
+    res.json({
+      success: true,
+      company,
+      recommendations,
+      count: recommendations.length,
+    });
+  } catch (error) {
+    console.error('Error getting company-specific recommendations:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get company-specific recommendations',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/learning-path/:topic
+ * Get learning path for a topic
+ * Query: ?limit=10
+ * Response: {path: Array}
+ */
+router.get('/learning-path/:topic', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { topic } = req.params;
+    const { limit = 10 } = req.query;
+
+    // Fetch user problem history
+    const { data: solvedData } = await supabaseAdmin
+      .from('problem_submissions')
+      .select('problem_id, success')
+      .eq('user_id', userId)
+      .eq('success', true);
+
+    const solvedProblems = solvedData?.map(s => s.problem_id) || [];
+    const userStats = { solvedProblems };
+
+    const recommender = new ProblemRecommender();
+    const path = recommender.getLearningPath(all425Problems, userStats, topic, parseInt(limit));
+
+    res.json({
+      success: true,
+      topic,
+      path,
+      count: path.length,
+    });
+  } catch (error) {
+    console.error('Error getting learning path:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get learning path',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/weaknesses
+ * Get user weakness analysis
+ * Response: {weaknesses: Object, skillLevel: string}
+ */
+router.get('/weaknesses', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    // Fetch user stats
+    const { data: statsData } = await supabaseAdmin
+      .from('user_problem_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    const recommender = new ProblemRecommender();
+    const weaknesses = recommender.analyzeWeaknesses(
+      statsData?.topicStats || { topicStats: {} }
+    );
+    const skillLevel = recommender.calculateSkillLevel(statsData || {});
+
+    res.json({
+      success: true,
+      weaknesses,
+      skillLevel,
+      topicStats: statsData?.topicStats || {},
+    });
+  } catch (error) {
+    console.error('Error analyzing weaknesses:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to analyze weaknesses',
     });
   }
 });
