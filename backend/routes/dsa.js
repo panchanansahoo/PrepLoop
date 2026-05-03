@@ -12,6 +12,11 @@ import ProblemRecommender from '../services/problemRecommender.js';
 import SkillDetector from '../services/skillDetector.js';
 import { AdaptiveDifficultySelector } from '../services/adaptiveDifficultySelector.js';
 import LearningPathService from '../services/learningPathService.js';
+import * as mentorReviewService from '../services/mentorReviewService.js';
+import * as annotationService from '../services/annotationService.js';
+import * as expertRatingService from '../services/expertRatingService.js';
+import * as feedbackAnalysisService from '../services/feedbackAnalysisService.js';
+import * as improvementTrackingService from '../services/improvementTrackingService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -1926,6 +1931,404 @@ router.get('/learning-paths/:pathId/next-problem', authenticateToken, async (req
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get next problem',
+    });
+  }
+});
+
+// ============================================================================
+// PHASE 5.2: MENTOR REVIEWS & FEEDBACK API ENDPOINTS
+// ============================================================================
+
+/**
+ * POST /api/dsa/reviews/request
+ * Request a code review from a mentor
+ * Body: {solutionId, preferredMentors?, deadline?, notes?}
+ */
+router.post('/reviews/request', authenticateToken, async (req, res) => {
+  try {
+    const { solutionId, preferredMentors, deadline, notes } = req.body;
+    const userId = req.user.id;
+
+    if (!solutionId) {
+      return res.status(400).json({ error: 'solutionId is required' });
+    }
+
+    const review = await mentorReviewService.requestReview(solutionId, userId, {
+      preferredMentors,
+      deadline,
+      notes,
+    });
+
+    res.status(201).json({
+      success: true,
+      review,
+    });
+  } catch (error) {
+    console.error('Error requesting review:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to request review',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/reviews/:solutionId
+ * Get all reviews for a solution
+ * Query: {status?, mentorId?, limit?, offset?}
+ */
+router.get('/reviews/:solutionId', authenticateToken, async (req, res) => {
+  try {
+    const { solutionId } = req.params;
+    const { status, mentorId, limit = 10, offset = 0 } = req.query;
+    const userId = req.user.id;
+
+    const result = await mentorReviewService.getReviewsForSolution(solutionId, userId, {
+      status,
+      mentorId,
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    res.json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    console.error('Error fetching reviews:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch reviews',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/reviews/:reviewId/details
+ * Get full review details with annotations
+ */
+router.get('/reviews/:reviewId/details', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = req.user.id;
+
+    const details = await mentorReviewService.getReviewDetails(reviewId, userId);
+
+    res.json({
+      success: true,
+      ...details,
+    });
+  } catch (error) {
+    console.error('Error fetching review details:', error);
+    const statusCode = error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to fetch review details',
+    });
+  }
+});
+
+/**
+ * PUT /api/dsa/reviews/:reviewId/status
+ * Update review status (state transition)
+ * Body: {status: 'pending'|'in_review'|'submitted'|'completed'}
+ */
+router.put('/reviews/:reviewId/status', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { status } = req.body;
+    const userId = req.user.id;
+
+    if (!status) {
+      return res.status(400).json({ error: 'status is required' });
+    }
+
+    const updated = await mentorReviewService.updateReviewStatus(reviewId, userId, status);
+
+    res.json({
+      success: true,
+      review: updated,
+    });
+  } catch (error) {
+    console.error('Error updating review status:', error);
+    const statusCode = error.message.includes('Invalid') ? 400 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to update review status',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/reviews/:reviewId/annotations
+ * Add line-level annotation to review
+ * Body: {lineNumber, suggestion, suggestionType, severity?, codeSnippet?}
+ */
+router.post('/reviews/:reviewId/annotations', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { lineNumber, suggestionText, suggestionType, severity, codeSnippet } = req.body;
+    const userId = req.user.id;
+
+    if (!lineNumber || !suggestionType || !suggestionText) {
+      return res.status(400).json({
+        error: 'lineNumber, suggestionType, and suggestionText are required',
+      });
+    }
+
+    const annotation = await annotationService.addAnnotation(reviewId, userId, {
+      lineNumber,
+      codeSnippet,
+      suggestionType,
+      suggestionText,
+      severity,
+    });
+
+    res.status(201).json({
+      success: true,
+      annotation,
+    });
+  } catch (error) {
+    console.error('Error adding annotation:', error);
+    const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to add annotation',
+    });
+  }
+});
+
+/**
+ * PUT /api/dsa/reviews/:reviewId/annotations/:annotationId
+ * Update an annotation
+ * Body: {suggestionText?, severity?, suggestionType?}
+ */
+router.put('/reviews/:reviewId/annotations/:annotationId', authenticateToken, async (req, res) => {
+  try {
+    const { annotationId } = req.params;
+    const userId = req.user.id;
+
+    const updated = await annotationService.updateAnnotation(annotationId, userId, req.body);
+
+    res.json({
+      success: true,
+      annotation: updated,
+    });
+  } catch (error) {
+    console.error('Error updating annotation:', error);
+    const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to update annotation',
+    });
+  }
+});
+
+/**
+ * DELETE /api/dsa/reviews/:reviewId/annotations/:annotationId
+ * Remove an annotation
+ */
+router.delete('/reviews/:reviewId/annotations/:annotationId', authenticateToken, async (req, res) => {
+  try {
+    const { annotationId } = req.params;
+    const userId = req.user.id;
+
+    await annotationService.deleteAnnotation(annotationId, userId);
+
+    res.json({
+      success: true,
+      message: 'Annotation deleted',
+    });
+  } catch (error) {
+    console.error('Error deleting annotation:', error);
+    const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to delete annotation',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/reviews/:reviewId/rating
+ * Rate a review (1-5 stars)
+ * Body: {rating: number, feedback?: string}
+ */
+router.post('/reviews/:reviewId/rating', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { rating, feedback } = req.body;
+    const userId = req.user.id;
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        error: 'rating must be an integer between 1 and 5',
+      });
+    }
+
+    const result = await expertRatingService.rateReview(reviewId, userId, rating, feedback);
+
+    res.json({
+      success: true,
+      review: result,
+    });
+  } catch (error) {
+    console.error('Error rating review:', error);
+    const statusCode = error.message.includes('Unauthorized') ? 403 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to rate review',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/mentors/available
+ * List available mentors with filtering
+ * Query: {expertise?, minRating?, limit?, offset?}
+ */
+router.get('/mentors/available', authenticateToken, async (req, res) => {
+  try {
+    const { expertise, minRating, limit = 10, offset = 0 } = req.query;
+
+    const { data: profiles, count } = await supabaseAdmin
+      .from('mentor_profiles')
+      .select('user_id, average_rating, review_count, expertise_areas, badges', { count: 'exact' })
+      .gte('average_rating', minRating || 0)
+      .order('average_rating', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    // Filter by expertise if provided
+    let mentors = profiles || [];
+    if (expertise) {
+      mentors = mentors.filter((m) =>
+        m.expertise_areas?.some((e) => e.toLowerCase().includes(expertise.toLowerCase()))
+      );
+    }
+
+    res.json({
+      success: true,
+      mentors,
+      total: count || 0,
+      hasMore: (offset + limit) < (count || 0),
+    });
+  } catch (error) {
+    console.error('Error fetching available mentors:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch available mentors',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/mentors/:mentorId/profile
+ * Get mentor profile and stats
+ */
+router.get('/mentors/:mentorId/profile', async (req, res) => {
+  try {
+    const { mentorId } = req.params;
+
+    const stats = await expertRatingService.getMentorStats(mentorId);
+    const score = await expertRatingService.calculateMentorScore(mentorId);
+
+    res.json({
+      success: true,
+      profile: stats,
+      reputationScore: score,
+    });
+  } catch (error) {
+    console.error('Error fetching mentor profile:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch mentor profile',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/reviews/:reviewId/response
+ * Submit implementation response to feedback
+ * Body: {improvedSolutionId, implementedAnnotationIds?, feedback?}
+ */
+router.post('/reviews/:reviewId/response', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const { improvedSolutionId } = req.body;
+    const userId = req.user.id;
+
+    if (!improvedSolutionId) {
+      return res.status(400).json({ error: 'improvedSolutionId is required' });
+    }
+
+    const measurement = await improvementTrackingService.measureImplementation(
+      reviewId,
+      improvedSolutionId
+    );
+
+    res.json({
+      success: true,
+      implementation: measurement,
+    });
+  } catch (error) {
+    console.error('Error submitting implementation response:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit response',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/reviews/:solutionId/history
+ * Get review history for a solution
+ */
+router.get('/reviews/:solutionId/history', authenticateToken, async (req, res) => {
+  try {
+    const { solutionId } = req.params;
+    const userId = req.user.id;
+
+    const history = await mentorReviewService.getReviewHistory(solutionId, userId);
+
+    res.json({
+      success: true,
+      history,
+    });
+  } catch (error) {
+    console.error('Error fetching review history:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch review history',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/mentors/leaderboard
+ * Get top mentors leaderboard
+ * Query: {timeRange: '7d'|'30d'|'all', limit?}
+ */
+router.get('/mentors/leaderboard', async (req, res) => {
+  try {
+    const { limit = 10 } = req.query;
+
+    const mentors = await expertRatingService.getTopMentors({
+      limit: parseInt(limit),
+      minRating: 0,
+    });
+
+    res.json({
+      success: true,
+      mentors: mentors.map((m, idx) => ({
+        rank: idx + 1,
+        ...m,
+      })),
+    });
+  } catch (error) {
+    console.error('Error fetching mentor leaderboard:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch leaderboard',
     });
   }
 });
