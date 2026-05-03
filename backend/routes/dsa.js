@@ -11,6 +11,7 @@ import StepThroughDebugger from '../services/stepThroughDebugger.js';
 import ProblemRecommender from '../services/problemRecommender.js';
 import SkillDetector from '../services/skillDetector.js';
 import { AdaptiveDifficultySelector } from '../services/adaptiveDifficultySelector.js';
+import LearningPathService from '../services/learningPathService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -1652,6 +1653,279 @@ router.get('/difficulty/stats', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get difficulty stats',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/learning-paths
+ * Get all available learning paths
+ * Response: {paths: Array}
+ */
+router.get('/learning-paths', authenticateToken, async (req, res) => {
+  try {
+    const pathService = new LearningPathService();
+    const paths = pathService.getAllPaths();
+
+    res.json({
+      success: true,
+      paths,
+      count: paths.length,
+    });
+  } catch (error) {
+    console.error('Error getting learning paths:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get learning paths',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/learning-paths/recommended
+ * Get recommended learning paths for user
+ * Response: {recommendations: Array}
+ */
+router.get('/learning-paths/recommended', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    // Fetch user skill profile
+    const { data: statsData } = await supabaseAdmin
+      .from('user_problem_stats')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    const detector = new SkillDetector();
+    const profile = detector.getSkillProfile(statsData || {});
+
+    const pathService = new LearningPathService();
+    const recommendations = pathService.recommendPaths({
+      skillLevel: profile.overall_mastery > 75 ? 'advanced' : profile.overall_mastery > 50 ? 'intermediate' : 'beginner',
+      weaknessAreas: profile.topics,
+    });
+
+    res.json({
+      success: true,
+      recommendations,
+      count: recommendations.length,
+    });
+  } catch (error) {
+    console.error('Error getting recommended paths:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get recommended paths',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/learning-paths/:pathId/start
+ * Start a learning path
+ * Response: {progress: Object}
+ */
+router.post('/learning-paths/:pathId/start', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { pathId } = req.params;
+
+    const pathService = new LearningPathService();
+    const progress = pathService.createPathProgress(userId, pathId);
+
+    // Save progress to database
+    const { error } = await supabaseAdmin
+      .from('learning_path_progress')
+      .insert({
+        user_id: userId,
+        path_id: pathId,
+        progress: progress,
+        started_at: new Date().toISOString(),
+      });
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      progress,
+      message: `Started learning path: ${progress.title}`,
+    });
+  } catch (error) {
+    console.error('Error starting learning path:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to start learning path',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/learning-paths/:pathId/progress
+ * Get user's progress on a learning path
+ * Response: {progress: Object}
+ */
+router.get('/learning-paths/:pathId/progress', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { pathId } = req.params;
+
+    const { data, error } = await supabaseAdmin
+      .from('learning_path_progress')
+      .select('progress')
+      .eq('user_id', userId)
+      .eq('path_id', pathId)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({
+        success: false,
+        error: 'Path progress not found. Start the path first.',
+      });
+    }
+
+    const pathService = new LearningPathService();
+    const stats = pathService.getPathStats(data.progress);
+    const estimatedTime = pathService.estimateTimeToCompletion(data.progress);
+
+    res.json({
+      success: true,
+      progress: data.progress,
+      stats,
+      estimatedTimeRemaining: estimatedTime,
+    });
+  } catch (error) {
+    console.error('Error getting path progress:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get path progress',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/learning-paths/:pathId/milestone/:milestoneIndex/complete
+ * Mark milestone problems as completed
+ * Request: {problemsCompleted: number}
+ * Response: {progress: Object}
+ */
+router.post('/learning-paths/:pathId/milestone/:milestoneIndex/complete', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { pathId, milestoneIndex } = req.params;
+    const { problemsCompleted = 1 } = req.body;
+
+    // Fetch current progress
+    const { data, error: fetchError } = await supabaseAdmin
+      .from('learning_path_progress')
+      .select('progress')
+      .eq('user_id', userId)
+      .eq('path_id', pathId)
+      .single();
+
+    if (fetchError || !data) {
+      return res.status(404).json({
+        success: false,
+        error: 'Path progress not found',
+      });
+    }
+
+    const pathService = new LearningPathService();
+    const progress = data.progress;
+
+    // Update milestone
+    pathService.updateMilestoneProgress(
+      progress,
+      parseInt(milestoneIndex),
+      (progress.milestoneProgress[parseInt(milestoneIndex)]?.completed || 0) + problemsCompleted
+    );
+
+    // Save updated progress
+    const { error: updateError } = await supabaseAdmin
+      .from('learning_path_progress')
+      .update({ progress })
+      .eq('user_id', userId)
+      .eq('path_id', pathId);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      success: true,
+      progress,
+      stats: pathService.getPathStats(progress),
+    });
+  } catch (error) {
+    console.error('Error updating milestone:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update milestone',
+    });
+  }
+});
+
+/**
+ * GET /api/dsa/learning-paths/:pathId/next-problem
+ * Get next recommended problem for path
+ * Response: {problem: Object}
+ */
+router.get('/learning-paths/:pathId/next-problem', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'User not authenticated' });
+    }
+
+    const { pathId } = req.params;
+
+    // Fetch current progress
+    const { data, error: fetchError } = await supabaseAdmin
+      .from('learning_path_progress')
+      .select('progress')
+      .eq('user_id', userId)
+      .eq('path_id', pathId)
+      .single();
+
+    if (fetchError || !data) {
+      return res.status(404).json({
+        success: false,
+        error: 'Path progress not found',
+      });
+    }
+
+    const pathService = new LearningPathService();
+    const nextProblem = pathService.getNextProblem(data.progress, all425Problems);
+
+    if (!nextProblem) {
+      return res.json({
+        success: true,
+        problem: null,
+        message: 'Path completed! No more problems.',
+      });
+    }
+
+    res.json({
+      success: true,
+      problem: nextProblem,
+    });
+  } catch (error) {
+    console.error('Error getting next problem:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get next problem',
     });
   }
 });
