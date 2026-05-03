@@ -5,6 +5,7 @@ import { all425Problems } from '../data/allProblems.js';
 import Groq from 'groq-sdk';
 import DataCacheManager from '../services/dataCacheManager.js';
 import HintService from '../services/hintService.js';
+import ExecutionTracer from '../services/executionTracer.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -666,6 +667,153 @@ router.get('/custom-tests/:problemId', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch custom tests',
+    });
+  }
+});
+
+// ============================================================================
+// Phase 2: Execution Tracing (Visualization & Debugging)
+// ============================================================================
+
+/**
+ * POST /api/dsa/trace
+ * Trace code execution to capture memory state and step-by-step logs
+ * Request: {code: string, input: Object, language: 'javascript'|'python', functionName?: string}
+ * Response: {trace, totalSteps, executionTime, finalResult, warnings}
+ */
+router.post('/trace', authenticateToken, async (req, res) => {
+  try {
+    const { code, input = {}, language = 'javascript', functionName } = req.body;
+
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Code is required and must be a string',
+      });
+    }
+
+    const tracer = new ExecutionTracer({
+      maxSteps: 10000,
+      maxArraySize: 1000,
+      maxObjectDepth: 5,
+      timeout: 30000,
+    });
+
+    const result = await tracer.trace(code, input, { language, functionName });
+
+    res.json({
+      success: result.success,
+      trace: result.trace,
+      totalSteps: result.totalSteps,
+      executionTime: result.executionTime,
+      finalResult: result.finalResult,
+      error: result.error,
+      warnings: result.warnings,
+    });
+  } catch (error) {
+    console.error('Error tracing execution:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to trace execution',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/trace/timeline
+ * Extract timeline from full trace (filter interesting events)
+ * Request: {trace: Array, types?: Array, maxEvents?: number}
+ * Response: {timeline: Array}
+ */
+router.post('/trace/timeline', authenticateToken, async (req, res) => {
+  try {
+    const { trace, types, maxEvents } = req.body;
+
+    if (!Array.isArray(trace)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Trace must be an array',
+      });
+    }
+
+    const tracer = new ExecutionTracer();
+    const timeline = tracer.getTimeline({ trace }, { types, maxEvents });
+
+    res.json({
+      success: true,
+      timeline,
+    });
+  } catch (error) {
+    console.error('Error extracting timeline:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to extract timeline',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/trace/mutations
+ * Get variable mutations between two steps
+ * Request: {trace: Array, fromStep: number, toStep: number}
+ * Response: {mutations: {added, removed, changed}}
+ */
+router.post('/trace/mutations', authenticateToken, async (req, res) => {
+  try {
+    const { trace, fromStep, toStep } = req.body;
+
+    if (!Array.isArray(trace) || typeof fromStep !== 'number' || typeof toStep !== 'number') {
+      return res.status(400).json({
+        success: false,
+        error: 'Trace (array), fromStep, and toStep (numbers) are required',
+      });
+    }
+
+    const tracer = new ExecutionTracer();
+    const mutations = tracer.getMutationsBetweenSteps({ trace }, fromStep, toStep);
+
+    res.json({
+      success: true,
+      mutations,
+    });
+  } catch (error) {
+    console.error('Error analyzing mutations:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to analyze mutations',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/trace/statistics
+ * Get trace statistics (event counts, timing, etc.)
+ * Request: {trace: Array, executionTime: number, success: boolean}
+ * Response: {statistics}
+ */
+router.post('/trace/statistics', authenticateToken, async (req, res) => {
+  try {
+    const { trace, executionTime, success } = req.body;
+
+    if (!Array.isArray(trace)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Trace must be an array',
+      });
+    }
+
+    const tracer = new ExecutionTracer();
+    const statistics = tracer.getStatistics({ trace, executionTime, success });
+
+    res.json({
+      success: true,
+      statistics,
+    });
+  } catch (error) {
+    console.error('Error computing statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to compute statistics',
     });
   }
 });
