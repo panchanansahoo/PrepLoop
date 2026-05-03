@@ -6,6 +6,7 @@ import Groq from 'groq-sdk';
 import DataCacheManager from '../services/dataCacheManager.js';
 import HintService from '../services/hintService.js';
 import ExecutionTracer from '../services/executionTracer.js';
+import { VisualizationManager } from '../services/visualizationEngine.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -814,6 +815,164 @@ router.post('/trace/statistics', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to compute statistics',
+    });
+  }
+});
+
+// ============================================================================
+// Phase 2.2: Interactive Visualization
+// ============================================================================
+
+/**
+ * POST /api/dsa/visualize
+ * Auto-detect data structure and generate visualization spec
+ * Request: {data: any, options?: {highlightedIndices?: Array}}
+ * Response: {visualization: Object, dataStructure: string}
+ */
+router.post('/visualize', authenticateToken, async (req, res) => {
+  try {
+    const { data, options = {} } = req.body;
+
+    if (data === undefined || data === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Data is required',
+      });
+    }
+
+    const manager = new VisualizationManager();
+
+    try {
+      const visualization = manager.visualize(data, options);
+
+      res.json({
+        success: true,
+        visualization,
+        dataStructure: visualization.dataStructure,
+      });
+    } catch (detectionError) {
+      res.status(400).json({
+        success: false,
+        error: detectionError.message,
+      });
+    }
+  } catch (error) {
+    console.error('Error generating visualization:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate visualization',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/visualize/array-mutation
+ * Animate array mutation
+ * Request: {from: Array, to: Array}
+ * Response: {animation: Object}
+ */
+router.post('/visualize/array-mutation', authenticateToken, async (req, res) => {
+  try {
+    const { from, to } = req.body;
+
+    if (!Array.isArray(from) || !Array.isArray(to)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both "from" and "to" must be arrays',
+      });
+    }
+
+    const manager = new VisualizationManager();
+    const arrayViz = manager.visualizers.array;
+    const animation = arrayViz.animateTransition(from, to);
+
+    res.json({
+      success: true,
+      animation,
+    });
+  } catch (error) {
+    console.error('Error animating array mutation:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to animate mutation',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/visualize/tree-traversal
+ * Animate tree traversal (inorder, preorder, postorder, levelorder)
+ * Request: {tree: Object, traversalType: string}
+ * Response: {sequence: Array}
+ */
+router.post('/visualize/tree-traversal', authenticateToken, async (req, res) => {
+  try {
+    const { tree, traversalType = 'inorder' } = req.body;
+
+    if (!tree || typeof tree !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Tree must be a valid object',
+      });
+    }
+
+    const validTraversals = ['inorder', 'preorder', 'postorder', 'levelorder'];
+    if (!validTraversals.includes(traversalType)) {
+      return res.status(400).json({
+        success: false,
+        error: `Traversal type must be one of: ${validTraversals.join(', ')}`,
+      });
+    }
+
+    const manager = new VisualizationManager();
+    const treeViz = manager.visualizers.tree;
+    const sequence = treeViz.animateTraversal(tree, traversalType);
+
+    res.json({
+      success: true,
+      sequence,
+      frameCount: sequence.length,
+    });
+  } catch (error) {
+    console.error('Error animating tree traversal:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to animate tree traversal',
+    });
+  }
+});
+
+/**
+ * POST /api/dsa/visualize/graph-shortest-path
+ * Animate shortest path algorithm on graph
+ * Request: {graph: Object, startNodeId: number, endNodeId: number}
+ * Response: {sequence: Array}
+ */
+router.post('/visualize/graph-shortest-path', authenticateToken, async (req, res) => {
+  try {
+    const { graph, startNodeId, endNodeId } = req.body;
+
+    if (!graph || !Number.isInteger(startNodeId) || !Number.isInteger(endNodeId)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Graph, startNodeId, and endNodeId are required',
+      });
+    }
+
+    const manager = new VisualizationManager();
+    const graphViz = manager.visualizers.graph;
+    const sequence = graphViz.animateShortestPath(graph, startNodeId, endNodeId);
+
+    res.json({
+      success: true,
+      sequence,
+      frameCount: sequence.length,
+    });
+  } catch (error) {
+    console.error('Error animating shortest path:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to animate shortest path',
     });
   }
 });
