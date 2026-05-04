@@ -117,28 +117,23 @@ router.get('/:planId', authenticateToken, async (req, res) => {
 
 /**
  * GET /api/improvement-plan/history
- * Get user's improvement plan history
+ * Get user's improvement plan history with pagination and caching
  */
 router.get('/history', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, parseInt(req.query.limit) || 10);
 
-    const { data: plans, error } = await supabaseAdmin
-      .from('improvement_plans')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-
-    if (error) throw error;
+    const result = await ImprovementPlanService.getPlanHistory(userId, page, limit);
 
     return res.status(200).json({
       success: true,
-      data: plans || []
+      data: result.plans,
+      pagination: result.pagination
     });
   } catch (error) {
-    logger.error('Fetch plan history failed', { userId, error: error.message, stack: error.stack });
+    logger.error('Fetch plan history failed', { userId: req.user.id, error: error.message, stack: error.stack });
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch plan history'
@@ -284,6 +279,34 @@ router.get('/:planId/stats', authenticateToken, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch plan statistics'
+    });
+  }
+});
+
+/**
+ * GET /api/improvement-plan/analysis/full
+ * Get comprehensive analysis of all 10 skill areas (on-demand)
+ * Cached for 4 hours. Used when users want deep dive beyond top 5 areas.
+ */
+router.get('/analysis/full', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const sessionIds = req.query.sessionIds ? JSON.parse(req.query.sessionIds) : null;
+
+    const fullAnalysis = await ImprovementPlanService.analyzeFullWeaknesses(userId, sessionIds);
+
+    return res.status(200).json({
+      success: true,
+      data: fullAnalysis,
+      mode: 'comprehensive',  // All 10 skill areas included
+      cachedTTL: 4 * 60 * 60  // 4 hour TTL
+    });
+  } catch (error) {
+    logger.error('Full analysis failed', { userId: req.user.id, error: error.message, stack: error.stack });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate full analysis',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });

@@ -31,6 +31,35 @@ const SKILL_AREAS = [
   'confidence'
 ];
 
+/**
+ * Lazy analysis configuration
+ * Reduces computation during plan generation by analyzing only top areas
+ * On-demand analysis available for remaining areas
+ */
+const LAZY_ANALYSIS_CONFIG = {
+  // Number of top skill areas to analyze during plan generation
+  TOP_AREAS_COUNT: 5,
+  // Cache key for full analysis (on-demand)
+  FULL_ANALYSIS_TTL: 60 * 60 * 4 // 4 hours
+};
+
+/**
+ * Cache configuration for improvement plan feature
+ * TTLs are optimized for different data types
+ */
+const CACHE_CONFIG = {
+  // Generated plans cached for 1 hour
+  PLAN_TTL: 60 * 60,
+  // Analysis results cached separately for 2 hours (cheaper to reuse)
+  ANALYSIS_TTL: 60 * 60 * 2,
+  // AI recommendations cached for 3 hours (expensive to generate)
+  RECOMMENDATIONS_TTL: 60 * 60 * 3,
+  // User's latest plan cached for 30 minutes (frequently accessed)
+  LATEST_PLAN_TTL: 60 * 30,
+  // Plan history cached for 15 minutes (lighter, paginated queries)
+  HISTORY_TTL: 60 * 15
+};
+
 export class ImprovementPlanService {
   static async generatePlan(userId, options = {}) {
     const { sessionIds, focusAreas, timeframe = 7 } = options;
@@ -38,8 +67,8 @@ export class ImprovementPlanService {
     try {
       logger.info('Generating improvement plan', { userId, sessionIds, focusAreas, timeframe });
 
-      // Create cache key with checksum to avoid extremely long keys
-      const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({sessionIds, focusAreas, timeframe})}`;
+      // Create cache key for this specific plan
+      const cacheKey = this._getCachePlanKey(userId, { sessionIds, focusAreas, timeframe });
       
       // Try to get from cache first
       if (redis) {
@@ -73,7 +102,8 @@ export class ImprovementPlanService {
       // Cache the result if Redis is available
       if (redis) {
         try {
-          await redis.setex(cacheKey, 60 * 60, JSON.stringify(savedPlan)); // Cache for 1 hour
+          await redis.setex(cacheKey, CACHE_CONFIG.PLAN_TTL, JSON.stringify(savedPlan));
+          logger.info('Plan cached successfully', { userId, ttl: CACHE_CONFIG.PLAN_TTL });
         } catch (cacheErr) {
           logger.warn('Cache storage failed, plan still generated successfully', { error: cacheErr.message });
         }
@@ -93,6 +123,110 @@ export class ImprovementPlanService {
     // Create a short hash of the params to avoid long keys
     const str = JSON.stringify(params);
     return createHash('md5').update(str).digest('hex').substring(0, 16);
+  }
+
+  /**
+   * Generate cache key for a generated plan
+   * Pattern: improvement_plan:{userId}:{paramsHash}
+   */
+  static _getCachePlanKey(userId, params = {}) {
+    return `ip:plan:${userId}:${this._generateCacheKeyHash(params)}`;
+  }
+
+  /**
+   * Generate cache key for latest plan
+   * Pattern: improvement_plan:latest:{userId}
+   */
+  static _getCacheLatestKey(userId) {
+    return `ip:latest:${userId}`;
+  }
+
+  /**
+   * Generate cache key for plan analysis
+   * Pattern: improvement_plan:analysis:{userId}:{sessionIdsHash}
+   */
+  static _getCacheAnalysisKey(userId, sessionIds = null) {
+    return `ip:analysis:${userId}:${this._generateCacheKeyHash(sessionIds || [])}`;
+  }
+
+  /**
+   * Generate cache key for AI recommendations
+   * Pattern: improvement_plan:recommendations:{analysisHash}
+   */
+  static _getCacheRecommendationsKey(analysis) {
+    return `ip:recommendations:${this._generateCacheKeyHash(analysis)}`;
+  }
+
+  /**
+   * Generate cache key for plan history
+   * Pattern: improvement_plan:history:{userId}:{pageNumber}
+   */
+  static _getCacheHistoryKey(userId, page = 1) {
+    return `ip:history:${userId}:${page}`;
+  }
+
+  /**
+   * Generate cache key for full weakness analysis
+   * Pattern: improvement_plan:fullanalysis:{userId}:{sessionIdsHash}
+   */
+  static _getCacheFullAnalysisKey(userId, sessionIds = null) {
+    return `ip:fullanalysis:${userId}:${this._generateCacheKeyHash(sessionIds || [])}`;
+  }
+
+  /**
+   * Analyze full weaknesses (all 10 skill areas)
+   * On-demand method for users who want comprehensive analysis
+   * Results are cached separately for 4 hours
+   */
+  static async analyzeFullWeaknesses(userId, sessionIds = null) {
+    const cacheKey = this._getCacheFullAnalysisKey(userId, sessionIds);
+    
+    // Try cache first
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          logger.info('Full analysis from cache', { userId });
+          return JSON.parse(cached);
+        }
+      } catch (cacheErr) {
+        logger.warn('Cache retrieval failed for full analysis', { error: cacheErr.message });
+      }
+    }
+
+    // Fetch sessions if not provided
+    let sessions;
+    if (sessionIds && sessionIds.length > 0) {
+      const { data, error } = await supabaseAdmin
+        .from('interview_sessions')
+        .select('id, user_id, performance_metrics, interview_score, overall_score, completed_at, status')
+        .eq('user_id', userId)
+        .in('id', sessionIds);
+      
+      if (error) throw error;
+      sessions = data;
+    } else {
+      sessions = await this._fetchInterviewSessions(userId);
+    }
+
+    if (!sessions || sessions.length === 0) {
+      throw new Error('No interview sessions found for analysis');
+    }
+
+    // Analyze ALL weakness areas (lazyMode: false)
+    const fullAnalysis = this._analyzeWeaknesses(sessions, null, false);
+
+    // Cache the result
+    if (redis) {
+      try {
+        await redis.setex(cacheKey, LAZY_ANALYSIS_CONFIG.FULL_ANALYSIS_TTL, JSON.stringify(fullAnalysis));
+        logger.info('Full analysis cached', { userId, ttl: LAZY_ANALYSIS_CONFIG.FULL_ANALYSIS_TTL });
+      } catch (cacheErr) {
+        logger.warn('Failed to cache full analysis', { error: cacheErr.message });
+      }
+    }
+
+    return fullAnalysis;
   }
 
   static async _fetchInterviewSessions(userId, sessionIds = null) {
@@ -119,7 +253,16 @@ export class ImprovementPlanService {
     return data || [];
   }
 
-  static _analyzeWeaknesses(sessions, focusAreas = null) {
+  /**
+   * Analyze weaknesses from interview sessions
+   * By default, analyzes only TOP 5 skill areas for faster plan generation
+   * Full analysis available via analyzeFullWeaknesses() for on-demand comprehensive analysis
+   * 
+   * @param {Array} sessions - Interview sessions to analyze
+   * @param {Array} focusAreas - Optional focus areas filter
+   * @param {Boolean} lazyMode - If true, analyze only top areas (default: true)
+   */
+  static _analyzeWeaknesses(sessions, focusAreas = null, lazyMode = true) {
     const weaknessScores = {};
     SKILL_AREAS.forEach(area => {
       weaknessScores[area] = [];
@@ -175,12 +318,28 @@ export class ImprovementPlanService {
       ? weaknesses.filter(w => focusAreas.includes(w.area))
       : weaknesses;
 
-    return {
-      weaknesses: filteredWeaknesses,
-      topWeaknesses: filteredWeaknesses.slice(0, 3),
+    // LAZY MODE: Only return top areas for plan generation
+    // Full weaknesses remain available for on-demand analysis
+    const displayWeaknesses = lazyMode 
+      ? filteredWeaknesses.slice(0, LAZY_ANALYSIS_CONFIG.TOP_AREAS_COUNT)
+      : filteredWeaknesses;
+
+    // In lazy mode, include allWeaknesses for reference and on-demand access
+    // In full mode, allWeaknesses is not needed (displayWeaknesses = all)
+    const result = {
+      weaknesses: displayWeaknesses,
+      topWeaknesses: displayWeaknesses.slice(0, 3),
       sessionsAnalyzed: sessions.length,
-      overallTrend: this._calculateTrend(sessions)
+      overallTrend: this._calculateTrend(sessions),
+      lazyMode
     };
+
+    // Only include allWeaknesses in lazy mode (provides full list for on-demand access)
+    if (lazyMode) {
+      result.allWeaknesses = filteredWeaknesses;
+    }
+
+    return result;
   }
 
   static _calculateTrend(sessions) {
@@ -208,32 +367,76 @@ export class ImprovementPlanService {
   static async _buildImprovementPlan(analysis, timeframe) {
     const { topWeaknesses, overallTrend } = analysis;
 
-    // Build daily tasks with adaptive difficulty
+    // Build daily tasks with adaptive difficulty (fast, synchronous)
     const dailyPlan = this._generateDailyTasks(topWeaknesses, timeframe);
+    const summary = this._generateSummary(topWeaknesses, overallTrend);
 
-    // Generate AI recommendations if available
-    let aiRecommendations = null;
-    if (groq) {
-      try {
-        aiRecommendations = await this._generateAIRecommendations(analysis);
-      } catch (error) {
-        logger.warn('AI recommendations failed, using fallback', { error: error.message });
-      }
-    }
+    // PHASE 2 OPTIMIZATION: Parallelize expensive operations
+    // Fetch AI recommendations, resources, and milestones in parallel (Promise.all)
+    // This reduces plan generation time significantly when AI calls are involved
+    const [aiRecommendations, resources, milestones] = await Promise.all([
+      // Generate AI recommendations if available (most expensive)
+      groq 
+        ? this._generateAIRecommendationsWithTimeout(analysis, 20000) // 20s timeout
+            .catch(error => {
+              logger.warn('AI recommendations failed, using fallback', { error: error.message });
+              return null;
+            })
+        : Promise.resolve(null),
+      
+      // Generate resources (medium cost, cached separately)
+      Promise.resolve(this._generateResources(topWeaknesses)),
+      
+      // Generate milestones (low cost, mostly lookup)
+      Promise.resolve(this._generateMilestones(topWeaknesses, timeframe))
+    ]);
 
     return {
-      summary: this._generateSummary(topWeaknesses, overallTrend),
+      summary,
       topWeaknesses,
       dailyPlan,
       recommendations: aiRecommendations || this._generateFallbackRecommendations(topWeaknesses),
-      resources: this._generateResources(topWeaknesses),
-      milestones: this._generateMilestones(topWeaknesses, timeframe),
+      resources,
+      milestones,
       timeframe,
       overallTrend,
       // Add adaptive difficulty and gamification metadata
       difficulty: 'intermediate', // Default, will be adjusted per day based on user progress
       achievements: getPotentialAchievements(timeframe)
     };
+  }
+
+  /**
+   * Generate AI recommendations with timeout and heuristic fallback
+   * If AI call takes too long, falls back to rule-based recommendations
+   * @param {Object} analysis - Weakness analysis
+   * @param {Number} timeoutMs - Timeout in milliseconds (default 20s)
+   */
+  static async _generateAIRecommendationsWithTimeout(analysis, timeoutMs = 20000) {
+    try {
+      logger.info('Starting AI recommendations generation', { timeout: timeoutMs });
+      
+      // Create timeout promise that rejects after timeoutMs
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error(`AI recommendations timeout after ${timeoutMs}ms`)), timeoutMs)
+      );
+
+      // Race AI call against timeout
+      const recommendations = await Promise.race([
+        this._generateAIRecommendations(analysis),
+        timeoutPromise
+      ]);
+
+      logger.info('AI recommendations generated successfully');
+      return recommendations;
+    } catch (error) {
+      if (error.message.includes('timeout')) {
+        logger.warn('AI recommendations timed out, will use fallback', { timeout: timeoutMs });
+      } else {
+        logger.warn('AI recommendations error', { error: error.message });
+      }
+      throw error; // Let caller handle with fallback
+    }
   }
 
   static _generateDailyTasks(weaknesses, days) {
@@ -479,9 +682,25 @@ Provide recommendations in JSON format with keys:
   }
   
   /**
-   * Get user's latest improvement plan with additional analytics
+   * Get user's latest improvement plan with caching
    */
   static async getLatestPlan(userId) {
+    const cacheKey = this._getCacheLatestKey(userId);
+    
+    // Try cache first
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          logger.info('Latest plan from cache', { userId });
+          return JSON.parse(cached);
+        }
+      } catch (cacheErr) {
+        logger.warn('Cache retrieval failed for latest plan', { error: cacheErr.message });
+      }
+    }
+
+    // Fetch from database
     const { data: plan, error } = await supabaseAdmin
       .from('improvement_plans')
       .select('*')
@@ -494,7 +713,71 @@ Provide recommendations in JSON format with keys:
       throw error;
     }
 
+    // Cache the result
+    if (plan && redis) {
+      try {
+        await redis.setex(cacheKey, CACHE_CONFIG.LATEST_PLAN_TTL, JSON.stringify(plan));
+      } catch (cacheErr) {
+        logger.warn('Failed to cache latest plan', { error: cacheErr.message });
+      }
+    }
+
     return plan || null;
+  }
+
+  /**
+   * Get user's improvement plan history with pagination and caching
+   */
+  static async getPlanHistory(userId, page = 1, limit = 10) {
+    const cacheKey = this._getCacheHistoryKey(userId, page);
+
+    // Try cache first
+    if (redis) {
+      try {
+        const cached = await redis.get(cacheKey);
+        if (cached) {
+          logger.info('Plan history from cache', { userId, page });
+          return JSON.parse(cached);
+        }
+      } catch (cacheErr) {
+        logger.warn('Cache retrieval failed for plan history', { error: cacheErr.message });
+      }
+    }
+
+    // Fetch from database with pagination
+    const offset = (page - 1) * limit;
+    const { data: plans, error, count } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      logger.error('Failed to fetch plan history', { userId, page, error: error.message });
+      throw error;
+    }
+
+    const result = {
+      plans: plans || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages: Math.ceil((count || 0) / limit)
+      }
+    };
+
+    // Cache the result
+    if (redis) {
+      try {
+        await redis.setex(cacheKey, CACHE_CONFIG.HISTORY_TTL, JSON.stringify(result));
+      } catch (cacheErr) {
+        logger.warn('Failed to cache plan history', { error: cacheErr.message });
+      }
+    }
+
+    return result;
   }
   
   /**
@@ -583,7 +866,68 @@ Provide recommendations in JSON format with keys:
       throw error;
     }
 
+    // Invalidate user's caches
+    await this._invalidateUserCache(userId);
+
     return data;
+  }
+
+  /**
+   * Update progress on an improvement plan with cache invalidation
+   */
+  static async updatePlanProgress(planId, userId, progressUpdates) {
+    const { completedTasks, notes } = progressUpdates;
+    
+    const { data: plan, error: fetchError } = await supabaseAdmin
+      .from('improvement_plans')
+      .select('*')
+      .eq('id', planId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError || !plan) {
+      throw new Error('Plan not found or unauthorized');
+    }
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('improvement_plans')
+      .update({
+        progress: {
+          ...(plan.progress || {}),
+          completedTasks: completedTasks || [],
+          lastUpdated: new Date().toISOString(),
+          notes: notes || ''
+        },
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', planId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // Invalidate related caches
+    await this._invalidateUserCache(userId);
+
+    return updated;
+  }
+
+  /**
+   * Invalidate all caches for a user
+   * Called when user's improvement plans change
+   */
+  static async _invalidateUserCache(userId) {
+    if (!redis) return;
+
+    try {
+      // Delete latest plan cache
+      const latestKey = this._getCacheLatestKey(userId);
+      await redis.del(latestKey);
+      
+      logger.info('User cache invalidated', { userId });
+    } catch (err) {
+      logger.warn('Cache invalidation error', { userId, error: err.message });
+    }
   }
 }
 

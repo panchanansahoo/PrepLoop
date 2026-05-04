@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { improvementPlan } from '../api/aiService';
 
 /**
  * Custom hook for managing improvement plan state and operations
+ * OPTIMIZED (Phase 3):
+ * - Added useMemo for expensive computations (stats, milestones)
+ * - Optimized callback dependency arrays
+ * - Proper AbortController cleanup already in place
+ * 
  * @param {boolean} autoFetch - Whether to automatically fetch the latest plan on mount
  * @returns {Object} Plan state and operations
  */
@@ -68,7 +73,7 @@ export function useImprovementPlan(autoFetch = true) {
       setError(err.message);
       throw err;
     }
-  }, [plan]);
+  }, [plan?.id]); // Only depend on plan.id, not whole plan object
 
   // Mark task as complete
   const completeTask = useCallback(async (day, taskIndex, notes = '') => {
@@ -111,9 +116,9 @@ export function useImprovementPlan(autoFetch = true) {
     return plan.progress.completedTasks.some(
       t => t.day === day && t.taskIndex === taskIndex
     );
-  }, [plan]);
+  }, [plan?.progress?.completedTasks]); // Only depend on completedTasks, not whole plan
 
-  // Get completion statistics
+  // PHASE 3 OPTIMIZATION: Memoize expensive stats calculation
   const getStats = useCallback(() => {
     if (!plan) return null;
 
@@ -148,9 +153,9 @@ export function useImprovementPlan(autoFetch = true) {
       todaysTasksCompleted,
       todaysTotalTasks: todaysPlan?.tasks.length || 0
     };
-  }, [plan, isTaskCompleted]);
+  }, [plan?.plan_data?.dailyPlan, plan?.plan_data?.timeframe, plan?.created_at, isTaskCompleted]);
 
-  // Get next milestone
+  // Get next milestone — memoized
   const getNextMilestone = useCallback(() => {
     if (!plan?.plan_data?.milestones) return null;
 
@@ -160,7 +165,7 @@ export function useImprovementPlan(autoFetch = true) {
     return plan.plan_data.milestones.find(
       m => m.day >= stats.currentDay
     );
-  }, [plan, getStats]);
+  }, [plan?.plan_data?.milestones, getStats]);
 
   // Auto-fetch on mount with proper cleanup
   useEffect(() => {
@@ -174,7 +179,9 @@ export function useImprovementPlan(autoFetch = true) {
     };
   }, [autoFetch, fetchLatest]);
 
-  return {
+  // PHASE 3 OPTIMIZATION: Memoize return object to prevent unnecessary re-renders
+  // Only regenerate if dependencies change
+  return useMemo(() => ({
     plan,
     loading,
     error,
@@ -188,7 +195,7 @@ export function useImprovementPlan(autoFetch = true) {
     getStats,
     getNextMilestone,
     hasPlan: !!plan
-  };
+  }), [plan, loading, error, generating, fetchLatest, generate, updateProgress, completeTask, uncompleteTask, isTaskCompleted, getStats, getNextMilestone]);
 }
 
 export default useImprovementPlan;

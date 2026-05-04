@@ -42,7 +42,10 @@
         "coins:reconcile": "node scripts/reconcile_coin_balances_via_api.js",
         "test:ai-features": "node scripts/test-ai-features.js",
         "verify:migration": "node scripts/verify-ai-features-migration.js",
-        "test:copilot": "node test-copilot.js"
+        "test:copilot": "node test-copilot.js",
+        "test:improvement-plan:caching": "node scripts/testImprovementPlanCaching.js",
+        "test:improvement-plan:lazy-analysis": "node scripts/testLazySkillAnalysis.js",
+        "test:improvement-plan:parallel-ai": "node scripts/testParallelAIRecommendations.js"
     },
     "dependencies": {
         "applicationinsights": "^3.3.1",

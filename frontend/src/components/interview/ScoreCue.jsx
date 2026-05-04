@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Check, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
-import '../styles/ScoreCue.css';
+import '../../styles/ScoreCue.css';
 
 function ScoreCue({ visible = false, score = 0, performanceLevel = 'average', feedback = '', duration = 3000 }) {
   const [isVisible, setIsVisible] = useState(visible);
