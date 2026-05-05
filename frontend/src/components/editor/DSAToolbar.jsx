@@ -18,14 +18,32 @@ export default function DSAToolbar({
   const [showSettings, setShowSettings] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [theme, setTheme] = useState(document.documentElement.getAttribute('data-theme') || 'dark');
   const dropdownRef = useRef(null);
   const themeRef = useRef(null);
+
+  const isLight = theme === 'light';
 
   const handleCopy = () => {
     onCopyCode?.();
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+
+  // Listen for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const newTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      setTheme(newTheme);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const diffColors = {
     Easy: '#4ade80', Medium: '#fbbf24', Hard: '#f87171',
@@ -53,8 +71,8 @@ export default function DSAToolbar({
     <div style={{
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       height: 48, padding: '0 12px',
-      background: 'rgba(10,10,26,0.98)',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      background: isLight ? 'rgba(248, 249, 250, 0.95)' : 'rgba(10,10,26,0.98)',
+      borderBottom: isLight ? '1px solid rgba(99,102,241,0.08)' : '1px solid rgba(255,255,255,0.06)',
       fontFamily: "'Inter', system-ui, sans-serif",
       flexShrink: 0,
     }}>
@@ -68,21 +86,21 @@ export default function DSAToolbar({
             style={{
               appearance: 'none',
               padding: '6px 28px 6px 10px', borderRadius: 8,
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              background: isLight ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.04)',
+              border: isLight ? '1px solid rgba(99,102,241,0.15)' : '1px solid rgba(255,255,255,0.08)',
+              color: isLight ? '#1a1d2e' : '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
               outline: 'none',
             }}
           >
             {LANGUAGES.map(lang => (
-              <option key={lang.id} value={lang.id} style={{ background: '#1a1a2e' }}>
+              <option key={lang.id} value={lang.id} style={{ background: isLight ? '#f8f9fa' : '#1a1a2e', color: isLight ? '#1a1d2e' : '#fff' }}>
                 {lang.icon} {lang.label}
               </option>
             ))}
           </select>
           <ChevronDown size={12} style={{
             position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-            color: 'rgba(255,255,255,0.3)', pointerEvents: 'none',
+            color: isLight ? 'rgba(99,102,241,0.3)' : 'rgba(255,255,255,0.3)', pointerEvents: 'none',
           }} />
         </div>
 
@@ -90,9 +108,9 @@ export default function DSAToolbar({
         <div style={{ position: 'relative' }} ref={dropdownRef}>
           <button onClick={() => { setShowTemplates(s => !s); setShowSettings(false); }} style={{
             padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
-            background: showTemplates ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.04)',
-            border: `1px solid ${showTemplates ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.08)'}`,
-            color: showTemplates ? '#c084fc' : 'rgba(255,255,255,0.5)',
+            background: showTemplates ? (isLight ? 'rgba(99,102,241,0.12)' : 'rgba(139,92,246,0.15)') : (isLight ? 'rgba(99,102,241,0.04)' : 'rgba(255,255,255,0.04)'),
+            border: `1px solid ${showTemplates ? (isLight ? 'rgba(99,102,241,0.25)' : 'rgba(139,92,246,0.3)') : (isLight ? 'rgba(99,102,241,0.1)' : 'rgba(255,255,255,0.08)')}`,
+            color: showTemplates ? '#c084fc' : (isLight ? '#6b7280' : 'rgba(255,255,255,0.5)'),
             fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5,
           }}>
             <Braces size={12} /> Templates <ChevronDown size={10} />
@@ -102,15 +120,15 @@ export default function DSAToolbar({
             <div style={{
               position: 'absolute', top: '100%', left: 0, marginTop: 4,
               width: 280, maxHeight: 400, overflowY: 'auto',
-              background: 'rgba(15,15,30,0.98)', border: '1px solid rgba(255,255,255,0.08)',
+              background: isLight ? 'rgba(240, 240, 255, 0.98)' : 'rgba(15,15,30,0.98)', border: isLight ? '1px solid rgba(99,102,241,0.12)' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: 12, padding: 8, zIndex: 100,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              boxShadow: isLight ? '0 8px 32px rgba(0,0,0,0.08)' : '0 8px 32px rgba(0,0,0,0.5)',
               backdropFilter: 'blur(20px)',
             }}>
               {ALL_TEMPLATES.map(group => (
                 <div key={group.group}>
                   <div style={{
-                    fontSize: 9, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+                    fontSize: 9, color: isLight ? 'rgba(99,102,241,0.4)' : 'rgba(255,255,255,0.3)', fontWeight: 700,
                     textTransform: 'uppercase', letterSpacing: 0.5, padding: '8px 8px 4px',
                   }}>{group.group}</div>
                   {group.items.map(item => (

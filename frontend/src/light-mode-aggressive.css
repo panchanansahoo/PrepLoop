@@ -326,6 +326,112 @@ html[data-theme="light"] .dropdown-item:hover {
   color: #4f46e5 !important;
 }
 
+/* ✅ EDITOR TOOLBAR & SELECTS - LIGHT MODE */
+html[data-theme="light"] select,
+html[data-theme="light"] select option {
+  background: #ffffff !important;
+  color: #1a1d2e !important;
+  border-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+html[data-theme="light"] select option {
+  background: #f8f9fa !important;
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] [style*="background: 'rgba(10,10,26,0.98)'"],
+html[data-theme="light"] [style*="background: rgba(10,10,26,0.98)"] {
+  background: rgba(248, 249, 250, 0.95) !important;
+  border-bottom-color: rgba(99, 102, 241, 0.08) !important;
+}
+
+html[data-theme="light"] [style*="background: 'rgba(15,15,30,0.98)'"],
+html[data-theme="light"] [style*="background: rgba(15,15,30,0.98)"] {
+  background: rgba(240, 240, 255, 0.98) !important;
+  border-color: rgba(99, 102, 241, 0.12) !important;
+}
+
+html[data-theme="light"] [style*="color: 'rgba(255,255,255,0.5)'"],
+html[data-theme="light"] [style*="color: rgba(255,255,255,0.5)"] {
+  color: #6b7280 !important;
+}
+
+html[data-theme="light"] [style*="color: 'rgba(255,255,255,0.7)'"],
+html[data-theme="light"] [style*="color: rgba(255,255,255,0.7)"] {
+  color: #4b5563 !important;
+}
+
+html[data-theme="light"] [style*="color: '#fff'"],
+html[data-theme="light"] [style*="color: 'white'"],
+html[data-theme="light"] [style*="color: 'rgba(255,255,255"] {
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] [style*="background: 'rgba(255,255,255,0.04)'"],
+html[data-theme="light"] [style*="background: rgba(255,255,255,0.04)"] {
+  background: rgba(99, 102, 241, 0.04) !important;
+}
+
+html[data-theme="light"] [style*="background: 'rgba(255,255,255,0.06)'"],
+html[data-theme="light"] [style*="background: rgba(255,255,255,0.06)"] {
+  background: rgba(99, 102, 241, 0.06) !important;
+}
+
+html[data-theme="light"] [style*="background: 'rgba(255,255,255,0.02)'"],
+html[data-theme="light"] [style*="background: rgba(255,255,255,0.02)"] {
+  background: rgba(99, 102, 241, 0.02) !important;
+}
+
+html[data-theme="light"] [style*="border: '1px solid rgba(255,255,255,0.08)'"],
+html[data-theme="light"] [style*="border: 1px solid rgba(255,255,255,0.08)"] {
+  border-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+html[data-theme="light"] [style*="color: 'rgba(255,255,255,0.3)'"],
+html[data-theme="light"] [style*="color: rgba(255,255,255,0.3)"] {
+  color: #9ca3af !important;
+}
+
+html[data-theme="light"] [style*="color: 'rgba(255,255,255,0.2)'"],
+html[data-theme="light"] [style*="color: rgba(255,255,255,0.2)"] {
+  color: #d1d5db !important;
+}
+
+html[data-theme="light"] [style*="background: '#1a1a2e'"] {
+  background: #f0f4ff !important;
+  color: #1a1d2e !important;
+}
+
+/* MODALS & OVERLAYS */
+html[data-theme="light"] [style*="background: 'white'"],
+html[data-theme="light"] [style*="background: '#1a1a2e'"],
+html[data-theme="light"] [style*="background: '#030303'"] {
+  background: #ffffff !important;
+  color: #1a1d2e !important;
+}
+
+/* INPUT FIELDS */
+html[data-theme="light"] input,
+html[data-theme="light"] textarea {
+  background: #f8f9fa !important;
+  color: #1a1d2e !important;
+  border-color: rgba(99, 102, 241, 0.15) !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+/* BUTTONS WITH LIGHT COLORS */
+html[data-theme="light"] button {
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] button:disabled {
+  opacity: 0.5 !important;
+}
+
 /* ✅ AI ASSISTANT ORB - LIGHT MODE - COMPLETE FIX */
 html[data-theme="light"] .orb-container {
   filter: drop-shadow(0 4px 16px rgba(99, 102, 241, 0.2)) !important;
