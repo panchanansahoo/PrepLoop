@@ -8,12 +8,15 @@ import './config/env.js';
 import { apiCacheMiddleware } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import cspMiddleware from './middleware/csp.js';
+import { queryTimeout } from './middleware/queryTimeout.js';
+import { etagMiddleware } from './middleware/etag.js';
 import collaborationService from './services/collaborationService.js';
 
 import { disableConsoleLogs } from './utils/productionLogger.js';
 import { validateStartupEnv } from './config/startupEnvValidation.js';
 import { validateEnvironment } from './config/envValidation.js';
 import { corsOptions } from './config/cors.js';
+import { server as serverConfig, auth as authConfig, cache as cacheConfig } from './config/appConfig.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { sanitizeInput } from './middleware/sanitization.js';
 import { configureExpressTrustProxy, createProxyValidationMiddleware } from './middleware/proxyValidation.js';
@@ -47,80 +50,111 @@ async function initializeServer() {
     void initializeApplicationInsights(process.env.APPLICATIONINSIGHTS_CONNECTION_STRING);
 
     console.log('📦 Loading routes...');
-    const authRoutes = (await import('./routes/auth.js')).default;
-    const dsaRoutes = (await import('./routes/dsa.js')).default;
-    const practiceRoutes = (await import('./routes/practice.js')).default;
-    const aiRoutes = (await import('./routes/ai.js')).default;
-    const aiFeaturesRoutes = (await import('./routes/ai-features.js')).default;
-    const userRoutes = (await import('./routes/user.js')).default;
-    const resumeRoutes = (await import('./routes/resume.js')).default;
-    const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
-    const communityRoutes = (await import('./routes/community.js')).default;
-    const coachRoutes = (await import('./routes/coach.js')).default;
-    const interviewModule = await import('./routes/interview.js');
-    const interviewRoutes = interviewModule.default;
-    const { getInterviewAnalytics, getInterviewRecommendations } = interviewModule;
-    const interviewEnhancedRoutes = (await import('./routes/interview-enhanced.js')).default;
-    const interviewSuiteRoutes = (await import('./routes/interview-suite.js')).default;
-    const contactRoutes = (await import('./routes/contact.js')).default;
-    const blogRoutes = (await import('./routes/blog.js')).default;
-    const activityRoutes = (await import('./routes/activity.js')).default;
-    const companyInterviewRoutes = (await import('./routes/companyInterview.js')).default;
-    const paymentRoutes = (await import('./routes/payment.js')).default;
-    const voiceRoutes = (await import('./routes/voice.js')).default;
-    const notesRoutes = (await import('./routes/notes.js')).default;
-    const adminRoutes = (await import('./routes/admin.js')).default;
-    const jobsRoutes = (await import('./routes/jobs.js')).default;
-    const coinsRoutes = (await import('./routes/coins.js')).default;
-    const chatRoutes = (await import('./routes/chat.js')).default;
-    const scheduleRoutes = (await import('./routes/schedule.js')).default;
-    const hrRoutes = (await import('./routes/hr.js')).default;
-    const libraryRoutes = (await import('./routes/library.js')).default;
-    const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
-    const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
-    const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
-    const copilotRoutes = (await import('./routes/copilot.js')).default;
-    const leaderboardRoutes = (await import('./routes/leaderboard.js')).default;
-    const behavioralCoachRoutes = (await import('./routes/behavioral-coach.js')).default;
-    const dailyQuestionRoutes = (await import('./routes/daily-question.js')).default;
-    const interviewExperiencesRoutes = (await import('./routes/interview-experiences.js')).default;
 
-    // New feature routes
-    const codeReviewRoutes = (await import('./routes/code-review.js')).default;
-    const peerInterviewRoutes = (await import('./routes/peer-interview.js')).default;
-    const negotiationRoutes = (await import('./routes/negotiation.js')).default;
-    const flashcardsRoutes = (await import('./routes/flashcards.js')).default;
-    const complexityAnalyzerRoutes = (await import('./routes/complexity-analyzer.js')).default;
-    const jdQuestionsRoutes = (await import('./routes/jd-questions.js')).default;
-    const readinessCheckRoutes = (await import('./routes/readiness-check.js')).default;
-    const conceptExplainerRoutes = (await import('./routes/concept-explainer.js')).default;
-    const codeTranslatorRoutes = (await import('./routes/code-translator.js')).default;
-    const patternTrainerRoutes = (await import('./routes/pattern-trainer.js')).default;
-    const bugDebuggerRoutes = (await import('./routes/bug-debugger.js')).default;
-    const skillHeatmapRoutes = (await import('./routes/skill-heatmap.js')).default;
-    const dailyWinRoutes = (await import('./routes/daily-win.js')).default;
-    const answerTimerRoutes = (await import('./routes/answer-timer.js')).default;
+    // Route loading helper — returns null on failure so server keeps running
+    const failedGroups = [];
+    async function loadRoute(name, path) {
+      try {
+        return (await import(path)).default;
+      } catch (err) {
+        console.error(`⚠️ Failed to load route "${name}" from ${path}:`, err.message);
+        failedGroups.push(name);
+        return null;
+      }
+    }
 
-    // New student feature routes
-    const questionBankRoutes = (await import('./routes/question-bank.js')).default;
-    const weeklyReportRoutes = (await import('./routes/weekly-report.js')).default;
-    const rejectionAnalyzerRoutes = (await import('./routes/rejection-analyzer.js')).default;
-    const accountabilityRoutes = (await import('./routes/accountability.js')).default;
+    // ─── Core infrastructure routes ───
+    const authRoutes = await loadRoute('auth', './routes/auth.js');
+    const healthRoutes = await loadRoute('health', './routes/health.js');
+    const userRoutes = await loadRoute('user', './routes/user.js');
+    const contactRoutes = await loadRoute('contact', './routes/contact.js');
+    const adminRoutes = await loadRoute('admin', './routes/admin.js');
+    const gdprRoutes = await loadRoute('gdpr', './routes/gdpr.js');
+    const metricsRoutes = await loadRoute('metrics', './routes/metrics.js');
+    const analyticsEventsRoutes = await loadRoute('analytics-events', './routes/analytics-events.js');
+    const performanceMetricsRoutes = await loadRoute('performance-metrics', './routes/performance-metrics.js');
 
-    // Phase 2-6: New improvement routes
-    const gdprRoutes = (await import('./routes/gdpr.js')).default;
-    const metricsRoutes = (await import('./routes/metrics.js')).default;
-    const analyticsEventsRoutes = (await import('./routes/analytics-events.js')).default;
-    const performanceMetricsRoutes = (await import('./routes/performance-metrics.js')).default;
-    const questionQualityRoutes = (await import('./routes/question-quality.js')).default;
+    // ─── Practice & DSA routes ───
+    const dsaRoutes = await loadRoute('dsa', './routes/dsa.js');
+    const practiceRoutes = await loadRoute('practice', './routes/practice.js');
+    const flashcardsRoutes = await loadRoute('flashcards', './routes/flashcards.js');
+    const patternTrainerRoutes = await loadRoute('pattern-trainer', './routes/pattern-trainer.js');
+    const complexityAnalyzerRoutes = await loadRoute('complexity-analyzer', './routes/complexity-analyzer.js');
+    const codeTranslatorRoutes = await loadRoute('code-translator', './routes/code-translator.js');
+    const bugDebuggerRoutes = await loadRoute('bug-debugger', './routes/bug-debugger.js');
+    const conceptExplainerRoutes = await loadRoute('concept-explainer', './routes/concept-explainer.js');
+    const questionQualityRoutes = await loadRoute('question-quality', './routes/question-quality.js');
+    const dailyChallengesRoutes = await loadRoute('daily-challenges', './routes/daily-question.js');
+
+    // ─── Interview & AI routes ───
+    const aiRoutes = await loadRoute('ai', './routes/ai.js');
+    const aiFeaturesRoutes = await loadRoute('ai-features', './routes/ai-features.js');
+    const coachRoutes = await loadRoute('coach', './routes/coach.js');
+    let interviewRoutes = null, getInterviewAnalytics = null, getInterviewRecommendations = null;
+    try {
+      const interviewModule = await import('./routes/interview.js');
+      interviewRoutes = interviewModule.default;
+      getInterviewAnalytics = interviewModule.getInterviewAnalytics;
+      getInterviewRecommendations = interviewModule.getInterviewRecommendations;
+    } catch (err) {
+      console.error('⚠️ Failed to load route "interview":', err.message);
+      failedGroups.push('interview');
+    }
+    const interviewEnhancedRoutes = await loadRoute('interview-enhanced', './routes/interview-enhanced.js');
+    const interviewSuiteRoutes = await loadRoute('interview-suite', './routes/interview-suite.js');
+    const companyInterviewRoutes = await loadRoute('company-interview', './routes/companyInterview.js');
+    const voiceRoutes = await loadRoute('voice', './routes/voice.js');
+    const fresherInterviewRoutes = await loadRoute('fresher-interview', './routes/fresher-interview.js');
+    const behavioralCoachRoutes = await loadRoute('behavioral-coach', './routes/behavioral-coach.js');
+    const interviewExperiencesRoutes = await loadRoute('interview-experiences', './routes/interview-experiences.js');
+    const codeReviewRoutes = await loadRoute('code-review', './routes/code-review.js');
+    const peerInterviewRoutes = await loadRoute('peer-interview', './routes/peer-interview.js');
+
+    // ─── Career & content routes ───
+    const resumeRoutes = await loadRoute('resume', './routes/resume.js');
+    const systemDesignRoutes = await loadRoute('system-design', './routes/systemDesign.js');
+    const communityRoutes = await loadRoute('community', './routes/community.js');
+    const blogRoutes = await loadRoute('blog', './routes/blog.js');
+    const activityRoutes = await loadRoute('activity', './routes/activity.js');
+    const jobsRoutes = await loadRoute('jobs', './routes/jobs.js');
+    const copilotRoutes = await loadRoute('copilot', './routes/copilot.js');
+    const negotiationRoutes = await loadRoute('negotiation', './routes/negotiation.js');
+
+    // ─── Platform & feature routes ───
+    const paymentRoutes = await loadRoute('payment', './routes/payment.js');
+    const notesRoutes = await loadRoute('notes', './routes/notes.js');
+    const coinsRoutes = await loadRoute('coins', './routes/coins.js');
+    const chatRoutes = await loadRoute('chat', './routes/chat.js');
+    const scheduleRoutes = await loadRoute('schedule', './routes/schedule.js');
+    const hrRoutes = await loadRoute('hr', './routes/hr.js');
+    const libraryRoutes = await loadRoute('library', './routes/library.js');
+    const improvementPlanRoutes = await loadRoute('improvement-plan', './routes/improvement-plan.js');
+    const studyGroupsRoutes = await loadRoute('study-groups', './routes/study-groups.js');
+    const leaderboardRoutes = await loadRoute('leaderboard', './routes/leaderboard.js');
+
+    // ─── Student feature routes ───
+    const skillHeatmapRoutes = await loadRoute('skill-heatmap', './routes/skill-heatmap.js');
+    const dailyWinRoutes = await loadRoute('daily-win', './routes/daily-win.js');
+    const answerTimerRoutes = await loadRoute('answer-timer', './routes/answer-timer.js');
+    const jdQuestionsRoutes = await loadRoute('jd-questions', './routes/jd-questions.js');
+    const readinessCheckRoutes = await loadRoute('readiness-check', './routes/readiness-check.js');
+    const questionBankRoutes = await loadRoute('question-bank', './routes/question-bank.js');
+    const weeklyReportRoutes = await loadRoute('weekly-report', './routes/weekly-report.js');
+    const rejectionAnalyzerRoutes = await loadRoute('rejection-analyzer', './routes/rejection-analyzer.js');
+    const accountabilityRoutes = await loadRoute('accountability', './routes/accountability.js');
+
+    // ─── Middleware imports ───
     const { tracingMiddleware } = await import('./utils/tracer.js');
-    
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
-    const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
+    const { healthCheck, readinessCheck: readinessCheckMw, livenessCheck } = await import('./middleware/healthCheck.js');
     const { metrics } = await import('./utils/metrics.js');
 
-    console.log('✅ Routes loaded successfully');
+    if (failedGroups.length > 0) {
+      console.warn(`⚠️ Server starting with ${failedGroups.length} failed route group(s): ${failedGroups.join(', ')}`);
+    } else {
+      console.log('✅ All routes loaded successfully');
+    }
 
     app = express();
     
@@ -201,9 +235,16 @@ async function initializeServer() {
     // Input sanitization (skip for payment webhook to preserve raw body for signature verification)
     app.use(sanitizeInput({ skipPaths: ['/api/payment/webhook'] }));
     
+    // Request timeout protection — prevents runaway queries from holding connections
+    app.use(queryTimeout());
+    
     // API cache middleware (before rate limiting)
     // Safe cacheable GET requests are served from cache, bypassing rate limits
     app.use('/api', apiCacheMiddleware());
+    
+    // ETag middleware — generates weak ETags for GET responses
+    // Enables 304 Not Modified to reduce bandwidth on repeated requests
+    app.use('/api', etagMiddleware());
     
     // Rate limiting (after cache middleware)
     // Cache hits never reach this middleware
@@ -266,22 +307,30 @@ async function initializeServer() {
       });
     }
 
-    // Health check endpoints
+    // Health check endpoints (middleware-based)
     app.get('/health', healthCheck);
-    app.get('/health/ready', readinessCheck);
+    app.get('/health/ready', readinessCheckMw);
     app.get('/health/live', livenessCheck);
+    
+    // Enhanced health routes (router-based with additional diagnostics)
+    if (healthRoutes) app.use('/', healthRoutes);
 
-    // Register all routes
-    app.use('/api/auth', authRoutes);
-    app.use('/api/dsa', dsaRoutes);
-    app.use('/api/practice', practiceRoutes);
-    app.use('/api/ai', aiRoutes);
-    app.use('/api/ai-features', aiFeaturesRoutes);
-    app.use('/api/user', userRoutes);
-    app.use('/api/resume', resumeRoutes);
-    app.use('/api/system-design', systemDesignRoutes);
-    app.use('/api/community', communityRoutes);
-    app.use('/api/ai/coach', coachRoutes);
+    // Helper: only mount routes that loaded successfully
+    function mount(path, router) {
+      if (router) app.use(path, router);
+    }
+
+    // Register all routes (null-safe — skips any that failed to load)
+    mount('/api/auth', authRoutes);
+    mount('/api/dsa', dsaRoutes);
+    mount('/api/practice', practiceRoutes);
+    mount('/api/ai', aiRoutes);
+    mount('/api/ai-features', aiFeaturesRoutes);
+    mount('/api/user', userRoutes);
+    mount('/api/resume', resumeRoutes);
+    mount('/api/system-design', systemDesignRoutes);
+    mount('/api/community', communityRoutes);
+    mount('/api/ai/coach', coachRoutes);
 
     // Monitoring middleware for interview endpoints
     app.use('/api/ai/interview', (req, res, next) => {
@@ -296,70 +345,65 @@ async function initializeServer() {
       next();
     });
 
-    app.use('/api/ai/interview', interviewRoutes);
-    app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
-    app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
-    app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
-    app.use('/api/interview-suite', interviewSuiteRoutes);
-    app.use('/api/contact', contactRoutes);
-    app.use('/api/blog', blogRoutes);
-    app.use('/api/activity', activityRoutes);
-    app.use('/api/company-interview', companyInterviewRoutes);
-    app.use('/api/payment', paymentRoutes);
-    app.use('/api/voice', voiceRoutes);
-    app.use('/api/notes', notesRoutes);
-    app.use('/api/admin', adminRoutes);
-    app.use('/api/jobs', jobsRoutes);
-    app.use('/api/coins', coinsRoutes);
-    app.use('/api/chat', chatRoutes);
-    app.use('/api/schedule', scheduleRoutes);
-    app.use('/api/hr', hrRoutes);
-    app.use('/api/library', libraryRoutes);
-    app.use('/api/improvement-plan', improvementPlanRoutes);
-    app.use('/api/study-groups', studyGroupsRoutes);
-    app.use('/api/fresher-interview', fresherInterviewRoutes);
-    app.use('/api/copilot', copilotRoutes);
-    app.use('/api/leaderboard', leaderboardRoutes);
-    app.use('/api/behavioral-coach', behavioralCoachRoutes);
-    app.use('/api/daily-question', dailyQuestionRoutes);
-    app.use('/api/interview-experiences', interviewExperiencesRoutes);
+    mount('/api/ai/interview', interviewRoutes);
+    mount('/api/ai/interview/v2', interviewEnhancedRoutes);
+    if (getInterviewAnalytics) app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
+    if (getInterviewRecommendations) app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
+    mount('/api/interview-suite', interviewSuiteRoutes);
+    mount('/api/contact', contactRoutes);
+    mount('/api/blog', blogRoutes);
+    mount('/api/activity', activityRoutes);
+    mount('/api/company-interview', companyInterviewRoutes);
+    mount('/api/payment', paymentRoutes);
+    mount('/api/voice', voiceRoutes);
+    mount('/api/notes', notesRoutes);
+    mount('/api/admin', adminRoutes);
+    mount('/api/jobs', jobsRoutes);
+    mount('/api/coins', coinsRoutes);
+    mount('/api/chat', chatRoutes);
+    mount('/api/schedule', scheduleRoutes);
+    mount('/api/hr', hrRoutes);
+    mount('/api/library', libraryRoutes);
+    mount('/api/improvement-plan', improvementPlanRoutes);
+    mount('/api/study-groups', studyGroupsRoutes);
+    mount('/api/fresher-interview', fresherInterviewRoutes);
+    mount('/api/copilot', copilotRoutes);
+    mount('/api/leaderboard', leaderboardRoutes);
+    mount('/api/behavioral-coach', behavioralCoachRoutes);
+    mount('/api/daily-question', dailyChallengesRoutes);
+    mount('/api/interview-experiences', interviewExperiencesRoutes);
 
-    // New feature routes
-    app.use('/api/code-review', codeReviewRoutes);
-    app.use('/api/peer-interview', peerInterviewRoutes);
-    app.use('/api/negotiation', negotiationRoutes);
-    app.use('/api/flashcards', flashcardsRoutes);
-    app.use('/api/complexity', complexityAnalyzerRoutes);
-    app.use('/api/jd-questions', jdQuestionsRoutes);
-    app.use('/api/readiness', readinessCheckRoutes);
-    app.use('/api/concept-explainer', conceptExplainerRoutes);
-    app.use('/api/code-translator', codeTranslatorRoutes);
-    app.use('/api/pattern-trainer', patternTrainerRoutes);
-    app.use('/api/bug-debugger', bugDebuggerRoutes);
-    app.use('/api/skill-heatmap', skillHeatmapRoutes);
-    app.use('/api/daily-win', dailyWinRoutes);
-    app.use('/api/answer-timer', answerTimerRoutes);
+    // Feature routes
+    mount('/api/code-review', codeReviewRoutes);
+    mount('/api/peer-interview', peerInterviewRoutes);
+    mount('/api/negotiation', negotiationRoutes);
+    mount('/api/flashcards', flashcardsRoutes);
+    mount('/api/complexity', complexityAnalyzerRoutes);
+    mount('/api/jd-questions', jdQuestionsRoutes);
+    mount('/api/readiness', readinessCheckRoutes);
+    mount('/api/concept-explainer', conceptExplainerRoutes);
+    mount('/api/code-translator', codeTranslatorRoutes);
+    mount('/api/pattern-trainer', patternTrainerRoutes);
+    mount('/api/bug-debugger', bugDebuggerRoutes);
+    mount('/api/skill-heatmap', skillHeatmapRoutes);
+    mount('/api/daily-win', dailyWinRoutes);
+    mount('/api/answer-timer', answerTimerRoutes);
 
     // Student feature routes
-    app.use('/api/question-bank', questionBankRoutes);
-    app.use('/api/weekly-report', weeklyReportRoutes);
-    app.use('/api/rejection-analyzer', rejectionAnalyzerRoutes);
-    app.use('/api/accountability', accountabilityRoutes);
+    mount('/api/question-bank', questionBankRoutes);
+    mount('/api/weekly-report', weeklyReportRoutes);
+    mount('/api/rejection-analyzer', rejectionAnalyzerRoutes);
+    mount('/api/accountability', accountabilityRoutes);
 
-    // Phase 2-6: New routes
-    app.use('/api/gdpr', gdprRoutes);
-    
-    // Performance Metrics Endpoints (Phase 1 Optimization)
-    app.use('/api/metrics', performanceMetricsRoutes);
-    
-    // Question Quality & Recommendations (Phase 2.4)
-    app.use('/api/questions', questionQualityRoutes);
+    // Infrastructure routes
+    mount('/api/gdpr', gdprRoutes);
+    mount('/api/metrics', performanceMetricsRoutes);
+    mount('/api/questions', questionQualityRoutes);
     
     // SECURITY: Protect metrics endpoint with authentication and IP allowlist
-    // Requires: METRICS_API_KEY (recommended) and/or METRICS_IP_ALLOWLIST
-    app.use('/metrics', createMetricsSecurityMiddleware(), metricsRoutes);
+    if (metricsRoutes) app.use('/metrics', createMetricsSecurityMiddleware(), metricsRoutes);
     
-    app.use('/api/analytics', analyticsEventsRoutes);
+    mount('/api/analytics', analyticsEventsRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
@@ -473,7 +517,3 @@ initializeServer().then(() => {
 });
 
 export default app;
-
-// trigger restart
-
-// trigger restart 2

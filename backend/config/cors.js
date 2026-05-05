@@ -27,8 +27,12 @@ const ALL_ALLOWED_ORIGINS = [...ALLOWED_ORIGINS, ...DEVELOPMENT_ORIGINS];
  * Validate origin against allowed list
  */
 function isOriginAllowed(origin) {
-  // Allow server-side requests (no origin header)
-  if (!origin) return true;
+  // In production, ALWAYS require an origin header to prevent
+  // server-to-server or curl requests from bypassing CORS.
+  // In development, allow missing origin for API testing tools (Postman, etc).
+  if (!origin) {
+    return process.env.NODE_ENV !== 'production';
+  }
 
   // Check explicit allowed origins
   if (ALL_ALLOWED_ORIGINS.includes(origin)) return true;
@@ -44,8 +48,9 @@ function isOriginAllowed(origin) {
 
   // In production, check if origin matches production domain pattern
   if (process.env.NODE_ENV === 'production' && process.env.PRODUCTION_DOMAIN) {
+    const escapedDomain = process.env.PRODUCTION_DOMAIN.replace(/\./g, '\\.');
     const productionPattern = new RegExp(
-      `^https://(.*\\.)?${process.env.PRODUCTION_DOMAIN.replace('.', '\\.')}$`
+      `^https://(.*\\.)?${escapedDomain}$`
     );
     if (productionPattern.test(origin)) return true;
   }

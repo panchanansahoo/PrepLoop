@@ -50,9 +50,9 @@ describe('Phase 1 Integration: Hints + Custom Tests', () => {
         />
       );
 
-      expect(screen.getByText(/approach/i)).toBeInTheDocument();
-      expect(screen.getByText(/code/i)).toBeInTheDocument();
-      expect(screen.getByText(/edge case/i)).toBeInTheDocument();
+      expect(screen.getByText('Approach Hint')).toBeInTheDocument();
+      expect(screen.getByText('Code Hint')).toBeInTheDocument();
+      expect(screen.getByText('Edge Case Hint')).toBeInTheDocument();
     });
 
     it('should reveal hint on button click', async () => {
@@ -224,7 +224,7 @@ describe('Phase 1 Integration: Hints + Custom Tests', () => {
       );
 
       // Component should allow test creation
-      expect(screen.getByPlaceholderText(/input|expected/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Enter input')).toBeInTheDocument();
     });
   });
 
@@ -262,13 +262,17 @@ describe('Phase 1 Integration: Hints + Custom Tests', () => {
       );
 
       // Component should still render and be usable
-      expect(screen.getByPlaceholderText(/input|expected/i)).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Enter input')).toBeInTheDocument();
     });
 
     it('should allow retry after failures', async () => {
+      // First call is fetchStats on mount (successful)
+      // Second call is first click (fails)
+      // Third call is second click (succeeds)
       mockApiFetch
-        .mockRejectedValueOnce(new Error('First error'))
-        .mockResolvedValueOnce({ hint: 'Success on retry' });
+        .mockResolvedValueOnce({ stats: {} }) // fetchStats on mount
+        .mockRejectedValueOnce(new Error('First error')) // first click fails
+        .mockResolvedValueOnce({ hint: { can_reveal: true, hint_text: 'Success on retry', first_reveal: false } }); // second click succeeds
 
       render(
         <EnhancedHintsPanel
@@ -285,14 +289,14 @@ describe('Phase 1 Integration: Hints + Custom Tests', () => {
         await user.click(buttons[0]);
         
         await waitFor(() => {
-          expect(mockApiFetch).toHaveBeenCalledTimes(1);
+          expect(mockApiFetch).toHaveBeenCalledTimes(2); // fetchStats + first hint call
         });
 
         // Second click should retry and succeed
         await user.click(buttons[0]);
 
         await waitFor(() => {
-          expect(mockApiFetch).toHaveBeenCalledTimes(2);
+          expect(mockApiFetch).toHaveBeenCalledTimes(3); // fetchStats + first hint + second hint
         });
       }
     });

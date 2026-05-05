@@ -273,6 +273,170 @@ export function GenericCardSkeleton({ count = 3 }) {
 }
 
 // ============================================================
+// Additional page-level skeletons
+// ============================================================
+
+export function CodingPlaygroundSkeleton() {
+  injectStyles();
+  return (
+    <div className="skeleton-container" role="status" aria-label="Loading code editor" style={{ maxWidth: '100%', padding: 0 }}>
+      {/* Top toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Bone width={140} height={32} borderRadius={6} />
+        <Bone width={120} height={32} borderRadius={6} />
+        <div style={{ flex: 1 }} />
+        <Bone width={80} height={32} borderRadius={6} />
+        <Bone width={90} height={32} borderRadius={6} />
+      </div>
+
+      {/* Split pane: problem description + code editor */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 120px)' }}>
+        {/* Left: Problem panel */}
+        <div style={{ width: '40%', padding: 20, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+          <Bone width={200} height={24} style={{ marginBottom: 16 }} />
+          <div className="skeleton-flex" style={{ marginBottom: 20, gap: 8 }}>
+            <Bone width={60} height={22} borderRadius={11} />
+            <Bone width={70} height={22} borderRadius={11} />
+            <Bone width={80} height={22} borderRadius={11} />
+          </div>
+          {[1, 2, 3, 4, 5].map(i => (
+            <Bone key={i} width={`${85 - i * 5}%`} height={14} style={{ marginBottom: 10 }} />
+          ))}
+          <Bone width="100%" height={100} style={{ marginTop: 20, marginBottom: 16 }} />
+          <Bone width="90%" height={14} style={{ marginBottom: 8 }} />
+          <Bone width="80%" height={14} />
+        </div>
+
+        {/* Right: Code editor area */}
+        <div style={{ flex: 1, padding: 20 }}>
+          <div className="skeleton-flex" style={{ marginBottom: 12, gap: 8 }}>
+            <Bone width={90} height={28} borderRadius={6} />
+            <Bone width={90} height={28} borderRadius={6} />
+            <Bone width={90} height={28} borderRadius={6} />
+          </div>
+          <Bone width="100%" height="70%" style={{ marginBottom: 16 }} />
+          <div className="skeleton-flex" style={{ justifyContent: 'flex-end', gap: 12 }}>
+            <Bone width={100} height={36} borderRadius={8} />
+            <Bone width={120} height={36} borderRadius={8} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function JobUpdatesSkeleton() {
+  injectStyles();
+  return (
+    <div className="skeleton-container" role="status" aria-label="Loading job listings">
+      {/* Header */}
+      <Bone width={240} height={32} style={{ marginBottom: 8 }} />
+      <Bone width={380} height={16} style={{ marginBottom: 28 }} />
+
+      {/* Search + filters bar */}
+      <div className="skeleton-flex" style={{ marginBottom: 24, gap: 12 }}>
+        <Bone width={300} height={40} borderRadius={20} />
+        <Bone width={120} height={40} borderRadius={8} />
+        <Bone width={120} height={40} borderRadius={8} />
+        <Bone width={100} height={40} borderRadius={8} />
+      </div>
+
+      {/* Job cards grid */}
+      <div className="skeleton-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
+        {[1, 2, 3, 4, 5, 6].map(i => (
+          <div key={i} className="skeleton-card">
+            <div className="skeleton-flex" style={{ marginBottom: 12 }}>
+              <CircleBone size={40} />
+              <div style={{ flex: 1 }}>
+                <Bone width="70%" height={18} style={{ marginBottom: 6 }} />
+                <Bone width="50%" height={14} />
+              </div>
+            </div>
+            <div className="skeleton-flex" style={{ marginBottom: 10, gap: 8 }}>
+              <Bone width={70} height={20} borderRadius={10} />
+              <Bone width={80} height={20} borderRadius={10} />
+              <Bone width={60} height={20} borderRadius={10} />
+            </div>
+            <Bone width="100%" height={14} style={{ marginBottom: 6 }} />
+            <Bone width="85%" height={14} style={{ marginBottom: 16 }} />
+            <div className="skeleton-flex" style={{ justifyContent: 'space-between' }}>
+              <Bone width={100} height={12} />
+              <Bone width={80} height={30} borderRadius={15} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AIInterviewVideoSkeleton() {
+  injectStyles();
+  return (
+    <div role="status" aria-label="Loading AI interview" style={{ width: '100%', height: '100vh', background: '#0a0a0f', padding: 0 }}>
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '10px 20px', gap: 16, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Bone width={120} height={20} />
+        <div style={{ flex: 1 }} />
+        <Bone width={60} height={24} borderRadius={12} />
+        <Bone width={80} height={24} borderRadius={12} />
+        <Bone width={40} height={24} borderRadius={12} />
+        <div style={{ flex: 1 }} />
+        <Bone width={90} height={32} borderRadius={8} />
+      </div>
+
+      {/* Main body: video + workspace */}
+      <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
+        {/* Video area (left 60%) */}
+        <div style={{ flex: 6, position: 'relative', padding: 16 }}>
+          {/* Interviewer video tile */}
+          <div style={{ width: '100%', height: '75%', borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
+            <Bone width="100%" height="100%" borderRadius={16} />
+            {/* Name badge */}
+            <div style={{ position: 'absolute', bottom: 16, left: 16 }}>
+              <Bone width={160} height={24} borderRadius={12} />
+            </div>
+            {/* Status pill */}
+            <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)' }}>
+              <Bone width={120} height={28} borderRadius={14} />
+            </div>
+          </div>
+
+          {/* User PIP tile */}
+          <div style={{ position: 'absolute', bottom: 80, right: 32, width: 180, height: 135, borderRadius: 12, overflow: 'hidden' }}>
+            <Bone width="100%" height="100%" borderRadius={12} />
+          </div>
+
+          {/* Controls bar */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 16 }}>
+            {[1, 2, 3, 4, 5, 6].map(i => (
+              <CircleBone key={i} size={44} />
+            ))}
+          </div>
+        </div>
+
+        {/* Workspace panel (right 40%) */}
+        <div style={{ flex: 4, borderLeft: '1px solid rgba(255,255,255,0.06)', padding: 16 }}>
+          {/* Tab bar */}
+          <div className="skeleton-flex" style={{ marginBottom: 16, gap: 8 }}>
+            <Bone width={70} height={30} borderRadius={6} />
+            <Bone width={70} height={30} borderRadius={6} />
+            <Bone width={70} height={30} borderRadius={6} />
+          </div>
+          {/* Code editor area */}
+          <Bone width="100%" height="70%" style={{ marginBottom: 12 }} />
+          {/* Input + submit */}
+          <Bone width="100%" height={60} style={{ marginBottom: 12 }} />
+          <div className="skeleton-flex" style={{ justifyContent: 'flex-end' }}>
+            <Bone width={100} height={36} borderRadius={8} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // Route-aware skeleton that picks the right skeleton by path
 // ============================================================
 
@@ -281,10 +445,15 @@ const ROUTE_SKELETONS = {
   '/overview': DashboardSkeleton,
   '/problems': ProblemListSkeleton,
   '/dsa-path': ProblemListSkeleton,
-  '/ai-interview': InterviewSkeleton,
+  '/ai-interview': AIInterviewVideoSkeleton,
   '/interview': InterviewSkeleton,
+  '/interview-suite': InterviewSkeleton,
   '/profile': ProfileSkeleton,
   '/settings': ProfileSkeleton,
+  '/coding-playground': CodingPlaygroundSkeleton,
+  '/playground': CodingPlaygroundSkeleton,
+  '/jobs': JobUpdatesSkeleton,
+  '/job-updates': JobUpdatesSkeleton,
 };
 
 export function RouteAwareSkeleton({ pathname }) {

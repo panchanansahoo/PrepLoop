@@ -8,6 +8,7 @@ import {
   generateStressTests, detectProblemType
 } from '../../data/testCaseEngine';
 import { buildAuthHeaders } from '../../utils/authHeaders';
+import { TimeoutRecoveryAlert, ExecutionMetricsDisplay } from './TimeoutRecovery';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -153,9 +154,32 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   code = '', language = 'python', problemId = '', problemDescription = '',
   problemExamples = [], onTestResults
 }, ref) {
-  const [mode, setMode] = useState('testcase'); // 'testcase' | 'result' | 'stress'
+  const [mode, setMode] = useState('testcase'); // 'testcase' | 'result' | 'stress' | 'custom'
   const [activeCase, setActiveCase] = useState(0);
   const [runningCase, setRunningCase] = useState(null); // index of individually running case
+
+  // Custom test cases state
+  const [customTestsEnabled, setCustomTestsEnabled] = useState(false);
+  const [customTestCases, setCustomTestCases] = useState([]);
+  const [showCustomTestForm, setShowCustomTestForm] = useState(false);
+  const [newCustomInput, setNewCustomInput] = useState('');
+  const [newCustomExpected, setNewCustomExpected] = useState('');
+  const [newCustomDesc, setNewCustomDesc] = useState('');
+  const [savingCustomTests, setSavingCustomTests] = useState(false);
+  const [loadingCustomTests, setLoadingCustomTests] = useState(false);
+
+  // Execution error recovery state
+  const [lastExecutionError, setLastExecutionError] = useState(null);
+  const [lastExecutionDiagnostics, setLastExecutionDiagnostics] = useState(null);
+  const [lastExecutionMetrics, setLastExecutionMetrics] = useState(null);
+  const [showErrorRecovery, setShowErrorRecovery] = useState(false);
+
+  // Load saved custom tests on mount
+  useEffect(() => {
+    if (problemId && language) {
+      loadSavedCustomTests();
+    }
+  }, [problemId, language]);
 
   // Build test cases from problem examples
   const buildTestCases = (examples) => {
@@ -359,11 +383,152 @@ const TestCasePanel = forwardRef(function TestCasePanel({
     setRunning(false);
   };
 
+  /* ── Load saved custom tests ── */
+  const loadSavedCustomTests = async () => {
+    if (!problemId || !language) return;
+    setLoadingCustomTests(true);
+    try {
+      const res = await fetch(`${API_URL}/api/dsa/custom-tests/${problemId}?language=${language}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (data.success && data.customTests && data.customTests.length > 0) {
+        const tests = data.customTests[0]?.test_cases || [];
+        setCustomTestCases(tests.map((tc, i) => ({
+          id: `custom-${i}`,
+          input: tc.input,
+          expected: tc.expected,
+          description: tc.description || `Custom Test ${i + 1}`,
+          status: 'pending',
+        })));
+        setCustomTestsEnabled(tests.length > 0);
+      }
+    } catch (err) {
+      console.warn('Failed to load custom tests:', err);
+    } finally {
+      setLoadingCustomTests(false);
+    }
+  };
+
+  /* ── Save custom tests ── */
+  const saveCustomTests = async () => {
+    if (!problemId || customTestCases.length === 0) return;
+    setSavingCustomTests(true);
+    try {
+      const res = await fetch(`${API_URL}/api/dsa/custom-tests/${problemId}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          language,
+          testCases: customTestCases.map(tc => ({
+            input: tc.input,
+            expected: tc.expected,
+            description: tc.description,
+          })),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Saved successfully
+        console.log('Custom tests saved');
+      }
+    } catch (err) {
+      console.error('Failed to save custom tests:', err);
+    } finally {
+      setSavingCustomTests(false);
+    }
+  };
+
+  /* ── Add custom test case ── */
+  const addCustomTest = () => {
+    if (!newCustomInput.trim() || !newCustomExpected.trim()) return;
+    const newTest = {
+      id: `custom-${Date.now()}`,
+      input: newCustomInput,
+      expected: newCustomExpected,
+      description: newCustomDesc || `Custom Test ${customTestCases.length + 1}`,
+      status: 'pending',
+    };
+    setCustomTestCases(prev => [...prev, newTest]);
+    setNewCustomInput('');
+    setNewCustomExpected('');
+    setNewCustomDesc('');
+    setShowCustomTestForm(false);
+  };
+
+  /* ── Run custom tests ── */
+  const runCustomTests = async (timeoutOverride = null) => {
+    if (!code || customTestCases.length === 0) return;
+    setRunning(true);
+    setShowErrorRecovery(false);
+    try {
+      const res = await fetch(`${API_URL}/api/dsa/custom-tests/${problemId}/run`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          code,
+          language,
+          testCases: customTestCases.map(tc => ({
+            input: tc.input,
+            expected: tc.expected,
+            description: tc.description,
+          })),
+          timeout: timeoutOverride || 5000,
+        }),
+      });
+      const data = await res.json();
+
+      // Capture execution metrics and diagnostics for error display
+      if (data.memory || data.executionTime || data.timingBreakdown) {
+        setLastExecutionMetrics({
+          heapUsedMB: data.memory?.heapUsedMB,
+          totalMemoryMB: data.memory?.totalMemoryMB,
+          memoryDelta: data.memory?.memoryDelta,
+          executionTime: data.executionTime,
+          timingBreakdown: data.timingBreakdown,
+        });
+      }
+
+      if (data.success && data.results) {
+        const updatedTests = data.results.map((result, i) => ({
+          ...customTestCases[i],
+          status: result.passed ? 'passed' : 'failed',
+          actualOutput: String(result.actual || ''),
+          error: result.error,
+          diagnostics: result.diagnostics,
+        }));
+        setCustomTestCases(updatedTests);
+        setMode('custom');
+        const passed = updatedTests.filter(t => t.status === 'passed').length;
+        onTestResults?.({ passed, total: updatedTests.length, results: updatedTests, isCustom: true });
+        // Clear error recovery on success
+        setLastExecutionError(null);
+        setLastExecutionDiagnostics(null);
+      } else if (!data.success) {
+        // Capture error for recovery display
+        setLastExecutionError(data.error || 'Unknown error occurred');
+        setLastExecutionDiagnostics(data.diagnostics);
+        setShowErrorRecovery(true);
+        setMode('custom');
+      }
+    } catch (err) {
+      console.error('Failed to run custom tests:', err);
+      setLastExecutionError(err.message || 'Network error occurred');
+      setShowErrorRecovery(true);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   const current = testCases[activeCase] || testCases[0];
   const passedCount = testCases.filter(t => t.status === 'passed').length;
   const totalCount = testCases.length;
   const allPassed = passedCount === totalCount && testCases.every(t => t.status === 'passed');
   const hasResults = testCases.some(t => t.status !== 'pending');
+  
+  const customPassedCount = customTestCases.filter(t => t.status === 'passed').length;
+  const customTotalCount = customTestCases.length;
+  const customHasResults = customTestCases.some(t => t.status !== 'pending');
 
   return (
     <div style={S.panel}>
@@ -379,6 +544,9 @@ const TestCasePanel = forwardRef(function TestCasePanel({
           </button>
           <button onClick={() => setMode('stress')} style={S.modeTab(mode === 'stress')}>
             <FlaskConical size={12} /> Stress Test
+          </button>
+          <button onClick={() => setMode('custom')} style={S.modeTab(mode === 'custom')}>
+            <Plus size={12} /> Custom Tests
           </button>
         </div>
         {hasResults && (
@@ -556,6 +724,254 @@ const TestCasePanel = forwardRef(function TestCasePanel({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Custom Tests ── */}
+      {mode === 'custom' && (
+        <div style={S.body}>
+          {/* Error Recovery Alert */}
+          {showErrorRecovery && lastExecutionError && (
+            <TimeoutRecoveryAlert
+              error={lastExecutionError}
+              diagnostics={lastExecutionDiagnostics}
+              memory={lastExecutionMetrics}
+              executionTime={lastExecutionMetrics?.executionTime}
+              onRetry={runCustomTests}
+              onCancel={() => setShowErrorRecovery(false)}
+              loading={running}
+              language={language}
+            />
+          )}
+
+          {/* Execution Metrics Display */}
+          {!showErrorRecovery && lastExecutionMetrics && (
+            <ExecutionMetricsDisplay
+              memory={lastExecutionMetrics}
+              executionTime={lastExecutionMetrics?.executionTime}
+              timingBreakdown={lastExecutionMetrics?.timingBreakdown}
+              language={language}
+            />
+          )}
+
+          {/* Custom Test Form */}
+          <div style={{ marginBottom: 16 }}>
+            {!showCustomTestForm ? (
+              <button
+                onClick={() => setShowCustomTestForm(true)}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  color: '#60a5fa',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <Plus size={14} /> Add Custom Test Case
+              </button>
+            ) : (
+              <div
+                style={{
+                  padding: 12,
+                  background: 'rgba(59, 130, 246, 0.05)',
+                  borderRadius: 8,
+                  border: '1px solid rgba(59, 130, 246, 0.15)',
+                }}
+              >
+                <input
+                  placeholder="Input"
+                  value={newCustomInput}
+                  onChange={(e) => setNewCustomInput(e.target.value)}
+                  style={S.paramInput}
+                />
+                <input
+                  placeholder="Expected Output"
+                  value={newCustomExpected}
+                  onChange={(e) => setNewCustomExpected(e.target.value)}
+                  style={{ ...S.paramInput, marginTop: 8 }}
+                />
+                <input
+                  placeholder="Description (optional)"
+                  value={newCustomDesc}
+                  onChange={(e) => setNewCustomDesc(e.target.value)}
+                  style={{ ...S.paramInput, marginTop: 8 }}
+                />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button
+                    onClick={addCustomTest}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: 'rgba(34, 197, 94, 0.1)',
+                      border: '1px solid rgba(34, 197, 94, 0.2)',
+                      color: '#4ade80',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Add
+                  </button>
+                  <button
+                    onClick={() => setShowCustomTestForm(false)}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: 6,
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                      color: '#f87171',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Custom Test Cases List */}
+          {customTestCases.length > 0 && (
+            <div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: 'rgba(255,255,255,0.4)',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.5,
+                  marginBottom: 8,
+                }}
+              >
+                Custom Test Cases ({customPassedCount}/{customTotalCount} passed)
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {customTestCases.map((tc, i) => (
+                  <div
+                    key={tc.id}
+                    style={{
+                      padding: 12,
+                      borderRadius: 8,
+                      background:
+                        tc.status === 'passed'
+                          ? 'rgba(34, 197, 94, 0.04)'
+                          : tc.status === 'failed'
+                            ? 'rgba(239, 68, 68, 0.04)'
+                            : 'rgba(100, 116, 139, 0.04)',
+                      border: `1px solid ${tc.status === 'passed'
+                        ? 'rgba(34, 197, 94, 0.15)'
+                        : tc.status === 'failed'
+                          ? 'rgba(239, 68, 68, 0.15)'
+                          : 'rgba(100, 116, 139, 0.15)'
+                        }`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      {tc.status === 'passed' ? (
+                        <CheckCircle2 size={14} color="#22c55e" />
+                      ) : tc.status === 'failed' ? (
+                        <XCircle size={14} color="#ef4444" />
+                      ) : (
+                        <Clock size={14} color="#94a3b8" />
+                      )}
+                      <span
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: 'rgba(255,255,255,0.8)',
+                        }}
+                      >
+                        {tc.description}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setCustomTestCases((prev) =>
+                            prev.filter((_, idx) => idx !== i)
+                          );
+                        }}
+                        style={{
+                          marginLeft: 'auto',
+                          background: 'none',
+                          border: 'none',
+                          color: 'rgba(255,255,255,0.4)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                        title="Delete"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: 'rgba(255,255,255,0.6)',
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      <div>Input: {tc.input}</div>
+                      <div>Expected: {tc.expected}</div>
+                      {tc.actualOutput && (
+                        <div>Actual: {tc.actualOutput}</div>
+                      )}
+                      {tc.error && (
+                        <div style={{ color: '#f87171', marginTop: 4 }}>
+                          Error: {tc.error}
+                        </div>
+                      )}
+                      {tc.diagnostics && (
+                        <div style={{ marginTop: 4, color: '#f97316' }}>
+                          <strong>Type:</strong> {tc.diagnostics.category}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Run Button */}
+              <button
+                onClick={runCustomTests}
+                disabled={running}
+                style={{
+                  width: '100%',
+                  marginTop: 12,
+                  padding: '10px 16px',
+                  borderRadius: 8,
+                  background: running
+                    ? 'rgba(59, 130, 246, 0.1)'
+                    : 'rgba(59, 130, 246, 0.2)',
+                  border: '1px solid rgba(59, 130, 246, 0.3)',
+                  color: '#60a5fa',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: running ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: running ? 0.6 : 1,
+                }}
+              >
+                <Play size={14} />
+                {running ? 'Running Custom Tests...' : 'Run Custom Tests'}
+              </button>
             </div>
           )}
         </div>

@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import { useAuth } from '../context/AuthContext';
 // Legacy useVoiceInterview removed ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â all voice handled by useVoiceAI
 import { useVoiceAI } from '../hooks/useVoiceAI';
+import { useInterviewTimer } from '../hooks/useInterviewTimer';
 import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
 import { useInterviewRecovery } from '../hooks/useInterviewRecovery';
 import VoiceWaveform from '../components/VoiceWaveform';
@@ -103,11 +104,11 @@ function AIInterviewPageInner() {
                 const baseUrl = import.meta.env.VITE_API_URL || window.location.origin;
                 const wsProtocol = baseUrl.startsWith('https') ? 'wss:' : 'ws:';
                 const host = baseUrl.replace(/^https?:\/\//, '');
-                
+
                 // For local dev where frontend is 5173 and backend is 5000
                 const finalHost = host.includes('5173') ? host.replace('5173', '5000') : host;
                 const wsUrl = `${wsProtocol}//${finalHost}/ws?token=${token}`;
-                
+
                 const ws = new WebSocket(wsUrl);
                 wsRef.current = ws;
 
@@ -232,17 +233,17 @@ function AIInterviewPageInner() {
         onAnswer: useCallback((answerText) => {
             // Push transcribed text into state for UI display
             setTranscriptRaw(answerText || '');
-            
+
             // Track if this was a silent answer (no speech detected)
             const isSilentAnswer = !answerText || answerText.trim().length === 0 || answerText === "I do not have a response to this question.";
-            
+
             if (isSilentAnswer) {
                 setConsecutiveSilentQuestions(prev => prev + 1);
             } else {
                 // User spoke, reset silent counter
                 setConsecutiveSilentQuestions(0);
             }
-            
+
             // CRITICAL: Pass answerText directly to sendAnswer because React
             // state (transcript) won't update until the next render. Without
             // this, sendAnswer reads stale/empty transcript and silently bails.
@@ -294,7 +295,7 @@ function AIInterviewPageInner() {
         try {
             await voiceAI.speak(text, {
                 onStart: () => setAiSpeaking(true),
-                onEnd:   () => {},  // Handled by caller or speakSequence
+                onEnd: () => { },  // Handled by caller or speakSequence
             });
         } finally {
             // Only set false if this is a standalone call (speakSequence overrides)
@@ -319,8 +320,8 @@ function AIInterviewPageInner() {
                 if (!text || !text.trim()) continue;
 
                 await voiceAI.speak(text, {
-                    onStart: () => {},  // aiSpeaking already true
-                    onEnd:   () => {},  // Don't set false between segments
+                    onStart: () => { },  // aiSpeaking already true
+                    onEnd: () => { },  // Don't set false between segments
                 });
 
                 // Brief natural pause between segments (not after last one)
@@ -810,7 +811,7 @@ function AIInterviewPageInner() {
         }
 
         if (inactiveVideo) inactiveVideo.pause();
-        if (activeVideo) activeVideo.play().catch(() => {});
+        if (activeVideo) activeVideo.play().catch(() => { });
 
         return () => {
             if (activeVideo) interviewerPlaybackRef.current[activeMode] = activeVideo.currentTime || 0;
@@ -895,9 +896,9 @@ function AIInterviewPageInner() {
 
         // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Pipecat Real-Time Mode ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
         if (realtimeMode) {
-                console.warn('[Pipecat] Real-time mode is temporarily unavailable, falling back to classic flow.');
-                setRealtimeMode(false);
-            }
+            console.warn('[Pipecat] Real-time mode is temporarily unavailable, falling back to classic flow.');
+            setRealtimeMode(false);
+        }
 
         // Minimum display time for connecting animation (kept minimal for speed)
         const minDelay = new Promise(resolve => setTimeout(resolve, 1200));
@@ -998,10 +999,10 @@ function AIInterviewPageInner() {
             // Transition to interview phase
             setPhase('interview');
             setLoading(false);
-            
+
             // Speak the greeting (audio already pre-fetched, plays instantly)
             await speakInterviewerText(questionText);
-            
+
             // Auto-start mic after first question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â micOn syncs via effect
             startVoiceRecording();
         } catch (error) {
@@ -1027,10 +1028,10 @@ function AIInterviewPageInner() {
                 content: fallbackQ,
                 timestamp: Date.now(),
             }]);
-            
+
             // Pre-fetch fallback question audio
             voiceAI.prefetch(fallbackQ);
-            
+
             setLoading(false);
             setPhase('interview');
             await speakInterviewerText(fallbackQ);
@@ -1059,278 +1060,278 @@ function AIInterviewPageInner() {
         isSendingRef.current = true;
 
         try {
-        // Bug 3 fix: Cancel ALL competing timers to prevent duplicate submissions.
-        // This is critical because sendAnswer can be called from:
-        //   1. Per-question timer expiry (line ~632)
-        //   2. Silence auto-skip (line ~1281)
-        //   3. Manual submit button
-        // Without cross-cancellation, multiple paths can fire simultaneously.
-        if (questionTimerRef.current) {
-            clearInterval(questionTimerRef.current);
-            questionTimerRef.current = null;
-        }
-        if (silenceStageTimerRef.current) {
-            clearTimeout(silenceStageTimerRef.current);
-            silenceStageTimerRef.current = null;
-        }
-        setSilenceStage(0);
+            // Bug 3 fix: Cancel ALL competing timers to prevent duplicate submissions.
+            // This is critical because sendAnswer can be called from:
+            //   1. Per-question timer expiry (line ~632)
+            //   2. Silence auto-skip (line ~1281)
+            //   3. Manual submit button
+            // Without cross-cancellation, multiple paths can fire simultaneously.
+            if (questionTimerRef.current) {
+                clearInterval(questionTimerRef.current);
+                questionTimerRef.current = null;
+            }
+            if (silenceStageTimerRef.current) {
+                clearTimeout(silenceStageTimerRef.current);
+                silenceStageTimerRef.current = null;
+            }
+            setSilenceStage(0);
 
-        // Stop any ongoing voice recording (use ref to avoid stale closure)
-        if (isListeningRef.current) stopVoiceRecording();
+            // Stop any ongoing voice recording (use ref to avoid stale closure)
+            if (isListeningRef.current) stopVoiceRecording();
 
-        // Stop ALL AI speech immediately when user sends answer (smooth transition)
-        speakSequenceCancelledRef.current = true;
-        voiceAI.interrupt();
-        if (ttsAudioRef.current) {
-            ttsAudioRef.current.pause();
-            ttsAudioRef.current = null;
-        }
-        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-        setAiSpeaking(false);
+            // Stop ALL AI speech immediately when user sends answer (smooth transition)
+            speakSequenceCancelledRef.current = true;
+            voiceAI.interrupt();
+            if (ttsAudioRef.current) {
+                ttsAudioRef.current.pause();
+                ttsAudioRef.current = null;
+            }
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            setAiSpeaking(false);
 
-        // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
-        // pass the answer text directly, bypassing stale React state.
-        // Bug 3 fix: Read from stateRefs to avoid stale closure on userInput/transcript
-        const currentBoilerplate = BOILERPLATE[stateRefs.current.language] || '';
-        const codeIsSubmittableForAnswer = hasMeaningfulCode(stateRefs.current.code, {
-            boilerplate: currentBoilerplate,
-        });
-        const { answer, fullAnswer } = resolveSubmittedAnswer({
-            providedAnswer: isAutoSkip === true ? "I do not have a response to this question." : answerOverride,
-            userInput: stateRefs.current.userInput,
-            transcript: stateRefs.current.transcript,
-            code: stateRefs.current.code,
-            boilerplate: currentBoilerplate,
-        });
-
-        // Bug 1 fix: Track consecutive silent auto-skips for graceful early-exit
-        if (isAutoSkip === true) {
-            setConsecutiveSilentQuestions(prev => prev + 1);
-        } else if (answer && answer.length > 10) {
-            setConsecutiveSilentQuestions(0);
-        }
-
-        // Trigger answer analysis (non-blocking, fire-and-forget)
-        if (answer && answer.length > 10) {
-            intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
-        }
-        if (!answer && !codeIsSubmittableForAnswer && isAutoSkip !== true) { isSendingRef.current = false; return; }
-
-        setConversation(prev => [...prev, {
-            role: 'candidate',
-            content: answer || '[Code submitted]',
-            timestamp: Date.now(),
-        }]);
-        setUserInput('');
-        setTranscript('');
-        setLoading(true);
-
-        const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
-        const resolvedCompany = targetCompany || 'Google';
-        const resolvedRole = targetRole || 'Software Engineer';
-
-        const technicalFollowUpFallbacks = experienceLevel === 'fresher'
-            ? [
-                'Can you connect that to a class project, internship, or side project you worked on?',
-                'Can you give one concrete example from something you built or studied?',
-                'Can you walk me through a specific project or coursework example that shows that in practice?',
-            ]
-            : [
-                'Can you walk me through your approach step by step, including trade-offs?',
-                'What alternative would you consider, and why?',
-                'How would you apply that in a real system or team setting?',
-            ];
-        const pickTechnicalFollowUpFallback = (seed = 0) => {
-            const index = Math.abs(seed) % technicalFollowUpFallbacks.length;
-            return technicalFollowUpFallbacks[index];
-        };
-
-        try {
-            const headers = getAuthHeaders ? getAuthHeaders() : {};
-
-            // Build experience-aware advanced options for follow-up
-            const followUpAdvancedOpts = {
-                interviewerIntensity: experienceLevel === 'fresher' ? 'supportive' : 'balanced',
-                followUpDepth: experienceLevel === 'fresher' ? 'shallow' : 'deep',
-                answerPace: experienceLevel === 'fresher' ? 'slow' : 'balanced',
-                resumeInterviewMode: experienceLevel === 'fresher' ? 'fresher-hr-tech' : 'project-deep-dive',
-                questionCount: totalQuestions,
-            };
-
-            const res = await fetch('/api/company-interview/follow-up', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...headers },
-                body: JSON.stringify({
-                    previousQuestion: currentQuestion,
-                    userAnswer: fullAnswer,
-                    // Fix #3: Use ref to avoid stale closure on questionIndex
-                    questionNumber: questionIndexRef.current + 1,
-                    totalQuestions,
-                    company: resolvedCompany,
-                    role: resolvedRole,
-                    stage: resolvedStage,
-                    difficulty: experienceLevel === 'fresher' ? 'easy' : 'medium',
-                    experienceLevel,
-                    conversationHistory: conversation.slice(-12).map(m => ({ role: m.role, content: m.content })),
-                    code: code.trim() || undefined,
-                    codeLanguage: language,
-                    advancedOptions: followUpAdvancedOpts,
-                    resumeContext: activeResumeContext,
-                }),
+            // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
+            // pass the answer text directly, bypassing stale React state.
+            // Bug 3 fix: Read from stateRefs to avoid stale closure on userInput/transcript
+            const currentBoilerplate = BOILERPLATE[stateRefs.current.language] || '';
+            const codeIsSubmittableForAnswer = hasMeaningfulCode(stateRefs.current.code, {
+                boilerplate: currentBoilerplate,
+            });
+            const { answer, fullAnswer } = resolveSubmittedAnswer({
+                providedAnswer: isAutoSkip === true ? "I do not have a response to this question." : answerOverride,
+                userInput: stateRefs.current.userInput,
+                transcript: stateRefs.current.transcript,
+                code: stateRefs.current.code,
+                boilerplate: currentBoilerplate,
             });
 
-            if (!res.ok) {
-                const errorPayload = {
-                    stage: resolvedStage,
-                    questionIndex,
-                    experienceLevel,
-                };
-                logAPIError('/api/company-interview/follow-up', 'follow-up-http', res, errorPayload);
-                throw createHttpError(res.status, res.statusText);
+            // Bug 1 fix: Track consecutive silent auto-skips for graceful early-exit
+            if (isAutoSkip === true) {
+                setConsecutiveSilentQuestions(prev => prev + 1);
+            } else if (answer && answer.length > 10) {
+                setConsecutiveSilentQuestions(0);
             }
 
-            const data = await res.json();
-
-            // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Extract feedback score for interviewer reactions (no in-chat feedback card) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
-            const feedbackScore = data.feedback?.score || data.score || 0;
-
-            // Update stage label from backend state machine
-            if (data.stageLabel) {
-                setStageLabel(data.stageLabel);
+            // Trigger answer analysis (non-blocking, fire-and-forget)
+            if (answer && answer.length > 10) {
+                intelligence.analyzeAnswer(answer, currentQuestion).catch(() => { });
             }
+            if (!answer && !codeIsSubmittableForAnswer && isAutoSkip !== true) { isSendingRef.current = false; return; }
 
-            // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Resolve next question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
-            const nextQ = data.followUpQuestion || data.nextQuestion || data.question;
-            const closingRemark = data.closingRemark;
+            setConversation(prev => [...prev, {
+                role: 'candidate',
+                content: answer || '[Code submitted]',
+                timestamp: Date.now(),
+            }]);
+            setUserInput('');
+            setTranscript('');
+            setLoading(true);
 
-            // ONLY end the interview when the backend explicitly signals completion.
-            // DO NOT use closingRemark alone ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the AI LLM can hallucinate it on any question.
-            const isInterviewOver = data.complete === true || questionIndexRef.current >= totalQuestions;
-            const followUpFallbackByStage = {
-                'DSA / Coding': 'Can you walk me through your approach step by step, and then share the time and space complexity?',
-                'System Design': 'Can you explain your architecture step by step, including key trade-offs and bottlenecks?',
-                'Behavioral': 'Can you walk me through that situation using STAR: Situation, Task, Action, and Result?',
-                'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current - 1),
-                'HR': 'Can you share one concrete example that supports your answer?',
+            const resolvedStage = STAGE_MAP[interviewType] || 'Technical';
+            const resolvedCompany = targetCompany || 'Google';
+            const resolvedRole = targetRole || 'Software Engineer';
+
+            const technicalFollowUpFallbacks = experienceLevel === 'fresher'
+                ? [
+                    'Can you connect that to a class project, internship, or side project you worked on?',
+                    'Can you give one concrete example from something you built or studied?',
+                    'Can you walk me through a specific project or coursework example that shows that in practice?',
+                ]
+                : [
+                    'Can you walk me through your approach step by step, including trade-offs?',
+                    'What alternative would you consider, and why?',
+                    'How would you apply that in a real system or team setting?',
+                ];
+            const pickTechnicalFollowUpFallback = (seed = 0) => {
+                const index = Math.abs(seed) % technicalFollowUpFallbacks.length;
+                return technicalFollowUpFallbacks[index];
             };
-            const fallbackQ = followUpFallbackByStage[resolvedStage] || 'Can you walk me through your approach step by step, including trade-offs?';
-            const continueQ = (typeof nextQ === 'string' && nextQ.trim().length > 0) ? nextQ : fallbackQ;
 
-            // CRITICAL: Pre-fetch TTS audio for next question ONLY.
-            // Feedback is shown as text-only (not spoken) to minimize voice delay.
-            if (!isInterviewOver) {
-                console.log('[Interview] Pre-fetching next question audio:', continueQ.substring(0, 50) + '...');
-                voiceAI.prefetch(continueQ);
-            }
+            try {
+                const headers = getAuthHeaders ? getAuthHeaders() : {};
 
-            // Shared speak-and-handoff logic (used in both try and catch)
-            // SPEED FIX: Only speak the question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â feedback is text-only in chat.
-            const speakAndHandoff = async (questionSegment, isEnding = false, leadIn = '') => {
-                setLoading(false);
-                if (isEnding) {
-                    await speakInterviewerText(questionSegment);
+                // Build experience-aware advanced options for follow-up
+                const followUpAdvancedOpts = {
+                    interviewerIntensity: experienceLevel === 'fresher' ? 'supportive' : 'balanced',
+                    followUpDepth: experienceLevel === 'fresher' ? 'shallow' : 'deep',
+                    answerPace: experienceLevel === 'fresher' ? 'slow' : 'balanced',
+                    resumeInterviewMode: experienceLevel === 'fresher' ? 'fresher-hr-tech' : 'project-deep-dive',
+                    questionCount: totalQuestions,
+                };
+
+                const res = await fetch('/api/company-interview/follow-up', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...headers },
+                    body: JSON.stringify({
+                        previousQuestion: currentQuestion,
+                        userAnswer: fullAnswer,
+                        // Fix #3: Use ref to avoid stale closure on questionIndex
+                        questionNumber: questionIndexRef.current + 1,
+                        totalQuestions,
+                        company: resolvedCompany,
+                        role: resolvedRole,
+                        stage: resolvedStage,
+                        difficulty: experienceLevel === 'fresher' ? 'easy' : 'medium',
+                        experienceLevel,
+                        conversationHistory: conversation.slice(-12).map(m => ({ role: m.role, content: m.content })),
+                        code: code.trim() || undefined,
+                        codeLanguage: language,
+                        advancedOptions: followUpAdvancedOpts,
+                        resumeContext: activeResumeContext,
+                    }),
+                });
+
+                if (!res.ok) {
+                    const errorPayload = {
+                        stage: resolvedStage,
+                        questionIndex,
+                        experienceLevel,
+                    };
+                    logAPIError('/api/company-interview/follow-up', 'follow-up-http', res, errorPayload);
+                    throw createHttpError(res.status, res.statusText);
+                }
+
+                const data = await res.json();
+
+                // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Extract feedback score for interviewer reactions (no in-chat feedback card) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
+                const feedbackScore = data.feedback?.score || data.score || 0;
+
+                // Update stage label from backend state machine
+                if (data.stageLabel) {
+                    setStageLabel(data.stageLabel);
+                }
+
+                // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Resolve next question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
+                const nextQ = data.followUpQuestion || data.nextQuestion || data.question;
+                const closingRemark = data.closingRemark;
+
+                // ONLY end the interview when the backend explicitly signals completion.
+                // DO NOT use closingRemark alone ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â the AI LLM can hallucinate it on any question.
+                const isInterviewOver = data.complete === true || questionIndexRef.current >= totalQuestions;
+                const followUpFallbackByStage = {
+                    'DSA / Coding': 'Can you walk me through your approach step by step, and then share the time and space complexity?',
+                    'System Design': 'Can you explain your architecture step by step, including key trade-offs and bottlenecks?',
+                    'Behavioral': 'Can you walk me through that situation using STAR: Situation, Task, Action, and Result?',
+                    'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current - 1),
+                    'HR': 'Can you share one concrete example that supports your answer?',
+                };
+                const fallbackQ = followUpFallbackByStage[resolvedStage] || 'Can you walk me through your approach step by step, including trade-offs?';
+                const continueQ = (typeof nextQ === 'string' && nextQ.trim().length > 0) ? nextQ : fallbackQ;
+
+                // CRITICAL: Pre-fetch TTS audio for next question ONLY.
+                // Feedback is shown as text-only (not spoken) to minimize voice delay.
+                if (!isInterviewOver) {
+                    console.log('[Interview] Pre-fetching next question audio:', continueQ.substring(0, 50) + '...');
+                    voiceAI.prefetch(continueQ);
+                }
+
+                // Shared speak-and-handoff logic (used in both try and catch)
+                // SPEED FIX: Only speak the question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â feedback is text-only in chat.
+                const speakAndHandoff = async (questionSegment, isEnding = false, leadIn = '') => {
+                    setLoading(false);
+                    if (isEnding) {
+                        await speakInterviewerText(questionSegment);
+                        setTimeout(() => endInterview(), 1500);
+                    } else {
+                        const segments = [leadIn, questionSegment]
+                            .map((segment) => String(segment || '').trim())
+                            .filter(Boolean);
+                        if (segments.length > 1) {
+                            await speakSequence(segments, { pauseMs: 220 });
+                        } else {
+                            await speakInterviewerText(questionSegment);
+                        }
+                        if (!isListeningRef.current) {
+                            startVoiceRecording();
+                        }
+                    }
+                };
+
+                if (isInterviewOver) {
+                    // Last question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â speak closing remark and end
+                    const closingText = data.closingRemark || closingRemark || 'Great job today! Thank you for your time. We\'ll be in touch soon.';
+                    setConversation(prev => [...prev, {
+                        role: 'interviewer',
+                        content: closingText,
+                        timestamp: Date.now(),
+                    }]);
+                    await speakAndHandoff(closingText, true);
+                } else if (consecutiveSilentQuestions >= 3) {
+                    // User has been silent for 3 consecutive questions ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â end interview gracefully
+                    const earlyEndText = "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
+                    setConversation(prev => [...prev, {
+                        role: 'interviewer',
+                        content: earlyEndText,
+                        timestamp: Date.now(),
+                    }]);
+                    setLoading(false);
+                    await speakInterviewerText(earlyEndText);
                     setTimeout(() => endInterview(), 1500);
                 } else {
-                    const segments = [leadIn, questionSegment]
-                        .map((segment) => String(segment || '').trim())
-                        .filter(Boolean);
-                    if (segments.length > 1) {
-                        await speakSequence(segments, { pauseMs: 220 });
-                    } else {
-                        await speakInterviewerText(questionSegment);
-                    }
+                    setCurrentQuestion(continueQ);
+                    setQuestionIndex(prev => prev + 1);
+                    setConversation(prev => [...prev, {
+                        role: 'interviewer',
+                        content: continueQ,
+                        timestamp: Date.now(),
+                    }]);
+                    const transition = getTurnTransition({
+                        score: feedbackScore,
+                        interviewType,
+                        answerText: fullAnswer,
+                    });
+                    setInterviewerStatus(transition.statusText);
+                    await new Promise(resolve => setTimeout(resolve, transition.pauseMs));
+                    setInterviewerStatus(transition.spokenLeadIn);
+                    await speakAndHandoff(continueQ, false, transition.spokenLeadIn);
+                    setInterviewerStatus('');
+                }
+            } catch (error) {
+                const statusCode = getHttpStatus(error);
+                if (statusCode !== 401) {
+                    logAPIError('/api/company-interview/follow-up', 'follow-up-catch', error, {
+                        stage: resolvedStage,
+                        questionIndex,
+                    });
+                } else {
+                    console.warn('[AI Interview API Warning] follow-up unauthorized; using local fallback feedback flow.');
+                }
+                const catchFollowUpFallbackByStage = {
+                    'DSA / Coding': 'Can you tell me about the time and space complexity of your solution?',
+                    'System Design': 'How would this design behave at 10x scale, and what would you change first?',
+                    'Behavioral': 'Can you share the specific action you took and what outcome it produced?',
+                    'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current),
+                    'HR': 'Can you give one concrete example that shows this about you?',
+                };
+                const fallbackQ = catchFollowUpFallbackByStage[resolvedStage] || 'Can you tell me about the time and space complexity of your solution?';
+
+                // Bug 12 Fix: Check if interview should be over even in error path
+                const isInterviewOverFallback = questionIndexRef.current >= totalQuestions;
+
+                if (isInterviewOverFallback) {
+                    const closingFallback = 'Great job today! Thank you for your time. We\'ll be in touch soon.';
+                    setConversation(prev => [...prev, {
+                        role: 'interviewer',
+                        content: closingFallback,
+                        timestamp: Date.now(),
+                    }]);
+                    setLoading(false);
+                    await speakInterviewerText(closingFallback);
+                    setTimeout(() => endInterview(), 1500);
+                } else {
+                    setConversation(prev => [...prev, {
+                        role: 'interviewer',
+                        content: fallbackQ,
+                        timestamp: Date.now(),
+                    }]);
+                    setCurrentQuestion(fallbackQ);
+                    setQuestionIndex(prev => prev + 1);
+                    setLoading(false);
+                    await speakInterviewerText(fallbackQ);
                     if (!isListeningRef.current) {
                         startVoiceRecording();
                     }
                 }
-            };
-
-            if (isInterviewOver) {
-                // Last question ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â speak closing remark and end
-                const closingText = data.closingRemark || closingRemark || 'Great job today! Thank you for your time. We\'ll be in touch soon.';
-                setConversation(prev => [...prev, {
-                    role: 'interviewer',
-                    content: closingText,
-                    timestamp: Date.now(),
-                }]);
-                await speakAndHandoff(closingText, true);
-            } else if (consecutiveSilentQuestions >= 3) {
-                // User has been silent for 3 consecutive questions ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â end interview gracefully
-                const earlyEndText = "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
-                setConversation(prev => [...prev, {
-                    role: 'interviewer',
-                    content: earlyEndText,
-                    timestamp: Date.now(),
-                }]);
-                setLoading(false);
-                await speakInterviewerText(earlyEndText);
-                setTimeout(() => endInterview(), 1500);
-            } else {
-                setCurrentQuestion(continueQ);
-                setQuestionIndex(prev => prev + 1);
-                setConversation(prev => [...prev, {
-                    role: 'interviewer',
-                    content: continueQ,
-                    timestamp: Date.now(),
-                }]);
-                const transition = getTurnTransition({
-                    score: feedbackScore,
-                    interviewType,
-                    answerText: fullAnswer,
-                });
-                setInterviewerStatus(transition.statusText);
-                await new Promise(resolve => setTimeout(resolve, transition.pauseMs));
-                setInterviewerStatus(transition.spokenLeadIn);
-                await speakAndHandoff(continueQ, false, transition.spokenLeadIn);
-                setInterviewerStatus('');
             }
-        } catch (error) {
-            const statusCode = getHttpStatus(error);
-            if (statusCode !== 401) {
-                logAPIError('/api/company-interview/follow-up', 'follow-up-catch', error, {
-                    stage: resolvedStage,
-                    questionIndex,
-                });
-            } else {
-                console.warn('[AI Interview API Warning] follow-up unauthorized; using local fallback feedback flow.');
-            }
-            const catchFollowUpFallbackByStage = {
-                'DSA / Coding': 'Can you tell me about the time and space complexity of your solution?',
-                'System Design': 'How would this design behave at 10x scale, and what would you change first?',
-                'Behavioral': 'Can you share the specific action you took and what outcome it produced?',
-                'Technical': pickTechnicalFollowUpFallback(questionIndexRef.current),
-                'HR': 'Can you give one concrete example that shows this about you?',
-            };
-            const fallbackQ = catchFollowUpFallbackByStage[resolvedStage] || 'Can you tell me about the time and space complexity of your solution?';
-
-            // Bug 12 Fix: Check if interview should be over even in error path
-            const isInterviewOverFallback = questionIndexRef.current >= totalQuestions;
-
-            if (isInterviewOverFallback) {
-                const closingFallback = 'Great job today! Thank you for your time. We\'ll be in touch soon.';
-                setConversation(prev => [...prev, {
-                    role: 'interviewer',
-                    content: closingFallback,
-                    timestamp: Date.now(),
-                }]);
-                setLoading(false);
-                await speakInterviewerText(closingFallback);
-                setTimeout(() => endInterview(), 1500);
-            } else {
-                setConversation(prev => [...prev, {
-                    role: 'interviewer',
-                    content: fallbackQ,
-                    timestamp: Date.now(),
-                }]);
-                setCurrentQuestion(fallbackQ);
-                setQuestionIndex(prev => prev + 1);
-                setLoading(false);
-                await speakInterviewerText(fallbackQ);
-                if (!isListeningRef.current) {
-                    startVoiceRecording();
-                }
-            }
-        }
         } finally {
             // Always release the send guard
             isSendingRef.current = false;
@@ -1410,7 +1411,7 @@ function AIInterviewPageInner() {
         try {
             const stats = voiceAI.getAnalytics();
             console.info('[AI Interview] Voice analytics:', stats);
-        } catch {}
+        } catch { }
         // I9: Clear saved session ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â interview completed normally
         clearSavedSession();
         setPhase('summary');
@@ -1559,7 +1560,7 @@ function AIInterviewPageInner() {
                             <Wifi size={18} className="ai-connect-wifi-icon" />
                             Connecting to your interviewerÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦
                         </div>
-                        
+
                         {/* Progress steps */}
                         <div className="ai-connect-steps">
                             <div className="ai-connect-step ai-connect-step--active">
@@ -1893,10 +1894,10 @@ function AIInterviewPageInner() {
                 {/* Live Intelligence Overlays */}
                 <ScoreCueToast cue={scoreCue} onDismiss={() => setScoreCue(null)} />
                 <HintBanner hint={activeHint} onDismiss={() => setActiveHint(null)} />
-                        <ScoreCue />
-                        <PerformanceIndicator />
-                        <HintSuggestion />
-                        <BehaviorAlert />
+                <ScoreCue />
+                <PerformanceIndicator />
+                <HintSuggestion />
+                <BehaviorAlert />
             </div>
         </div>
     );

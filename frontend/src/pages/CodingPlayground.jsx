@@ -3,6 +3,7 @@ import './CodingPlayground.css';
 import { useNavigate } from 'react-router-dom';
 import { MonacoWrapper } from '../components/CodeEditor/MonacoWrapper';
 import ReactMarkdown from 'react-markdown';
+import { useDebounce, useConversationHistory, useResponseCache } from '../hooks/usePlaygroundOptimizations';
 import {
     ArrowLeft, Play, Terminal, Trash2, Copy, Check,
     Download, Clock, ChevronDown, Code2,
@@ -458,6 +459,11 @@ export default function CodingPlayground() {
     const [lastAiRequest, setLastAiRequest] = useState(null);
     const aiEndRef = useRef(null);
 
+    // ─── PHASE 2 OPTIMIZATIONS ───
+    const conversationHistory = useConversationHistory(20); // Limit to 20 messages
+    const responseCache = useResponseCache(); // Cache formatting & responses
+    const { debounced: debouncedAiAssist } = useDebounce(null, 300); // 300ms debounce for AI requests
+
     // Console resize ref
     const draggingRef = useRef(null);
     const monacoRef = useRef(null);
@@ -671,12 +677,22 @@ export default function CodingPlayground() {
         });
     };
 
-    // ─── Format code ───
+    // ─── Format code (with cache) ───
     const handleFormat = useCallback(async () => {
+        // Check cache first
+        const cached = responseCache.get('format', code, language);
+        if (cached) {
+            setCode(cached.value);
+            setConsoleOutput(prev => [...prev, { type: 'info', text: `✓ Code formatted (${language}) [cached]` }]);
+            return;
+        }
+
+        // Format and cache result
         const formatted = await formatCode(code, language);
+        responseCache.set('format', code, language, formatted);
         setCode(formatted);
         setConsoleOutput(prev => [...prev, { type: 'info', text: `✓ Code formatted (${language})` }]);
-    }, [code, language]);
+    }, [code, language, responseCache]);
 
     // ─── Fullscreen ───
     const handleFullscreen = () => {
@@ -758,7 +774,7 @@ export default function CodingPlayground() {
         localStorage.removeItem(`playground-code-${language}`);
     };
 
-    // ─── AI Assistant handler ───
+    // ─── AI Assistant handler (with debouncing & history management) ───
     const handleAiAssist = useCallback(async (mode, customPrompt = '') => {
         if (aiLoading) return;
         const modeLabels = {
@@ -773,6 +789,8 @@ export default function CodingPlayground() {
             ? customPrompt || 'Help me with this code'
             : modeLabels[mode] || customPrompt;
 
+        // Add to conversation history (bounded to 20 messages)
+        conversationHistory.addMessage('user', userMsg);
         setAiMessages(prev => [...prev, { role: 'user', content: userMsg, timestamp: new Date().toLocaleTimeString() }]);
         setAiLoading(true);
         setAiInput('');
@@ -784,26 +802,32 @@ export default function CodingPlayground() {
                 headers: getAuthHeaders(),
                 body: JSON.stringify({
                     code, language, mode, prompt: customPrompt,
-                    history: aiMessages.slice(-6),
+                    history: conversationHistory.getRecentHistory(4), // Only send last 4 messages for context
                 }),
             });
             const data = await res.json();
+            const assistantMessage = data.response || data.error || 'No response received.';
+            
+            conversationHistory.addMessage('assistant', assistantMessage);
             setAiMessages(prev => [...prev, {
                 role: 'assistant',
-                content: data.response || data.error || 'No response received.',
+                content: assistantMessage,
                 timestamp: new Date().toLocaleTimeString(),
+                fromCache: data.fromCache,
             }]);
         } catch (err) {
+            const errorMsg = `⚠️ Error: ${err.message}`;
+            conversationHistory.addMessage('assistant', errorMsg);
             setAiMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `⚠️ Error: ${err.message}`,
+                content: errorMsg,
                 timestamp: new Date().toLocaleTimeString(),
                 isError: true,
             }]);
         } finally {
             setAiLoading(false);
         }
-    }, [code, language, aiLoading, aiMessages]);
+    }, [code, language, aiLoading, conversationHistory]);
 
     // Copy AI message
     const handleAiCopy = (text, idx) => {

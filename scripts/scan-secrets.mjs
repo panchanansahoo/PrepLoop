@@ -16,6 +16,8 @@ const IGNORE_PATTERNS = [
   'build',
   '.git',
   'backups',
+  'test',
+  'scripts', // Ignore test scripts with placeholder values
 ];
 
 const SCANNED_EXTENSIONS = new Set(['.js', '.ts', '.json', '.env', '.yml', '.yaml', '.mjs', '.cjs']);

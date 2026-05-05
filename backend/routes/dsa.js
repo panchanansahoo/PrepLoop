@@ -17,6 +17,15 @@ import * as annotationService from '../services/annotationService.js';
 import * as expertRatingService from '../services/expertRatingService.js';
 import * as feedbackAnalysisService from '../services/feedbackAnalysisService.js';
 import * as improvementTrackingService from '../services/improvementTrackingService.js';
+import {
+  validateTestCase,
+  validateTestCaseArray,
+  validateLanguage,
+  executeCustomTests,
+  saveCustomTests,
+  loadCustomTests,
+  deleteCustomTests,
+} from '../services/customTestService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -188,6 +197,26 @@ router.get('/patterns/:id', optionalAuth, async (req, res) => {
     console.error('Error fetching pattern:', error);
     res.status(500).json({ error: 'Failed to fetch pattern' });
   }
+});
+
+router.get('/supported-languages', optionalAuth, (req, res) => {
+  // Return list of supported programming languages
+  res.json({
+    languages: [
+      { id: 'python', name: 'Python 3', icon: '🐍' },
+      { id: 'javascript', name: 'JavaScript', icon: '📜' },
+      { id: 'cpp', name: 'C++', icon: '⚙️' },
+      { id: 'c', name: 'C', icon: '©️' },
+      { id: 'java', name: 'Java', icon: '☕' },
+      { id: 'go', name: 'Go', icon: '🐹' },
+      { id: 'rust', name: 'Rust', icon: '🦀' },
+    ],
+    meta: {
+      total: 7,
+      compiled: ['c', 'cpp', 'java', 'go', 'rust'],
+      interpreted: ['python', 'javascript'],
+    }
+  });
 });
 
 router.get('/problems/:id', optionalAuth, async (req, res) => {
@@ -579,63 +608,77 @@ router.post('/custom-tests/:problemId', authenticateToken, async (req, res) => {
 
 /**
  * POST /api/dsa/custom-tests/:problemId/run
- * Run custom test cases (without executing code, just validate structure)
- * Body: { language, testCases: [{ input, expected, description }] }
+ * Run custom test cases against user code with real execution
+ * Body: { code: string, language: string, testCases: [{ input, expected, description }], timeout?: number }
+ *   timeout: per-test execution timeout in milliseconds (default: 5000, min: 1000, max: 30000)
  * Auth: required
+ * Returns: { success, results[], passedCount, totalCount }
  */
 router.post('/custom-tests/:problemId/run', authenticateToken, async (req, res) => {
   try {
     const { problemId } = req.params;
-    const { language, testCases } = req.body;
+    const { code, language, testCases, timeout } = req.body;
 
-    if (!language) {
-      return res.status(400).json({ error: 'language required' });
+    // Validate inputs
+    const langValidation = validateLanguage(language);
+    if (!langValidation.valid) {
+      return res.status(400).json({ error: langValidation.error });
     }
 
-    if (!Array.isArray(testCases) || testCases.length === 0) {
-      return res.status(400).json({ error: 'testCases must be non-empty array' });
+    const testValidation = validateTestCaseArray(testCases);
+    if (!testValidation.valid) {
+      return res.status(400).json({ error: testValidation.error });
     }
 
-    // Validate each test case
-    for (const tc of testCases) {
-      if (!tc.input || !tc.expected) {
-        return res.status(400).json({ error: 'Each test case must have input and expected' });
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
+      return res.status(400).json({ error: 'code is required and cannot be empty' });
+    }
+
+    // Validate timeout (if provided)
+    let timeoutMs = 5000; // default
+    if (timeout !== undefined) {
+      if (typeof timeout !== 'number' || timeout < 1000 || timeout > 30000) {
+        return res.status(400).json({
+          error: 'timeout must be a number between 1000 and 30000 milliseconds',
+        });
       }
+      timeoutMs = timeout;
     }
 
-    // For Phase 1.2: Just validate and return mock results
-    // Full execution will be in Phase 3 with sandbox pool
-    const passedCount = testCases.length;
-    const totalCount = testCases.length;
+    // Execute custom tests with per-test timeout
+    const executionResult = await executeCustomTests({
+      code,
+      language,
+      testCases,
+      timeout: timeoutMs,
+    });
 
     // Log test run for analytics
-    await supabaseAdmin
-      .from('user_custom_test_runs')
-      .insert([
+    const totalCount = executionResult.totalCount;
+    const passedCount = executionResult.passedCount;
+
+    try {
+      await supabaseAdmin.from('user_custom_test_runs').insert([
         {
           user_id: req.user.id,
           problem_id: parseInt(problemId),
-          language,
+          language: language.toLowerCase(),
           test_case_count: totalCount,
           passed_count: passedCount,
           created_at: new Date().toISOString(),
         },
-      ])
-      .select()
-      .single();
+      ]);
+    } catch (logError) {
+      // Log failure but don't fail the request
+      console.warn('Failed to log custom test run:', logError);
+    }
 
     res.json({
-      success: true,
+      success: executionResult.success,
       passedCount,
       totalCount,
-      results: testCases.map((tc, i) => ({
-        index: i + 1,
-        description: tc.description || `Test ${i + 1}`,
-        passed: true, // Mock: all pass in Phase 1.2
-        input: tc.input,
-        expected: tc.expected,
-        actual: tc.expected, // Mock output
-      })),
+      results: executionResult.results,
+      error: executionResult.error,
     });
   } catch (error) {
     console.error('Error running custom tests:', error);
@@ -678,6 +721,42 @@ router.get('/custom-tests/:problemId', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to fetch custom tests',
+    });
+  }
+});
+
+/**
+ * DELETE /api/dsa/custom-tests/:problemId
+ * Delete custom test cases for a problem
+ * Query: ?language=python|javascript|cpp|c|java
+ * Auth: required
+ */
+router.delete('/custom-tests/:problemId', authenticateToken, async (req, res) => {
+  try {
+    const { problemId } = req.params;
+    const { language } = req.query;
+
+    if (!language) {
+      return res.status(400).json({ error: 'language query parameter is required' });
+    }
+
+    const langValidation = validateLanguage(language);
+    if (!langValidation.valid) {
+      return res.status(400).json({ error: langValidation.error });
+    }
+
+    const result = await deleteCustomTests({
+      userId: req.user.id,
+      problemId,
+      language,
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting custom tests:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete custom tests',
     });
   }
 });

@@ -69,6 +69,9 @@ const LANGUAGE_ALIASES = {
     ts: 'typescript',
     cxx: 'cpp',
     'c++': 'cpp',
+    rs: 'rust',
+    go: 'go',
+    java: 'java',
 };
 
 const normalizeLanguage = (language = '') => {
@@ -112,18 +115,33 @@ const LANG_CONFIG = {
             return `java -cp "${dir}" ${className}`;
         },
     },
+    go: {
+        ext: '.go',
+        commands: ['go'],
+        compile: (file, out, cmd) => `${cmd} build -o "${out}" "${file}"`,
+        run: (file, cmd, out) => `"${out}"`,
+    },
+    rust: {
+        ext: '.rs',
+        commands: ['rustc'],
+        compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
+        run: (file, cmd, out) => `"${out}"`,
+    },
 };
 
 /**
  * Execute code in the given language and return the result.
  * @param {string} code - The source code to execute
- * @param {string} language - The programming language (python, javascript, c, cpp, java)
+ * @param {string} language - The programming language (python, javascript, c, cpp, java, go, rust)
  * @param {string} input - Optional stdin input
+ * @param {number} timeout - Optional execution timeout in milliseconds (default: 5000)
  * @returns {{ success: boolean, output: string, error?: string, executionTime: number }}
  */
-const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
+const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java', 'go', 'rust']);
+const DEFAULT_TIMEOUT = 5000; // 5 seconds for test execution
+const COMPILE_TIMEOUT = 15000; // 15 seconds for compilation
 
-export async function executeCode(code, language, input = '') {
+export async function executeCode(code, language, input = '', timeout = DEFAULT_TIMEOUT) {
     const startTime = Date.now();
     const requestedLanguage = normalizeLanguage(language);
     const normalizedLanguage = requestedLanguage === 'typescript' ? 'javascript' : requestedLanguage;
@@ -131,7 +149,7 @@ export async function executeCode(code, language, input = '') {
     if (!ALLOWED_LANGUAGES.has(normalizedLanguage)) {
         return {
             success: false, output: '',
-            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java.`,
+            error: `Language "${language}" is not supported. Supported: python, javascript, typescript, c, cpp, java, go, rust.`,
             executionTime: 0, compileTime: 0, runTime: 0,
         };
     }
@@ -146,7 +164,7 @@ export async function executeCode(code, language, input = '') {
             fs.writeFileSync(tmpFile, code, 'utf-8');
             try {
                 const result = execFileSync('node', [tmpFile], {
-                    stdio: 'pipe', timeout: 10000, shell: false,
+                    stdio: 'pipe', timeout: timeout || DEFAULT_TIMEOUT, shell: false,
                     input: input || '',
                     cwd: workspaceDir,
                     env: SANDBOX_ENV,           // SECURITY: sanitized env
@@ -237,7 +255,7 @@ export async function executeCode(code, language, input = '') {
 
                 try {
                     execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
-                        stdio: 'pipe', timeout: 15000, shell: false, cwd: tmpDir,
+                        stdio: 'pipe', timeout: COMPILE_TIMEOUT, shell: false, cwd: tmpDir,
                         env: SANDBOX_ENV,           // SECURITY: sanitized env
                         maxBuffer: SANDBOX_MAX_BUFFER,
                     });
@@ -263,7 +281,7 @@ export async function executeCode(code, language, input = '') {
         const runStart = Date.now();
         try {
             const result = execSync(runCmd, {
-                stdio: 'pipe', timeout: 10000, shell: false, input: input || '', cwd: tmpDir,
+                stdio: 'pipe', timeout: timeout || DEFAULT_TIMEOUT, shell: false, input: input || '', cwd: tmpDir,
                 env: SANDBOX_ENV,           // SECURITY: sanitized env
                 maxBuffer: SANDBOX_MAX_BUFFER,
             });

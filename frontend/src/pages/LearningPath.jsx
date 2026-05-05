@@ -3,27 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, Trophy, Zap, Target, Flame, BookOpen, ChevronRight, Clock, GraduationCap, ArrowRight } from 'lucide-react';
 import { LEARNING_TOPICS, getTopicIds } from '../data/learningPathData';
 import { getTopicProgress, getOverallProgress, getStreakDays } from '../data/learningPathProgress';
+import TopicCard from '../components/TopicCard';
 import './LearningPath.css';
 
 const ICON_MAP = { Percent: '📊', Hammer: '🔨', Timer: '⏱️', Hash: '#️⃣', Scale: '⚖️', Calculator: '🧮', Coins: '💰', Beaker: '🧪', Variable: '🔤', Shapes: '📐', Dice: '🎲', BarChart: '📈' };
-
-function ProgressRing({ percent, size = 52, strokeWidth = 4, color = '#818cf8' }) {
-    const r = (size - strokeWidth) / 2;
-    const circ = 2 * Math.PI * r;
-    const offset = circ - (percent / 100) * circ;
-    return (
-        <svg width={size} height={size} className="lp-progress-ring" style={{ transform: 'rotate(-90deg)' }}>
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={strokeWidth} />
-            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-                strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 0.8s ease' }} />
-            <text x={size / 2} y={size / 2} textAnchor="middle" dominantBaseline="central" fill="#fff"
-                fontSize={size * 0.22} fontWeight="700" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}>
-                {percent}%
-            </text>
-        </svg>
-    );
-}
 
 function getMasteryBadge(p) {
     if (p >= 90) return { label: 'Mastered', emoji: '✅', color: '#34d399' };
@@ -112,36 +95,17 @@ export default function LearningPath() {
                     ];
 
                     return (
-                        <div key={topic.id} className="lp-card lp-card--amber" onClick={() => navigate(`/learning-path/${topic.id}`)}>
-                            <div className="lp-card-top">
-                                <div>
-                                    <div style={{ fontSize: 28, marginBottom: 6 }}>{ICON_MAP[topic.icon] || '📖'}</div>
-                                    <div className="lp-card-title">{topic.title}</div>
-                                    <div className="lp-card-desc" style={{ maxWidth: 200 }}>{topic.description}</div>
-                                </div>
-                                <ProgressRing percent={progress.masteryPercent} color={topic.color} size={52} />
-                            </div>
-
-                            <div className="lp-steps">
-                                {steps.map((s, i) => (
-                                    <div key={i} className={`lp-step ${s.done ? 'lp-step--done' : ''}`}
-                                        style={s.done ? { background: `${topic.color}12`, borderColor: `${topic.color}25` } : {}}>
-                                        <div className="lp-step-icon">{s.done ? '✅' : '○'}</div>
-                                        <div className="lp-step-label" style={s.done ? { color: topic.color } : {}}>{s.label}</div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="lp-card-meta">
-                                <span className="lp-card-meta-item" style={{ color: badge.color, fontWeight: 600 }}>
-                                    {badge.emoji} {badge.label}
-                                </span>
-                                <span className="lp-card-meta-item" style={{ marginLeft: 'auto' }}>
-                                    <Clock size={11} /> {topic.estimatedTime}
-                                    <ChevronRight size={13} />
-                                </span>
-                            </div>
-                        </div>
+                        <TopicCard
+                            key={topic.id}
+                            topic={topic}
+                            progress={progress}
+                            badge={badge}
+                            steps={steps}
+                            icon={ICON_MAP[topic.icon] || '📖'}
+                            color={topic.color || '#818cf8'}
+                            estimatedTime={topic.estimatedTime || '4-6 weeks'}
+                            onClick={() => navigate(`/learning-path/${topic.id}`)}
+                        />
                     );
                 })}
             </div>

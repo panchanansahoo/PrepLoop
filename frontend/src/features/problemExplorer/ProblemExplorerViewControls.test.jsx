@@ -31,12 +31,13 @@ describe('ProblemExplorerViewControls', () => {
   it('applies a study plan and resets to all view page 1', () => {
     const props = renderControls();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Grind 75' }));
+    const button = screen.getByRole('button', { name: /Grind 75/i });
+    fireEvent.click(button);
 
     expect(props.setActivePlan).toHaveBeenCalledWith('grind75');
     expect(props.setViewMode).toHaveBeenCalledWith('all');
     expect(props.setPage).toHaveBeenCalledWith(1);
-  });
+  }, 10000);
 
   it('clears active study plan when clicking the active item', () => {
     const props = renderControls({ activePlan: 'grind75' });

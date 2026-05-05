@@ -4,8 +4,20 @@ import rateLimit from 'express-rate-limit';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import cacheManager from '../utils/cacheManager.js';
+import PlaygroundCacheManager from '../services/playgroundCacheManager.js';
+import playgroundStreamingService from '../services/playgroundStreamingService.js';
 
 const router = express.Router();
+
+// Lazy-initialize playground cache on first use to ensure cacheManager is connected
+let playgroundCache = null;
+function getPlaygroundCache() {
+  if (!playgroundCache) {
+    playgroundCache = new PlaygroundCacheManager(cacheManager.client);
+  }
+  return playgroundCache;
+}
 
 // Per-user rate limit applied after authenticateToken so req.user is available
 const perUserAiLimiter = rateLimit({
@@ -287,6 +299,17 @@ router.post('/explain', async (req, res) => {
 });
 
 // ─── Playground AI Assistant ───
+// Mode-aware token limits for efficiency
+const modeTokenLimits = {
+  explain: 600,
+  review: 800,
+  debug: 700,
+  optimize: 800,
+  complexity: 500,
+  comment: 1000,
+  ask: 600,
+};
+
 router.post('/playground-assist', async (req, res) => {
   const { code, language, mode, prompt, history } = req.body;
 
@@ -314,12 +337,13 @@ router.post('/playground-assist', async (req, res) => {
     userContent = `Language: ${language}\n\nCode:\n\`\`\`${language}\n${code}\n\`\`\`${extra}`;
   }
 
-  // Build messages array with optional conversation history
+  // Build messages array with optional conversation history (only for conversational modes)
   const messages = [{ role: 'system', content: systemContent }];
 
-  if (history && Array.isArray(history)) {
-    // Include last 6 messages for context
-    const recentHistory = history.slice(-6).map(msg => ({
+  // Only include history for conversational modes (ask, comment)
+  if (history && Array.isArray(history) && (mode === 'ask' || mode === 'comment')) {
+    // Include last 4 messages (2 exchanges) for context
+    const recentHistory = history.slice(-4).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'assistant',
       content: msg.content,
     }));
@@ -329,6 +353,18 @@ router.post('/playground-assist', async (req, res) => {
   messages.push({ role: 'user', content: userContent });
 
   try {
+     // Check cache for cacheable modes (explain, review, debug, optimize, complexity)
+     const cache = getPlaygroundCache();
+     if (cache.isCacheable(mode)) {
+       const cached = await cache.get(mode, language, code);
+      if (cached) {
+        return res.json({
+          response: cached,
+          fromCache: true,
+        });
+      }
+    }
+
     if (!groq) {
       const fallbacks = {
         explain: 'This code defines functions and logic. For detailed AI explanations, please configure the GROQ_API_KEY.',
@@ -342,17 +378,87 @@ router.post('/playground-assist', async (req, res) => {
       return res.json({ response: fallbacks[mode] || fallbacks.ask });
     }
 
+    // Get mode-specific token limit (defaults to 600 if mode not found)
+    const maxTokens = modeTokenLimits[mode] || 600;
+
     const completion = await createGroqCompletion({
       model: 'llama-3.3-70b-versatile',
       messages,
-      max_tokens: 1500,
+      max_tokens: maxTokens,
       temperature: 0.3,
     });
 
-    res.json({ response: completion.choices[0].message.content });
+    const response = completion.choices[0].message.content;
+
+     // Cache the response for cacheable modes
+     if (cache.isCacheable(mode)) {
+       await cache.set(mode, language, code, response);
+    }
+
+    res.json({ response, fromCache: false });
   } catch (error) {
     console.error('Playground AI error:', error);
     res.status(500).json({ error: 'Failed to get AI response' });
+  }
+});
+
+
+// ─── Cache Statistics (for monitoring) ───
+router.get('/playground/cache-stats', authenticateToken, (req, res) => {
+  const stats = getPlaygroundCache().getStats();
+  res.json({
+    cacheStats: stats,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// ─── Streaming Playground Endpoint ───
+// Server-Sent Events (SSE) for progressive response feedback
+// 3-5x perceived speedup vs non-streaming
+router.get('/playground-assist-stream', authenticateToken, async (req, res) => {
+  try {
+    const { mode, language, code, question } = req.query;
+
+    if (!code && mode !== 'ask') {
+      res.setHeader('Content-Type', 'text/event-stream');
+      playgroundStreamingService.sendEvent(res, 'error', {
+        message: 'Code is required for this action',
+      });
+      res.end();
+      return;
+    }
+
+    if (!mode || !language) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      playgroundStreamingService.sendEvent(res, 'error', {
+        message: 'mode and language parameters required',
+      });
+      res.end();
+      return;
+    }
+
+    // Parse context from query
+    const context = {
+      question: question || null,
+      messages: req.query.messages ? JSON.parse(req.query.messages) : [],
+    };
+
+    // Stream response with SSE
+    await playgroundStreamingService.streamResponse(
+      req,
+      res,
+      mode,
+      language,
+      code,
+      context
+    );
+  } catch (error) {
+    console.error('Stream endpoint error:', error);
+    res.setHeader('Content-Type', 'text/event-stream');
+    playgroundStreamingService.sendEvent(res, 'error', {
+      message: error.message || 'Streaming failed',
+    });
+    res.end();
   }
 });
 

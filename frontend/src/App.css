@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   /* Core Palette - Proception Ultra Dark */
   --bg-primary: #030303;
   --bg-secondary: #0a0a0a;
@@ -55,700 +55,10 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   PREMIUM LIGHT MODE â€” Sophisticated, Warm & Elevated
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-[data-theme="light"] {
-  /* Core Palette - Warm Premium Light */
-  --bg-primary: #fafbfd;
-  --bg-secondary: #f4f5f9;
-  --bg-tertiary: #eef0f6;
 
-  /* Zinc Scale (Inverted for light context) */
-  --zinc-50: #1a1d2e;
-  --zinc-100: #252940;
-  --zinc-200: #3b3f56;
-  --zinc-300: #52566d;
-  --zinc-400: #6b7089;
-  --zinc-500: #9498b0;
-  --zinc-600: #c8cbd9;
-  --zinc-700: #dfe1eb;
-  --zinc-800: #eef0f6;
-  --zinc-900: #f6f7fb;
+/* Light theme overrides extracted to light-theme.css for better cacheability */
+@import './light-theme.css';
 
-  /* Glass & Cards - Glassmorphic */
-  --bg-card: rgba(255, 255, 255, 0.65);
-  --bg-card-hover: rgba(255, 255, 255, 0.85);
-  --bg-glass: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(99, 102, 241, 0.1);
-  --glass-border-hover: rgba(99, 102, 241, 0.2);
-
-  /* Semantic Colors */
-  --text-primary: #1a1d2e;
-  --text-secondary: #5c6078;
-  --text-muted: #8b8fa6;
-  --text-invert: #ffffff;
-
-  --border: rgba(99, 102, 241, 0.08);
-  --border-light: rgba(99, 102, 241, 0.15);
-
-  /* Accents - Indigo Premium */
-  --accent-primary: #4f46e5;
-  --accent-secondary: #6366f1;
-  --accent-glow: rgba(99, 102, 241, 0.12);
-
-  /* Status */
-  --success: #059669;
-  --red: #dc2626;
-}
-
-/* â”€â”€â”€ Body â”€â”€â”€ */
-[data-theme="light"],
-html[data-theme="light"] {
-  background: #fafbfd;
-}
-
-[data-theme="light"] body {
-  background: linear-gradient(165deg, #fafbfd 0%, #f0f1fa 30%, #fafbfd 60%, #f4f0ff 100%);
-  color: #1a1d2e;
-}
-
-/* â”€â”€â”€ Navbar â”€â”€â”€ */
-[data-theme="light"] .navbar.scrolled {
-  background: rgba(255, 255, 255, 0.72) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border-bottom-color: rgba(99, 102, 241, 0.08) !important;
-  box-shadow: 0 1px 2px rgba(99, 102, 241, 0.04), 0 4px 16px rgba(99, 102, 241, 0.06) !important;
-}
-
-/* â”€â”€â”€ Sidebar â”€â”€â”€ */
-[data-theme="light"] .sidebar {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(244, 240, 255, 0.75) 100%);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-right-color: rgba(99, 102, 241, 0.08);
-  box-shadow: 4px 0 32px rgba(99, 102, 241, 0.06), 1px 0 0 rgba(99, 102, 241, 0.05);
-}
-
-[data-theme="light"] .sidebar::before {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.03) 0%, transparent 100%);
-}
-
-[data-theme="light"] .sidebar-header {
-  border-bottom-color: rgba(99, 102, 241, 0.06);
-  background: rgba(255, 255, 255, 0.3);
-}
-
-[data-theme="light"] .sidebar-brand {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .sidebar-toggle {
-  background: rgba(99, 102, 241, 0.04);
-  border-color: rgba(99, 102, 241, 0.1);
-  color: #5c6078;
-}
-
-[data-theme="light"] .sidebar-toggle:hover {
-  background: rgba(99, 102, 241, 0.08);
-  color: #4f46e5;
-  border-color: rgba(99, 102, 241, 0.2);
-}
-
-[data-theme="light"] .sidebar-section-divider {
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
-}
-
-[data-theme="light"] .nav-item:hover {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.02));
-  color: #4f46e5;
-  border-color: rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .nav-item.active {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.03));
-  color: #4f46e5;
-  border-color: rgba(99, 102, 241, 0.15);
-  box-shadow: inset 3px 0 0 #6366f1, 0 2px 8px rgba(99, 102, 241, 0.06);
-}
-
-[data-theme="light"] .nav-item.active .nav-icon {
-  color: #4f46e5;
-  filter: none;
-}
-
-[data-theme="light"] .nav-item.active .nav-subtitle {
-  color: #6366f1;
-}
-
-[data-theme="light"] .nav-link {
-  color: #5c6078;
-}
-
-[data-theme="light"] .nav-link:hover {
-  color: #4f46e5;
-}
-
-/* â”€â”€â”€ Buttons â€” Premium Gradient Style â”€â”€â”€ */
-[data-theme="light"] .btn-primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
-  color: #ffffff;
-  border-color: transparent;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25), 0 1px 2px rgba(99, 102, 241, 0.15);
-}
-
-[data-theme="light"] .btn-primary:hover {
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35), 0 2px 6px rgba(99, 102, 241, 0.2);
-  transform: translateY(-1px);
-}
-
-[data-theme="light"] .btn-outline {
-  border-color: rgba(99, 102, 241, 0.15);
-  color: #4f46e5;
-  background: rgba(255, 255, 255, 0.5);
-}
-
-[data-theme="light"] .btn-outline:hover {
-  background: rgba(99, 102, 241, 0.06);
-  border-color: rgba(99, 102, 241, 0.25);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .btn-hero-primary {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
-  color: #ffffff;
-  border: none;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3), 0 1px 3px rgba(99, 102, 241, 0.15);
-}
-
-[data-theme="light"] .btn-hero-primary:hover {
-  box-shadow: 0 8px 28px rgba(99, 102, 241, 0.4), 0 2px 6px rgba(99, 102, 241, 0.2);
-  transform: translateY(-2px);
-}
-
-[data-theme="light"] .btn-hero-outline {
-  color: #4f46e5;
-  border-color: rgba(99, 102, 241, 0.2);
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(8px);
-}
-
-[data-theme="light"] .btn-hero-outline:hover {
-  background: rgba(99, 102, 241, 0.06);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-}
-
-/* â”€â”€â”€ Cards â€” Glass Elevation â”€â”€â”€ */
-[data-theme="light"] .card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(99, 102, 241, 0.08);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(99, 102, 241, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
-}
-
-[data-theme="light"] .card:hover {
-  border-color: rgba(99, 102, 241, 0.15);
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 8px 32px rgba(99, 102, 241, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  transform: translateY(-2px);
-}
-
-/* â”€â”€â”€ Text Gradient â”€â”€â”€ */
-[data-theme="light"] .text-gradient {
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 35%, #a855f7 65%, #ec4899 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  background-size: 200% 200%;
-}
-
-/* â”€â”€â”€ Hero Section â€” Premium Depth â”€â”€â”€ */
-[data-theme="light"] .home-hero::before {
-  background: radial-gradient(ellipse 80% 60% at 20% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
-}
-
-[data-theme="light"] .home-hero::after {
-  background: radial-gradient(circle at 80% 60%, rgba(168, 85, 247, 0.06) 0%, transparent 60%);
-}
-
-[data-theme="light"] .home-hero h1 {
-  background: linear-gradient(135deg, #1a1d2e 0%, #4f46e5 60%, #7c3aed 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* â”€â”€â”€ Feature Cards â”€â”€â”€ */
-[data-theme="light"] .home-feature-card h3 {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .feature-card-hover:hover {
-  border-color: rgba(99, 102, 241, 0.2);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
-  transform: translateY(-3px);
-}
-
-/* â”€â”€â”€ Pricing â€” Elevated Cards â”€â”€â”€ */
-[data-theme="light"] .pricing-card {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-color: rgba(99, 102, 241, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 4px 20px rgba(99, 102, 241, 0.05);
-}
-
-[data-theme="light"] .pricing-card.popular {
-  border: 2px solid transparent;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.9), rgba(248, 245, 255, 0.9)), linear-gradient(135deg, #6366f1, #a855f7, #ec4899);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-  box-shadow: 0 8px 40px rgba(99, 102, 241, 0.15), 0 2px 8px rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .pricing-card h3 {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .price-tag {
-  color: #1a1d2e;
-  font-weight: 700;
-}
-
-[data-theme="light"] .feature-list li {
-  color: #3b3f56;
-}
-
-[data-theme="light"] .feature-list li svg {
-  color: #059669 !important;
-}
-
-[data-theme="light"] .price-sub {
-  color: #6b7089;
-}
-
-[data-theme="light"] .pricing-card.popular .pricing-card {
-  border-color: #6366f1;
-}
-
-/* â”€â”€â”€ Footer â€” Sophisticated â”€â”€â”€ */
-[data-theme="light"] .footer {
-  background: linear-gradient(180deg, #f4f5f9 0%, #eef0f6 50%, #e8eaf4 100%);
-  border-top: 1px solid rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .footer::before {
-  background: linear-gradient(90deg, transparent, #6366f1, #a855f7, transparent);
-  opacity: 0.3;
-  height: 2px;
-}
-
-[data-theme="light"] .footer-brand h3 {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .footer-brand p {
-  color: #5c6078;
-}
-
-[data-theme="light"] .footer-col h4 {
-  color: #1a1d2e;
-  font-weight: 600;
-}
-
-[data-theme="light"] .footer-links a {
-  color: #5c6078;
-}
-
-[data-theme="light"] .footer-links a:hover {
-  color: #4f46e5;
-}
-
-[data-theme="light"] .footer-bottom {
-  color: #8b8fa6;
-  border-top-color: rgba(99, 102, 241, 0.06);
-}
-
-/* â”€â”€â”€ Scrollbar â€” Refined â”€â”€â”€ */
-[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(99, 102, 241, 0.02);
-}
-
-[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.15);
-  border-radius: 10px;
-}
-
-[data-theme="light"] .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.25);
-}
-
-[data-theme="light"] .custom-scrollbar {
-  scrollbar-color: rgba(99, 102, 241, 0.15) transparent;
-}
-
-[data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.15);
-}
-
-[data-theme="light"] .brand-icon img {
-  filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.2));
-}
-
-/* â”€â”€â”€ CTA Banner â€” Vibrant â”€â”€â”€ */
-[data-theme="light"] .home-cta-banner {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(236, 72, 153, 0.03) 100%);
-  border-top-color: rgba(99, 102, 241, 0.08);
-  border-bottom-color: rgba(99, 102, 241, 0.08);
-  backdrop-filter: blur(8px);
-}
-
-[data-theme="light"] .home-cta-banner h2 {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .home-cta-banner p {
-  color: #5c6078;
-}
-
-/* â”€â”€â”€ Logo Marquee â”€â”€â”€ */
-[data-theme="light"] .logo-marquee-item {
-  color: #1a1d2e;
-  opacity: 0.5;
-}
-
-[data-theme="light"] .logo-marquee-item:hover {
-  color: #0a0d1e;
-  opacity: 0.85;
-}
-
-/* â”€â”€â”€ FAQ â€” Refined â”€â”€â”€ */
-[data-theme="light"] .faq-question {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .faq-item {
-  border-color: rgba(99, 102, 241, 0.06);
-  background: rgba(255, 255, 255, 0.4);
-  backdrop-filter: blur(8px);
-}
-
-[data-theme="light"] .faq-item:hover {
-  border-color: rgba(99, 102, 241, 0.12);
-  background: rgba(255, 255, 255, 0.6);
-}
-
-/* â”€â”€â”€ Activity Ticker â”€â”€â”€ */
-[data-theme="light"] .activity-ticker {
-  background: rgba(255, 255, 255, 0.6) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  border-color: rgba(99, 102, 241, 0.08) !important;
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
-  color: #3b3f56 !important;
-}
-
-/* â”€â”€â”€ Hero Visual Container â”€â”€â”€ */
-[data-theme="light"] .hero-visual-container {
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(99, 102, 241, 0.12), 0 4px 16px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(99, 102, 241, 0.08);
-}
-
-/* â”€â”€â”€ How It Works â€” Elevated â”€â”€â”€ */
-[data-theme="light"] .hiw-card {
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-color: rgba(99, 102, 241, 0.08);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(99, 102, 241, 0.05);
-}
-
-[data-theme="light"] .hiw-card:hover {
-  border-color: rgba(99, 102, 241, 0.18);
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
-  transform: translateY(-3px);
-}
-
-[data-theme="light"] .hiw-title {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .hiw-desc {
-  color: #5c6078;
-}
-
-[data-theme="light"] .hiw-connector-line {
-  background: linear-gradient(90deg, rgba(99, 102, 241, 0.15), rgba(168, 85, 247, 0.1));
-}
-
-[data-theme="light"] .hiw-connector-arrow {
-  color: #6366f1;
-}
-
-/* â”€â”€â”€ Stats â”€â”€â”€ */
-[data-theme="light"] .stat-card-animate {
-  color: #1a1d2e;
-}
-
-/* â”€â”€â”€ Testimonials â€” Premium â”€â”€â”€ */
-[data-theme="light"] .testimonial-fade p {
-  color: #3b3f56 !important;
-}
-
-/* â”€â”€â”€ Glow Effect â”€â”€â”€ */
-[data-theme="light"] .glow-effect {
-  box-shadow: 0 0 40px rgba(99, 102, 241, 0.12), 0 0 80px rgba(99, 102, 241, 0.05);
-}
-
-/* â”€â”€â”€ Section Alternating Backgrounds for Depth â”€â”€â”€ */
-[data-theme="light"] .home-features-grid {
-  position: relative;
-}
-
-/* â”€â”€â”€ Input & Form Fields â”€â”€â”€ */
-[data-theme="light"] input,
-[data-theme="light"] textarea,
-[data-theme="light"] select {
-  background: rgba(255, 255, 255, 0.7);
-  border-color: rgba(99, 102, 241, 0.1);
-  color: #1a1d2e;
-}
-
-[data-theme="light"] input:focus,
-[data-theme="light"] textarea:focus,
-[data-theme="light"] select:focus {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] input::placeholder,
-[data-theme="light"] textarea::placeholder {
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ Brand Icon Enhanced â”€â”€â”€ */
-[data-theme="light"] .brand-icon {
-  filter: none;
-}
-
-/* â”€â”€â”€ Selection Color â”€â”€â”€ */
-[data-theme="light"] ::selection {
-  background: rgba(99, 102, 241, 0.15);
-  color: #1a1d2e;
-}
-/* â”€â”€â”€ Dashboard Navbar / Premium Topbar â”€â”€â”€ */
-[data-theme="light"] .navbar-dashboard {
-  background: rgba(255, 255, 255, 0.72) !important;
-  border-bottom-color: rgba(99, 102, 241, 0.08) !important;
-}
-
-[data-theme="light"] .premium-topbar {
-  background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-  border-bottom: 1px solid rgba(99, 102, 241, 0.08) !important;
-  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.04), 0 4px 16px rgba(99, 102, 241, 0.03);
-}
-
-[data-theme="light"] .premium-topbar::after {
-  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.1), transparent);
-}
-
-[data-theme="light"] .topbar-page-title {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .topbar-breadcrumb-link {
-  color: #5c6078;
-}
-
-[data-theme="light"] .topbar-breadcrumb-link:hover,
-[data-theme="light"] .topbar-breadcrumb-current {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .topbar-breadcrumb-separator {
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ Search Bar (Dashboard) â”€â”€â”€ */
-[data-theme="light"] .premium-search {
-  background: rgba(99, 102, 241, 0.04) !important;
-  border-color: rgba(99, 102, 241, 0.1) !important;
-}
-
-[data-theme="light"] .premium-search.focused {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(99, 102, 241, 0.2) !important;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
-}
-
-[data-theme="light"] .premium-search-icon {
-  color: #8b8fa6;
-}
-
-[data-theme="light"] .premium-search-input {
-  color: #1a1d2e !important;
-}
-
-[data-theme="light"] .premium-search-input::placeholder {
-  color: #8b8fa6 !important;
-}
-
-[data-theme="light"] .premium-search-kbd {
-  background: rgba(99, 102, 241, 0.06);
-  border-color: rgba(99, 102, 241, 0.1);
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ Icon Buttons (Dashboard) â”€â”€â”€ */
-[data-theme="light"] .icon-btn {
-  color: #5c6078;
-}
-
-[data-theme="light"] .icon-btn:hover {
-  background: rgba(99, 102, 241, 0.06);
-  color: #4f46e5;
-}
-
-/* â”€â”€â”€ Notification Badge â”€â”€â”€ */
-[data-theme="light"] .notif-badge {
-  background: #dc2626;
-  color: #fff;
-}
-
-/* â”€â”€â”€ Dropdowns (Dashboard) â”€â”€â”€ */
-[data-theme="light"] .premium-dropdown {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  border-color: rgba(99, 102, 241, 0.1) !important;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
-}
-
-[data-theme="light"] .premium-dropdown-header {
-  border-bottom-color: rgba(99, 102, 241, 0.06);
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .premium-dropdown-action {
-  color: #6366f1;
-}
-
-[data-theme="light"] .search-results-dropdown {
-  background: rgba(255, 255, 255, 0.95) !important;
-  backdrop-filter: blur(20px);
-  border-color: rgba(99, 102, 241, 0.1) !important;
-  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06) !important;
-}
-
-[data-theme="light"] .search-result-item {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .search-result-item:hover {
-  background: rgba(99, 102, 241, 0.04);
-}
-
-[data-theme="light"] .search-result-title {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .search-result-tag {
-  background: rgba(99, 102, 241, 0.06);
-  color: #6366f1;
-}
-
-[data-theme="light"] .search-no-results {
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ Notification Dropdown Items â”€â”€â”€ */
-[data-theme="light"] .notif-item {
-  border-bottom-color: rgba(99, 102, 241, 0.04);
-}
-
-[data-theme="light"] .notif-item:hover {
-  background: rgba(99, 102, 241, 0.03);
-}
-
-[data-theme="light"] .notif-text {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .notif-time {
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ Upgrade Button â”€â”€â”€ */
-[data-theme="light"] .upgrade-btn {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.06)) !important;
-  border-color: rgba(99, 102, 241, 0.15) !important;
-  color: #4f46e5 !important;
-}
-
-[data-theme="light"] .upgrade-btn:hover {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.1)) !important;
-  border-color: rgba(99, 102, 241, 0.25) !important;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-}
-
-/* â”€â”€â”€ Premium Avatar â”€â”€â”€ */
-[data-theme="light"] .premium-avatar {
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
-}
-
-[data-theme="light"] .avatar-chevron {
-  color: #8b8fa6;
-}
-
-/* â”€â”€â”€ User Dropdown â”€â”€â”€ */
-[data-theme="light"] .user-dropdown-header {
-  border-bottom-color: rgba(99, 102, 241, 0.06);
-}
-
-[data-theme="light"] .user-dropdown-name {
-  color: #1a1d2e;
-}
-
-[data-theme="light"] .user-dropdown-email {
-  color: #8b8fa6;
-}
-
-[data-theme="light"] .user-dropdown-link {
-  color: #5c6078;
-}
-
-[data-theme="light"] .user-dropdown-link:hover {
-  background: rgba(99, 102, 241, 0.04);
-  color: #4f46e5;
-}
-
-[data-theme="light"] .user-dropdown-footer {
-  border-top-color: rgba(99, 102, 241, 0.06);
-}
-
-[data-theme="light"] .user-dropdown-logout {
-  color: #dc2626;
-}
-
-[data-theme="light"] .user-dropdown-logout:hover {
-  background: rgba(239, 68, 68, 0.04);
-}
-
-[data-theme="light"] .user-tier-badge.free {
-  background: rgba(99, 102, 241, 0.06);
-  color: #6366f1;
-}
 
 * {
   margin: 0;
@@ -1876,9 +1186,9 @@ h3 {
   font-size: 18px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   JOIN OUR COMMUNITY â€” SECTION
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   JOIN OUR COMMUNITY Ã¢â‚¬â€ SECTION
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .joc-section {
   position: relative;
@@ -1891,7 +1201,7 @@ h3 {
   background: #070d19;
 }
 
-/* â”€â”€ Large concentric orbit circles â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Large concentric orbit circles Ã¢â€â‚¬Ã¢â€â‚¬ */
 .joc-orbit {
   position: absolute;
   border-radius: 50%;
@@ -1921,13 +1231,13 @@ h3 {
   border-color: rgba(100, 180, 255, 0.05);
 }
 
-/* â”€â”€ Member cards â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Member cards Ã¢â€â‚¬Ã¢â€â‚¬ */
 .joc-member {
   position: absolute;
   z-index: 5;
 }
 
-/* Card â€” bright vivid blue gradient like the reference */
+/* Card Ã¢â‚¬â€ bright vivid blue gradient like the reference */
 .joc-card {
   display: flex;
   align-items: center;
@@ -1978,7 +1288,7 @@ h3 {
   line-height: 1.3;
 }
 
-/* â”€â”€ Cursor icon â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Cursor icon Ã¢â€â‚¬Ã¢â€â‚¬ */
 .joc-cursor {
   position: absolute;
   top: 40%;
@@ -1993,7 +1303,7 @@ h3 {
   50% { opacity: 0.65; transform: translate(3px, -3px); }
 }
 
-/* â”€â”€ Drift animations â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Drift animations Ã¢â€â‚¬Ã¢â€â‚¬ */
 .joc-drift-1 { animation: drift1 7s ease-in-out infinite; }
 .joc-drift-2 { animation: drift2 8s ease-in-out infinite; }
 .joc-drift-3 { animation: drift3 9s ease-in-out infinite; }
@@ -2043,7 +1353,7 @@ h3 {
   75% { transform: translate(-6px, -4px); }
 }
 
-/* â”€â”€ Center content â€” left-aligned like reference â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Center content Ã¢â‚¬â€ left-aligned like reference Ã¢â€â‚¬Ã¢â€â‚¬ */
 .joc-center {
   position: relative;
   z-index: 10;
@@ -2093,7 +1403,7 @@ h3 {
   border-color: rgba(56, 189, 248, 0.6);
 }
 
-/* â”€â”€ Responsive â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive Ã¢â€â‚¬Ã¢â€â‚¬ */
 @media (max-width: 768px) {
   .joc-section { min-height: 440px; padding: 50px 16px; }
 
@@ -2426,9 +1736,9 @@ h3 {
   color: white;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
    PREMIUM DASHBOARD TOPBAR
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .premium-topbar {
   background: rgba(8, 8, 12, 0.75) !important;
@@ -2528,7 +1838,7 @@ h3 {
   margin-left: auto;
 }
 
-/* â”€â”€â”€ Premium Search â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Premium Search Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .premium-search {
   display: flex;
   align-items: center;
@@ -2599,7 +1909,7 @@ h3 {
   display: none;
 }
 
-/* â”€â”€â”€ Search Results Dropdown â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Search Results Dropdown Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .search-results-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -2702,7 +2012,7 @@ h3 {
   color: rgba(255, 255, 255, 0.35);
 }
 
-/* â”€â”€â”€ Topbar Chips (Streak, XP) â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Topbar Chips (Streak, XP) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .topbar-chip {
   display: inline-flex;
   align-items: center;
@@ -2761,7 +2071,7 @@ h3 {
   color: #a855f7;
 }
 
-/* â”€â”€â”€ Notification Bell â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Notification Bell Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .notif-btn {
   position: relative;
 }
@@ -2797,7 +2107,7 @@ h3 {
   }
 }
 
-/* â”€â”€â”€ Upgrade Button â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Upgrade Button Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .upgrade-btn {
   display: inline-flex;
   align-items: center;
@@ -2825,7 +2135,7 @@ h3 {
   transform: translateY(0);
 }
 
-/* â”€â”€â”€ Premium Avatar â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Premium Avatar Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .premium-avatar-btn {
   display: flex;
   align-items: center;
@@ -2884,7 +2194,7 @@ h3 {
   transform: rotate(180deg);
 }
 
-/* â”€â”€â”€ Premium Dropdowns (shared) â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Premium Dropdowns (shared) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .premium-dropdown {
   position: absolute;
   right: 0;
@@ -2938,7 +2248,7 @@ h3 {
   color: white;
 }
 
-/* â”€â”€â”€ Notification Dropdown â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Notification Dropdown Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .notif-dropdown {
   width: 340px;
 }
@@ -2987,7 +2297,7 @@ h3 {
   display: block;
 }
 
-/* â”€â”€â”€ User Dropdown â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ User Dropdown Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 .user-dropdown {
   width: 280px;
 }
@@ -3178,7 +2488,7 @@ h3 {
   }
 }
 
-/* â”€â”€â”€ Responsive â”€â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Responsive Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 @media (max-width: 768px) {
   .premium-topbar-inner {
     padding: 0 16px;
@@ -4478,7 +3788,7 @@ h3 {
     gap: 12px;
   }
 
-  /* ─── Mobile Form Inputs ─── */
+  /* â”€â”€â”€ Mobile Form Inputs â”€â”€â”€ */
   input,
   textarea,
   select {
@@ -4494,7 +3804,7 @@ h3 {
     font-size: 14px;
   }
 
-  /* ─── Mobile Button Sizing ─── */
+  /* â”€â”€â”€ Mobile Button Sizing â”€â”€â”€ */
   .btn {
     min-height: 48px;
     padding: 12px 20px;
@@ -4506,7 +3816,7 @@ h3 {
     padding: 8px 16px;
   }
 
-  /* ─── Icon Button Touch Targets ─── */
+  /* â”€â”€â”€ Icon Button Touch Targets â”€â”€â”€ */
   button[type="button"],
   .icon-btn,
   [role="button"] {
@@ -4517,7 +3827,7 @@ h3 {
     justify-content: center;
   }
 
-  /* ─── Modal Responsive Width ─── */
+  /* â”€â”€â”€ Modal Responsive Width â”€â”€â”€ */
   .modal,
   [role="dialog"],
   .dialog-overlay {
@@ -4525,7 +3835,7 @@ h3 {
     max-width: calc(100vw - 32px);
   }
 
-  /* ─── Alert/Toast Positioning ─── */
+  /* â”€â”€â”€ Alert/Toast Positioning â”€â”€â”€ */
   .toast,
   .alert,
   .notification {
@@ -4535,7 +3845,7 @@ h3 {
     max-width: calc(100vw - 32px);
   }
 
-  /* ─── Improve Touch Spacing ─── */
+  /* â”€â”€â”€ Improve Touch Spacing â”€â”€â”€ */
   .form-group {
     margin-bottom: 16px;
   }
@@ -4544,7 +3854,7 @@ h3 {
     margin-top: 12px;
   }
 
-  /* ─── Remove tap highlight ─── */
+  /* â”€â”€â”€ Remove tap highlight â”€â”€â”€ */
   button,
   a,
   input,
@@ -4585,9 +3895,9 @@ h3 {
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   SIDEBAR â€” WELCOME SECTION & GROUPED NAV
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   SIDEBAR Ã¢â‚¬â€ WELCOME SECTION & GROUPED NAV
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .sidebar-welcome {
   display: flex;
@@ -4655,9 +3965,9 @@ h3 {
   margin: 6px auto;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” HERO ACTIONS & CUSTOMIZE BUTTON
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   DASHBOARD Ã¢â‚¬â€ HERO ACTIONS & CUSTOMIZE BUTTON
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .dash-hero-actions {
   display: flex;
@@ -4697,9 +4007,9 @@ h3 {
   font-weight: 700;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” WIDGET WRAPPERS & PREMIUM BADGES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   DASHBOARD Ã¢â‚¬â€ WIDGET WRAPPERS & PREMIUM BADGES
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .dash-widget-wrapper {
   position: relative;
@@ -4752,9 +4062,9 @@ h3 {
   pointer-events: none;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” CUSTOMIZE MODAL
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   DASHBOARD Ã¢â‚¬â€ CUSTOMIZE MODAL
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .dash-modal-overlay {
   position: fixed;
@@ -4987,7 +4297,7 @@ h3 {
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
 }
 
-/* â”€â”€ Responsive for hero actions â”€â”€ */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive for hero actions Ã¢â€â‚¬Ã¢â€â‚¬ */
 @media (max-width: 900px) {
   .dash-hero-actions {
     flex-direction: column;
@@ -5008,9 +4318,9 @@ h3 {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
    ADMIN JOB MODAL & FORM STYLES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .admin-modal-overlay {
   position: fixed;
@@ -5228,4 +4538,5 @@ h3 {
     border-radius: 16px;
   }
 }
+
 

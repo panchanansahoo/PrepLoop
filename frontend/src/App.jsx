@@ -1,11 +1,11 @@
-import React, { useState, Component, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
-import AIAssistantOrb from './components/AIAssistantOrb';
+const AIAssistantOrb = lazyWithRecovery(() => import('./components/AIAssistantOrb'));
 import LoadingScreen from './components/LoadingScreen';
 import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
 import AppFooter from './components/AppFooter';
@@ -15,6 +15,7 @@ import { OfflineBanner } from './hooks/useOffline';
 import { SkipToContent } from './utils/a11y';
 import useServiceWorkerTTS from './hooks/useServiceWorkerTTS';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
+import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import { AuthGateProvider } from './context/AuthGateContext';
 import AuthGate from './components/AuthGate';
 import CommandPalette from './components/CommandPalette';
@@ -136,50 +137,7 @@ function ProblemRedirect() {
   return <Navigate to={`/code-editor/${id}`} replace />;
 }
 
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-    this.handleReloadPage = this.handleReloadPage.bind(this);
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  componentDidCatch(error, info) {
-    console.error('App crash:', error, info);
-    // Log performance metrics on error for debugging
-    console.error('Performance metrics at error:', performanceMonitor.getMetrics());
-  }
-  handleReloadPage() {
-    window.location.reload();
-  }
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-boundary-page">
-          <div className="error-boundary-orb" />
-          <div className="error-boundary-card">
-            <div className="error-boundary-icon">⚠️</div>
-            <h1 className="error-boundary-title">Something went wrong</h1>
-            <p className="error-boundary-subtitle">An unexpected error occurred. This has been logged automatically.</p>
-            <pre className="error-boundary-detail">
-              {this.state.error?.toString()}
-            </pre>
-            <div className="error-boundary-actions">
-              <button onClick={this.handleReloadPage} className="error-boundary-btn primary">
-                Reload Page
-              </button>
-              <button onClick={() => window.history.back()} className="error-boundary-btn secondary">
-                Go Back
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
+// ErrorBoundary imported from GlobalErrorBoundary (premium recovery UI)
 
 function AppContent() {
   const { user } = useAuth();
@@ -266,7 +224,7 @@ function AppContent() {
     <div className="app-layout">
       <SkipToContent targetId="main-content" />
       <OfflineBanner />
-      <AIAssistantOrb />
+      <Suspense fallback={null}><AIAssistantOrb /></Suspense>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />
       <KeyboardShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
       {showSidebar && !isFullScreenRoute && (
@@ -298,8 +256,8 @@ function AppContent() {
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/community" element={<CommunityHub />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/overview" element={<Overview />} />
+                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/overview" element={<PrivateRoute><Overview /></PrivateRoute>} />
                 <Route path="/roadmap/language" element={<LanguageRoadmap />} />
                 <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
                 <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
@@ -314,10 +272,10 @@ function AppContent() {
                 />
 
                 <Route path="/problems" element={<ProblemExplorer />} />
-                <Route path="/quiz-arena" element={<QuizArena />} />
-                <Route path="/code-editor/:problemId" element={<DSACodeEditor />} />
+                <Route path="/quiz-arena" element={<PrivateRoute><QuizArena /></PrivateRoute>} />
+                <Route path="/code-editor/:problemId" element={<PrivateRoute><DSACodeEditor /></PrivateRoute>} />
                 <Route path="/sql-problems" element={<SQLProblemExplorer />} />
-                <Route path="/sql-editor/:problemId" element={<SQLCodeEditor />} />
+                <Route path="/sql-editor/:problemId" element={<PrivateRoute><SQLCodeEditor /></PrivateRoute>} />
                 <Route path="/visualizer" element={<AlgorithmPlayground />} />
                 <Route path="/aptitude" element={<AptitudeHub />} />
                 <Route path="/aptitude/practice/:category" element={<AptitudePractice />} />
@@ -335,40 +293,40 @@ function AppContent() {
                 <Route path="/hr-path/:topicId" element={<HRTopicLearning />} />
                 <Route path="/system-design" element={<SystemDesignPath />} />
                 <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
-                <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
-                <Route path="/ai-tutor" element={<AITutorHub />} />
-                <Route path="/company-prep" element={<CompanyPrep />} />
-                <Route path="/company-interview" element={<AIInterviewPage />} />
-                <Route path="/ai-interview" element={<AIInterviewPage />} />
-                <Route path="/voice-test" element={<SimpleVoiceTest />} />
+                <Route path="/system-design-sim" element={<PrivateRoute><SystemDesignSimulator /></PrivateRoute>} />
+                <Route path="/ai-tutor" element={<PrivateRoute><AITutorHub /></PrivateRoute>} />
+                <Route path="/company-prep" element={<PrivateRoute><CompanyPrep /></PrivateRoute>} />
+                <Route path="/company-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+                <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+                <Route path="/voice-test" element={<PrivateRoute><SimpleVoiceTest /></PrivateRoute>} />
                 <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
                 <Route path="/interview" element={<Navigate to="/interview-suite" replace />} />
                 <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
                 <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
-                <Route path="/interview-suite" element={<InterviewSuite />} />
-                <Route path="/multi-round-interview" element={<MultiRoundInterview />} />
-                <Route path="/interview-platform" element={<InterviewPlatform />} />
-                <Route path="/interview-analytics" element={<InterviewAnalytics />} />
-                <Route path="/interview-history" element={<InterviewHistory />} />
-                <Route path="/improvement-plan" element={<ImprovementPlanPage />} />
-                <Route path="/behavioral-coach" element={<BehavioralCoach />} />
+                <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
+                <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
+                <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
+                <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
+                <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
+                <Route path="/improvement-plan" element={<PrivateRoute><ImprovementPlanPage /></PrivateRoute>} />
+                <Route path="/behavioral-coach" element={<PrivateRoute><BehavioralCoach /></PrivateRoute>} />
                 <Route path="/interview-experiences" element={<InterviewExperiences />} />
-                <Route path="/code-reviewer" element={<AICodeReviewer />} />
-                <Route path="/peer-interview" element={<PeerMockInterview />} />
-                <Route path="/negotiation-coach" element={<OfferNegotiationCoach />} />
+                <Route path="/code-reviewer" element={<PrivateRoute><AICodeReviewer /></PrivateRoute>} />
+                <Route path="/peer-interview" element={<PrivateRoute><PeerMockInterview /></PrivateRoute>} />
+                <Route path="/negotiation-coach" element={<PrivateRoute><OfferNegotiationCoach /></PrivateRoute>} />
 
-                <Route path="/playground" element={<CodingPlayground />} />
-                <Route path="/live-coding" element={<CodingPlayground />} />
-                <Route path="/debugging-interview" element={<DebuggingInterview />} />
-                <Route path="/code-review-interview" element={<CodeReviewInterview />} />
-                <Route path="/daily-challenges" element={<DailyChallengesPage />} />
+                <Route path="/playground" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
+                <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
+                <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
+                <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
+                <Route path="/daily-challenges" element={<PrivateRoute><DailyChallengesPage /></PrivateRoute>} />
                 <Route path="/job-updates" element={<JobUpdates />} />
 
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
                 <Route path="/library" element={<Library />} />
                 <Route path="/blog" element={<BlogList />} />
-                <Route path="/blog/new" element={<CreateBlog />} />
+                <Route path="/blog/new" element={<PrivateRoute><CreateBlog /></PrivateRoute>} />
                 <Route path="/blog/:slug" element={<BlogPost />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
@@ -387,24 +345,24 @@ function AppContent() {
 
                 <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
                 <Route path="/hr/login" element={<HRLogin />} />
-                <Route path="/hr/dashboard" element={<HRDashboard />} />
+                <Route path="/hr/dashboard" element={<PrivateRoute><HRDashboard /></PrivateRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
-                <Route path="/flashcards" element={<Flashcards />} />
-                <Route path="/complexity-analyzer" element={<ComplexityAnalyzer />} />
-                <Route path="/jd-questions" element={<JDQuestionGenerator />} />
-                <Route path="/readiness-check" element={<ReadinessCheck />} />
-                <Route path="/concept-explainer" element={<ConceptExplainer />} />
-                <Route path="/code-translator" element={<CodeTranslator />} />
-                <Route path="/pattern-trainer" element={<PatternTrainer />} />
-                <Route path="/bug-debugger" element={<BugDebugger />} />
-                <Route path="/skill-heatmap" element={<SkillHeatmap />} />
-                <Route path="/daily-win" element={<DailyWin />} />
-                <Route path="/answer-timer" element={<AnswerTimer />} />
-                <Route path="/question-bank" element={<QuestionBankSearch />} />
-                <Route path="/weekly-report" element={<WeeklyReport />} />
-                <Route path="/rejection-analyzer" element={<RejectionAnalyzer />} />
-                <Route path="/accountability" element={<AccountabilityPartner />} />
+                <Route path="/flashcards" element={<PrivateRoute><Flashcards /></PrivateRoute>} />
+                <Route path="/complexity-analyzer" element={<PrivateRoute><ComplexityAnalyzer /></PrivateRoute>} />
+                <Route path="/jd-questions" element={<PrivateRoute><JDQuestionGenerator /></PrivateRoute>} />
+                <Route path="/readiness-check" element={<PrivateRoute><ReadinessCheck /></PrivateRoute>} />
+                <Route path="/concept-explainer" element={<PrivateRoute><ConceptExplainer /></PrivateRoute>} />
+                <Route path="/code-translator" element={<PrivateRoute><CodeTranslator /></PrivateRoute>} />
+                <Route path="/pattern-trainer" element={<PrivateRoute><PatternTrainer /></PrivateRoute>} />
+                <Route path="/bug-debugger" element={<PrivateRoute><BugDebugger /></PrivateRoute>} />
+                <Route path="/skill-heatmap" element={<PrivateRoute><SkillHeatmap /></PrivateRoute>} />
+                <Route path="/daily-win" element={<PrivateRoute><DailyWin /></PrivateRoute>} />
+                <Route path="/answer-timer" element={<PrivateRoute><AnswerTimer /></PrivateRoute>} />
+                <Route path="/question-bank" element={<PrivateRoute><QuestionBankSearch /></PrivateRoute>} />
+                <Route path="/weekly-report" element={<PrivateRoute><WeeklyReport /></PrivateRoute>} />
+                <Route path="/rejection-analyzer" element={<PrivateRoute><RejectionAnalyzer /></PrivateRoute>} />
+                <Route path="/accountability" element={<PrivateRoute><AccountabilityPartner /></PrivateRoute>} />
                 <Route path="*" element={<NotFound />} />
 
               </Routes>
@@ -424,7 +382,7 @@ function App() {
   const [appReady, setAppReady] = useState(false);
 
   return (
-    <ErrorBoundary>
+    <GlobalErrorBoundary>
       <ThemeProvider>
         <AuthProvider>
           <CoinProvider>
@@ -443,7 +401,7 @@ function App() {
           </CoinProvider>
         </AuthProvider>
       </ThemeProvider>
-    </ErrorBoundary>
+    </GlobalErrorBoundary>
   );
 }
 
