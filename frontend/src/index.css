@@ -78,7 +78,7 @@ table {
   --image-surface-gradient: linear-gradient(180deg, rgba(28, 28, 28, 0.6) 0%, rgba(18, 18, 18, 0.6) 100%);
 }
 
-/* Premium Light Mode — Tailwind Theme Overrides */
+/* Premium Light Mode — CSS Variables */
 [data-theme="light"] {
   --color-bg-primary: #fafbfd;
   --color-bg-secondary: #f4f5f9;
@@ -105,6 +105,48 @@ table {
 
   --image-accent-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 40%, #a855f7 70%, #ec4899 100%);
   --image-surface-gradient: linear-gradient(180deg, rgba(244, 240, 255, 0.6) 0%, rgba(250, 251, 253, 0.6) 100%);
+}
+
+/* CRITICAL: Light mode element style overrides - Must have high specificity */
+[data-theme="light"] {
+  background-color: #fafbfd !important;
+  color: #1a1d2e !important;
+}
+
+[data-theme="light"] * {
+  background-color: inherit;
+  color: inherit;
+}
+
+/* Override specific dark colors everywhere they appear */
+[data-theme="light"] body,
+[data-theme="light"] #root,
+[data-theme="light"] .app-layout,
+[data-theme="light"] .main-content {
+  background-color: #fafbfd !important;
+  color: #1a1d2e !important;
+}
+
+[data-theme="light"] [style*="background-color: rgb(3, 3, 3)"],
+[data-theme="light"] [style*="background-color: rgb(10, 10, 10)"],
+[data-theme="light"] [style*="background-color: rgb(18, 18, 18)"],
+[data-theme="light"] [style*="background-color: rgb(20, 20, 25)"],
+[data-theme="light"] [style*="background-color: #030303"],
+[data-theme="light"] [style*="background-color: #0a0a0a"],
+[data-theme="light"] [style*="background-color: #0a0a0c"],
+[data-theme="light"] [style*="background-color: #121212"],
+[data-theme="light"] [style*="background-color: #121216"],
+[data-theme="light"] [style*="background: #030303"],
+[data-theme="light"] [style*="background: #0a0a0a"],
+[data-theme="light"] [style*="background: #121212"] {
+  background-color: #f5f5f5 !important;
+}
+
+[data-theme="light"] [style*="color: rgb(248, 250, 252)"],
+[data-theme="light"] [style*="color: rgb(244, 244, 245)"],
+[data-theme="light"] [style*="color: #f8fafc"],
+[data-theme="light"] [style*="color: #ffffff"] {
+  color: #1a1d2e !important;
 }
 
 @layer utilities {
@@ -137,82 +179,6 @@ table {
     background: transparent;
     padding-top: 20px;
     padding-bottom: 20px;
-  }
-
-  /* Light Mode Tailwind Overrides */
-  [data-theme="light"] .bg-black {
-    background-color: white !important;
-  }
-
-  [data-theme="light"] .bg-slate-900,
-  [data-theme="light"] .bg-gray-900,
-  [data-theme="light"] .bg-zinc-900,
-  [data-theme="light"] .bg-neutral-900 {
-    background-color: rgb(248, 250, 253) !important;
-  }
-
-  [data-theme="light"] .bg-slate-800,
-  [data-theme="light"] .bg-gray-800,
-  [data-theme="light"] .bg-zinc-800,
-  [data-theme="light"] .bg-neutral-800 {
-    background-color: rgb(241, 245, 249) !important;
-  }
-
-  [data-theme="light"] .bg-slate-700,
-  [data-theme="light"] .bg-gray-700,
-  [data-theme="light"] .bg-zinc-700,
-  [data-theme="light"] .bg-neutral-700 {
-    background-color: rgb(226, 232, 240) !important;
-  }
-
-  [data-theme="light"] .text-white,
-  [data-theme="light"] .text-slate-50,
-  [data-theme="light"] .text-gray-50 {
-    color: rgb(15, 23, 42) !important;
-  }
-
-  [data-theme="light"] .text-slate-300,
-  [data-theme="light"] .text-gray-300,
-  [data-theme="light"] .text-zinc-300 {
-    color: rgb(51, 65, 85) !important;
-  }
-
-  [data-theme="light"] .text-slate-400,
-  [data-theme="light"] .text-gray-400,
-  [data-theme="light"] .text-zinc-400 {
-    color: rgb(71, 85, 105) !important;
-  }
-
-  [data-theme="light"] .border-slate-800,
-  [data-theme="light"] .border-gray-800,
-  [data-theme="light"] .border-zinc-800 {
-    border-color: rgb(226, 232, 240) !important;
-  }
-
-  [data-theme="light"] .border-slate-700,
-  [data-theme="light"] .border-gray-700,
-  [data-theme="light"] .border-zinc-700 {
-    border-color: rgb(203, 213, 225) !important;
-  }
-
-  [data-theme="light"] .divide-slate-800,
-  [data-theme="light"] .divide-gray-800 {
-    border-color: rgb(226, 232, 240) !important;
-  }
-
-  [data-theme="light"] .ring-slate-800,
-  [data-theme="light"] .ring-gray-800 {
-    --tw-ring-color: rgb(226, 232, 240) !important;
-  }
-
-  [data-theme="light"] .fill-slate-900,
-  [data-theme="light"] .fill-gray-900 {
-    fill: rgb(248, 250, 253) !important;
-  }
-
-  [data-theme="light"] .stroke-slate-900,
-  [data-theme="light"] .stroke-gray-900 {
-    stroke: rgb(248, 250, 253) !important;
   }
 }
 
