@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import logo from '../assets/logo.svg';
 import FeedbackModal from './FeedbackModal';
 
@@ -126,6 +127,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     const location = useLocation();
     const { user, isAdmin } = useAuth();
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+    const { theme } = useTheme();
+    const isLight = theme === 'light';
     const isCollapsed = collapsed && !mobileOpen;
     const userName = user?.fullName || user?.name || 'Engineer';
     const userEmail = user?.email || '';
@@ -219,12 +222,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                     ))}
                 </nav>
 
-                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
+                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: isLight ? '1px solid rgba(99, 102, 241, 0.06)' : '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
                     <div onClick={() => setIsFeedbackModalOpen(true)} style={{ textDecoration: 'none', display: 'block' }}>
                         <div 
                             style={{
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                background: isLight ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.02)',
+                                border: isLight ? '1px solid rgba(99, 102, 241, 0.08)' : '1px solid rgba(255, 255, 255, 0.05)',
                                 borderRadius: '12px',
                                 padding: isCollapsed && !mobileOpen ? '8px 0' : '8px 12px',
                                 display: 'flex',
@@ -235,7 +238,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 cursor: 'pointer',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                                boxShadow: isLight ? '0 2px 8px rgba(99, 102, 241, 0.04)' : '0 4px 12px rgba(0, 0, 0, 0.1)'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.background = 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';
@@ -244,10 +247,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 e.currentTarget.style.boxShadow = '0 6px 16px rgba(168, 85, 247, 0.15)';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.background = isLight ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.02)';
+                                e.currentTarget.style.borderColor = isLight ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255, 255, 255, 0.05)';
                                 e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                                e.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(99, 102, 241, 0.04)' : '0 4px 12px rgba(0, 0, 0, 0.1)';
                             }}
                         >
                             {isCollapsed && !mobileOpen ? (
@@ -259,7 +262,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 <>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
                                         <MessageSquare size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
-                                        <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, lineHeight: 1 }}>
+                                        <span style={{ fontSize: '11px', color: isLight ? '#5c6078' : '#a1a1aa', fontWeight: 500, lineHeight: 1 }}>
                                             Help us improve PrepLoop (30s)
                                         </span>
                                     </div>

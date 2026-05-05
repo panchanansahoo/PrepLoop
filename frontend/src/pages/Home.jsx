@@ -1050,12 +1050,19 @@ export default function Home() {
                   { name: 'Notion', slug: 'notion', color: 'ffffff' },
                   { name: 'Dropbox', slug: 'dropbox', color: '0061FF' },
                 ].map((brand, i) => (
-                  <div key={`${rep}-${i}`} className="logo-marquee-item" title={brand.name}>
+                  <div key={`${rep}-${i}`} className="logo-marquee-item" title={brand.name} style={{
+                    width: '48px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
                     <img
                       src={`https://cdn.simpleicons.org/${brand.slug}/${brand.color}`}
                       alt={brand.name}
                       loading="lazy"
-                      style={{ height: '28px', width: 'auto', display: 'block' }}
+                      style={{ height: '28px', maxWidth: '40px', display: 'block' }}
                     />
                   </div>
                 ))
@@ -1174,13 +1181,26 @@ export default function Home() {
                     "{testm.text}"
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <img src={testm.avatar} alt={testm.name} loading="lazy" style={{
+                    <div style={{
                       width: isCenter ? '48px' : '40px',
                       height: isCenter ? '48px' : '40px',
+                      aspectRatio: '1 / 1',
+                      flexShrink: 0,
                       borderRadius: '50%',
                       border: isCenter ? '2px solid #a78bfa' : '1px solid var(--border)',
-                      padding: '2px'
-                    }} />
+                      padding: '2px',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <img src={testm.avatar} alt={testm.name} loading="lazy" style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: '50%'
+                      }} />
+                    </div>
                     <div>
                       <h4 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', margin: '0 0 4px' }}>{testm.name}</h4>
                       <p style={{ fontSize: '13px', color: 'var(--zinc-400)', margin: 0 }}>{testm.role}</p>

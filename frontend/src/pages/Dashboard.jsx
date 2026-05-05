@@ -19,13 +19,10 @@ import SkillMatchJobs from '../components/SkillMatchJobs';
 import TodoList from '../components/TodoList';
 import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
-import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
-import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
 import DailyQuestionWidget from '../components/DailyQuestionWidget';
 import LeaderboardWidget from '../components/LeaderboardWidget';
 import { useLeaderboard, useUserStats } from '../hooks/useLeaderboard';
 import { DashboardSkeleton } from '../components/skeletons';
-import PerformanceMonitor from '../components/PerformanceMonitor';
 import FetchError from '../components/FetchError';
 import ErrorBoundary from '../components/ErrorBoundary';
 import InterviewCountdownWidget from '../components/InterviewCountdownWidget';
@@ -96,11 +93,9 @@ const WIDGET_REGISTRY = [
     { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
     { id: 'leaderboard', name: 'Leaderboard', component: LeaderboardWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Weekly top performers' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
-    { id: 'improvementPlan', name: 'Improvement Plan', component: ImprovementPlanWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Personalized AI interview improvement plan' },
     { id: 'interviewCountdown', name: 'Interview Countdown', component: InterviewCountdownWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Countdown to your next interview with daily prep checklist' },
     { id: 'smartStudyPlanner', name: 'Smart Study Planner', component: SmartStudyPlanner, defaultVisible: true, premium: false, layout: 'full', description: 'AI-generated personalized weekly study schedule' },
     { id: 'performanceRadar', name: 'Performance Radar', component: InterviewPerformanceRadar, defaultVisible: true, premium: false, layout: '2col-right', description: 'Multi-dimensional interview performance tracking with radar chart' },
-    { id: 'performanceMonitor', name: 'Performance Monitor', component: PerformanceMonitor, defaultVisible: false, premium: false, layout: 'full', description: 'Real-time performance metrics and optimization insights' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -334,7 +329,6 @@ export default function Dashboard() {
             <div className="dash-bg-gradient" />
             <div className="dash-bg-orb dash-bg-orb-1" />
             <div className="dash-bg-orb dash-bg-orb-2" />
-            <ImprovementPlanNotification />
 
             <div className="dash-container">
 

@@ -22,9 +22,12 @@ const PerformanceMonitor = ({ showDetails = false }) => {
 
     performanceMonitor.addListener(handleThresholdAlert);
 
+    // Grab initial metrics immediately
+    setMetrics(performanceMonitor.getMetrics());
+
     // Update metrics periodically
     const interval = setInterval(() => {
-      performanceMonitor.getMetrics().then(setMetrics);
+      setMetrics(performanceMonitor.getMetrics());
     }, 1000);
 
     return () => {
@@ -150,7 +153,7 @@ const PerformanceMonitor = ({ showDetails = false }) => {
           Reset
         </button>
         <button
-          onClick={() => performanceMonitor.getMetrics().then(setMetrics)}
+          onClick={() => setMetrics(performanceMonitor.getMetrics())}
           className="performance-monitor-button primary"
         >
           Refresh

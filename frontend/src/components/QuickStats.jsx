@@ -28,7 +28,11 @@ function AnimatedCounter({ end, duration = 1200, suffix = '' }) {
         return () => observer.disconnect();
     }, [end, duration]);
 
-    return <span ref={ref}>{count}{suffix}</span>;
+    // Calculate max width needed to prevent layout shift during animation
+    const maxWidth = String(end).length;
+    const estimatedWidth = Math.max(maxWidth * 12, 40); // ~12px per digit + padding
+
+    return <span ref={ref} style={{ display: 'inline-block', width: `${estimatedWidth}px`, textAlign: 'right' }}>{count}{suffix}</span>;
 }
 
 export default function QuickStats({ data }) {

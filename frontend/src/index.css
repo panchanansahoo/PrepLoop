@@ -138,6 +138,82 @@ table {
     padding-top: 20px;
     padding-bottom: 20px;
   }
+
+  /* Light Mode Tailwind Overrides */
+  [data-theme="light"] .bg-black {
+    background-color: white !important;
+  }
+
+  [data-theme="light"] .bg-slate-900,
+  [data-theme="light"] .bg-gray-900,
+  [data-theme="light"] .bg-zinc-900,
+  [data-theme="light"] .bg-neutral-900 {
+    background-color: rgb(248, 250, 253) !important;
+  }
+
+  [data-theme="light"] .bg-slate-800,
+  [data-theme="light"] .bg-gray-800,
+  [data-theme="light"] .bg-zinc-800,
+  [data-theme="light"] .bg-neutral-800 {
+    background-color: rgb(241, 245, 249) !important;
+  }
+
+  [data-theme="light"] .bg-slate-700,
+  [data-theme="light"] .bg-gray-700,
+  [data-theme="light"] .bg-zinc-700,
+  [data-theme="light"] .bg-neutral-700 {
+    background-color: rgb(226, 232, 240) !important;
+  }
+
+  [data-theme="light"] .text-white,
+  [data-theme="light"] .text-slate-50,
+  [data-theme="light"] .text-gray-50 {
+    color: rgb(15, 23, 42) !important;
+  }
+
+  [data-theme="light"] .text-slate-300,
+  [data-theme="light"] .text-gray-300,
+  [data-theme="light"] .text-zinc-300 {
+    color: rgb(51, 65, 85) !important;
+  }
+
+  [data-theme="light"] .text-slate-400,
+  [data-theme="light"] .text-gray-400,
+  [data-theme="light"] .text-zinc-400 {
+    color: rgb(71, 85, 105) !important;
+  }
+
+  [data-theme="light"] .border-slate-800,
+  [data-theme="light"] .border-gray-800,
+  [data-theme="light"] .border-zinc-800 {
+    border-color: rgb(226, 232, 240) !important;
+  }
+
+  [data-theme="light"] .border-slate-700,
+  [data-theme="light"] .border-gray-700,
+  [data-theme="light"] .border-zinc-700 {
+    border-color: rgb(203, 213, 225) !important;
+  }
+
+  [data-theme="light"] .divide-slate-800,
+  [data-theme="light"] .divide-gray-800 {
+    border-color: rgb(226, 232, 240) !important;
+  }
+
+  [data-theme="light"] .ring-slate-800,
+  [data-theme="light"] .ring-gray-800 {
+    --tw-ring-color: rgb(226, 232, 240) !important;
+  }
+
+  [data-theme="light"] .fill-slate-900,
+  [data-theme="light"] .fill-gray-900 {
+    fill: rgb(248, 250, 253) !important;
+  }
+
+  [data-theme="light"] .stroke-slate-900,
+  [data-theme="light"] .stroke-gray-900 {
+    stroke: rgb(248, 250, 253) !important;
+  }
 }
 
 /* Custom Scrollbar - Global Scope */

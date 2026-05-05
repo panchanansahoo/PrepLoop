@@ -5,10 +5,12 @@ import { useNavigate } from 'react-router-dom';
 
 export default function SkillRadar({ data }) {
     const canvasRef = useRef(null);
+    const canvasInitialized = useRef(false);
     const [animProgress, setAnimProgress] = useState(0);
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const navigate = useNavigate();
+    const size = 320;
 
     const skillData = data || { dsa: 65, sql: 80, aptitude: 45, systemDesign: 30, behavioral: 90 };
 
@@ -19,6 +21,21 @@ export default function SkillRadar({ data }) {
         { label: 'Sys Design', value: skillData.systemDesign },
         { label: 'Behavioral', value: skillData.behavioral },
     ];
+
+    useEffect(() => {
+        // Initialize canvas dimensions once (prevents layout shift)
+        const canvas = canvasRef.current;
+        if (!canvas || canvasInitialized.current) return;
+        
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 2; // high res
+        canvas.width = size * dpr;
+        canvas.height = size * dpr;
+        ctx.scale(dpr, dpr);
+        canvas.style.width = `${size}px`;
+        canvas.style.height = `${size}px`;
+        canvasInitialized.current = true;
+    }, []);
 
     useEffect(() => {
         let start = null;
@@ -35,16 +52,9 @@ export default function SkillRadar({ data }) {
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || !canvasInitialized.current) return;
         const ctx = canvas.getContext('2d');
-        const dpr = window.devicePixelRatio || 2; // high res
-        const size = 320;
-        canvas.width = size * dpr;
-        canvas.height = size * dpr;
-        ctx.scale(dpr, dpr);
-        canvas.style.width = `${size}px`;
-        canvas.style.height = `${size}px`;
-
+        const dpr = window.devicePixelRatio || 2;
         const cx = size / 2;
         const cy = size / 2;
         const maxR = size * 0.35;

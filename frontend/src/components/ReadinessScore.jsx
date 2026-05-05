@@ -4,10 +4,12 @@ import { useTheme } from '../context/ThemeContext';
 
 function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--accent)', isLight = false }) {
     const canvasRef = useRef(null);
+    const canvasSizeInitialized = useRef(null);
 
+    // Initialize canvas dimensions separately (prevents layout shifts)
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || canvasSizeInitialized.current === size) return;
         const ctx = canvas.getContext('2d');
         const dpr = window.devicePixelRatio || 1;
         canvas.width = size * dpr;
@@ -15,6 +17,15 @@ function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--acc
         ctx.scale(dpr, dpr);
         canvas.style.width = `${size}px`;
         canvas.style.height = `${size}px`;
+        canvasSizeInitialized.current = size;
+    }, [size]);
+
+    // Render content (minimal layout impact)
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || canvasSizeInitialized.current !== size) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
 
         const cx = size / 2;
         const cy = size / 2;

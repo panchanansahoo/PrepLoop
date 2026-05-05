@@ -1,0 +1,312 @@
+/* ═══════════════════════════════════════════════
+   LIGHT MODE — PAGE-SPECIFIC OVERRIDES (Part 1)
+   ═══════════════════════════════════════════════ */
+
+/* ── InterviewHub: define missing CSS variables ── */
+:root {
+  --ihub-bg-pill: rgba(255, 255, 255, 0.04);
+  --ihub-bg-card: rgba(255, 255, 255, 0.03);
+  --ihub-bg-card-hover: rgba(255, 255, 255, 0.06);
+  --ihub-bg-icon: rgba(255, 255, 255, 0.06);
+  --ihub-border: rgba(255, 255, 255, 0.06);
+  --ihub-border-hover: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="light"] {
+  --ihub-bg-pill: rgba(255, 255, 255, 0.7);
+  --ihub-bg-card: rgba(255, 255, 255, 0.65);
+  --ihub-bg-card-hover: rgba(255, 255, 255, 0.85);
+  --ihub-bg-icon: rgba(99, 102, 241, 0.06);
+  --ihub-border: rgba(99, 102, 241, 0.08);
+  --ihub-border-hover: rgba(99, 102, 241, 0.2);
+}
+
+/* ── Interview Hub ── */
+[data-theme="light"] .ihub-hero {
+  background: linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.06) 40%, rgba(6,182,212,0.04) 70%, rgba(16,185,129,0.03) 100%) !important;
+  border-color: rgba(99,102,241,0.12) !important;
+}
+[data-theme="light"] .ihub-hero::before {
+  background: radial-gradient(ellipse at 70% 20%, rgba(99,102,241,0.06) 0%, transparent 60%);
+}
+[data-theme="light"] .ihub-stat-pill {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .ihub-mode-card,
+[data-theme="light"] .ihub-tool-card,
+[data-theme="light"] .ihub-panel {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(99,102,241,0.08) !important;
+  backdrop-filter: blur(12px);
+}
+[data-theme="light"] .ihub-mode-card:hover,
+[data-theme="light"] .ihub-tool-card:hover {
+  background: rgba(255,255,255,0.9) !important;
+  border-color: rgba(99,102,241,0.2) !important;
+  box-shadow: 0 8px 32px rgba(99,102,241,0.08);
+}
+[data-theme="light"] .ihub-mode-meta {
+  border-top-color: rgba(99,102,241,0.06) !important;
+}
+[data-theme="light"] .ihub-weakness-item + .ihub-weakness-item,
+[data-theme="light"] .ihub-session-row + .ihub-session-row {
+  border-top-color: rgba(99,102,241,0.06) !important;
+}
+[data-theme="light"] .ihub-weakness-bar-track,
+[data-theme="light"] .ihub-empty-icon {
+  background: rgba(99,102,241,0.06) !important;
+}
+[data-theme="light"] .ihub-session-replay {
+  color: #6366f1;
+  border-color: rgba(99,102,241,0.15);
+}
+[data-theme="light"] .ihub-session-replay:hover {
+  background: rgba(99,102,241,0.06);
+  border-color: rgba(99,102,241,0.3);
+}
+
+/* ── Admin Dashboard ── */
+[data-theme="light"] .admin-tabs {
+  background: rgba(99,102,241,0.03) !important;
+  border-color: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .admin-tab {
+  color: #5c6078 !important;
+}
+[data-theme="light"] .admin-tab:hover {
+  color: #1a1d2e !important;
+  background: rgba(99,102,241,0.04) !important;
+}
+[data-theme="light"] .admin-tab.active {
+  color: #fff !important;
+}
+[data-theme="light"] .admin-stats-card,
+[data-theme="light"] .admin-content-card {
+  background: rgba(255,255,255,0.65) !important;
+  border-color: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .admin-stats-card:hover,
+[data-theme="light"] .admin-content-card:hover {
+  border-color: rgba(99,102,241,0.18) !important;
+  background: rgba(255,255,255,0.85) !important;
+}
+[data-theme="light"] .admin-search {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .admin-select {
+  background: rgba(255,255,255,0.7) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  color: #1a1d2e !important;
+}
+[data-theme="light"] .admin-select option {
+  background: #fff !important;
+  color: #1a1d2e !important;
+}
+[data-theme="light"] .admin-btn-icon {
+  border-color: rgba(99,102,241,0.1) !important;
+  background: rgba(255,255,255,0.5) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .admin-btn-icon:hover {
+  color: #1a1d2e !important;
+  background: rgba(99,102,241,0.06) !important;
+}
+[data-theme="light"] .admin-table-wrap {
+  border-color: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .admin-table th {
+  background: rgba(99,102,241,0.03) !important;
+  color: #5c6078 !important;
+  border-bottom-color: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .admin-table td {
+  border-bottom-color: rgba(99,102,241,0.04) !important;
+}
+[data-theme="light"] .admin-table tr:hover td {
+  background: rgba(99,102,241,0.02) !important;
+}
+[data-theme="light"] .admin-role-badge.user {
+  background: rgba(99,102,241,0.04) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .admin-tier-badge {
+  background: rgba(99,102,241,0.04) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .admin-role-badge.admin {
+  color: #6366f1 !important;
+}
+[data-theme="light"] .admin-alert-error {
+  color: #dc2626 !important;
+}
+[data-theme="light"] .admin-alert-success {
+  color: #059669 !important;
+}
+[data-theme="light"] .admin-btn-sm.promote { color: #059669 !important; }
+[data-theme="light"] .admin-btn-sm.demote { color: #d97706 !important; }
+[data-theme="light"] .admin-btn-sm.delete { color: #dc2626 !important; }
+[data-theme="light"] .admin-content-tag {
+  color: #6366f1 !important;
+}
+[data-theme="light"] .tier-bar-track {
+  background: rgba(99,102,241,0.06) !important;
+}
+[data-theme="light"] .admin-page-btn {
+  border-color: rgba(99,102,241,0.1) !important;
+  background: rgba(255,255,255,0.5) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .admin-page-btn:hover:not(:disabled) {
+  background: rgba(99,102,241,0.06) !important;
+  color: #1a1d2e !important;
+}
+
+/* ── Payment Page ── */
+[data-theme="light"] .payment-page {
+  background-color: #f0f1fa !important;
+  color: #1a1d2e !important;
+}
+[data-theme="light"] .payment-container {
+  background: rgba(255,255,255,0.8) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  box-shadow: 0 25px 50px rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .order-summary {
+  background: linear-gradient(135deg, rgba(248,249,252,0.95) 0%, rgba(240,241,250,0.95) 100%) !important;
+  border-right-color: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .back-btn { color: #5c6078 !important; }
+[data-theme="light"] .back-btn:hover { color: #1a1d2e !important; }
+[data-theme="light"] .plan-badge {
+  background: rgba(99,102,241,0.08) !important;
+  color: #6366f1 !important;
+  border-color: rgba(99,102,241,0.2) !important;
+}
+[data-theme="light"] .plan-title { color: #1a1d2e !important; }
+[data-theme="light"] .plan-desc { color: #5c6078 !important; }
+[data-theme="light"] .price-display .currency { color: #5c6078 !important; }
+[data-theme="light"] .price-display .amount { color: #1a1d2e !important; }
+[data-theme="light"] .price-display .period { color: #8b8fa6 !important; }
+[data-theme="light"] .order-summary .divider {
+  background: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .order-summary .feature-text { color: #3b3f56 !important; }
+[data-theme="light"] .payment-form-container {
+  background: rgba(255,255,255,0.6) !important;
+}
+[data-theme="light"] .checkout-header h3 { color: #1a1d2e !important; }
+[data-theme="light"] .payment-amount {
+  color: #1a1d2e !important;
+  background: rgba(99,102,241,0.04) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .method-tab {
+  background: rgba(99,102,241,0.03) !important;
+  border-color: rgba(99,102,241,0.08) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .method-tab:hover {
+  background: rgba(99,102,241,0.06) !important;
+  color: #1a1d2e !important;
+}
+[data-theme="light"] .method-tab.active {
+  background: rgba(99,102,241,0.08) !important;
+  border-color: rgba(99,102,241,0.3) !important;
+  color: #4f46e5 !important;
+}
+[data-theme="light"] .payment-form label { color: #5c6078 !important; }
+[data-theme="light"] .payment-form input {
+  background: rgba(255,255,255,0.9) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  color: #1a1d2e !important;
+}
+[data-theme="light"] .payment-form input:focus {
+  border-color: #6366f1 !important;
+  background: #fff !important;
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .payment-form input::placeholder { color: #8b8fa6 !important; }
+[data-theme="light"] .input-icon { color: #8b8fa6 !important; }
+[data-theme="light"] .qr-placeholder {
+  background: rgba(99,102,241,0.03) !important;
+  border-color: rgba(99,102,241,0.15) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .divider-text { color: #8b8fa6 !important; }
+[data-theme="light"] .divider-text::before,
+[data-theme="light"] .divider-text::after {
+  border-bottom-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .payment-security-note { color: #8b8fa6 !important; }
+[data-theme="light"] .success-container {
+  background: rgba(255,255,255,0.9) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .success-title { color: #1a1d2e !important; }
+[data-theme="light"] .success-message { color: #5c6078 !important; }
+[data-theme="light"] .success-details {
+  background: rgba(99,102,241,0.03) !important;
+}
+[data-theme="light"] .detail-label { color: #5c6078 !important; }
+[data-theme="light"] .detail-value { color: #1a1d2e !important; }
+[data-theme="light"] .redirect-text { color: #8b8fa6 !important; }
+[data-theme="light"] .empty-icon {
+  background: rgba(99,102,241,0.04) !important;
+  color: #8b8fa6 !important;
+}
+[data-theme="light"] .empty-state h4 { color: #1a1d2e !important; }
+[data-theme="light"] .empty-state p { color: #5c6078 !important; }
+[data-theme="light"] .razorpay-info {
+  background: rgba(99,102,241,0.03) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .razorpay-info h4 { color: #1a1d2e !important; }
+[data-theme="light"] .razorpay-info p { color: #5c6078 !important; }
+[data-theme="light"] .method-badge {
+  background: rgba(99,102,241,0.04) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .payment-error p { color: #dc2626 !important; }
+[data-theme="light"] .loading-spinner {
+  border-color: rgba(99,102,241,0.2) !important;
+  border-top-color: #6366f1 !important;
+}
+[data-theme="light"] .ambient-orb.orb-1 {
+  background: rgba(99,102,241,0.05) !important;
+}
+[data-theme="light"] .ambient-orb.orb-2 {
+  background: rgba(168,85,247,0.04) !important;
+}
+
+/* ── Auth Gate ── */
+[data-theme="light"] .auth-gate-overlay {
+  background: rgba(0,0,0,0.3) !important;
+}
+[data-theme="light"] .auth-gate-modal {
+  background: rgba(255,255,255,0.95) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+  box-shadow: 0 24px 64px rgba(99,102,241,0.12) !important;
+}
+[data-theme="light"] .auth-gate-close {
+  background: rgba(99,102,241,0.04) !important;
+  border-color: rgba(99,102,241,0.1) !important;
+}
+[data-theme="light"] .auth-gate-close:hover {
+  background: rgba(99,102,241,0.08) !important;
+}
+[data-theme="light"] .auth-gate-btn-secondary {
+  border-color: rgba(99,102,241,0.12) !important;
+  background: rgba(99,102,241,0.03) !important;
+  color: #5c6078 !important;
+}
+[data-theme="light"] .auth-gate-btn-secondary:hover {
+  background: rgba(99,102,241,0.06) !important;
+  border-color: rgba(99,102,241,0.2) !important;
+}
+[data-theme="light"] .auth-gate-features {
+  border-top-color: rgba(99,102,241,0.08) !important;
+}
