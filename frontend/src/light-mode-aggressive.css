@@ -1,10 +1,6 @@
-/* ═════════════════════════════════════════════════════════════════
-   AGGRESSIVE LIGHT MODE OVERRIDES - Direct Application
-   This file uses high-specificity selectors with !important to ensure
-   light mode colors override everything
-   ═════════════════════════════════════════════════════════════════ */
+/* AGGRESSIVE LIGHT MODE OVERRIDES
+   High-specificity selectors with !important ensure light mode overrides everything */
 
-/* When data-theme="light" is set on HTML, apply light mode universally */
 html[data-theme="light"],
 html[data-theme="light"] * {
   background-color: inherit;
