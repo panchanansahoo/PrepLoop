@@ -42,6 +42,7 @@ export default function AIAssistantOrb() {
   const [speechInputSupported, setSpeechInputSupported] = useState(false);
   const [speechOutputSupported, setSpeechOutputSupported] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [theme, setTheme] = useState(document.documentElement.getAttribute('data-theme') || 'dark');
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const canvasRef = useRef(null);
@@ -59,6 +60,21 @@ export default function AIAssistantOrb() {
       loadHistory();
     }
   }, [open, user]);
+
+  // Listen for theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const newTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      setTheme(newTheme);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -173,6 +189,9 @@ export default function AIAssistantOrb() {
     canvas.height = size;
     let time = 0;
 
+    // Detect light mode from current theme state
+    const isLightMode = theme === 'light';
+
     const animate = () => {
       time += 0.008;
       ctx.clearRect(0, 0, size, size);
@@ -192,8 +211,8 @@ export default function AIAssistantOrb() {
       ctx.arc(size / 2, size / 2, size / 2 - 4, 0, Math.PI * 2);
       ctx.clip();
 
-      // Dark base
-      ctx.fillStyle = 'rgba(10, 5, 20, 0.6)';
+      // Base color - light or dark depending on theme
+      ctx.fillStyle = isLightMode ? 'rgba(243, 244, 255, 0.8)' : 'rgba(10, 5, 20, 0.6)';
       ctx.fillRect(0, 0, size, size);
 
       // Render blobs with additive-like blending
@@ -216,7 +235,7 @@ export default function AIAssistantOrb() {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, []);
+  }, [theme]);
 
   const loadHistory = async () => {
     try {
