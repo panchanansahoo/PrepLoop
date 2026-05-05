@@ -56,11 +56,6 @@
 }
 
 
-/* Light theme overrides extracted to light-theme.css for better cacheability */
-@import './light-theme.css';
-@import './light-theme-pages.css';
-
-
 * {
   margin: 0;
   padding: 0;
@@ -4539,5 +4534,9 @@ h3 {
     border-radius: 16px;
   }
 }
+
+/* Light theme overrides extracted to light-theme.css for better cacheability */
+@import './light-theme.css';
+@import './light-theme-pages.css';
 
 

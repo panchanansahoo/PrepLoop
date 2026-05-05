@@ -1,0 +1,246 @@
+/* ═════════════════════════════════════════════════════════════════
+   AGGRESSIVE LIGHT MODE OVERRIDES - Direct Application
+   This file uses high-specificity selectors with !important to ensure
+   light mode colors override everything
+   ═════════════════════════════════════════════════════════════════ */
+
+/* When data-theme="light" is set on HTML, apply light mode universally */
+html[data-theme="light"],
+html[data-theme="light"] * {
+  background-color: inherit;
+  color: inherit;
+}
+
+/* Override the root element and main containers */
+html[data-theme="light"] {
+  background-color: #fafbfd !important;
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] body,
+html[data-theme="light"] #root,
+html[data-theme="light"] .app-layout,
+html[data-theme="light"] .main-content {
+  background-color: #fafbfd !important;
+  color: #1a1d2e !important;
+}
+
+/* Override CSS variables at root level for light mode */
+html[data-theme="light"] {
+  --bg-primary: #fafbfd !important;
+  --bg-secondary: #f4f5f9 !important;
+  --bg-tertiary: #eef0f6 !important;
+  --bg-card: rgba(255, 255, 255, 0.95) !important;
+  --bg-card-hover: rgba(255, 255, 255, 0.98) !important;
+  --bg-glass: rgba(255, 255, 255, 0.9) !important;
+  
+  --text-primary: #1a1d2e !important;
+  --text-secondary: #5c6078 !important;
+  --text-muted: #8b8fa6 !important;
+  --text-invert: #ffffff !important;
+  
+  --border: rgba(99, 102, 241, 0.1) !important;
+  --border-light: rgba(99, 102, 241, 0.06) !important;
+  
+  --accent-primary: #4f46e5 !important;
+  --accent-secondary: #6366f1 !important;
+  --accent-glow: rgba(99, 102, 241, 0.15) !important;
+  
+  --glass-border: rgba(99, 102, 241, 0.1) !important;
+  --glass-border-hover: rgba(99, 102, 241, 0.2) !important;
+  
+  --color-bg-primary: #fafbfd !important;
+  --color-bg-secondary: #f4f5f9 !important;
+  --color-bg-tertiary: #eef0f6 !important;
+  --color-bg-card: rgba(255, 255, 255, 0.95) !important;
+  --color-bg-glass: rgba(255, 255, 255, 0.9) !important;
+  
+  --color-text-primary: #1a1d2e !important;
+  --color-text-secondary: #5c6078 !important;
+  --color-text-muted: #8b8fa6 !important;
+  
+  --color-border: rgba(99, 102, 241, 0.1) !important;
+  --color-border-subtle: rgba(99, 102, 241, 0.05) !important;
+  
+  --color-accent-primary: #4f46e5 !important;
+  --color-accent-secondary: #6366f1 !important;
+}
+
+/* Aggressive overrides for dark background colors */
+html[data-theme="light"] [style*="background-color: rgb(3, 3, 3)"],
+html[data-theme="light"] [style*="background-color: rgb(10, 10, 10)"],
+html[data-theme="light"] [style*="background-color: rgb(18, 18, 18)"],
+html[data-theme="light"] [style*="background-color: rgb(20, 20, 25)"],
+html[data-theme="light"] [style*="background-color: #030303"],
+html[data-theme="light"] [style*="background-color: #0a0a0a"],
+html[data-theme="light"] [style*="background-color: #0a0a0c"],
+html[data-theme="light"] [style*="background-color: #121212"],
+html[data-theme="light"] [style*="background-color: #121216"],
+html[data-theme="light"] [style*="background: rgb(3, 3, 3)"],
+html[data-theme="light"] [style*="background: rgb(10, 10, 10)"],
+html[data-theme="light"] [style*="background: rgb(18, 18, 18)"],
+html[data-theme="light"] [style*="background: #030303"],
+html[data-theme="light"] [style*="background: #0a0a0a"],
+html[data-theme="light"] [style*="background: #121212"] {
+  background-color: #f5f5f5 !important;
+}
+
+/* Override light text to dark text in light mode */
+html[data-theme="light"] [style*="color: rgb(248, 250, 252)"],
+html[data-theme="light"] [style*="color: rgb(244, 244, 245)"],
+html[data-theme="light"] [style*="color: rgb(255, 255, 255)"],
+html[data-theme="light"] [style*="color: #f8fafc"],
+html[data-theme="light"] [style*="color: #ffffff"] {
+  color: #1a1d2e !important;
+}
+
+/* Navbar in light mode */
+html[data-theme="light"] .navbar {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom-color: rgba(99, 102, 241, 0.1) !important;
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] .navbar.scrolled {
+  background: rgba(255, 255, 255, 0.98) !important;
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.08) !important;
+}
+
+html[data-theme="light"] .navbar * {
+  color: #1a1d2e !important;
+}
+
+/* Sidebar in light mode */
+html[data-theme="light"] .sidebar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 240, 255, 0.9) 100%) !important;
+  border-right-color: rgba(99, 102, 241, 0.1) !important;
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] .sidebar * {
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] .nav-item {
+  color: #5c6078 !important;
+}
+
+html[data-theme="light"] .nav-item.active {
+  color: #4f46e5 !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+}
+
+html[data-theme="light"] .nav-item:hover {
+  color: #4f46e5 !important;
+  background: rgba(99, 102, 241, 0.05) !important;
+}
+
+/* Main content area */
+html[data-theme="light"] .page-content,
+html[data-theme="light"] main {
+  background: #fafbfd !important;
+  color: #1a1d2e !important;
+}
+
+/* Text colors */
+html[data-theme="light"] h1,
+html[data-theme="light"] h2,
+html[data-theme="light"] h3,
+html[data-theme="light"] h4,
+html[data-theme="light"] h5,
+html[data-theme="light"] h6 {
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] p {
+  color: #5c6078 !important;
+}
+
+html[data-theme="light"] a {
+  color: #4f46e5 !important;
+}
+
+html[data-theme="light"] button,
+html[data-theme="light"] .btn {
+  background: #4f46e5 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] button:hover,
+html[data-theme="light"] .btn:hover {
+  background: #6366f1 !important;
+}
+
+/* Cards and containers */
+html[data-theme="light"] .card,
+html[data-theme="light"] .card-body {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(99, 102, 241, 0.1) !important;
+  color: #1a1d2e !important;
+}
+
+/* Forms */
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(99, 102, 241, 0.15) !important;
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] input:focus,
+html[data-theme="light"] textarea:focus,
+html[data-theme="light"] select:focus {
+  border-color: #4f46e5 !important;
+  background: #ffffff !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #8b8fa6 !important;
+}
+
+/* Modals and dialogs */
+html[data-theme="light"] .modal,
+html[data-theme="light"] .dialog,
+html[data-theme="light"] .dropdown {
+  background: rgba(255, 255, 255, 0.98) !important;
+  color: #1a1d2e !important;
+  border-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Override Tailwind dark: classes */
+html[data-theme="light"] .dark\:bg-slate-900,
+html[data-theme="light"] .dark\:bg-slate-800,
+html[data-theme="light"] .dark\:bg-gray-900,
+html[data-theme="light"] .dark\:bg-gray-800,
+html[data-theme="light"] .dark\:bg-zinc-900,
+html[data-theme="light"] .dark\:bg-zinc-800,
+html[data-theme="light"] .dark\:bg-black {
+  background-color: #f5f5f5 !important;
+}
+
+html[data-theme="light"] .dark\:text-white,
+html[data-theme="light"] .dark\:text-slate-100,
+html[data-theme="light"] .dark\:text-gray-100 {
+  color: #1a1d2e !important;
+}
+
+html[data-theme="light"] .dark\:border-slate-800,
+html[data-theme="light"] .dark\:border-gray-800,
+html[data-theme="light"] .dark\:border-zinc-800 {
+  border-color: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* Scrollbars */
+html[data-theme="light"] ::-webkit-scrollbar-track {
+  background: rgba(99, 102, 241, 0.04) !important;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3) !important;
+}
+
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5) !important;
+}
