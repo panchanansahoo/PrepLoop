@@ -1,8 +1,17 @@
 import pg from 'pg';
 import { createLogger } from '../utils/structuredLogger.js';
+import { env } from './env.js';
 
-const { Pool } = pg;
 const logger = createLogger('db-pool');
+
+const poolConfig = {
+  connectionString: env.DATABASE_URL,
+  max: 20, // Maximum number of clients in the pool
+  min: 5,  // Minimum number of clients in the pool
+  acquireTimeoutMillis: 60000,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
+};
 
 const poolConfig = {
   connectionString: process.env.DATABASE_URL || process.env.SUPABASE_URL,
@@ -19,14 +28,12 @@ const poolConfig = {
   } : false
 };
 
+const { Pool } = pg;
+
 export const pool = new Pool(poolConfig);
 
-pool.on('connect', (client) => {
-  logger.debug('New client connected to pool', {
-    totalCount: pool.totalCount,
-    idleCount: pool.idleCount,
-    waitingCount: pool.waitingCount
-  });
+pool.on('connect', () => {
+  logger.info('Connected to PostgreSQL database');
 });
 
 pool.on('acquire', (client) => {
@@ -45,11 +52,12 @@ pool.on('remove', (client) => {
   });
 });
 
-pool.on('error', (err, client) => {
-  logger.error('Unexpected pool error', {
+pool.on('error', (err) => {
+  logger.error('Unexpected error on idle client', {
     error: err.message,
     stack: err.stack
   });
+  process.exit(-1);
 });
 
 export const query = async (text, params) => {

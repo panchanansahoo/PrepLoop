@@ -122,7 +122,7 @@ export default function DSAToolbar({
               width: 280, maxHeight: 400, overflowY: 'auto',
               background: isLight ? 'rgba(240, 240, 255, 0.98)' : 'rgba(15,15,30,0.98)', border: isLight ? '1px solid rgba(99,102,241,0.12)' : '1px solid rgba(255,255,255,0.08)',
               borderRadius: 12, padding: 8, zIndex: 100,
-              boxShadow: isLight ? '0 8px 32px rgba(0,0,0,0.08)' : '0 8px 32px rgba(0,0,0,0.5)',
+              boxShadow: 'var(--shadow-md)',
               backdropFilter: 'blur(20px)',
             }}>
               {ALL_TEMPLATES.map(group => (

@@ -1,28 +1,59 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import './Dashboard.css';
 import { Bell, Moon, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
+const DEFAULT_SETTINGS = {
+    emailNotifications: true,
+    practiceReminders: true,
+    weeklyReport: true,
+    language: 'en',
+    codeEditor: 'vscode',
+    difficulty: 'medium'
+};
+
+const getSettingsStorageKey = (userId) => `preploop-settings:${userId || 'guest'}`;
+
+const loadStoredSettings = (userId) => {
+    if (typeof window === 'undefined') {
+        return DEFAULT_SETTINGS;
+    }
+
+    try {
+        const stored = window.localStorage.getItem(getSettingsStorageKey(userId));
+        if (!stored) {
+            return DEFAULT_SETTINGS;
+        }
+
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
+    } catch {
+        return DEFAULT_SETTINGS;
+    }
+};
 
 export default function Settings() {
     const { user, logout } = useAuth();
     const { theme, toggleTheme } = useTheme();
-    const [settings, setSettings] = useState({
-        emailNotifications: true,
-        practiceReminders: true,
-        weeklyReport: true,
-        language: 'en',
-        codeEditor: 'vscode',
-        difficulty: 'medium'
-    });
+    const [settings, setSettings] = useState(() => loadStoredSettings(user?.id));
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [status, setStatus] = useState('idle');
 
+    useEffect(() => {
+        setSettings(loadStoredSettings(user?.id));
+        setSaved(false);
+        setStatus('idle');
+    }, [user?.id]);
+
     const syncLanguagePreferences = (language) => {
-        localStorage.setItem('app-language', language);
-        localStorage.setItem('pg-voice-errors-lang', language === 'hi' ? 'hi' : 'en');
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        window.localStorage.setItem('app-language', language);
+        window.localStorage.setItem('pg-voice-errors-lang', language === 'hi' ? 'hi' : 'en');
     };
 
     const handleSave = async () => {
@@ -30,17 +61,13 @@ export default function Settings() {
         setStatus('idle');
         try {
             syncLanguagePreferences(settings.language);
-            const res = await fetch('/api/user/settings', {
-                method: 'PUT',
-                headers: buildAuthHeaders(user),
-                body: JSON.stringify(settings)
-            });
-            if (!res.ok) {
-                throw new Error('Failed to save settings');
+            if (typeof window !== 'undefined') {
+                window.localStorage.setItem(getSettingsStorageKey(user?.id), JSON.stringify(settings));
             }
+
             setSaved(true);
             setStatus('saved');
-            setTimeout(() => setSaved(false), 2000);
+            window.setTimeout(() => setSaved(false), 2000);
         } catch (err) {
             console.error(err);
             setStatus('error');

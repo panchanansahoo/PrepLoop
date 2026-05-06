@@ -542,8 +542,7 @@ export default function AIAssistantOrb() {
     }
   };
 
-  if (!user) return null;
-
+  // User check removed so the orb is visible unconditionally.
   return (
     <>
       {/* ─── ORB FAB ─── */}

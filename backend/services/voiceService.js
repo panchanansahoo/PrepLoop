@@ -59,7 +59,20 @@ const providerStats = {
     groq: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
 };
 
-const PROVIDER_COOLDOWN_MS = 60000; // 1 minute cooldown after failures
+const PROVIDER_COOLDOWN_MS = 10000; // 10s cooldown (reduced from 60s to prevent interview stalls)
+const PROVIDER_RESET_INTERVAL_MS = 30000; // Reset provider stats every 30s to prevent stale state
+
+// Periodically reset provider failure state to prevent persistent cooldowns
+setInterval(() => {
+    for (const provider of Object.keys(providerStats)) {
+        const stats = providerStats[provider];
+        if (stats.failCount > 0 && Date.now() - stats.lastFail > PROVIDER_COOLDOWN_MS * 2) {
+            console.log(`[TTS] Resetting cooldown for ${provider}`);
+            stats.failCount = 0;
+            stats.lastFail = 0;
+        }
+    }
+}, PROVIDER_RESET_INTERVAL_MS);
 
 const groq = providers.groq ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
@@ -165,6 +178,17 @@ const DEEPGRAM_CHUNK_URL = 'https://api.deepgram.com/v1/listen?model=nova-2&smar
 function normalizeGender(gender) {
     const n = String(gender || '').trim().toLowerCase();
     return (n === 'male' || n === 'man') ? 'male' : 'female';
+}
+
+/**
+ * Reset provider stats — called at interview start to clear stale cooldown state
+ * Prevents providers from being stuck in cooldown across multiple questions
+ */
+export function resetProviderStats() {
+    for (const provider of Object.keys(providerStats)) {
+        providerStats[provider] = { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 };
+    }
+    console.log('[TTS] Provider stats reset for new interview session');
 }
 
 // ─────────────────────────────────────────────────────────
@@ -379,7 +403,11 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     const isInCooldown = (provider) => {
         const stats = providerStats[provider];
         if (!stats) return false;
-        return Date.now() - stats.lastFail < PROVIDER_COOLDOWN_MS;
+        const inCooldown = Date.now() - stats.lastFail < PROVIDER_COOLDOWN_MS;
+        if (inCooldown) {
+            console.log(`[TTS] ${provider} in cooldown (${Math.round((PROVIDER_COOLDOWN_MS - (Date.now() - stats.lastFail)) / 1000)}s remaining)`);
+        }
+        return inCooldown;
     };
 
     // Helper to update provider stats
@@ -390,9 +418,11 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         if (success) {
             stats.successCount++;
             stats.avgLatency = (stats.avgLatency * (stats.successCount - 1) + latency) / stats.successCount;
+            console.log(`[TTS] ${provider} success (${latency}ms)`);
         } else {
             stats.failCount++;
             stats.lastFail = Date.now();
+            console.warn(`[TTS] ${provider} failed (failCount: ${stats.failCount})`);
         }
     };
 

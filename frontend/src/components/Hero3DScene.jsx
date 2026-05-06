@@ -484,9 +484,7 @@ export default function Hero3DScene() {
                 background: isLight
                     ? 'linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 40%, #0d1117 100%)'
                     : 'transparent',
-                boxShadow: isLight
-                    ? '0 8px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.05)'
-                    : 'none',
+                boxShadow: 'var(--shadow-md)',
             }}
         >
             <Canvas

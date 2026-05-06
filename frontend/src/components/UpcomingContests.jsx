@@ -192,9 +192,7 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
             background: colors.cardBg, borderRadius: 24,
             border: colors.cardBorder, padding: '24px 28px',
             backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-            boxShadow: isLight
-                ? '0 12px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)'
-                : '0 24px 64px -20px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.08)',
+            boxShadow: 'var(--shadow-md)',
             transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
         }}>
             {/* Header */}

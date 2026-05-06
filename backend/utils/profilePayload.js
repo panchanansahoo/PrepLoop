@@ -4,6 +4,7 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   const fullNameRaw = body.fullName || body.full_name;
   const experienceLevelRaw = body.experienceLevel || body.experience_level;
   const currentRoleRaw = body.currentRole || body.current_role || body.designation;
+  const avatarUrlRaw = body.avatarUrl || body.avatar_url;
   const bioRaw = body.bio;
   const skillsRaw = body.skills;
   const educationRaw = body.education;
@@ -19,6 +20,10 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   if (currentRoleRaw !== undefined) {
     const trimmed = String(currentRoleRaw || '').trim();
     if (trimmed !== '') updates.designation = trimmed;
+  }
+  if (avatarUrlRaw !== undefined) {
+    const trimmed = String(avatarUrlRaw || '').trim();
+    if (trimmed !== '') updates.avatar_url = trimmed.substring(0, 500);
   }
   if (bioRaw !== undefined) {
     if (typeof bioRaw === 'string') {

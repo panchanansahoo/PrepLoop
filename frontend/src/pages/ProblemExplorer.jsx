@@ -571,7 +571,7 @@ export default function ProblemExplorer() {
                                 background: isLight ? 'rgba(255,255,255,0.98)' : 'rgba(12,12,20,0.97)',
                                 border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(6,182,212,0.15)',
                                 display: 'flex', alignItems: 'center', gap: 6,
-                                boxShadow: isLight ? '0 8px 32px rgba(0,0,0,0.1)' : '0 8px 32px rgba(0,0,0,0.6)',
+                                boxShadow: 'var(--shadow-md)',
                                 backdropFilter: 'blur(16px)',
                             }}>
                                 <span style={{ fontSize: 11, color: isLight ? '#64748b' : 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Goal:</span>

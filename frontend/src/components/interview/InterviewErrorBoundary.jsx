@@ -1,6 +1,20 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { AI_INTERVIEW_SESSION_KEY } from '../../pages/aiInterviewConfig';
+
+export const INTERVIEW_SESSION_STORAGE_KEYS = [
+    AI_INTERVIEW_SESSION_KEY,
+    'ai-interview-session',
+    'ai_interview_active_session',
+];
+
+export function clearInterviewSessionStorage() {
+    try {
+        INTERVIEW_SESSION_STORAGE_KEYS.forEach((key) => {
+            window.localStorage.removeItem(key);
+        });
+    } catch {}
+}
 
 /**
  * InterviewErrorBoundary — Catches JS errors during interview and displays graceful fallback
@@ -47,19 +61,20 @@ class InterviewErrorBoundary extends React.Component {
     }
 
     handleReset = () => {
+        clearInterviewSessionStorage();
         this.setState({
             hasError: false,
             error: null,
             errorInfo: null,
+            errorCount: 0,
         });
+
+        window.location.reload();
     };
 
     handleGoHome = () => {
-        // Clear localStorage session on exit
-        try {
-            window.localStorage.removeItem('ai-interview-session');
-        } catch {}
-        window.location.href = '/';
+        clearInterviewSessionStorage();
+        window.location.assign('/interview-suite');
     };
 
     render() {

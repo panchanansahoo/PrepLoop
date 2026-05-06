@@ -9,6 +9,7 @@ import phase2Service from '../services/phase2IntegrationService.js';
 import { sendError, sendSuccess, ErrorCodes } from '../utils/errorResponseFormatter.js';
 import questionMetrics from '../utils/questionMetrics.js';
 import questionRecommender from '../utils/questionRecommender.js';
+import { resetProviderStats } from '../services/voiceService.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -612,6 +613,9 @@ router.post('/start', authenticateToken, async (req, res) => {
   let didCharge = false;
   try {
     const { type, difficulty, duration } = req.body;
+
+    // Reset provider stats for new interview session
+    resetProviderStats();
 
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];

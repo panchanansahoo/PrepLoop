@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { MonacoWrapper } from '../CodeEditor/MonacoWrapper';
+import { useTheme } from '../../context/ThemeContext';
 import {
     Code2, Palette, FileText, ChevronDown, CheckCircle,
     Sparkles, RotateCcw, Mic, MicOff, Send,
@@ -54,6 +55,8 @@ function InterviewWorkspace({
     onCanvasChange,
     broadcastEvent,
 }) {
+    const { theme } = useTheme();
+
     // Monaco editor options — stable reference
     const editorOptions = useMemo(() => ({
         fontSize: 13,
@@ -151,7 +154,7 @@ function InterviewWorkspace({
                                         broadcastEvent('interview_update', { event: 'code_update', data: { language, code: newVal } });
                                     }
                                 }}
-                                theme="vs-dark"
+                                theme={theme === 'light' ? 'light' : 'vs-dark'}
                                 options={editorOptions}
                             />
                         </div>

@@ -1,67 +1,33 @@
-import { supabaseAdmin } from '../db/supabaseClient.js';
+import jwt from 'jsonwebtoken';
+import { supabase } from '../db/supabaseClient.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
-const ROLE_CACHE_TTL_MS = Number.parseInt(process.env.AUTH_ROLE_CACHE_TTL_MS || '300000', 10);
-const ROLE_CACHE_MAX_ENTRIES = Number.parseInt(process.env.AUTH_ROLE_CACHE_MAX_ENTRIES || '10000', 10);
-const roleCache = new Map();
+const logger = createLogger('auth');
 
-const getRoleFromCache = (userId) => {
-  const cached = roleCache.get(userId);
-  if (!cached) return null;
+// JWT utilities
+const generateTokens = async (userId) => {
+  const accessToken = jwt.sign(
+    { userId, type: 'access' },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
 
-  if (cached.expiresAt <= Date.now()) {
-    roleCache.delete(userId);
-    return null;
+  const refreshToken = jwt.sign(
+    { userId, type: 'refresh' },
+    process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  // Store refresh token in database for rotation
+  const { error } = await supabase
+    .from('refresh_tokens')
+    .insert([{ user_id: userId, token: refreshToken, expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) }]);
+
+  if (error) {
+    throw error;
   }
 
-  // Fix #18: update lastAccessed for LRU eviction
-  cached.lastAccessed = Date.now();
-  return cached.role;
-};
-
-const setRoleCache = (userId, role) => {
-  if (roleCache.size >= ROLE_CACHE_MAX_ENTRIES) {
-    // Fix #18: evict least-recently-used entry instead of oldest-inserted
-    let lruKey = null;
-    let lruTime = Infinity;
-    for (const [key, entry] of roleCache) {
-      if (entry.lastAccessed < lruTime) {
-        lruTime = entry.lastAccessed;
-        lruKey = key;
-      }
-    }
-    if (lruKey) roleCache.delete(lruKey);
-  }
-
-  roleCache.set(userId, {
-    role,
-    expiresAt: Date.now() + ROLE_CACHE_TTL_MS,
-    lastAccessed: Date.now(),
-  });
-};
-
-const resolveUserRole = async (userId) => {
-  const cachedRole = getRoleFromCache(userId);
-  if (cachedRole) {
-    return cachedRole;
-  }
-
-  let role = 'user';
-  try {
-    const { data: profile } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profile?.role) {
-      role = profile.role;
-    }
-  } catch (e) {
-    // Default to user if profile fetch fails
-  }
-
-  setRoleCache(userId, role);
-  return role;
+  return { accessToken, refreshToken };
 };
 
 export const authenticateToken = async (req, res, next) => {
@@ -72,30 +38,106 @@ export const authenticateToken = async (req, res, next) => {
     return res.status(401).json({ error: 'Access token required' });
   }
 
-  try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    
-    if (error || !user) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    if (err) {
+      if (err.name === 'TokenExpiredError') {
+        return res.status(403).json({ error: 'Access token expired' });
+      }
+      logger.error('JWT Verification Error:', err);
+      return res.status(403).json({ error: 'Invalid access token' });
     }
 
-    const role = await resolveUserRole(user.id);
+    // Verify user still exists in the database
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, role, email, username, full_name, avatar_url, coins, is_premium')
+      .eq('id', decoded.userId)
+      .single();
 
-    req.user = { 
-      id: user.id, 
-      email: user.email, 
-      role,
-      user_metadata: user.user_metadata || {}
-    };
+    if (error || !user) {
+      return res.status(403).json({ error: 'User no longer exists' });
+    }
+
+    req.user = user;
     next();
+  });
+};
+
+export const refreshAccessToken = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ error: 'Refresh token required' });
+  }
+
+  try {
+    // Check if refresh token exists in DB
+    const { data: tokenRecord, error } = await supabase
+      .from('refresh_tokens')
+      .select('*')
+      .eq('token', refreshToken)
+      .single();
+
+    if (error || !tokenRecord) {
+      return res.status(403).json({ error: 'Invalid refresh token' });
+    }
+
+    // Verify refresh token hasn't expired
+    if (new Date() > new Date(tokenRecord.expires_at)) {
+      // Clean up expired token
+      await supabase.from('refresh_tokens').delete().eq('token', refreshToken);
+      return res.status(403).json({ error: 'Refresh token expired' });
+    }
+
+    // Verify the token signature
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET);
+    
+    // Generate new tokens
+    const { accessToken, refreshToken: newRefreshToken } = await generateTokens(decoded.userId);
+    
+    // Revoke old refresh token
+    await supabase.from('refresh_tokens').delete().eq('token', refreshToken);
+
+    res.json({ 
+      accessToken, 
+      refreshToken: newRefreshToken,
+      user: req.user // Include user info to reduce API calls
+    });
   } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    logger.error('Refresh token error:', error);
+    return res.status(403).json({ error: 'Invalid refresh token' });
   }
 };
 
-// Middleware to require admin role — must be used after authenticateToken
-export const requireAdmin = (req, res, next) => {
+// Additional auth functions needed by other routes
+export const optionalAuth = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+    if (err) {
+      req.user = null;
+      return next();
+    }
+
+    // Verify user still exists in the database
+    const { data: user, error } = await supabase
+      .from('profiles')
+      .select('id, role, email, username, full_name, avatar_url, coins, is_premium')
+      .eq('id', decoded.userId)
+      .single();
+
+    req.user = error || !user ? null : user;
+    next();
+  });
+};
+
+export const requireAdmin = async (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
   }
@@ -103,32 +145,19 @@ export const requireAdmin = (req, res, next) => {
 };
 
 export const requireHR = (req, res, next) => {
-  if (!req.user || (req.user.role !== 'hr' && req.user.role !== 'admin')) {
+  if (!req.user || !['admin', 'hr'].includes(req.user.role)) {
     return res.status(403).json({ error: 'HR or Admin access required' });
   }
   next();
 };
 
-export const optionalAuth = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+// Require authentication for mutating requests (non-GET/HEAD/OPTIONS)
+export const requireAuthForMutations = async (req, res, next) => {
+  const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+  if (safeMethods.includes(req.method)) return next();
 
-  if (token) {
-    try {
-      const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-      if (!error && user) {
-        const role = await resolveUserRole(user.id);
-        req.user = { 
-          id: user.id, 
-          email: user.email, 
-          role,
-          user_metadata: user.user_metadata || {}
-        };
-      }
-    } catch (error) {
-      // Token invalid but continue anyway
-      console.error('Optional auth error:', error);
-    }
-  }
-  next();
+  // If optionalAuth has run, req.user may be set; otherwise block
+  if (req.user) return next();
+
+  return res.status(401).json({ error: 'Authentication required' });
 };

@@ -5,7 +5,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import './config/env.js';
 // Comprehensive Improvements
-import { apiCacheMiddleware } from './middleware/apiCache.js';
+import { apiCache } from './middleware/apiCache.js';  // Changed import name
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import cspMiddleware from './middleware/csp.js';
 import { queryTimeout } from './middleware/queryTimeout.js';
@@ -65,7 +65,7 @@ async function initializeServer() {
 
     // ─── Core infrastructure routes ───
     const authRoutes = await loadRoute('auth', './routes/auth.js');
-    const healthRoutes = await loadRoute('health', './routes/health.js');
+    const healthRoutes = await loadRoute('health', './routes/healthCheck.js');  // Updated to use new health check
     const userRoutes = await loadRoute('user', './routes/user.js');
     const contactRoutes = await loadRoute('contact', './routes/contact.js');
     const adminRoutes = await loadRoute('admin', './routes/admin.js');
@@ -84,7 +84,7 @@ async function initializeServer() {
     const bugDebuggerRoutes = await loadRoute('bug-debugger', './routes/bug-debugger.js');
     const conceptExplainerRoutes = await loadRoute('concept-explainer', './routes/concept-explainer.js');
     const questionQualityRoutes = await loadRoute('question-quality', './routes/question-quality.js');
-    const dailyChallengesRoutes = await loadRoute('daily-challenges', './routes/daily-question.js');
+    const dailyChallengesRoutes = await loadRoute('daily-question', './routes/daily-question.js');
 
     // ─── Interview & AI routes ───
     const aiRoutes = await loadRoute('ai', './routes/ai.js');
@@ -104,6 +104,7 @@ async function initializeServer() {
     const interviewSuiteRoutes = await loadRoute('interview-suite', './routes/interview-suite.js');
     const companyInterviewRoutes = await loadRoute('company-interview', './routes/companyInterview.js');
     const voiceRoutes = await loadRoute('voice', './routes/voice.js');
+    const voiceApiRoutes = await loadRoute('voice-api', './routes/voiceApi.js');
     const fresherInterviewRoutes = await loadRoute('fresher-interview', './routes/fresher-interview.js');
     const behavioralCoachRoutes = await loadRoute('behavioral-coach', './routes/behavioral-coach.js');
     const interviewExperiencesRoutes = await loadRoute('interview-experiences', './routes/interview-experiences.js');
@@ -145,7 +146,7 @@ async function initializeServer() {
 
     // ─── Middleware imports ───
     const { tracingMiddleware } = await import('./utils/tracer.js');
-    const { authenticateToken } = await import('./middleware/auth.js');
+    const { authenticateToken, optionalAuth, requireAuthForMutations } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
     const { healthCheck, readinessCheck: readinessCheckMw, livenessCheck } = await import('./middleware/healthCheck.js');
     const { metrics } = await import('./utils/metrics.js');
@@ -227,8 +228,8 @@ async function initializeServer() {
     
     // JSON body parsing for all other routes
     // This will NOT parse /api/payment/webhook because it was already handled above
-    app.use(express.json({ limit: '10mb' }));
-    app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    app.use(express.json({ limit: '1mb' }));
+    app.use(express.urlencoded({ extended: true, limit: '1mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
     app.use(tracingMiddleware()); // Distributed tracing spans
     
@@ -238,9 +239,12 @@ async function initializeServer() {
     // Request timeout protection — prevents runaway queries from holding connections
     app.use(queryTimeout());
     
+    // Populate req.user before cache lookup so private GET responses are keyed per user
+    app.use('/api', optionalAuth);
+
     // API cache middleware (before rate limiting)
     // Safe cacheable GET requests are served from cache, bypassing rate limits
-    app.use('/api', apiCacheMiddleware());
+    app.use('/api', apiCache(300, { allowAnonymous: true }));
     
     // ETag middleware — generates weak ETags for GET responses
     // Enables 304 Not Modified to reduce bandwidth on repeated requests
@@ -313,7 +317,7 @@ async function initializeServer() {
     app.get('/health/live', livenessCheck);
     
     // Enhanced health routes (router-based with additional diagnostics)
-    if (healthRoutes) app.use('/', healthRoutes);
+    if (healthRoutes) app.use('/health', healthRoutes);  // Updated to use new health check
 
     // Helper: only mount routes that loaded successfully
     function mount(path, router) {
@@ -356,6 +360,7 @@ async function initializeServer() {
     mount('/api/company-interview', companyInterviewRoutes);
     mount('/api/payment', paymentRoutes);
     mount('/api/voice', voiceRoutes);
+    mount('/api/voice', voiceApiRoutes);
     mount('/api/notes', notesRoutes);
     mount('/api/admin', adminRoutes);
     mount('/api/jobs', jobsRoutes);

@@ -57,7 +57,7 @@ function CalcWidget({ onClose, isLight }) {
     return (
         <div style={{
             position: 'absolute', top: 50, right: 0, width: 260, background: isLight ? '#fff' : '#111', border: isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid #333',
-            borderRadius: 12, padding: 12, zIndex: 100, boxShadow: isLight ? '0 10px 40px rgba(0,0,0,0.15)' : '0 10px 40px rgba(0,0,0,0.6)'
+            borderRadius: 12, padding: 12, zIndex: 100, boxShadow: 'var(--shadow-md)'
         }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>Calculator</span>
@@ -311,7 +311,7 @@ export default function AptitudePractice() {
                             <div style={{
                                 position: 'absolute', top: 50, right: 0, width: 320, background: isLight ? '#fff' : '#111',
                                 border: isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid #333', borderRadius: 12, padding: 16, zIndex: 100,
-                                maxHeight: 400, overflowY: 'auto', boxShadow: isLight ? '0 10px 40px rgba(0,0,0,0.15)' : '0 10px 40px rgba(0,0,0,0.6)'
+                                maxHeight: 400, overflowY: 'auto', boxShadow: 'var(--shadow-md)'
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                                     <span style={{ fontSize: 13, fontWeight: 600, color: '#34d399' }}>📐 Formula Sheet</span>

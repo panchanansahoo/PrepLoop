@@ -522,7 +522,6 @@ export class ImprovementPlanService {
       problem_solving: 'Break down problems systematically',
       technical_depth: 'Demonstrate strong fundamentals',
       complexity_analysis: 'Analyze and explain complexity confidently',
-      complexity_analysis: 'Analyze and explain complexity confidently',
       edge_case_handling: 'Identify edge cases proactively',
       system_design: 'Design scalable systems with clear tradeoffs',
       behavioral_storytelling: 'Tell compelling stories with impact',
@@ -778,53 +777,6 @@ Provide recommendations in JSON format with keys:
     }
 
     return result;
-  }
-  
-  /**
-   * Update progress on an improvement plan with enhanced validation
-   */
-  static async updatePlanProgress(planId, userId, progressUpdates) {
-    const { completedTasks, notes } = progressUpdates;
-    
-    const { data: plan, error: fetchError } = await supabaseAdmin
-      .from('improvement_plans')
-      .select('*')
-      .eq('id', planId)
-      .eq('user_id', userId)
-      .single();
-
-    if (fetchError || !plan) {
-      throw new Error('Plan not found or unauthorized');
-    }
-
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from('improvement_plans')
-      .update({
-        progress: {
-          ...(plan.progress || {}),
-          completedTasks: completedTasks || [],
-          lastUpdated: new Date().toISOString(),
-          notes: notes || ''
-        },
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', planId)
-      .select()
-      .single();
-
-    if (updateError) throw updateError;
-
-    // Invalidate cache if Redis is available
-    if (redis) {
-      try {
-        const cacheKey = `improvement_plan:${userId}:${this._generateCacheKeyHash({planId})}`;
-        await redis.del(cacheKey);
-      } catch (cacheErr) {
-        logger.warn('Cache invalidation failed', { error: cacheErr.message });
-      }
-    }
-
-    return updated;
   }
   
   /**

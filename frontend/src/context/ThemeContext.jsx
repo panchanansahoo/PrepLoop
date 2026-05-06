@@ -4,35 +4,33 @@ const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
     const [theme, setTheme] = useState(() => {
-        const stored = localStorage.getItem('theme');
-        const initialTheme = stored === 'light' ? 'light' : 'dark';
-        console.log('[ThemeProvider] Initializing with stored:', stored, 'resolved:', initialTheme);
-        return initialTheme;
+        // Check localStorage first
+        const stored = localStorage.getItem('preploop-theme');
+        if (stored === 'light' || stored === 'dark') {
+            return stored;
+        }
+        
+        // Fall back to system preference
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+            return 'light';
+        }
+        
+        // Default to dark
+        return 'dark';
     });
 
     useEffect(() => {
-        console.log('[ThemeProvider] Setting data-theme to:', theme);
+        // Apply theme to document
         document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('theme', theme);
+        document.documentElement.style.colorScheme = theme;
+        localStorage.setItem('preploop-theme', theme);
         
-        // Verify it was set
-        const verifyAttr = document.documentElement.getAttribute('data-theme');
-        console.log('[ThemeProvider] Verified data-theme is now:', verifyAttr);
-        
-        // Check CSS variables
-        const styles = getComputedStyle(document.documentElement);
-        console.log('[ThemeProvider] CSS vars after toggle:');
-        console.log('  --bg-primary:', styles.getPropertyValue('--bg-primary'));
-        console.log('  --text-primary:', styles.getPropertyValue('--text-primary'));
+        // Dispatch custom event for any external listeners
+        window.dispatchEvent(new CustomEvent('theme-changed', { detail: { theme } }));
     }, [theme]);
 
     const toggleTheme = () => {
-        console.log('[ThemeProvider] Toggle called, current:', theme);
-        setTheme(prev => {
-            const newTheme = prev === 'dark' ? 'light' : 'dark';
-            console.log('[ThemeProvider] Toggle result:', newTheme);
-            return newTheme;
-        });
+        setTheme(prev => prev === 'dark' ? 'light' : 'dark');
     };
 
     return (

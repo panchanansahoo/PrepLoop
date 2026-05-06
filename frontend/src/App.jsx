@@ -5,11 +5,12 @@ import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
-const AIAssistantOrb = lazyWithRecovery(() => import('./components/AIAssistantOrb'));
+import { lazyWithRecovery } from './utils/lazyWithRecovery';
 import LoadingScreen from './components/LoadingScreen';
 import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
 import AppFooter from './components/AppFooter';
-import { lazyWithRecovery } from './utils/lazyWithRecovery';
+
+const AIAssistantOrb = lazyWithRecovery(() => import('./components/AIAssistantOrb'));
 import performanceMonitor from './utils/performanceMonitor';
 import { OfflineBanner } from './hooks/useOffline';
 import { SkipToContent } from './utils/a11y';
@@ -203,19 +204,18 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates'];
+  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
-  const isCopilotRoute = location.pathname === '/copilot';
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
-  const isPublicPage = publicPaths.includes(location.pathname);
+  const isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
   const showSidebar = !isPublicPage && !isAuthRoute && !isFullBleedCodingRoute;
   const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;

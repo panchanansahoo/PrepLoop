@@ -49,308 +49,330 @@ export const VOICE_PERSONAS = {
       neutral: { elevenLabs: 'friendly_neutral_f', groq: 'casual', kokoro: 'friendly', edge: 'cheerful' }
     },
     genders: ['male', 'female', 'neutral'],
-    emotions: ['encouraging', 'supportive'],
-    recommended_for: ['behavioral', 'junior_interviews', 'friendly_companies'],
-    quality_tier: 'premium',
-    providers: ['elevenLabs', 'groq', 'kokoro', 'edge']
+    emotions: ['supportive', 'encouraging', 'helpful'],
+    recommended_for: ['dsa-interviews', 'practice', 'beginner'],
+    quality_tier: 'standard',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
   },
 
   conversational_curious: {
     name: 'Conversational Curious',
-    description: 'Inquisitive, interested, natural follow-up style',
+    description: 'Inquisitive, thoughtful, exploring depth',
     accents: {
-      american: { elevenLabs: 'curious_american_f', groq: 'inquisitive', kokoro: 'curious' },
-      neutral: { elevenLabs: 'curious_neutral_f', groq: 'conversational', kokoro: 'inquisitive' }
+      american: { elevenLabs: 'curious_american_m', groq: 'inquisitive', kokoro: 'curious', openai: 'nova' },
+      british: { elevenLabs: 'curious_british_m', groq: 'thoughtful', kokoro: 'inquisitive', openai: 'shimmer' },
+      indian: { elevenLabs: 'curious_indian_m', groq: 'exploring', kokoro: 'analytical' }
     },
-    genders: ['female'],
-    emotions: ['neutral', 'encouraging'],
-    recommended_for: ['behavioral', 'follow_ups'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro']
+    genders: ['male', 'female'],
+    emotions: ['curious', 'inquistive', 'exploring'],
+    recommended_for: ['deep-dive', 'algorithm-explanation', 'thinking-process'],
+    quality_tier: 'standard',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'openai']
   },
 
   // Analytical personas
   analytical_precise: {
     name: 'Analytical Precise',
-    description: 'Methodical, detail-oriented, technical accuracy focus',
+    description: 'Methodical, detailed, focused on correctness',
     accents: {
-      american: { elevenLabs: 'analytical_american_m', groq: 'analytical', openai: 'onyx' },
-      indian: { elevenLabs: 'analytical_indian_m', groq: 'analytical', kokoro: 'analytical' },
-      neutral: { elevenLabs: 'analytical_neutral_m', groq: 'technical', kokoro: 'precise' }
+      american: { elevenLabs: 'precise_american_m', groq: 'analytical', kokoro: 'analytical', openai: 'onyx' },
+      british: { elevenLabs: 'precise_british_m', groq: 'methodical', kokoro: 'precise', openai: 'echo' },
+      neutral: { elevenLabs: 'precise_neutral_m', groq: 'technical', kokoro: 'technical', openai: 'nova' }
     },
     genders: ['male', 'female'],
-    emotions: ['neutral', 'challenging'],
-    recommended_for: ['dsa', 'coding', 'system-design', 'technical'],
+    emotions: ['methodical', 'focused', 'precise'],
+    recommended_for: ['algorithm-analysis', 'complex-problems', 'technical-details'],
     quality_tier: 'premium',
     providers: ['elevenLabs', 'groq', 'kokoro', 'openai']
   },
 
   analytical_inquisitive: {
     name: 'Analytical Inquisitive',
-    description: 'Questions assumptions, digs deeper, Socratic method',
+    description: 'Questioning assumptions, seeking edge cases',
     accents: {
-      american: { elevenLabs: 'inquisitive_american_m', groq: 'analytical' },
-      neutral: { elevenLabs: 'inquisitive_neutral_m', groq: 'probing', kokoro: 'analytical' }
+      american: { elevenLabs: 'inquisitive_american_m', groq: 'challenging', kokoro: 'challenging', openai: 'echo' },
+      british: { elevenLabs: 'inquisitive_british_m', groq: 'skeptical', kokoro: 'analytical_deep', openai: 'nova' },
+      indian: { elevenLabs: 'inquisitive_indian_m', groq: 'analytical_deep', kokoro: 'inquisitive', openai: 'shimmer' }
     },
     genders: ['male', 'female'],
-    emotions: ['challenging', 'curious'],
-    recommended_for: ['dsa', 'system-design', 'senior_interviews'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro']
-  },
-
-  // Calm & Supportive personas
-  calm_supportive: {
-    name: 'Calm Supportive',
-    description: 'Soothing, encouraging, low-pressure environment',
-    accents: {
-      american: { elevenLabs: 'calm_american_f', groq: 'calm', kokoro: 'calm' },
-      neutral: { elevenLabs: 'calm_neutral_f', groq: 'supportive', kokoro: 'calm', edge: 'soothing' }
-    },
-    genders: ['female'],
-    emotions: ['supportive', 'encouraging'],
-    recommended_for: ['junior_interviews', 'behavioral', 'entry_level'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro', 'edge']
-  },
-
-  calm_empathetic: {
-    name: 'Calm Empathetic',
-    description: 'Empathetic, understanding, acknowledges effort',
-    accents: {
-      american: { elevenLabs: 'empathetic_american_f', groq: 'empathetic', kokoro: 'calm' },
-      neutral: { elevenLabs: 'empathetic_neutral_f', groq: 'supportive', kokoro: 'warm' }
-    },
-    genders: ['female'],
-    emotions: ['supportive', 'understanding'],
-    recommended_for: ['behavioral', 'stressful_interviews'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro']
-  },
-
-  // Dynamic & Energetic personas
-  energetic_enthusiastic: {
-    name: 'Energetic Enthusiastic',
-    description: 'Upbeat, motivating, high-energy engagement',
-    accents: {
-      american: { elevenLabs: 'enthusiastic_american_f', groq: 'enthusiastic', kokoro: 'enthusiastic' },
-      australian: { elevenLabs: 'enthusiastic_australian_m', groq: 'energetic', kokoro: 'enthusiastic' }
-    },
-    genders: ['male', 'female'],
-    emotions: ['encouraging', 'energetic'],
-    recommended_for: ['junior_interviews', 'easy_questions', 'motivational'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro']
-  },
-
-  energetic_driven: {
-    name: 'Energetic Driven',
-    description: 'Motivated, action-oriented, pushes for excellence',
-    accents: {
-      american: { elevenLabs: 'driven_american_m', groq: 'driven', openai: 'echo' },
-      neutral: { elevenLabs: 'driven_neutral_m', groq: 'assertive', kokoro: 'driven' }
-    },
-    genders: ['male'],
-    emotions: ['challenging', 'energetic'],
-    recommended_for: ['senior_interviews', 'leadership', 'hard_questions'],
+    emotions: ['inquisitive', 'skeptical', 'challenging'],
+    recommended_for: ['system-design', 'edge-cases', 'optimization'],
     quality_tier: 'premium',
     providers: ['elevenLabs', 'groq', 'kokoro', 'openai']
   },
 
-  // Industry-specific personas
+  // Supportive personas
+  calm_supportive: {
+    name: 'Calm Supportive',
+    description: 'Patient, encouraging, constructive feedback',
+    accents: {
+      american: { elevenLabs: 'supportive_american_f', groq: 'patient', kokoro: 'patient', openai: 'shimmer' },
+      british: { elevenLabs: 'supportive_british_f', groq: 'gentle', kokoro: 'calm', openai: 'nova' },
+      australian: { elevenLabs: 'supportive_australian_f', groq: 'relaxed', kokoro: 'supportive', openai: 'alloy' },
+      neutral: { elevenLabs: 'supportive_neutral_f', groq: 'supportive', kokoro: 'encouraging', edge: 'calm' }
+    },
+    genders: ['male', 'female', 'neutral'],
+    emotions: ['patient', 'supportive', 'constructive'],
+    recommended_for: ['beginner', 'practice', 'confidence-building'],
+    quality_tier: 'standard',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
+  },
+
+  calm_empathetic: {
+    name: 'Calm Empathetic',
+    description: 'Understanding, empathetic, stress-aware',
+    accents: {
+      american: { elevenLabs: 'empathetic_american_f', groq: 'understanding', kokoro: 'empathetic', openai: 'nova' },
+      british: { elevenLabs: 'empathetic_british_f', groq: 'compassionate', kokoro: 'understanding', openai: 'shimmer' },
+      neutral: { elevenLabs: 'empathetic_neutral_f', groq: 'empathetic', kokoro: 'supportive_calm', edge: 'empathetic' }
+    },
+    genders: ['male', 'female', 'neutral'],
+    emotions: ['empathetic', 'understanding', 'stress-aware'],
+    recommended_for: ['stressful', 'high-pressure', 'confidence-building'],
+    quality_tier: 'premium',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
+  },
+
+  // Energetic personas
+  energetic_enthusiastic: {
+    name: 'Energetic Enthusiastic',
+    description: 'Motivating, enthusiastic, energy-boosting',
+    accents: {
+      american: { elevenLabs: 'enthusiastic_american_m', groq: 'energetic', kokoro: 'motivational', openai: 'alloy' },
+      british: { elevenLabs: 'enthusiastic_british_m', groq: 'exciting', kokoro: 'enthusiastic', openai: 'shimmer' },
+      indian: { elevenLabs: 'enthusiastic_indian_m', groq: 'energetic_indian', kokoro: 'energetic', openai: 'echo' },
+      neutral: { elevenLabs: 'enthusiastic_neutral_m', groq: 'motivating', kokoro: 'energetic', edge: 'enthusiastic' }
+    },
+    genders: ['male', 'female'],
+    emotions: ['enthusiastic', 'motivating', 'energetic'],
+    recommended_for: ['morning', 'low-energy', 'motivation'],
+    quality_tier: 'standard',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
+  },
+
+  energetic_driven: {
+    name: 'Energetic Driven',
+    description: 'Fast-paced, results-oriented, efficiency-focused',
+    accents: {
+      american: { elevenLabs: 'driven_american_m', groq: 'fast_paced', kokoro: 'efficient', openai: 'echo' },
+      british: { elevenLabs: 'driven_british_m', groq: 'results_oriented', kokoro: 'focused', openai: 'onyx' },
+      neutral: { elevenLabs: 'driven_neutral_m', groq: 'efficiency', kokoro: 'driven', openai: 'alloy' }
+    },
+    genders: ['male', 'female'],
+    emotions: ['driven', 'efficient', 'results-oriented'],
+    recommended_for: ['speed-practice', 'time-pressure', 'efficiency'],
+    quality_tier: 'premium',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'openai']
+  },
+
+  // Mentor personas
   mentor_guide: {
     name: 'Mentor Guide',
-    description: 'Wise, patient, teaching-focused guidance',
+    description: 'Educational, teaching-focused, step-by-step guidance',
     accents: {
-      american: { elevenLabs: 'mentor_american_m', groq: 'mentor', kokoro: 'warm' },
-      neutral: { elevenLabs: 'mentor_neutral_m', groq: 'supportive', kokoro: 'mentor' }
+      american: { elevenLabs: 'mentor_american_m', groq: 'teaching', kokoro: 'educational', openai: 'nova' },
+      british: { elevenLabs: 'mentor_british_m', groq: 'instructional', kokoro: 'teacher', openai: 'shimmer' },
+      neutral: { elevenLabs: 'mentor_neutral_m', groq: 'guiding', kokoro: 'mentor', edge: 'teacher' }
     },
-    genders: ['male', 'female'],
-    emotions: ['supportive', 'encouraging'],
-    recommended_for: ['junior_interviews', 'learning_focus', 'behavioral'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'kokoro']
+    genders: ['male', 'female', 'neutral'],
+    emotions: ['educational', 'patient', 'guiding'],
+    recommended_for: ['learning', 'education', 'step-by-step'],
+    quality_tier: 'premium',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
   },
 
+  // HR personas
   recruiter_hr: {
     name: 'Recruiter HR',
-    description: 'Professional recruiter, culture-fit focus, friendly-professional',
+    description: 'Professional HR style, competency-focused, behavioral',
     accents: {
-      american: { elevenLabs: 'recruiter_american_f', groq: 'professional' },
-      neutral: { elevenLabs: 'recruiter_neutral_f', groq: 'friendly', edge: 'friendly' }
-    },
-    genders: ['female'],
-    emotions: ['friendly', 'professional'],
-    recommended_for: ['hr', 'behavioral', 'recruiter_focus'],
-    quality_tier: 'high',
-    providers: ['elevenLabs', 'groq', 'edge']
-  },
-
-  // Default fallback personas
-  default_neutral: {
-    name: 'Default Neutral',
-    description: 'Neutral, clear, fallback option',
-    accents: {
-      neutral: { elevenLabs: 'default_neutral_m', groq: 'neutral', kokoro: 'neutral', edge: 'neutral', openai: 'nova' }
+      american: { elevenLabs: 'hr_american_f', groq: 'hr_professional', kokoro: 'hr_voice', openai: 'nova' },
+      british: { elevenLabs: 'hr_british_f', groq: 'recruiter', kokoro: 'hr_professional', openai: 'echo' },
+      indian: { elevenLabs: 'hr_indian_f', groq: 'hr_indian', kokoro: 'hr_indian', openai: 'shimmer' },
+      neutral: { elevenLabs: 'hr_neutral_f', groq: 'hr_general', kokoro: 'hr_neutral', edge: 'professional' }
     },
     genders: ['male', 'female'],
-    emotions: ['neutral'],
-    recommended_for: ['all'],
+    emotions: ['professional', 'competency-focused', 'behavioral'],
+    recommended_for: ['hr-round', 'behavioral', 'competency'],
+    quality_tier: 'standard',
+    providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
+  },
+
+  // Default persona
+  default_neutral: {
+    name: 'Default Neutral',
+    description: 'Balanced, general-purpose, adaptable',
+    accents: {
+      american: { elevenLabs: 'default_american_m', groq: 'general', kokoro: 'default', openai: 'alloy', edge: 'default' },
+      british: { elevenLabs: 'default_british_m', groq: 'standard', kokoro: 'neutral', openai: 'nova', edge: 'neutral' },
+      indian: { elevenLabs: 'default_indian_m', groq: 'indian_standard', kokoro: 'indian_default', openai: 'echo' },
+      neutral: { elevenLabs: 'default_neutral_m', groq: 'default', kokoro: 'standard', openai: 'nova', edge: 'default' },
+      australian: { elevenLabs: 'default_australian_m', groq: 'aussie', kokoro: 'australian', openai: 'shimmer', edge: 'aussie' },
+      canadian: { elevenLabs: 'default_canadian_m', groq: 'canadian', kokoro: 'north_american', openai: 'nova' }
+    },
+    genders: ['male', 'female', 'neutral'],
+    emotions: ['balanced', 'adaptable', 'neutral'],
+    recommended_for: ['general', 'default', 'fallback'],
     quality_tier: 'standard',
     providers: ['elevenLabs', 'groq', 'kokoro', 'edge', 'openai']
   }
 };
 
 /**
- * Accent profiles with language, dialect, clarity info
+ * Accent profile definitions with regional characteristics
  */
 export const ACCENT_PROFILES = {
-  american: { language: 'en-US', clarity: 'very_high', availability: 'all_providers' },
-  british: { language: 'en-GB', clarity: 'very_high', availability: 'elevenLabs,groq,openai' },
-  indian: { language: 'en-IN', clarity: 'high', availability: 'elevenLabs,groq,kokoro' },
-  australian: { language: 'en-AU', clarity: 'high', availability: 'elevenLabs,groq,kokoro' },
-  canadian: { language: 'en-CA', clarity: 'high', availability: 'elevenLabs,groq' },
-  neutral: { language: 'en', clarity: 'very_high', availability: 'all_providers' }
+  american: {
+    rhythm: 'stress-timed',
+    intonation: 'varied',
+    vowel_reduction: 'common',
+    speed: 'moderate-fast',
+    clarity: 'high'
+  },
+  british: {
+    rhythm: 'stress-timed',
+    intonation: 'formal-melodic',
+    vowel_reduction: 'distinctive',
+    speed: 'moderate',
+    clarity: 'very-high'
+  },
+  indian: {
+    rhythm: 'syllable-timed',
+    intonation: 'melodic',
+    vowel_reduction: 'minimal',
+    speed: 'moderate-fast',
+    clarity: 'high'
+  },
+  australian: {
+    rhythm: 'stress-timed',
+    intonation: 'relaxed-melodic',
+    vowel_reduction: 'unique',
+    speed: 'moderate',
+    clarity: 'high'
+  },
+  canadian: {
+    rhythm: 'stress-timed',
+    intonation: 'neutral',
+    vowel_reduction: 'similar-to-american',
+    speed: 'moderate',
+    clarity: 'high'
+  },
+  neutral: {
+    rhythm: 'stress-timed',
+    intonation: 'balanced',
+    vowel_reduction: 'standard',
+    speed: 'moderate',
+    clarity: 'high'
+  }
 };
 
 /**
- * Get persona by name
+ * Get persona definition by name
  */
 export function getPersona(personaName) {
   return VOICE_PERSONAS[personaName] || VOICE_PERSONAS.default_neutral;
 }
 
 /**
- * Get all available personas with filters
+ * Get all persona names
  */
-export function getPersonas(filters = {}) {
-  const { recommended_for, quality_tier, providers } = filters;
-  
-  return Object.entries(VOICE_PERSONAS)
-    .filter(([_, persona]) => {
-      if (recommended_for && !persona.recommended_for.includes(recommended_for)) return false;
-      if (quality_tier && persona.quality_tier !== quality_tier) return false;
-      if (providers && !providers.some(p => persona.providers.includes(p))) return false;
-      return true;
-    })
-    .reduce((acc, [name, persona]) => ({ ...acc, [name]: persona }), {});
+export function getPersonas() {
+  return Object.keys(VOICE_PERSONAS);
 }
 
 /**
- * Get voice ID for a persona + accent + gender combination
+ * Get voice ID for a specific persona, accent, and gender
  */
-export function getVoiceId(personaName, accent = 'neutral', gender = 'female', provider = null) {
+export function getVoiceId(personaName, accent, gender) {
   const persona = getPersona(personaName);
-  
-  if (!persona.accents[accent]) {
-    console.warn(`Accent '${accent}' not available for persona '${personaName}', using neutral`);
-    accent = 'neutral';
-  }
-  
-  const accentVoices = persona.accents[accent];
-  if (!accentVoices) return null;
-  
-  // If provider specified, use it
-  if (provider && accentVoices[provider]) {
-    return accentVoices[provider];
-  }
-  
-  // Otherwise use first available provider
-  const voiceId = Object.values(accentVoices)[0];
-  return voiceId;
+  const accentVoices = persona.accents[accent] || persona.accents.neutral;
+  return accentVoices['groq'] || accentVoices['elevenLabs'] || accentVoices['kokoro'] || accentVoices['openai'] || accentVoices['edge'] || 'default';
 }
 
 /**
- * Get recommended persona for interview type + difficulty
+ * Get recommended persona for a given scenario
  */
-export function getRecommendedPersona(interviewType, difficulty, userPreferences = {}) {
-  if (userPreferences.preferred_persona) {
-    return userPreferences.preferred_persona;
-  }
-  
-  // Map interview type + difficulty to persona
-  const personaMap = {
-    dsa: {
-      easy: 'conversational_friendly',
-      medium: 'analytical_precise',
-      hard: 'analytical_inquisitive'
-    },
-    'system-design': {
-      easy: 'conversational_friendly',
-      medium: 'professional_neutral',
-      hard: 'professional_assertive'
-    },
-    behavioral: {
-      easy: 'calm_supportive',
-      medium: 'conversational_friendly',
-      hard: 'professional_neutral'
-    },
-    coding: {
-      easy: 'calm_supportive',
-      medium: 'analytical_precise',
-      hard: 'analytical_inquisitive'
-    },
-    technical: {
-      easy: 'mentor_guide',
-      medium: 'analytical_precise',
-      hard: 'professional_assertive'
-    },
-    'hr': {
-      easy: 'recruiter_hr',
-      medium: 'recruiter_hr',
-      hard: 'recruiter_hr'
-    }
+export function getRecommendedPersona(scenario, difficulty = 'medium', experience = 'intermediate') {
+  // Scenario-based recommendations
+  const scenarioMap = {
+    'dsa-practice': 'conversational_friendly',
+    'system-design': 'professional_neutral',
+    'behavioral': 'recruiter_hr',
+    'mock-interview': 'professional_neutral',
+    'hr-round': 'recruiter_hr',
+    'technical-screen': 'analytical_precise',
+    'senior-role': 'professional_assertive',
+    'junior-role': 'calm_supportive',
+    'stress-test': 'energetic_driven',
+    'learning': 'mentor_guide'
   };
-  
-  const recommended = personaMap[interviewType]?.[difficulty] || 'default_neutral';
-  return recommended;
+
+  // Experience-based adjustments
+  if (experience === 'beginner') {
+    return scenarioMap[scenario] || 'calm_supportive';
+  } else if (experience === 'expert') {
+    return scenarioMap[scenario] || 'professional_assertive';
+  }
+
+  return scenarioMap[scenario] || 'default_neutral';
 }
 
 /**
- * Get persona quality metrics for A/B testing
+ * Get persona metrics for evaluation
  */
-export function getPersonaMetrics(personaName) {
-  const persona = getPersona(personaName);
-  
-  return {
-    persona: personaName,
-    quality_tier: persona.quality_tier,
-    providers: persona.providers,
-    accent_count: Object.keys(persona.accents).length,
-    gender_support: persona.genders,
-    emotion_support: persona.emotions,
-    ideal_for: persona.recommended_for
-  };
+export function getPersonaMetrics() {
+  const metrics = {};
+  for (const [name, persona] of Object.entries(VOICE_PERSONAS)) {
+    metrics[name] = {
+      quality_tier: persona.quality_tier,
+      provider_count: persona.providers.length,
+      accent_count: Object.keys(persona.accents).length,
+      emotion_count: persona.emotions.length,
+      recommended_for_count: persona.recommended_for.length
+    };
+  }
+  return metrics;
 }
 
 /**
  * Validate persona configuration
  */
-export function validatePersona(personaName, accent, gender) {
+export function validatePersona(personaName) {
   const persona = getPersona(personaName);
-  
-  if (!persona.accents[accent]) {
-    return { valid: false, error: `Accent '${accent}' not available` };
-  }
-  
-  if (!persona.genders.includes(gender)) {
-    return { valid: false, error: `Gender '${gender}' not available for this persona` };
-  }
-  
-  return { valid: true };
+  const errors = [];
+
+  if (!persona.name) errors.push('Missing name');
+  if (!persona.description) errors.push('Missing description');
+  if (!persona.accents) errors.push('Missing accents');
+  if (!persona.genders || persona.genders.length === 0) errors.push('Missing or empty genders');
+  if (!persona.emotions || persona.emotions.length === 0) errors.push('Missing or empty emotions');
+  if (!persona.recommended_for || persona.recommended_for.length === 0) errors.push('Missing or empty recommended_for');
+  if (!persona.quality_tier) errors.push('Missing quality_tier');
+  if (!persona.providers || persona.providers.length === 0) errors.push('Missing or empty providers');
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
 }
 
 /**
- * Get fallback persona if requested one unavailable
+ * Get fallback persona when primary persona is unavailable
  */
 export function getFallbackPersona(personaName) {
-  const persona = getPersona(personaName);
-  
-  // Try to find similar persona
-  if (persona.name === 'Default Neutral') {
+  if (!VOICE_PERSONAS[personaName]) {
     return 'default_neutral';
   }
-  
+
+  const persona = VOICE_PERSONAS[personaName];
+
+  // If same quality tier, try different accent
+  for (const [name, p] of Object.entries(VOICE_PERSONAS)) {
+    if (p.quality_tier === persona.quality_tier && name !== personaName) {
+      return name;
+    }
+  }
+
   // If high-quality, try same family
   if (persona.quality_tier === 'premium') {
     const sameName = Object.keys(VOICE_PERSONAS)
@@ -358,7 +380,7 @@ export function getFallbackPersona(personaName) {
       .pop();
     if (sameName) return sameName;
   }
-  
+
   // Default fallback
   return 'default_neutral';
 }
@@ -386,7 +408,8 @@ export function listAvailableVoices() {
   return voices;
 }
 
-export default {
+// Export the voice persona manager object
+export const voicePersonaManager = {
   VOICE_PERSONAS,
   ACCENT_PROFILES,
   getPersona,
@@ -399,3 +422,15 @@ export default {
   listAvailableVoices
 };
 
+export default {
+  VOICE_PERSONAS,
+  ACCENT_PROFILES,
+  getPersona,
+  getPersonas,
+  getVoiceId,
+  getRecommendedPersona,
+  getPersonaMetrics,
+  validatePersona,
+  getFallbackPersona,
+  listAvailableVoices
+};

@@ -19,8 +19,10 @@ const MAX_ANSWER_WAIT_MS  = 60_000;   // safety: force-submit after 60s
 const BACKCHANNEL_MIN_MS  = 8_000;    // min speech duration before backchannel
 const BACKCHANNEL_GAP_MS  = 12_000;   // min gap between backchannel clips
 
-const SILENCE_AFTER_SPEECH_MAX_MS = 1_200; 
-const TOTAL_SILENCE_AUTO_SUBMIT_MS = 10_000; 
+// NEW: Silence timeout thresholds
+const SILENCE_AUTO_SUBMIT_MS = 5_000;   // Auto-submit after 5s silence (when user has spoken)
+const SILENCE_AUTO_SUBMIT_SHORT_MS = 4_000;  // First response timeout (if just starting)
+const SILENCE_AUTO_SKIP_MS = 10_000;    // Auto-skip to next question if NO speech for 10s
 
 const SILENCE_SHORT  = 2000;
 const SILENCE_MEDIUM = 1500;
@@ -219,13 +221,13 @@ function pickTransition() {
 }
 
 export function getAdaptiveSilenceMs(textLength) {
-    if (textLength < 50)  return SILENCE_SHORT;
-    if (textLength < 200) return SILENCE_MEDIUM;
-    return SILENCE_LONG;
+    // NEW: Use fixed 4s silence threshold for better UX
+    return SILENCE_AUTO_SUBMIT_MS;
 }
 
 export function getPostSpeechAutoSubmitMs(textLength) {
-    return Math.min(getAdaptiveSilenceMs(textLength), SILENCE_AFTER_SPEECH_MAX_MS);
+    // NEW: Always use 4s silence threshold
+    return SILENCE_AUTO_SUBMIT_MS;
 }
 
 export function shouldAutoSubmitAnswer({
@@ -255,23 +257,45 @@ function playBrowserSpeechFallback(text, { voice, gender, controller, guardMs })
             if (guardTimer) clearTimeout(guardTimer);
             resolve();
         };
-        const utter = new SpeechSynthesisUtterance(text);
-        if (voice) utter.voice = voice;
-        utter.rate = 1.0;
-        utter.pitch = gender === 'male' ? 0.9 : 1.0;
-        utter.onend = settle;
-        utter.onerror = settle;
-        if (controller?.signal) {
-            controller.signal.addEventListener('abort', () => {
+        
+        // CRITICAL FIX: Chrome has a known bug where speechSynthesis.speak()
+        // fails silently if called immediately after cancel(). The workaround
+        // is to cancel any pending utterances, wait a tick, then resume the
+        // engine before queuing the new utterance.
+        window.speechSynthesis.cancel();
+        
+        // Use a small delay to let Chrome's speech engine fully reset
+        setTimeout(() => {
+            if (controller?.signal?.aborted) { settle(); return; }
+            
+            // Ensure the engine is not in a paused state
+            if (window.speechSynthesis.paused) {
+                window.speechSynthesis.resume();
+            }
+            
+            const utter = new SpeechSynthesisUtterance(text);
+            if (voice) utter.voice = voice;
+            utter.rate = 1.0;
+            utter.pitch = gender === 'male' ? 0.9 : 1.0;
+            utter.onend = settle;
+            utter.onerror = (e) => {
+                console.warn('[useVoiceAI] Browser speech error:', e?.error || e);
+                settle();
+            };
+            if (controller?.signal) {
+                controller.signal.addEventListener('abort', () => {
+                    window.speechSynthesis.cancel();
+                    settle();
+                }, { once: true });
+            }
+            guardTimer = setTimeout(() => {
                 window.speechSynthesis.cancel();
                 settle();
-            }, { once: true });
-        }
-        guardTimer = setTimeout(() => {
-            window.speechSynthesis.cancel();
-            settle();
-        }, guardMs || 30000);
-        window.speechSynthesis.speak(utter);
+            }, guardMs || 30000);
+            
+            console.log('[useVoiceAI] Browser speech fallback speaking:', text.substring(0, 50) + '...');
+            window.speechSynthesis.speak(utter);
+        }, 100);  // 100ms delay is sufficient for Chrome to reset after cancel()
     });
 }
 
@@ -430,6 +454,13 @@ export function useVoiceAI({
     }, [playBackchannel]);
 
     const submitAnswer = useCallback(async () => {
+        // FIX: Final safety net - finalize any remaining interim text
+        if (interimRef.current && interimRef.current.trim()) {
+            finalTextRef.current = (finalTextRef.current + ' ' + interimRef.current).trim();
+            interimRef.current = '';
+            console.log('[useVoiceAI] Final finalization: moved interim to final in submitAnswer');
+        }
+        
         const answer = finalTextRef.current.trim();
         clearSilenceTimer();
         clearMaxWait();
@@ -541,8 +572,33 @@ export function useVoiceAI({
                         clearAfterSpeechSilence();
                         
                         const postMs = getPostSpeechAutoSubmitMs(finalTextRef.current.trim().length);
+                        
+                        // NEW: Show silence countdown for better UX
+                        let countdownMs = postMs;
+                        const countdownInterval = setInterval(() => {
+                            countdownMs -= 100;
+                            setSilenceCountdown(Math.max(0, Math.ceil(countdownMs / 1000)));
+                            if (countdownMs <= 0) {
+                                clearInterval(countdownInterval);
+                            }
+                        }, 100);
+                        
                         afterSpeechSilenceRef.current = setTimeout(() => {
+                            clearInterval(countdownInterval);
+                            
+                            // FIX: Finalize any remaining interim text before submitting
+                            // This prevents answer cut-off issues
+                            if (interimRef.current && interimRef.current.trim()) {
+                                finalTextRef.current += ' ' + interimRef.current;
+                                setTranscript(finalTextRef.current);
+                                interimRef.current = '';
+                                setInterimText('');
+                                console.log('[useVoiceAI] Finalized interim text into final answer');
+                            }
+                            
+                            setSilenceCountdown(0);
                             if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
+                                console.log('[useVoiceAI] 5s silence reached, auto-submitting answer (with interim finalized)');
                                 submitAnswer();
                             }
                         }, postMs);
@@ -553,7 +609,9 @@ export function useVoiceAI({
                         const combined = (finalTextRef.current + ' ' + interim).trim();
                         transcriptListener?.(combined);
                         clearTotalSilenceTimer();
-                        clearAfterSpeechSilence();
+                        // CRITICAL FIX: Do NOT clear afterSpeechSilence timeout when interim arrives!
+                        // Clearing it was causing the countdown to reset, breaking the 8s silence detection.
+                        // User is still speaking (interim text = ongoing speech), so we keep the timer running.
                     }
                 };
 
@@ -583,10 +641,41 @@ export function useVoiceAI({
 
             maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
 
-            totalSilenceTimerRef.current = setTimeout(() => {
-                console.log('[useVoiceAI] 10 seconds of total silence (no speech detected), auto-submitting');
-                submitAnswer();
-            }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
+     // NEW: Show countdown for 10s no-answer timeout
+            let noAnswerCountdownMs = SILENCE_AUTO_SKIP_MS;
+            const noAnswerInterval = setInterval(() => {
+                noAnswerCountdownMs -= 100;
+                if (noAnswerCountdownMs <= 0) {
+                    clearInterval(noAnswerInterval);
+                }
+            }, 100);
+
+     totalSilenceTimerRef.current = setTimeout(() => {
+                clearInterval(noAnswerInterval);
+                console.log('[useVoiceAI] 10 seconds of total silence (no speech detected), auto-skipping question');
+                
+                // Skip to next question without submitting empty answer
+                // Call onAnswer with empty string to signal "no response, move to next"
+                
+                // Clean up all timers and state before calling onAnswer
+                clearSilenceTimer();
+                clearMaxWait();
+                clearBackchannelTimer();
+                clearAfterSpeechSilence();
+                
+                setState('processing');
+                setFinalTranscript('');
+                
+                finalTextRef.current = '';
+                interimRef.current = '';
+                setTranscript('');
+                setInterimText('');
+                setSilenceCountdown(0);
+                
+                try {
+                    onAnswer?.('', { noAnswer: true });
+                } catch { /* no-op */ }
+            }, SILENCE_AUTO_SKIP_MS);
 
             startBackchannelSchedule();
 
@@ -630,7 +719,17 @@ export function useVoiceAI({
 
     const interrupt = useCallback(() => {
         if (ttsAbortRef.current) { ttsAbortRef.current.abort(); ttsAbortRef.current = null; }
-        if (audioRef.current)   { audioRef.current.pause(); audioRef.current.src = ''; }
+        if (audioRef.current) {
+            try {
+                audioRef.current.pause();
+                audioRef.current.removeAttribute('src');
+                audioRef.current.onended = null;
+                audioRef.current.onerror = null;
+            } catch (e) {}
+        }
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
         setOutputAudioEl(null);
         setInterruptDetected(false);
         if (interruptTimerRef.current) { clearTimeout(interruptTimerRef.current); interruptTimerRef.current = null; }
@@ -814,7 +913,20 @@ export function useVoiceAI({
                     console.log('[useVoiceAI] TTS response content-type:', responseCt);
                     blob = await res.blob();
                     console.log('[useVoiceAI] TTS response blob size:', blob.size, 'bytes');
-                    if (shouldTreatTtsResponseAsFallback({ contentType: responseCt, blobSize: blob?.size })) {
+                    
+                    // Check if response is JSON (indicates API-level fallback or error)
+                    if (responseCt.includes('application/json')) {
+                        const jsonData = JSON.parse(await blob.text());
+                        if (jsonData.fallback) {
+                            console.warn('[useVoiceAI] Backend returned fallback JSON');
+                            isFallback = true;
+                            blob = null;
+                        } else {
+                            console.warn('[useVoiceAI] Unexpected JSON response:', jsonData);
+                            isFallback = true;
+                            blob = null;
+                        }
+                    } else if (shouldTreatTtsResponseAsFallback({ contentType: responseCt, blobSize: blob?.size })) {
                         console.warn('[useVoiceAI] TTS response treated as fallback (invalid audio)');
                         isFallback = true;
                     } else {
@@ -845,34 +957,19 @@ export function useVoiceAI({
 
                 console.log('[useVoiceAI] Playing audio blob:', playbackBlob.size, 'bytes, type:', playbackBlob.type);
 
-                if (!audioRef.current) audioRef.current = new Audio();
-                audioRef.current.src = url;
+                if (audioRef.current) {
+                    try {
+                        audioRef.current.pause();
+                        audioRef.current.removeAttribute('src');
+                        audioRef.current.onended = null;
+                        audioRef.current.onerror = null;
+                    } catch (e) {}
+                }
+                
+                audioRef.current = new Audio(url);
                 setOutputAudioEl(audioRef.current);
 
-                try {
-                    console.log('[useVoiceAI] Starting audio playback...');
-                    await audioRef.current.play();
-                    console.log('[useVoiceAI] ✓ Audio playback started');
-                } catch (playError) {
-                    console.error('[useVoiceAI] Audio playback failed:', playError);
-                    URL.revokeObjectURL(url);
-                    if ('speechSynthesis' in window) {
-                        analyticsRef.current.ttsFallbacks++;
-                        console.info('[useVoiceAI] Audio playback failed, using speechSynthesis fallback');
-                        await playBrowserSpeechFallback(spokenText, {
-                            voice: pickBrowserVoice(personaGender),
-                            gender: personaGender,
-                            controller,
-                            guardMs: TTS_PLAYBACK_GUARD_MS,
-                        });
-                        setOutputAudioEl(null);
-                    } else {
-                        throw playError;
-                    }
-                    return;
-                }
-
-                await new Promise((resolve) => {
+                await new Promise(async (resolve) => {
                     let guardTimer = null;
                     let settled = false;
                     const settle = () => {
@@ -885,10 +982,33 @@ export function useVoiceAI({
                     audioRef.current.onended  = settle;
                     audioRef.current.onerror  = settle;
                     controller.signal.addEventListener('abort', settle, { once: true });
-                    guardTimer = setTimeout(() => {
-                        try { audioRef.current?.pause(); } catch { }
-                        settle();
-                    }, TTS_PLAYBACK_GUARD_MS);
+
+                    try {
+                        console.log('[useVoiceAI] Starting audio playback...');
+                        await audioRef.current.play();
+                        console.log('[useVoiceAI] ✓ Audio playback started');
+                        
+                        guardTimer = setTimeout(() => {
+                            try { audioRef.current?.pause(); } catch { }
+                            settle();
+                        }, TTS_PLAYBACK_GUARD_MS);
+                    } catch (playError) {
+                        console.error('[useVoiceAI] Audio playback failed:', playError);
+                        URL.revokeObjectURL(url);
+                        if ('speechSynthesis' in window) {
+                            analyticsRef.current.ttsFallbacks++;
+                            console.info('[useVoiceAI] Audio playback failed, using speechSynthesis fallback');
+                            playBrowserSpeechFallback(spokenText, {
+                                voice: pickBrowserVoice(personaGender),
+                                gender: personaGender,
+                                controller,
+                                guardMs: TTS_PLAYBACK_GUARD_MS,
+                            }).then(settle);
+                            setOutputAudioEl(null);
+                        } else {
+                            settle();
+                        }
+                    }
                 });
 
                 URL.revokeObjectURL(url);

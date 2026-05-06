@@ -171,9 +171,7 @@ const DailyChallenge = ({ challengeData = null }) => {
                     ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))'
                     : 'linear-gradient(135deg, rgba(18, 18, 24, 0.75), rgba(20, 20, 28, 0.65))',
                 borderColor: isLight ? 'rgba(203,213,225,0.5)' : 'rgba(255, 255, 255, 0.08)',
-                boxShadow: isLight
-                    ? '0 12px 32px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,1)'
-                    : '0 24px 64px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06)',
+                boxShadow: 'var(--shadow-md)',
                 backdropFilter: 'blur(24px)',
                 WebkitBackdropFilter: 'blur(24px)'
             }}>

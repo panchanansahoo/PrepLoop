@@ -1,127 +1,58 @@
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
-import { createLogger } from '../utils/structuredLogger.js';
+import Joi from 'joi';
 
-const logger = createLogger('Validation-Middleware');
-const ajv = new Ajv();
-addFormats(ajv);
-
-/**
- * Middleware to validate request body against a JSON schema
- * @param {Object} schema - JSON schema to validate against
- * @returns {Function} Express middleware function
- */
-export const validateRequestBody = (schema) => {
-  // Compile the schema for reuse
-  const validate = ajv.compile(schema);
-
+// Generic validation middleware
+export const validate = (schema) => {
   return (req, res, next) => {
-    const isValid = validate(req.body);
+    const { error, value } = schema.validate(req.body, { abortEarly: false });
 
-    if (!isValid) {
-      const errors = validate.errors || [];
-      const errorMessages = errors.map(err => 
-        `${err.instancePath || 'Request body'} ${err.message} for property "${err.params?.additionalProperty || err.params?.missingProperty || ''}"`
-      ).join('; ');
-
-      logger.info('Request body validation failed', { 
-        url: req.url, 
-        method: req.method, 
-        userId: req.user?.id,
-        errors: errors 
-      });
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message
+      }));
 
       return res.status(400).json({
-        success: false,
-        message: `Invalid request: ${errorMessages}`,
-        errors: validate.errors
+        error: 'Validation failed',
+        details: errors
       });
     }
 
+    req.validatedBody = value;
     next();
   };
 };
 
-/**
- * Middleware to validate query parameters
- * @param {Object} schema - JSON schema to validate query params against
- * @returns {Function} Express middleware function
- */
-export const validateQueryParams = (schema) => {
-  const validate = ajv.compile({
-    type: 'object',
-    properties: schema,
-    additionalProperties: false
-  });
+// Alias for the same validation function
+export const validateRequestBody = validate;
 
-  return (req, res, next) => {
-    const isValid = validate(req.query);
-
-    if (!isValid) {
-      const errors = validate.errors || [];
-      const errorMessages = errors.map(err => 
-        `Query parameter ${err.instancePath || 'params'} ${err.message}`
-      ).join('; ');
-
-      logger.info('Query parameter validation failed', { 
-        url: req.url, 
-        method: req.method, 
-        userId: req.user?.id,
-        errors: errors 
-      });
-
-      return res.status(400).json({
-        success: false,
-        message: `Invalid query parameters: ${errorMessages}`,
-        errors: validate.errors
-      });
-    }
-
-    next();
-  };
-};
-
-/**
- * Middleware to validate URL parameters
- * @param {Object} schema - JSON schema to validate URL params against
- * @returns {Function} Express middleware function
- */
-export const validateUrlParams = (schema) => {
-  const validate = ajv.compile({
-    type: 'object',
-    properties: schema,
-    additionalProperties: false
-  });
-
-  return (req, res, next) => {
-    const isValid = validate(req.params);
-
-    if (!isValid) {
-      const errors = validate.errors || [];
-      const errorMessages = errors.map(err => 
-        `URL parameter ${err.instancePath || 'params'} ${err.message}`
-      ).join('; ');
-
-      logger.info('URL parameter validation failed', { 
-        url: req.url, 
-        method: req.method, 
-        userId: req.user?.id,
-        errors: errors 
-      });
-
-      return res.status(400).json({
-        success: false,
-        message: `Invalid URL parameters: ${errorMessages}`,
-        errors: validate.errors
-      });
-    }
-
-    next();
-  };
-};
-
-export default {
-  validateRequestBody,
-  validateQueryParams,
-  validateUrlParams
+// Common schemas
+export const schemas = {
+  login: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(8).required()
+  }),
+  
+  register: Joi.object({
+    email: Joi.string().email().required(),
+    password: Joi.string().min(8).max(128).required(),
+    firstName: Joi.string().max(50).required(),
+    lastName: Joi.string().max(50).required()
+  }),
+  
+  interviewSubmission: Joi.object({
+    interviewId: Joi.number().integer().required(),
+    answers: Joi.array().items(Joi.object({
+      questionId: Joi.number().integer().required(),
+      answer: Joi.string().max(5000).required(),
+      duration: Joi.number().positive().optional()
+    })).required()
+  }),
+  
+  jobPreference: Joi.object({
+    skills: Joi.array().items(Joi.string()).min(1).max(20),
+    experienceLevel: Joi.string().valid('entry', 'mid', 'senior', 'lead', 'director'),
+    location: Joi.string().max(100),
+    remoteOnly: Joi.boolean(),
+    salaryExpectation: Joi.number().integer().min(0)
+  })
 };

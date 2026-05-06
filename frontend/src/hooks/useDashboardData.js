@@ -96,8 +96,21 @@ export default function useDashboardData() {
             if (err?.code === 'ERR_CANCELED') {
                 return () => {};
             }
+
+            const status = err?.response?.status;
+            if (status === 401 || status === 403) {
+                // Treat auth/permission failures as non-fatal so dashboard still loads.
+                // If no cache exists, render with empty widget-safe defaults.
+                setError(null);
+                if (!hasFreshCache && !force) {
+                    setData(EMPTY_DATA);
+                }
+                return () => {};
+            }
+
             console.error('Dashboard fetch error:', err);
-            setError(err.message || 'Failed to load dashboard');
+            const backendMessage = err?.response?.data?.message;
+            setError(backendMessage || err.message || 'Failed to load dashboard');
             if (!hasFreshCache && !force) {
                 setData(EMPTY_DATA);
             }
@@ -109,12 +122,9 @@ export default function useDashboardData() {
     };
 
     useEffect(() => {
-        let abortFetch = fetchDashboard();
-        return () => {
-            abortFetch.then(abort => {
-                if (typeof abort === 'function') abort();
-            });
-        };
+        const controller = new AbortController();
+        fetchDashboard();
+        return () => controller.abort();
     }, [userId, isGuest]);
 
     const refetch = () => {

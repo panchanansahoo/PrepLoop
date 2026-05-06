@@ -2,3 +2,14 @@
 voices/
 
 backend-deploy.zip
+
+# Dev/test artifacts — never deploy
+problems.db
+*.mp3
+test-edge-tts*.js
+en-US-JennyNeural
+eslint-output.txt
+validation_output.txt
+backend_pid.txt
+*.old
+*.backup

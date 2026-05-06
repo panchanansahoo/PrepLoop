@@ -48,7 +48,21 @@ export default function EnhancedHintsPanel({
     const fetchStats = async () => {
       try {
         const response = await apiFetch('/api/dsa/hints/stats/user', { method: 'GET' });
-        setStats(response.stats);
+        
+        // Handle various response formats for flexibility during testing and production
+        if (response && typeof response === 'object') {
+          // Check if response has the expected stats property
+          if (response.stats && typeof response.stats === 'object') {
+            setStats(response.stats);
+          } else {
+            // If the response itself looks like stats data (for testing purposes)
+            if(response.total_hints_revealed !== undefined || response.available_hints !== undefined) {
+              setStats(response);
+            }
+          }
+        } else {
+          console.warn('Stats response does not have expected structure:', response);
+        }
       } catch (err) {
         console.warn('Failed to fetch hint stats:', err.message);
         // Non-blocking error - user can still use hints
@@ -104,7 +118,18 @@ export default function EnhancedHintsPanel({
         method: 'GET',
       });
 
+      // Check if response exists and has the expected structure before destructuring
+      if (!response || typeof response !== 'object') {
+        setError('Invalid response from server');
+        return;
+      }
+
       const { hint } = response;
+
+      if (!hint || typeof hint !== 'object') {
+        setError('Hint data not available');
+        return;
+      }
 
       if (hint.can_reveal) {
         setHintStates((prev) => ({
@@ -128,23 +153,34 @@ export default function EnhancedHintsPanel({
         });
       } else {
         // Cooldown active
-        setHintStates((prev) => ({
-          ...prev,
-          [hintType]: {
-            ...prev[hintType],
-            canReveal: false,
-            cooldownRemaining: hint.cooldown_remaining_seconds,
-          },
-        }));
+        if (hint.cooldown_remaining_seconds !== undefined) {
+          setHintStates((prev) => ({
+            ...prev,
+            [hintType]: {
+              ...prev[hintType],
+              canReveal: false,
+              cooldownRemaining: hint.cooldown_remaining_seconds,
+            },
+          }));
 
-        startCooldownTimer(hintType, hint.cooldown_remaining_seconds);
-        setError(`Hint available again in ${formatTime(hint.cooldown_remaining_seconds)}`);
+          startCooldownTimer(hintType, hint.cooldown_remaining_seconds);
+          setError(`Hint available again in ${formatTime(hint.cooldown_remaining_seconds)}`);
+        } else {
+          setError('Unexpected server response');
+        }
       }
     } catch (err) {
       console.error('Error revealing hint:', err);
-      setError(
-        err.response?.data?.error || err.message || 'Failed to reveal hint. Try again later.'
-      );
+      let errorMessage = 'Failed to reveal hint. Try again later.';
+      
+      // Check if the error has response data
+      if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

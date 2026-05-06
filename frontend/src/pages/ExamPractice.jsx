@@ -45,7 +45,7 @@ function CalcWidget({ onClose, isLight }) {
       position: 'absolute', top: 50, right: 0, width: 260, background: isLight ? '#fff' : '#111',
       border: isLight ? '1px solid rgba(0,0,0,0.12)' : '1px solid #333',
       borderRadius: 12, padding: 12, zIndex: 100,
-      boxShadow: isLight ? '0 10px 40px rgba(0,0,0,0.15)' : '0 10px 40px rgba(0,0,0,0.6)'
+      boxShadow: 'var(--shadow-md)'
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <span style={{ fontSize: 12, color: isLight ? '#6b7280' : '#71717a' }}>Calculator</span>

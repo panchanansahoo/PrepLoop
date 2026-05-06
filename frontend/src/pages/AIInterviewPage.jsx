@@ -20,7 +20,6 @@ import HintBanner from '../components/interview/HintBanner';
 import InterviewErrorBoundary from '../components/interview/InterviewErrorBoundary';
 import { RealtimeFeedbackProvider } from '../components/interview/RealtimeFeedbackProvider';
 import ScoreCue from '../components/interview/ScoreCue';
-import PerformanceIndicator from '../components/interview/PerformanceIndicator';
 import HintSuggestion from '../components/interview/HintSuggestion';
 import BehaviorAlert from '../components/interview/BehaviorAlert';
 import {
@@ -230,7 +229,7 @@ function AIInterviewPageInner() {
     // Runs the real-time STT (Deepgram) + TTS (Kokoro local) pipeline.
     // `onAnswer` bridges detected speech directly into sendAnswer().
     const voiceAI = useVoiceAI({
-        onAnswer: useCallback((answerText) => {
+        onAnswer: useCallback((answerText, metadata = {}) => {
             // Push transcribed text into state for UI display
             setTranscriptRaw(answerText || '');
 
@@ -247,7 +246,8 @@ function AIInterviewPageInner() {
             // CRITICAL: Pass answerText directly to sendAnswer because React
             // state (transcript) won't update until the next render. Without
             // this, sendAnswer reads stale/empty transcript and silently bails.
-            if (sendAnswerRef.current) sendAnswerRef.current(false, answerText);
+            // metadata.noAnswer = true means 10sec total silence, auto-skip to next question
+            if (sendAnswerRef.current) sendAnswerRef.current(false, answerText, metadata);
         }, []),  // eslint-disable-line react-hooks/exhaustive-deps
         onTranscriptUpdate: useCallback((partial) => {
             setTranscriptRaw(partial || '');
@@ -290,13 +290,20 @@ function AIInterviewPageInner() {
     // speakInterviewerText ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ routes through backend TTS (Kokoro local ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ Groq Orpheus ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢ browser)
     const speakInterviewerText = useCallback(async (text) => {
         // Fix #6: Respect speaker mute ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â don't speak when muted
-        if (!text || speakerMuted) return;
+        if (!text || speakerMuted) {
+            console.log('[speakInterviewerText] Skipped:', !text ? 'no text' : 'muted');
+            return;
+        }
+        console.log('[speakInterviewerText] Speaking:', text.substring(0, 60) + '...');
         setAiSpeaking(true);
         try {
             await voiceAI.speak(text, {
                 onStart: () => setAiSpeaking(true),
                 onEnd: () => { },  // Handled by caller or speakSequence
             });
+            console.log('[speakInterviewerText] Finished speaking');
+        } catch (err) {
+            console.error('[speakInterviewerText] Speech error:', err);
         } finally {
             // Only set false if this is a standalone call (speakSequence overrides)
             setAiSpeaking(false);
@@ -308,21 +315,30 @@ function AIInterviewPageInner() {
     const speakSequenceCancelledRef = useRef(false);
     const speakSequence = useCallback(async (segments, { pauseMs = 150 } = {}) => {
         // Fix #6: Respect speaker mute
-        if (!segments || segments.length === 0 || speakerMuted) return;
+        if (!segments || segments.length === 0 || speakerMuted) {
+            console.log('[speakSequence] Skipped:', !segments ? 'no segments' : segments.length === 0 ? 'empty' : 'muted');
+            return;
+        }
+        console.log('[speakSequence] Starting', segments.length, 'segments');
         speakSequenceCancelledRef.current = false;
         setAiSpeaking(true);
         try {
             for (let i = 0; i < segments.length; i++) {
                 // Abort remaining segments if paused or cancelled mid-sequence
-                if (speakSequenceCancelledRef.current) break;
+                if (speakSequenceCancelledRef.current) {
+                    console.log('[speakSequence] Cancelled at segment', i);
+                    break;
+                }
 
                 const text = segments[i];
                 if (!text || !text.trim()) continue;
 
+                console.log(`[speakSequence] Segment ${i + 1}/${segments.length}:`, text.substring(0, 60) + '...');
                 await voiceAI.speak(text, {
                     onStart: () => { },  // aiSpeaking already true
                     onEnd: () => { },  // Don't set false between segments
                 });
+                console.log(`[speakSequence] Segment ${i + 1} finished`);
 
                 // Brief natural pause between segments (not after last one)
                 if (i < segments.length - 1 && pauseMs > 0) {
@@ -330,7 +346,10 @@ function AIInterviewPageInner() {
                     await new Promise(r => setTimeout(r, pauseMs));
                 }
             }
+        } catch (err) {
+            console.error('[speakSequence] Error:', err);
         } finally {
+            console.log('[speakSequence] Done');
             setAiSpeaking(false);
         }
     }, [voiceAI, setAiSpeaking, speakerMuted]);
@@ -1040,7 +1059,7 @@ function AIInterviewPageInner() {
     };
 
     // ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ Send Answer ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚ÂÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬
-    const sendAnswer = async (isAutoSkip = false, answerOverride = null) => {
+    const sendAnswer = async (isAutoSkip = false, answerOverride = null, metadata = {}) => {
         /**
          * CRITICAL QUESTION NUMBERING CONTRACT:
          * When sending an answer, we send `questionNumber: questionIndex + 1`
@@ -1088,6 +1107,7 @@ function AIInterviewPageInner() {
             }
             if ('speechSynthesis' in window) window.speechSynthesis.cancel();
             setAiSpeaking(false);
+            console.log('[sendAnswer] Cleaned up previous speech state');
 
             // answerOverride allows callers (e.g. onAnswer from Deepgram STT) to
             // pass the answer text directly, bypassing stale React state.
@@ -1097,7 +1117,7 @@ function AIInterviewPageInner() {
                 boilerplate: currentBoilerplate,
             });
             const { answer, fullAnswer } = resolveSubmittedAnswer({
-                providedAnswer: isAutoSkip === true ? "I do not have a response to this question." : answerOverride,
+                providedAnswer: (isAutoSkip === true || metadata.noAnswer === true) ? "I do not have a response to this question." : answerOverride,
                 userInput: stateRefs.current.userInput,
                 transcript: stateRefs.current.transcript,
                 code: stateRefs.current.code,
@@ -1105,7 +1125,8 @@ function AIInterviewPageInner() {
             });
 
             // Bug 1 fix: Track consecutive silent auto-skips for graceful early-exit
-            if (isAutoSkip === true) {
+            // Handle both isAutoSkip (legacy) and metadata.noAnswer (new 10-sec timeout)
+            if (isAutoSkip === true || metadata.noAnswer === true) {
                 setConsecutiveSilentQuestions(prev => prev + 1);
             } else if (answer && answer.length > 10) {
                 setConsecutiveSilentQuestions(0);
@@ -1115,7 +1136,7 @@ function AIInterviewPageInner() {
             if (answer && answer.length > 10) {
                 intelligence.analyzeAnswer(answer, currentQuestion).catch(() => { });
             }
-            if (!answer && !codeIsSubmittableForAnswer && isAutoSkip !== true) { isSendingRef.current = false; return; }
+            if (!answer && !codeIsSubmittableForAnswer && isAutoSkip !== true && metadata.noAnswer !== true) { isSendingRef.current = false; return; }
 
             setConversation(prev => [...prev, {
                 role: 'candidate',
@@ -1281,6 +1302,19 @@ function AIInterviewPageInner() {
                     });
                     setInterviewerStatus(transition.statusText);
                     await new Promise(resolve => setTimeout(resolve, transition.pauseMs));
+                    
+                    // CRITICAL FIX: Reset the cancel flag before speaking the next question.
+                    // Without this, the flag set at line 1083 (during answer cleanup) can
+                    // race with the speakSequence call below and cancel Q2 speech.
+                    speakSequenceCancelledRef.current = false;
+                    
+                    // CRITICAL FIX: Yield a microtask + small delay to let Chrome's
+                    // speechSynthesis engine fully reset after the cancel() call above.
+                    // Chrome has a known issue where cancel() leaves the engine in a
+                    // broken state, causing the next speak() to fail silently.
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    
+                    console.log('[sendAnswer] Speaking next question:', continueQ.substring(0, 60) + '...');
                     setInterviewerStatus(transition.spokenLeadIn);
                     await speakAndHandoff(continueQ, false, transition.spokenLeadIn);
                     setInterviewerStatus('');
@@ -1326,6 +1360,10 @@ function AIInterviewPageInner() {
                     setCurrentQuestion(fallbackQ);
                     setQuestionIndex(prev => prev + 1);
                     setLoading(false);
+                    // Same fix as the happy path: reset cancel flag and yield for Chrome's speech engine
+                    speakSequenceCancelledRef.current = false;
+                    await new Promise(resolve => setTimeout(resolve, 50));
+                    console.log('[sendAnswer] (fallback) Speaking:', fallbackQ.substring(0, 60) + '...');
                     await speakInterviewerText(fallbackQ);
                     if (!isListeningRef.current) {
                         startVoiceRecording();
@@ -1894,10 +1932,11 @@ function AIInterviewPageInner() {
                 {/* Live Intelligence Overlays */}
                 <ScoreCueToast cue={scoreCue} onDismiss={() => setScoreCue(null)} />
                 <HintBanner hint={activeHint} onDismiss={() => setActiveHint(null)} />
-                <ScoreCue />
-                <PerformanceIndicator />
-                <HintSuggestion />
-                <BehaviorAlert />
+                <RealtimeFeedbackProvider sessionId={user?.id} userId={user?.id}>
+                    <ScoreCue />
+                    <HintSuggestion />
+                    <BehaviorAlert />
+                </RealtimeFeedbackProvider>
             </div>
         </div>
     );

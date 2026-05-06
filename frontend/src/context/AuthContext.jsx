@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import apiClient from '../api/client';
 import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext(null);
@@ -56,7 +57,7 @@ export function AuthProvider({ children }) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
-              const response = await axios.get('/api/user/profile');
+              const response = await apiClient.get('/api/user/profile');
               const profileData = response.data.user;
               const fullUser = {
                 id: session.user.id,
@@ -119,7 +120,7 @@ export function AuthProvider({ children }) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
           try {
-            const response = await axios.get('/api/user/profile');
+            const response = await apiClient.get('/api/user/profile');
             const profileData = response.data.user;
             const fullUser = {
               ...profileData,
@@ -161,7 +162,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const response = await axios.post('/api/auth/login', { email, password });
+    const response = await apiClient.post('/api/auth/login', { email, password });
     const { token, refreshToken, user } = response.data;
 
     localStorage.setItem('token', token);
@@ -202,7 +203,7 @@ export function AuthProvider({ children }) {
 
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
-    const response = await axios.post('/api/auth/signup', { email, password, fullName });
+    const response = await apiClient.post('/api/auth/signup', { email, password, fullName });
     const { token, refreshToken, user } = response.data;
 
     if (token) {
@@ -250,7 +251,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const response = await axios.post('/api/auth/refresh', { refreshToken: storedRefreshToken });
+      const response = await apiClient.post('/api/auth/refresh', { refreshToken: storedRefreshToken });
       const { token, refreshToken: newRefreshToken } = response.data;
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', newRefreshToken);

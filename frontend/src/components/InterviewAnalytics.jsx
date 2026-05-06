@@ -52,9 +52,7 @@ export default function InterviewAnalytics() {
     <div className="relative overflow-hidden group transition-all duration-300 hover:-translate-y-1" style={{
       background: panelBg, borderRadius: 24, border: panelBorder, padding: '24px',
       backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
-      boxShadow: isLight
-        ? '0 12px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)'
-        : '0 24px 64px -20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.08)'
+      boxShadow: 'var(--shadow-md)'
     }}>
       <div className="flex items-center justify-between mb-4">
         <p className={`font-semibold ${subTextColor}`}>{label}</p>

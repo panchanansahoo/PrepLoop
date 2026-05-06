@@ -4535,8 +4535,5 @@ h3 {
   }
 }
 
-/* Light theme overrides extracted to light-theme.css for better cacheability */
-@import './light-theme.css';
-@import './light-theme-pages.css';
-
+/* All light theme overrides are now in unified-theme.css */
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, MessageSquare, Brain, Code2, Sparkles, Github, Linkedin, Chrome } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
@@ -353,6 +354,62 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
+  const { theme } = useTheme();
+
+  // Create a modifiable copy of the base styles and apply light-mode overrides when needed
+  const currentStyles = { ...styles };
+  if (theme === 'light') {
+    currentStyles.wrapper = {
+      ...currentStyles.wrapper,
+      background: '#f8fafc',
+      color: '#0f172a',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    };
+    currentStyles.leftPanel = {
+      ...currentStyles.leftPanel,
+      background: 'linear-gradient(160deg, rgba(168,85,247,0.02) 0%, rgba(236,72,153,0.01) 50%, transparent 100%)',
+      borderRight: '1px solid rgba(15,23,42,0.04)'
+    };
+    currentStyles.formCard = {
+      ...currentStyles.formCard,
+      background: '#ffffff',
+      border: '1px solid rgba(15,23,42,0.06)',
+      boxShadow: '0 8px 24px rgba(15,23,42,0.06)'
+    };
+    currentStyles.heading = { ...currentStyles.heading, color: '#0f172a' };
+    currentStyles.subtitle = { ...currentStyles.subtitle, color: 'rgba(15,23,42,0.7)' };
+    currentStyles.featureText = { ...currentStyles.featureText, color: 'rgba(15,23,42,0.85)' };
+    currentStyles.label = { ...currentStyles.label, color: 'rgba(15,23,42,0.85)' };
+    currentStyles.input = {
+      ...currentStyles.input,
+      background: '#ffffff',
+      border: '1px solid rgba(15,23,42,0.08)',
+      color: '#0f172a'
+    };
+    currentStyles.inputIcon = { ...currentStyles.inputIcon, color: 'rgba(15,23,42,0.45)' };
+    currentStyles.errorBox = {
+      ...currentStyles.errorBox,
+      background: 'rgba(254,202,202,0.14)',
+      border: '1px solid rgba(239,68,68,0.12)',
+      color: '#9b1c1c'
+    };
+    currentStyles.socialBtnPrimary = {
+      ...currentStyles.socialBtnPrimary,
+      background: 'linear-gradient(90deg, rgba(0,0,0,0.03), rgba(0,0,0,0.02))',
+      color: '#0f172a',
+      border: '1px solid rgba(15,23,42,0.06)'
+    };
+    currentStyles.socialBtnSecondary = {
+      ...currentStyles.socialBtnSecondary,
+      background: 'transparent',
+      color: '#0f172a',
+      border: '1px solid rgba(15,23,42,0.06)'
+    };
+    currentStyles.submitBtn = {
+      ...currentStyles.submitBtn,
+      color: 'white'
+    };
+  }
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -389,27 +446,27 @@ export default function Login() {
   return (
     <>
       <style>{keyframes}</style>
-      <div style={styles.wrapper}>
-        <Link to="/" style={styles.backButton} className="auth-back-btn fade-in-up">
+      <div style={currentStyles.wrapper}>
+        <Link to="/" style={currentStyles.backButton} className="auth-back-btn fade-in-up">
           <ArrowLeft size={16} /> Back to Home
         </Link>
-        <div style={styles.orb1} />
-        <div style={styles.orb2} />
-        <div style={styles.orb3} />
+        <div style={currentStyles.orb1} />
+        <div style={currentStyles.orb2} />
+        <div style={currentStyles.orb3} />
 
         {/* Left Panel — Branding */}
-        <div className="auth-left-panel" style={styles.leftPanel}>
+        <div className="auth-left-panel" style={currentStyles.leftPanel}>
           <div className="fade-in-up">
-            <Link to="/" style={styles.logo} className="auth-link">
+            <Link to="/" style={currentStyles.logo} className="auth-link">
               <img src={logo} alt="PrepLoop" style={{ width: 36, height: 36, objectFit: 'contain' }} />
-              <span style={styles.logoText}>PrepLoop</span>
+              <span style={currentStyles.logoText}>PrepLoop</span>
             </Link>
 
-            <h2 className="auth-brand-title" style={styles.heading}>
+            <h2 className="auth-brand-title" style={currentStyles.heading}>
               Ace Your Next<br />
-              <span style={styles.headingAccent}>Technical Interview</span>
+              <span style={currentStyles.headingAccent}>Technical Interview</span>
             </h2>
-            <p style={styles.subtitle}>
+            <p style={currentStyles.subtitle}>
               AI-powered mock interviews, personalized coaching, and proven patterns to land your dream job at top companies.
             </p>
 
@@ -420,22 +477,22 @@ export default function Login() {
                 { icon: <Code2 size={20} />, text: '90+ DSA patterns with detailed solutions' },
                 { icon: <Sparkles size={20} />, text: 'ATS-optimized resume analysis' },
               ].map((item, i) => (
-                <div key={i} style={styles.featureItem} className={`fade-in-up delay-${(i + 1) * 100}`}>
-                  <div style={styles.featureIcon}>{item.icon}</div>
-                  <span style={styles.featureText}>{item.text}</span>
+                <div key={i} style={currentStyles.featureItem} className={`fade-in-up delay-${(i + 1) * 100}`}>
+                  <div style={currentStyles.featureIcon}>{item.icon}</div>
+                  <span style={currentStyles.featureText}>{item.text}</span>
                 </div>
               ))}
             </div>
 
-            <div style={styles.statsRow} className="fade-in-up delay-300">
+            <div style={currentStyles.statsRow} className="fade-in-up delay-300">
               {[
                 { number: '10K+', label: 'Engineers trained' },
                 { number: '95%', label: 'Success rate' },
                 { number: '500+', label: 'Companies' },
               ].map((s, i) => (
-                <div key={i} style={styles.stat}>
-                  <div style={styles.statNumber}>{s.number}</div>
-                  <div style={styles.statLabel}>{s.label}</div>
+                <div key={i} style={currentStyles.stat}>
+                  <div style={currentStyles.statNumber}>{s.number}</div>
+                  <div style={currentStyles.statLabel}>{s.label}</div>
                 </div>
               ))}
             </div>
@@ -443,37 +500,37 @@ export default function Login() {
         </div>
 
         {/* Right Panel — Form */}
-        <div className="auth-right-panel" style={styles.rightPanel}>
-          <div style={styles.formCard} className="auth-card fade-in-up delay-100">
-            <h1 style={styles.formTitle}>Welcome back</h1>
-            <p style={styles.formSubtitle}>Sign in to continue your preparation</p>
+        <div className="auth-right-panel" style={currentStyles.rightPanel}>
+          <div style={currentStyles.formCard} className="auth-card fade-in-up delay-100">
+            <h1 style={currentStyles.formTitle}>Welcome back</h1>
+            <p style={currentStyles.formSubtitle}>Sign in to continue your preparation</p>
 
             {error && (
-              <div style={styles.errorBox} className="fade-in-up">
+              <div style={currentStyles.errorBox} className="fade-in-up">
                 <AlertCircle size={18} style={{ flexShrink: 0 }} /> {error}
               </div>
             )}
 
             {/* Social Login */}
-            <div style={styles.socialSection}>
+            <div style={currentStyles.socialSection}>
               <button
                 onClick={() => handleSocialLogin('Google', loginWithGoogle)}
-                style={styles.socialBtnPrimary}
+                style={currentStyles.socialBtnPrimary}
                 className="auth-social-btn"
               >
                 <Chrome size={18} /> Continue with Google
               </button>
-              <div className="auth-social-row" style={styles.socialBtnRow}>
+              <div className="auth-social-row" style={currentStyles.socialBtnRow}>
                 <button
                   onClick={() => handleSocialLogin('GitHub', loginWithGithub)}
-                  style={styles.socialBtnSecondary}
+                  style={currentStyles.socialBtnSecondary}
                   className="auth-social-btn"
                 >
                   <Github size={18} /> GitHub
                 </button>
                 <button
                   onClick={() => handleSocialLogin('LinkedIn', loginWithLinkedin)}
-                  style={styles.socialBtnSecondary}
+                  style={currentStyles.socialBtnSecondary}
                   className="auth-social-btn"
                 >
                   <Linkedin size={18} /> LinkedIn
@@ -482,22 +539,22 @@ export default function Login() {
             </div>
 
             {/* Divider */}
-            <div style={styles.divider}>
-              <div style={styles.dividerLine} />
-              <span style={styles.dividerText}>or continue with email</span>
-              <div style={styles.dividerLine} />
+            <div style={currentStyles.divider}>
+              <div style={currentStyles.dividerLine} />
+              <span style={currentStyles.dividerText}>or continue with email</span>
+              <div style={currentStyles.dividerLine} />
             </div>
 
             {/* Form */}
             <form onSubmit={handleSubmit}>
-              <div style={styles.inputWrapper} className="auth-input-wrapper">
-                <label style={styles.label}>{FORM_LABELS.email}</label>
+              <div style={currentStyles.inputWrapper} className="auth-input-wrapper">
+                <label style={currentStyles.label}>{FORM_LABELS.email}</label>
                 <div style={{ position: 'relative' }}>
-                  <Mail size={18} style={styles.inputIcon} className="auth-input-icon" />
+                  <Mail size={18} style={currentStyles.inputIcon} className="auth-input-icon" />
                   <input
                     type="email" value={email} onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com" required
-                    style={styles.input}
+                    style={currentStyles.input}
                     className="auth-input"
                   />
                 </div>
@@ -505,21 +562,21 @@ export default function Login() {
 
               <div style={{ marginBottom: '28px' }} className="auth-input-wrapper">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <label style={{ ...styles.label, marginBottom: 0 }}>{FORM_LABELS.password}</label>
-                  <Link to="/forgot-password" style={styles.forgotLink} className="auth-link">Forgot password?</Link>
+                  <label style={{ ...currentStyles.label, marginBottom: 0 }}>{FORM_LABELS.password}</label>
+                  <Link to="/forgot-password" style={currentStyles.forgotLink} className="auth-link">Forgot password?</Link>
                 </div>
                 <div style={{ position: 'relative' }}>
-                  <Lock size={18} style={styles.inputIcon} className="auth-input-icon" />
+                  <Lock size={18} style={currentStyles.inputIcon} className="auth-input-icon" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password} onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••" required
-                    style={styles.input}
+                    style={currentStyles.input}
                     className="auth-input"
                   />
                   <button
                     type="button" onClick={() => setShowPassword(!showPassword)}
-                    style={styles.passwordToggle}
+                    style={currentStyles.passwordToggle}
                     className="auth-password-toggle"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -530,7 +587,7 @@ export default function Login() {
               <button
                 type="submit" disabled={loading}
                 style={{
-                  ...styles.submitBtn,
+                  ...currentStyles.submitBtn,
                   ...(loading ? { opacity: 0.7, cursor: 'not-allowed' } : {}),
                 }}
                 className="auth-submit-btn"
@@ -540,9 +597,9 @@ export default function Login() {
               </button>
             </form>
 
-            <div style={styles.bottomLink}>
+            <div style={currentStyles.bottomLink}>
               Don't have an account?
-              <Link to="/signup" style={styles.accentLink} className="auth-link">Create account</Link>
+              <Link to="/signup" style={currentStyles.accentLink} className="auth-link">Create account</Link>
             </div>
           </div>
         </div>

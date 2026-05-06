@@ -10,6 +10,16 @@ const apiClient = axios.create({
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const isInvalidToken403 = (error) => {
+  const status = error?.response?.status;
+  if (status !== 403) return false;
+
+  const code = String(error?.response?.data?.code || '').toUpperCase();
+  const message = String(error?.response?.data?.error || error?.response?.data?.message || '').toLowerCase();
+
+  return code === 'INVALID_TOKEN' || message.includes('invalid or expired token');
+};
+
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -26,7 +36,8 @@ apiClient.interceptors.response.use(
   async (error) => {
     const config = error.config;
     
-    if (!config || !config.retry) {
+    if (!config) return Promise.reject(error);
+    if (!config.retry) {
       config.retry = { count: 0, maxRetries: 3 };
     }
 
@@ -42,9 +53,10 @@ apiClient.interceptors.response.use(
       return apiClient(config);
     }
 
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || isInvalidToken403(error)) {
       const hadToken = localStorage.getItem('token');
       localStorage.removeItem('token');
+      localStorage.removeItem('refreshToken');
       // Only redirect if user was previously logged in (not guest preview)
       if (hadToken) {
         window.location.href = '/login';

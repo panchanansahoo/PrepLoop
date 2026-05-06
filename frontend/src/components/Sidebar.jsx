@@ -238,7 +238,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 cursor: 'pointer',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                boxShadow: isLight ? '0 2px 8px rgba(99, 102, 241, 0.04)' : '0 4px 12px rgba(0, 0, 0, 0.1)'
+                                boxShadow: 'var(--shadow-md)'
                             }}
                             onMouseEnter={(e) => {
                                 e.currentTarget.style.background = 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';

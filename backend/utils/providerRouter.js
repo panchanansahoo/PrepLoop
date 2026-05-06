@@ -72,7 +72,7 @@ const PERSONA_PROVIDER_AFFINITY = {
   calm_supportive: ['groq', 'kokoro', 'elevenLabs', 'edge'],
   calm_empathetic: ['groq', 'kokoro', 'elevenLabs'],
   energetic_enthusiastic: ['groq', 'kokoro', 'elevenLabs'],
-  energetic_driven: ['elevenLabs', 'openai', 'groq'],
+  energetic_driven: ['elevenLabs', 'groq', 'groq'],
   mentor_guide: ['groq', 'kokoro', 'elevenLabs'],
   recruiter_hr: ['elevenLabs', 'groq', 'edge'],
   default_neutral: ['kokoro', 'groq', 'edge', 'openai', 'elevenLabs']
@@ -327,7 +327,8 @@ export function getProviderStats() {
   }, {});
 }
 
-export default {
+// Export the provider router object
+export const providerRouter = {
   PROVIDER_SCORES,
   CONTEXT_PREFERENCES,
   PERSONA_PROVIDER_AFFINITY,
@@ -342,3 +343,17 @@ export default {
   getProviderStats
 };
 
+export default {
+  PROVIDER_SCORES,
+  CONTEXT_PREFERENCES,
+  PERSONA_PROVIDER_AFFINITY,
+  scoreProvider,
+  selectProvider,
+  getProviderChain,
+  estimateCost,
+  estimateLatency,
+  isProviderHealthy,
+  recordProviderFailure,
+  recordProviderSuccess,
+  getProviderStats
+};

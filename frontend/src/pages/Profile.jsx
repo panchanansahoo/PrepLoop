@@ -15,6 +15,29 @@ import {
 import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
 
+const PROFILE_PREFS_KEY = 'preploop-profile-prefs';
+
+const loadProfilePrefs = () => {
+  if (typeof window === 'undefined') return {};
+
+  try {
+    const stored = window.localStorage.getItem(PROFILE_PREFS_KEY);
+    return stored ? JSON.parse(stored) : {};
+  } catch {
+    return {};
+  }
+};
+
+const saveProfilePrefs = (prefs) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    window.localStorage.setItem(PROFILE_PREFS_KEY, JSON.stringify(prefs));
+  } catch {
+    // Ignore storage failures; the page still works without persistence.
+  }
+};
+
 /* ─── Data helpers (unchanged logic) ─── */
 const MOCK_JOB_MATCHES = [
   { id: 1, title: 'Software Engineer Trainee', company: 'Roku', matchScore: 85 },
@@ -27,6 +50,8 @@ function buildInitialProfile(user) {
     fullName: user?.fullName || '',
     full_name: user?.fullName || '',
     email: user?.email || '',
+    avatarUrl: user?.avatarUrl || user?.avatar_url || '',
+    avatar_url: user?.avatarUrl || user?.avatar_url || '',
     bio: '',
     currentRole: '',
     designation: '',
@@ -56,6 +81,8 @@ function normalizeProfileData(data) {
     fullName: data?.fullName ?? data?.full_name ?? '',
     full_name: data?.full_name ?? data?.fullName ?? '',
     email: data?.email ?? '',
+    avatarUrl: data?.avatarUrl ?? data?.avatar_url ?? '',
+    avatar_url: data?.avatar_url ?? data?.avatarUrl ?? '',
     bio: data?.bio ?? '',
     currentRole: data?.currentRole ?? data?.designation ?? data?.role_title ?? '',
     designation: data?.designation ?? data?.currentRole ?? '',
@@ -92,6 +119,8 @@ function buildProfilePayload(profile) {
     ...profile,
     fullName: trimmedFullName,
     full_name: trimmedFullName,
+    avatarUrl: profile.avatarUrl?.trim() || '',
+    avatar_url: profile.avatarUrl?.trim() || '',
     currentRole: trimmedCurrentRole,
     designation: trimmedCurrentRole,
     experience: trimmedExperience,
@@ -208,6 +237,7 @@ export default function Profile() {
   const [autofillSuggestions, setAutofillSuggestions] = useState({});
   const [linkedinImporting, setLinkedinImporting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const [profilePrefs, setProfilePrefs] = useState(() => loadProfilePrefs());
   const hasAutofilledFromResumeRef = useRef(false);
 
   const fetchProfile = useCallback(async () => {
@@ -231,6 +261,16 @@ export default function Profile() {
       console.error(err);
     }
   }, [user]);
+
+  useEffect(() => {
+    const prefs = loadProfilePrefs();
+    setProfilePrefs(prefs);
+    setIsPublic(Boolean(prefs.isPublic));
+  }, []);
+
+  useEffect(() => {
+    saveProfilePrefs(profilePrefs);
+  }, [profilePrefs]);
 
   const fetchLatestResumeSnapshot = useCallback(async () => {
     try {
@@ -406,10 +446,49 @@ export default function Profile() {
   };
 
   const handleCopyLink = () => {
-    const link = `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
+    const slug = (profilePrefs.customUrlSlug || displayName).toLowerCase().replace(/\s+/g, '-');
+    const link = `${window.location.origin}/profile?share=${encodeURIComponent(slug)}`;
     navigator.clipboard.writeText(link).catch(() => { /* fallback */ });
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleTogglePublic = () => {
+    setIsPublic((current) => {
+      const next = !current;
+      setProfilePrefs((prev) => ({ ...prev, isPublic: next }));
+      return next;
+    });
+  };
+
+  const handleClaimCustomUrl = () => {
+    const currentSlug = profilePrefs.customUrlSlug || displayName.toLowerCase().replace(/\s+/g, '-');
+    const nextSlug = window.prompt('Choose a custom profile slug', currentSlug);
+    if (nextSlug === null) return;
+
+    const sanitizedSlug = nextSlug
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (!sanitizedSlug) return;
+
+    setProfilePrefs((prev) => ({ ...prev, customUrlSlug: sanitizedSlug }));
+  };
+
+  const handleChangePhoto = () => {
+    const currentAvatar = profile.avatarUrl || '';
+    const nextAvatar = window.prompt('Paste an avatar image URL', currentAvatar);
+    if (nextAvatar === null) return;
+
+    const trimmedAvatar = nextAvatar.trim();
+    setProfile((prev) => ({
+      ...prev,
+      avatarUrl: trimmedAvatar,
+      avatar_url: trimmedAvatar,
+    }));
   };
 
   const handleChange = (key, value) => {
@@ -509,7 +588,8 @@ export default function Profile() {
   const interviewsDone = dashboardData?.interviewsCompleted || 0;
   const aiMatches = dashboardData?.aiMatches || dashboardData?.jobMatches || 0;
   const coverLetters = dashboardData?.coverLetters || 0;
-  const profileLink = `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
+  const profileSlug = profilePrefs.customUrlSlug || displayName.toLowerCase().replace(/\s+/g, '-');
+  const profileLink = `${window.location.origin}/profile?share=${encodeURIComponent(profileSlug)}`;
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
   const educationDisplay = profile.education || 'Not set';
   const skillChips = splitSkillChips(profile.skills, resumeSnapshot);
@@ -531,10 +611,12 @@ export default function Profile() {
         <div className="du-profile-identity">
           <div className="du-profile-left">
             <div className="du-avatar">
-              {initial}
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt={displayName} className="du-avatar-image" />
+              ) : initial}
               <span className="du-avatar-online" />
               {editing && (
-                <button className="du-change-photo-btn" type="button">
+                <button className="du-change-photo-btn" type="button" onClick={handleChangePhoto}>
                   <Camera size={14} />
                   Change Photo
                 </button>
@@ -582,7 +664,7 @@ export default function Profile() {
               </div>
               <button
                 className={`du-toggle ${isPublic ? 'is-on' : ''}`}
-                onClick={() => setIsPublic(!isPublic)}
+                onClick={handleTogglePublic}
                 aria-label="Toggle profile visibility"
                 type="button"
               >
@@ -602,7 +684,7 @@ export default function Profile() {
                   <p className="du-meta-subtitle du-profile-url">{profileLink}</p>
                 </div>
               </div>
-              <button className="du-claim-btn" type="button">
+              <button className="du-claim-btn" type="button" onClick={handleClaimCustomUrl}>
                 Claim Custom URL
               </button>
             </div>

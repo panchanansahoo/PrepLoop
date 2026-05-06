@@ -84,7 +84,7 @@ analytics.init({
   trackErrors: true,
 });
 
-console.log('✅ Monitoring and analytics initialized');
+
 
 
 createRoot(document.getElementById('root')).render(

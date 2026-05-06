@@ -120,7 +120,7 @@ export function useImprovementPlan(autoFetch = true) {
 
   // PHASE 3 OPTIMIZATION: Memoize expensive stats calculation
   const getStats = useCallback(() => {
-    if (!plan) return null;
+    if (!plan?.plan_data?.dailyPlan) return null;
 
     const totalTasks = plan.plan_data.dailyPlan.reduce(
       (sum, day) => sum + day.tasks.length,

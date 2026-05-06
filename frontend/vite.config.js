@@ -46,12 +46,13 @@ export default defineConfig(({ mode }) => {
       sourcemap: !isProd,
       minify: 'esbuild',
       cssCodeSplit: true,
-      chunkSizeWarningLimit: 500,
+      chunkSizeWarningLimit: 300, // Reduced from 500 to catch smaller chunks
       target: 'es2020',
+      assetsInlineLimit: 4096, // Inline assets < 4KB as base64
       ...(isProd && {
         esbuild: {
           drop: ['debugger'],
-          pure: ['console.log', 'console.debug', 'console.info', 'console.warn'],
+          pure: ['console.log', 'console.debug', 'console.info'],
         },
       }),
       rollupOptions: {
@@ -71,16 +72,34 @@ export default defineConfig(({ mode }) => {
           },
           manualChunks(id) {
             if (!id.includes('node_modules')) return;
+            // Heavy libraries - separate chunks
             if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-monaco';
             if (id.includes('@react-three') || id.includes('/three/')) return 'vendor-3d';
             if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
             if (id.includes('prettier')) return 'vendor-prettier';
             if (id.includes('reactflow') || id.includes('dagre')) return 'vendor-flow';
+            
+            // Core React ecosystem
             if (id.includes('react-dom') || id.includes('react/') || id.includes('scheduler')) return 'vendor-react';
             if (id.includes('react-router')) return 'vendor-router';
+            
+            // UI libraries
             if (id.includes('@mantine') || id.includes('lucide-react')) return 'vendor-ui';
+            
+            // Data & auth
             if (id.includes('@supabase')) return 'vendor-supabase';
+            
+            // Content rendering
             if (id.includes('react-markdown') || id.includes('react-syntax-highlighter')) return 'vendor-markdown';
+            
+            // Charting & visualization
+            if (id.includes('chart.js') || id.includes('recharts') || id.includes('d3')) return 'vendor-charts';
+            
+            // Utility libraries
+            if (id.includes('lodash') || id.includes('date-fns') || id.includes('dayjs')) return 'vendor-utils';
+            
+            // Animation libraries
+            if (id.includes('framer-motion') || id.includes('gsap')) return 'vendor-animation';
           },
         },
       },

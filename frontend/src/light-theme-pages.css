@@ -310,3 +310,141 @@
 [data-theme="light"] .auth-gate-features {
   border-top-color: rgba(99,102,241,0.08) !important;
 }
+
+/* -- AI Interview Results Page & Loading -- */
+[data-theme="light"] .ai-results-loading-title { color: #1e293b; }
+[data-theme="light"] .ai-results-loading-subtitle { color: #64748b; }
+[data-theme="light"] .ai-results-summary-card { background: rgba(99, 102, 241, 0.05); border-color: rgba(99, 102, 241, 0.15); color: #475569; }
+[data-theme="light"] .ai-results-summary-header { color: #1e293b; }
+[data-theme="light"] .ai-results-next-steps { background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.15); }
+
+[data-theme="light"] .ai-result-score-of { color: #64748b; }
+[data-theme="light"] .ai-result-stat { background: rgba(99, 102, 241, 0.03); border-color: rgba(99, 102, 241, 0.08); }
+[data-theme="light"] .ai-result-stat:hover { background: rgba(99, 102, 241, 0.06); }
+[data-theme="light"] .ai-result-stat-label { color: #64748b; }
+[data-theme="light"] .ai-result-stat-value { color: #1e293b; }
+
+[data-theme="light"] .ai-result-tab { color: #64748b; }
+[data-theme="light"] .ai-result-tab:hover { color: #1e293b; }
+
+[data-theme="light"] .ai-result-card { background: rgba(255, 255, 255, 0.6); border-color: rgba(99, 102, 241, 0.1); }
+[data-theme="light"] .ai-result-card-title { color: #1e293b; }
+[data-theme="light"] .ai-result-cat-label { color: #475569; }
+[data-theme="light"] .ai-result-cat-bar { background: rgba(99, 102, 241, 0.08); }
+
+[data-theme="light"] .ai-result-analysis-text { color: #475569; }
+[data-theme="light"] .ai-result-analysis-detail { color: #64748b; }
+
+[data-theme="light"] .ai-result-moment { background: rgba(255, 255, 255, 0.8); border-color: rgba(99, 102, 241, 0.1); }
+[data-theme="light"] .ai-result-moment:hover { background: #fff; border-color: rgba(99, 102, 241, 0.2); }
+[data-theme="light"] .ai-result-moment-type { color: #1e293b; }
+[data-theme="light"] .ai-result-moment-time { color: #64748b; }
+[data-theme="light"] .ai-result-moment-body { color: #475569; border-top-color: rgba(99, 102, 241, 0.08); }
+
+[data-theme="light"] .ai-result-session-item { background: rgba(99, 102, 241, 0.03); border-color: rgba(99, 102, 241, 0.08); color: #475569; }
+[data-theme="light"] .ai-result-session-label { color: #64748b; }
+[data-theme="light"] .ai-result-session-value { color: #1e293b; }
+
+[data-theme="light"] .ai-result-transcript-msg { border-color: rgba(99, 102, 241, 0.08); }
+[data-theme="light"] .ai-result-transcript-text { color: #475569; }
+
+/* -- AI Interview Chat Feedback Cards -- */
+[data-theme="light"] .ai-chat-feedback-card {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.1);
+}
+
+[data-theme="light"] .ai-chat-feedback-text {
+  color: var(--ai-text-secondary, #475569);
+}
+
+[data-theme="light"] .ai-chat-feedback-hint {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.15);
+  color: var(--ai-text-secondary, #475569);
+}
+
+[data-theme="light"] .ai-chat-feedback-item--strength { color: #059669; }
+[data-theme="light"] .ai-chat-feedback-item--improve { color: #d97706; }
+
+/* -- AI Interview Button Readability Fixes -- */
+
+[data-theme="light"] .ai-topbar-icon-btn {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.12);
+  color: var(--ai-text-secondary);
+}
+[data-theme="light"] .ai-topbar-icon-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--ai-text-primary);
+}
+
+[data-theme="light"] .ai-ctrl-btn {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.15);
+  color: var(--ai-text-secondary);
+}
+[data-theme="light"] .ai-ctrl-btn:hover:not(.mic):not(.end-call):not(.flag.active) {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--ai-text-primary);
+}
+
+[data-theme="light"] .ai-ctrl-btn.flag {
+  background: rgba(99, 102, 241, 0.05);
+}
+[data-theme="light"] .ai-ctrl-btn.flag:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+[data-theme="light"] .ai-ctrl-btn.flag.active {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="light"] .ai-vc-ws-dropdown {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.12);
+}
+[data-theme="light"] .ai-vc-ws-dropdown:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+[data-theme="light"] .ai-vc-ws-dropdown-menu {
+  background: #ffffff;
+  border-color: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .ai-vc-ws-dropdown-item {
+  color: var(--ai-text-secondary);
+}
+[data-theme="light"] .ai-vc-ws-dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.05);
+  color: var(--ai-text-primary);
+}
+[data-theme="light"] .ai-vc-ws-dropdown-item.active {
+  background: rgba(99, 102, 241, 0.08);
+}
+
+[data-theme="light"] .ai-reset-btn {
+  background: rgba(99, 102, 241, 0.03);
+  border-color: rgba(99, 102, 241, 0.12);
+}
+[data-theme="light"] .ai-reset-btn:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--ai-text-primary);
+}
+
+[data-theme="light"] .ai-wizard-nav-btn--skip:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--ai-text-primary);
+}
+
+[data-theme="light"] .ai-lobby-recovery-discard-btn {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.15);
+  color: var(--ai-text-secondary);
+}
+[data-theme="light"] .ai-lobby-recovery-discard-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--ai-text-primary);
+}
