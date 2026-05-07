@@ -66,6 +66,14 @@ html[data-theme="light"] {
   box-shadow: 0 1px 2px rgba(184, 101, 42, 0.04), 0 4px 16px rgba(184, 101, 42, 0.06) !important;
 }
 
+[data-theme="light"] .navbar.public-navbar.scrolled {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 /* ─── Sidebar ─── */
 [data-theme="light"] .sidebar {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 246, 241, 0.95) 100%);
@@ -418,9 +426,9 @@ html[data-theme="light"] {
 }
 
 /* Shadow Colors */
-[data-theme="light"] .shadow-black\\/25,
-[data-theme="light"] .shadow-black\\/20,
-[data-theme="light"] .shadow-black\\/50 {
+[data-theme="light"] .shadow-black\/25,
+[data-theme="light"] .shadow-black\/20,
+[data-theme="light"] .shadow-black\/50 {
   --tw-shadow-colored: 0 0 0 rgba(184, 101, 42, 0.1) !important;
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow) !important;
 }

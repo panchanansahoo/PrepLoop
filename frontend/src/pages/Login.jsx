@@ -446,7 +446,7 @@ export default function Login() {
   return (
     <>
       <style>{keyframes}</style>
-      <div style={currentStyles.wrapper}>
+      <div style={currentStyles.wrapper} className="auth-wrapper">
         <Link to="/" style={currentStyles.backButton} className="auth-back-btn fade-in-up">
           <ArrowLeft size={16} /> Back to Home
         </Link>

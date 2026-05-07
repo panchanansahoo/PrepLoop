@@ -1,13 +1,12 @@
 import express from 'express';
-import multer from 'multer';
 import Groq from 'groq-sdk';
 import pdf from 'pdf-parse';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import { resumeUploader } from '../middleware/secureFileUpload.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
 
 const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -255,7 +254,7 @@ function buildStaticAnalysis(resumeText) {
   };
 }
 
-router.post('/analyze', authenticateToken, upload.single('resume'), async (req, res) => {
+router.post('/analyze', authenticateToken, resumeUploader, async (req, res) => {
   try {
     let resumeText = req.body.resumeText;
     

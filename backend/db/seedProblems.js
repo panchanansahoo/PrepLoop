@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabaseClient.js';
 
 // Pattern name -> pattern_id mapping (will be fetched dynamically)
-let PATTERN_MAP = {};
+const PATTERN_MAP = {};
 
 async function loadPatternMap() {
     const { data } = await supabaseAdmin.from('patterns').select('id, name');

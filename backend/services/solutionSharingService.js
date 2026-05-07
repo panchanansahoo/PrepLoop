@@ -134,7 +134,7 @@ class SolutionSharingService {
     if (error) throw new Error(`Failed to fetch solutions: ${error.message}`);
 
     // Transform and sort results
-    let transformed = solutions.map((sol) => ({
+    const transformed = solutions.map((sol) => ({
       id: sol.id,
       userId: sol.user_id,
       language: sol.language,

@@ -27,55 +27,17 @@ export class AudioAccessibilityService {
   /**
    * Check if audio playback is available on user's device
    *
-   * @param {string} deviceType - 'browser' | 'mobile' | 'speaker'
+   * @param {string} _deviceType - 'browser' | 'mobile' | 'speaker'
    * @returns {Promise<object>} { available, reason, fallbackToTranscript }
    */
-  async checkAudioAvailability(deviceType = 'browser') {
+  async checkAudioAvailability(_deviceType = 'browser') {
     try {
-      // Attempt to detect audio context and speaker output
-      let audioContextAvailable = false;
-      let speakersAvailable = false;
-
-      if (typeof window !== 'undefined' && window.AudioContext) {
-        try {
-          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          audioContextAvailable = true;
-
-          // Check if audio output device is accessible
-          if (audioCtx.getOutputTimestamp) {
-            const output = audioCtx.getOutputTimestamp();
-            speakersAvailable = output !== null;
-          } else {
-            // Assume speakers available on browser if AudioContext works
-            speakersAvailable = true;
-          }
-
-          audioCtx.close();
-        } catch (err) {
-          // AudioContext creation failed
-          audioContextAvailable = false;
-        }
-      }
-
-      if (audioContextAvailable && speakersAvailable) {
-        return {
-          available: true,
-          reason: 'Audio output device detected',
-          fallbackToTranscript: false,
-        };
-      } else if (audioContextAvailable) {
-        return {
-          available: true,
-          reason: 'AudioContext available (speakers status unknown)',
-          fallbackToTranscript: false,
-        };
-      } else {
-        return {
-          available: false,
-          reason: 'AudioContext not available on this device',
-          fallbackToTranscript: true,
-        };
-      }
+      // Audio context detection is a frontend concern; always fall back on backend
+      return {
+        available: false,
+        reason: 'Audio unavailable on backend server',
+        fallbackToTranscript: true,
+      };
     } catch (error) {
       return {
         available: false,

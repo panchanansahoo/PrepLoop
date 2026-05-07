@@ -14,6 +14,7 @@ import { InterviewConversationService } from './interviewConversationService.js'
 import { InterviewPromptService } from './interviewPromptService.js';
 import { InterviewFollowUpRulesService } from './interviewFollowUpRulesService.js';
 import interviewGroundingService from './interviewGroundingService.js';
+import { canMakeRequest, recordRequest } from '../utils/rateLimitBudget.js';
 // Note: Code review implementation is provided in this file; avoid importing
 // a non-existent `codeReviewService.js` module which would conflict with the
 // local `CodeReviewService` class defined below.
@@ -75,6 +76,23 @@ if (process.env.GEMINI_API_KEY) {
   } catch (err) {
     logger.warn('Failed to initialize GoogleGenAI; Gemini disabled', { error: err.message });
     geminiAi = null;
+  }
+}
+
+let groq = null;
+if (process.env.GROQ_API_KEY) {
+  try {
+    const GroqModule = await import('groq-sdk').catch(() => null);
+    const GroqSDK = GroqModule?.default || GroqModule || null;
+    if (GroqSDK) {
+      groq = new GroqSDK({ apiKey: process.env.GROQ_API_KEY });
+    } else {
+      logger.warn('Groq SDK module not found; Groq disabled');
+      groq = null;
+    }
+  } catch (err) {
+    logger.warn('Failed to initialize Groq; Groq disabled', { error: err.message });
+    groq = null;
   }
 }
 
@@ -249,18 +267,11 @@ export async function analyzeAnswerQuality(answer = '', question = '', interview
   }
 
   // Check Gemini budget before making the call
-  const geminiBudget = canMakeRequest('gemini');
-  if (!geminiAi || !geminiBudget.allowed) {
-    if (!geminiBudget.allowed) {
-      logger.info('analyzeAnswerQuality: Gemini budget exhausted, using heuristic', {
-        reason: geminiBudget.reason,
-      });
-    }
+  if (!geminiAi) {
     return heuristic;
   }
 
   try {
-    recordRequest('gemini');
     const response = await geminiAi.models.generateContent({
       model: MODEL_CONFIG.model,
       contents: `Question: ${question || 'N/A'}\nAnswer: ${answer || 'N/A'}`,
@@ -322,7 +333,7 @@ export class CodeReviewService {
       const codeBudget = canMakeRequest('gemini');
       if (!geminiAi || !codeBudget.allowed) {
         logger.info('Code review: Gemini unavailable or budget exhausted, using fallback', {
-          reason: codeBudget.reason || 'No Gemini API key',
+          reason: codeBudget?.reason || 'No Gemini API key',
         });
       } else {
         try {
@@ -1194,7 +1205,7 @@ export class InterviewSimulatorService {
       }
 
       // Update session
-      const { currentScores, adaptiveUpdate, adaptiveFollowUp } = await interviewTelemetryService.withSpan(
+      const { currentScores, adaptiveUpdate, adaptiveFollowUp, scoreHistory } = await interviewTelemetryService.withSpan(
         'interview.scoring.update',
         {
           attributes: {
@@ -1658,8 +1669,8 @@ export class InterviewSimulatorService {
           modelConfig: INTERVIEW_MODEL_CONFIG,
           prompt,
         });
-        setSpanAttribute(span, 'interview.model.latency_ms', Number(raw.modelLatencyMs || 0));
-        setSpanAttribute(span, 'interview.model.fallback_triggered', Boolean(raw.fallbackTriggered));
+        span.setAttribute('interview.model.latency_ms', Number(raw.modelLatencyMs || 0));
+        span.setAttribute('interview.model.fallback_triggered', Boolean(raw.fallbackTriggered));
         return raw;
       }
     );
@@ -1680,9 +1691,9 @@ export class InterviewSimulatorService {
           interviewType,
           forceFallback: Boolean(rawFollowUp?.fallbackTriggered),
         });
-        setSpanAttribute(span, 'interview.parse.success', Boolean(normalized.parseSuccess));
-        setSpanAttribute(span, 'interview.parse.fallback_triggered', Boolean(normalized.parseFallbackTriggered));
-        addSpanEvent(span, 'interview.followup.branch', {
+        span.setAttribute('interview.parse.success', Boolean(normalized.parseSuccess));
+        span.setAttribute('interview.parse.fallback_triggered', Boolean(normalized.parseFallbackTriggered));
+        span.addEvent('interview.followup.branch', {
           parseFallback: Boolean(normalized.parseFallbackTriggered),
         });
         return {

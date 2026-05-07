@@ -1,6 +1,7 @@
 import * as leaderboardService from './leaderboardService.js';
 import * as achievementService from './achievementService.js';
 import * as streakService from './streakService.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 
 /**
  * Gamification Service

@@ -29,35 +29,35 @@ html[data-theme="light"] {
   --bg-card: rgba(255, 255, 255, 0.98) !important;
   --bg-card-hover: rgba(255, 255, 255, 0.99) !important;
   --bg-glass: rgba(255, 255, 255, 0.95) !important;
-  
+
   --text-primary: #111111 !important;
   --text-secondary: #545454 !important;
   --text-muted: #858585 !important;
   --text-invert: #ffffff !important;
-  
+
   --border: rgba(26, 26, 26, 0.08) !important;
   --border-light: rgba(26, 26, 26, 0.04) !important;
-  
+
   --accent-primary: #1a1a1a !important;
   --accent-secondary: #333333 !important;
   --accent-glow: rgba(26, 26, 26, 0.08) !important;
-  
+
   --glass-border: rgba(26, 26, 26, 0.08) !important;
   --glass-border-hover: rgba(26, 26, 26, 0.15) !important;
-  
+
   --color-bg-primary: #fafafa !important;
   --color-bg-secondary: #f5f5f5 !important;
   --color-bg-tertiary: #f0f0f0 !important;
   --color-bg-card: rgba(255, 255, 255, 0.98) !important;
   --color-bg-glass: rgba(255, 255, 255, 0.95) !important;
-  
+
   --color-text-primary: #111111 !important;
   --color-text-secondary: #545454 !important;
   --color-text-muted: #858585 !important;
-  
+
   --color-border: rgba(26, 26, 26, 0.08) !important;
   --color-border-subtle: rgba(26, 26, 26, 0.04) !important;
-  
+
   --color-accent-primary: #1a1a1a !important;
   --color-accent-secondary: #333333 !important;
 }
@@ -118,17 +118,19 @@ html[data-theme="light"] .sidebar * {
 }
 
 html[data-theme="light"] .nav-item {
-  color: #545454 !important;
+  color: #475569 !important;
 }
 
 html[data-theme="light"] .nav-item.active {
-  color: #1a1a1a !important;
-  background: rgba(184, 101, 42, 0.08) !important;
+  color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.08) !important;
+  font-weight: 600 !important;
+  border-left: 3px solid #0f172a !important;
 }
 
 html[data-theme="light"] .nav-item:hover {
-  color: #1a1a1a !important;
-  background: rgba(184, 101, 42, 0.05) !important;
+  color: #0f172a !important;
+  background: rgba(15, 23, 42, 0.05) !important;
 }
 
 /* Main content area */
@@ -138,6 +140,25 @@ html[data-theme="light"] main {
   color: #111111 !important;
 }
 
+/* Loading Screen */
+html[data-theme="light"] .loading-screen {
+  background: #f8fafc !important;
+}
+
+html[data-theme="light"] .loading-brand {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 40%, #0f172a 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+html[data-theme="light"] .loading-progress-track {
+  background: rgba(15, 23, 42, 0.1) !important;
+}
+
+html[data-theme="light"] .loading-tip,
+html[data-theme="light"] .loading-percent {
+  color: #334155 !important;
+}
 /* Text colors */
 html[data-theme="light"] h1,
 html[data-theme="light"] h2,
@@ -504,185 +525,188 @@ html[data-theme="light"] button:disabled {
 
 /* ✅ AI ASSISTANT ORB - LIGHT MODE - COMPLETE FIX */
 html[data-theme="light"] .orb-container {
-  filter: drop-shadow(0 4px 16px rgba(99, 102, 241, 0.2)) !important;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.15)) !important;
 }
 
 html[data-theme="light"] .orb-ambient-glow {
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.05) 40%, transparent 70%) !important;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.15) 0%, rgba(0, 0, 0, 0.05) 40%, transparent 70%) !important;
 }
 
 html[data-theme="light"] .orb-container.hovered .orb-ambient-glow {
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(34, 197, 234, 0.12) 40%, transparent 70%) !important;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.1) 40%, transparent 70%) !important;
 }
 
 html[data-theme="light"] .orb-container.thinking .orb-ambient-glow {
-  background: radial-gradient(circle, rgba(34, 197, 234, 0.35) 0%, rgba(236, 72, 153, 0.12) 40%, transparent 70%) !important;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0.15) 40%, transparent 70%) !important;
 }
 
 html[data-theme="light"] .orb-sphere {
-  box-shadow: 0 0 20px rgba(99, 102, 241, 0.2),
-    0 0 60px rgba(99, 102, 241, 0.1),
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.1),
+    0 0 60px rgba(0, 0, 0, 0.05),
     inset 0 0 30px rgba(0, 0, 0, 0.05) !important;
-  background: linear-gradient(135deg, #f0f4ff 0%, #e8ecff 100%) !important;
+  background: #ffffff !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+}
+
+html[data-theme="light"] .orb-canvas {
+  border-radius: 50% !important;
 }
 
 html[data-theme="light"] .orb-glass-overlay {
-  background: 
-    radial-gradient(ellipse at 30% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-    radial-gradient(ellipse at 70% 80%, rgba(0, 0, 0, 0.08) 0%, transparent 50%) !important;
-  border-color: rgba(99, 102, 241, 0.15) !important;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.8) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(0, 0, 0, 0.05) 0%, transparent 50%) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  border-radius: 50% !important;
 }
 
 html[data-theme="light"] .orb-highlight {
-  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.35) 0%, transparent 70%) !important;
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.9) 0%, transparent 70%) !important;
+  border-radius: 50% !important;
 }
 
 html[data-theme="light"] .orb-eye {
-  background: #4f46e5 !important;
-  box-shadow: 0 0 12px rgba(79, 70, 229, 0.6), 0 0 24px rgba(99, 102, 241, 0.3) !important;
+  background: #1a1a1a !important;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.4), 0 0 24px rgba(0, 0, 0, 0.2) !important;
 }
 
 html[data-theme="light"] .orb-eye.left,
 html[data-theme="light"] .orb-eye.right {
-  background: #4f46e5 !important;
+  background: #1a1a1a !important;
 }
 
 html[data-theme="light"] .orb-particles {
-  filter: brightness(1.1) !important;
+  filter: brightness(0.8) !important;
 }
 
 html[data-theme="light"] .orb-particle {
-  background: rgba(99, 102, 241, 0.3) !important;
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4) !important;
+  background: rgba(0, 0, 0, 0.3) !important;
+  box-shadow: 0 0 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 html[data-theme="light"] .orb-chat-panel {
-  background: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(99, 102, 241, 0.12) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1) !important;
 }
 
 html[data-theme="light"] .orb-chat-header {
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(99, 102, 241, 0.02) 100%) !important;
-  border-bottom-color: rgba(99, 102, 241, 0.08) !important;
+  background: rgba(250, 250, 250, 0.9) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .orb-chat-title {
-  color: #1a1d2e !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-title-icon {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2) !important;
+  background: #1a1a1a !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
 }
 
 html[data-theme="light"] .orb-chat-cost {
-  color: #4f46e5 !important;
-  background: rgba(99, 102, 241, 0.08) !important;
+  color: #545454 !important;
+  background: rgba(0, 0, 0, 0.05) !important;
 }
 
 html[data-theme="light"] .orb-chat-action-btn {
-  color: #6b7280 !important;
-  background: rgba(99, 102, 241, 0.04) !important;
-  border-color: rgba(99, 102, 241, 0.1) !important;
+  color: #545454 !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .orb-chat-action-btn:hover {
-  background: rgba(99, 102, 241, 0.12) !important;
-  color: #4f46e5 !important;
+  background: rgba(0, 0, 0, 0.08) !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-action-btn.active {
-  background: rgba(99, 102, 241, 0.2) !important;
-  color: #4f46e5 !important;
-  border-color: rgba(99, 102, 241, 0.2) !important;
+  background: rgba(0, 0, 0, 0.12) !important;
+  color: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.15) !important;
 }
 
 html[data-theme="light"] .orb-chat-messages {
-  background: rgba(255, 255, 255, 0.8) !important;
-  color: #1a1d2e !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-msg {
-  color: #1a1d2e !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-msg.assistant .orb-chat-msg-bubble {
-  background: rgba(99, 102, 241, 0.08) !important;
-  color: #1a1d2e !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-msg.user .orb-chat-msg-bubble {
-  background: rgba(99, 102, 241, 0.18) !important;
-  color: white !important;
+  background: #1a1a1a !important;
+  color: #ffffff !important;
 }
 
 html[data-theme="light"] .orb-chat-msg-avatar {
-  background: rgba(99, 102, 241, 0.1) !important;
-  color: #4f46e5 !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  color: #1a1a1a !important;
 }
 
 html[data-theme="light"] .orb-chat-empty {
-  color: #1a1d2e !important;
+  color: #111111 !important;
 }
 
 html[data-theme="light"] .orb-chat-empty-icon {
-  background: linear-gradient(135deg, #e8ecff 0%, #f3f4ff 100%) !important;
-  color: #4f46e5 !important;
-}
-
-html[data-theme="light"] .orb-chat-empty-title {
-  color: #1a1d2e !important;
+  background: #fafafa !important;
+  color: #1a1a1a !important;
 }
 
 html[data-theme="light"] .orb-chat-empty-sub {
-  color: #6b7280 !important;
+  color: #545454 !important;
 }
 
 html[data-theme="light"] .orb-chat-input-area {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-top-color: rgba(99, 102, 241, 0.08) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .orb-chat-input-area textarea {
-  background: rgba(99, 102, 241, 0.04) !important;
-  color: #1a1d2e !important;
-  border-color: rgba(99, 102, 241, 0.1) !important;
+  background: rgba(0, 0, 0, 0.03) !important;
+  color: #111111 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .orb-chat-input-area textarea::placeholder {
-  color: #9ca3af !important;
+  color: #858585 !important;
 }
 
 html[data-theme="light"] .orb-chat-send {
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
-  color: white !important;
+  background: #1a1a1a !important;
+  color: #ffffff !important;
   border: none !important;
 }
 
 html[data-theme="light"] .orb-chat-send:hover:not(:disabled) {
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
 html[data-theme="light"] .orb-chat-mic {
-  background: rgba(99, 102, 241, 0.04) !important;
-  color: #6b7280 !important;
-  border-color: rgba(99, 102, 241, 0.1) !important;
+  background: rgba(0, 0, 0, 0.04) !important;
+  color: #545454 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-theme="light"] .orb-chat-mic.active {
-  background: rgba(239, 68, 68, 0.15) !important;
+  background: rgba(239, 68, 68, 0.1) !important;
   color: #dc2626 !important;
   border-color: rgba(239, 68, 68, 0.2) !important;
 }
 
 html[data-theme="light"] .orb-chat-voice-status {
-  color: #6b7280 !important;
-  background: rgba(99, 102, 241, 0.04) !important;
+  color: #545454 !important;
+  background: rgba(0, 0, 0, 0.03) !important;
 }
 
 html[data-theme="light"] .orb-chat-wake-hint {
-  color: #9ca3af !important;
-  background: rgba(99, 102, 241, 0.04) !important;
+  color: #858585 !important;
+  background: rgba(0, 0, 0, 0.03) !important;
 }
-

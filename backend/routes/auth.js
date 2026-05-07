@@ -4,6 +4,8 @@ import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCo
 import { verifyCaptcha } from '../utils/captcha.js';
 import nodemailer from 'nodemailer';
 import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
+import { validateBody, signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validationSchemas.js';
+import { rotateRefreshToken, validateRefreshToken, revokeAllUserTokens } from '../middleware/refreshTokenRotation.js';
 
 const router = express.Router();
 
@@ -76,7 +78,7 @@ const isMissingEmailVerificationSchema = (error) => {
   return (code === 'PGRST204' || code === '42703') && missingVerificationField;
 };
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', validateBody(signupSchema), async (req, res) => {
   const { email, password, fullName } = req.body;
 
   if (!email || !password || !fullName) {
@@ -236,7 +238,7 @@ function clearLoginAttempts(email, ip) {
   loginAttempts.delete(`${email.toLowerCase()}:${ip}`);
 }
 
-router.post('/login', authLoginLimiter, async (req, res) => {
+router.post('/login', authLoginLimiter, validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -464,6 +466,12 @@ router.post('/refresh', async (req, res) => {
   }
 
   try {
+    // 1. Detect token reuse or revocation before processing with Supabase
+    const tokenStatus = await validateRefreshToken(refreshToken);
+    if (!tokenStatus.valid && tokenStatus.code === 'TOKENS_REVOKED') {
+      return res.status(401).json({ error: 'Security violation: Tokens revoked. Please log in again.' });
+    }
+
     const { data, error } = await supabaseAdmin.auth.refreshSession({
       refresh_token: refreshToken
     });
@@ -484,6 +492,16 @@ router.post('/refresh', async (req, res) => {
     // Reject if Supabase returned the same refresh token (rotation not working)
     if (newRefreshToken === refreshToken) {
       return res.status(401).json({ error: 'Token rotation failed — please log in again' });
+    }
+
+    // 2. Perform explicit JWT token rotation and reuse detection marking
+    try {
+      await rotateRefreshToken(data.user?.id, refreshToken);
+    } catch (rotationError) {
+      if (rotationError.message.includes('Token reuse detected')) {
+        return res.status(401).json({ error: 'Security violation: Token reuse detected. All sessions terminated.' });
+      }
+      console.error('Explicit token rotation tracking error:', rotationError);
     }
 
     res.json({
@@ -523,7 +541,7 @@ router.post('/resend-verification', verificationLimiter, async (req, res) => {
   }
 });
 
-router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, validateBody(forgotPasswordSchema), async (req, res) => {
   const { email, captchaToken } = req.body;
   if (!email) {
     return res.status(400).json({ error: 'Email is required' });
@@ -600,7 +618,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', validateBody(resetPasswordSchema), async (req, res) => {
   const { accessToken, newPassword } = req.body;
   if (!accessToken || !newPassword) {
     return res.status(400).json({ error: 'Access token and new password are required' });
@@ -625,6 +643,26 @@ router.post('/reset-password', async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+/**
+ * GET /api/auth/csrf-token
+ * Returns the current CSRF token for authenticated requests
+ * Token is provided in X-CSRF-Token response header
+ * Frontend should include X-CSRF-Token header in subsequent POST/PUT/DELETE requests
+ */
+router.get('/csrf-token', (req, res) => {
+  try {
+    // The CSRF middleware automatically calls getCsrfToken which sets X-CSRF-Token header
+    // Just return success to indicate frontend should read the header
+    res.json({
+      message: 'CSRF token provided in X-CSRF-Token header',
+      success: true
+    });
+  } catch (error) {
+    console.error('CSRF token request error:', error);
+    res.status(500).json({ error: 'Failed to retrieve CSRF token' });
   }
 });
 

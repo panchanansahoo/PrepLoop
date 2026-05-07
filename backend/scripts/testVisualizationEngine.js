@@ -393,7 +393,7 @@ async function runAllTests() {
   });
 
   await runTest('TreeVisualizer: handle deeply nested tree', () => {
-    let tree = { val: 1, left: null, right: null };
+    const tree = { val: 1, left: null, right: null };
     let current = tree;
     for (let i = 2; i <= 10; i++) {
       current.left = { val: i, left: null, right: null };

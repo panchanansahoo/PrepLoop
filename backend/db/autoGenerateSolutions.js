@@ -1,6 +1,5 @@
 import { supabaseAdmin } from './supabaseClient.js';
 import Groq from 'groq-sdk';
-import fs from 'fs';
 
 const EXTERNAL_AI_SYNC_ENABLED = process.env.ALLOW_EXTERNAL_AI_PROBLEM_SYNC === 'true';
 

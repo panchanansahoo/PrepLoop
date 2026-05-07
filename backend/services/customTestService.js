@@ -125,7 +125,7 @@ export async function executeCustomTests(options) {
 
   const results = [];
   let passedCount = 0;
-  let totalCount = testCases.length;
+  const totalCount = testCases.length;
 
   // Capture initial memory state
   const memStart = getMemorySnapshot();

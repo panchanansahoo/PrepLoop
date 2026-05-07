@@ -99,7 +99,7 @@ describe('VoiceProviderOptimizer', () => {
     });
 
     it('should return fallback chain when all OPEN', () => {
-      for (let id of ['kokoro', 'groq', 'edge-tts']) {
+      for (const id of ['kokoro', 'groq', 'edge-tts']) {
         for (let i = 0; i < 5; i++) {
           breaker.recordFailure(id, 'Error');
         }

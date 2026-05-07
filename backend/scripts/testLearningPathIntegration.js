@@ -257,7 +257,7 @@ test('Integration: User progresses through all learning stages', () => {
 
   // Step 1: Theory Stage
   progress = learningPathService.completeMilestone(progress, 0);
-  let objectives = learningPathService.getPathObjectives(path.id);
+  const objectives = learningPathService.getPathObjectives(path.id);
   const theoryObjectives = objectives[0];
   assert(
     theoryObjectives.stage === 'theory',

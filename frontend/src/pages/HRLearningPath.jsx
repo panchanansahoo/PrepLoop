@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, Target, Trophy, Play, Check } from 'lucide-react';
 import { HR_STAGES, HR_TOPICS, getHRTopicIds, getHRTopicsByStage } from '../data/hrLearningPathData';
 import { getHRTopicProgress, getHROverallProgress } from '../data/hrLearningProgress';
+import LearningPathShowcase from '../components/LearningPathShowcase';
 import './LearningPath.css';
 
 function StoryboardNode({ topic, index, isLast, onClick }) {
@@ -44,10 +45,39 @@ function StoryboardNode({ topic, index, isLast, onClick }) {
     );
 }
 
+function buildHRInsights(topics, navigate) {
+    return topics.slice(0, 3).map(topic => {
+        const progress = getHRTopicProgress(topic.id);
+        const firstFlashcard = topic.flashcards?.[0];
+        return {
+            id: topic.id,
+            title: topic.title,
+            color: topic.color,
+            meta: `${progress.masteryPercent}% mastery · ${topic.difficulty} · ${topic.estimatedTime}`,
+            sectionTitle: 'STAR story',
+            content: firstFlashcard?.a || topic.description,
+            chips: [
+                `${topic.flashcards?.length || 0} story prompts`,
+                topic.stage || 'behavioral',
+                'STAR answer',
+            ],
+            footerHint: `Opening prompt: ${firstFlashcard?.q || 'Tell me about yourself'}`,
+            onClick: () => navigate(`/hr-path/${topic.id}`),
+        };
+    });
+}
+
 export default function HRLearningPath() {
     const navigate = useNavigate();
     const topicIds = useMemo(() => getHRTopicIds(), []);
     const overall = useMemo(() => getHROverallProgress(topicIds), [topicIds]);
+    const topicInsights = useMemo(() => {
+        return [...HR_TOPICS]
+            .map(topic => ({ topic, progress: getHRTopicProgress(topic.id) }))
+            .sort((a, b) => a.progress.masteryPercent - b.progress.masteryPercent)
+            .map(item => item.topic);
+    }, []);
+    const hrInsights = useMemo(() => buildHRInsights(topicInsights, navigate), [topicInsights, navigate]);
 
     return (
         <div className="lp-container">
@@ -89,6 +119,21 @@ export default function HRLearningPath() {
                     </div>
                 </div>
             </div>
+
+            <LearningPathShowcase
+                guideTitle="How to study behavioral rounds"
+                guideSubtitle="Build one strong story per theme, then sharpen delivery and follow-up handling."
+                steps={[
+                    { step: '01', title: 'Write the story', desc: 'Capture situation, action, result, and what you learned.' },
+                    { step: '02', title: 'Practice delivery', desc: 'Say it out loud and trim anything that does not add signal.' },
+                    { step: '03', title: 'Prepare the follow-up', desc: 'Know the risk, conflict, or leadership angle behind each story.' },
+                ]}
+                ctaLabel="Open AI Advanced Roadmap"
+                onCtaClick={() => navigate('/advanced-learning-path')}
+                insightsTitle="Story spotlight"
+                insightsSubtitle="Preview the strongest behavior and conflict answers in this path"
+                insights={hrInsights}
+            />
 
             {/* Storyboard Timeline */}
             {HR_STAGES.map((stage) => {

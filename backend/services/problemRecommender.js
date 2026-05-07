@@ -34,7 +34,7 @@ class ProblemRecommender {
     const { limit = 5, strategy = 'balanced', difficulty = null } = options;
 
     // Filter problems based on user preferences
-    let candidates = this._filterCandidates(allProblems, userStats, difficulty);
+    const candidates = this._filterCandidates(allProblems, userStats, difficulty);
 
     // Score problems based on strategy
     const scored = candidates.map(problem => ({

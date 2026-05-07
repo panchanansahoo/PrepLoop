@@ -198,7 +198,7 @@ try {
   const jsonString = JSON.stringify({ event: 'payment.captured' });
   
   // After index.js express.raw()
-  let body = Buffer.from(jsonString, 'utf8');
+  const body = Buffer.from(jsonString, 'utf8');
   assert(Buffer.isBuffer(body), 'Body is Buffer after index.js raw middleware');
   
   // Route-level express.raw() receives Buffer

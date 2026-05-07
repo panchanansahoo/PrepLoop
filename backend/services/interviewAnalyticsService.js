@@ -448,7 +448,7 @@ export class InterviewAnalyticsService {
     if (dates.length > 0) {
       // Calculate current streak of consecutive days with interviews
       const today = new Date();
-      let currentDate = new Date(today.toDateString()); // Just the date, no time
+      const currentDate = new Date(today.toDateString()); // Just the date, no time
       let currentStreak = 0;
 
       for (let i = dates.length - 1; i >= 0; i--) {

@@ -4,7 +4,7 @@ import { createLogger } from '../utils/structuredLogger.js';
 const logger = createLogger('Monitoring');
 
 // Metrics store - in production, this would connect to Prometheus or similar
-let requestMetrics = {
+const requestMetrics = {
   totalRequests: 0,
   responseTimes: [],
   errorCount: 0,

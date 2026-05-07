@@ -448,3 +448,214 @@
   background: rgba(99, 102, 241, 0.1);
   color: var(--ai-text-primary);
 }
+
+/* ── HeroShowcase Light Mode Overrides ── */
+[data-theme="light"] .hs-bg-glow-1 {
+  background: rgba(99, 102, 241, 0.05);
+}
+[data-theme="light"] .hs-bg-glow-2 {
+  background: rgba(59, 130, 246, 0.05);
+}
+[data-theme="light"] .hs-grid-overlay {
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+}
+[data-theme="light"] .hs-macbook-screen {
+  background: #fafafa;
+}
+[data-theme="light"] .hs-browser-toolbar {
+  background: linear-gradient(180deg, #f0f0f0, #e8e8e8);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hs-browser-arrow {
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .hs-browser-url {
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-browser-action-dot {
+  background: rgba(0, 0, 0, 0.2);
+}
+[data-theme="light"] .hs-panel {
+  background: #ffffff;
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hs-panel-logo {
+  color: #ffffff;
+}
+[data-theme="light"] .hs-panel-brand {
+  color: #111111;
+}
+[data-theme="light"] .hs-panel-search {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .hs-panel-menu-label {
+  color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .hs-panel-menu-item {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-panel-menu-item.active {
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+}
+[data-theme="light"] .hs-panel-menu-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+  color: #111111;
+}
+[data-theme="light"] .hs-panel-main-header h3 {
+  color: #111111;
+}
+[data-theme="light"] .hs-panel-main-header p {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-preview-tab {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hs-preview-tab-label {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-preview-tab.active .hs-preview-tab-label {
+  color: #111111;
+}
+[data-theme="light"] .hs-preview-tab-num {
+  color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .hs-preview-tab.active .hs-preview-tab-num {
+  color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .hs-preview-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hs-preview-card-title {
+  color: #111111;
+}
+[data-theme="light"] .hs-preview-card-item {
+  color: rgba(0, 0, 0, 0.7);
+}
+[data-theme="light"] .hs-chat-header {
+  background: rgba(0, 0, 0, 0.03);
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-chat-msg-ai {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  color: rgba(0, 0, 0, 0.8);
+}
+[data-theme="light"] .hs-chat-msg-user {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.8);
+}
+[data-theme="light"] .hs-chat-prompt {
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: rgba(0, 0, 0, 0.5);
+}
+[data-theme="light"] .hs-macbook-base {
+  background: linear-gradient(180deg, #e8e8e8, #dcdcdc);
+}
+[data-theme="light"] .hs-macbook-indent {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-top: none;
+}
+[data-theme="light"] .hs-floating-stat {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .hs-floating-stat-value {
+  color: #111111;
+}
+[data-theme="light"] .hs-floating-stat-label {
+  color: rgba(0, 0, 0, 0.6);
+}
+[data-theme="light"] .hs-badge {
+  background: rgba(99, 102, 241, 0.05);
+  border-color: rgba(99, 102, 241, 0.15);
+  color: #4f46e5;
+}
+[data-theme="light"] .hs-macbook-screen::before,
+[data-theme="light"] .hs-macbook-screen::after {
+  background: linear-gradient(180deg,
+    rgba(99, 102, 241, 0.2),
+    rgba(99, 102, 241, 0.05) 30%,
+    transparent 50%,
+    rgba(99, 102, 241, 0.05) 70%,
+    rgba(99, 102, 241, 0.15)
+  );
+}
+
+/* =========================================
+   AUTH PAGES (Login, Signup, ForgotPassword)
+   ========================================= */
+html[data-theme="light"] .auth-wrapper {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .auth-left-panel {
+  background: linear-gradient(160deg, rgba(168,85,247,0.02) 0%, rgba(236,72,153,0.01) 50%, transparent 100%) !important;
+  border-right: 1px solid rgba(15,23,42,0.04) !important;
+}
+
+html[data-theme="light"] .auth-card {
+  background: #ffffff !important;
+  border: 1px solid rgba(15,23,42,0.06) !important;
+  box-shadow: 0 8px 24px rgba(15,23,42,0.06) !important;
+}
+
+html[data-theme="light"] .auth-brand-title,
+html[data-theme="light"] .auth-card h1 {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .auth-card p,
+html[data-theme="light"] .auth-card label {
+  color: rgba(15,23,42,0.85) !important;
+}
+
+html[data-theme="light"] .auth-input {
+  background: #ffffff !important;
+  border: 1px solid rgba(15,23,42,0.15) !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .auth-input-icon,
+html[data-theme="light"] .auth-password-toggle {
+  color: rgba(15,23,42,0.45) !important;
+}
+
+html[data-theme="light"] .auth-social-btn {
+  background: transparent !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15,23,42,0.15) !important;
+}
+html[data-theme="light"] .auth-social-btn:hover {
+  background: rgba(15,23,42,0.03) !important;
+  border-color: rgba(15,23,42,0.2) !important;
+}
+
+html[data-theme="light"] .auth-submit-btn {
+  color: white !important;
+}
+
+html[data-theme="light"] .auth-back-btn {
+  background: rgba(15,23,42,0.05) !important;
+  border: 1px solid rgba(15,23,42,0.1) !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] .auth-back-btn:hover {
+  background: rgba(15,23,42,0.08) !important;
+  border-color: rgba(15,23,42,0.15) !important;
+  color: #0f172a !important;
+}

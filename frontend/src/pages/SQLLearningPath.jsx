@@ -7,6 +7,7 @@ import {
 import { SQL_STAGES, SQL_TOPICS, getSQLTopicIds, getSQLTopicsByStage } from '../data/sqlLearningPathData';
 import { getSQLTopicProgress, getSQLOverallProgress, getSQLSkillRadar } from '../data/sqlLearningProgress';
 import { useTheme } from '../context/ThemeContext';
+import LearningPathShowcase from '../components/LearningPathShowcase';
 
 /* ─── Progress Ring ─── */
 function ProgressRing({ percent, size = 60, strokeWidth = 5, color, isLight }) {
@@ -40,6 +41,37 @@ export default function SQLLearningPath() {
 
     const toggleStage = (id) =>
         setExpandedStages(prev => ({ ...prev, [id]: !prev[id] }));
+
+    const topicInsights = useMemo(() => {
+        return [...SQL_TOPICS]
+            .map(topic => ({ topic, progress: getSQLTopicProgress(topic.id) }))
+            .sort((a, b) => a.progress.masteryPercent - b.progress.masteryPercent)
+            .map(item => item.topic);
+    }, []);
+
+    const sqlInsights = useMemo(() => {
+        return topicInsights.slice(0, 3).map(topic => {
+            const progress = getSQLTopicProgress(topic.id);
+            const firstConcept = topic.concepts?.[0];
+            const firstPoint = firstConcept?.points?.[0];
+            const firstTrick = topic.tricks?.[0];
+            return {
+                id: topic.id,
+                title: topic.title,
+                color: topic.color,
+                meta: `${progress.masteryPercent}% mastery · ${topic.difficulty} · ${topic.estimatedTime}`,
+                sectionTitle: firstConcept?.title || 'Query pattern',
+                content: firstPoint || topic.description,
+                chips: [
+                    `${topic.concepts?.length || 0} concept blocks`,
+                    `${topic.practiceProblems?.length || 0} practice patterns`,
+                    firstTrick?.name || 'Query first',
+                ],
+                footerHint: `Query anchor: ${topic.invariants?.[0] || 'Read the execution order carefully'}`,
+                onClick: () => navigate(`/sql-path/${topic.id}`),
+            };
+        });
+    }, [navigate, topicInsights]);
 
     // Theme-aware colors
     const c = {
@@ -103,11 +135,26 @@ export default function SQLLearningPath() {
                             </div>
                         </div>
                         <ProgressRing percent={overall.avgMastery} size={90} strokeWidth={7} color="#22d3ee" isLight={isLight} />
-                    </div>
                 </div>
+            </div>
 
-                {/* ─── Roadmap ─── */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+            <LearningPathShowcase
+                guideTitle="How to study SQL"
+                guideSubtitle="Understand execution order, then move through joins, grouping, and advanced query design."
+                steps={[
+                    { step: '01', title: 'Learn the clause order', desc: 'Know how SELECT, WHERE, GROUP BY, HAVING, and ORDER BY actually execute.' },
+                    { step: '02', title: 'Practice joins and grouping', desc: 'Build intuition for combining tables and summarizing data correctly.' },
+                    { step: '03', title: 'Write production queries', desc: 'Use constraints, indexes, and CTEs to make your SQL readable and safe.' },
+                ]}
+                ctaLabel="Open AI Advanced Roadmap"
+                onCtaClick={() => navigate('/advanced-learning-path')}
+                insightsTitle="Query spotlight"
+                insightsSubtitle="Preview the theory blocks that matter most in SQL interviews"
+                insights={sqlInsights}
+            />
+
+            {/* ─── Roadmap ─── */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
                     <Map size={18} style={{ color: '#22d3ee' }} />
                     <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>SQL Roadmap</h2>
                     <span style={{ fontSize: 12, color: c.mutedDarker, marginLeft: 8 }}>{topicIds.length} topics · {SQL_STAGES.length} stages</span>

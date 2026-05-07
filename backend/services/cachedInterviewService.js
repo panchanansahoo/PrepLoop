@@ -16,7 +16,7 @@ export class CachedInterviewService {
     const cacheKey = `interview_session_${sessionId}`;
     
     // Try to get from cache first
-    let cachedSession = await InterviewCacheManager.get(cacheKey);
+    const cachedSession = await InterviewCacheManager.get(cacheKey);
     
     if (cachedSession && cachedSession.user_id === userId) {
       logger.info('Cache hit for interview session', { sessionId, userId, requestId });

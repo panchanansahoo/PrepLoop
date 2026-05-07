@@ -146,7 +146,7 @@ console.log('\n📊 Validation Summary:');
 console.log('=====================');
 
 let passedCount = 0;
-let totalCount = RESULTS.length;
+const totalCount = RESULTS.length;
 
 for (const result of RESULTS) {
   if (result.passed) {

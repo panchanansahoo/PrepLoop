@@ -12,7 +12,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const type = req.query.type === 'alltime' ? 'alltime' : 'weekly';
 
     const orderCol = type === 'weekly' ? 'weekly_score' : 'coins';
-    let query = supabaseAdmin
+    const query = supabaseAdmin
       .from('profiles')
       .select('id, full_name, username, avatar_url, coins, streak_count, problems_solved, weekly_score, best_streak')
       .order(orderCol, { ascending: false })

@@ -396,7 +396,7 @@ describe('SmartStageResolver', () => {
   describe('Integration: Full Stage Progression', () => {
     it('should handle complete interview with smart pacing', () => {
       // Simulate interview progression
-      let state = {
+      const state = {
         turns: 0,
         totalQuestions: 13,
         stage: 'intake',

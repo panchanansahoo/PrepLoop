@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Server, ChevronRight, Target, Trophy, Clock } from 'lucide-react';
 import { TECHNICAL_STAGES, TECHNICAL_TOPICS, getTechnicalTopicIds, getTechnicalTopicsByStage } from '../data/technicalLearningPathData';
 import { getTechnicalTopicProgress, getTechOverallProgress } from '../data/technicalLearningProgress';
+import LearningPathShowcase from '../components/LearningPathShowcase';
 import './LearningPath.css';
 
 function ProgressRing({ percent, size = 48, strokeWidth = 4, color = '#34d399' }) {
@@ -49,10 +50,40 @@ function BlueprintCard({ topic, onClick }) {
     );
 }
 
+function buildTechnicalInsights(topics, navigate) {
+    return topics.slice(0, 3).map(topic => {
+        const progress = getTechnicalTopicProgress(topic.id);
+        const firstFlashcard = topic.flashcards?.[0];
+        const firstScenario = topic.scenarios?.[0];
+        return {
+            id: topic.id,
+            title: topic.title,
+            color: topic.color,
+            meta: `${progress.masteryPercent}% mastery · ${topic.difficulty} · ${topic.estimatedTime}`,
+            sectionTitle: firstScenario?.title || 'Core systems',
+            content: firstFlashcard?.a || topic.description,
+            chips: [
+                `${topic.flashcards?.length || 0} flashcards`,
+                `${topic.scenarios?.length || 0} scenarios`,
+                topic.stage || 'systems',
+            ],
+            footerHint: `Study anchor: ${firstFlashcard?.q || 'Start with fundamentals'}`,
+            onClick: () => navigate(`/technical-path/${topic.id}`),
+        };
+    });
+}
+
 export default function TechnicalLearningPath() {
     const navigate = useNavigate();
     const topicIds = useMemo(() => getTechnicalTopicIds(), []);
     const overall = useMemo(() => getTechOverallProgress(topicIds), [topicIds]);
+    const topicInsights = useMemo(() => {
+        return [...TECHNICAL_TOPICS]
+            .map(topic => ({ topic, progress: getTechnicalTopicProgress(topic.id) }))
+            .sort((a, b) => a.progress.masteryPercent - b.progress.masteryPercent)
+            .map(item => item.topic);
+    }, []);
+    const technicalInsights = useMemo(() => buildTechnicalInsights(topicInsights, navigate), [topicInsights, navigate]);
 
     return (
         <div className="lp-container">
@@ -94,6 +125,21 @@ export default function TechnicalLearningPath() {
                     </div>
                 </div>
             </div>
+
+            <LearningPathShowcase
+                guideTitle="How to study technical CS"
+                guideSubtitle="Read the theory, connect it to systems, and practice with scenario-based recall."
+                steps={[
+                    { step: '01', title: 'Read the model', desc: 'Understand the core tradeoff, definition, or system boundary.' },
+                    { step: '02', title: 'Link to a design', desc: 'Attach the idea to an architecture or real-world scenario.' },
+                    { step: '03', title: 'Explain it back', desc: 'Turn the answer into a short interview-ready explanation.' },
+                ]}
+                ctaLabel="Open AI Advanced Roadmap"
+                onCtaClick={() => navigate('/advanced-learning-path')}
+                insightsTitle="System spotlight"
+                insightsSubtitle="Preview the most theory-rich modules in this path"
+                insights={technicalInsights}
+            />
 
             {/* Stages */}
             {TECHNICAL_STAGES.map((stage) => {

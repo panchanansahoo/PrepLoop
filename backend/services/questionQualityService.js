@@ -231,7 +231,7 @@ export class QuestionQualityService {
    * @returns {array} Top questions with quality scores
    */
   getTopRankedQuestions(metrics, category, limit = 10, excludeEdgeCases = true) {
-    let filtered = metrics.filter(m => m.category === category);
+    const filtered = metrics.filter(m => m.category === category);
 
     // Score each question
     let scored = filtered.map(m => {

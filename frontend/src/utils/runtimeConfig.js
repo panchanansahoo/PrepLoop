@@ -39,13 +39,20 @@ export function validateFrontendRuntimeConfig() {
       );
     }
 
-    // Production shouldn't use localhost
+    // Production shouldn't use localhost (unless running locally)
     if (apiUrl && apiUrl.includes('localhost')) {
-      errors.push(
-        '⚠️  VITE_API_URL contains "localhost" in production. ' +
-        'Production frontends should use external API URLs. ' +
-        `Current: "${apiUrl}"`
-      );
+      const isLocalDomain = typeof window !== 'undefined' && 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        
+      if (!isLocalDomain) {
+        errors.push(
+          '⚠️  VITE_API_URL contains "localhost" in production. ' +
+          'Production frontends should use external API URLs. ' +
+          `Current: "${apiUrl}"`
+        );
+      } else {
+        console.warn('⚠️ VITE_API_URL contains "localhost" in production, but frontend is running locally. Allowing.');
+      }
     }
   }
 

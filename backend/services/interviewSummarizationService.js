@@ -44,7 +44,7 @@ export class InterviewSummarizationService {
     });
 
     // Limit the total character count while preserving key information
-    let summary = [];
+    const summary = [];
     let charCount = this.estimateTokens(this._formatTurns(recentTurns)) * 4;
     
     for (const item of [...keyMoments].reverse()) {

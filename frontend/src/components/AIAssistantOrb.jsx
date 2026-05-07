@@ -215,8 +215,8 @@ export default function AIAssistantOrb() {
       ctx.fillStyle = isLightMode ? 'rgba(243, 244, 255, 0.8)' : 'rgba(10, 5, 20, 0.6)';
       ctx.fillRect(0, 0, size, size);
 
-      // Render blobs with additive-like blending
-      ctx.globalCompositeOperation = 'screen';
+      // Render blobs with additive-like blending (or source-over in light mode)
+      ctx.globalCompositeOperation = isLightMode ? 'source-over' : 'screen';
       blobs.forEach(blob => {
         const grad = ctx.createRadialGradient(blob.x, blob.y, 0, blob.x, blob.y, blob.r);
         grad.addColorStop(0, blob.color1);

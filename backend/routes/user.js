@@ -823,6 +823,42 @@ const fetchSqlProblemRecommendations = async (limit = 250) => {
   return [];
 };
 
+let cachedSqlProblems = null;
+let sqlProblemsCacheTime = 0;
+
+const fetchSqlProblemRecommendationsCached = async (limit = 250) => {
+  const now = Date.now();
+  if (cachedSqlProblems && now - sqlProblemsCacheTime < 10 * 60 * 1000) {
+    return cachedSqlProblems;
+  }
+  const result = await fetchSqlProblemRecommendations(limit);
+  if (result && result.length > 0) {
+    cachedSqlProblems = result;
+    sqlProblemsCacheTime = now;
+  }
+  return result;
+};
+
+let cachedAllProblems = null;
+let allProblemsCacheTime = 0;
+
+const fetchAllProblemsCached = async () => {
+  const now = Date.now();
+  if (cachedAllProblems && now - allProblemsCacheTime < 10 * 60 * 1000) {
+    return cachedAllProblems;
+  }
+  const { data, error } = await supabaseAdmin
+    .from("problems")
+    .select("id, title, difficulty")
+    .order("id", { ascending: true })
+    .limit(400);
+
+  if (error || !data) return [];
+  cachedAllProblems = data;
+  allProblemsCacheTime = now;
+  return data;
+};
+
 
 router.get("/profile", authenticateToken, async (req, res) => {
   try {
@@ -1023,7 +1059,8 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const sqlProblemsPromise = fetchSqlProblemRecommendations(250);
+    const sqlProblemsPromise = fetchSqlProblemRecommendationsCached(250);
+    const allProblemsPromise = fetchAllProblemsCached();
 
     const [
       progressResult,
@@ -1033,6 +1070,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       dailyProblemsResult,
       calendarEventsResult,
       sqlProblems,
+      activityResult,
     ] = await Promise.all([
       supabaseAdmin
         .from("user_progress")
@@ -1052,17 +1090,18 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         .from("resume_analyses")
         .select("id")
         .eq("user_id", userId),
-      supabaseAdmin
-        .from("problems")
-        .select("id, title, difficulty")
-        .order("id", { ascending: true })
-        .limit(400),
+      allProblemsPromise,
       supabaseAdmin
         .from("user_calendar_events")
         .select("title, event_date, event_time, tag")
         .eq("user_id", userId)
         .order("event_date", { ascending: true }),
       sqlProblemsPromise,
+      supabaseAdmin
+        .from('user_activity')
+        .select('date, seconds_active')
+        .eq('user_id', userId)
+        .gte('seconds_active', 60),
     ]);
 
     if (progressResult.error) throw progressResult.error;
@@ -1075,8 +1114,25 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     const subs = submissionsResult.data || [];
     const interviews = interviewsResult.data || [];
     const resumes = resumesResult.data || [];
-    const allProblems = dailyProblemsResult.data || [];
-    const calendarEvents = calendarEventsResult.error ? [] : (calendarEventsResult.data || []);
+    const allProblems = dailyProblemsResult || [];
+    // Handle calendar events gracefully - if table doesn't exist, use empty array
+    const isMissingTableError = (error) => {
+      const code = String(error?.code || '').toUpperCase();
+      return code === '42P01' || String(error?.message || '').includes('does not exist');
+    };
+    
+    let calendarEvents = [];
+    if (!calendarEventsResult.error) {
+      calendarEvents = calendarEventsResult.data || [];
+    } else if (isMissingTableError(calendarEventsResult.error)) {
+      // Table doesn't exist yet - log warning but don't fail
+      console.warn('⚠️ user_calendar_events table not found. Run: node scripts/apply_calendar_events_migration.js');
+      calendarEvents = [];
+    } else {
+      // Some other error occurred
+      console.error('Error querying calendar events:', calendarEventsResult.error);
+      calendarEvents = [];
+    }
 
     const solvedCount = (progress || []).filter(
       (p) => p.status === "solved",
@@ -1086,11 +1142,6 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
 
     // ── 5) Streak calculation (consecutive days ending today) ──
     // Combine activity from submissions AND user_activity table
-    const activityResult = await supabaseAdmin
-      .from('user_activity')
-      .select('date, seconds_active')
-      .eq('user_id', userId)
-      .gte('seconds_active', 60); // At least 1 minute of activity
 
     const activityDates = (activityResult.data || []).map((activity) => activity.date);
     const submissionDates = subs.map((submission) => submission.submitted_at);
@@ -1105,18 +1156,17 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     });
 
     // Update profile with latest streak data
-    try {
-      await supabaseAdmin
-        .from('profiles')
-        .update({
-          daily_streak: currentStreak,
-          best_streak: Math.max(bestStreak, currentStreak),
-          last_active_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', userId);
-    } catch (updateError) {
-      console.error('Error updating profile streak:', updateError);
-    }
+    supabaseAdmin
+      .from('profiles')
+      .update({
+        daily_streak: currentStreak,
+        best_streak: Math.max(bestStreak, currentStreak),
+        last_active_date: new Date().toISOString().split('T')[0]
+      })
+      .eq('id', userId)
+      .then(({ error }) => {
+        if (error) console.error('Error updating profile streak:', error);
+      });
 
     // ── 6) Average interview score ──
     let avgScore = 0;
@@ -1186,7 +1236,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
 
     const upcomingContests = buildUpcomingItemsFromCalendar(calendarEvents);
 
-    let skillBreakdown = { dsa: 0, sql: 0, aptitude: 0, systemDesign: 0, behavioral: 0 };
+    const skillBreakdown = { dsa: 0, sql: 0, aptitude: 0, systemDesign: 0, behavioral: 0 };
     // DSA score based on solved count
     skillBreakdown.dsa = solvedCount > 0 ? Math.min(100, solvedCount) : 0;
     // SQL, aptitude from mock interview types
@@ -1782,7 +1832,7 @@ router.get("/progress", authenticateToken, async (req, res) => {
 // Get complete DSA learning path
 router.get("/learning-path/dsa", optionalAuth, async (req, res) => {
   try {
-    let userProgress = {};
+    const userProgress = {};
 
     if (req.user) {
       const { data } = await supabaseAdmin
@@ -1827,7 +1877,7 @@ router.get(
         return res.status(404).json({ error: "Module not found" });
       }
 
-      let userProgress = {};
+      const userProgress = {};
 
       if (req.user) {
         const { data } = await supabaseAdmin
@@ -1860,7 +1910,7 @@ router.get(
 // Get complete LLD learning path
 router.get("/learning-path/lld", optionalAuth, async (req, res) => {
   try {
-    let completedProblems = {};
+    const completedProblems = {};
 
     if (req.user) {
       const { data } = await supabaseAdmin
@@ -1918,7 +1968,7 @@ router.get(
         return res.status(404).json({ error: "Module not found" });
       }
 
-      let completedProblems = {};
+      const completedProblems = {};
 
       if (req.user) {
         const { data } = await supabaseAdmin

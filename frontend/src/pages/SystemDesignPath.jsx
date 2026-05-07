@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Clock, ArrowRight, CheckCircle, Layers, Target, Trophy } from 'lucide-react';
 import { SD_PHASES, SD_TOPICS } from '../data/systemDesignData';
 import { getSDPhaseProgress, getSDOverallProgress, isSDTopicComplete } from '../data/systemDesignProgress';
+import LearningPathShowcase from '../components/LearningPathShowcase';
 import './LearningPath.css';
 
 function ProgressRing({ percent, size = 44, strokeWidth = 4, color = '#10b981' }) {
@@ -45,10 +46,41 @@ function TopicCard({ topic, onClick }) {
     );
 }
 
+function buildSDInsights(topics, navigate) {
+    return topics.slice(0, 3).map(topic => {
+        const complete = isSDTopicComplete(topic.id);
+        const firstConcept = topic.concepts?.[0];
+        const firstPoint = firstConcept?.points?.[0];
+        const keyDesign = topic.keyDesigns?.[0];
+        return {
+            id: topic.id,
+            title: topic.title,
+            color: topic.color,
+            meta: `${complete ? 'Completed' : 'In progress'} · ${topic.difficulty} · ${topic.estimatedTime}`,
+            sectionTitle: firstConcept?.title || 'Architecture core',
+            content: firstPoint || topic.description,
+            chips: [
+                `${topic.concepts?.length || 0} concept blocks`,
+                `${topic.keyDesigns?.length || 0} case studies`,
+                keyDesign?.title || 'Design tradeoffs',
+            ],
+            footerHint: `System focus: ${topic.invariants?.[0] || 'Start with scale, latency, and tradeoffs'}`,
+            onClick: () => navigate(`/system-design/${topic.id}`),
+        };
+    });
+}
+
 export default function SystemDesignPath() {
     const navigate = useNavigate();
     const [openPhases, setOpenPhases] = useState({ fundamentals: true });
     const overall = useMemo(() => getSDOverallProgress(), []);
+    const sdTopics = useMemo(() => {
+        return [...SD_TOPICS]
+            .map(topic => ({ topic, complete: isSDTopicComplete(topic.id) }))
+            .sort((a, b) => Number(a.complete) - Number(b.complete))
+            .map(item => item.topic);
+    }, []);
+    const sdInsights = useMemo(() => buildSDInsights(sdTopics, navigate), [sdTopics, navigate]);
     const toggle = (id) => setOpenPhases(prev => ({ ...prev, [id]: !prev[id] }));
 
     return (
@@ -91,6 +123,21 @@ export default function SystemDesignPath() {
                     </div>
                 </div>
             </div>
+
+            <LearningPathShowcase
+                guideTitle="How to study system design"
+                guideSubtitle="Learn the tradeoffs, connect them to real systems, then practice explaining architecture decisions."
+                steps={[
+                    { step: '01', title: 'Understand the tradeoff', desc: 'Start with scaling, consistency, and latency constraints.' },
+                    { step: '02', title: 'Map the components', desc: 'Break systems into storage, cache, compute, and messaging pieces.' },
+                    { step: '03', title: 'Practice the narrative', desc: 'Explain why each choice fits the expected traffic and reliability goals.' },
+                ]}
+                ctaLabel="Open AI Advanced Roadmap"
+                onCtaClick={() => navigate('/advanced-learning-path')}
+                insightsTitle="Architecture spotlight"
+                insightsSubtitle="Preview the theory blocks that anchor system design interviews"
+                insights={sdInsights}
+            />
 
             {/* Phase Accordions */}
             {SD_PHASES.map(phase => {

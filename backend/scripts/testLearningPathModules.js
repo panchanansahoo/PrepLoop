@@ -352,7 +352,7 @@ test('Validation Schemas - validateMilestoneUpdate', () => {
 // ============ INTEGRATION TESTS ============
 test('Integration - Complete learning path flow', () => {
   const path = pathManager.getPath('arrays-foundations');
-  let progress = progressTracker.createPathProgress('user123', path);
+  const progress = progressTracker.createPathProgress('user123', path);
   
   // Update all milestones
   let current = progress;

@@ -5,22 +5,14 @@ import { env } from './env.js';
 const logger = createLogger('db-pool');
 
 const poolConfig = {
-  connectionString: env.DATABASE_URL,
-  max: 20, // Maximum number of clients in the pool
-  min: 5,  // Minimum number of clients in the pool
-  acquireTimeoutMillis: 60000,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-};
-
-const poolConfig = {
-  connectionString: process.env.DATABASE_URL || process.env.SUPABASE_URL,
+  connectionString: process.env.DATABASE_URL || process.env.SUPABASE_URL || env.DATABASE_URL,
   max: Number.parseInt(process.env.DB_POOL_MAX || '20', 10),
   min: Number.parseInt(process.env.DB_POOL_MIN || '2', 10),
   idleTimeoutMillis: Number.parseInt(process.env.DB_IDLE_TIMEOUT || '30000', 10),
   connectionTimeoutMillis: Number.parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000', 10),
   maxUses: Number.parseInt(process.env.DB_MAX_USES || '7500', 10),
   allowExitOnIdle: process.env.DB_ALLOW_EXIT_ON_IDLE === 'true',
+  acquireTimeoutMillis: 60000,
   
   // SSL configuration
   ssl: process.env.NODE_ENV === 'production' ? {

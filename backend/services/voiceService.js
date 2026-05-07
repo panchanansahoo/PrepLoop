@@ -780,7 +780,7 @@ async function elevenLabsTTS(text, persona, gender = 'female') {
     });
 
     if (!response.ok) {
-        let errText = await response.text().catch(() => '');
+        const errText = await response.text().catch(() => '');
         throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText} ${errText}`);
     }
 
@@ -808,7 +808,7 @@ async function openAITTS(text, persona, gender = 'female') {
     });
 
     if (!response.ok) {
-        let errText = await response.text().catch(() => '');
+        const errText = await response.text().catch(() => '');
         throw new Error(`OpenAI TTS API error: ${response.status} ${response.statusText} ${errText}`);
     }
 

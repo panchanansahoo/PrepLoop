@@ -73,7 +73,7 @@ async function runLoadTest(concurrency, duration = 30000) {
   console.log(`  Successful: ${results.successful}`);
   console.log(`  Failed: ${results.failed}`);
   console.log(`  Throughput: ${throughput} req/sec`);
-  console.log(`\n⏱️ Latency:');
+  console.log(`\n⏱️ Latency:`);
   console.log(`  Average: ${avgLatency.toFixed(2)}ms`);
   console.log(`  P50 (median): ${p50.toFixed(2)}ms`);
   console.log(`  P95: ${p95.toFixed(2)}ms`);

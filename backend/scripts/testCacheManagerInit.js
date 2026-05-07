@@ -183,7 +183,7 @@ try {
 console.log('\nTEST 5: Server Startup After Initialization');
 console.log('───────────────────────────────────────────');
 try {
-  let stages = {
+  const stages = {
     initStarted: false,
     initEnded: false,
     serverStarted: false,

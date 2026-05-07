@@ -1,0 +1,940 @@
+{
+  "timestamp": "2026-05-06T20:13:35.213Z",
+  "summary": {
+    "totalRoutes": 66,
+    "totalEndpoints": 476,
+    "routesWithCaching": 4,
+    "routesWithRateLimit": 12,
+    "routesWithAuth": 57
+  },
+  "routes": [
+    {
+      "file": "dsa.js",
+      "endpoints": 65,
+      "methods": {
+        "get": 34,
+        "post": 24,
+        "put": 4,
+        "delete": 3
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 2416
+    },
+    {
+      "file": "user.js",
+      "endpoints": 41,
+      "methods": {
+        "get": 27,
+        "post": 4,
+        "put": 4,
+        "delete": 6
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 2382
+    },
+    {
+      "file": "voice.js",
+      "endpoints": 26,
+      "methods": {
+        "get": 12,
+        "post": 12,
+        "put": 0,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 842
+    },
+    {
+      "file": "interview-suite.js",
+      "endpoints": 21,
+      "methods": {
+        "get": 6,
+        "post": 14,
+        "put": 0,
+        "delete": 1
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 1213
+    },
+    {
+      "file": "companyInterview.js",
+      "endpoints": 17,
+      "methods": {
+        "get": 5,
+        "post": 12,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 3099
+    },
+    {
+      "file": "ai-features.js",
+      "endpoints": 14,
+      "methods": {
+        "get": 9,
+        "post": 5,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 712
+    },
+    {
+      "file": "auth.js",
+      "endpoints": 14,
+      "methods": {
+        "get": 2,
+        "post": 8,
+        "put": 0,
+        "delete": 4
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": false,
+      "lines": 650
+    },
+    {
+      "file": "blog.js",
+      "endpoints": 13,
+      "methods": {
+        "get": 6,
+        "post": 4,
+        "put": 1,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 334
+    },
+    {
+      "file": "interview.js",
+      "endpoints": 12,
+      "methods": {
+        "get": 6,
+        "post": 6,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 1313
+    },
+    {
+      "file": "practice.js",
+      "endpoints": 12,
+      "methods": {
+        "get": 6,
+        "post": 6,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 1237
+    },
+    {
+      "file": "jobs.js",
+      "endpoints": 11,
+      "methods": {
+        "get": 5,
+        "post": 3,
+        "put": 1,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 1082
+    },
+    {
+      "file": "library.js",
+      "endpoints": 11,
+      "methods": {
+        "get": 3,
+        "post": 3,
+        "put": 1,
+        "delete": 4
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 444
+    },
+    {
+      "file": "hr.js",
+      "endpoints": 10,
+      "methods": {
+        "get": 3,
+        "post": 4,
+        "put": 1,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 255
+    },
+    {
+      "file": "question-quality.js",
+      "endpoints": 10,
+      "methods": {
+        "get": 7,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 337
+    },
+    {
+      "file": "ai.js",
+      "endpoints": 8,
+      "methods": {
+        "get": 3,
+        "post": 5,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": true,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 466
+    },
+    {
+      "file": "improvement-plan.js",
+      "endpoints": 8,
+      "methods": {
+        "get": 5,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 314
+    },
+    {
+      "file": "performance-metrics.js",
+      "endpoints": 8,
+      "methods": {
+        "get": 6,
+        "post": 2,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 264
+    },
+    {
+      "file": "admin.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 3,
+        "post": 0,
+        "put": 1,
+        "delete": 3
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 294
+    },
+    {
+      "file": "coins.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 4,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 528
+    },
+    {
+      "file": "community.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 4,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 230
+    },
+    {
+      "file": "interview-enhanced.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 4,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 651
+    },
+    {
+      "file": "monitoring-enhanced.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 6,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": true,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 237
+    },
+    {
+      "file": "monitoring.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 6,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 220
+    },
+    {
+      "file": "study-groups.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 3,
+        "post": 3,
+        "put": 0,
+        "delete": 1
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 260
+    },
+    {
+      "file": "voiceApi.js",
+      "endpoints": 7,
+      "methods": {
+        "get": 4,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 257
+    },
+    {
+      "file": "accountability.js",
+      "endpoints": 6,
+      "methods": {
+        "get": 2,
+        "post": 3,
+        "put": 0,
+        "delete": 1
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 252
+    },
+    {
+      "file": "resume.js",
+      "endpoints": 6,
+      "methods": {
+        "get": 3,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 813
+    },
+    {
+      "file": "fresher-interview.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 3,
+        "post": 2,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 312
+    },
+    {
+      "file": "health.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 5,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": true,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 127
+    },
+    {
+      "file": "notes.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 1,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 130
+    },
+    {
+      "file": "payment.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 2,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 576
+    },
+    {
+      "file": "peer-interview.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 2,
+        "post": 3,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 195
+    },
+    {
+      "file": "weekly-report.js",
+      "endpoints": 5,
+      "methods": {
+        "get": 3,
+        "post": 2,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 231
+    },
+    {
+      "file": "chat.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 300
+    },
+    {
+      "file": "daily-win.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 3,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 73
+    },
+    {
+      "file": "gdpr.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 2,
+        "post": 0,
+        "put": 1,
+        "delete": 1
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 210
+    },
+    {
+      "file": "interview-experiences.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 1,
+        "post": 2,
+        "put": 0,
+        "delete": 1
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 100
+    },
+    {
+      "file": "negotiation.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 3,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 237
+    },
+    {
+      "file": "real-interview.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 2,
+        "post": 1,
+        "put": 1,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 198
+    },
+    {
+      "file": "schedule.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 2
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 114
+    },
+    {
+      "file": "systemDesign.js",
+      "endpoints": 4,
+      "methods": {
+        "get": 2,
+        "post": 2,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 164
+    },
+    {
+      "file": "answer-timer.js",
+      "endpoints": 3,
+      "methods": {
+        "get": 2,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 96
+    },
+    {
+      "file": "code-review.js",
+      "endpoints": 3,
+      "methods": {
+        "get": 2,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 77
+    },
+    {
+      "file": "leaderboard.js",
+      "endpoints": 3,
+      "methods": {
+        "get": 3,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 152
+    },
+    {
+      "file": "pattern-trainer.js",
+      "endpoints": 3,
+      "methods": {
+        "get": 2,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 116
+    },
+    {
+      "file": "question-bank.js",
+      "endpoints": 3,
+      "methods": {
+        "get": 3,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 261
+    },
+    {
+      "file": "activity.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 78
+    },
+    {
+      "file": "behavioral-coach.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 147
+    },
+    {
+      "file": "code-translator.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 54
+    },
+    {
+      "file": "concept-explainer.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 67
+    },
+    {
+      "file": "copilot.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 0,
+        "post": 2,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 136
+    },
+    {
+      "file": "daily-question.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 135
+    },
+    {
+      "file": "flashcards.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 94
+    },
+    {
+      "file": "improvement-plan-streaming.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 148
+    },
+    {
+      "file": "readiness-check.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": true,
+      "lines": 105
+    },
+    {
+      "file": "rejection-analyzer.js",
+      "endpoints": 2,
+      "methods": {
+        "get": 1,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 62
+    },
+    {
+      "file": "analytics-events.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 84
+    },
+    {
+      "file": "bug-debugger.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 52
+    },
+    {
+      "file": "coach.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 93
+    },
+    {
+      "file": "complexity-analyzer.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 59
+    },
+    {
+      "file": "contact.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": true,
+      "hasAuth": false,
+      "lines": 74
+    },
+    {
+      "file": "feedback.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 93
+    },
+    {
+      "file": "healthCheck.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 1,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 71
+    },
+    {
+      "file": "jd-questions.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 0,
+        "post": 1,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 56
+    },
+    {
+      "file": "metrics.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 1,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": true,
+      "hasRateLimit": false,
+      "hasAuth": false,
+      "lines": 130
+    },
+    {
+      "file": "skill-heatmap.js",
+      "endpoints": 1,
+      "methods": {
+        "get": 1,
+        "post": 0,
+        "put": 0,
+        "delete": 0
+      },
+      "hasCaching": false,
+      "hasRateLimit": false,
+      "hasAuth": true,
+      "lines": 68
+    }
+  ],
+  "recommendations": [
+    "Add caching to more routes",
+    "Improve rate limiting coverage"
+  ]
+}

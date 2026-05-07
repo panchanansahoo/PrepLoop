@@ -215,7 +215,7 @@ export default function ForgotPassword() {
   return (
     <>
       <style>{keyframes}</style>
-      <div style={styles.wrapper}>
+      <div style={styles.wrapper} className="auth-wrapper">
         <Link to="/" style={styles.backButton} className="auth-back-btn fade-in-up">
           <ArrowLeft size={16} /> Back to Home
         </Link>

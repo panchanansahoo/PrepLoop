@@ -7,6 +7,7 @@ import {
 import { DSA_STAGES, DSA_TOPICS, TIME_TRACKS, getDSATopicIds, getDSATopicsByStage } from '../data/dsaLearningPathData';
 import { getDSATopicProgress, getDSAOverallProgress, getDSASkillRadar } from '../data/dsaLearningProgress';
 import { useTheme } from '../context/ThemeContext';
+import LearningPathShowcase from '../components/LearningPathShowcase';
 import './LearningPath.css';
 
 /* ─── Progress Ring ─── */
@@ -81,6 +82,37 @@ function getMasteryBadge(p) {
     return { label: 'Not Started', emoji: '🔒', color: '#525252' };
 }
 
+function buildDSAInsights(topics, navigate) {
+    return topics
+        .map((topic) => {
+            const progress = getDSATopicProgress(topic.id);
+            const firstConcept = topic.concepts?.[0];
+            const firstPoint = firstConcept?.points?.[0] || topic.description;
+            const secondPoint = firstConcept?.points?.[1];
+            const firstTrick = topic.tricks?.[0];
+            const secondTrick = topic.tricks?.[1];
+
+            return {
+                id: topic.id,
+                title: topic.title,
+                color: topic.color,
+                meta: `${progress.masteryPercent}% mastery · ${topic.difficulty} · ${topic.estimatedTime}`,
+                sectionTitle: firstConcept?.title || 'Core pattern',
+                content: `${firstPoint}${secondPoint ? ` ${secondPoint}` : ''}`,
+                chips: [
+                    `${topic.concepts?.length || 0} concept blocks`,
+                    `${topic.tricks?.length || 0} trick anchors`,
+                    `${topic.practiceProblems?.length || 0} practice sets`,
+                    firstTrick?.name || 'Pattern first',
+                    secondTrick?.name || 'Practice heavy',
+                ].filter(Boolean),
+                footerHint: `Think first: ${topic.invariants?.[0] || 'Map the pattern before coding'}`,
+                onClick: () => navigate(`/dsa-path/${topic.id}`),
+            };
+        })
+        .slice(0, 3);
+}
+
 /* ─── Topic Card ─── */
 function TopicCard({ topic, onClick, glowClass }) {
     const progress = getDSATopicProgress(topic.id);
@@ -151,6 +183,13 @@ export default function DSALearningPath() {
 
     const toggleStage = (id) => setExpandedStages(prev => ({ ...prev, [id]: !prev[id] }));
     const track = TIME_TRACKS[selectedTrack];
+    const spotlightTopics = useMemo(() => {
+        return [...DSA_TOPICS]
+            .map(topic => ({ topic, progress: getDSATopicProgress(topic.id) }))
+            .sort((a, b) => a.progress.masteryPercent - b.progress.masteryPercent)
+            .map(item => item.topic);
+    }, [updater]);
+    const dsaInsights = useMemo(() => buildDSAInsights(spotlightTopics, navigate), [spotlightTopics, navigate]);
 
     return (
         <div className="lp-container">
@@ -188,6 +227,21 @@ export default function DSALearningPath() {
                     </div>
                 </div>
             </div>
+
+            <LearningPathShowcase
+                guideTitle="How to study DSA"
+                guideSubtitle="Start with concepts, then apply the pattern, then move to tricks and timed practice."
+                steps={[
+                    { step: '01', title: 'Concepts first', desc: 'Understand the data structure, invariant, and why the pattern works.' },
+                    { step: '02', title: 'Spot the pattern', desc: 'Map the question to hashing, pointers, stacks, trees, or DP.' },
+                    { step: '03', title: 'Practice under time', desc: 'Use the problem set to build recall, speed, and confidence.' },
+                ]}
+                ctaLabel="Open AI Advanced Roadmap"
+                onCtaClick={() => navigate('/advanced-learning-path')}
+                insightsTitle="Concept spotlight"
+                insightsSubtitle="A quick preview of the richest theory blocks in this path"
+                insights={dsaInsights}
+            />
 
             {/* ─── Time Track Selector ─── */}
             <div className="lp-section-header">

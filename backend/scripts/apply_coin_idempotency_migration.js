@@ -120,7 +120,7 @@ async function run() {
   } catch (error) {
     console.error('❌ Error:', error.message);
     if (error.code === 'ENOENT') {
-      console.error('   Migration file not found at:', migrationPath);
+      console.error('   Migration file not found at: db/migration_coin_transaction_idempotency.sql');
     }
     process.exit(1);
   } finally {

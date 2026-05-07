@@ -131,7 +131,7 @@ export async function measureImplementation(reviewId, responseSolutionId) {
 export async function getProgressHistory(userId, timeRange = '30d') {
   // Calculate date range
   const now = new Date();
-  let since = new Date();
+  const since = new Date();
 
   const rangeMap = {
     '7d': 7,

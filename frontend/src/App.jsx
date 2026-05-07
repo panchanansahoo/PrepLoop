@@ -21,6 +21,8 @@ import { AuthGateProvider } from './context/AuthGateContext';
 import AuthGate from './components/AuthGate';
 import CommandPalette from './components/CommandPalette';
 import KeyboardShortcutsModal from './components/KeyboardShortcutsModal';
+import SkipLink from './components/SkipLink';
+import { useToast, ToastContainer } from './hooks/useToast';
 
 const Home = lazyWithRecovery(() => import('./pages/Home'));
 const Login = lazyWithRecovery(() => import('./pages/Login'));
@@ -147,6 +149,14 @@ function AppContent() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const { toasts, toast, removeToast } = useToast();
+
+  // Make toast globally available for legacy code
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.toast = toast;
+    }
+  }, [toast]);
 
   // Global Ctrl+K / Cmd+K to open command palette
   useEffect(() => {
@@ -222,7 +232,8 @@ function AppContent() {
 
   return (
     <div className="app-layout">
-      <SkipToContent targetId="main-content" />
+      <SkipLink />
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       <OfflineBanner />
       <Suspense fallback={null}><AIAssistantOrb /></Suspense>
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} />

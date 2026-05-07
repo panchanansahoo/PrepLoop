@@ -129,8 +129,9 @@ class DataCacheManager {
         );
         
         if (!result) break;
-        [cursor, scanKeys] = result;
-        keys.push(...scanKeys);
+        const [nextCursor, foundKeys] = result;
+        cursor = nextCursor;
+        keys.push(...(foundKeys || []));
       } while (cursor !== 0);
 
       // Delete all found keys

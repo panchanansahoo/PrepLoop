@@ -323,7 +323,7 @@ export function calculateScore(
   avgProblemTimeMs,
   streakDays = 0
 ) {
-  let basePts = baseDifficulty;
+  const basePts = baseDifficulty;
 
   // Perfect score bonus
   const perfectionBonus = isPerfect ? 5 : 0;

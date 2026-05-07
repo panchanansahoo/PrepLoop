@@ -1,10 +1,13 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeContext';
 
 const LoadingAnimation = ({ 
   variant = 'default',
   message = 'Loading...',
   fullScreen = false 
 }) => {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const baseClasses = fullScreen 
     ? 'fixed inset-0 z-50' 
     : 'w-full min-h-[280px]';
@@ -46,15 +49,15 @@ const LoadingAnimation = ({
       <div className={`${baseClasses} space-y-4 p-4`}>
         {[1, 2, 3].map((i) => (
           <div key={i} className="space-y-2">
-            <div className="h-4 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded animate-pulse"></div>
-            <div className="h-3 w-5/6 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded animate-pulse"></div>
-            <div className="h-3 w-4/6 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 rounded animate-pulse"></div>
+            <div className={`h-4 ${isLight ? 'bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200' : 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700'} rounded animate-pulse`}></div>
+            <div className={`h-3 w-5/6 ${isLight ? 'bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200' : 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700'} rounded animate-pulse`}></div>
+            <div className={`h-3 w-4/6 ${isLight ? 'bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200' : 'bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700'} rounded animate-pulse`}></div>
           </div>
         ))}
       </div>
     ),
     dots: (
-      <div className={`${baseClasses} flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50`}>
+      <div className={`${baseClasses} flex items-center justify-center bg-gradient-to-br ${isLight ? 'from-blue-50 to-purple-50' : 'from-slate-900 to-indigo-950'}`}>
         <div className="text-center">
           <div className="flex gap-2 justify-center mb-4">
             {[0, 1, 2, 3, 4].map((i) => (
@@ -68,20 +71,20 @@ const LoadingAnimation = ({
               ></div>
             ))}
           </div>
-          <p className="text-gray-700 font-medium">{message}</p>
+          <p className={`${isLight ? 'text-gray-700' : 'text-gray-300'} font-medium`}>{message}</p>
         </div>
       </div>
     ),
     gradient: (
-      <div className={`${baseClasses} flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900`}>
+      <div className={`${baseClasses} flex items-center justify-center bg-gradient-to-br ${isLight ? 'from-indigo-50 via-purple-50 to-pink-50' : 'from-slate-900 via-purple-900 to-slate-900'}`}>
         <div className="text-center">
           <div className="relative w-20 h-20 mx-auto mb-6">
             <div className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full animate-spin"></div>
-            <div className="absolute inset-1 bg-slate-900 rounded-full flex items-center justify-center">
+            <div className={`absolute inset-1 ${isLight ? 'bg-white' : 'bg-slate-900'} rounded-full flex items-center justify-center`}>
               <div className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-purple-500">✨</div>
             </div>
           </div>
-          <p className="text-white font-medium text-lg">{message}</p>
+          <p className={`${isLight ? 'text-slate-800' : 'text-white'} font-medium text-lg`}>{message}</p>
         </div>
       </div>
     ),

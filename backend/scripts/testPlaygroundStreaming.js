@@ -11,7 +11,7 @@ import { PlaygroundCacheManager } from '../services/playgroundCacheManager.js';
 
 describe('Phase 3: Playground Streaming (SSE)', () => {
   let authToken;
-  let testUserId = 'test-user-123';
+  const testUserId = 'test-user-123';
 
   beforeAll(async () => {
     // Mock authentication token

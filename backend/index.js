@@ -21,7 +21,9 @@ import { requestIdMiddleware } from './middleware/requestId.js';
 import { sanitizeInput } from './middleware/sanitization.js';
 import { configureExpressTrustProxy, createProxyValidationMiddleware } from './middleware/proxyValidation.js';
 import { createMetricsSecurityMiddleware } from './middleware/metricsAuth.js';
-import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
+import { standardLimiter, authLimiter, aiLimiter } from './middleware/enhancedRateLimiter.js';
+import { paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
+import { setupCsrfProtection } from './middleware/csrfProtection.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import { initializeApplicationInsights } from './utils/applicationInsightsSetup.js';
@@ -168,22 +170,7 @@ async function initializeServer() {
     app.use(createProxyValidationMiddleware());
 
     // Configure rate limiting
-    const limiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: Number.parseInt(process.env.GLOBAL_RATE_LIMIT_MAX || '250', 10),
-      message: 'Too many requests from this IP, please try again later.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
-
-    // Stricter rate limit for auth endpoints to prevent brute-force attacks
-    const authLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000,
-      max: Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || '30', 10),
-      message: 'Too many authentication attempts. Please try again later.',
-      standardHeaders: true,
-      legacyHeaders: false,
-    });
+    const limiter = standardLimiter;
 
     // Middleware setup
     // Advanced security middleware
@@ -253,12 +240,26 @@ async function initializeServer() {
     // Rate limiting (after cache middleware)
     // Cache hits never reach this middleware
     app.use('/api/auth', authLimiter);
-    app.use('/api/ai', aiEndpointsLimiter);
-    app.use('/api/ai-features', aiEndpointsLimiter);
+    app.use('/api/ai', aiLimiter);
+    app.use('/api/ai-features', aiLimiter);
     app.use('/api/payment', paymentEndpointsLimiter);
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
+
+    // SECURITY: Setup CSRF protection
+    setupCsrfProtection(app, {
+      skipPaths: [
+        '/api/payment/webhook',
+        '/api/auth/login',
+        '/api/auth/signup',
+        '/api/auth/forgot-password',
+        '/api/auth/reset-password',
+        '/api/auth/verify-email',
+        '/api/auth/resend-verification',
+        '/health'
+      ]
+    });
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {

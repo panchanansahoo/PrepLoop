@@ -2,7 +2,7 @@
 import NodeCache from 'node-cache';
 
 // Cached index of the working DB schema shape (avoids re-probing on every initializeInterview call)
-export let _knownPayloadIndex = null;
+export const _knownPayloadIndex = null;
 
 // Virtual interview sessions stored in-memory as a fallback when DB schema is incompatible
 export const virtualInterviewSessions = new Map();

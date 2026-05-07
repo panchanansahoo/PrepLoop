@@ -697,7 +697,7 @@ router.post('/start', authenticateToken, async (req, res) => {
 router.post('/next-question', authenticateToken, async (req, res) => {
   try {
     const { previousResponses, type } = req.body;
-    let difficulty = req.body.difficulty || 'medium';
+    const difficulty = req.body.difficulty || 'medium';
     const userId = req.user?.id;
 
     // Validate interview type
