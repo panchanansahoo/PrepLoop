@@ -6,6 +6,7 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import VerifyEmail from './VerifyEmail';
 import VerifyEmailPage from './VerifyEmailPage';
+import OAuthCallback from './OAuthCallback';
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
@@ -14,6 +15,29 @@ vi.mock('../context/AuthContext', () => ({
     loginWithGithub: vi.fn(),
     loginWithLinkedin: vi.fn(),
   }),
+}));
+
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: vi.fn().mockResolvedValue({
+        data: { session: null },
+        error: null,
+      }),
+      onAuthStateChange: vi.fn(() => ({
+        data: {
+          subscription: {
+            unsubscribe: vi.fn(),
+          },
+        },
+      })),
+      signInWithOAuth: vi.fn().mockResolvedValue({ error: null }),
+      refreshSession: vi.fn().mockResolvedValue({
+        data: { session: null },
+        error: null,
+      }),
+    },
+  },
 }));
 
 describe('Auth Routes - Smoke Tests (Undefined Symbol Detection)', () => {
@@ -71,5 +95,15 @@ describe('Auth Routes - Smoke Tests (Undefined Symbol Detection)', () => {
 
     expect(await screen.findByRole('heading', { name: /Verification Failed/i })).toBeInTheDocument();
     fetchMock.mockRestore();
+  });
+
+  it('renders oauth callback page without runtime reference errors', async () => {
+    render(
+      <MemoryRouter initialEntries={["/auth/callback?next=/dashboard"]}>
+        <OAuthCallback />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: /Signing you in/i })).toBeInTheDocument();
   });
 });

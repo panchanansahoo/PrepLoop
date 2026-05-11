@@ -109,8 +109,8 @@ export default function useDashboardData() {
             }
 
             console.error('Dashboard fetch error:', err);
-            const backendMessage = err?.response?.data?.message;
-            setError(backendMessage || err.message || 'Failed to load dashboard');
+            const backendMessage = err?.response?.data?.message || err?.response?.data?.error;
+            setError(backendMessage || 'Dashboard data is temporarily unavailable');
             if (!hasFreshCache && !force) {
                 setData(EMPTY_DATA);
             }

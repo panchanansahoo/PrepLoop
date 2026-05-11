@@ -8,6 +8,39 @@ import { createLogger } from '../utils/structuredLogger.js';
 
 const logger = createLogger('csrf-protection');
 
+const parseCookies = (cookieHeader = '') => {
+  if (!cookieHeader) return {};
+
+  return cookieHeader.split(';').reduce((accumulator, pair) => {
+    const separatorIndex = pair.indexOf('=');
+    if (separatorIndex === -1) return accumulator;
+
+    const key = pair.slice(0, separatorIndex).trim();
+    const rawValue = pair.slice(separatorIndex + 1).trim();
+    if (!key) return accumulator;
+
+    try {
+      accumulator[key] = decodeURIComponent(rawValue);
+    } catch {
+      accumulator[key] = rawValue;
+    }
+
+    return accumulator;
+  }, {});
+};
+
+export function parseCookieMiddleware(req, res, next) {
+  if (!req.cookies) {
+    req.cookies = parseCookies(req.headers.cookie || '');
+  }
+
+  if (!req.signedCookies) {
+    req.signedCookies = {};
+  }
+
+  next();
+}
+
 /**
  * CSRF Protection Configuration
  * Uses double-submit cookie pattern with token validation
@@ -213,6 +246,9 @@ export function setupCsrfProtection(app, options = {}) {
     skipPaths = ['/api/webhooks', '/health'],
     apiRoutes = ['/api'],
   } = options;
+
+  // csurf expects cookie data to be available on req.cookies when cookie mode is enabled.
+  app.use(parseCookieMiddleware);
 
   // Skip CSRF for specified paths
   app.use(skipCsrfForPaths(skipPaths));

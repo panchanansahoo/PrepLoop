@@ -9,14 +9,19 @@ import { useRef, useCallback } from 'react';
 export function useDebounce(callback, delay = 300) {
   const timeoutRef = useRef(null);
   const pendingRef = useRef(null);
+  const argsRef = useRef(null);
 
   const debounced = useCallback((...args) => {
+    argsRef.current = args;
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
     timeoutRef.current = setTimeout(() => {
-      pendingRef.current = callback(...args);
+      if (argsRef.current) {
+        pendingRef.current = callback(...argsRef.current);
+        argsRef.current = null;
+      }
       timeoutRef.current = null;
     }, delay);
 
@@ -24,18 +29,21 @@ export function useDebounce(callback, delay = 300) {
   }, [callback, delay]);
 
   const flush = useCallback(() => {
-    if (timeoutRef.current) {
+    if (timeoutRef.current && argsRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+      pendingRef.current = callback(...argsRef.current);
+      argsRef.current = null;
     }
     return pendingRef.current;
-  }, []);
+  }, [callback]);
 
   const cancel = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
+    argsRef.current = null;
     pendingRef.current = null;
   }, []);
 

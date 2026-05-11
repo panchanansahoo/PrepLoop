@@ -21,7 +21,7 @@ describe('voice autosubmit helpers', () => {
     expect(shouldAutoSubmitAnswer({ transcriptLength: 20, inputLevel: 0.2, utteranceEnded: true })).toBe(false);
   });
 
-  it('adaptive silence decreases for longer answers', () => {
-    expect(getAdaptiveSilenceMs(20)).toBeGreaterThan(getAdaptiveSilenceMs(200));
+  it('adaptive silence uses a fixed timeout for better UX', () => {
+    expect(getAdaptiveSilenceMs(20)).toBe(getAdaptiveSilenceMs(200));
   });
 });

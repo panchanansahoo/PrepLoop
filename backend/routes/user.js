@@ -14,6 +14,8 @@ import DataCacheManager from "../services/dataCacheManager.js";
 
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
+const DASHBOARD_CACHE_TTL_SECONDS = 120;
+const DASHBOARD_CACHE_VERSION = 'v2';
 
 const isProfilesAccessBlocked = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -25,6 +27,21 @@ const isMissingRelationError = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '42P01' || message.includes('does not exist');
+};
+
+const getDashboardRows = (result, label) => {
+  if (!result) return [];
+
+  if (result.error) {
+    if (isMissingRelationError(result.error)) {
+      console.warn(`⚠️ dashboard table not found for ${label}; returning empty data`);
+    } else {
+      console.error(`Error querying dashboard ${label}:`, result.error);
+    }
+    return [];
+  }
+
+  return Array.isArray(result.data) ? result.data : [];
 };
 
 const QUIZ_TOPICS = new Set([
@@ -1058,6 +1075,11 @@ router.put("/profile", authenticateToken, async (req, res) => {
 router.get("/dashboard", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = `dashboard:${DASHBOARD_CACHE_VERSION}:${userId}`;
+    const cachedDashboard = await DataCacheManager.get(cacheKey);
+    if (cachedDashboard) {
+      return res.json(cachedDashboard);
+    }
 
     const sqlProblemsPromise = fetchSqlProblemRecommendationsCached(250);
     const allProblemsPromise = fetchAllProblemsCached();
@@ -1104,35 +1126,13 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         .gte('seconds_active', 60),
     ]);
 
-    if (progressResult.error) throw progressResult.error;
-    if (submissionsResult.error) throw submissionsResult.error;
-    if (interviewsResult.error) throw interviewsResult.error;
-    if (resumesResult.error) throw resumesResult.error;
-    if (dailyProblemsResult.error) throw dailyProblemsResult.error;
-
-    const progress = progressResult.data || [];
-    const subs = submissionsResult.data || [];
-    const interviews = interviewsResult.data || [];
-    const resumes = resumesResult.data || [];
-    const allProblems = dailyProblemsResult || [];
-    // Handle calendar events gracefully - if table doesn't exist, use empty array
-    const isMissingTableError = (error) => {
-      const code = String(error?.code || '').toUpperCase();
-      return code === '42P01' || String(error?.message || '').includes('does not exist');
-    };
-    
-    let calendarEvents = [];
-    if (!calendarEventsResult.error) {
-      calendarEvents = calendarEventsResult.data || [];
-    } else if (isMissingTableError(calendarEventsResult.error)) {
-      // Table doesn't exist yet - log warning but don't fail
-      console.warn('⚠️ user_calendar_events table not found. Run: node scripts/apply_calendar_events_migration.js');
-      calendarEvents = [];
-    } else {
-      // Some other error occurred
-      console.error('Error querying calendar events:', calendarEventsResult.error);
-      calendarEvents = [];
-    }
+    const progress = getDashboardRows(progressResult, 'user_progress');
+    const subs = getDashboardRows(submissionsResult, 'submissions');
+    const interviews = getDashboardRows(interviewsResult, 'mock_interviews');
+    const resumes = getDashboardRows(resumesResult, 'resume_analyses');
+    const allProblems = getDashboardRows(dailyProblemsResult, 'problems');
+    const calendarEvents = getDashboardRows(calendarEventsResult, 'user_calendar_events');
+    const activityRows = getDashboardRows(activityResult, 'user_activity');
 
     const solvedCount = (progress || []).filter(
       (p) => p.status === "solved",
@@ -1143,7 +1143,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     // ── 5) Streak calculation (consecutive days ending today) ──
     // Combine activity from submissions AND user_activity table
 
-    const activityDates = (activityResult.data || []).map((activity) => activity.date);
+    const activityDates = activityRows.map((activity) => activity.date);
     const submissionDates = subs.map((submission) => submission.submitted_at);
 
     const {
@@ -1273,7 +1273,10 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       '#ec4899', '#14b8a6', '#ef4444', '#8b5cf6', '#06b6d4'
     ];
     const [catalog, solvedProblemPatternsResult] = await Promise.all([
-      getDashboardPatternCatalog(),
+      getDashboardPatternCatalog().catch((error) => {
+        console.error('Error loading dashboard pattern catalog:', error);
+        return { patternMap: new Map(), problemCountByPatternId: new Map() };
+      }),
       solvedProblemIds.size > 0
         ? supabaseAdmin
           .from("problems")
@@ -1282,10 +1285,16 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (solvedProblemPatternsResult.error) throw solvedProblemPatternsResult.error;
+    if (solvedProblemPatternsResult.error) {
+      if (isMissingRelationError(solvedProblemPatternsResult.error)) {
+        console.warn('⚠️ dashboard solved-problem catalog not found; skipping topic progress');
+      } else {
+        console.error('Error loading dashboard solved-problem catalog:', solvedProblemPatternsResult.error);
+      }
+    }
 
     const solvedCountByPatternId = new Map();
-    (solvedProblemPatternsResult.data || []).forEach((problem) => {
+    (Array.isArray(solvedProblemPatternsResult.data) ? solvedProblemPatternsResult.data : []).forEach((problem) => {
       const patternId = problem.pattern_id;
       if (!patternId) return;
       solvedCountByPatternId.set(
@@ -1386,7 +1395,7 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
     };
 
     // ── Response ──
-    res.json({
+    const dashboardPayload = {
       stats: {
         problemsSolved: solvedCount,
         totalSubmissions: subs.length,
@@ -1419,7 +1428,10 @@ router.get("/dashboard", authenticateToken, async (req, res) => {
       dailyChallenge,
       upcomingContests,
       pomodoroStats,
-    });
+    };
+
+    await DataCacheManager.set(cacheKey, dashboardPayload, DASHBOARD_CACHE_TTL_SECONDS);
+    res.json(dashboardPayload);
   } catch (error) {
     console.error("Error fetching dashboard:", error);
     res.status(500).json({ error: "Failed to fetch dashboard data" });

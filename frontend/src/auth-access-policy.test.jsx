@@ -9,10 +9,12 @@ describe('auth access policy', () => {
   it('opens most routes for preview while keeping personal routes private', () => {
     const appSource = readLocal('./App.jsx');
 
-    // Dashboard, community, overview are now open (no PrivateRoute)
-    expect(appSource).toContain('path="/dashboard" element={<Dashboard />}');
+    // Community is open
     expect(appSource).toContain('path="/community" element={<CommunityHub />}');
-    expect(appSource).toContain('path="/overview" element={<Overview />}');
+
+    // Dashboard and overview are private
+    expect(appSource).toContain('path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>}');
+    expect(appSource).toContain('path="/overview" element={<PrivateRoute><Overview /></PrivateRoute>}');
 
     // Public routes remain open
     expect(appSource).toContain('path="/job-updates" element={<JobUpdates />}');

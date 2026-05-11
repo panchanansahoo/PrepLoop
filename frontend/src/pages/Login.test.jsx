@@ -12,6 +12,13 @@ vi.mock('../context/AuthContext', () => ({
   }),
 }));
 
+vi.mock('../context/ThemeContext', () => ({
+  useTheme: () => ({
+    theme: 'dark',
+    toggleTheme: vi.fn()
+  })
+}));
+
 describe('Login page', () => {
   it('renders interview prep feature bullets without runtime reference errors', () => {
     render(

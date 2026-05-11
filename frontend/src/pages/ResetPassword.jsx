@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import apiFetch from '../utils/apiFetch';
 import { Lock, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
@@ -218,22 +219,32 @@ export default function ResetPassword() {
             setError('Passwords do not match');
             return;
         }
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters');
             return;
         }
 
         setLoading(true);
         try {
-            const { error } = await supabase.auth.updateUser({ password });
-            if (error) {
-                setError(error.message);
-            } else {
-                setSuccess(true);
-                setTimeout(() => navigate('/login'), 3000);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                setError('Your reset session has expired. Please request a new link.');
+                setLoading(false);
+                return;
             }
+
+            await apiFetch.post('/api/auth/reset-password', {
+                token: session.access_token,
+                password: password
+            });
+
+            // Log out the temporary recovery session so they can log in properly with the new password
+            await supabase.auth.signOut();
+
+            setSuccess(true);
+            setTimeout(() => navigate('/login'), 3000);
         } catch (err) {
-            setError('Failed to reset password. Please try again.');
+            setError(err?.response?.data?.error || err.message || 'Failed to reset password. Please try again.');
         } finally {
             setLoading(false);
         }

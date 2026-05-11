@@ -5,7 +5,7 @@ import { verifyCaptcha } from '../utils/captcha.js';
 import nodemailer from 'nodemailer';
 import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
 import { validateBody, signupSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validationSchemas.js';
-import { rotateRefreshToken, validateRefreshToken, revokeAllUserTokens } from '../middleware/refreshTokenRotation.js';
+import { rotateRefreshToken, validateRefreshToken } from '../middleware/refreshTokenRotation.js';
 
 const router = express.Router();
 
@@ -22,7 +22,7 @@ const COMMON_PASSWORDS = new Set([
 
 /**
  * Validate password meets security requirements:
- * - At least 12 characters
+ * - At least 8 characters
  * - At least 1 uppercase letter
  * - At least 1 lowercase letter
  * - At least 1 digit
@@ -34,8 +34,8 @@ function validatePasswordStrength(password) {
   if (!password || typeof password !== 'string') {
     return 'Password is required';
   }
-  if (password.length < 12) {
-    return 'Password must be at least 12 characters long';
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters long';
   }
   if (!/[A-Z]/.test(password)) {
     return 'Password must contain at least one uppercase letter';
@@ -64,6 +64,16 @@ const transporter = nodemailer.createTransport({
     pass: process.env.SMTP_PASS,
   },
 });
+
+// Log SMTP configuration on startup (for debugging)
+if (process.env.NODE_ENV === 'development') {
+  console.log('[SMTP] Configuration:', {
+    host: process.env.SMTP_HOST,
+    port: process.env.SMTP_PORT,
+    user: process.env.SMTP_USER ? `${process.env.SMTP_USER.substring(0, 3)}***` : 'NOT SET',
+    passSet: !!process.env.SMTP_PASS,
+  });
+}
 
 const isMissingEmailVerificationSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -151,7 +161,13 @@ router.post('/signup', validateBody(signupSchema), async (req, res) => {
         });
         markEmailSent('signup', email);
       } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
+        console.error('❌ [Signup] Verification email send failed:', {
+          message: emailError.message,
+          code: emailError.code,
+          email,
+          smtpHost: process.env.SMTP_HOST,
+        });
+        // Don't block signup if email fails; user can resend
       }
     }
 
@@ -238,6 +254,25 @@ function clearLoginAttempts(email, ip) {
   loginAttempts.delete(`${email.toLowerCase()}:${ip}`);
 }
 
+function isMissingProfileRowError(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'PGRST116' || message.includes('no rows') || message.includes('0 rows');
+}
+
+async function findAuthUserByEmail(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) {
+    throw error;
+  }
+
+  const users = Array.isArray(data?.users) ? data.users : [];
+  return users.find((user) => String(user?.email || '').toLowerCase() === normalizedEmail) || null;
+}
+
 router.post('/login', authLoginLimiter, validateBody(loginSchema), async (req, res) => {
   const { email, password } = req.body;
 
@@ -264,6 +299,21 @@ router.post('/login', authLoginLimiter, validateBody(loginSchema), async (req, r
       // Record the failed attempt
       recordFailedLogin(email, req.ip);
 
+      if (error.message === 'Invalid login credentials') {
+        const authUser = await findAuthUserByEmail(email).catch((lookupError) => {
+          console.error('Login user lookup error:', lookupError);
+          return null;
+        });
+
+        if (authUser && !authUser.email_confirmed_at) {
+          return res.status(403).json({
+            error: 'Please verify your email before logging in',
+            code: 'EMAIL_NOT_VERIFIED',
+            email,
+          });
+        }
+      }
+
       if (error.message === 'Email not confirmed') {
         return res.status(403).json({
           error: 'Please verify your email before logging in',
@@ -283,14 +333,43 @@ router.post('/login', authLoginLimiter, validateBody(loginSchema), async (req, r
       .eq('id', data.user.id)
       .single();
 
-    if (profileError && !isMissingEmailVerificationSchema(profileError)) {
+    if (profileError && !isMissingEmailVerificationSchema(profileError) && !isMissingProfileRowError(profileError)) {
       console.error('Login profile query error:', profileError);
       return res.status(500).json({ error: 'Login failed' });
     }
 
     const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
 
-    if (!shouldBypassVerification && !profile?.email_verified) {
+    let resolvedProfile = profile;
+    if (isMissingProfileRowError(profileError) || !profile) {
+      resolvedProfile = {
+        full_name: data.user.user_metadata?.full_name || '',
+        subscription_tier: 'free',
+        experience_level: 'beginner',
+        role: 'user',
+        email_verified: true,
+      };
+
+      supabaseAdmin
+        .from('profiles')
+        .upsert({
+          id: data.user.id,
+          full_name: resolvedProfile.full_name,
+          subscription_tier: resolvedProfile.subscription_tier,
+          experience_level: resolvedProfile.experience_level,
+          role: resolvedProfile.role,
+          email_verified: resolvedProfile.email_verified,
+          last_login: new Date().toISOString(),
+        }, { onConflict: 'id' })
+        .then(({ error: upsertError }) => {
+          if (upsertError) console.error('Failed to create missing profile on login:', upsertError.message || upsertError);
+        })
+        .catch((upsertErr) => {
+          console.error('Failed to create missing profile on login:', upsertErr.message || upsertErr);
+        });
+    }
+
+    if (!shouldBypassVerification && !resolvedProfile?.email_verified) {
       // Fix #3: return a distinct 403 code so the frontend interceptor can skip retry
       return res.status(403).json({
         error: 'Please verify your email before logging in',
@@ -318,11 +397,11 @@ router.post('/login', authLoginLimiter, validateBody(loginSchema), async (req, r
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: profile?.full_name || data.user.user_metadata?.full_name || '',
-        subscriptionTier: profile?.subscription_tier || 'free',
-        experienceLevel: profile?.experience_level || 'beginner',
-        role: profile?.role || 'user',
-        emailVerified: shouldBypassVerification ? true : (profile?.email_verified || false)
+        fullName: resolvedProfile?.full_name || data.user.user_metadata?.full_name || '',
+        subscriptionTier: resolvedProfile?.subscription_tier || 'free',
+        experienceLevel: resolvedProfile?.experience_level || 'beginner',
+        role: resolvedProfile?.role || 'user',
+        emailVerified: shouldBypassVerification ? true : (resolvedProfile?.email_verified || false)
       }
     });
   } catch (error) {
@@ -447,7 +526,12 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       });
       markEmailSent('resend-verification-email', email);
     } catch (emailError) {
-      console.error('Error sending verification email:', emailError);
+      console.error('❌ [Resend Verify] Email send failed:', {
+        message: emailError.message,
+        code: emailError.code,
+        email,
+        smtpHost: process.env.SMTP_HOST,
+      });
     }
 
     // Fix #11: grammar fix
@@ -613,15 +697,33 @@ router.post('/forgot-password', forgotPasswordLimiter, validateBody(forgotPasswo
     markEmailSent('forgot-password', email);
     res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
   } catch (error) {
-    console.error('Forgot password error:', error);
-    res.status(500).json({ error: 'Failed to process password reset request' });
+    console.error('❌ [Forgot Password] Email send failed:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response ? error.response.substring(0, 200) : null,
+      email,
+      smtpHost: process.env.SMTP_HOST,
+    });
+    
+    // Only expose debug info in development
+    const errorResponse = {
+      error: 'Failed to process password reset request',
+    };
+    if (process.env.NODE_ENV === 'development') {
+      errorResponse.debug = {
+        smtpError: error.message,
+        code: error.code,
+      };
+    }
+    res.status(500).json(errorResponse);
   }
 });
 
 router.post('/reset-password', validateBody(resetPasswordSchema), async (req, res) => {
-  const { accessToken, newPassword } = req.body;
-  if (!accessToken || !newPassword) {
-    return res.status(400).json({ error: 'Access token and new password are required' });
+  const { token, password: newPassword } = req.body;
+  if (!token || !newPassword) {
+    return res.status(400).json({ error: 'Reset token and new password are required' });
   }
   // SECURITY: Enforce strong password policy
   const passwordError = validatePasswordStrength(newPassword);
@@ -629,7 +731,7 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req, re
     return res.status(400).json({ error: passwordError });
   }
   try {
-    const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(accessToken);
+    const { data: { user }, error: verifyError } = await supabaseAdmin.auth.getUser(token);
     if (verifyError || !user) {
       return res.status(401).json({ error: 'Invalid or expired reset token' });
     }
@@ -654,11 +756,16 @@ router.post('/reset-password', validateBody(resetPasswordSchema), async (req, re
  */
 router.get('/csrf-token', (req, res) => {
   try {
-    // The CSRF middleware automatically calls getCsrfToken which sets X-CSRF-Token header
-    // Just return success to indicate frontend should read the header
+    const csrfToken = typeof req.csrfToken === 'function' ? req.csrfToken() : null;
+
+    if (csrfToken) {
+      res.setHeader('X-CSRF-Token', csrfToken);
+    }
+
     res.json({
-      message: 'CSRF token provided in X-CSRF-Token header',
-      success: true
+      message: 'CSRF token provided',
+      success: true,
+      csrfToken,
     });
   } catch (error) {
     console.error('CSRF token request error:', error);

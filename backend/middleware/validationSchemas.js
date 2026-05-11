@@ -37,11 +37,22 @@ export const signupSchema = Joi.object({
       'string.max': 'Password must not exceed 128 characters',
     }),
   
+  // Accept both 'fullName' (frontend sends this) and 'name' for backwards compat
+  fullName: Joi.string()
+    .min(2)
+    .max(100)
+    .trim()
+    .optional()
+    .messages({
+      'string.min': 'Name must be at least 2 characters long',
+      'string.max': 'Name must not exceed 100 characters',
+    }),
+
   name: Joi.string()
     .min(2)
     .max(100)
     .trim()
-    .required()
+    .optional()
     .messages({
       'string.min': 'Name must be at least 2 characters long',
       'string.max': 'Name must not exceed 100 characters',
@@ -53,7 +64,7 @@ export const signupSchema = Joi.object({
     .messages({
       'string.pattern.base': 'Username can only contain letters, numbers, and underscores (3-30 characters)',
     }),
-});
+}).or('fullName', 'name'); // At least one name field required
 
 export const loginSchema = Joi.object({
   email: Joi.string()
@@ -80,6 +91,14 @@ export const forgotPasswordSchema = Joi.object({
     .trim()
     .messages({
       'string.pattern.base': 'Email must be a valid email address',
+    }),
+
+  captchaToken: Joi.string()
+    .optional()
+    .allow('', null)
+    .max(2048)
+    .messages({
+      'string.max': 'Captcha token is too long',
     }),
 });
 

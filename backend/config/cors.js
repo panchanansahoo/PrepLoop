@@ -78,7 +78,7 @@ export const corsOptions = {
     'X-Request-ID',
     'X-CSRF-Token',
   ],
-  exposedHeaders: ['X-Request-ID', 'X-RateLimit-Remaining'],
+  exposedHeaders: ['X-Request-ID', 'X-RateLimit-Remaining', 'X-CSRF-Token'],
   maxAge: 86400, // 24 hours
   optionsSuccessStatus: 204,
 };

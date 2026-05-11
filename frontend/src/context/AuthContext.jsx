@@ -178,7 +178,7 @@ export function AuthProvider({ children }) {
     if (!supabase) throw new Error('Supabase Authentication is not configured. Please check your .env file.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/dashboard' }
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}` }
     });
     if (error) throw error;
   };
@@ -187,7 +187,7 @@ export function AuthProvider({ children }) {
     if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'github',
-      options: { redirectTo: window.location.origin + '/dashboard' }
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}` }
     });
     if (error) throw error;
   };
@@ -196,7 +196,7 @@ export function AuthProvider({ children }) {
     if (!supabase) throw new Error('Supabase Authentication is not configured.');
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'linkedin_oidc',
-      options: { redirectTo: window.location.origin + '/dashboard' }
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent('/dashboard')}` }
     });
     if (error) throw error;
   };

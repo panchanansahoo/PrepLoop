@@ -47,6 +47,7 @@ const Library = lazyWithRecovery(() => import('./pages/Library'));
 const Contact = lazyWithRecovery(() => import('./pages/Contact'));
 const VerifyEmailPage = lazyWithRecovery(() => import('./pages/VerifyEmailPage'));
 const CheckEmail = lazyWithRecovery(() => import('./pages/VerifyEmail'));
+const OAuthCallback = lazyWithRecovery(() => import('./pages/OAuthCallback'));
 const Onboarding = lazyWithRecovery(() => import('./pages/Onboarding'));
 const Profile = lazyWithRecovery(() => import('./pages/Profile'));
 const History = lazyWithRecovery(() => import('./pages/History'));
@@ -214,7 +215,7 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
+  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/auth/callback', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
@@ -223,7 +224,7 @@ function AppContent() {
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
-  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
+  const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password' || location.pathname === '/auth/callback';
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
   const isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
@@ -264,6 +265,7 @@ function AppContent() {
                 <Route path="/" element={<Home />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/auth/callback" element={<OAuthCallback />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/community" element={<CommunityHub />} />

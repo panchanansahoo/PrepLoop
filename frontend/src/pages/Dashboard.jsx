@@ -1,34 +1,70 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { Suspense, lazy, useState, useMemo, useCallback } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, SlidersHorizontal, X, Star, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { ArrowRight, Sparkles, SlidersHorizontal, X, GripVertical } from 'lucide-react';
 import useDashboardData from '../hooks/useDashboardData';
-import QuickStats from '../components/QuickStats';
-import { StreakHeatmap } from '../components/QuickStats';
-import QuickActions from '../components/QuickActions';
-import ReadinessScore from '../components/ReadinessScore';
-import RecentActivity from '../components/RecentActivity';
-import SkillRadar from '../components/SkillRadar';
-import DailyChallenge from '../components/DailyChallenge';
-import UpcomingContests from '../components/UpcomingContests';
-import CalendarWidget from '../components/CalendarWidget';
-import PomodoroTimer from '../components/PomodoroTimer';
-import WeeklyStats from '../components/WeeklyStats';
-import SkillMatchJobs from '../components/SkillMatchJobs';
-import TodoList from '../components/TodoList';
-import LearningStreakWidget from '../components/LearningStreakWidget';
-import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
-import DailyQuestionWidget from '../components/DailyQuestionWidget';
-import LeaderboardWidget from '../components/LeaderboardWidget';
 import { useLeaderboard, useUserStats } from '../hooks/useLeaderboard';
 import { DashboardSkeleton } from '../components/skeletons';
 import FetchError from '../components/FetchError';
 import ErrorBoundary from '../components/ErrorBoundary';
-import InterviewCountdownWidget from '../components/InterviewCountdownWidget';
-import StreakMotivationBanner from '../components/StreakMotivationBanner';
-import SmartStudyPlanner from '../components/SmartStudyPlanner';
-import InterviewPerformanceRadar from '../components/InterviewPerformanceRadar';
+
+const lazyDefault = (loader) =>
+    lazy(() => loader().then((module) => ({ default: module.default })));
+
+const lazyNamed = (loader, exportName) =>
+    lazy(() => loader().then((module) => ({ default: module[exportName] })));
+
+const QuickStatsWidget = lazyDefault(() => import('../components/QuickStats'));
+const StreakHeatmapWidget = lazyNamed(() => import('../components/QuickStats'), 'StreakHeatmap');
+const QuickActionsWidget = lazyDefault(() => import('../components/QuickActions'));
+const ReadinessScoreWidget = lazyDefault(() => import('../components/ReadinessScore'));
+const RecentActivityWidget = lazyDefault(() => import('../components/RecentActivity'));
+const SkillRadarWidget = lazyDefault(() => import('../components/SkillRadar'));
+const DailyChallengeWidget = lazyDefault(() => import('../components/DailyChallenge'));
+const UpcomingContestsWidget = lazyDefault(() => import('../components/UpcomingContests'));
+const CalendarWidget = lazyDefault(() => import('../components/CalendarWidget'));
+const PomodoroTimerWidget = lazyDefault(() => import('../components/PomodoroTimer'));
+const WeeklyStatsWidget = lazyDefault(() => import('../components/WeeklyStats'));
+const SkillMatchJobsWidget = lazyDefault(() => import('../components/SkillMatchJobs'));
+const TodoListWidget = lazyDefault(() => import('../components/TodoList'));
+const LearningStreakWidget = lazyDefault(() => import('../components/LearningStreakWidget'));
+const AIJobCopilotWidget = lazyDefault(() => import('../components/AIJobCopilotWidget'));
+const DailyQuestionWidget = lazyDefault(() => import('../components/DailyQuestionWidget'));
+const LeaderboardWidget = lazyDefault(() => import('../components/LeaderboardWidget'));
+const InterviewCountdownWidget = lazyDefault(() => import('../components/InterviewCountdownWidget'));
+const StreakMotivationBannerWidget = lazyDefault(() => import('../components/StreakMotivationBanner'));
+const SmartStudyPlannerWidget = lazyDefault(() => import('../components/SmartStudyPlanner'));
+const InterviewPerformanceRadarWidget = lazyDefault(() => import('../components/InterviewPerformanceRadar'));
+
+function WidgetSkeleton({ layout = 'full' }) {
+    const isFull = layout === 'full';
+    return (
+        <div
+            className="dash-widget-wrapper"
+            style={{
+                minHeight: isFull ? 180 : 220,
+            }}
+            aria-busy="true"
+            aria-label="Loading dashboard widget"
+        >
+            <div
+                style={{
+                    borderRadius: 24,
+                    padding: 20,
+                    minHeight: isFull ? 180 : 220,
+                    background: 'linear-gradient(135deg, rgba(18, 18, 24, 0.45), rgba(20, 20, 28, 0.3))',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    boxShadow: 'var(--shadow-md)',
+                }}
+            >
+                <div style={{ width: 140, height: 14, borderRadius: 999, background: 'rgba(255,255,255,0.08)', marginBottom: 12 }} />
+                <div style={{ width: '72%', height: 12, borderRadius: 999, background: 'rgba(255,255,255,0.05)', marginBottom: 18 }} />
+                <div style={{ width: '100%', height: isFull ? 110 : 150, borderRadius: 18, background: 'rgba(255,255,255,0.04)' }} />
+            </div>
+        </div>
+    );
+}
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -74,28 +110,28 @@ function getDailyQuote(date = new Date()) {
 
 // ── Widget Registry ──
 const WIDGET_REGISTRY = [
-    { id: 'quickStats', name: 'Quick Stats', component: QuickStats, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
-    { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmap, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
-    { id: 'quickActions', name: 'Quick Actions', component: QuickActions, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
-    { id: 'skillMatchJobs', name: 'Skill-Matched Jobs', component: SkillMatchJobs, defaultVisible: true, premium: false, layout: 'full', description: 'Live job recommendations based on your skills' },
-    { id: 'readinessScore', name: 'Interview Readiness', component: ReadinessScore, defaultVisible: true, premium: true, layout: '2col-left', description: 'Overall interview readiness gauge' },
-    { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadar, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
-    { id: 'recentActivity', name: 'Recent Activity', component: RecentActivity, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
+    { id: 'quickStats', name: 'Quick Stats', component: QuickStatsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Day streak, problems solved, score & points' },
+    { id: 'streakHeatmap', name: 'Streak Heatmap', component: StreakHeatmapWidget, defaultVisible: true, premium: false, layout: 'full', description: '365-day activity map for your solve streak' },
+    { id: 'quickActions', name: 'Quick Actions', component: QuickActionsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Shortcuts to key features' },
+    { id: 'skillMatchJobs', name: 'Skill-Matched Jobs', component: SkillMatchJobsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Live job recommendations based on your skills' },
+    { id: 'readinessScore', name: 'Interview Readiness', component: ReadinessScoreWidget, defaultVisible: true, premium: true, layout: '2col-left', description: 'Overall interview readiness gauge' },
+    { id: 'skillRadar', name: 'Skill Breakdown', component: SkillRadarWidget, defaultVisible: true, premium: true, layout: '2col-right', description: 'Radar chart of your skill areas' },
+    { id: 'recentActivity', name: 'Recent Activity', component: RecentActivityWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your latest practice sessions' },
 
     { id: 'dailyQuestion', name: 'Daily Questions', component: DailyQuestionWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Your personalized daily DSA and behavioral questions' },
-    { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallenge, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
-    { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContests, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
+    { id: 'dailyChallenge', name: 'Daily Challenge', component: DailyChallengeWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Company-specific daily problems' },
+    { id: 'upcomingContests', name: 'Upcoming Contests', component: UpcomingContestsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'LeetCode, Codeforces & more' },
     { id: 'calendarWidget', name: 'Calendar', component: CalendarWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Mini monthly calendar with date picker' },
-    { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimer, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
+    { id: 'pomodoroTimer', name: 'Pomodoro Timer', component: PomodoroTimerWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Focus & break timer with session tracking' },
 
-    { id: 'todoList', name: 'Todo List', component: TodoList, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
-    { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
+    { id: 'todoList', name: 'Todo List', component: TodoListWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Task manager with priorities & progress' },
+    { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStatsWidget, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
     { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
     { id: 'leaderboard', name: 'Leaderboard', component: LeaderboardWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Weekly top performers' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
     { id: 'interviewCountdown', name: 'Interview Countdown', component: InterviewCountdownWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Countdown to your next interview with daily prep checklist' },
-    { id: 'smartStudyPlanner', name: 'Smart Study Planner', component: SmartStudyPlanner, defaultVisible: true, premium: false, layout: 'full', description: 'AI-generated personalized weekly study schedule' },
-    { id: 'performanceRadar', name: 'Performance Radar', component: InterviewPerformanceRadar, defaultVisible: true, premium: false, layout: '2col-right', description: 'Multi-dimensional interview performance tracking with radar chart' },
+    { id: 'smartStudyPlanner', name: 'Smart Study Planner', component: SmartStudyPlannerWidget, defaultVisible: true, premium: false, layout: 'full', description: 'AI-generated personalized weekly study schedule' },
+    { id: 'performanceRadar', name: 'Performance Radar', component: InterviewPerformanceRadarWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Multi-dimensional interview performance tracking with radar chart' },
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -268,7 +304,9 @@ export default function Dashboard() {
                 <ErrorBoundary fallback={(error, resetError) => (
                     <FetchError message="Widget crashed" compact onRetry={resetError} />
                 )}>
-                    <Component {...props} />
+                    <Suspense fallback={<WidgetSkeleton layout={w.layout} />}>
+                        <Component {...props} />
+                    </Suspense>
                 </ErrorBoundary>
             </div>
         );
@@ -372,7 +410,9 @@ export default function Dashboard() {
 
                 {/* ── Streak Motivation Banner ── */}
                 {!dashLoading && !dashError && dashboardData.streak >= 3 && (
-                    <StreakMotivationBanner streak={dashboardData.streak} />
+                    <Suspense fallback={null}>
+                        <StreakMotivationBannerWidget streak={dashboardData.streak} />
+                    </Suspense>
                 )}
 
                 {/* ── Dashboard Widgets ── */}

@@ -4,6 +4,20 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, CheckCircle, Github, Linkedin, Chrome } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
+const PASSWORD_RULES = [
+  { test: (value) => value.length >= 8, message: 'At least 8 characters' },
+  { test: (value) => /[A-Z]/.test(value), message: 'One uppercase letter' },
+  { test: (value) => /[a-z]/.test(value), message: 'One lowercase letter' },
+  { test: (value) => /[0-9]/.test(value), message: 'One number' },
+  { test: (value) => /[^A-Za-z0-9]/.test(value), message: 'One special character' },
+];
+
+const validatePassword = (password) => {
+  const value = String(password || '');
+  const failedRule = PASSWORD_RULES.find((rule) => !rule.test(value));
+  return failedRule ? `Password must include ${failedRule.message.toLowerCase()}.` : '';
+};
+
 const styles = {
   wrapper: {
     minHeight: '100vh',
@@ -342,8 +356,9 @@ export default function Signup() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
       setLoading(false);
       return;
     }
@@ -536,9 +551,8 @@ export default function Signup() {
                   ))}
                 </div>
                 <p style={{ fontSize: '11px', color: 'rgba(148,163,184,0.4)', marginTop: '6px' }}>
-                  {password.length === 0 ? 'At least 8 characters' :
-                    password.length < 8 ? `${8 - password.length} more characters needed` :
-                      password.length < 10 ? 'Good password' : 'Strong password ✓'}
+                  {password.length === 0 ? 'At least 8 characters with upper, lower, number, and symbol' :
+                    validatePassword(password) || 'Strong password ✓'}
                 </p>
               </div>
 

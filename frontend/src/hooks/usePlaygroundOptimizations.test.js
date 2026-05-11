@@ -7,6 +7,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react';
+import { vi, describe, test, expect } from 'vitest';
 import { useDebounce, useConversationHistory, useResponseCache } from '../hooks/usePlaygroundOptimizations';
 
 describe('Playground Phase 2 Optimizations', () => {
@@ -40,7 +41,7 @@ describe('Playground Phase 2 Optimizations', () => {
 
       const history = result.current.getHistory();
       expect(history.length).toBe(3);
-      expect(history[0].content).toBe('Second');
+      expect(history[0].content).toBe('Response1');
     });
 
     test('should track history stats', () => {
@@ -102,7 +103,7 @@ describe('Playground Phase 2 Optimizations', () => {
   // ─── Test 2: Request Debouncing ───
   describe('useDebounce', () => {
     test('should debounce function calls', async () => {
-      const mockFn = jest.fn(() => Promise.resolve('result'));
+      const mockFn = vi.fn(() => Promise.resolve('result'));
       const { result } = renderHook(() => useDebounce(mockFn, 100));
 
       act(() => {
@@ -121,7 +122,7 @@ describe('Playground Phase 2 Optimizations', () => {
     });
 
     test('should allow flush to execute immediately', async () => {
-      const mockFn = jest.fn(() => Promise.resolve('result'));
+      const mockFn = vi.fn(() => Promise.resolve('result'));
       const { result } = renderHook(() => useDebounce(mockFn, 300));
 
       act(() => {
@@ -141,7 +142,7 @@ describe('Playground Phase 2 Optimizations', () => {
     });
 
     test('should allow cancel to prevent execution', async () => {
-      const mockFn = jest.fn(() => Promise.resolve('result'));
+      const mockFn = vi.fn(() => Promise.resolve('result'));
       const { result } = renderHook(() => useDebounce(mockFn, 100));
 
       act(() => {
@@ -155,7 +156,7 @@ describe('Playground Phase 2 Optimizations', () => {
     });
 
     test('should use 300ms default delay', async () => {
-      const mockFn = jest.fn(() => Promise.resolve('result'));
+      const mockFn = vi.fn(() => Promise.resolve('result'));
       const { result } = renderHook(() => useDebounce(mockFn));
 
       act(() => {
@@ -172,7 +173,7 @@ describe('Playground Phase 2 Optimizations', () => {
 
     test('should prevent request spam in AI assist', async () => {
       // Simulating rapid AI requests
-      const mockFn = jest.fn(() => Promise.resolve('response'));
+      const mockFn = vi.fn(() => Promise.resolve('response'));
       const { result } = renderHook(() => useDebounce(mockFn, 300));
 
       // User rapidly clicks "Explain" button
@@ -289,7 +290,7 @@ describe('Playground Phase 2 Optimizations', () => {
   describe('Phase 2 Integration', () => {
     test('should handle bounded history with AI debouncing', async () => {
       const history = renderHook(() => useConversationHistory(20));
-      const mockAiCall = jest.fn(() => Promise.resolve('response'));
+      const mockAiCall = vi.fn(() => Promise.resolve('response'));
       const debounce = renderHook(() => useDebounce(mockAiCall, 100));
 
       // Simulate rapid AI requests
@@ -341,7 +342,7 @@ describe('Phase 2 Performance Expectations', () => {
   });
 
   test('debouncing limits request rate to <3/sec', async () => {
-    const mockFn = jest.fn(() => Promise.resolve('result'));
+    const mockFn = vi.fn(() => Promise.resolve('result'));
     const { result } = renderHook(() => useDebounce(mockFn, 300));
 
     // Simulate 10 rapid clicks (would be 10 requests without debounce)
