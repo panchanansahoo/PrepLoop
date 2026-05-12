@@ -87,6 +87,9 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
+      - name: Install frontend dependencies (preview)
+        run: npm ci --prefix frontend
+
       - name: Build frontend artifacts (preview)
         working-directory: frontend
         run: npm run build
@@ -149,6 +152,9 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Install frontend dependencies (production)
+        run: npm ci --prefix frontend
 
       - name: Build frontend artifacts (production)
         working-directory: frontend
