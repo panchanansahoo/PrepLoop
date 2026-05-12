@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Backend audit (must have 0 critical/high)
         run: |
@@ -51,7 +51,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Run project secrets scanner
         run: |
@@ -91,7 +91,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Lint backend
         run: |
@@ -116,7 +116,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install all dependencies
         run: |
@@ -157,6 +157,6 @@ jobs:
         run: |
           NODE_VER=$(docker run --rm preploop-backend:scan node --version)
           echo "Node.js version in container: $NODE_VER"
-          if echo "$NODE_VER" | grep -q "v18"; then
-            echo "::warning::Node.js 18 is EOL — upgrade required"
+          if echo "$NODE_VER" | grep -Eq "v18|v20"; then
+            echo "::warning::Node.js runtime is EOL — upgrade required"
           fi

@@ -31,8 +31,12 @@ function sanitizeString(input) {
   // Input encoding was corrupting user-submitted code, search queries, and
   // names with special characters. HTML encoding must be done at the
   // output/rendering layer instead (React already escapes JSX expressions).
+  //
+  // NOTE (B-09): .trim() intentionally removed from global sanitizer to avoid
+  // mutating code submissions that rely on leading/trailing whitespace
+  // (e.g. Python indentation). Individual routes trim where appropriate.
   
-  return sanitized.trim();
+  return sanitized;
 }
 
 /**
@@ -88,8 +92,9 @@ export function sanitizeInput(options = {}) {
   
   return (req, res, next) => {
     try {
-      // Skip sanitization for specific paths (e.g., webhooks)
-      if (skipPaths.some(path => req.path.includes(path))) {
+      // Skip sanitization for specific paths (e.g., webhooks).
+      // Use originalUrl for reliable matching regardless of mount context.
+      if (skipPaths.some(path => req.originalUrl.includes(path))) {
         return next();
       }
 

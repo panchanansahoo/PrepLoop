@@ -3,11 +3,14 @@
     "version": "1.0.0",
     "description": "Frontend for Preploop",
     "type": "module",
+    "engines": {
+        "node": "22.x"
+    },
     "scripts": {
         "dev": "vite",
         "build": "node node_modules/vite/bin/vite.js build",
-        "lint": "eslint src",
-        "lint:fix": "eslint src --fix",
+        "lint": "node node_modules/eslint/bin/eslint.js src",
+        "lint:fix": "node node_modules/eslint/bin/eslint.js src --fix",
         "format": "prettier --write \"src/**/*.{js,jsx}\"",
         "preview": "vite preview",
         "test": "vitest run",

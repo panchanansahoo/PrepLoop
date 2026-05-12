@@ -188,11 +188,31 @@ export default function InterviewSuite() {
         if (sessions.length > 0) {
           const scores = sessions.filter(s => s.score != null).map(s => s.score);
           const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
-          setStats({
-            sessions: sessions.length,
-            avgScore,
-            streak: sessions.length >= 3 ? sessions.length : Math.min(sessions.length, 7),
-          });
+
+          // B-12: Compute a real consecutive-day streak from session dates
+          const uniqueDays = [...new Set(
+            sessions
+              .map(s => s.createdAt ? new Date(s.createdAt).toDateString() : null)
+              .filter(Boolean)
+          )].sort((a, b) => new Date(b) - new Date(a)); // newest first
+
+          let streak = 0;
+          const today = new Date().toDateString();
+          const yesterday = new Date(Date.now() - 86400000).toDateString();
+          // Only count a streak if the user practiced today or yesterday
+          if (uniqueDays.length > 0 && (uniqueDays[0] === today || uniqueDays[0] === yesterday)) {
+            let expected = new Date(uniqueDays[0]);
+            for (const dayStr of uniqueDays) {
+              if (new Date(dayStr).toDateString() === expected.toDateString()) {
+                streak++;
+                expected = new Date(expected.getTime() - 86400000);
+              } else {
+                break;
+              }
+            }
+          }
+
+          setStats({ sessions: sessions.length, avgScore, streak });
         }
       } catch {
         setRecentSessions([]);

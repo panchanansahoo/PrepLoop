@@ -95,5 +95,11 @@ Thumbs.db
 # IDE
 .fleet/
 *.code-workspace
-node_modules
-node_modules
+
+# Backend scratch / test scripts (not production code)
+backend/testInterviewImprovements.js
+backend/test-edge-tts.js
+backend/test-edge-tts2.js
+backend/test-enhanced-interview.js
+backend/test-routes-minimal.js
+backend/backend_pid.txt

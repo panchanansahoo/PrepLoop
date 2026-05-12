@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 env:
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '22.x'
   CACHE_VERSION: v1
 
 jobs:
@@ -85,6 +85,12 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preploop_test
           NODE_ENV: test
+          PORT: 5000
+          FRONTEND_URL: http://localhost:5173
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          JWT_SECRET: test-jwt-secret
 
       - name: Run performance tests
         run: node backend/utils/performanceTest.js

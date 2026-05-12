@@ -442,7 +442,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
 // This ensures payments are recorded even if the
 // user closes the browser mid-payment
 // ─────────────────────────────────────────────
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', async (req, res) => {
     try {
         const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 

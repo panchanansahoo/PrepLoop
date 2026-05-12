@@ -213,6 +213,27 @@ export class AccountLockoutManager {
       lockoutDuration: 15 * 60 * 1000, // 15 minutes
       resetAfter: 60 * 60 * 1000, // 1 hour
     };
+
+    // B-14: Periodically evict expired entries to prevent unbounded memory growth
+    // under sustained brute-force traffic. Runs every 5 minutes.
+    this._cleanupInterval = setInterval(() => this._purgeExpired(), 5 * 60 * 1000);
+    // Allow Node.js to exit without waiting for the interval
+    if (this._cleanupInterval.unref) this._cleanupInterval.unref();
+  }
+
+  /**
+   * Remove entries that are no longer locked and past the reset window.
+   * @private
+   */
+  _purgeExpired() {
+    const now = Date.now();
+    for (const [key, entry] of this.attempts.entries()) {
+      const isLocked = entry.lockedUntil && now < entry.lockedUntil;
+      const isWithinResetWindow = now - entry.lastAttempt < this.config.resetAfter;
+      if (!isLocked && !isWithinResetWindow) {
+        this.attempts.delete(key);
+      }
+    }
   }
 
   /**
