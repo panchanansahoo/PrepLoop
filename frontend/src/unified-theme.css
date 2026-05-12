@@ -304,23 +304,51 @@ html[data-theme="light"] [style*="color: #ffffff"],
 }
 
 [data-theme="light"] .sidebar-brand {
-  color: #1a1a1a;
+  color: #111111;
+}
+
+[data-theme="light"] .sidebar-section-label {
+  color: #64748b;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+[data-theme="light"] .sidebar-section-divider {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.06), transparent);
+}
+
+[data-theme="light"] .nav-item {
+  color: #404040;
 }
 
 [data-theme="light"] .nav-item:hover {
-  background: linear-gradient(90deg, rgba(26, 26, 26, 0.06), rgba(26, 26, 26, 0.02));
-  color: #1a1a1a;
-  border-color: rgba(26, 26, 26, 0.08);
+  background: rgba(0, 0, 0, 0.04);
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 [data-theme="light"] .nav-item.active {
-  background: linear-gradient(90deg, rgba(26, 26, 26, 0.1), rgba(26, 26, 26, 0.03));
-  color: #1a1a1a;
-  border-color: rgba(26, 26, 26, 0.15);
+  background: rgba(0, 0, 0, 0.06);
+  color: #111111;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 [data-theme="light"] .nav-item.active .nav-icon {
-  color: #1a1a1a;
+  color: #111111;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.1));
+}
+
+[data-theme="light"] .nav-subtitle {
+  color: #64748b;
+}
+
+[data-theme="light"] .nav-item:hover .nav-subtitle {
+  color: #475569;
+}
+
+[data-theme="light"] .nav-item.active .nav-subtitle {
+  color: #334155;
 }
 
 [data-theme="light"] .nav-link {
@@ -329,6 +357,26 @@ html[data-theme="light"] [style*="color: #ffffff"],
 
 [data-theme="light"] .nav-link:hover {
   color: #1a1a1a;
+}
+
+[data-theme="light"] .sidebar-toggle {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+  color: #545454;
+}
+
+[data-theme="light"] .sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #111111;
+}
+
+[data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+[data-theme="light"] .sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* Buttons */

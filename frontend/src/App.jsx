@@ -112,7 +112,7 @@ const Flashcards = lazyWithRecovery(() => import('./pages/Flashcards'));
 const ComplexityAnalyzer = lazyWithRecovery(() => import('./pages/ComplexityAnalyzer'));
 const JDQuestionGenerator = lazyWithRecovery(() => import('./pages/JDQuestionGenerator'));
 const ReadinessCheck = lazyWithRecovery(() => import('./pages/ReadinessCheck'));
-const ConceptExplainer = lazyWithRecovery(() => import('./pages/ConceptExplainer'));
+
 const CodeTranslator = lazyWithRecovery(() => import('./pages/CodeTranslator'));
 const PatternTrainer = lazyWithRecovery(() => import('./pages/PatternTrainer'));
 const BugDebugger = lazyWithRecovery(() => import('./pages/BugDebugger'));
@@ -228,7 +228,7 @@ function AppContent() {
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
   const isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
-  const showSidebar = !isPublicPage && !isAuthRoute && !isFullBleedCodingRoute;
+  const showSidebar = (!isPublicPage && !isAuthRoute && !isFullBleedCodingRoute) || isSimulatorRoute;
   const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
 
   return (
@@ -365,7 +365,7 @@ function AppContent() {
                 <Route path="/complexity-analyzer" element={<PrivateRoute><ComplexityAnalyzer /></PrivateRoute>} />
                 <Route path="/jd-questions" element={<PrivateRoute><JDQuestionGenerator /></PrivateRoute>} />
                 <Route path="/readiness-check" element={<PrivateRoute><ReadinessCheck /></PrivateRoute>} />
-                <Route path="/concept-explainer" element={<PrivateRoute><ConceptExplainer /></PrivateRoute>} />
+
                 <Route path="/code-translator" element={<PrivateRoute><CodeTranslator /></PrivateRoute>} />
                 <Route path="/pattern-trainer" element={<PrivateRoute><PatternTrainer /></PrivateRoute>} />
                 <Route path="/bug-debugger" element={<PrivateRoute><BugDebugger /></PrivateRoute>} />

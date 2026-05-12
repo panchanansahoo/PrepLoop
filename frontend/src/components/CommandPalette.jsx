@@ -26,7 +26,6 @@ const NAV_ITEMS = [
   { id: 'code-reviewer',    label: 'AI Code Reviewer',       path: '/code-reviewer',       icon: Code2,           group: 'Tools',      keywords: 'review feedback ai' },
   { id: 'bug-debugger',     label: 'Bug Debugger',           path: '/bug-debugger',        icon: Code2,           group: 'Tools',      keywords: 'debug fix error' },
   { id: 'code-translator',  label: 'Code Translator',        path: '/code-translator',     icon: Code2,           group: 'Tools',      keywords: 'translate convert language' },
-  { id: 'concept-explainer',label: 'Concept Explainer',      path: '/concept-explainer',   icon: BookOpen,        group: 'Tools',      keywords: 'explain concept learn' },
   { id: 'resume-analyzer',  label: 'Resume Analyzer',        path: '/resume-analyzer',     icon: FileText,        group: 'Career',     keywords: 'resume cv ats' },
   { id: 'copilot',          label: 'AI Job Copilot',         path: '/copilot',             icon: Briefcase,       group: 'Career',     keywords: 'jobs career copilot ai' },
   { id: 'job-updates',      label: 'Job Updates',            path: '/job-updates',         icon: Briefcase,       group: 'Career',     keywords: 'jobs listings openings' },

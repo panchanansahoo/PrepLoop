@@ -62,7 +62,6 @@ const navSections = [
             { path: '/interview-hub', label: 'Interview Hub', subtitle: 'All-in-one interview suite', icon: Grid3X3 },
             { path: '/company-prep', label: 'Company Prep', subtitle: 'Real interview Q&A by company', icon: Building2 },
             { path: '/company-interview', label: 'AI Interview', subtitle: 'Mock interviews with AI', icon: Mic },
-            { path: '/behavioral-coach', label: 'Behavioral Coach', subtitle: 'STAR scoring & filler detection', icon: MessageSquare },
             { path: '/interview-experiences', label: 'Interview Experiences', subtitle: 'Community interview stories', icon: Briefcase },
             { path: '/resume-analyzer', label: 'Resume Analysis', subtitle: 'ATS score and resume feedback', icon: FileText },
             { path: '/multi-round-interview', label: 'Full Interview Loop', subtitle: 'Multi-round simulation', icon: Play },
@@ -73,37 +72,12 @@ const navSections = [
     {
         category: 'AI Tools',
         items: [
-            { path: '/concept-explainer', label: 'Concept Explainer', subtitle: 'ELI5 to Senior level explanations', icon: Lightbulb },
-            { path: '/complexity-analyzer', label: 'Complexity Analyzer', subtitle: 'Big-O time & space analysis', icon: Zap },
             { path: '/code-translator', label: 'Code Translator', subtitle: 'Convert code between languages', icon: ArrowRightLeft },
-            { path: '/bug-debugger', label: 'Bug Debugger', subtitle: 'Plain English bug explanations', icon: Bug },
             { path: '/jd-questions', label: 'JD Question Generator', subtitle: 'Questions from job descriptions', icon: FileText },
         ]
     },
-    {
-        category: 'Skill Building',
-        items: [
-            { path: '/flashcards', label: 'Flashcards', subtitle: 'Spaced repetition review', icon: Brain },
-            { path: '/pattern-trainer', label: 'Pattern Trainer', subtitle: 'Identify DSA patterns', icon: Target },
-            { path: '/answer-timer', label: 'Answer Timer', subtitle: 'Practice within time limits', icon: Timer },
-            { path: '/readiness-check', label: 'Am I Ready?', subtitle: 'Interview readiness score', icon: Target },
-        ]
-    },
-    {
-        category: 'Progress',
-        items: [
-            { path: '/skill-heatmap', label: 'Skill Heatmap', subtitle: 'GitHub-style activity map', icon: Activity },
-            { path: '/daily-win', label: "Today's Win", subtitle: 'Log your daily practice', icon: Star },
-            { path: '/weekly-report', label: 'Weekly Report', subtitle: 'AI-powered prep summary', icon: BarChart3Icon },
-        ]
-    },
-    {
-        category: 'Interview Prep',
-        items: [
-            { path: '/question-bank', label: 'Question Bank', subtitle: 'Search 2600+ real questions', icon: Search },
-            { path: '/rejection-analyzer', label: 'Rejection Analyzer', subtitle: 'Learn from mock rejections', icon: Shield },
-        ]
-    },
+
+
     {
         category: 'Community',
         items: [
@@ -222,12 +196,12 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                     ))}
                 </nav>
 
-                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: isLight ? '1px solid rgba(99, 102, 241, 0.06)' : '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
+                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
                     <div onClick={() => setIsFeedbackModalOpen(true)} style={{ textDecoration: 'none', display: 'block' }}>
                         <div 
                             style={{
-                                background: isLight ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.02)',
-                                border: isLight ? '1px solid rgba(99, 102, 241, 0.08)' : '1px solid rgba(255, 255, 255, 0.05)',
+                                background: isLight ? 'rgba(56, 189, 248, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+                                border: isLight ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(255, 255, 255, 0.05)',
                                 borderRadius: '12px',
                                 padding: isCollapsed && !mobileOpen ? '8px 0' : '8px 12px',
                                 display: 'flex',
@@ -238,36 +212,36 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                                 cursor: 'pointer',
                                 position: 'relative',
                                 overflow: 'hidden',
-                                boxShadow: 'var(--shadow-md)'
+                                boxShadow: isLight ? '0 2px 8px rgba(56, 189, 248, 0.08)' : 'var(--shadow-md)'
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';
-                                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
+                                e.currentTarget.style.background = isLight ? 'linear-gradient(145deg, rgba(56, 189, 248, 0.15), rgba(168, 85, 247, 0.1))' : 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';
+                                e.currentTarget.style.borderColor = isLight ? 'rgba(168, 85, 247, 0.4)' : 'rgba(168, 85, 247, 0.3)';
                                 e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(168, 85, 247, 0.15)';
+                                e.currentTarget.style.boxShadow = isLight ? '0 6px 16px rgba(56, 189, 248, 0.2)' : '0 6px 16px rgba(168, 85, 247, 0.15)';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = isLight ? 'rgba(99, 102, 241, 0.03)' : 'rgba(255, 255, 255, 0.02)';
-                                e.currentTarget.style.borderColor = isLight ? 'rgba(99, 102, 241, 0.08)' : 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.background = isLight ? 'rgba(56, 189, 248, 0.1)' : 'rgba(255, 255, 255, 0.02)';
+                                e.currentTarget.style.borderColor = isLight ? 'rgba(56, 189, 248, 0.25)' : 'rgba(255, 255, 255, 0.05)';
                                 e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(99, 102, 241, 0.04)' : '0 4px 12px rgba(0, 0, 0, 0.1)';
+                                e.currentTarget.style.boxShadow = isLight ? '0 2px 8px rgba(56, 189, 248, 0.08)' : '0 4px 12px rgba(0, 0, 0, 0.1)';
                             }}
                         >
                             {isCollapsed && !mobileOpen ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
-                                    <MessageSquare size={16} color="#38bdf8" />
-                                    <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 600 }}>+10</span>
+                                    <MessageSquare size={16} color={isLight ? "#0ea5e9" : "#38bdf8"} />
+                                    <span style={{ fontSize: '9px', color: isLight ? '#d97706' : '#fbbf24', fontWeight: 600 }}>+10</span>
                                 </div>
                             ) : (
                                 <>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                                        <MessageSquare size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
-                                        <span style={{ fontSize: '11px', color: isLight ? '#5c6078' : '#a1a1aa', fontWeight: 500, lineHeight: 1 }}>
+                                        <MessageSquare size={14} color={isLight ? "#0ea5e9" : "#38bdf8"} style={{ flexShrink: 0 }} />
+                                        <span style={{ fontSize: '11px', color: isLight ? '#334155' : '#a1a1aa', fontWeight: 600, lineHeight: 1 }}>
                                             Help us improve PrepLoop (30s)
                                         </span>
                                     </div>
                                     <div style={{ width: '100%', paddingLeft: '20px' }}>
-                                        <span style={{ fontSize: '10px', color: '#eab308', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1 }}>
+                                        <span style={{ fontSize: '10px', color: isLight ? '#d97706' : '#eab308', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1 }}>
                                             +10 coins
                                         </span>
                                     </div>
