@@ -1,5 +1,6 @@
 import React, { useState, Component, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
+import { Analytics as VercelAnalytics } from '@vercel/analytics/react';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -362,6 +363,7 @@ function App() {
             >
               <AppContent />
             </Router>
+            <VercelAnalytics />
           </CoinProvider>
         </AuthProvider>
       </ThemeProvider>
