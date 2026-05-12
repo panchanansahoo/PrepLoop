@@ -306,8 +306,9 @@ export function AuthProvider({ children }) {
 
   if (loading) {
     return (
-      <div className="loading">
-        <div className="spinner"></div>
+      <div className="loading" role="status" aria-label="Loading application">
+        <div className="spinner" aria-hidden="true"></div>
+        <span className="sr-only">Loading, please wait…</span>
       </div>
     );
   }

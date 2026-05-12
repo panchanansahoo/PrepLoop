@@ -222,7 +222,6 @@ async function initializeServer() {
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
-    app.use('/api/ai', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
     app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
     app.use('/api/interview-suite', interviewSuiteRoutes);
@@ -329,13 +328,12 @@ let shutdownManager = null;
 initializeServer().then(() => {
   const server = startServer(DEFAULT_PORT);
 
-  // Setup graceful shutdown with configurable timeouts
-  shutdownManager = 
-  // Initialize collaboration service
+  // Initialize collaboration service (must happen before shutdown setup)
   collaborationService.initialize(server);
   console.log('✅ Collaboration service initialized');
 
-  setupGracefulShutdown(server, {
+  // Setup graceful shutdown with configurable timeouts
+  shutdownManager = setupGracefulShutdown(server, {
     shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
     forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
   });
@@ -352,7 +350,3 @@ initializeServer().then(() => {
 });
 
 export default app;
-
-// trigger restart
-
-// trigger restart 2

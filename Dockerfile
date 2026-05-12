@@ -1,5 +1,5 @@
 # Backend Dockerfile
-FROM node:20-alpine AS backend
+FROM node:22-alpine AS backend
 
 WORKDIR /app/backend
 
@@ -28,7 +28,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
 CMD ["node", "index.js"]
 
 # Frontend build stage
-FROM node:20-alpine AS frontend-build
+FROM node:22-alpine AS frontend-build
 
 WORKDIR /app/frontend
 

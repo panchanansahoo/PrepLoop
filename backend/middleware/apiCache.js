@@ -53,16 +53,19 @@ export function apiCacheMiddleware(options = {}) {
       const originalJson = res.json.bind(res);
       res.json = (body) => {
         try {
-          // Store in L1 memory cache
-          cache.set(key, { body, status: res.statusCode });
-          cacheTimestamps.set(key, Date.now());
+          // Only cache successful responses (2xx) to prevent caching error pages
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            // Store in L1 memory cache
+            cache.set(key, { body, status: res.statusCode });
+            cacheTimestamps.set(key, Date.now());
 
-          // Also attempt to store in shared cache manager (best effort)
-          try {
-            void cacheManager.set(key, body, Math.floor((ttl || DEFAULT_TTL) / 1000));
-            try { performanceMonitor.recordCacheEvent('set', key); } catch (e) { /* noop */ }
-          } catch (e) {
-            logger.debug('Failed to set shared cache (non-fatal)', { key, err: e.message });
+            // Also attempt to store in shared cache manager (best effort)
+            try {
+              void cacheManager.set(key, body, Math.floor((ttl || DEFAULT_TTL) / 1000));
+              try { performanceMonitor.recordCacheEvent('set', key); } catch (e) { /* noop */ }
+            } catch (e) {
+              logger.debug('Failed to set shared cache (non-fatal)', { key, err: e.message });
+            }
           }
         } catch (e) {
           logger.error('Failed to cache response', { key, err: e.message });

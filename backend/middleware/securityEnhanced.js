@@ -14,7 +14,7 @@ const THRESHOLDS = {
     /(\.\.|\/etc\/|\/proc\/|\/sys\/)/i, // Path traversal
     /(union.*select|insert.*into|drop.*table)/i, // SQL injection
     /(<script|javascript:|onerror=|onload=)/i, // XSS
-    /(\.\.\/|\.\.\\)/g, // Directory traversal
+    /(\.\.\/|\.\.\\/)/i, // Directory traversal (no 'g' flag — stateless)
   ],
 };
 
@@ -160,7 +160,8 @@ export const enhancedSecurity = () => {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-    // SECURITY: H7 — Allow microphone on same-origin for voice interviews,\n    // keep camera and geolocation disabled\n    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
+    // Allow microphone on same-origin for voice interviews; keep camera and geolocation disabled
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(self), camera=()');
 
     next();
   };

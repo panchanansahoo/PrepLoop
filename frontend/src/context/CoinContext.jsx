@@ -30,7 +30,7 @@ export function CoinProvider({ children }) {
     } catch (err) {
       console.error('Failed to fetch coin balance:', err);
     }
-  }, [user]);
+  }, [user, getHeaders]);
 
   const earnCoins = useCallback(async (amount = 5, description = 'Problem solved') => {
     if (!user) return null;

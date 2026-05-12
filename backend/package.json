@@ -4,6 +4,9 @@
     "description": "Backend for Preploop",
     "main": "index.js",
     "type": "module",
+    "engines": {
+        "node": "22.x"
+    },
     "scripts": {
         "start": "node index.js",
         "dev": "node --watch index.js",

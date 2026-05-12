@@ -42,7 +42,7 @@ resource webAppConfig 'Microsoft.Web/sites/config@2024-04-01' = {
   parent: webApp
   name: 'web'
   properties: {
-    linuxFxVersion: 'NODE|20-lts'
+    linuxFxVersion: 'NODE|22-lts'
     appCommandLine: 'npm start'
     alwaysOn: false
     http20Enabled: true
@@ -61,7 +61,7 @@ resource webAppSettings 'Microsoft.Web/sites/config@2024-04-01' = {
   name: 'appsettings'
   properties: {
     NODE_ENV: environment == 'production' ? 'production' : 'staging'
-    WEBSITE_NODE_DEFAULT_VERSION: '~20'
+    WEBSITE_NODE_DEFAULT_VERSION: '~22'
     SCM_DO_BUILD_DURING_DEPLOYMENT: 'true'
     // These will be set from Azure Key Vault references or GitHub Actions secrets
     SUPABASE_URL: ''

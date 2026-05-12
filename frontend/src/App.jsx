@@ -88,6 +88,7 @@ const AIInterviewPage = lazyWithRecovery(() => import('./pages/AIInterviewPage')
 const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest'));
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
 const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
+const RealInterview = lazyWithRecovery(() => import('./pages/RealInterview'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
@@ -240,7 +241,7 @@ function AppContent() {
             <Route path="/community" element={<PrivateRoute><CommunityHub /></PrivateRoute>} />
             <Route
               path="/dashboard"
-              element={<Dashboard />}
+              element={<PrivateRoute><Dashboard /></PrivateRoute>}
             />
             <Route
               path="/overview"
@@ -260,7 +261,7 @@ function AppContent() {
             />
 
             <Route path="/problems" element={<ProblemExplorer />} />
-            <Route path="/quiz-arena" element={<QuizArena />} />
+            <Route path="/quiz-arena" element={<PrivateRoute><QuizArena /></PrivateRoute>} />
             <Route path="/code-editor/:problemId" element={<DSACodeEditor />} />
             <Route path="/sql-problems" element={<SQLProblemExplorer />} />
             <Route path="/sql-editor/:problemId" element={<SQLCodeEditor />} />
@@ -302,8 +303,9 @@ function AppContent() {
             <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
             <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
             <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
-            <Route path="/daily-challenges" element={<DailyChallengesPage />} />
-            <Route path="/job-updates" element={<JobUpdates />} />
+            <Route path="/daily-challenges" element={<PrivateRoute><DailyChallengesPage /></PrivateRoute>} />
+            <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
+            <Route path="/real-interview" element={<PrivateRoute><RealInterview /></PrivateRoute>} />
 
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
