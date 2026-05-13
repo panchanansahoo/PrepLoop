@@ -233,7 +233,7 @@ export default function ResetPassword() {
                 setTimeout(() => navigate('/login'), 3000);
             }
         } catch (err) {
-            setError('Failed to reset password. Please try again.');
+            setError('We couldn\'t reset your password. Please try again or request a new reset link.');
         } finally {
             setLoading(false);
         }

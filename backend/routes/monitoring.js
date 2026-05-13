@@ -1,4 +1,5 @@
 import express from 'express';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 import { getPoolStats } from '../config/dbPool.js';
 import { getActiveConnections } from '../services/websocketService.js';
 import { problemCache, companyCache, systemDesignCache } from '../utils/cache.js';
@@ -53,9 +54,13 @@ router.get('/health/detailed', authenticateToken, requireAdmin, async (req, res)
 
   // Database check
   try {
-    const { query } = await import('../config/dbPool.js');
-    await query('SELECT 1');
-    checks.checks.database = { status: 'healthy', latency: 0 };
+    // B-30: Use supabaseAdmin for the health probe instead of a dynamic dbPool import
+    // to avoid false-unhealthy reports if the pool export signature changes.
+    const { error } = await supabaseAdmin.from('profiles').select('id').limit(1);
+    checks.checks.database = error
+      ? { status: 'unhealthy', error: error.message }
+      : { status: 'healthy', latency: 0 };
+    if (error) checks.status = 'degraded';
   } catch (err) {
     checks.checks.database = { status: 'unhealthy', error: err.message };
     checks.status = 'degraded';

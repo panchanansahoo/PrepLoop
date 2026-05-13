@@ -14,9 +14,11 @@ const DEVELOPMENT_ORIGINS = process.env.NODE_ENV === 'development'
   ? [
       'http://localhost:5173',
       'http://localhost:5174',
+      'http://localhost:5175',
       'http://localhost:4173',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',
+      'http://127.0.0.1:5175',
       'http://127.0.0.1:4173',
     ]
   : [];
@@ -35,7 +37,7 @@ function isOriginAllowed(origin) {
 
   // In development only, allow localhost with specific ports only
   if (process.env.NODE_ENV === 'development') {
-    const allowedPorts = [5173, 5174, 4173];
+    const allowedPorts = [5173, 5174, 5175, 4173];
     const match = origin.match(/^https?:\/\/(localhost|127\.0\.0\.1):(\d+)$/i);
     if (match && allowedPorts.includes(parseInt(match[2], 10))) {
       return true;

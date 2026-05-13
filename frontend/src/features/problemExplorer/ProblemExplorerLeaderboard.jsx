@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, Medal, Trophy, Flame, RefreshCw } from 'lucide-react';
 import { buildAuthHeaders } from '../../utils/authHeaders';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
+import { API_URL as rawApiUrl } from '../../utils/safeApiUrl';
 const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
 
 const TOP_COLORS = ['#fbbf24', '#c0c0c0', '#cd7f32'];

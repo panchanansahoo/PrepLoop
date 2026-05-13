@@ -1,5 +1,11 @@
 const DEFAULT_API_ORIGIN = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
+/**
+ * Pre-resolved API base URL. Import this instead of repeating
+ * `import.meta.env.VITE_API_URL || 'http://localhost:5000'` in every file.
+ */
+export const API_URL = DEFAULT_API_ORIGIN;
+
 export function resolveApiOrigin(rawBaseUrl) {
   try {
     const candidate = String(rawBaseUrl || DEFAULT_API_ORIGIN).trim() || DEFAULT_API_ORIGIN;

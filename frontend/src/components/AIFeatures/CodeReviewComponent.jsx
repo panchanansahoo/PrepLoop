@@ -36,7 +36,7 @@ const CodeReviewComponent = ({ problemId, onReviewSubmitted }) => {
       setResult(reviewResult);
       onReviewSubmitted?.(reviewResult);
     } catch (err) {
-      setError(err.message || 'Failed to submit code for review');
+      setError(err.message || 'Code review is temporarily unavailable. Please try again.');
       console.error('Code review error:', err);
     } finally {
       setLoading(false);

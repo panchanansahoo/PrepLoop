@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Send, MessageSquare, Bug, Lightbulb, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
+import { API_URL } from '../utils/safeApiUrl';
 
 export default function FeedbackModal({ isOpen, onClose }) {
     const { user } = useAuth();
@@ -27,8 +28,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
                 headers['Authorization'] = `Bearer ${token}`;
             }
 
-            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-            const response = await fetch(`${apiUrl}/api/feedback`, {
+            const response = await fetch(`${API_URL}/api/feedback`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({
@@ -38,7 +38,7 @@ export default function FeedbackModal({ isOpen, onClose }) {
             });
 
             if (!response.ok) {
-                throw new Error('Failed to submit feedback');
+                throw new Error('Your feedback couldn\'t be submitted. Please try again.');
             }
 
             // We can also trigger context update for coins if response indicates success

@@ -14,7 +14,7 @@ const THRESHOLDS = {
     /(\.\.|\/etc\/|\/proc\/|\/sys\/)/i, // Path traversal
     /(union.*select|insert.*into|drop.*table)/i, // SQL injection
     /(<script|javascript:|onerror=|onload=)/i, // XSS
-    /(\.\.\/|\.\.\\/)/i, // Directory traversal (no 'g' flag — stateless)
+    /\.\.\\/i, // Directory traversal (no 'g' flag — stateless)
   ],
 };
 

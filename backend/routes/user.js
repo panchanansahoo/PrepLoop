@@ -92,18 +92,20 @@ const buildProfileResponse = (req, profile) => {
     github_username: profile?.github_username || '',
     coins: profile?.coins ?? 0,
     
-    // New profile fields
+    // Profile fields
     phone: profile?.phone || '',
     location: profile?.location || '',
     website: profile?.website || '',
     yearsOfExperience: profile?.years_of_experience || '',
     specialization: profile?.specialization || '',
-    socialLinks: profile?.social_links || {
-      twitter: profile?.twitter || '',
-      linkedin: profile?.linkedin || '',
-      portfolio: profile?.portfolio || '',
-      dribbble: profile?.dribbble || ''
-    }
+    socialLinks: profile?.social_links || {},
+
+    // Portfolio fields
+    projects: profile?.projects || [],
+    certifications: profile?.certifications || [],
+    portfolioData: profile?.portfolio_data || {},
+    importSources: profile?.import_sources || {},
+    profileCompletionPct: profile?.profile_completion_pct || 0
   };
 
   return {
@@ -130,17 +132,20 @@ const buildProfileResponse = (req, profile) => {
       githubUsername: flatProfile.githubUsername,
       coins: flatProfile.coins,
       
-      // New profile fields
+      // Profile fields
       phone: flatProfile.phone,
       location: flatProfile.location,
       website: flatProfile.website,
       years_of_experience: flatProfile.yearsOfExperience,
       specialization: flatProfile.specialization,
       social_links: flatProfile.socialLinks,
-      twitter: flatProfile.socialLinks?.twitter,
-      linkedin: flatProfile.socialLinks?.linkedin,
-      portfolio: flatProfile.socialLinks?.portfolio,
-      dribbble: flatProfile.socialLinks?.dribbble
+
+      // Portfolio fields
+      projects: flatProfile.projects,
+      certifications: flatProfile.certifications,
+      portfolio_data: flatProfile.portfolioData,
+      import_sources: flatProfile.importSources,
+      profile_completion_pct: flatProfile.profileCompletionPct
     },
     profile: flatProfile,
     ...flatProfile,
@@ -857,24 +862,16 @@ router.get("/profile", authenticateToken, async (req, res) => {
         .from("profiles")
         .insert({
           id: req.user.id,
-          email: req.user.email,
           full_name: req.user.user_metadata?.full_name || '',
           subscription_tier: 'free',
           experience_level: 'beginner',
           role: req.user.role || 'user',
-          
-          // New profile fields
-          phone: '',
-          location: '',
-          website: '',
-          company: '',
-          years_of_experience: '',
-          specialization: '',
-          social_links: '{}',
-          twitter: '',
-          linkedin: '',
-          portfolio: '',
-          dribbble: ''
+          social_links: {},
+          portfolio_data: {},
+          projects: [],
+          certifications: [],
+          import_sources: {},
+          profile_completion_pct: 0
         })
         .select()
         .single();
@@ -890,18 +887,13 @@ router.get("/profile", authenticateToken, async (req, res) => {
             experience_level: 'beginner',
             role: req.user.role || 'user',
             
-            // New profile fields for degraded response
-            phone: '',
-            location: '',
-            website: '',
-            company: '',
-            years_of_experience: '',
-            specialization: '',
-            social_links: '{}',
-            twitter: '',
-            linkedin: '',
-            portfolio: '',
-            dribbble: ''
+            // Degraded profile defaults
+            social_links: {},
+            portfolio_data: {},
+            projects: [],
+            certifications: [],
+            import_sources: {},
+            profile_completion_pct: 0
           }),
           degraded: true,
         });
@@ -922,19 +914,12 @@ router.get("/profile", authenticateToken, async (req, res) => {
           subscription_tier: 'free',
           experience_level: 'beginner',
           role: req.user.role || 'user',
-          
-          // New profile fields for degraded response
-          phone: '',
-          location: '',
-          website: '',
-          company: '',
-          years_of_experience: '',
-          specialization: '',
-          social_links: '{}',
-          twitter: '',
-          linkedin: '',
-          portfolio: '',
-          dribbble: ''
+          social_links: {},
+          portfolio_data: {},
+          projects: [],
+          certifications: [],
+          import_sources: {},
+          profile_completion_pct: 0
         }),
         degraded: true,
       });

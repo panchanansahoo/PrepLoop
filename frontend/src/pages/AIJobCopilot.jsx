@@ -129,7 +129,7 @@ export default function AIJobCopilot() {
 
       setAiResponse(payload.response);
     } catch (requestError) {
-      setChatError(requestError.message || 'Failed to get AI response.');
+      setChatError(requestError.message || 'AI assistant is temporarily unavailable. Please try again.');
     } finally {
       setAsking(false);
     }
@@ -165,7 +165,7 @@ export default function AIJobCopilot() {
 
       setAnalysis(payload);
     } catch (requestError) {
-      setError(requestError.message || 'Failed to analyze CV.');
+      setError(requestError.message || 'We couldn\'t analyze your CV right now. Please try again.');
     } finally {
       setAnalyzing(false);
     }

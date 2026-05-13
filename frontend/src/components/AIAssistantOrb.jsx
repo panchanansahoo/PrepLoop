@@ -268,7 +268,7 @@ export default function AIAssistantOrb() {
         setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
       }
     } catch (err) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.' }]);
+      setMessages(prev => [...prev, { role: 'assistant', content: 'We\'re having trouble reaching our services right now. Please check your connection and try again.' }]);
     } finally {
       setLoading(false);
     }
@@ -541,7 +541,7 @@ export default function AIAssistantOrb() {
         {/* The orb itself */}
         <div className="orb-sphere">
           {/* Canvas with animated gradient blobs */}
-          <canvas ref={canvasRef} className="orb-canvas" />
+          <canvas ref={canvasRef} className="orb-canvas" aria-hidden="true" />
 
           {/* Glass overlay for refraction effect */}
           <div className="orb-glass-overlay" />

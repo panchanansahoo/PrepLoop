@@ -36,7 +36,7 @@ export default function Settings() {
                 body: JSON.stringify(settings)
             });
             if (!res.ok) {
-                throw new Error('Failed to save settings');
+                throw new Error('Your settings couldn\'t be saved right now. Please try again.');
             }
             setSaved(true);
             setStatus('saved');

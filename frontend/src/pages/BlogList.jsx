@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, Clock, User, ArrowRight, Search, Tag, Share2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { API_URL } from '../utils/safeApiUrl';
 
 
 export default function BlogList() {
@@ -20,7 +21,7 @@ export default function BlogList() {
 
     const fetchBlogs = async () => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
+            const response = await fetch(`${API_URL}/api/blog`);
             if (response.ok) {
                 const data = await response.json();
                 setBlogs(data);

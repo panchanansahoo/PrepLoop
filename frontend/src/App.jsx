@@ -6,17 +6,19 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { CoinProvider } from './context/CoinContext';
 import AIAssistantOrb from './components/AIAssistantOrb';
+import GuestGateModal from './components/GuestGate';
 import LoadingScreen from './components/LoadingScreen';
 import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
 import AppFooter from './components/AppFooter';
 import { lazyWithRecovery } from './utils/lazyWithRecovery';
+import './styles/guest-gate.css';
 
 const Home = lazyWithRecovery(() => import('./pages/Home'));
 const Login = lazyWithRecovery(() => import('./pages/Login'));
 const Signup = lazyWithRecovery(() => import('./pages/Signup'));
 const Overview = lazyWithRecovery(() => import('./pages/Overview'));
 const Dashboard = lazyWithRecovery(() => import('./pages/Dashboard'));
-const DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
+// DSAPatterns page is not yet routed — import removed until a route is defined
 const PatternDetail = lazyWithRecovery(() => import('./pages/PatternDetail'));
 const ProblemSolver = lazyWithRecovery(() => import('./pages/ProblemSolver'));
 const LanguageRoadmap = lazyWithRecovery(() => import('./pages/LanguageRoadmap'));
@@ -67,7 +69,6 @@ const HRTopicLearning = lazyWithRecovery(() => import('./pages/HRTopicLearning')
 const SystemDesignPath = lazyWithRecovery(() => import('./pages/SystemDesignPath'));
 const SystemDesignTopicLearning = lazyWithRecovery(() => import('./pages/SystemDesignTopicLearning'));
 const SystemDesignSimulator = lazyWithRecovery(() => import('./pages/SystemDesignSimulator'));
-const AITutorHub = lazyWithRecovery(() => import('./pages/AITutorHub'));
 const CompanyPrep = lazyWithRecovery(() => import('./pages/CompanyPrep'));
 
 const MultiRoundInterview = lazyWithRecovery(() => import('./pages/MultiRoundInterview'));
@@ -89,6 +90,7 @@ const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest')
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
 const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
 const RealInterview = lazyWithRecovery(() => import('./pages/RealInterview'));
+const PublicPortfolioPage = lazyWithRecovery(() => import('./pages/PublicPortfolioPage'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
@@ -100,6 +102,14 @@ function AdminRoute({ children }) {
   const { user, isAdmin } = useAuth();
   if (!user) return <Navigate to="/login" />;
   if (!isAdmin) return <Navigate to="/dashboard" />;
+  return children;
+}
+
+function HRRoute({ children }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/hr/login" />;
+  // Allow admin to access HR pages too; HR users have role='hr'
+  if (user.role !== 'hr' && user.role !== 'admin') return <Navigate to="/hr/login" />;
   return children;
 }
 
@@ -192,27 +202,31 @@ function AppContent() {
     };
   }, [mobileSidebarOpen]);
 
-  // Public pages that don't show sidebar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates'];
+  // Pages where sidebar should be hidden (landing, auth, static info pages)
+  const noSidebarPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/payment', '/forgot-password', '/reset-password', '/copilot'];
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
-  const isCopilotRoute = location.pathname === '/copilot';
+
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
-  const isPublicPage = publicPaths.includes(location.pathname);
-  const showSidebar = user && !isPublicPage;
+  const isNoSidebarPage = noSidebarPaths.includes(location.pathname)
+    || location.pathname.startsWith('/blog/')
+    || location.pathname.startsWith('/u/');
+  // Show sidebar for ALL users (including guests) on app pages
+  const showSidebar = !isNoSidebarPage;
   const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
 
   return (
     <div className="app-layout">
       <AIAssistantOrb />
+      <GuestGateModal />
       {showSidebar && !isFullScreenRoute && (
         <Sidebar
           collapsed={sidebarCollapsed}
@@ -238,30 +252,19 @@ function AppContent() {
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/community" element={<PrivateRoute><CommunityHub /></PrivateRoute>} />
-            <Route
-              path="/dashboard"
-              element={<PrivateRoute><Dashboard /></PrivateRoute>}
-            />
-            <Route
-              path="/overview"
-              element={<PrivateRoute><Overview /></PrivateRoute>}
-            />
+
+            {/* ── Browseable by guests (gate interactions inside page) ── */}
+            <Route path="/community" element={<CommunityHub />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/overview" element={<Overview />} />
             <Route path="/roadmap/language" element={<LanguageRoadmap />} />
             <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
             <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
             <Route path="/patterns/:id" element={<PatternDetail />} />
-            <Route
-              path="/problems/:id"
-              element={<PrivateRoute><ProblemSolver /></PrivateRoute>}
-            />
-            <Route
-              path="/problem/:id"
-              element={<ProblemRedirect />}
-            />
-
+            <Route path="/problems/:id" element={<ProblemSolver />} />
+            <Route path="/problem/:id" element={<ProblemRedirect />} />
             <Route path="/problems" element={<ProblemExplorer />} />
-            <Route path="/quiz-arena" element={<PrivateRoute><QuizArena /></PrivateRoute>} />
+            <Route path="/quiz-arena" element={<QuizArena />} />
             <Route path="/code-editor/:problemId" element={<DSACodeEditor />} />
             <Route path="/sql-problems" element={<SQLProblemExplorer />} />
             <Route path="/sql-editor/:problemId" element={<SQLCodeEditor />} />
@@ -269,8 +272,8 @@ function AppContent() {
             <Route path="/aptitude" element={<AptitudeHub />} />
             <Route path="/aptitude/practice/:category" element={<AptitudePractice />} />
             <Route path="/aptitude/results" element={<AptitudeResults />} />
-            <Route path="/exam-hub" element={<PrivateRoute><ExamHub /></PrivateRoute>} />
-            <Route path="/exam-practice/:examId" element={<PrivateRoute><ExamPractice /></PrivateRoute>} />
+            <Route path="/exam-hub" element={<ExamHub />} />
+            <Route path="/exam-practice/:examId" element={<ExamPractice />} />
             <Route path="/learning-path" element={<LearningPath />} />
             <Route path="/advanced-learning-path" element={<AdvancedLearningPathPage />} />
             <Route path="/learning-path/:topicId" element={<TopicLearning />} />
@@ -283,35 +286,34 @@ function AppContent() {
             <Route path="/system-design" element={<SystemDesignPath />} />
             <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
             <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
-            <Route path="/ai-tutor" element={<AITutorHub />} />
             <Route path="/company-prep" element={<CompanyPrep />} />
-            <Route path="/company-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
-            <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
+            <Route path="/company-interview" element={<AIInterviewPage />} />
+            <Route path="/ai-interview" element={<AIInterviewPage />} />
             <Route path="/voice-test" element={<SimpleVoiceTest />} />
             <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
             <Route path="/interview" element={<Navigate to="/interview-suite" replace />} />
             <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
             <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
-            <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
-            <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
-            <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
-            <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
-            <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
-            <Route path="/improvement-plan" element={<PrivateRoute><ImprovementPlanPage /></PrivateRoute>} />
-
+            <Route path="/interview-suite" element={<InterviewSuite />} />
+            <Route path="/multi-round-interview" element={<MultiRoundInterview />} />
+            <Route path="/interview-platform" element={<InterviewPlatform />} />
+            <Route path="/interview-analytics" element={<InterviewAnalytics />} />
+            <Route path="/interview-history" element={<InterviewHistory />} />
+            <Route path="/improvement-plan" element={<ImprovementPlanPage />} />
             <Route path="/playground" element={<CodingPlayground />} />
-            <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
-            <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
-            <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
-            <Route path="/daily-challenges" element={<PrivateRoute><DailyChallengesPage /></PrivateRoute>} />
-            <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
-            <Route path="/real-interview" element={<PrivateRoute><RealInterview /></PrivateRoute>} />
+            <Route path="/live-coding" element={<CodingPlayground />} />
+            <Route path="/debugging-interview" element={<DebuggingInterview />} />
+            <Route path="/code-review-interview" element={<CodeReviewInterview />} />
+            <Route path="/daily-challenges" element={<DailyChallengesPage />} />
+            <Route path="/job-updates" element={<JobUpdates />} />
+            <Route path="/real-interview" element={<RealInterview />} />
+            <Route path="/resume-analyzer" element={<ResumeAnalyzer />} />
+            <Route path="/u/:slug" element={<PublicPortfolioPage />} />
 
+            {/* ── Public informational pages ── */}
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
             <Route path="/library" element={<Library />} />
             <Route path="/blog" element={<BlogList />} />
-            <Route path="/blog/new" element={<PrivateRoute><CreateBlog /></PrivateRoute>} />
             <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
@@ -320,17 +322,21 @@ function AppContent() {
             <Route path="/copilot" element={<AIJobCopilot />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<CheckEmail />} />
+
+            {/* ── Strictly private (personal account data) ── */}
+            <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
+            <Route path="/blog/new" element={<PrivateRoute><CreateBlog /></PrivateRoute>} />
             <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
             <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
             <Route path="/wallet" element={<PrivateRoute><CoinWallet /></PrivateRoute>} />
-            <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
             <Route path="/dashboard/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
             <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
-
             <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
+
+            {/* ── Admin & HR (role-gated) ── */}
             <Route path="/hr/login" element={<HRLogin />} />
-            <Route path="/hr/dashboard" element={<HRDashboard />} />
+            <Route path="/hr/dashboard" element={<HRRoute><HRDashboard /></HRRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />

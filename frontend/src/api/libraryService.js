@@ -1,16 +1,6 @@
-import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
+import { buildApiUrl, normalizeRelativePath, API_URL } from '../utils/safeApiUrl';
 
-function resolveApiBaseUrl() {
-	const rawBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').trim();
-	if (!rawBaseUrl) return 'http://localhost:5000/api';
-
-	// Support both forms: http://host:port and http://host:port/api
-	if (rawBaseUrl.endsWith('/api')) return rawBaseUrl;
-	if (rawBaseUrl.endsWith('/api/')) return rawBaseUrl.slice(0, -1);
-	return `${rawBaseUrl.replace(/\/$/, '')}/api`;
-}
-
-const API_BASE_URL = resolveApiBaseUrl();
+const API_BASE_URL = API_URL;
 
 function buildLibraryApiUrl(endpoint) {
 	const safeEndpoint = normalizeRelativePath(endpoint);

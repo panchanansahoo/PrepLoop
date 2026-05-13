@@ -42,7 +42,7 @@ export default function InterviewReplay() {
           headers: buildAuthHeaders(),
         });
         if (!response.ok) {
-          throw new Error('Failed to download interview');
+          throw new Error('Your interview recording couldn\'t be downloaded. Please try again.');
         }
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);

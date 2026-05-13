@@ -51,7 +51,7 @@ function AnimatedGauge({ value, size = 140, strokeWidth = 10, color = 'var(--acc
         ctx.fillText('READY', cx, cy + size * 0.14);
     }, [value, size, strokeWidth, color, isLight]);
 
-    return <canvas ref={canvasRef} style={{ animation: 'bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }} />;
+    return <canvas ref={canvasRef} aria-hidden="true" style={{ animation: 'bounceIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }} />;
 }
 
 export default function ReadinessScore({ data, company = null, compact = false }) {

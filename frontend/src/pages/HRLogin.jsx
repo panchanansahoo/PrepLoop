@@ -41,7 +41,7 @@ export default function HRLogin() {
       localStorage.setItem('hr_user', JSON.stringify(data.user));
       navigate('/hr/dashboard');
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError('We\'re having trouble connecting right now. Please check your internet connection and try again.');
     } finally {
       setLoading(false);
     }

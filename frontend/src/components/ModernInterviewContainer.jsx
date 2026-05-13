@@ -58,7 +58,7 @@ export default function ModernInterviewContainer() {
       }
     } catch (error) {
       console.error('Error starting interview:', error);
-      alert('Failed to start interview');
+      alert('Your interview couldn\'t be started. Please try again.');
     }
   };
 

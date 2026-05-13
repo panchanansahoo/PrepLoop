@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useGuestGate } from '../components/GuestGate';
 import {
   Trophy,
   Clock,
@@ -18,7 +19,7 @@ import { buildAuthHeaders } from '../utils/authHeaders';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import './QuizArena.css';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
+import { API_URL as rawApiUrl } from '../utils/safeApiUrl';
 const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
 
 function buildQuizApiUrl(path) {
@@ -215,6 +216,7 @@ function MedalForRank({ rank }) {
 
 export default function QuizArena() {
   const { theme } = useTheme();
+  const { requireAuth } = useGuestGate();
   const isLight = theme === 'light';
   const m = isLight ? 'light' : 'dark';
   const advanceTimeoutRef = useRef(null);
@@ -304,6 +306,7 @@ export default function QuizArena() {
   }, [topic]);
 
   const handleStart = () => {
+    if (!requireAuth('start the quiz')) return;
     if (advanceTimeoutRef.current) {
       clearTimeout(advanceTimeoutRef.current);
     }

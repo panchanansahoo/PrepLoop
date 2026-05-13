@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 // Fallback jobs for demo/offline mode
 const FALLBACK_JOBS = [
@@ -82,12 +82,12 @@ export default function SkillMatchJobs() {
         setJobs(jobsWithLogos.length > 0 ? jobsWithLogos : FALLBACK_JOBS);
         setLastUpdate(new Date());
       } else {
-        setError('Failed to load jobs');
+        setError('Job recommendations are temporarily unavailable. Please try again.');
         setJobs(FALLBACK_JOBS);
       }
     } catch (err) {
       console.error('Failed to fetch skill-matched jobs:', err);
-      setError('Unable to connect to server');
+      setError('We couldn\'t load job recommendations right now. Please check your connection and try again.');
       setJobs(FALLBACK_JOBS);
     }
     setLoading(false);

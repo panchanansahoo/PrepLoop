@@ -83,7 +83,7 @@ analytics.init({
   trackErrors: true,
 });
 
-console.log('✅ Monitoring and analytics initialized');
+if (import.meta.env.DEV) console.log('✅ Monitoring and analytics initialized');
 
 
 createRoot(document.getElementById('root')).render(

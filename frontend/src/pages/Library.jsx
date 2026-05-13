@@ -64,7 +64,7 @@ export default function Library() {
                 setTotalPages(data.pagination.totalPages);
             } catch (err) {
                 console.error('Error fetching books:', err);
-                setError('Failed to load books. Please try again.');
+                setError('Books are temporarily unavailable. Please refresh the page.');
             } finally {
                 setLoading(false);
             }
@@ -143,7 +143,7 @@ export default function Library() {
             setEditingBook(null);
         } catch (err) {
             console.error('Error updating book:', err);
-            setEditMessage({ type: 'error', text: err.message || 'Failed to update book.' });
+            setEditMessage({ type: 'error', text: err.message || 'This book couldn\'t be updated. Please try again.' });
         } finally {
             setEditSubmitting(false);
         }

@@ -796,12 +796,26 @@ router.post('/import-linkedin', authenticateToken, async (req, res) => {
         ? profileData.education.map(edu => 
             `${edu.degree || ''} from ${edu.school || ''}`
           ).join('; ')
-        : (profileData.education || '')
+        : (profileData.education || ''),
+      location: profileData.location || '',
+      company: profileData.company || '',
+      website: profileData.website || '',
+      phone: profileData.phone || ''
     };
+
+    // Build field mapping for Import Center UI
+    const fieldMapping = {};
+    Object.entries(extractedData).forEach(([key, value]) => {
+      if (String(value).trim().length > 0) {
+        fieldMapping[key] = { value, confidence: 'high', source: 'linkedin' };
+      }
+    });
 
     res.json({
       success: true,
       profileData: extractedData,
+      fieldMapping,
+      source: 'linkedin',
       message: 'LinkedIn data extracted successfully'
     });
   } catch (error) {
@@ -810,4 +824,180 @@ router.post('/import-linkedin', authenticateToken, async (req, res) => {
   }
 });
 
+// ── GitHub Enhanced Import: profile + repos → portfolio data ──
+router.post('/import-github', authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || typeof username !== 'string' || username.trim().length < 1) {
+      return res.status(400).json({ error: 'GitHub username is required' });
+    }
+
+    const ghUsername = username.trim();
+    const headers = { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'PrepLoop/1.0' };
+
+    // Fetch profile + repos in parallel
+    let profileData = {};
+    let repos = [];
+
+    try {
+      const [profileRes, reposRes] = await Promise.all([
+        fetch(`https://api.github.com/users/${encodeURIComponent(ghUsername)}`, { headers }),
+        fetch(`https://api.github.com/users/${encodeURIComponent(ghUsername)}/repos?sort=stars&per_page=6&type=owner`, { headers })
+      ]);
+
+      if (profileRes.ok) profileData = await profileRes.json();
+      else throw new Error(`GitHub profile not found (${profileRes.status})`);
+
+      if (reposRes.ok) repos = await reposRes.json();
+    } catch (ghErr) {
+      console.error('GitHub API error:', ghErr.message);
+      return res.status(404).json({ error: `GitHub user "${ghUsername}" not found or API unavailable` });
+    }
+
+    // Normalize profile data
+    const extractedProfile = {
+      fullName: profileData.name || '',
+      bio: profileData.bio || '',
+      company: (profileData.company || '').replace(/^@/, ''),
+      location: profileData.location || '',
+      website: profileData.blog ? (profileData.blog.startsWith('http') ? profileData.blog : `https://${profileData.blog}`) : '',
+      githubUsername: ghUsername,
+    };
+
+    // Extract social links
+    const socialLinks = {};
+    if (profileData.twitter_username) {
+      socialLinks.twitter = `https://twitter.com/${profileData.twitter_username}`;
+    }
+    if (profileData.html_url) {
+      socialLinks.portfolio = profileData.html_url;
+    }
+
+    // Normalize repos into project objects
+    const projects = (Array.isArray(repos) ? repos : [])
+      .filter(r => !r.fork && r.name)
+      .slice(0, 6)
+      .map(r => ({
+        name: r.name,
+        description: r.description || '',
+        technologies: [r.language].filter(Boolean),
+        link: r.html_url || '',
+        source: 'github',
+        stars: r.stargazers_count || 0,
+        language: r.language || ''
+      }));
+
+    // Extract unique languages as skills
+    const languages = [...new Set(
+      repos
+        .filter(r => r.language)
+        .map(r => r.language)
+    )].slice(0, 12);
+
+    // Build field mapping for Import Center UI
+    const fieldMapping = {};
+    Object.entries(extractedProfile).forEach(([key, value]) => {
+      if (String(value).trim().length > 0) {
+        fieldMapping[key] = { value, confidence: 'high', source: 'github' };
+      }
+    });
+    if (languages.length > 0) {
+      fieldMapping.skills = { value: languages.join(', '), confidence: 'medium', source: 'github' };
+    }
+    if (projects.length > 0) {
+      fieldMapping.projects = { value: projects, confidence: 'high', source: 'github' };
+    }
+
+    res.json({
+      success: true,
+      profileData: extractedProfile,
+      projects,
+      languages,
+      socialLinks,
+      fieldMapping,
+      source: 'github',
+      avatarUrl: profileData.avatar_url || '',
+      publicRepos: profileData.public_repos || 0,
+      followers: profileData.followers || 0,
+    });
+  } catch (error) {
+    console.error('GitHub import error:', error);
+    res.status(500).json({ error: 'Failed to import GitHub data' });
+  }
+});
+
+// ── Portfolio Extraction: re-process latest resume for structured portfolio fields ──
+router.post('/extract-portfolio', authenticateToken, async (req, res) => {
+  try {
+    // Fetch latest analysis
+    const { data: latest, error } = await supabaseAdmin
+      .from('resume_analyses')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .order('analyzed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!latest) {
+      return res.status(404).json({ error: 'No resume analysis found. Upload a resume first.' });
+    }
+
+    const resumeText = latest.resume_text || '';
+    const keywordMatch = latest.keyword_match || {};
+
+    // Build structured portfolio fields from existing data
+    const coreSkills = [
+      ...(Array.isArray(keywordMatch.technical) ? keywordMatch.technical : []),
+      ...(Array.isArray(keywordMatch.soft) ? keywordMatch.soft : [])
+    ].filter(Boolean).slice(0, 15);
+
+    const projectHighlights = extractProjects(resumeText);
+    const headline = extractHeadline(resumeText);
+    const summary = extractSummary(resumeText);
+
+    const extractedProfile = {
+      currentRole: headline,
+      skills: coreSkills.join(', '),
+      bio: summary,
+      experience: extractExperienceAreas(resumeText).join('; '),
+    };
+
+    // Build field mapping
+    const fieldMapping = {};
+    Object.entries(extractedProfile).forEach(([key, value]) => {
+      if (String(value).trim().length > 0) {
+        fieldMapping[key] = {
+          value,
+          confidence: value.length > 20 ? 'high' : 'medium',
+          source: 'resume'
+        };
+      }
+    });
+
+    if (projectHighlights.length > 0) {
+      const projects = projectHighlights.map(p => ({
+        name: p.split(/[:.–-]/)[0]?.trim().substring(0, 60) || 'Project',
+        description: p,
+        technologies: [],
+        link: '',
+        source: 'resume'
+      }));
+      fieldMapping.projects = { value: projects, confidence: 'medium', source: 'resume' };
+    }
+
+    res.json({
+      success: true,
+      profileData: extractedProfile,
+      fieldMapping,
+      source: 'resume',
+      atsScore: latest.ats_score || 0,
+    });
+  } catch (error) {
+    console.error('Portfolio extraction error:', error);
+    res.status(500).json({ error: 'Failed to extract portfolio data' });
+  }
+});
+
 export default router;
+

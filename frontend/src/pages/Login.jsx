@@ -365,7 +365,7 @@ export default function Login() {
     } catch (err) {
       console.error("Login error:", err);
       if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
-        setError('Unable to connect to the server. Please ensure the backend is running.');
+        setError('We\'re having trouble connecting right now. Please check your internet connection and try again.');
       } else if (err.response?.status === 403 && err.response?.data?.email) {
         navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
       } else {
@@ -382,7 +382,7 @@ export default function Login() {
       await loginFn();
     } catch (err) {
       console.error(`${provider} login failed:`, err);
-      setError(err.message || `Failed to sign in with ${provider}`);
+      setError(err.message || `We couldn't connect to ${provider}. Please try again.`);
     }
   };
 

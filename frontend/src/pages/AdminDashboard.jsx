@@ -63,7 +63,7 @@ export default function AdminDashboard() {
       const res = await axios.get('/api/admin/stats');
       setStats(res.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load stats');
+      setError(err.response?.data?.error || 'Dashboard statistics are temporarily unavailable.');
     } finally {
       setLoading(false);
     }
@@ -85,7 +85,7 @@ export default function AdminDashboard() {
       setUsers(res.data.users);
       setUserTotal(res.data.total);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load users');
+      setError(err.response?.data?.error || 'User list couldn\'t be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
       setContent(res.data.items);
       setContentTotal(res.data.total);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load content');
+      setError(err.response?.data?.error || 'Content couldn\'t be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -119,7 +119,7 @@ export default function AdminDashboard() {
       setJobs(res.data.jobs || []);
       setJobTotal(res.data.total || 0);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load jobs');
+      setError(err.response?.data?.error || 'Job listings couldn\'t be loaded. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
       setSuccess(`Role updated to ${newRole}`);
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update role');
+      setError(err.response?.data?.error || 'Role update couldn\'t be applied. Please try again.');
     }
   };
 
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
       setSuccess('User deleted');
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete user');
+      setError(err.response?.data?.error || 'This user couldn\'t be removed. Please try again.');
     }
   };
 
@@ -164,7 +164,7 @@ export default function AdminDashboard() {
       setSuccess('Content deleted');
       fetchContent();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete content');
+      setError(err.response?.data?.error || 'This content couldn\'t be removed. Please try again.');
     }
   };
 
@@ -216,7 +216,7 @@ export default function AdminDashboard() {
       resetJobForm();
       fetchJobs();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save job');
+      setError(err.response?.data?.error || 'Job couldn\'t be saved. Please check your details and try again.');
     }
   };
 
@@ -227,7 +227,7 @@ export default function AdminDashboard() {
       setSuccess('Job status toggled');
       fetchJobs();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to toggle job');
+      setError(err.response?.data?.error || 'Job status couldn\'t be updated. Please try again.');
     }
   };
 
@@ -239,7 +239,7 @@ export default function AdminDashboard() {
       setSuccess('Job deleted');
       fetchJobs();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete job');
+      setError(err.response?.data?.error || 'This job couldn\'t be removed. Please try again.');
     }
   };
 

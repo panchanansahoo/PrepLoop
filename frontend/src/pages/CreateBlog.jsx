@@ -10,7 +10,7 @@ import { buildAuthHeaders } from '../utils/authHeaders';
 // Use 'TiptapEditor' for the full Notion-style experience (requires dependencies to be fixed).
 import NotionEditor from '../components/editor/NotionEditor';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 export default function CreateBlog() {
   const [title, setTitle] = useState('');
@@ -67,7 +67,7 @@ export default function CreateBlog() {
       }
     } catch (error) {
       console.error(error);
-      alert("Failed to publish");
+      alert("Your post couldn't be published. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -97,7 +97,7 @@ export default function CreateBlog() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Server error: ${res.status}`);
+        throw new Error(errData.error || 'Something went wrong while processing your file. Please try again.');
       }
 
       const data = await res.json();
@@ -155,7 +155,7 @@ export default function CreateBlog() {
 
     } catch (error) {
       console.error('PDF Import Error:', error);
-      alert(`Failed to import PDF: ${error.message}`);
+      alert(`We couldn't import the PDF. Please check the file and try again.`);
     } finally {
       setAiLoading(false);
       e.target.value = null;
@@ -183,7 +183,7 @@ export default function CreateBlog() {
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Server error: ${res.status}`);
+        throw new Error(errData.error || 'Something went wrong while importing your content. Please try again.');
       }
 
       const data = await res.json();
@@ -228,7 +228,7 @@ export default function CreateBlog() {
 
     } catch (error) {
       console.error('EML Import Error:', error);
-      alert(`Failed to import EML: ${error.message}`);
+      alert(`We couldn't import the email file. Please check the file and try again.`);
     } finally {
       setAiLoading(false);
       e.target.value = null;

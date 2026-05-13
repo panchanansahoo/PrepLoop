@@ -11,7 +11,7 @@ import {
 import { buildAuthHeaders } from '../utils/authHeaders';
 import '../styles/JobUpdates.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 const CATEGORIES = [
   { id: 'all', label: 'All Jobs', icon: Briefcase },
@@ -129,7 +129,7 @@ export default function JobUpdates() {
       const headers = buildAuthHeaders(user);
 
       const response = await fetch(`${API_URL}/api/jobs?${params}`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch jobs');
+      if (!response.ok) throw new Error('Job listings are temporarily unavailable. Please try again shortly.');
 
       const data = await response.json();
       setJobs(data.jobs || []);

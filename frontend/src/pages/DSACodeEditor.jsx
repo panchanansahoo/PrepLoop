@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useGuestGate } from '../components/GuestGate';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { ArrowLeft, Lightbulb, X, GripVertical } from 'lucide-react';
@@ -14,7 +15,7 @@ import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../d
 import { markProblemAsAttempted } from '../data/dsaLearningProgress';
 import { buildAuthHeaders } from '../utils/authHeaders';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 const getAuthHeaders = () => buildAuthHeaders();
 
@@ -71,6 +72,7 @@ function formatTime(seconds) {
 export default function DSACodeEditor() {
   const { problemId } = useParams();
   const navigate = useNavigate();
+  const { requireAuth } = useGuestGate();
   const editorRef = useRef(null);
   const testCaseRef = useRef(null);
 
@@ -419,6 +421,7 @@ export default function DSACodeEditor() {
 
   // ─── Run code ───
   const handleRun = useCallback(async () => {
+    if (!requireAuth('run your code')) return;
     setRunning(true);
     setOutput(null);
     setFeedback(null);
@@ -474,7 +477,7 @@ export default function DSACodeEditor() {
       setOutput({
         success: false,
         output: '',
-        message: `Network error: ${err.message}`,
+        message: 'Something went wrong while running your code. Please check your connection and try again.',
       });
     } finally {
       setRunning(false);
@@ -483,6 +486,7 @@ export default function DSACodeEditor() {
 
   // ─── Submit code ───
   const handleSubmit = useCallback(async () => {
+    if (!requireAuth('submit your solution')) return;
     setRunning(true);
     setOutput(null);
     setFeedback(null);
@@ -534,7 +538,7 @@ export default function DSACodeEditor() {
       setOutput({
         success: false,
         output: '',
-        message: `Network error: ${err.message}`,
+        message: 'Something went wrong while submitting your solution. Please check your connection and try again.',
       });
     } finally {
       setRunning(false);

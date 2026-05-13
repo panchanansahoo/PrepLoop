@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, MessageSquare, MapPin, Send, Linkedin, Github, Twitter, Loader } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { API_URL } from '../utils/safeApiUrl';
 
 
 export default function Contact() {
@@ -26,7 +27,7 @@ export default function Contact() {
         e.preventDefault();
         setSending(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contact`, {
+            const response = await fetch(`${API_URL}/api/contact`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -38,11 +39,11 @@ export default function Contact() {
                 setSubmitted(true);
                 setFormData({ name: '', email: '', subject: '', message: '' });
             } else {
-                alert("Failed to send message. Please try again.");
+                alert("Your message couldn't be sent. Please try again.");
             }
         } catch (error) {
             console.error(error);
-            alert("Error sending message.");
+            alert("We're having trouble sending your message. Please check your connection.");
         } finally {
             setSending(false);
         }

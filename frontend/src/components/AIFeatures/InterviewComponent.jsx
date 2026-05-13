@@ -176,7 +176,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
       setInterviewStart(new Date());
       setStep('in-progress');
     } catch (err) {
-      setError(err.message || 'Failed to start interview');
+      setError(err.message || 'Your interview couldn\'t be started. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -230,7 +230,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         setRuntimeConfig(result.runtime);
       }
     } catch (err) {
-      setError(err.message || 'Failed to submit response');
+      setError(err.message || 'Your response couldn\'t be submitted. Please try again.');
       // Remove the user message on error
       setMessages((prev) => prev.slice(0, -1));
       setCurrentResponse(userMessage.content);
@@ -261,7 +261,7 @@ const InterviewComponent = ({ userId: _userId, onInterviewCompleted }) => {
         }
       ]);
     } catch (err) {
-      setError(err.message || 'Failed to complete interview');
+      setError(err.message || 'The interview couldn\'t be completed. Please try again.');
     } finally {
       setLoading(false);
     }

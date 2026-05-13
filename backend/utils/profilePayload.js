@@ -155,6 +155,93 @@ const normalizeProfileUpdatePayload = (body = {}) => {
     if (d !== '') updates.dribbble = d;
   }
 
+  // Portfolio-specific fields
+  if (body.projects !== undefined) {
+    try {
+      const parsed = typeof body.projects === 'string' ? JSON.parse(body.projects) : body.projects;
+      if (Array.isArray(parsed)) {
+        updates.projects = parsed.slice(0, 20).map(p => ({
+          name: String(p.name || '').trim().substring(0, 100),
+          description: String(p.description || '').trim().substring(0, 500),
+          technologies: Array.isArray(p.technologies) ? p.technologies.slice(0, 10) : [],
+          link: String(p.link || p.url || p.html_url || '').trim().substring(0, 200),
+          source: String(p.source || 'manual').trim(),
+          stars: typeof p.stars === 'number' ? p.stars : undefined,
+          language: String(p.language || '').trim()
+        }));
+      }
+    } catch (e) {
+      console.error('Invalid projects format:', e);
+    }
+  }
+
+  if (body.certifications !== undefined) {
+    try {
+      const parsed = typeof body.certifications === 'string' ? JSON.parse(body.certifications) : body.certifications;
+      if (Array.isArray(parsed)) {
+        updates.certifications = parsed.slice(0, 20).map(c =>
+          typeof c === 'string' ? c.trim().substring(0, 200) : {
+            name: String(c.name || '').trim().substring(0, 200),
+            issuer: String(c.issuer || '').trim().substring(0, 100),
+            date: String(c.date || '').trim().substring(0, 50)
+          }
+        );
+      }
+    } catch (e) {
+      console.error('Invalid certifications format:', e);
+    }
+  }
+
+  if (body.portfolio_data !== undefined || body.portfolioData !== undefined) {
+    try {
+      const raw = body.portfolio_data || body.portfolioData;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (typeof parsed === 'object' && parsed !== null) {
+        updates.portfolio_data = {
+          headline: String(parsed.headline || '').trim().substring(0, 200),
+          highlights: Array.isArray(parsed.highlights) ? parsed.highlights.slice(0, 10) : [],
+          resumeAtsScore: typeof parsed.resumeAtsScore === 'number' ? parsed.resumeAtsScore : undefined,
+          lastImportSource: String(parsed.lastImportSource || '').trim(),
+          lastImportAt: parsed.lastImportAt || null,
+          themePreference: String(parsed.themePreference || 'default').trim()
+        };
+      }
+    } catch (e) {
+      console.error('Invalid portfolio_data format:', e);
+    }
+  }
+
+  if (body.import_sources !== undefined || body.importSources !== undefined) {
+    try {
+      const raw = body.import_sources || body.importSources;
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (typeof parsed === 'object' && parsed !== null) {
+        updates.import_sources = parsed;
+      }
+    } catch (e) {
+      console.error('Invalid import_sources format:', e);
+    }
+  }
+
+  // Calculate profile completion percentage
+  const completionFields = [
+    updates.full_name || body.fullName || body.full_name,
+    updates.bio || body.bio,
+    updates.designation || body.currentRole || body.designation,
+    updates.company || body.company,
+    updates.location || body.location,
+    updates.skills || body.skills,
+    updates.education || body.education,
+    updates.phone || body.phone,
+    updates.website || body.website,
+    updates.experience_summary || body.experience || body.experienceSummary,
+  ];
+  const filledCount = completionFields.filter(v => String(v || '').trim().length > 0).length;
+  const pct = Math.round((filledCount / completionFields.length) * 100);
+  if (pct > 0) {
+    updates.profile_completion_pct = pct;
+  }
+
   return updates;
 };
 

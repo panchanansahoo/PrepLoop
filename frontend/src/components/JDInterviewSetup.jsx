@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import './JDInterviewSetup.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClose }) {
     const [jdText, setJdText] = useState('');
@@ -27,14 +27,14 @@ export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClos
                 headers: getAuthHeaders(),
                 body: JSON.stringify({ jobDescription: jdText })
             });
-            if (!res.ok) throw new Error('Failed to parse JD');
+            if (!res.ok) throw new Error('We couldn\'t process this job description. Please try again.');
             const data = await res.json();
             setParsedData(data);
             if (data.parsed?.rounds?.length > 0) {
                 setSelectedRound(data.parsed.rounds[0]);
             }
         } catch (err) {
-            setError('Failed to analyze the job description. Please try again.');
+            setError('We couldn\'t analyze the job description. Please check and try again.');
         }
         setLoading(false);
     };

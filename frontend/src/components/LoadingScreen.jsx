@@ -173,7 +173,7 @@ const LoadingScreen = ({ onFinished, minimumDuration = 2800 }) => {
 
   return (
     <div className={`loading-screen ${phase}`}>
-      <canvas ref={canvasRef} className="loading-particles" />
+      <canvas ref={canvasRef} className="loading-particles" aria-hidden="true" />
 
       {/* Ambient glow effects */}
       <div className="loading-ambient">

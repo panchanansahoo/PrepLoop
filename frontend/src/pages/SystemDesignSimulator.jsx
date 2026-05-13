@@ -42,8 +42,9 @@ function getIcon(componentId, size = 18) {
 }
 import { SD_PROBLEMS, SD_COMPONENT_CATEGORIES, ALL_COMPONENTS } from '../data/systemDesignProblems';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { API_URL } from '../utils/safeApiUrl';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API = API_URL.endsWith('/api') ? API_URL : `${API_URL}/api`;
 const GRID_SIZE = 20;
 const PROTOCOLS = ['HTTP/REST', 'gRPC', 'WebSocket', 'TCP', 'AMQP', 'Kafka', 'Redis', 'SQL'];
 const DIFF_COLORS = {

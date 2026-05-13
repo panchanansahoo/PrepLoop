@@ -206,7 +206,7 @@ export default function SkillRadar({ data }) {
                     background: isLight ? 'rgba(99, 102, 241, 0.1)' : 'rgba(168, 85, 247, 0.15)',
                     filter: 'blur(40px)', zIndex: 0
                 }} />
-                <canvas ref={canvasRef} style={{ position: 'relative', zIndex: 1 }} />
+                <canvas ref={canvasRef} aria-hidden="true" style={{ position: 'relative', zIndex: 1 }} />
             </div>
 
             {/* Footer action */}

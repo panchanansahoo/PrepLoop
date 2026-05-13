@@ -17,7 +17,7 @@ export default function BottomNav() {
     const getActiveTab = () => {
         const path = location.pathname;
         // Practice section
-        if (['/problems', '/code-editor', '/visualizer', '/sql-problems', '/aptitude', '/dsa-path', '/learning-path', '/advanced-learning-path', '/ai-tutor']
+        if (['/problems', '/code-editor', '/visualizer', '/sql-problems', '/aptitude', '/dsa-path', '/learning-path', '/advanced-learning-path']
             .some(p => path.startsWith(p))) return '/problems';
         // Interview section
         if (['/company-prep', '/company-interview']

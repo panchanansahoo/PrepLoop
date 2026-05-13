@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, BookOpen, Code, Users, Loader } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { API_URL } from '../utils/safeApiUrl';
 
 export default function InterviewStart({ onStartInterview }) {
   const [selectedType, setSelectedType] = useState('technical');
@@ -28,7 +29,6 @@ export default function InterviewStart({ onStartInterview }) {
     setError('');
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await fetch(`${API_URL}/api/interview/start`, {
         method: 'POST',
         headers: buildAuthHeaders(),
@@ -40,7 +40,7 @@ export default function InterviewStart({ onStartInterview }) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to start interview');
+        throw new Error('Your interview couldn\'t be started. Please try again.');
       }
 
       const data = await response.json();

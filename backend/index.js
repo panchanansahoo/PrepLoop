@@ -45,6 +45,7 @@ async function initializeServer() {
     const aiFeaturesRoutes = (await import('./routes/ai-features.js')).default;
     const userRoutes = (await import('./routes/user.js')).default;
     const resumeRoutes = (await import('./routes/resume.js')).default;
+    const portfolioRoutes = (await import('./routes/portfolio.js')).default;
     const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
     const communityRoutes = (await import('./routes/community.js')).default;
     const coachRoutes = (await import('./routes/coach.js')).default;
@@ -71,6 +72,10 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
+    const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
+    const feedbackRoutes = (await import('./routes/feedback.js')).default;
+    const monitoringRoutes = (await import('./routes/monitoring.js')).default;
+    const monitoringEnhancedRoutes = (await import('./routes/monitoring-enhanced.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -100,12 +105,11 @@ async function initializeServer() {
     });
 
     // Middleware setup
-    
-  // Advanced security middleware
 
+    // Advanced security middleware
     app.use(enhancedSecurity());
 
-  app.use(helmet({
+    app.use(helmet({
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
@@ -120,7 +124,7 @@ async function initializeServer() {
         preload: true,
       },
     }));
-    
+
     // Enable compression
     app.use(compression({
       filter: (req, res) => {
@@ -131,17 +135,17 @@ async function initializeServer() {
       },
       level: 6,
     }));
-    
+
     // CORS with secure configuration
     app.use(cors(corsOptions));
     app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
-    
+
     // Input sanitization (skip for webhooks)
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
-    
+
     // Rate limiting
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
@@ -150,8 +154,7 @@ async function initializeServer() {
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
-  app.use('/api', apiCacheMiddleware());
-
+    app.use('/api', apiCacheMiddleware());
 
     const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {
@@ -217,6 +220,7 @@ async function initializeServer() {
     app.use('/api/ai-features', aiFeaturesRoutes);
     app.use('/api/user', userRoutes);
     app.use('/api/resume', resumeRoutes);
+    app.use('/api/portfolio', portfolioRoutes);
     app.use('/api/system-design', systemDesignRoutes);
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
@@ -243,6 +247,17 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
+    app.use('/api/real-interview', realInterviewRoutes);
+    app.use('/api/feedback', feedbackRoutes);
+    app.use('/api/monitoring', monitoringRoutes);
+    app.use('/api/monitoring', monitoringEnhancedRoutes);
+
+    // Analytics event tracking — accepts client-side events from analytics.js
+    // Silently acknowledges and discards for now; wire up a real pipeline later.
+    app.post('/api/analytics/track', (req, res) => {
+      res.status(200).json({ received: true });
+    });
+
 
     // Error handler middleware
     app.use(errorHandler);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 export function useRealTimeJobs(query = 'software developer', options = {}) {
   const {
@@ -57,7 +57,7 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
       const ws = new WebSocket(`${wsUrl}/jobs`);
 
       ws.onopen = () => {
-        console.log('WebSocket connected for job updates');
+        if (import.meta.env.DEV) console.log('WebSocket connected for job updates');
         ws.send(JSON.stringify({ type: 'subscribe', query }));
       };
 
@@ -85,7 +85,7 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
+        if (import.meta.env.DEV) console.log('WebSocket disconnected');
         wsRef.current = null;
         // Fallback to polling
         startPolling();

@@ -246,7 +246,7 @@ class LRUCache:
     fixedCode: `async function fetchAllUsers(userIds) {
   const promises = userIds.map(async (id) => {
     const res = await fetch(\`/api/users/\${id}\`);
-    if (!res.ok) throw new Error(\`Failed to fetch user \${id}: \${res.status}\`);
+    if (!res.ok) throw new Error(\`User profile couldn't be loaded. Please try again.\`);
     return res.json();
   });
 

@@ -60,6 +60,23 @@ export function getProductionEnvValidationErrors() {
     errors.push('⚠️  FRONTEND_URL is not configured. CORS validation may be overly permissive.');
   }
 
+  // Safety check: warn if Razorpay live keys are used in non-production
+  if (!PRODUCTION_ENV && process.env.RAZORPAY_KEY_ID?.startsWith('rzp_live')) {
+    errors.push(
+      '⚠️  RAZORPAY_KEY_ID is a LIVE key (rzp_live_*) in a non-production environment. ' +
+      'This will process real payments! Use test keys (rzp_test_*) for development.'
+    );
+  }
+
+  // Production check: ensure CORS production URLs are configured
+  if (PRODUCTION_ENV && !process.env.PRODUCTION_FRONTEND_URL) {
+    errors.push(
+      '⚠️  PRODUCTION_FRONTEND_URL is not configured. ' +
+      'CORS will block requests from your production frontend. ' +
+      'Set PRODUCTION_FRONTEND_URL=https://www.preploop.me in your environment.'
+    );
+  }
+
   return errors;
 }
 

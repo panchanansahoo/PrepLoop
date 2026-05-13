@@ -1,6 +1,6 @@
 import express from 'express';
 import Groq from 'groq-sdk';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 
@@ -273,7 +273,7 @@ router.post('/explain', authenticateToken, async (req, res) => {
 });
 
 // ─── Playground AI Assistant ───
-router.post('/playground-assist', authenticateToken, async (req, res) => {
+router.post('/playground-assist', optionalAuth, async (req, res) => {
   const { code, language, mode, prompt, history } = req.body;
 
   if (!code && mode !== 'ask') {

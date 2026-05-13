@@ -4,6 +4,7 @@ import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark } from 'lucide-react
 import { useTheme } from '../context/ThemeContext';
 import DOMPurify from 'dompurify';
 import NotionViewer from '../components/editor/NotionViewer';
+import { API_URL } from '../utils/safeApiUrl';
 
 
 export default function BlogPost() {
@@ -25,7 +26,7 @@ export default function BlogPost() {
 
     const fetchBlog = async () => {
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog/${slug}`);
+            const response = await fetch(`${API_URL}/api/blog/${slug}`);
             if (response.ok) {
                 const data = await response.json();
                 setBlog(data);

@@ -38,7 +38,7 @@ export default function CodeReviewSubmission() {
       const result = await submitCodeReview(problemId, code, language);
       setReviewResult(result);
     } catch (err) {
-      setError(err.message || 'Failed to analyze code. Please try again.');
+      setError(err.message || 'Code analysis is temporarily unavailable. Please try again.');
     } finally {
       setLoading(false);
     }

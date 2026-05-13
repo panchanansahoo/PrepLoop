@@ -183,7 +183,7 @@ export default function AIAvatar({ speaking, pose = 'neutral', companyColor, com
     }, [speaking, pose, companyColor, companyLogo, size]);
 
     return (
-        <canvas
+        <canvas aria-hidden="true"
             ref={canvasRef}
             className="ti-avatar-canvas"
             style={{ width: size === 'large' ? 280 : 140, height: size === 'large' ? 280 : 140 }}

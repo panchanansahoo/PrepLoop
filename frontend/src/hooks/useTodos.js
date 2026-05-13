@@ -54,7 +54,7 @@ export default function useTodos() {
       } catch (err) {
         console.error('Failed to fetch todos:', err);
         if (!cancelled) {
-          setError('Failed to load todos');
+          setError('Your to-do list couldn\'t be loaded. Please try again.');
           // Fallback to localStorage
           setTodos(loadFromStorage());
           initialLoadDone.current = true;
@@ -99,7 +99,7 @@ export default function useTodos() {
       setTodos(prev => [...prev, newTodo]);
       return newTodo;
     } catch (err) {
-      console.error('Failed to add todo:', err);
+      console.error('Todo operation error:', err);
       // Optimistic fallback
       const newTodo = {
         id: Date.now(),

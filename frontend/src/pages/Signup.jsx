@@ -357,9 +357,9 @@ export default function Signup() {
     } catch (err) {
       console.error("Signup error:", err);
       if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {
-        setError('Unable to connect to the server. Please ensure the backend is running.');
+        setError('We\'re having trouble connecting. Please check your internet and try again.');
       } else {
-        setError(err.response?.data?.error || 'Signup failed. Please try again.');
+        setError(err.response?.data?.error || 'We couldn\'t create your account. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -371,7 +371,7 @@ export default function Signup() {
       setError('');
       await loginFn();
     } catch (err) {
-      setError(`Failed to sign in with ${provider}`);
+      setError(`We couldn't connect to ${provider}. Please try again.`);
       console.error(err);
     }
   };

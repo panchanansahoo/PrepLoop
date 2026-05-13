@@ -9,7 +9,7 @@ import {
 } from '../../data/testCaseEngine';
 import { buildAuthHeaders } from '../../utils/authHeaders';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../../utils/safeApiUrl';
 
 const getAuthHeaders = () => buildAuthHeaders();
 
@@ -235,7 +235,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
       const results = testCases.map(tc => ({
         ...tc,
         status: 'error',
-        actualOutput: `Network error: ${err.message}`,
+        actualOutput: 'Something went wrong while running tests. Please check your connection and try again.',
       }));
       setTestCases(results);
       setMode('result');
@@ -311,7 +311,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
           status: 'error',
           runtime: `${Date.now() - startTime}ms`,
           memory: '—',
-          actualOutput: `Error: ${err.message}`,
+          actualOutput: 'Something went wrong while running this test. Please try again.',
         });
       }
     }

@@ -19,8 +19,7 @@ import SkillMatchJobs from '../components/SkillMatchJobs';
 import TodoList from '../components/TodoList';
 import LearningStreakWidget from '../components/LearningStreakWidget';
 import AIJobCopilotWidget from '../components/AIJobCopilotWidget';
-import ImprovementPlanWidget from '../components/ImprovementPlanWidget';
-import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
+
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -83,7 +82,7 @@ const WIDGET_REGISTRY = [
     { id: 'weeklyStats', name: 'Weekly Stats', component: WeeklyStats, defaultVisible: true, premium: false, layout: 'full', description: 'Compare this week vs last week progress' },
     { id: 'learningStreak', name: 'Learning Streak', component: LearningStreakWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Daily streak and weekly persistence tracker' },
     { id: 'aiJobCopilot', name: 'AI Job Copilot', component: AIJobCopilotWidget, defaultVisible: true, premium: false, layout: '2col-left', description: 'Your personal AI career strategist interface' },
-    { id: 'improvementPlan', name: 'Improvement Plan', component: ImprovementPlanWidget, defaultVisible: true, premium: false, layout: '2col-right', description: 'Personalized AI interview improvement plan' },
+
 ];
 
 const STORAGE_KEY = 'preploop_dashboard_widgets';
@@ -283,7 +282,7 @@ export default function Dashboard() {
             <div className="dash-bg-gradient" />
             <div className="dash-bg-orb dash-bg-orb-1" />
             <div className="dash-bg-orb dash-bg-orb-2" />
-            <ImprovementPlanNotification />
+
 
             <div className="dash-container">
 

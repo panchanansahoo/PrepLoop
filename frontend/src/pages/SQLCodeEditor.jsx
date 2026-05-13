@@ -9,7 +9,7 @@ import SQLResultsPanel from '../components/sql/SQLResultsPanel';
 import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 const getAuthHeaders = () => buildAuthHeaders();
 
@@ -138,7 +138,7 @@ export default function SQLCodeEditor() {
     } catch (err) {
       setResults({
         columns: ['Error'],
-        rows: [[`Network error: ${err.message}`]],
+        rows: [['Something went wrong while running your query. Please check your connection and try again.']],
       });
       setStatus('error');
     } finally {

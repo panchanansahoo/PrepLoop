@@ -98,7 +98,7 @@ export function CoinProvider({ children }) {
 
       const data = await res.json();
       if (!res.ok) {
-        return { items: [], error: data?.error || 'Failed to load coin history' };
+        return { items: [], error: data?.error || 'Coin history couldn\'t be loaded right now.' };
       }
 
       const payload = Array.isArray(data)
@@ -109,7 +109,7 @@ export function CoinProvider({ children }) {
       return payload;
     } catch (err) {
       console.error('Failed to fetch coin history:', err);
-      return { items: [], error: err.message || 'Failed to load coin history' };
+      return { items: [], error: err.message || 'Coin history is temporarily unavailable.' };
     } finally {
       setHistoryLoading(false);
     }
@@ -155,7 +155,7 @@ export function CoinProvider({ children }) {
       return { success: true, ...data };
     } catch (err) {
       console.error('Failed to redeem coins:', err);
-      return { success: false, error: err.message || 'Failed to redeem coins' };
+      return { success: false, error: err.message || 'Coin redemption couldn\'t be completed. Please try again.' };
     } finally {
       setLoading(false);
     }

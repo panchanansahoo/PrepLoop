@@ -864,6 +864,7 @@ export default function CursorGlow() {
       <canvas
         ref={canvasRef}
         id="fluid"
+        aria-hidden="true"
         style={{
           width: '100vw',
           height: '100vh',

@@ -53,7 +53,7 @@ export default function useCalendarEvents() {
       } catch (err) {
         console.error('Failed to fetch calendar events:', err);
         if (!cancelled) {
-          setError('Failed to load events');
+          setError('Calendar events couldn\'t be loaded. Please try again.');
           setEvents(loadFromStorage());
           initialLoadDone.current = true;
         }

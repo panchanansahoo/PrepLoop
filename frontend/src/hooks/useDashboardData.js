@@ -99,7 +99,7 @@ export default function useDashboardData() {
                 }
                 console.error('Dashboard fetch error:', err);
                 if (!cancelled) {
-                    setError(err.message || 'Failed to load dashboard');
+                    setError(err.message || 'Dashboard data is temporarily unavailable. Please refresh the page.');
                     if (!hasFreshCache) {
                         setData(EMPTY_DATA);
                     }

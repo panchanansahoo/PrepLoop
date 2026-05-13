@@ -206,7 +206,7 @@ export default function ForgotPassword() {
       await axios.post('/api/auth/forgot-password', { email });
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send reset email. Please try again.');
+      setError(err.response?.data?.error || 'We couldn\'t send the reset email. Please check your email address and try again.');
     } finally {
       setLoading(false);
     }

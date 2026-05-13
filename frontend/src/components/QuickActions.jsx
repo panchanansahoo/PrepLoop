@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
     Mic, Code2, Database,
     Building2, Calculator, CalendarDays, Trophy,
-    FileText, GraduationCap, Zap
+    FileText, Zap
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -71,14 +71,6 @@ const actions = [
         color: '#10b981',
         glow: 'rgba(16, 185, 129, 0.12)',
         path: '/resume-analyzer'
-    },
-    {
-        label: 'Exam Practice',
-        description: 'Mock tests & papers',
-        icon: GraduationCap,
-        color: '#06b6d4',
-        glow: 'rgba(6, 182, 212, 0.12)',
-        path: '/exam-hub'
     }
 ];
 

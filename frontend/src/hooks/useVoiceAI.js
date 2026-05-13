@@ -36,7 +36,7 @@ const INTERRUPT_LEVEL     = 0.12;
 const INTERRUPT_DURATION  = 400;
 
 // Endpoints
-const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL as RAW_API_BASE_URL } from '../utils/safeApiUrl';
 
 export function buildVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
     return buildApiUrl(path, { rawBaseUrl, apiPrefix: '/api' });

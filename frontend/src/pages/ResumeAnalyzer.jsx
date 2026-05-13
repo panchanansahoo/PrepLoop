@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { useAuth } from '../context/AuthContext';
+import { useGuestGate } from '../components/GuestGate';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import {
@@ -101,6 +103,7 @@ function KeywordTag({ label, type }) {
 // ── Main Page ──
 export default function ResumeAnalyzer() {
   const { user } = useAuth();
+  const { requireAuth } = useGuestGate();
   const fileInputRef = useRef(null);
 
   const FORM_LABELS = {
@@ -194,6 +197,7 @@ export default function ResumeAnalyzer() {
   }, []);
 
   const analyzeResume = async () => {
+    if (!requireAuth('analyze your resume')) return;
     if (!resumeText && !fileName) {
       setError('Please paste your resume text or upload a file.');
       return;
@@ -231,7 +235,7 @@ export default function ResumeAnalyzer() {
       setResult(data);
       fetchHistory();
     } catch (err) {
-      setError(err.message || 'Failed to analyze resume. Please try again.');
+      setError(err.message || 'We couldn\'t analyze your resume. Please try again.');
     }
     setAnalyzing(false);
   };
@@ -309,6 +313,7 @@ export default function ResumeAnalyzer() {
   });
 
   const generateResume = async () => {
+    if (!requireAuth('generate a resume')) return;
     if (!createFormData.fullName || !createFormData.email) {
       setError('Full name and email are required.');
       return;
@@ -330,7 +335,7 @@ export default function ResumeAnalyzer() {
       setGeneratedResume(data.resume);
       setMode('preview');
     } catch (err) {
-      setError(err.message || 'Failed to generate resume.');
+      setError(err.message || 'Resume generation is temporarily unavailable. Please try again shortly.');
     }
     setGenerating(false);
   };
@@ -377,7 +382,7 @@ export default function ResumeAnalyzer() {
       style={{ outline: 'none', cursor: 'text', borderBottom: '1px dashed transparent', transition: 'border-color 0.2s', ...style }}
       onFocus={(e) => { e.target.style.borderBottomColor = '#a855f7'; }}
       onBlur={(e) => { e.target.style.borderBottomColor = 'transparent'; onChange(e.target.innerText); }}
-      dangerouslySetInnerHTML={{ __html: value }}
+      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(value || '') }}
     />
   );
 

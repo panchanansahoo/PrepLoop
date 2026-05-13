@@ -60,10 +60,10 @@ export default function RealInterview() {
         loadBookings();
         alert('Interview booked successfully! 🎉');
       } else {
-        alert(data.error || 'Failed to book slot');
+        alert(data.error || 'This slot couldn\'t be booked. Please try a different time.');
       }
     } catch (err) {
-      alert('Failed to book interview');
+      alert('We couldn\'t complete your booking. Please check your connection and try again.');
     } finally {
       setBookingSlot(null);
     }
@@ -81,7 +81,7 @@ export default function RealInterview() {
         loadSlots(selectedDate);
       }
     } catch (err) {
-      alert('Failed to cancel booking');
+      alert('We couldn\'t cancel your booking right now. Please try again.');
     }
   };
 

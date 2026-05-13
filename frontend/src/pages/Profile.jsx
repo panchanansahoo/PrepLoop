@@ -1167,7 +1167,7 @@ export default function Profile() {
       <div className="du-profile-grid">
 
         {/* ─── Main Column ─── */}
-        <div className="du-main-col">
+        <main className="du-main-col" role="main">
           {/* Profile Navigation Tabs */}
           <div className="du-tabs">
             <button 
@@ -1978,7 +1978,7 @@ export default function Profile() {
               </button>
             </div>
           </div>
-        </div>
+        </main>
 
         {/* ─── Sidebar Column ─── */}
         <div className="du-side-col">

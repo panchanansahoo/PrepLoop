@@ -67,8 +67,10 @@ export function validateFrontendRuntimeConfig() {
     throw new Error(`Frontend validation failed: ${errors.length} error(s) found`);
   }
 
-  console.log('✅ Frontend runtime configuration validated');
-  console.log(`📡 API endpoint: ${apiUrl || '(default: http://localhost:5000/api)'}`);
+  if (IS_DEVELOPMENT) {
+    console.log('✅ Frontend runtime configuration validated');
+    console.log(`📡 API endpoint: ${apiUrl || '(default: http://localhost:5000/api)'}`);
+  }
 }
 
 /**

@@ -51,7 +51,7 @@ export default function CompanyPrep() {
     fetch('/company-prep-questions.json')
       .then((res) => {
         if (!res.ok) {
-          throw new Error('Failed to fetch question bank');
+          throw new Error('Question bank is temporarily unavailable.');
         }
         return res.json();
       })
@@ -61,7 +61,7 @@ export default function CompanyPrep() {
       })
       .catch(() => {
         if (cancelled) return;
-        setQuestionLoadError('Failed to load question bank. Please refresh and try again.');
+        setQuestionLoadError('Questions are temporarily unavailable. Please refresh the page.');
         setQuestions([]);
       })
       .finally(() => {

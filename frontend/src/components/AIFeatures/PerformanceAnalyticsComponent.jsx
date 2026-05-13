@@ -43,7 +43,7 @@ const PerformanceAnalyticsComponent = () => {
       setReviews(reviewsData.data || reviewsData);
     } catch (err) {
       console.error('Error loading analytics:', err);
-      setError(err.message || 'Failed to load performance analytics');
+      setError(err.message || 'Performance data is temporarily unavailable. Please try again.');
     } finally {
       setLoading(false);
     }

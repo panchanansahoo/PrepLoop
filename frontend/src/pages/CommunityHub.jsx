@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useGuestGate } from '../components/GuestGate';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import {
@@ -123,7 +124,7 @@ function EventCard({ event }) {
   );
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 const UPCOMING_EVENTS = [
   { title: 'Weekly Mock Interview Marathon', month: 'APR', day: '01', time: '7:00 PM IST', type: 'Mock Interview', color: '#c084fc', live: false },
@@ -153,6 +154,7 @@ function GradientDivider() {
 
 // ── Main Component ──
 export default function CommunityHub() {
+  const { requireAuth } = useGuestGate();
   const [activeSection, setActiveSection] = useState('overview');
   const [memberCount, setMemberCount] = useState(5000);
   const [discussions, setDiscussions] = useState([]);
@@ -179,7 +181,7 @@ export default function CommunityHub() {
       setDiscussions(response.data.posts || []);
     } catch (err) {
       console.error('Error fetching discussions:', err);
-      setError('Failed to load discussions');
+      setError('Discussions are temporarily unavailable. Please refresh the page.');
     } finally {
       setLoading(false);
     }
@@ -193,7 +195,7 @@ export default function CommunityHub() {
       setStudyGroups(response.data.groups || []);
     } catch (err) {
       console.error('Error fetching study groups:', err);
-      setError('Failed to load study groups. Please try again later.');
+      setError('Study groups couldn\'t be loaded right now. Please refresh the page.');
       setStudyGroups([]); // Safe fallback: empty array instead of mock data
     } finally {
       setLoading(false);
@@ -201,12 +203,9 @@ export default function CommunityHub() {
   };
 
   const handleJoinGroup = async (groupId) => {
+    if (!requireAuth('join a study group')) return;
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Please login to join a study group');
-        return;
-      }
 
       await axios.post(
         `${API_URL}/api/study-groups/${groupId}/join`,
@@ -218,7 +217,7 @@ export default function CommunityHub() {
       fetchStudyGroups(); // Refresh to update member count
     } catch (err) {
       console.error('Error joining group:', err);
-      alert(err.response?.data?.error || 'Failed to join group');
+      alert(err.response?.data?.error || 'Unable to join this group right now. Please try again in a moment.');
     }
   };
 
@@ -255,11 +254,8 @@ export default function CommunityHub() {
     };
 
     try {
+      if (!requireAuth('create a study group')) return;
       const token = localStorage.getItem('token');
-      if (!token) {
-        alert('Please login to create a study group');
-        return;
-      }
 
       await axios.post(
         `${API_URL}/api/study-groups`,
@@ -272,7 +268,7 @@ export default function CommunityHub() {
       e.target.reset();
     } catch (err) {
       console.error('Error creating group:', err);
-      alert(err.response?.data?.error || 'Failed to create group');
+      alert(err.response?.data?.error || 'We couldn\'t create your group. Please check your details and try again.');
     }
   };
 

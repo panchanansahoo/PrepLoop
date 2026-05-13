@@ -92,9 +92,9 @@ export default function HRDashboard() {
         loadSlots();
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to create slot');
+        alert(data.error || 'The interview slot couldn\'t be created. Please try again.');
       }
-    } catch (err) { alert('Failed to create slot'); }
+    } catch (err) { alert('We couldn\'t create the slot. Please try again.'); }
   };
 
   const deleteSlot = async (id) => {
@@ -102,7 +102,7 @@ export default function HRDashboard() {
     try {
       await fetch(buildHrApiUrl(`/hr/slots/${id}`), { method: 'DELETE', headers: getHeaders() });
       loadSlots();
-    } catch (err) { alert('Failed to delete'); }
+    } catch (err) { alert('This item couldn\'t be removed right now. Please try again.'); }
   };
 
   const completeInterview = async (bookingId) => {
@@ -116,7 +116,7 @@ export default function HRDashboard() {
         body: JSON.stringify({ rating: parseInt(rating), feedback }),
       });
       loadBookings();
-    } catch (err) { alert('Failed to complete'); }
+    } catch (err) { alert('We couldn\'t mark this as complete. Please try again.'); }
   };
 
   const createJob = async (e) => {
@@ -133,9 +133,9 @@ export default function HRDashboard() {
         loadJobs();
       } else {
         const data = await res.json();
-        alert(data.error || 'Failed to post job');
+        alert(data.error || 'The job couldn\'t be posted. Please check your details and try again.');
       }
-    } catch (err) { alert('Failed to post job'); }
+    } catch (err) { alert('We couldn\'t post the job right now. Please try again.'); }
   };
 
   const deleteJob = async (id) => {
@@ -143,7 +143,7 @@ export default function HRDashboard() {
     try {
       await fetch(buildHrApiUrl(`/hr/jobs/${id}`), { method: 'DELETE', headers: getHeaders() });
       loadJobs();
-    } catch (err) { alert('Failed to delete'); }
+    } catch (err) { alert('This job couldn\'t be removed right now. Please try again.'); }
   };
 
   const handleLogout = () => {

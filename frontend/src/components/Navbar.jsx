@@ -26,7 +26,6 @@ const PAGE_TITLES = {
   '/dsa-path': 'DSA Learning Path',
   '/learning-path': 'Aptitude Path',
   '/advanced-learning-path': 'AI Advanced Roadmap',
-  '/ai-tutor': 'AI Tutor',
   '/company-prep': 'Company Prep',
   '/company-interview': 'AI Interview',
   '/multi-round-interview': 'Full Interview Loop',
@@ -282,12 +281,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
     );
   };
 
-  // Define public paths that should show the public navbar
-  const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
-  const isPublicPage = publicPaths.includes(location.pathname);
+  // Public pages use the marketing-style navbar (landing, auth, info pages)
+  const publicNavPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/copilot', '/forgot-password', '/reset-password'];
+  const isPublicPage = publicNavPaths.includes(location.pathname) || location.pathname.startsWith('/blog/');
 
-  // Render Public Navbar if not logged in OR if on a public page
-  if (!user || isPublicPage) {
+  // Render Public Navbar only on actual public/marketing pages
+  if (isPublicPage) {
     return (
       <nav className={`navbar public-navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="container nav-content">
@@ -560,11 +559,6 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             <Sparkles size={14} /> AI Mock
           </Link>
 
-          {/* Coin Balance */}
-          <div className="desktop-only">
-            <CoinDisplay />
-          </div>
-
           {/* Theme Toggle */}
           <button
             className="icon-btn theme-toggle-btn"
@@ -574,91 +568,134 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          {/* Notification Bell */}
-          <div className="relative" ref={notifRef}>
-            <button
-              className="icon-btn notif-btn"
-              onClick={() => { setIsNotifOpen(!isNotifOpen); setIsDropdownOpen(false); }}
-            >
-              <Bell size={19} />
-              {unreadCount > 0 && (
-                <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-            </button>
-
-            {isNotifOpen && (
-              <div className="premium-dropdown notif-dropdown">
-                <div className="premium-dropdown-header">
-                  <span>Notifications</span>
-                  <button className="premium-dropdown-action" onClick={markAllAsRead}>Mark all read</button>
-                </div>
-                <div className="notif-list">
-                  {notifications.length > 0 ? (
-                    notifications.map(notif => (
-                      <div
-                        key={notif.id}
-                        className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
-                        onClick={() => {
-                          markAsRead(notif.id);
-                          if (notif.external) {
-                            window.open(notif.link, '_blank');
-                          } else {
-                            navigate(notif.link);
-                            setIsNotifOpen(false);
-                          }
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {!notif.isRead && <div className="notif-dot" />}
-                        <div>
-                          <p className="notif-text">{notif.title}</p>
-                          <span className="notif-time">{notif.timeText}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="notif-item">
-                      <div>
-                        <p className="notif-text" style={{ color: 'var(--zinc-500)' }}>No new notifications</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {user ? (
+            <>
+              {/* Coin Balance — logged-in only */}
+              <div className="desktop-only">
+                <CoinDisplay />
               </div>
-            )}
-          </div>
 
-          {/* Upgrade to Pro */}
-          {userTier === 'Free' && (
-            <Link to="/pricing" className="upgrade-btn desktop-only" style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
-              padding: '6px 14px',
-              borderRadius: '99px',
-              color: 'white',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              textDecoration: 'none',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.3)';
-            }}>
-              <Crown size={14} />
-              <span>Upgrade</span>
-            </Link>
+              {/* Notification Bell — logged-in only */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  className="icon-btn notif-btn"
+                  onClick={() => { setIsNotifOpen(!isNotifOpen); setIsDropdownOpen(false); }}
+                >
+                  <Bell size={19} />
+                  {unreadCount > 0 && (
+                    <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <div className="premium-dropdown notif-dropdown">
+                    <div className="premium-dropdown-header">
+                      <span>Notifications</span>
+                      <button className="premium-dropdown-action" onClick={markAllAsRead}>Mark all read</button>
+                    </div>
+                    <div className="notif-list">
+                      {notifications.length > 0 ? (
+                        notifications.map(notif => (
+                          <div
+                            key={notif.id}
+                            className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
+                            onClick={() => {
+                              markAsRead(notif.id);
+                              if (notif.external) {
+                                window.open(notif.link, '_blank');
+                              } else {
+                                navigate(notif.link);
+                                setIsNotifOpen(false);
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {!notif.isRead && <div className="notif-dot" />}
+                            <div>
+                              <p className="notif-text">{notif.title}</p>
+                              <span className="notif-time">{notif.timeText}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="notif-item">
+                          <div>
+                            <p className="notif-text" style={{ color: 'var(--zinc-500)' }}>No new notifications</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Upgrade to Pro */}
+              {userTier === 'Free' && (
+                <Link to="/pricing" className="upgrade-btn desktop-only" style={{
+                  background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
+                  padding: '6px 14px',
+                  borderRadius: '99px',
+                  color: 'white',
+                  fontWeight: '600',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  textDecoration: 'none',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.5)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.3)';
+                }}>
+                  <Crown size={14} />
+                  <span>Upgrade</span>
+                </Link>
+              )}
+
+              {/* Premium Avatar */}
+              {renderAvatarDropdown()}
+            </>
+          ) : (
+            /* ── Guest user: show sign-in buttons ── */
+            <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Link to="/login" className="btn" style={{
+                background: 'transparent',
+                border: '1px solid var(--color-border)',
+                padding: '6px 14px',
+                borderRadius: '99px',
+                color: 'var(--color-text-primary)',
+                textDecoration: 'none',
+                fontSize: '0.85rem',
+                fontWeight: '500',
+                transition: 'all 0.2s ease'
+              }}>
+                Sign In
+              </Link>
+              <Link to="/signup" className="btn" style={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
+                border: 'none',
+                boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
+                padding: '6px 16px',
+                borderRadius: '99px',
+                color: 'white',
+                fontWeight: '600',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                textDecoration: 'none',
+                transition: 'all 0.3s ease'
+              }}>
+                Get Started <ChevronRight size={14} />
+              </Link>
+            </div>
           )}
-
-          {/* Premium Avatar */}
-          {renderAvatarDropdown()}
         </div>
       </div>
     </div>

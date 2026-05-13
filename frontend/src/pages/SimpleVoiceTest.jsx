@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 
+import { API_URL } from '../utils/safeApiUrl';
+
 export default function SimpleVoiceTest() {
     const [status, setStatus] = useState('Ready');
     const [transcript, setTranscript] = useState('');
@@ -21,7 +23,7 @@ export default function SimpleVoiceTest() {
     const testTTS = async () => {
         try {
             setStatus('Testing TTS...');
-            const res = await fetch('http://localhost:5000/api/voice/tts', {
+            const res = await fetch(`${API_URL}/api/voice/tts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -31,7 +33,7 @@ export default function SimpleVoiceTest() {
                 })
             });
 
-            console.log('TTS Response:', res.status, res.headers.get('content-type'));
+            if (import.meta.env.DEV) console.log('TTS Response:', res.status, res.headers.get('content-type'));
 
             if (!res.ok) {
                 setStatus(`✗ TTS failed: ${res.status}`);
@@ -41,7 +43,7 @@ export default function SimpleVoiceTest() {
             const contentType = res.headers.get('content-type');
             if (contentType && contentType.includes('audio')) {
                 const blob = await res.blob();
-                console.log('Audio blob:', blob.size, 'bytes');
+                if (import.meta.env.DEV) console.log('Audio blob:', blob.size, 'bytes');
                 setStatus(`✓ Got audio: ${blob.size} bytes. Playing...`);
                 
                 const url = URL.createObjectURL(blob);
@@ -86,7 +88,7 @@ export default function SimpleVoiceTest() {
 
             recorder.onstop = async () => {
                 const blob = new Blob(chunks, { type: 'audio/webm' });
-                console.log('Recorded blob:', blob.size, 'bytes');
+                if (import.meta.env.DEV) console.log('Recorded blob:', blob.size, 'bytes');
                 setStatus(`Recorded ${blob.size} bytes. Transcribing...`);
 
                 const formData = new FormData();
@@ -94,14 +96,14 @@ export default function SimpleVoiceTest() {
                 formData.append('mimeType', 'audio/webm');
 
                 try {
-                    const res = await fetch('http://localhost:5000/api/voice/stt-chunk', {
+                    const res = await fetch(`${API_URL}/api/voice/stt-chunk`, {
                         method: 'POST',
                         body: formData
                     });
 
-                    console.log('STT Response:', res.status);
+                    if (import.meta.env.DEV) console.log('STT Response:', res.status);
                     const data = await res.json();
-                    console.log('STT Data:', data);
+                    if (import.meta.env.DEV) console.log('STT Data:', data);
 
                     if (data.transcript) {
                         setTranscript(data.transcript);

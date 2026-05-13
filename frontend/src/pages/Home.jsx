@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, Suspense } from 'react';
 import './Home.css';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { API_URL as HOME_API_URL } from '../utils/safeApiUrl';
 import { useAuth } from '../context/AuthContext';
 import {
   Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
@@ -393,8 +394,7 @@ function JobUpdatesPreview() {
           observer.disconnect();
           const fetchJobs = async () => {
             try {
-              const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-              const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+              const { data } = await axios.get(`${HOME_API_URL}/api/jobs?limit=3`);
               setJobs(data.jobs || []);
             } catch (err) {
               console.error('Failed to fetch jobs preview:', err);
@@ -652,6 +652,24 @@ function JobUpdatesPreview() {
 /*                 MAIN COMPONENT                  */
 /* ═══════════════════════════════════════════════ */
 
+/* Silent error boundary for 3D scene — catches WebGL / canvas failures */
+class Hero3DErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.warn('Hero3DScene failed to render (WebGL unavailable?):', error?.message);
+  }
+  render() {
+    if (this.state.hasError) return null; // Degrade silently
+    return this.props.children;
+  }
+}
+
 export default function Home() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState(null);
@@ -791,10 +809,12 @@ export default function Home() {
 
             {/* Right Visual — 3D Interactive Scene */}
             <div style={{ position: 'relative', zIndex: 10, minHeight: '480px' }} className="hero-visual-container">
-              {/* 3D Scene Background */}
-              <Suspense fallback={null}>
-                <Hero3DScene />
-              </Suspense>
+              {/* 3D Scene Background — isolated with error boundary for WebGL resilience */}
+              <Hero3DErrorBoundary>
+                <Suspense fallback={null}>
+                  <Hero3DScene />
+                </Suspense>
+              </Hero3DErrorBoundary>
 
 
 

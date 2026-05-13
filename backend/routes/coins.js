@@ -17,13 +17,6 @@ const EARN_SOURCES = new Set(['manual', 'problem_solved', 'bonus']);
 
 const REDEEM_OPTIONS = [
   {
-    id: 'ai_tutor_pass',
-    title: 'AI Tutor Pass',
-    description: 'Unlock one AI Tutor session without separate spend prompts.',
-    coinCost: 20,
-    category: 'ai',
-  },
-  {
     id: 'interview_boost',
     title: 'Interview Boost',
     description: 'Priority interview analysis queue for your next session.',

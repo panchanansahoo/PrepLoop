@@ -49,7 +49,6 @@ const navSections = [
             { path: '/library', label: 'Library', subtitle: 'Books, guides & resources', icon: BookOpen },
             { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
             { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
-            { path: '/ai-tutor', label: 'AI Tutor', subtitle: 'Guided DSA, SQL & aptitude', icon: Sparkles },
             { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
         ]
     },
@@ -88,14 +87,25 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     const { user, isAdmin } = useAuth();
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const isCollapsed = collapsed && !mobileOpen;
-    const userName = user?.fullName || user?.name || 'Engineer';
+    const userName = user?.fullName || user?.name || 'Guest';
     const userEmail = user?.email || '';
 
-    // Build nav sections dynamically based on role
-    const sections = [...navSections];
+    // Build nav sections dynamically based on role and auth state
+    const sections = navSections
+      .map(section => {
+        // Hide Account section items for guests (they need to log in for profile/settings)
+        if (!user && section.category === 'Account') {
+          return null;
+        }
+        return section;
+      })
+      .filter(Boolean);
+
     if (isAdmin) {
         // Insert Admin section before Account
-        sections.splice(sections.length - 1, 0, {
+        const accountIdx = sections.findIndex(s => s.category === 'Account');
+        const insertIdx = accountIdx >= 0 ? accountIdx : sections.length;
+        sections.splice(insertIdx, 0, {
             category: 'Admin',
             items: [
                 { path: '/admin', label: 'Admin Dashboard', subtitle: 'Manage users & content', icon: ShieldCheck },

@@ -18,7 +18,7 @@ export default function VerifyEmail() {
             });
             setResent(true);
         } catch (err) {
-            alert('Failed to resend. Please try again.');
+            alert('We couldn\'t resend the email. Please wait a moment and try again.');
         }
         setResending(false);
     };

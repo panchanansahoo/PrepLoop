@@ -16,7 +16,7 @@ export class WSConnectionManager {
     this.isIntentionallyClosed = false;
 
     this.ws.onopen = () => {
-      console.log('WebSocket connected');
+      if (import.meta.env.DEV) console.log('WebSocket connected');
       this.reconnectAttempts = 0;
       this.emit('open');
     };
@@ -31,7 +31,7 @@ export class WSConnectionManager {
     };
 
     this.ws.onclose = () => {
-      console.log('WebSocket closed');
+      if (import.meta.env.DEV) console.log('WebSocket closed');
       this.emit('close');
       
       if (!this.isIntentionallyClosed && this.reconnectAttempts < this.maxReconnectAttempts) {

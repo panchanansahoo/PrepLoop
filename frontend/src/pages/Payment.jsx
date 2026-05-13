@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 const isDev = import.meta.env.DEV;
 
 function getPaymentErrorMessage(status, errorCode, fallbackMessage) {
@@ -38,7 +38,7 @@ function getPaymentErrorMessage(status, errorCode, fallbackMessage) {
         return fallbackMessage || 'Payment server error. Please try again shortly.';
     }
 
-    return fallbackMessage || 'Failed to create order';
+    return fallbackMessage || 'We couldn\'t process your order. Please try again.';
 }
 
 async function parseJsonSafely(response) {
@@ -110,7 +110,7 @@ export default function Payment() {
             // 1. Load Razorpay script
             const scriptLoaded = await loadRazorpayScript();
             if (!scriptLoaded) {
-                setError('Failed to load payment gateway. Please check your internet connection.');
+                setError('The payment gateway couldn\'t be loaded. Please check your internet connection.');
                 setIsProcessing(false);
                 return;
             }
@@ -261,7 +261,7 @@ export default function Payment() {
             rzp.open();
         } catch (err) {
             console.error('Payment error:', err);
-            setError('Something went wrong. Please try again.');
+            setError('Something unexpected happened. Please refresh and try again.');
             setIsProcessing(false);
         }
     };

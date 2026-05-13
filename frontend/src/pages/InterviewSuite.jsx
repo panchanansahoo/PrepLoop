@@ -10,7 +10,7 @@ import {
 import { buildAuthHeaders } from '../utils/authHeaders';
 import './InterviewHub.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 
 /* ─── Interview Mode Definitions ─── */
 const INTERVIEW_MODES = [

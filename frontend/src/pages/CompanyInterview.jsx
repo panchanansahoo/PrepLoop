@@ -37,7 +37,7 @@ import {
     normalizeFeedbackList,
 } from './companyInterviewConfig';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../utils/safeApiUrl';
 const AUTO_SUBMIT_COUNTDOWN_SECONDS = AUTO_SUBMIT_DELAY_MS / 1000;
 
 export default function CompanyInterview() {
@@ -432,7 +432,7 @@ export default function CompanyInterview() {
                 setRuntimeStrategy(data.runtime.strategy);
             }
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to upload CV');
+                throw new Error(data.error || 'Your CV couldn\'t be uploaded. Please try again.');
             }
 
             const profile = data.resumeProfile || {};
@@ -457,7 +457,7 @@ export default function CompanyInterview() {
 
             const data = await res.json();
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to load latest CV');
+                throw new Error(data.error || 'We couldn\'t load your CV. Please try uploading again.');
             }
 
             const profile = data.resumeProfile || {};

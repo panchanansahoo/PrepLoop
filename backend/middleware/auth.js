@@ -1,4 +1,7 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { createLogger } from '../utils/structuredLogger.js';
+
+const logger = createLogger('auth-middleware');
 
 const ROLE_CACHE_TTL_MS = Number.parseInt(process.env.AUTH_ROLE_CACHE_TTL_MS || '300000', 10);
 const ROLE_CACHE_MAX_ENTRIES = Number.parseInt(process.env.AUTH_ROLE_CACHE_MAX_ENTRIES || '10000', 10);
@@ -57,7 +60,13 @@ const resolveUserRole = async (userId) => {
       role = profile.role;
     }
   } catch (e) {
-    // Default to user if profile fetch fails
+    // B-25/B-29: Log the failure so operators can diagnose DB issues during auth.
+    // We intentionally default to 'user' (NOT 'admin') so a DB failure never
+    // grants elevated privileges.
+    logger.warn('resolveUserRole: DB lookup failed, defaulting to user role', {
+      userId,
+      err: e.message,
+    });
   }
 
   setRoleCache(userId, role);

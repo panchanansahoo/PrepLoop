@@ -3,10 +3,10 @@
  * Wrapper functions for all AI features endpoints
  */
 
-import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
+import { buildApiUrl, normalizeRelativePath, API_URL } from '../utils/safeApiUrl';
 
 // Fix #13: normalize base URL — strip trailing /api if present so we can append it consistently
-const _rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const _rawApiUrl = API_URL;
 
 function buildAiFeaturesUrl(endpoint) {
   const safeEndpoint = normalizeRelativePath(endpoint);
@@ -280,7 +280,7 @@ async function apiRequest(endpoint, options = {}) {
     ) {
       throw new Error(`Insufficient coins. You need ${data.required} coins, but you have ${data.coins} coins.`);
     }
-    throw new Error(data?.message || data?.error || 'Request failed');
+    throw new Error(data?.message || data?.error || 'Something went wrong. Please try again.');
   }
 
   return data;
@@ -370,7 +370,7 @@ async function apiRequestAbsolute(endpoint, options = {}) {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.message || data?.error || `API Error: ${response.status} ${response.statusText}`);
+    throw new Error(data?.message || data?.error || `Something went wrong. Please try again.`);
   }
 
   return data.data || data;
@@ -566,7 +566,7 @@ export function formatErrorMessage(error) {
       .replace('Error: ', '');
   }
   
-  return 'An unexpected error occurred. Please try again.';
+  return 'Something unexpected happened. Please try again.';
 }
 
 /**

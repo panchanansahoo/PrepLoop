@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { API_URL } from '../utils/safeApiUrl';
 import { fetchAllContests } from '../utils/contestUtils';
 
 const NOTIF_CACHE_KEY = 'user_notifications_read';
@@ -95,7 +96,7 @@ export function useNotifications(user) {
 
         // 3. New Blogs (posted in last 7 days)
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
+            const res = await fetch(`${API_URL}/api/blog`);
             if (res.ok) {
                 const blogs = await res.json();
                 const now = new Date();

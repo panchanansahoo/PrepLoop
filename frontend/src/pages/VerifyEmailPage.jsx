@@ -49,13 +49,13 @@ export default function VerifyEmailPage() {
           setTimeout(() => navigate('/login'), 4000);
         } else {
           setStatus('error');
-          setMessage(data.error || 'Failed to verify email');
+          setMessage(data.error || 'We couldn\'t verify your email. The link may have expired.');
           setCanResend(true);
         }
       } catch (error) {
         console.error('Verification error:', error);
         setStatus('error');
-        setMessage('Failed to verify email. Please try again or resend the verification email.');
+        setMessage('Something went wrong during verification. Please try resending the verification email.');
         setCanResend(true);
       }
     };
@@ -83,11 +83,11 @@ export default function VerifyEmailPage() {
         // Re-enable resend after 60 seconds
         setTimeout(() => setCanResend(true), 60000);
       } else {
-        setMessage(data.error || 'Failed to resend verification email');
+        setMessage(data.error || 'We couldn\'t send the verification email. Please try again shortly.');
       }
     } catch (error) {
       console.error('Resend error:', error);
-      setMessage('Failed to resend verification email. Please try again.');
+      setMessage('We\'re having trouble sending the email right now. Please try again in a moment.');
     } finally {
       setResendLoading(false);
     }
