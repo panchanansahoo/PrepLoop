@@ -10,9 +10,9 @@ describe('auth access policy', () => {
     const appSource = readLocal('./App.jsx');
 
     expect(appSource).toContain('path="/dashboard"');
-    expect(appSource).toContain('element={<Dashboard />}');
+    expect(appSource).toContain('element={<PrivateRoute><Dashboard /></PrivateRoute>}');
 
-    expect(appSource).toContain('path="/job-updates" element={<JobUpdates />}');
+    expect(appSource).toContain('path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>}');
     expect(appSource).toContain('path="/library" element={<Library />}');
     expect(appSource).toContain('path="/problems" element={<ProblemExplorer />}');
     expect(appSource).toContain('path="/blog" element={<BlogList />}');

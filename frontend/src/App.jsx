@@ -36,6 +36,8 @@ const VerifyEmailPage = lazyWithRecovery(() => import('./pages/VerifyEmailPage')
 const CheckEmail = lazyWithRecovery(() => import('./pages/VerifyEmail'));
 const Onboarding = lazyWithRecovery(() => import('./pages/Onboarding'));
 const Profile = lazyWithRecovery(() => import('./pages/Profile'));
+const PublicPortfolioPage = lazyWithRecovery(() => import('./pages/PublicPortfolioPage'));
+const PortfolioCreator = lazyWithRecovery(() => import('./pages/PortfolioCreator'));
 const History = lazyWithRecovery(() => import('./pages/History'));
 const CoinWallet = lazyWithRecovery(() => import('./pages/CoinWallet'));
 const ResumeAnalyzer = lazyWithRecovery(() => import('./pages/ResumeAnalyzer'));
@@ -199,13 +201,14 @@ function AppContent() {
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
   const isCopilotRoute = location.pathname === '/copilot';
+  const isPublicPortfolioRoute = location.pathname.startsWith('/u/');
 
   const isSimulatorRoute = location.pathname === '/system-design-sim';
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
   const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
-  const isPublicPage = publicPaths.includes(location.pathname);
+  const isPublicPage = publicPaths.includes(location.pathname) || isPublicPortfolioRoute;
   const showSidebar = user && !isPublicPage;
   const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
   const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
@@ -322,6 +325,8 @@ function AppContent() {
             <Route path="/check-email" element={<CheckEmail />} />
             <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
+            <Route path="/portfolio/create" element={<PrivateRoute><PortfolioCreator /></PrivateRoute>} />
+            <Route path="/u/:slug" element={<PublicPortfolioPage />} />
             <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
             <Route path="/wallet" element={<PrivateRoute><CoinWallet /></PrivateRoute>} />
             <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />

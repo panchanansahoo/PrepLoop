@@ -341,3 +341,63 @@ To add new roles:
 2. Update middleware role checks
 3. Create RLS policies
 4. Update admin UI to support new roles
+
+## Portfolio API (Phase 1)
+
+### Import and Normalize Profile
+```javascript
+POST /api/portfolio/profiles/import
+Authorization: Bearer <jwt_token>
+
+Request:
+{
+  resumeText: "raw resume text",
+  resumeMeta: { fileName: "resume.pdf" },
+  githubUsername: "octocat",
+  linkedin: {
+    url: "https://www.linkedin.com/in/octocat/",
+    headline: "Full Stack Developer",
+    summary: "Building scalable products",
+    experience: [],
+    education: [],
+    skills: ["React", "Node.js"]
+  }
+}
+```
+
+### Manage Normalized Profiles
+```javascript
+GET /api/portfolio/profiles/:id
+PUT /api/portfolio/profiles/:id
+Authorization: Bearer <jwt_token>
+```
+
+### Publish Portfolio Site
+```javascript
+POST /api/portfolio/sites
+Authorization: Bearer <jwt_token>
+
+Request:
+{
+  profileId: "uuid",
+  slug: "my-portfolio",
+  template: "minimal",
+  theme: {
+    primaryColor: "#0c4a6e",
+    accentColor: "#0284c7"
+  }
+}
+```
+
+### List, Fetch, And Unpublish Sites
+```javascript
+GET /api/portfolio/sites
+GET /api/portfolio/sites/:id
+DELETE /api/portfolio/sites/:id
+Authorization: Bearer <jwt_token>
+```
+
+### Resolve Short Link
+```javascript
+GET /api/portfolio/short-links/:slug/resolve
+```

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { buildAuthHeaders, mergeAuthHeaders } from '../utils/authHeaders';
 import {
   User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut,
   Github, Sparkles, FileText, Upload, Pencil, Save, X,
@@ -207,8 +207,15 @@ export default function Profile() {
   const [resumeSnapshot, setResumeSnapshot] = useState(null);
   const [autofillSuggestions, setAutofillSuggestions] = useState({});
   const [linkedinImporting, setLinkedinImporting] = useState(false);
+  const [resumeImporting, setResumeImporting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
   const hasAutofilledFromResumeRef = useRef(false);
+  const avatarInputRef = useRef(null);
+  const linkedinInputRef = useRef(null);
+  const resumeInputRef = useRef(null);
+  const [claimEditing, setClaimEditing] = useState(false);
+  const [claimValue, setClaimValue] = useState('');
+  const [claimStatus, setClaimStatus] = useState('idle');
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -453,28 +460,65 @@ export default function Profile() {
   };
 
   const handleLinkedInImport = async () => {
-    const linkedinUrl = prompt('Paste your LinkedIn profile URL or manually enter your data:');
-    if (!linkedinUrl) return;
-
+    const input = prompt('Enter your LinkedIn Username or URL (or leave blank to upload a PDF):');
+    if (input === null) return; // cancelled
+    if (input.trim() === '') {
+      linkedinInputRef.current?.click();
+      return;
+    }
+    
     setLinkedinImporting(true);
+    setStatus('idle');
     try {
-      const manualData = {
-        name: prompt('Full Name:') || '',
-        headline: prompt('Current Role/Headline:') || '',
-        about: prompt('About/Summary:') || '',
-        skills: prompt('Skills (comma-separated):') || '',
-        experience: prompt('Experience (brief):') || '',
-        education: prompt('Education:') || '',
-        location: prompt('Location:') || '',
-        company: prompt('Company:') || '',
-        website: prompt('Website:') || '',
-        phone: prompt('Phone:') || ''
-      };
-
       const res = await fetch('/api/resume/import-linkedin', {
         method: 'POST',
-        headers: buildAuthHeaders(user),
-        body: JSON.stringify({ linkedinUrl, profileData: manualData })
+        headers: mergeAuthHeaders({ 'Content-Type': 'application/json' }, user),
+        body: JSON.stringify({ linkedinUsername: input.trim() })
+      });
+
+      if (!res.ok) {
+         const errData = await res.json().catch(() => ({}));
+         throw new Error(errData.error || 'Import failed');
+      }
+      const data = await res.json();
+
+      if (data.profileData) {
+        setProfile(prev => ({
+          ...prev,
+          fullName: data.profileData.fullName || prev.fullName,
+          currentRole: data.profileData.currentRole || prev.currentRole,
+          bio: data.profileData.bio || prev.bio,
+          skills: data.profileData.skills || prev.skills,
+          experience: data.profileData.experience || prev.experience,
+          education: data.profileData.education || prev.education,
+          location: data.profileData.location || prev.location,
+          company: data.profileData.company || prev.company,
+          website: data.profileData.website || prev.website,
+          phone: data.profileData.phone || prev.phone
+        }));
+        setStatus('saved');
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+      setStatus('error');
+    }
+    setLinkedinImporting(false);
+  };
+
+  const handleLinkedInFileChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    setLinkedinImporting(true);
+    setStatus('idle');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      
+      const res = await fetch('/api/resume/import-linkedin', {
+        method: 'POST',
+        headers: mergeAuthHeaders({}, user),
+        body: form
       });
 
       if (!res.ok) throw new Error('Import failed');
@@ -501,6 +545,113 @@ export default function Profile() {
       setStatus('error');
     }
     setLinkedinImporting(false);
+    if (linkedinInputRef.current) linkedinInputRef.current.value = '';
+  };
+
+  const handleResumeImport = () => {
+    resumeInputRef.current?.click();
+  };
+
+  const handleResumeFileChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    setResumeImporting(true);
+    setStatus('idle');
+    try {
+      const form = new FormData();
+      form.append('resume', file);
+      
+      const res = await fetch('/api/resume/analyze', {
+        method: 'POST',
+        headers: mergeAuthHeaders({}, user),
+        body: form
+      });
+
+      if (!res.ok) throw new Error('Import failed');
+      const data = await res.json();
+
+      if (data.resumeProfile) {
+        const rp = data.resumeProfile;
+        
+        const inferredSkills = Array.isArray(rp.coreSkills)
+          ? rp.coreSkills.map((skill) => String(skill || '').trim()).filter(Boolean)
+          : [];
+        const safeSkills = inferredSkills.filter((skill) => skill.length >= 2);
+        
+        const inferredExperience = Array.isArray(rp.likelyQuestionAreas)
+          ? filterHighConfidenceExperienceAreas(rp.likelyQuestionAreas)
+          : [];
+
+        const safeHeadline = isHighConfidenceHeadline(rp.candidateHeadline)
+          ? String(rp.candidateHeadline).trim()
+          : '';
+
+        const safeSummary = (() => {
+          const summary = String(rp.summary || '').trim();
+          if (summary.length < 40) return '';
+          if (summary.toLowerCase().includes('focus on the candidate')) return '';
+          return summary;
+        })();
+
+        setProfile(prev => ({
+          ...prev,
+          currentRole: safeHeadline || prev.currentRole,
+          designation: safeHeadline || prev.designation,
+          skills: safeSkills.length >= 2 ? safeSkills.join(', ') : prev.skills,
+          experience: inferredExperience.length ? inferredExperience.join('; ') : prev.experience,
+          experienceLevel: inferredExperience.length ? inferredExperience.join('; ') : prev.experienceLevel,
+          experience_level: inferredExperience.length ? inferredExperience.join('; ') : prev.experience_level,
+          bio: safeSummary || prev.bio
+        }));
+        
+        setStatus('saved');
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('error');
+    }
+    setResumeImporting(false);
+    if (resumeInputRef.current) resumeInputRef.current.value = '';
+  };
+
+  const handleAvatarButtonClick = () => {
+    avatarInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (e) => {
+    const file = e?.target?.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setStatus('idle');
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+
+      const headers = mergeAuthHeaders({}, user);
+
+      const res = await fetch('/api/user/profile/avatar', {
+        method: 'POST',
+        headers,
+        body: form,
+      });
+
+      if (!res.ok) throw new Error('Upload failed');
+      const data = await res.json();
+
+      const normalized = {
+        ...normalizeProfileData(data),
+        ...normalizeProfileData(data?.user)
+      };
+
+      setProfile((prev) => ({ ...prev, ...normalized }));
+      setStatus('saved');
+    } catch (err) {
+      console.error('Avatar upload error:', err);
+      setStatus('error');
+    }
+    setSaving(false);
+    // Clear input so same file can be selected again
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
   };
 
   const displayName = profile.fullName || user?.fullName || 'User';
@@ -509,7 +660,9 @@ export default function Profile() {
   const interviewsDone = dashboardData?.interviewsCompleted || 0;
   const aiMatches = dashboardData?.aiMatches || dashboardData?.jobMatches || 0;
   const coverLetters = dashboardData?.coverLetters || 0;
-  const profileLink = `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
+  const profileLink = profile.custom_url && profile.custom_url.length > 0
+    ? `https://preploop.com/u/${profile.custom_url}`
+    : `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
   const educationDisplay = profile.education || 'Not set';
   const skillChips = splitSkillChips(profile.skills, resumeSnapshot);
@@ -531,13 +684,26 @@ export default function Profile() {
         <div className="du-profile-identity">
           <div className="du-profile-left">
             <div className="du-avatar">
-              {initial}
+              {profile.avatar_url ? (
+                <img src={profile.avatar_url} alt={`${displayName}'s avatar`} className="du-avatar-img" />
+              ) : (
+                initial
+              )}
               <span className="du-avatar-online" />
               {editing && (
-                <button className="du-change-photo-btn" type="button">
-                  <Camera size={14} />
-                  Change Photo
-                </button>
+                <>
+                  <button className="du-change-photo-btn" type="button" onClick={handleAvatarButtonClick}>
+                    <Camera size={14} />
+                    Change Photo
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={handleAvatarFileChange}
+                  />
+                </>
               )}
             </div>
             <div className="du-profile-info">
@@ -602,9 +768,57 @@ export default function Profile() {
                   <p className="du-meta-subtitle du-profile-url">{profileLink}</p>
                 </div>
               </div>
-              <button className="du-claim-btn" type="button">
-                Claim Custom URL
-              </button>
+              {!claimEditing ? (
+                <button
+                  className="du-claim-btn"
+                  type="button"
+                  onClick={() => { setClaimEditing(true); setClaimValue(profile.custom_url || ''); }}
+                >
+                  Claim Custom URL
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    className="du-form-input"
+                    placeholder="your-custom-slug"
+                    value={claimValue}
+                    onChange={(e) => setClaimValue(e.target.value)}
+                  />
+                  <button
+                    className="du-claim-btn"
+                    type="button"
+                    onClick={async () => {
+                      const slug = String(claimValue || '').trim().toLowerCase();
+                      if (!slug) return;
+                      setClaimStatus('busy');
+                      try {
+                        const res = await fetch('/api/user/profile/claim-url', {
+                          method: 'POST',
+                          headers: buildAuthHeaders(user),
+                          body: JSON.stringify({ custom_url: slug })
+                        });
+                        if (!res.ok) {
+                          const err = await res.json().catch(() => ({}));
+                          throw new Error(err?.error || 'Failed to claim');
+                        }
+                        const data = await res.json();
+                        const normalized = { ...normalizeProfileData(data), ...normalizeProfileData(data?.user) };
+                        setProfile((prev) => ({ ...prev, ...normalized }));
+                        setClaimEditing(false);
+                        setClaimStatus('saved');
+                      } catch (err) {
+                        console.error('Claim error', err);
+                        setClaimStatus('error');
+                      }
+                    }}
+                  >
+                    Claim
+                  </button>
+                  <button className="du-cancel-btn" onClick={() => { setClaimEditing(false); setClaimStatus('idle'); }}>
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -667,9 +881,14 @@ export default function Profile() {
             </div>
 
             <div className="du-import-actions" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-              <Link to="/resume-analyzer" className="du-import-btn" style={{ flex: 1, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#6366f1', color: 'white', borderRadius: '8px', fontSize: '14px', fontWeight: 500 }}>
-                <Upload size={14} /> Import from Resume
-              </Link>
+              <button 
+                className="du-import-btn" 
+                onClick={handleResumeImport}
+                disabled={resumeImporting}
+                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
+              >
+                <Upload size={14} /> {resumeImporting ? 'Importing...' : 'Import from Resume'}
+              </button>
               <button 
                 className="du-import-btn" 
                 onClick={handleLinkedInImport}
@@ -678,6 +897,8 @@ export default function Profile() {
               >
                 <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import from LinkedIn'}
               </button>
+              <input type="file" ref={linkedinInputRef} accept=".pdf" style={{ display: 'none' }} onChange={handleLinkedInFileChange} />
+              <input type="file" ref={resumeInputRef} accept=".pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleResumeFileChange} />
             </div>
 
             {resumeAutofillApplied && (

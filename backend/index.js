@@ -71,6 +71,7 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
+    const portfolioRoutes = (await import('./routes/portfolio.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -243,6 +244,7 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
+    app.use('/api/portfolio', portfolioRoutes);
 
     // Error handler middleware
     app.use(errorHandler);
