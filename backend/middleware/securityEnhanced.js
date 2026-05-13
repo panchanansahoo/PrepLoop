@@ -11,10 +11,10 @@ const THRESHOLDS = {
   MAX_FAILED_AUTH_ATTEMPTS: 5,
   MAX_PAYLOAD_SIZE: 10 * 1024 * 1024, // 10MB
   SUSPICIOUS_PATTERNS: [
-    /(\.\.|\/etc\/|\/proc\/|\/sys\/)/i, // Path traversal
-    /(union.*select|insert.*into|drop.*table)/i, // SQL injection
-    /(<script|javascript:|onerror=|onload=)/i, // XSS
-    /(\.\.\/|\.\.\\/)/i, // Directory traversal (no 'g' flag — stateless)
+        /(\.\.|\/etc\/|\/proc\/|\/sys\/)/i, // Path traversal
+        /(union.*select|insert.*into|drop.*table)/i, // SQL injection
+        /(<script|javascript:|onerror=|onload=)/i, // XSS
+        /(\.{2}\/|\.{2}\\)/i, // Directory traversal: ../ or ..\ (stateless)
   ],
 };
 

@@ -772,32 +772,102 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/import-linkedin', authenticateToken, async (req, res) => {
+router.post('/import-linkedin', authenticateToken, upload.single('file'), async (req, res) => {
   try {
-    const { linkedinUrl, profileData } = req.body;
-
-    if (!profileData) {
-      return res.status(400).json({ error: 'Profile data is required' });
+    let linkedinText = '';
+    
+    if (req.file) {
+      if (req.file.mimetype === 'application/pdf') {
+        const data = await pdf(req.file.buffer);
+        linkedinText = data.text;
+      } else {
+        linkedinText = req.file.buffer.toString('utf-8');
+      }
+    } else if (req.body.linkedinUsername) {
+      let url = req.body.linkedinUsername;
+      if (!url.startsWith('http')) {
+        url = `https://www.linkedin.com/in/${url.replace(/@/g, '')}`;
+      }
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8'
+          }
+        });
+        if (!response.ok) {
+           throw new Error(`HTTP ${response.status}`);
+        }
+        const html = await response.text();
+        linkedinText = html.substring(0, 15000); // Pass the HTML snippet to AI
+      } catch (err) {
+        console.error('LinkedIn fetch error:', err);
+        return res.status(400).json({ error: 'Could not fetch public LinkedIn profile. LinkedIn may be blocking the request. Please upload your profile PDF instead.' });
+      }
+    } else if (req.body.profileData) {
+       // fallback for the old manual method if needed
+       linkedinText = JSON.stringify(req.body.profileData);
     }
 
-    const extractedData = {
-      fullName: profileData.name || profileData.fullName || '',
-      currentRole: profileData.headline || profileData.title || '',
-      bio: profileData.summary || profileData.about || '',
-      skills: Array.isArray(profileData.skills) 
-        ? profileData.skills.join(', ') 
-        : (profileData.skills || ''),
-      experience: Array.isArray(profileData.experience)
-        ? profileData.experience.map(exp => 
-            `${exp.title || ''} at ${exp.company || ''} (${exp.duration || ''})`
-          ).join('; ')
-        : (profileData.experience || ''),
-      education: Array.isArray(profileData.education)
-        ? profileData.education.map(edu => 
-            `${edu.degree || ''} from ${edu.school || ''}`
-          ).join('; ')
-        : (profileData.education || '')
+    if (!linkedinText) {
+      return res.status(400).json({ error: 'LinkedIn profile file or data is required' });
+    }
+
+    // Truncate extremely long text to avoid token limits
+    const truncatedText = linkedinText.length > 8000 ? linkedinText.slice(0, 8000) + '\n[... truncated]' : linkedinText;
+
+    const LINKEDIN_EXTRACTION_PROMPT = `You are an expert data extractor. The user will provide raw text extracted from a LinkedIn profile PDF or manual data. 
+Your task is to parse this text and return a structured JSON object containing the user's profile information.
+
+Extract the following fields:
+- fullName: The person's full name.
+- currentRole: Their current job title or headline.
+- bio: A summary or "About" section.
+- skills: A comma-separated list of skills.
+- experience: A brief summary of their work experience (e.g., "Software Engineer at Google (2020-Present); ...").
+- education: A brief summary of their education (e.g., "B.S. Computer Science from MIT").
+- location: Their current location.
+- company: Their current or most recent company.
+- website: Any website or portfolio link if present.
+- phone: Phone number if present.
+
+If a field is not found or cannot be determined, leave it as an empty string.
+
+Respond ONLY with a valid JSON object matching the keys above. No markdown, no explanation.`;
+
+    let extractedData = {
+      fullName: '', currentRole: '', bio: '', skills: '',
+      experience: '', education: '', location: '', company: '',
+      website: '', phone: ''
     };
+
+    if (groq) {
+      try {
+        const completion = await aiCallWithRetry({
+          operation: () => groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: LINKEDIN_EXTRACTION_PROMPT },
+              { role: 'user', content: `Extract profile data from this text:\n\n---BEGIN TEXT---\n${truncatedText}\n---END TEXT---` }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1,
+            max_tokens: 1024,
+          }),
+          timeoutMs: 20000,
+          maxRetries: 2,
+          baseDelayMs: 500
+        });
+
+        const rawContent = completion.choices?.[0]?.message?.content || '';
+        const parsed = JSON.parse(rawContent.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, ''));
+        
+        extractedData = { ...extractedData, ...parsed };
+      } catch (aiError) {
+        console.warn('LinkedIn AI extraction failed:', aiError?.message || aiError);
+      }
+    }
 
     res.json({
       success: true,

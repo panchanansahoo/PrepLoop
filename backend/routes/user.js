@@ -1,6 +1,8 @@
 import express from "express";
 import { supabaseAdmin } from "../db/supabaseClient.js";
 import { authenticateToken, optionalAuth } from "../middleware/auth.js";
+import multer from 'multer';
+import { validateCustomUrl, buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
 import dsaLearningPath, {
   getModuleProblems,
   getModuleProgress,
@@ -13,6 +15,9 @@ import { normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
 
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
+
+// Multer memory storage for small avatar uploads
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const isProfilesAccessBlocked = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -91,6 +96,7 @@ const buildProfileResponse = (req, profile) => {
     githubUsername: profile?.github_username || '',
     github_username: profile?.github_username || '',
     coins: profile?.coins ?? 0,
+    custom_url: profile?.custom_url || '',
     
     // New profile fields
     phone: profile?.phone || '',
@@ -142,6 +148,7 @@ const buildProfileResponse = (req, profile) => {
       portfolio: flatProfile.socialLinks?.portfolio,
       dribbble: flatProfile.socialLinks?.dribbble
     },
+    custom_url: flatProfile.custom_url,
     profile: flatProfile,
     ...flatProfile,
   };
@@ -942,6 +949,82 @@ router.get("/profile", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to fetch profile" });
   }
 });
+
+// Public portfolio by slug (custom_url) or id
+router.get('/portfolio/public/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(400).json({ error: 'slug required' });
+
+    // Try by custom_url first
+    let { data: profile, error } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('custom_url', slug)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching public profile by custom_url:', error);
+      return res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+
+    if (!profile) {
+      // Fallback: try by id
+      const byId = await supabaseAdmin.from('profiles').select('*').eq('id', slug).maybeSingle();
+      if (byId.error) {
+        console.error('Error fetching public profile by id:', byId.error);
+        return res.status(500).json({ error: 'Failed to fetch profile' });
+      }
+      profile = byId.data || null;
+    }
+
+    if (!profile) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    // Build a lightweight portfolio object expected by frontend
+    const basics = {
+      name: profile.full_name || profile.fullName || '',
+      title: profile.designation || profile.current_role || profile.currentRole || '',
+      photo: profile.avatar_url || profile.avatarUrl || '',
+      location: profile.location || '',
+      email: profile.email || '',
+      website: profile.website || '',
+      summary: profile.bio || ''
+    };
+
+    const socials = {
+      github: profile.github_username || profile.githubUsername || '',
+      linkedin: profile.linkedin || (profile.social_links && profile.social_links.linkedin) || '',
+      twitter: profile.twitter || (profile.social_links && profile.social_links.twitter) || '',
+      portfolio: profile.portfolio || (profile.social_links && profile.social_links.portfolio) || ''
+    };
+
+    const skills = {
+      list: (String(profile.skills || '')).split(',').map(s => s.trim()).filter(Boolean)
+    };
+
+    const experience = (String(profile.experience || profile.experience_summary || '')).split(/\n|\.|;/).map(s => s.trim()).filter(Boolean);
+    const education = profile.education ? [profile.education] : [];
+
+    const portfolio = {
+      basics,
+      socials,
+      skills: { languages: skills.list, frameworks: [], tools: [], domains: [] },
+      experience,
+      education,
+      projects: [],
+      achievements: [],
+      openSource: { totalStars: 0, totalRepos: 0 },
+      portfolioMeta: { template: 'minimal-professional', sectionVisibility: {} }
+    };
+
+    res.json({ portfolio });
+  } catch (error) {
+    console.error('Error fetching public portfolio:', error);
+    res.status(500).json({ error: 'Failed to fetch portfolio' });
+  }
+});
 router.put("/profile", authenticateToken, async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -998,6 +1081,95 @@ router.put("/profile", authenticateToken, async (req, res) => {
       return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
     }
     res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+// POST /api/user/profile/avatar - Upload avatar image and update profile.avatar_url
+router.post('/profile/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.user?.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const filePath = buildAvatarPath(req.user.id, file.originalname);
+
+    // Upload to Supabase storage (requires a bucket named 'avatars')
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from('avatars')
+      .upload(filePath, file.buffer, { contentType: file.mimetype, upsert: true });
+
+    if (uploadError) {
+      console.error('Supabase storage upload error:', uploadError);
+      return res.status(500).json({ error: 'Failed to upload avatar' });
+    }
+
+    // Get public URL
+    const { data: publicData } = supabaseAdmin.storage.from('avatars').getPublicUrl(filePath);
+    const publicUrl = publicData?.publicUrl || null;
+
+    // Update profile record
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+      .eq('id', req.user.id);
+
+    if (updateError) {
+      console.error('Profile avatar update error:', updateError);
+      return res.status(500).json({ error: 'Failed to update profile avatar' });
+    }
+
+    const { data: profile, error: fetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', req.user.id)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Failed to fetch profile after avatar update:', fetchError);
+      return res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+
+    return res.json(buildProfileResponse(req, profile));
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+// POST /api/user/profile/claim-url - Claim a custom public profile URL
+router.post('/profile/claim-url', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user?.id) return res.status(401).json({ error: 'User not authenticated' });
+
+    const requested = String(req.body?.custom_url || '').trim().toLowerCase();
+    if (!requested) return res.status(400).json({ error: 'custom_url is required' });
+
+    // Validate: 3-30 chars, lowercase letters, numbers, and dashes
+    if (!/^[a-z0-9\-]{3,30}$/.test(requested)) {
+      return res.status(400).json({ error: 'Invalid custom_url format. Use 3-30 chars: a-z, 0-9, -' });
+    }
+
+    try {
+      const result = await claimCustomUrl(supabaseAdmin, req.user.id, requested);
+      if (!result.success) {
+        if (result.error === 'taken') return res.status(409).json({ error: 'custom_url already taken' });
+        return res.status(400).json({ error: 'Invalid custom_url' });
+      }
+
+      const profileRow = result.profile || (await supabaseAdmin.from('profiles').select('*').eq('id', req.user.id).maybeSingle()).data;
+      return res.json(buildProfileResponse(req, profileRow));
+    } catch (err) {
+      console.error('Claim URL error:', err);
+      return res.status(500).json({ error: 'Failed to claim custom_url' });
+    }
+  } catch (error) {
+    console.error('Claim URL error:', error);
+    res.status(500).json({ error: 'Failed to claim custom_url' });
   }
 });
 
