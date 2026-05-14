@@ -1,0 +1,362 @@
+/* ImprovementPlanPage — Vanilla CSS (dark theme matching AI Interview design system) */
+
+.imp-page {
+  min-height: 100vh;
+  background: #0f0f13;
+  color: #e0e0e6;
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+}
+
+/* --- Header --- */
+.imp-header {
+  background: rgba(20, 20, 28, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.imp-header-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+}
+
+.imp-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #f0f0f5;
+  margin: 0;
+}
+
+.imp-header p {
+  font-size: 0.85rem;
+  color: #8b8b9e;
+  margin: 0.25rem 0 0;
+}
+
+/* --- Stats Bar --- */
+.imp-stats-bar {
+  background: linear-gradient(135deg, #4f46e5, #6366f1, #818cf8);
+  color: #fff;
+}
+
+.imp-stats-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1rem 1.5rem;
+}
+
+.imp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .imp-stats-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+.imp-stat-label {
+  font-size: 0.7rem;
+  opacity: 0.9;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.imp-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+
+/* --- Tabs --- */
+.imp-tabs {
+  background: rgba(20, 20, 28, 0.95);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.imp-tabs-inner {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  gap: 1.5rem;
+}
+
+.imp-tab {
+  padding: 0.75rem 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #8b8b9e;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.imp-tab:hover {
+  color: #c0c0d0;
+}
+
+.imp-tab--active {
+  color: #818cf8;
+  border-bottom-color: #818cf8;
+}
+
+/* --- Content Grid --- */
+.imp-content {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.imp-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 1024px) {
+  .imp-grid {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+/* --- Cards --- */
+.imp-card {
+  background: rgba(20, 20, 28, 0.85);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 1.5rem;
+}
+
+.imp-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  color: #f0f0f5;
+}
+
+.imp-card h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #a0a0b0;
+  margin: 0 0 0.5rem;
+}
+
+/* --- Detail Rows --- */
+.imp-detail-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  padding: 0.4rem 0;
+}
+
+.imp-detail-row + .imp-detail-row {
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.imp-detail-label {
+  color: #8b8b9e;
+}
+
+.imp-detail-value {
+  font-weight: 500;
+  color: #e0e0e6;
+  text-transform: capitalize;
+}
+
+/* --- List Items --- */
+.imp-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.imp-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: #c0c0d0;
+}
+
+.imp-list-icon {
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+}
+
+.imp-list-icon--blue { color: #818cf8; }
+.imp-list-icon--green { color: #34d399; }
+.imp-list-icon--purple { color: #a78bfa; }
+
+/* --- Section Spacing --- */
+.imp-section + .imp-section {
+  margin-top: 1.5rem;
+}
+
+.imp-section-mb {
+  margin-bottom: 1rem;
+}
+
+/* --- Sidebar --- */
+.imp-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* --- Milestone Card --- */
+.imp-milestone {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), rgba(167, 139, 250, 0.08));
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(129, 140, 248, 0.15);
+}
+
+.imp-milestone-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.imp-milestone-header span:first-child {
+  font-size: 1.5rem;
+}
+
+.imp-milestone-header span:last-child {
+  font-weight: 600;
+  color: #e0e0e6;
+}
+
+.imp-milestone h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: capitalize;
+  margin: 0 0 0.5rem;
+  color: #c0c0d0;
+}
+
+.imp-milestone p {
+  font-size: 0.75rem;
+  color: #8b8b9e;
+  margin: 0 0 0.75rem;
+}
+
+.imp-criteria {
+  font-size: 0.75rem;
+  color: #8b8b9e;
+}
+
+.imp-criteria strong {
+  color: #a0a0b0;
+}
+
+.imp-criteria ul {
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* --- Quick Tips --- */
+.imp-tips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.imp-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.imp-tip p {
+  margin: 0;
+  color: #a0a0b0;
+}
+
+/* --- Support Card --- */
+.imp-support {
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(99, 102, 241, 0.08));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(129, 140, 248, 0.12);
+}
+
+.imp-support h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  color: #f0f0f5;
+}
+
+.imp-support p {
+  font-size: 0.85rem;
+  color: #8b8b9e;
+  margin: 0 0 0.75rem;
+}
+
+.imp-support-btn {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.imp-support-btn:hover {
+  background: #4338ca;
+}
+
+/* --- Resource Card --- */
+.imp-resource {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.5rem;
+  transition: background 0.2s;
+}
+
+.imp-resource:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.imp-resource-icon {
+  font-size: 1.5rem;
+}
+
+.imp-resource-body {
+  flex: 1;
+}
+
+.imp-resource-body h4 {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #e0e0e6;
+  margin: 0 0 0.15rem;
+}
+
+.imp-resource-body p {
+  font-size: 0.75rem;
+  color: #8b8b9e;
+  text-transform: capitalize;
+  margin: 0;
+}

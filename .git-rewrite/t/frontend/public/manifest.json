@@ -1,0 +1,36 @@
+{
+  "name": "PrepLoop",
+  "short_name": "PrepLoop",
+  "description": "Interview preparation platform with DSA practice, AI coaching, and system design",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Practice DSA",
+      "short_name": "DSA",
+      "description": "Start practicing DSA problems",
+      "url": "/practice/dsa",
+      "icons": []
+    },
+    {
+      "name": "AI Interview",
+      "short_name": "Interview",
+      "description": "Start AI interview practice",
+      "url": "/interview",
+      "icons": []
+    }
+  ]
+}

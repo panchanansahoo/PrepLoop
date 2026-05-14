@@ -1,0 +1,16 @@
+<step title="Incoming Request" date="2026-04-17T02:54:03.591" instance="707b0d" url="/api/zipdeploy?isAsync=true" method="POST" type="request" pid="832,1,26" Accept="application/json" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="azsdk-go-zip-deploy/1.0.0 (go1.26.1-X:loopvar; Windows_NT),azdev/1.24.0 (Go go1.26.1-X:loopvar; windows/amd64)" Accept-Encoding="gzip" Authorization="Bea..." Content-Type="application/octet-stream" Content-Length="4873492" x-ms-correlation-request-id="e74f0919c74d9e97139fd50870bb5a8a" X-ARR-LOG-ID="e74f0919-c74d-9e97-139f-d50870bb5a8a" CLIENT-IP="103.172.152.75:8624" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/zipdeploy?isAsync=true" X-Client-IP="103.172.152.75" X-Client-Port="8624" >
+  <step title="Cleanup Xml Logs" date="2026-04-17T02:54:03.613" /><!-- duration: 286ms -->
+  <step title="ZipPushDeploy" date="2026-04-17T02:54:04.209" >
+    <step title="ZipDeploy. Extract zip. Remote build." date="2026-04-17T02:54:04.504" /><!-- duration: 94ms -->
+    <step title="Starting PushDeployAsync" date="2026-04-17T02:54:04.707" /><!-- duration: 147ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/4465da72-908d-4a5d-affd-e48bd494f630.zip" date="2026-04-17T02:54:05.121" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/4465da72-908d-4a5d-affd-e48bd494f630.zip" date="2026-04-17T02:54:05.188" /><!-- duration: 38ms -->
+    </step><!-- duration: 743ms -->
+    <step title="Start deployment in the background" date="2026-04-17T02:54:05.964" >
+      <step title="Acquiring Deployment Lock" date="2026-04-17T02:54:06.039" /><!-- duration: 20ms -->
+      <step title="Cannot Acquire Deployment Lock already held" date="2026-04-17T02:54:06.178" /><!-- duration: 56ms -->
+    </step><!-- duration: 782ms -->
+    <step title="There is a deployment currently in progress. Please try again when it completes." date="2026-04-17T02:54:06.825" /><!-- duration: 51ms -->
+  </step><!-- duration: 2726ms -->
+  <step title="Outgoing response" date="2026-04-17T02:54:06.968" type="response" statusCode="409" statusText="Conflict" /><!-- duration: 47ms -->
+</step><!-- duration: 3554ms -->

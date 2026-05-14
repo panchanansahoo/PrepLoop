@@ -1,0 +1,6 @@
+<step title="Incoming Request" date="2026-05-14T10:04:52.611" instance="698913" url="/api/deployments/79dc8592-5fc1-4496-a6d6-1b5088bee7dd/log" method="GET" type="request" pid="837,1,36" Accept="*/*" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="AZURECLI/2.85.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bas..." x-ms-client-request-id="54a58940-4f7c-11f1-94d5-f6cd1da6e146" X-ARR-LOG-ID="54a58940-4f7c-11f1-94d5-f6cd1da6e146" CLIENT-IP="223.191.4.129:34464" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/79dc8592-5fc1-4496-a6d6-1b5088bee7dd/log" X-Client-IP="223.191.4.129" X-Client-Port="34464" >
+  <step title="DeploymentService.GetLogEntry" date="2026-05-14T10:04:52.654" >
+    <step title="DeploymentManager.GetLogEntries(id:79dc8592-5fc1-4496-a6d6-1b5088bee7dd)" date="2026-05-14T10:04:52.659" /><!-- duration: 169ms -->
+  </step><!-- duration: 182ms -->
+  <step title="Outgoing response" date="2026-05-14T10:04:52.875" type="response" statusCode="200" statusText="OK" /><!-- duration: 4ms -->
+</step><!-- duration: 276ms -->

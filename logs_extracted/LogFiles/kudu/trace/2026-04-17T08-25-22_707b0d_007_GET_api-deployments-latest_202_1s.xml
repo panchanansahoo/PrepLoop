@@ -1,0 +1,11 @@
+<step title="Incoming Request" date="2026-04-17T08:25:22.204" instance="707b0d" url="/api/deployments/latest" method="GET" type="request" pid="832,1,18" Accept="*/*" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="AZURECLI/2.85.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bas..." x-ms-client-request-id="947cf6db-3a36-11f1-bcf9-d030f1838b10" X-ARR-LOG-ID="947cf6db-3a36-11f1-bcf9-d030f1838b10" CLIENT-IP="103.172.152.182:7491" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest" X-Client-IP="103.172.152.182" X-Client-Port="7491" >
+  <step title="Cleanup Xml Logs" date="2026-04-17T08:25:22.207" >
+    <step title="Cleanup Infos" date="2026-04-17T08:25:22.238" totalFiles="250" totalCleanup="90" /><!-- duration: 20ms -->
+  </step><!-- duration: 62ms -->
+  <step title="DeploymentService.GetResult" date="2026-04-17T08:25:22.302" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-04-17T08:25:22.312" >
+      <step title="DeploymentManager.GetResults" date="2026-04-17T08:25:22.323" /><!-- duration: 809ms -->
+    </step><!-- duration: 832ms -->
+  </step><!-- duration: 869ms -->
+  <step title="Outgoing response" date="2026-04-17T08:25:23.192" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 10ms -->
+</step><!-- duration: 1009ms -->
