@@ -68,7 +68,6 @@
         "jsonwebtoken": "^9.0.3",
         "kokoro-js": "^1.2.1",
         "libmime": "5.3.8",
-        "mailparser": "3.9.8",
         "multer": "^2.0.0",
         "node-cache": "^5.1.2",
         "node-edge-tts": "^1.2.10",

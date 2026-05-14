@@ -2,7 +2,6 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
 import pdf from 'pdf-parse';
-import { simpleParser } from 'mailparser';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -273,6 +272,7 @@ router.post('/parse-pdf', upload.single('pdf'), async (req, res) => {
 router.post('/parse-eml', upload.single('eml'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No EML file uploaded' });
+    const { simpleParser } = await import('mailparser');
     const parsed = await simpleParser(req.file.buffer);
     const content = parsed.html || parsed.textAsHtml || parsed.text;
     res.json({ title: parsed.subject, content });
