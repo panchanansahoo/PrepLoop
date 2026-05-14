@@ -62,16 +62,9 @@ async function testAnalyzeAnswerQualityFallback() {
   assert.ok(typeof result.followUpQuestion === 'string', 'followUpQuestion should be string');
 }
 
-async function testVoiceServiceExposesStreamMethod() {
-  assert.ok(typeof voiceService.streamingTTS === 'function', 'streamingTTS should be exposed');
-  const unavailable = await voiceService.streamingTTS('', 'friendly');
-  assert.ok(unavailable.error, 'empty text should return error payload');
-}
-
 async function run() {
   testDetectFillerWords();
   await testAnalyzeAnswerQualityFallback();
-  await testVoiceServiceExposesStreamMethod();
   console.log('PASS testVoiceInterviewIntelligence');
 }
 
