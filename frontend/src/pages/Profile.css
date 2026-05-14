@@ -58,6 +58,16 @@
   background: linear-gradient(145deg, #ffffff, #d4d4d8);
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.4);
   position: relative;
+  overflow: hidden;
+}
+
+.du-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
 }
 
 .du-avatar-online {
@@ -1724,4 +1734,354 @@
   background: rgba(220, 38, 38, 0.08);
   border-color: rgba(220, 38, 38, 0.2);
   color: #dc2626;
+}
+
+/* ─── Premium Portfolio Showcase ─── */
+.du-portfolio-showcase {
+  animation: du-fade-in 0.4s ease-out;
+}
+
+@keyframes du-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.du-portfolio-header-premium {
+  text-align: center;
+  margin-bottom: 32px;
+  padding: 40px 24px;
+  border-radius: 20px;
+  background: radial-gradient(100% 200% at 50% 0%, rgba(44, 238, 145, 0.15) 0%, rgba(14, 14, 16, 0.8) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.du-portfolio-header-premium::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(44, 238, 145, 0.5), transparent);
+}
+
+.du-portfolio-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.du-portfolio-role {
+  font-size: 18px;
+  font-weight: 500;
+  margin: 0;
+  color: #2cee91;
+}
+
+.du-portfolio-location {
+  font-size: 14px;
+  margin: 12px 0 0 0;
+  color: var(--zinc-400, #a1a1aa);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.du-portfolio-body-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 28px;
+}
+
+@media (max-width: 800px) {
+  .du-portfolio-body-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.du-portfolio-section-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.du-portfolio-section-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(44, 238, 145, 0.2);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+}
+
+.du-portfolio-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+}
+
+.du-portfolio-section-title svg {
+  color: #2cee91;
+}
+
+.du-portfolio-text {
+  font-size: 15px;
+  line-height: 1.7;
+  color: #d4d4d8;
+  white-space: pre-wrap;
+}
+
+.du-portfolio-exp-item {
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  border-left: 3px solid #2cee91;
+  transition: background 0.2s ease;
+  margin-bottom: 12px;
+}
+
+.du-portfolio-exp-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.du-portfolio-exp-text {
+  margin: 0;
+  font-size: 14px;
+  color: #e4e4e7;
+  line-height: 1.6;
+}
+
+.du-portfolio-skills-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.du-portfolio-skill-chip {
+  background: rgba(44, 238, 145, 0.1);
+  border: 1px solid rgba(44, 238, 145, 0.2);
+  color: #2cee91;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.du-portfolio-skill-chip:hover {
+  background: rgba(44, 238, 145, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(44, 238, 145, 0.15);
+}
+
+.du-portfolio-contact-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.du-portfolio-contact-item {
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #d4d4d8;
+}
+
+.du-portfolio-contact-item svg {
+  color: #2cee91;
+  background: rgba(44, 238, 145, 0.1);
+  padding: 6px;
+  border-radius: 8px;
+  box-sizing: content-box;
+}
+
+.du-portfolio-contact-item a {
+  color: #fff;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.du-portfolio-contact-item a:hover {
+  color: #2cee91;
+}
+
+/* Light Theme Overrides for Portfolio */
+[data-theme="light"] .du-portfolio-header-premium {
+  background: radial-gradient(100% 200% at 50% 0%, rgba(99, 102, 241, 0.1) 0%, #ffffff 100%);
+  border-color: rgba(99, 102, 241, 0.2);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .du-portfolio-header-premium::before {
+  background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.5), transparent);
+}
+
+[data-theme="light"] .du-portfolio-title {
+  color: #1e293b;
+}
+
+[data-theme="light"] .du-portfolio-role {
+  color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-section-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .du-portfolio-section-card:hover {
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .du-portfolio-section-title {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  color: #1e293b;
+}
+
+[data-theme="light"] .du-portfolio-section-title svg {
+  color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-text {
+  color: #475569;
+}
+
+[data-theme="light"] .du-portfolio-exp-item {
+  background: #f8fafc;
+  border-left-color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-exp-item:hover {
+  background: #f1f5f9;
+}
+
+[data-theme="light"] .du-portfolio-exp-text {
+  color: #334155;
+}
+
+[data-theme="light"] .du-portfolio-skill-chip {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.2);
+  color: #4f46e5;
+}
+
+[data-theme="light"] .du-portfolio-skill-chip:hover {
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .du-portfolio-contact-item {
+  color: #475569;
+}
+
+[data-theme="light"] .du-portfolio-contact-item svg {
+  color: #4f46e5;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+[data-theme="light"] .du-portfolio-contact-item a {
+  color: #1e293b;
+}
+
+[data-theme="light"] .du-portfolio-contact-item a:hover {
+  color: #4f46e5;
+}
+
+/* ─── Portfolio CTA Banner ─── */
+.du-portfolio-cta-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(44, 238, 145, 0.08) 0%, rgba(56, 189, 248, 0.08) 100%);
+  border: 1px solid rgba(44, 238, 145, 0.2);
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.du-portfolio-cta-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.du-portfolio-cta-left svg {
+  color: #2cee91;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.du-portfolio-cta-left strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 3px;
+}
+
+.du-portfolio-cta-left p {
+  margin: 0;
+  font-size: 13px;
+  color: #a1a1aa;
+}
+
+.du-portfolio-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #2cee91 0%, #26d47f 100%);
+  color: #031009;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.12s;
+  font-family: inherit;
+}
+
+.du-portfolio-cta-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(44, 238, 145, 0.3);
+}
+
+[data-theme="light"] .du-portfolio-cta-banner {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(56, 189, 248, 0.06) 100%);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+[data-theme="light"] .du-portfolio-cta-left svg { color: #4f46e5; }
+[data-theme="light"] .du-portfolio-cta-left strong { color: #1e293b; }
+[data-theme="light"] .du-portfolio-cta-btn {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #fff;
+  box-shadow: none;
+}
+[data-theme="light"] .du-portfolio-cta-btn:hover {
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }

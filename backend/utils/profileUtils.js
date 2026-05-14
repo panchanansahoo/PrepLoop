@@ -7,8 +7,9 @@ export function validateCustomUrl(slug) {
 
 export function buildAvatarPath(userId, originalName) {
   const extMatch = String(originalName || '').match(/(\.[^.]*)$/);
-  const ext = extMatch ? extMatch[1] : '';
-  return `avatars/${userId}${ext}`;
+  const ext = extMatch ? extMatch[1].toLowerCase() : '.jpg';
+  const ts = Date.now();
+  return `avatars/${userId}_${ts}${ext}`;
 }
 
 export async function claimCustomUrl(supabaseAdmin, userId, requested) {

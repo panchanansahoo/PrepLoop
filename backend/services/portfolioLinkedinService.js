@@ -11,6 +11,61 @@ export const validateLinkedinUrl = (url) => {
   return { valid: true, value: safeUrl };
 };
 
+// Parse pasted LinkedIn "About" export text into structured profile data
+export const parseLinkedinExportText = (text = '') => {
+  const safe = String(text || '').trim();
+  if (!safe) return null;
+
+  const lines = safe.split('\n').map((l) => l.trim()).filter(Boolean);
+
+  // Name is usually the first non-empty line
+  const fullName = lines[0] || null;
+
+  // Headline: second line if it doesn't look like a URL or email
+  const headline = lines[1] && !lines[1].includes('@') && !lines[1].startsWith('http') ? lines[1] : null;
+
+  // Location: look for a line matching city/country pattern
+  const locationLine = lines.find((l) => /^[A-Z][a-z]+[,\s]+[A-Z]/.test(l) && l.length < 60);
+
+  // Summary: longest paragraph-like block (>80 chars)
+  const summary = lines.find((l) => l.length > 80) || null;
+
+  // Skills: lines after a "Skills" header
+  const skillsIdx = lines.findIndex((l) => /^skills$/i.test(l));
+  const skills = skillsIdx >= 0
+    ? lines.slice(skillsIdx + 1, skillsIdx + 20)
+        .filter((l) => l.length < 60 && !l.includes(':'))
+    : [];
+
+  // Experience: lines after "Experience" header
+  const expIdx = lines.findIndex((l) => /^experience$/i.test(l));
+  const experience = expIdx >= 0
+    ? lines.slice(expIdx + 1, expIdx + 30)
+        .filter((l) => l.length > 5)
+        .slice(0, 10)
+        .map((l) => ({ role: l, company: 'Unknown', source: 'linkedin' }))
+    : [];
+
+  // Education: lines after "Education" header
+  const eduIdx = lines.findIndex((l) => /^education$/i.test(l));
+  const education = eduIdx >= 0
+    ? lines.slice(eduIdx + 1, eduIdx + 10)
+        .filter((l) => l.length > 3)
+        .slice(0, 4)
+        .map((l) => ({ institute: l, degree: null, year: null, source: 'linkedin' }))
+    : [];
+
+  return {
+    fullName,
+    headline,
+    summary,
+    location: locationLine || null,
+    skills,
+    experience,
+    education,
+  };
+};
+
 export const normalizeLinkedinPayload = ({
   url,
   headline,
@@ -43,4 +98,5 @@ export const normalizeLinkedinPayload = ({
 export default {
   validateLinkedinUrl,
   normalizeLinkedinPayload,
+  parseLinkedinExportText,
 };

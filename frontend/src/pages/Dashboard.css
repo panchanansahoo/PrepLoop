@@ -1880,3 +1880,20 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   margin-left: 260px;
 }
+
+/* ─── Loading bar ─── */
+.dash-loading-bar {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 18px;
+}
+
+.dash-spinner {
+  color: #a78bfa;
+  animation: dash-spin 1s linear infinite;
+}
+
+@keyframes dash-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

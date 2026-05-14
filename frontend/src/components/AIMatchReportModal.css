@@ -223,7 +223,7 @@
   background-image: radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.03) 0%, transparent 60%);
 }
 
-.match-overview-view, .match-other-view {
+.match-overview-view {
   width: 100%;
   max-width: 480px;
   display: flex;
@@ -348,6 +348,43 @@
 .match-nav-btn:hover {
   background: #18181b;
   color: #fff;
+}
+
+.match-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.match-nav-btn:disabled:hover {
+  background: transparent;
+  color: #a1a1aa;
+}
+
+.match-apply-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 10px 20px;
+  background: #10b981;
+  color: #000;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.match-apply-link:hover {
+  background: #059669;
+  transform: translateY(-1px);
+}
+
+.match-other-view {
+  align-items: flex-start;
+  text-align: left;
+  width: 100%;
+  max-width: 480px;
 }
 
 .match-footer-right {

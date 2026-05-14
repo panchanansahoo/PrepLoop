@@ -170,8 +170,6 @@ export default function Dashboard() {
                 return { contests: dashboardData.upcomingContests };
             case 'pomodoroTimer':
                 return { stats: dashboardData.pomodoroStats };
-            case 'weeklyGoals':
-                return { weeklyData: dashboardData.weeklyGoals };
             case 'weeklyStats':
                 return {
                     weeklyData: {
@@ -319,8 +317,8 @@ export default function Dashboard() {
 
                 {/* ── Loading State (non-blocking) ── */}
                 {dashLoading && (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 18px' }}>
-                        <Loader2 size={20} className="dash-spinner" style={{ color: '#a78bfa', animation: 'spin 1s linear infinite' }} />
+                    <div className="dash-loading-bar">
+                        <Loader2 size={20} className="dash-spinner" />
                     </div>
                 )}
 

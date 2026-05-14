@@ -7,7 +7,10 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB
+});
 
 const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -134,7 +137,10 @@ function buildFallbackResumeProfile(resumeText, analysisData = {}) {
   ].slice(0, 8);
 
   return {
-    candidateHeadline: lines[0] || 'Student candidate with project-based experience',
+    candidateHeadline: lines.find(l =>
+      /engineer|developer|analyst|designer|manager|consultant|architect|scientist/i.test(l) &&
+      l.length > 10 && l.length < 100
+    ) || 'Professional',
     coreSkills,
     projectHighlights,
     likelyQuestionAreas: [
@@ -347,6 +353,7 @@ router.post('/analyze', authenticateToken, upload.single('resume'), async (req, 
         user_id: req.user.id,
         resume_text: storedText,
         ats_score: analysisData.atsScore,
+        overall_score: analysisData.atsScore,
         strengths: analysisData.strengths,
         weaknesses: analysisData.weaknesses,
         suggestions: analysisData.suggestions,
@@ -642,6 +649,7 @@ ${formatAwards(awards)}
           user_id: req.user.id,
           resume_text: storedText,
           ats_score: generatedResume.atsScore || 70,
+          overall_score: generatedResume.atsScore || 70,
           strengths: ['AI-generated professional resume'],
           weaknesses: [],
           suggestions: ['Review and personalize the generated content'],
@@ -665,9 +673,9 @@ router.get('/history', authenticateToken, async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('resume_analyses')
-      .select('id, ats_score, analyzed_at')
+      .select('id, ats_score, analyzed_at, created_at')
       .eq('user_id', req.user.id)
-      .order('analyzed_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(10);
 
     if (error) throw error;
@@ -684,7 +692,7 @@ router.get('/latest', authenticateToken, async (req, res) => {
       .from('resume_analyses')
       .select('*')
       .eq('user_id', req.user.id)
-      .order('analyzed_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
@@ -725,9 +733,16 @@ function extractHeadline(text) {
   const lines = String(text).split('\n').map(l => l.trim()).filter(Boolean);
   const roleKeywords = /engineer|developer|analyst|designer|manager|consultant|architect|scientist/i;
   for (const line of lines.slice(0, 10)) {
-    if (roleKeywords.test(line) && line.length > 10 && line.length < 100) return line;
+    if (
+      roleKeywords.test(line) &&
+      line.length > 10 &&
+      line.length < 100 &&
+      !line.toLowerCase().startsWith('generated resume')
+    ) return line;
   }
-  return lines[0] || 'Professional';
+  // Don't expose generated-resume sentinel or raw email lines
+  const safe = lines.find(l => !l.toLowerCase().startsWith('generated resume') && !l.includes('@') && l.length > 5);
+  return safe || 'Professional';
 }
 
 function extractProjects(text) {

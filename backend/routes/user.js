@@ -97,7 +97,8 @@ const buildProfileResponse = (req, profile) => {
     github_username: profile?.github_username || '',
     coins: profile?.coins ?? 0,
     custom_url: profile?.custom_url || '',
-    
+    is_public: profile?.is_public ?? false,
+
     // New profile fields
     phone: profile?.phone || '',
     location: profile?.location || '',
@@ -135,7 +136,8 @@ const buildProfileResponse = (req, profile) => {
       github_username: flatProfile.githubUsername,
       githubUsername: flatProfile.githubUsername,
       coins: flatProfile.coins,
-      
+      is_public: flatProfile.is_public,
+
       // New profile fields
       phone: flatProfile.phone,
       location: flatProfile.location,
@@ -980,6 +982,10 @@ router.get('/portfolio/public/:slug', async (req, res) => {
 
     if (!profile) {
       return res.status(404).json({ error: 'Not found' });
+    }
+
+    if (!profile.is_public) {
+      return res.status(403).json({ error: 'This profile is private' });
     }
 
     // Build a lightweight portfolio object expected by frontend

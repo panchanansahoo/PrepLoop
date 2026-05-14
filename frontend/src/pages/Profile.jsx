@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
@@ -7,20 +7,13 @@ import { buildAuthHeaders, mergeAuthHeaders } from '../utils/authHeaders';
 import {
   User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut,
   Github, Sparkles, FileText, Upload, Pencil, Save, X,
-  Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Zap as Bolt,
+  Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as Bolt,
   ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star,
   Phone, Calendar as CalendarIcon, MapPin as LocationIcon, 
   ExternalLink, Hash, Tag, Camera
 } from 'lucide-react';
 import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
-
-/* ─── Data helpers (unchanged logic) ─── */
-const MOCK_JOB_MATCHES = [
-  { id: 1, title: 'Software Engineer Trainee', company: 'Roku', matchScore: 85 },
-  { id: 2, title: 'Frontend Developer', company: 'Google', matchScore: 78 },
-  { id: 3, title: 'Full Stack Engineer', company: 'Stripe', matchScore: 92 }
-];
 
 function buildInitialProfile(user) {
   return {
@@ -69,9 +62,12 @@ function normalizeProfileData(data) {
     location: data?.location ?? '',
     website: data?.website ?? '',
     company: data?.company ?? '',
-    yearsOfExperience: data?.yearsOfExperience ?? '',
+    yearsOfExperience: data?.yearsOfExperience ?? data?.years_of_experience ?? '',
     specialization: data?.specialization ?? '',
-    socialLinks: data?.socialLinks ?? {
+    avatar_url: data?.avatar_url ?? '',
+    custom_url: data?.custom_url ?? '',
+    is_public: data?.is_public ?? false,
+    socialLinks: data?.socialLinks ?? data?.social_links ?? {
       twitter: data?.twitter ?? '',
       linkedin: data?.linkedin ?? '',
       portfolio: data?.portfolio ?? '',
@@ -193,7 +189,8 @@ const AUTOFILL_FIELD_LABELS = {
 export default function Profile() {
   const { user, logout } = useAuth();
   const { refreshBalance } = useCoins();
-  const { data: dashboardData } = useDashboardData();
+  const { data: dashboardData, refresh: refreshDashboard } = useDashboardData();
+  const navigate = useNavigate();
 
   const [profile, setProfile] = useState({ ...buildInitialProfile(user) });
   const [editing, setEditing] = useState(false);
@@ -201,9 +198,13 @@ export default function Profile() {
   const [status, setStatus] = useState('idle');
   const [rewardMessage, setRewardMessage] = useState('');
   const [isPublic, setIsPublic] = useState(false);
+  const [linkedinInputVisible, setLinkedinInputVisible] = useState(false);
+  const [linkedinInputValue, setLinkedinInputValue] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [githubUsername, setGithubUsername] = useState('');
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [jobMatches, setJobMatches] = useState([]);
+  const [jobMatchesLoading, setJobMatchesLoading] = useState(false);
   const [resumeSnapshot, setResumeSnapshot] = useState(null);
   const [autofillSuggestions, setAutofillSuggestions] = useState({});
   const [linkedinImporting, setLinkedinImporting] = useState(false);
@@ -250,10 +251,36 @@ export default function Profile() {
     }
   }, [user]);
 
+  const fetchJobMatches = useCallback(async () => {
+    setJobMatchesLoading(true);
+    try {
+      const res = await fetch('/api/jobs/skill-match', { headers: buildAuthHeaders(user) });
+      if (res.ok) {
+        const data = await res.json();
+        setJobMatches((data.jobs || []).slice(0, 3).map(j => ({
+          id: j.id,
+          title: j.title,
+          company: j.company,
+          matchScore: j.matchScore ?? 50,
+          description: j.description,
+          apply_link: j.apply_link,
+        })));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+    setJobMatchesLoading(false);
+  }, [user]);
+
   useEffect(() => {
     fetchProfile();
     fetchLatestResumeSnapshot();
-  }, [fetchProfile, fetchLatestResumeSnapshot]);
+    fetchJobMatches();
+  }, [fetchProfile, fetchLatestResumeSnapshot, fetchJobMatches]);
+
+  useEffect(() => {
+    if (profile.is_public !== undefined) setIsPublic(!!profile.is_public);
+  }, [profile.is_public]);
 
   useEffect(() => {
     if (!resumeSnapshot || hasAutofilledFromResumeRef.current) return;
@@ -360,6 +387,7 @@ export default function Profile() {
         setRewardMessage(`+${data.coinsAwarded} coins earned for completing your profile.`);
       }
       refreshBalance();
+      refreshDashboard();
       setEditing(false);
       setStatus('saved');
       setAutofillSuggestions({});
@@ -412,9 +440,30 @@ export default function Profile() {
     setSaving(false);
   };
 
+  const handleTogglePublic = async () => {
+    const next = !isPublic;
+    setIsPublic(next);
+    try {
+      await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: buildAuthHeaders(user),
+        body: JSON.stringify({ is_public: next })
+      });
+    } catch (err) {
+      console.error(err);
+      setIsPublic(!next);
+    }
+  };
+
   const handleCopyLink = () => {
-    const link = `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
-    navigator.clipboard.writeText(link).catch(() => { /* fallback */ });
+    navigator.clipboard.writeText(profileLink).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = profileLink;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
   };
@@ -459,29 +508,32 @@ export default function Profile() {
     });
   };
 
-  const handleLinkedInImport = async () => {
-    const input = prompt('Enter your LinkedIn Username or URL (or leave blank to upload a PDF):');
-    if (input === null) return; // cancelled
-    if (input.trim() === '') {
+  const handleLinkedInImport = () => {
+    setLinkedinInputVisible(true);
+  };
+
+  const handleLinkedInSubmit = async () => {
+    const input = linkedinInputValue.trim();
+    if (!input) {
       linkedinInputRef.current?.click();
+      setLinkedinInputVisible(false);
       return;
     }
-    
+    setLinkedinInputVisible(false);
+    setLinkedinInputValue('');
     setLinkedinImporting(true);
     setStatus('idle');
     try {
       const res = await fetch('/api/resume/import-linkedin', {
         method: 'POST',
         headers: mergeAuthHeaders({ 'Content-Type': 'application/json' }, user),
-        body: JSON.stringify({ linkedinUsername: input.trim() })
+        body: JSON.stringify({ linkedinUsername: input })
       });
-
       if (!res.ok) {
-         const errData = await res.json().catch(() => ({}));
-         throw new Error(errData.error || 'Import failed');
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Import failed');
       }
       const data = await res.json();
-
       if (data.profileData) {
         setProfile(prev => ({
           ...prev,
@@ -500,7 +552,6 @@ export default function Profile() {
       }
     } catch (err) {
       console.error(err);
-      alert(err.message);
       setStatus('error');
     }
     setLinkedinImporting(false);
@@ -657,9 +708,9 @@ export default function Profile() {
   const displayName = profile.fullName || user?.fullName || 'User';
   const initial = (displayName || user?.email || '?').charAt(0).toUpperCase();
   const emailDisplay = profile.email || user?.email || 'Email not set';
-  const interviewsDone = dashboardData?.interviewsCompleted || 0;
-  const aiMatches = dashboardData?.aiMatches || dashboardData?.jobMatches || 0;
-  const coverLetters = dashboardData?.coverLetters || 0;
+  const interviewsDone = dashboardData?.stats?.mockInterviews || 0;
+  const aiMatches = dashboardData?.stats?.problemsSolved || 0;
+  const coverLetters = dashboardData?.stats?.resumesAnalyzed || 0;
   const profileLink = profile.custom_url && profile.custom_url.length > 0
     ? `https://preploop.com/u/${profile.custom_url}`
     : `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
@@ -685,7 +736,12 @@ export default function Profile() {
           <div className="du-profile-left">
             <div className="du-avatar">
               {profile.avatar_url ? (
-                <img src={profile.avatar_url} alt={`${displayName}'s avatar`} className="du-avatar-img" />
+                <img
+                  src={profile.avatar_url}
+                  alt={`${displayName}'s avatar`}
+                  className="du-avatar-img"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
               ) : (
                 initial
               )}
@@ -748,7 +804,7 @@ export default function Profile() {
               </div>
               <button
                 className={`du-toggle ${isPublic ? 'is-on' : ''}`}
-                onClick={() => setIsPublic(!isPublic)}
+                onClick={handleTogglePublic}
                 aria-label="Toggle profile visibility"
                 type="button"
               >
@@ -794,7 +850,7 @@ export default function Profile() {
                       try {
                         const res = await fetch('/api/user/profile/claim-url', {
                           method: 'POST',
-                          headers: buildAuthHeaders(user),
+                          headers: { ...buildAuthHeaders(user), 'Content-Type': 'application/json' },
                           body: JSON.stringify({ custom_url: slug })
                         });
                         if (!res.ok) {
@@ -846,6 +902,13 @@ export default function Profile() {
               Professional
             </button>
             <button 
+              className={`du-tab ${activeTab === 'portfolio' ? 'active' : ''}`}
+              onClick={() => setActiveTab('portfolio')}
+            >
+              <Layout size={16} />
+              Portfolio
+            </button>
+            <button 
               className={`du-tab ${activeTab === 'social' ? 'active' : ''}`}
               onClick={() => setActiveTab('social')}
             >
@@ -860,10 +923,12 @@ export default function Profile() {
               <h2 className="du-card-title">
                 {activeTab === 'basic' && <User />} 
                 {activeTab === 'professional' && <Briefcase />} 
+                {activeTab === 'portfolio' && <Layout />}
                 {activeTab === 'social' && <Users />}
                 
                 {activeTab === 'basic' && 'Basic Information'}
                 {activeTab === 'professional' && 'Professional Details'}
+                {activeTab === 'portfolio' && 'Your Generated Portfolio'}
                 {activeTab === 'social' && 'Social Profiles'}
               </h2>
               {!editing ? (
@@ -889,14 +954,30 @@ export default function Profile() {
               >
                 <Upload size={14} /> {resumeImporting ? 'Importing...' : 'Import from Resume'}
               </button>
-              <button 
-                className="du-import-btn" 
-                onClick={handleLinkedInImport}
-                disabled={linkedinImporting}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#0a66c2', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
-              >
-                <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import from LinkedIn'}
-              </button>
+              {linkedinInputVisible ? (
+                <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
+                  <input
+                    className="du-form-input"
+                    placeholder="LinkedIn username or leave blank to upload PDF"
+                    value={linkedinInputValue}
+                    onChange={(e) => setLinkedinInputValue(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleLinkedInSubmit()}
+                    autoFocus
+                    style={{ flex: 1 }}
+                  />
+                  <button onClick={handleLinkedInSubmit} style={{ padding: '10px 14px', background: '#0a66c2', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Go</button>
+                  <button onClick={() => { setLinkedinInputVisible(false); setLinkedinInputValue(''); }} style={{ padding: '10px 14px', background: 'transparent', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer' }}>✕</button>
+                </div>
+              ) : (
+                <button
+                  className="du-import-btn"
+                  onClick={handleLinkedInImport}
+                  disabled={linkedinImporting}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#0a66c2', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
+                >
+                  <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import from LinkedIn'}
+                </button>
+              )}
               <input type="file" ref={linkedinInputRef} accept=".pdf" style={{ display: 'none' }} onChange={handleLinkedInFileChange} />
               <input type="file" ref={resumeInputRef} accept=".pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleResumeFileChange} />
             </div>
@@ -1046,7 +1127,7 @@ export default function Profile() {
                   </div>
                 </div>
               )}
-              
+
               {activeTab === 'social' && (
                 <div className="du-showcase-social-links">
                   <div className="du-social-link-item">
@@ -1084,6 +1165,124 @@ export default function Profile() {
                   </div>
                 </div>
               )}
+
+              {activeTab === 'portfolio' && (
+                <div className="du-portfolio-showcase">
+                  {/* CTA Banner */}
+                  <div className="du-portfolio-cta-banner">
+                    <div className="du-portfolio-cta-left">
+                      <Layout size={20} />
+                      <div>
+                        <strong>Generate your public portfolio</strong>
+                        <p>Turn your profile data into a shareable, modern portfolio page in minutes.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="du-portfolio-cta-btn"
+                      onClick={() => navigate('/portfolio-creator', {
+                        state: {
+                          form: {
+                            githubUsername: profile.githubUsername || '',
+                            linkedinUrl: profile.socialLinks?.linkedin
+                              ? `https://linkedin.com/in/${profile.socialLinks.linkedin}`
+                              : '',
+                          },
+                        },
+                      })}
+                    >
+                      <Sparkles size={14} /> Generate Portfolio →
+                    </button>
+                  </div>
+
+                  <div className="du-portfolio-header-premium">
+                    <h1 className="du-portfolio-title">{profile.fullName || 'Your Name'}</h1>
+                    <h3 className="du-portfolio-role">{roleDisplay}</h3>
+                    {profile.location && (
+                      <p className="du-portfolio-location">
+                        <LocationIcon size={14} /> {profile.location}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="du-portfolio-body-grid">
+                    <div className="du-portfolio-main">
+                      {profileSummary && (
+                        <div className="du-portfolio-section-card">
+                          <h4 className="du-portfolio-section-title">
+                            <FileText size={20} /> About Me
+                          </h4>
+                          <p className="du-portfolio-text">{profileSummary}</p>
+                        </div>
+                      )}
+                      
+                      <div className="du-portfolio-section-card">
+                        <h4 className="du-portfolio-section-title">
+                          <Briefcase size={20} /> Experience
+                        </h4>
+                        {experiencePoints.length ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {experiencePoints.map((point, idx) => (
+                              <div key={idx} className="du-portfolio-exp-item">
+                                <p className="du-portfolio-exp-text">{point}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="du-portfolio-text" style={{ opacity: 0.6 }}>No experience listed.</p>
+                        )}
+                      </div>
+                      
+                      {profile.education && (
+                        <div className="du-portfolio-section-card">
+                          <h4 className="du-portfolio-section-title">
+                            <Award size={20} /> Education
+                          </h4>
+                          <p className="du-portfolio-text">{profile.education}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="du-portfolio-sidebar">
+                      <div className="du-portfolio-section-card">
+                        <h4 className="du-portfolio-section-title">
+                          <Zap size={20} /> Skills
+                        </h4>
+                        <div className="du-portfolio-skills-grid">
+                          {skillChips.length ? skillChips.map(skill => (
+                            <span key={skill} className="du-portfolio-skill-chip">{skill}</span>
+                          )) : <p className="du-portfolio-text" style={{ opacity: 0.6 }}>No skills listed.</p>}
+                        </div>
+                      </div>
+
+                      <div className="du-portfolio-section-card">
+                        <h4 className="du-portfolio-section-title">
+                          <Mail size={20} /> Contact
+                        </h4>
+                        <ul className="du-portfolio-contact-list">
+                          <li className="du-portfolio-contact-item">
+                            <Mail size={16} /> {emailDisplay}
+                          </li>
+                          {profile.phone && (
+                            <li className="du-portfolio-contact-item">
+                              <Phone size={16} /> {profile.phone}
+                            </li>
+                          )}
+                          {profile.website && (
+                            <li className="du-portfolio-contact-item">
+                              <Link2 size={16} /> 
+                              <a href={profile.website} target="_blank" rel="noopener noreferrer">
+                                {profile.website}
+                              </a>
+                            </li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
 
             {editing && activeTab === 'basic' && <div className="du-form-grid">
@@ -1383,7 +1582,11 @@ export default function Profile() {
               </h2>
             </div>
             <div className="du-app-list">
-              {MOCK_JOB_MATCHES.map(match => (
+              {jobMatchesLoading ? (
+                <p style={{ color: '#a1a1aa', fontSize: 13, padding: '8px 0' }}>Loading matches...</p>
+              ) : jobMatches.length === 0 ? (
+                <p style={{ color: '#a1a1aa', fontSize: 13, padding: '8px 0' }}>Complete your profile skills to see job matches.</p>
+              ) : jobMatches.map(match => (
                 <div key={match.id} className="du-match-item" onClick={() => setSelectedMatch(match)}>
                   <div className="du-match-icon">
                     <Building size={20} />
@@ -1433,31 +1636,25 @@ export default function Profile() {
             <div className="du-sub-meters">
               <div className="du-sub-meter">
                 <div className="du-sub-meter-top">
-                  <span className="du-sub-meter-label">
-                    AI Matches
-                  </span>
-                  <span className="du-sub-meter-value">{aiMatches}/39</span>
+                  <span className="du-sub-meter-label">Problems Solved</span>
+                  <span className="du-sub-meter-value">{aiMatches}/100</span>
                 </div>
                 <div className="du-progress-track">
-                  <div className="du-progress-fill" style={{ width: `${Math.min((aiMatches / 39) * 100, 100)}%` }} />
+                  <div className="du-progress-fill" style={{ width: `${Math.min((aiMatches / 100) * 100, 100)}%` }} />
                 </div>
               </div>
               <div className="du-sub-meter">
                 <div className="du-sub-meter-top">
-                  <span className="du-sub-meter-label">
-                    Cover Letters
-                  </span>
-                  <span className="du-sub-meter-value">{coverLetters}/29</span>
+                  <span className="du-sub-meter-label">Resumes Analyzed</span>
+                  <span className="du-sub-meter-value">{coverLetters}/10</span>
                 </div>
                 <div className="du-progress-track">
-                  <div className="du-progress-fill" style={{ width: `${Math.min((coverLetters / 29) * 100, 100)}%` }} />
+                  <div className="du-progress-fill" style={{ width: `${Math.min((coverLetters / 10) * 100, 100)}%` }} />
                 </div>
               </div>
               <div className="du-sub-meter">
                 <div className="du-sub-meter-top">
-                  <span className="du-sub-meter-label">
-                    Mock Interviews
-                  </span>
+                  <span className="du-sub-meter-label">Mock Interviews</span>
                   <span className="du-sub-meter-value">{interviewsDone}/19</span>
                 </div>
                 <div className="du-progress-track">
@@ -1511,15 +1708,15 @@ export default function Profile() {
             <div className="du-stats-grid">
               <div className="du-stat-item">
                 <div className="du-stat-value">{interviewsDone}</div>
-                <div className="du-stat-label">Interviews Done</div>
+                <div className="du-stat-label">Mock Interviews</div>
               </div>
               <div className="du-stat-item">
                 <div className="du-stat-value">{aiMatches}</div>
-                <div className="du-stat-label">AI Matches</div>
+                <div className="du-stat-label">Problems Solved</div>
               </div>
               <div className="du-stat-item">
                 <div className="du-stat-value">{coverLetters}</div>
-                <div className="du-stat-label">Cover Letters</div>
+                <div className="du-stat-label">Resumes Analyzed</div>
               </div>
             </div>
           </div>

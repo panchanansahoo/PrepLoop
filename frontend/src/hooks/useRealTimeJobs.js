@@ -16,6 +16,8 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
   const wsRef = useRef(null);
   const pollTimerRef = useRef(null);
 
+  const lastUpdateRef = useRef(null);
+
   // Fetch jobs via REST API
   const fetchJobs = useCallback(async () => {
     try {
@@ -24,7 +26,7 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
 
       const params = new URLSearchParams({
         query,
-        ...(lastUpdate && { lastUpdate: lastUpdate.toISOString() })
+        ...(lastUpdateRef.current && { lastUpdate: lastUpdateRef.current.toISOString() })
       });
 
       const response = await fetch(`${API_URL}/api/jobs/live?${params}`);
@@ -37,7 +39,9 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
       
       if (data.hasUpdates && data.jobs.length > 0) {
         setJobs(data.jobs);
-        setLastUpdate(new Date(data.timestamp));
+        const ts = new Date(data.timestamp);
+        lastUpdateRef.current = ts;
+        setLastUpdate(ts);
       }
 
       setLoading(false);
@@ -46,7 +50,7 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
       setError(err.message);
       setLoading(false);
     }
-  }, [query, lastUpdate]);
+  }, [query]);
 
   // WebSocket connection
   const connectWebSocket = useCallback(() => {
@@ -98,16 +102,19 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
     }
   }, [useWebSocket, query]);
 
+  const fetchJobsRef = useRef(fetchJobs);
+  useEffect(() => { fetchJobsRef.current = fetchJobs; }, [fetchJobs]);
+
   // Polling mechanism
   const startPolling = useCallback(() => {
     if (pollTimerRef.current) return;
 
-    fetchJobs(); // Initial fetch
+    fetchJobsRef.current(); // Initial fetch
 
     pollTimerRef.current = setInterval(() => {
-      fetchJobs();
+      fetchJobsRef.current();
     }, pollInterval);
-  }, [fetchJobs, pollInterval]);
+  }, [pollInterval]);
 
   const stopPolling = useCallback(() => {
     if (pollTimerRef.current) {
@@ -140,9 +147,9 @@ export function useRealTimeJobs(query = 'software developer', options = {}) {
     if (useWebSocket && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: 'subscribe', query }));
     } else {
-      fetchJobs();
+      fetchJobsRef.current();
     }
-  }, [useWebSocket, query, fetchJobs]);
+  }, [useWebSocket, query]);
 
   return {
     jobs,

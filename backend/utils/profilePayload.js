@@ -17,32 +17,16 @@ const normalizeProfileUpdatePayload = (body = {}) => {
     if (trimmed !== '') updates.experience_level = trimmed;
   }
   if (currentRoleRaw !== undefined) {
-    const trimmed = String(currentRoleRaw || '').trim();
-    if (trimmed !== '') updates.designation = trimmed;
+    updates.designation = String(currentRoleRaw || '').trim();
   }
   if (bioRaw !== undefined) {
-    if (typeof bioRaw === 'string') {
-      const trimmed = bioRaw.trim();
-      if (trimmed !== '') updates.bio = trimmed;
-    } else {
-      updates.bio = bioRaw;
-    }
+    updates.bio = typeof bioRaw === 'string' ? bioRaw.trim() : bioRaw;
   }
   if (skillsRaw !== undefined) {
-    if (typeof skillsRaw === 'string') {
-      const trimmed = skillsRaw.trim();
-      if (trimmed !== '') updates.skills = trimmed;
-    } else {
-      updates.skills = skillsRaw;
-    }
+    updates.skills = typeof skillsRaw === 'string' ? skillsRaw.trim() : skillsRaw;
   }
   if (educationRaw !== undefined) {
-    if (typeof educationRaw === 'string') {
-      const trimmed = educationRaw.trim();
-      if (trimmed !== '') updates.education = trimmed;
-    } else {
-      updates.education = educationRaw;
-    }
+    updates.education = typeof educationRaw === 'string' ? educationRaw.trim() : educationRaw;
   }
 
   const githubUsername = body.githubUsername || body.github_username;
@@ -95,35 +79,26 @@ const normalizeProfileUpdatePayload = (body = {}) => {
 
   // Validate and sanitize inputs
   if (phone !== undefined) {
-    const sanitizedPhone = String(phone || '').trim().substring(0, 20);
-    if (sanitizedPhone !== '') updates.phone = sanitizedPhone;
+    updates.phone = String(phone || '').trim().substring(0, 20);
   }
   if (location !== undefined) {
-    const sanitizedLocation = String(location || '').trim().substring(0, 100);
-    if (sanitizedLocation !== '') updates.location = sanitizedLocation;
+    updates.location = String(location || '').trim().substring(0, 100);
   }
   if (website !== undefined) {
     let sanitizedWebsite = String(website || '').trim();
-    // Ensure URL starts with http/https
     if (sanitizedWebsite && !sanitizedWebsite.startsWith('http')) {
-      sanitizedWebsite = sanitizedWebsite.startsWith('www.') 
-        ? `https://${sanitizedWebsite}` 
-        : `https://${sanitizedWebsite}`;
+      sanitizedWebsite = `https://${sanitizedWebsite}`;
     }
-    sanitizedWebsite = sanitizedWebsite.substring(0, 200);
-    if (sanitizedWebsite !== '') updates.website = sanitizedWebsite;
+    updates.website = sanitizedWebsite.substring(0, 200);
   }
   if (company !== undefined) {
-    const sanitizedCompany = String(company || '').trim().substring(0, 100);
-    if (sanitizedCompany !== '') updates.company = sanitizedCompany;
+    updates.company = String(company || '').trim().substring(0, 100);
   }
   if (yearsOfExperience !== undefined) {
-    const sanitizedYears = String(yearsOfExperience || '').trim().substring(0, 20);
-    if (sanitizedYears !== '') updates.years_of_experience = sanitizedYears;
+    updates.years_of_experience = String(yearsOfExperience || '').trim().substring(0, 20);
   }
   if (specialization !== undefined) {
-    const sanitizedSpecialization = String(specialization || '').trim().substring(0, 100);
-    if (sanitizedSpecialization !== '') updates.specialization = sanitizedSpecialization;
+    updates.specialization = String(specialization || '').trim().substring(0, 100);
   }
   if (socialLinks !== undefined) {
     // Ensure social_links is a valid JSON object
@@ -153,6 +128,10 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   if (body.dribbble !== undefined) {
     const d = String(body.dribbble || '').trim().substring(0, 50);
     if (d !== '') updates.dribbble = d;
+  }
+
+  if (body.is_public !== undefined) {
+    updates.is_public = Boolean(body.is_public);
   }
 
   return updates;

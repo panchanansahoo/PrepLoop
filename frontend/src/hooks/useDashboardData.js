@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 
@@ -38,8 +38,17 @@ export default function useDashboardData() {
     const [data, setData] = useState(EMPTY_DATA);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [refreshTick, setRefreshTick] = useState(0);
     const userId = user?.id || null;
     const isGuest = Boolean(user?.isGuest);
+
+    const refresh = useCallback(() => {
+        if (!userId) return;
+        const cacheKey = `dashboard:${userId}`;
+        dashboardMemoryCache.delete(cacheKey);
+        try { sessionStorage.removeItem(cacheKey); } catch { /* no-op */ }
+        setRefreshTick(t => t + 1);
+    }, [userId]);
 
     useEffect(() => {
         if (!userId || isGuest) {
@@ -115,7 +124,7 @@ export default function useDashboardData() {
             cancelled = true;
             controller.abort();
         };
-    }, [userId, isGuest]);
+    }, [userId, isGuest, refreshTick]);
 
-    return { data, loading, error };
+    return { data, loading, error, refresh };
 }
