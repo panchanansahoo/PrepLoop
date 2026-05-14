@@ -32,7 +32,10 @@ async function requestJson(path, { method = 'GET', body } = {}) {
 
 async function main() {
   try {
-    assert(TOKEN, 'CAREER_OPS_SMOKE_TOKEN or TEST_AUTH_TOKEN is required');
+    if (!TOKEN) {
+      console.log('Skipping Career Ops history smoke test: CAREER_OPS_SMOKE_TOKEN or TEST_AUTH_TOKEN is required');
+      return;
+    }
 
     const evaluate = await requestJson('/api/jobs/career-ops/evaluate', {
       method: 'POST',
