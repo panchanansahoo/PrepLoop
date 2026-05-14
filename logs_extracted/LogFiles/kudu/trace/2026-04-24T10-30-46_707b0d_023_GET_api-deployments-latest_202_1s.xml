@@ -1,8 +1,0 @@
-<step title="Incoming Request" date="2026-04-24T10:30:46.582" instance="707b0d" url="/api/deployments/latest?deployer=Push-Deployer&amp;time=2026-04-24_10-29-05Z" method="GET" type="request" pid="833,1,18" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="azsdk-go-zip-deploy/1.0.0 (go1.26.1-X:loopvar; Windows_NT),azdev/1.24.0 (Go go1.26.1-X:loopvar; windows/amd64)" Accept-Encoding="gzip" Authorization="Bea..." x-ms-correlation-request-id="f96e9f3fb584230152daef2ef5c6b439" X-ARR-LOG-ID="f96e9f3f-b584-2301-52da-ef2ef5c6b439" CLIENT-IP="103.172.152.153:13403" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=Push-Deployer&amp;time=2026-04-24_10-29-05Z" X-Client-IP="103.172.152.153" X-Client-Port="13403" >
-  <step title="DeploymentService.GetResult" date="2026-04-24T10:30:46.623" >
-    <step title="DeploymentService.GetLatestDeployment" date="2026-04-24T10:30:46.627" >
-      <step title="DeploymentManager.GetResults" date="2026-04-24T10:30:46.657" /><!-- duration: 1196ms -->
-    </step><!-- duration: 1304ms -->
-  </step><!-- duration: 1330ms -->
-  <step title="Outgoing response" date="2026-04-24T10:30:47.973" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 18ms -->
-</step><!-- duration: 1420ms -->

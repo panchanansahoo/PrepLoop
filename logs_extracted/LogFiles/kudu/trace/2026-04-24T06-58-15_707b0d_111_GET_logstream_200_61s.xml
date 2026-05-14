@@ -1,8 +1,0 @@
-<step title="Incoming Request" date="2026-04-24T06:58:15.456" instance="707b0d" url="/logstream" method="GET" type="request" pid="831,1,26" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="AZURECLI/2.85.0 (MSI)" Accept-Encoding="identity" Authorization="Bas..." x-ms-client-request-id="ed3820d9-3faa-11f1-9cba-dca6598f4140" X-ARR-LOG-ID="ed3820d9-3faa-11f1-9cba-dca6598f4140" CLIENT-IP="103.172.152.49:12808" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/logstream" X-Client-IP="103.172.152.49" X-Client-Port="12808" >
-  <step title="Cleanup Xml Logs" date="2026-04-24T06:58:15.461" >
-    <step title="Cleanup Infos" date="2026-04-24T06:58:15.475" totalFiles="379" totalCleanup="219" /><!-- duration: 10ms -->
-  </step><!-- duration: 28ms -->
-  <step title="LogStreamHandlerMiddleware.Invoke" date="2026-04-24T06:58:15.540" /><!-- duration: 426ms -->
-  <step title="Error occurred" date="2026-04-24T06:59:15.950" type="error" text="LogStreamManager: ProcessRequest end" /><!-- duration: 6ms -->
-  <step title="Outgoing response" date="2026-04-24T06:59:15.972" type="response" statusCode="200" statusText="OK" /><!-- duration: 3ms -->
-</step><!-- duration: 60523ms -->
