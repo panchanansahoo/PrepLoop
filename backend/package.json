@@ -63,11 +63,12 @@
         "express-validator": "^7.0.1",
         "groq-sdk": "^0.37.0",
         "helmet": "^7.2.0",
+        "iconv-lite": "0.7.2",
         "joi": "^18.1.2",
         "jsonwebtoken": "^9.0.3",
         "kokoro-js": "^1.2.1",
-        "libmime": "^5.3.8",
-        "mailparser": "^3.9.8",
+        "libmime": "5.3.8",
+        "mailparser": "3.9.8",
         "multer": "^2.0.0",
         "node-cache": "^5.1.2",
         "node-edge-tts": "^1.2.10",
@@ -79,8 +80,5 @@
         "redis": "^5.12.1",
         "winston": "^3.19.0",
         "ws": "^8.20.0"
-    },
-    "overrides": {
-        "iconv-lite": "0.7.2"
     }
 }
