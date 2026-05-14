@@ -1,13 +1,14 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
-import Groq from 'groq-sdk';
+import { getGroqClient } from '../utils/groqClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const groq = getGroqClient();
+
 const parsedChatCost = Number(process.env.AI_CHAT_COIN_COST || 0);
 const CHAT_QUERY_COST = Number.isFinite(parsedChatCost) ? Math.max(0, parsedChatCost) : 0;
 
@@ -199,6 +200,13 @@ router.post('/message', authenticateToken, async (req, res) => {
     ];
 
     // Get AI response
+    if (!groq) {
+      return res.status(503).json({
+        error: 'AI service is not configured',
+        message: 'GROQ_API_KEY is not set in the environment',
+      });
+    }
+
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
