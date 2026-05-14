@@ -53,7 +53,7 @@ export function CoinProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, getHeaders]);
 
   const spendCoins = useCallback(async (amount = 5, description = 'AI assistant query') => {
     if (!user) return null;
@@ -76,7 +76,7 @@ export function CoinProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, getHeaders]);
 
   const fetchCoinHistory = useCallback(async ({ page = 1, limit = 20, type = '', search = '' } = {}) => {
     if (!user) return { items: [] };

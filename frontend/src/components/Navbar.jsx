@@ -5,13 +5,14 @@ import { useTheme } from '../context/ThemeContext';
 import { PROBLEMS } from '../data/problemsDatabase';
 import {
   Search, Bell, Menu, X, ChevronRight, User, LogOut,
-  Settings, Sparkles, Crown, Command, TrendingUp,
-  Award, ChevronDown, Sun, Moon, ShieldCheck, Briefcase, Home
+  Settings, Sparkles, Crown, TrendingUp,
+  ChevronDown, Sun, Moon, ShieldCheck, Briefcase, Home
 } from 'lucide-react';
 
 import logo from '../assets/logo.svg';
 import { useNotifications } from '../hooks/useNotifications';
 import CoinDisplay from './CoinDisplay';
+import './Navbar.css';
 
 // Page title mapping for breadcrumb
 const PAGE_TITLES = {
@@ -100,7 +101,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
   const searchInputRef = useRef(null);
-  const userTier = 'Free'; // or 'Pro'
+  const userTier = user?.subscriptionTier || user?.subscription_tier || 'Free';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -190,8 +191,10 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
   const getInitials = () => {
     if (!user) return '?';
-    const name = user.fullName || user.email || '';
-    return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+    const name = String(user.fullName || user.full_name || user.email || '').trim();
+    if (!name) return '?';
+    const parts = name.split(' ').filter(Boolean);
+    return parts.map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   };
 
   const scrollToSection = (e, sectionId) => {
@@ -247,11 +250,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                 <User size={16} />
                 My Profile
               </Link>
-              <Link to="/dashboard/analytics" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
+              <Link to="/analytics" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
                 <TrendingUp size={16} />
                 Analytics
               </Link>
-              <Link to="/dashboard/settings" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
+              <Link to="/settings" className="user-dropdown-link" onClick={() => setIsDropdownOpen(false)}>
                 <Settings size={16} />
                 Settings
               </Link>
@@ -343,36 +346,10 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               </div>
             ) : (
               <>
-                <Link to="/login" className="btn nav-action-btn" style={{
-                  background: 'transparent',
-                  border: '1px solid var(--color-border)',
-                  backdropFilter: 'blur(10px)',
-                  transition: 'all 0.3s ease',
-                  padding: '8px 16px',
-                  borderRadius: '99px',
-                  color: 'var(--color-text-primary)',
-                  textDecoration: 'none'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-bg-card)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}>
+                <Link to="/login" className="btn nav-action-btn navbar-signin-btn">
                   Sign In
                 </Link>
-                <Link to="/signup" className="btn-hero-primary" style={{
-                  background: 'linear-gradient(135deg, #6366f1 0%, #a855f7 100%)',
-                  boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
-                  padding: '8px 20px',
-                  borderRadius: '99px',
-                  color: 'white',
-                  fontWeight: '600',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'all 0.3s ease',
-                  border: 'none',
-                  textDecoration: 'none'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.6)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(124, 58, 237, 0.4)' }}>
+                <Link to="/signup" className="btn-hero-primary navbar-signup-btn">
                   Get Started <ChevronRight size={16} />
                 </Link>
               </>
@@ -531,31 +508,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           {/* AI Mock Shortcut */}
           <Link 
             to="/company-interview" 
-            className="btn desktop-only" 
-            style={{ 
-              padding: '6px 14px', 
-              fontSize: '0.85rem', 
-              borderRadius: '99px', 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '6px', 
-              marginRight: '8px',
-              background: 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)',
-              border: 'none',
-              boxShadow: '0 4px 15px rgba(124, 58, 237, 0.4)',
-              color: 'white',
-              fontWeight: '600',
-              textDecoration: 'none',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(124, 58, 237, 0.6)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(124, 58, 237, 0.4)';
-            }}
+            className="btn desktop-only navbar-ai-mock-btn"
           >
             <Sparkles size={14} /> AI Mock
           </Link>
@@ -628,30 +581,8 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             )}
           </div>
 
-          {/* Upgrade to Pro */}
-          {userTier === 'Free' && (
-            <Link to="/pricing" className="upgrade-btn desktop-only" style={{
-              background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.3)',
-              boxShadow: '0 4px 15px rgba(245, 158, 11, 0.3)',
-              padding: '6px 14px',
-              borderRadius: '99px',
-              color: 'white',
-              fontWeight: '600',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              textDecoration: 'none',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(245, 158, 11, 0.5)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(245, 158, 11, 0.3)';
-            }}>
+          {userTier.toLowerCase() !== 'pro' && (
+            <Link to="/pricing" className="upgrade-btn desktop-only navbar-upgrade-btn">
               <Crown size={14} />
               <span>Upgrade</span>
             </Link>

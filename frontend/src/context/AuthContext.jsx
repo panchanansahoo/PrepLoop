@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
                 subscriptionTier: profileData.subscription_tier || 'free',
                 experienceLevel: profileData.experience_level || 'beginner',
                 role: profileData.role || 'user',
+                access_token: session.access_token,
               };
               if (mounted) setUser(fullUser);
               localStorage.setItem('user', JSON.stringify(fullUser));
@@ -127,6 +128,7 @@ export function AuthProvider({ children }) {
               email: profileData.email || session.user.email,
               fullName: profileData.full_name,
               role: profileData.role || 'user',
+              access_token: session.access_token,
             };
             if (mounted) {
               setUser(fullUser);
@@ -246,6 +248,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', newRefreshToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(prev => prev ? { ...prev, access_token: token } : prev);
       return true;
     }
 
@@ -255,6 +258,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('token', token);
       localStorage.setItem('refreshToken', newRefreshToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(prev => prev ? { ...prev, access_token: token } : prev);
       return true;
     } catch {
       logout();

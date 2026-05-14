@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import ImportStep from '../components/portfolio/ImportStep';
 import ReviewStep from '../components/portfolio/ReviewStep';
@@ -21,6 +21,7 @@ const defaultForm = {
   linkedinUrl: '',
   linkedinHeadline: '',
   linkedinSummary: '',
+  linkedinExportText: '',
 };
 
 const defaultSettings = {
@@ -49,6 +50,20 @@ export default function PortfolioCreator() {
 
   const progress = useMemo(() => Math.round(((currentStep + 1) / steps.length) * 100), [currentStep]);
 
+  // Pre-load from Profile page navigation state
+  const location = useLocation();
+  useEffect(() => {
+    const state = location.state;
+    if (!state) return;
+    if (state.profile) {
+      setProfile(state.profile);
+      setCurrentStep(1);
+    }
+    if (state.form) {
+      setForm((prev) => ({ ...prev, ...state.form }));
+    }
+  }, [location.state]);
+
   const handleImport = async () => {
     if (!form.resumeText.trim() && !form.githubUsername.trim() && !form.linkedinUrl.trim()) {
       setError('Please add at least one source: resume text, GitHub username, or LinkedIn URL.');
@@ -68,6 +83,7 @@ export default function PortfolioCreator() {
           url: form.linkedinUrl || null,
           headline: form.linkedinHeadline || null,
           summary: form.linkedinSummary || null,
+          exportText: form.linkedinExportText || null,
         },
       };
 

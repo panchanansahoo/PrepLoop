@@ -1,12 +1,16 @@
 import express from 'express';
+import multer from 'multer';
+import pdfParse from 'pdf-parse';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { parseResumeToProfile } from '../services/portfolioResumeParserService.js';
 import { fetchGithubPortfolioData } from '../services/portfolioGithubService.js';
-import { normalizeLinkedinPayload, validateLinkedinUrl } from '../services/portfolioLinkedinService.js';
+import { normalizeLinkedinPayload, validateLinkedinUrl, parseLinkedinExportText } from '../services/portfolioLinkedinService.js';
 import { mergePortfolioProfile } from '../services/portfolioProfileNormalizerService.js';
 import { createPortfolioSite, unpublishPortfolioSite } from '../services/portfolioPublishService.js';
 import { createShortLink, reservePortfolioSlug, resolveShortLink } from '../services/portfolioShortLinkService.js';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const router = express.Router();
 const DEFAULT_PUBLIC_DOMAIN = process.env.PORTFOLIO_PUBLIC_DOMAIN || 'https://preploop.com/u';
@@ -29,6 +33,52 @@ const mapProfileRowToResponse = (row) => ({
   dataQualityScore: Number(row.data_quality_score || 0),
   createdAt: row.created_at,
   updatedAt: row.updated_at,
+});
+
+// POST /api/portfolio/profiles/parse-linkedin
+router.post('/profiles/parse-linkedin', authenticateToken, async (req, res) => {
+  try {
+    const { exportText } = req.body || {};
+    if (!exportText || !String(exportText).trim()) {
+      return res.status(400).json({ error: 'exportText is required' });
+    }
+    const parsed = parseLinkedinExportText(String(exportText).slice(0, 15000));
+    return res.json({ parsed });
+  } catch (error) {
+    console.error('LinkedIn export parse error:', error);
+    return res.status(500).json({ error: 'Failed to parse LinkedIn export' });
+  }
+});
+
+// POST /api/portfolio/profiles/import-resume (PDF upload)
+router.post('/profiles/import-resume', authenticateToken, upload.single('resume'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No resume file uploaded' });
+    }
+
+    let resumeText = '';
+    try {
+      const parsed = await pdfParse(req.file.buffer);
+      resumeText = parsed.text || '';
+    } catch {
+      return res.status(422).json({ error: 'Could not parse PDF. Please ensure it is a valid, text-based PDF.' });
+    }
+
+    const resume = parseResumeToProfile({
+      text: resumeText.slice(0, 20000),
+      uploadedFile: req.file.originalname || null,
+    });
+
+    return res.json({
+      resumeText: resumeText.slice(0, 20000),
+      fileName: req.file.originalname,
+      parsed: resume,
+    });
+  } catch (error) {
+    console.error('Resume PDF parse error:', error);
+    return res.status(500).json({ error: 'Failed to process resume' });
+  }
 });
 
 // POST /api/portfolio/profiles/import
@@ -57,8 +107,21 @@ router.post('/profiles/import', authenticateToken, async (req, res) => {
       ? await fetchGithubPortfolioData(safeGithubUsername)
       : { username: null, profile: {}, repositories: [], organizations: [] };
 
+    // If exportText provided, parse it and merge into linkedin payload
+    let parsedExport = {};
+    if (linkedin?.exportText) {
+      const exp = parseLinkedinExportText(String(linkedin.exportText).slice(0, 15000));
+      if (exp) parsedExport = exp;
+    }
+
     const linkedinPayload = normalizeLinkedinPayload({
+      ...parsedExport,
       ...linkedin,
+      headline: linkedin?.headline || parsedExport.headline,
+      summary: linkedin?.summary || parsedExport.summary,
+      skills: parsedExport.skills || [],
+      experience: parsedExport.experience || [],
+      education: parsedExport.education || [],
       url: linkedinUrlValidation.value,
     });
 
