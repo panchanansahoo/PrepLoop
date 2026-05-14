@@ -1,12 +1,12 @@
 import express from 'express';
-import Groq from 'groq-sdk';
+import { getGroqClient } from '../utils/groqClient.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 
 const router = express.Router();
-const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+const groq = getGroqClient();
 const INTERVIEW_START_COIN_COST = Number(process.env.AI_INTERVIEW_COIN_COST || 5);
 
 const spendCoinsForInterviewStart = async (userId, cost, referenceKey = null) => {

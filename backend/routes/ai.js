@@ -1,21 +1,24 @@
 import express from 'express';
-import Groq from 'groq-sdk';
+import { getGroqClient } from '../utils/groqClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 
 const router = express.Router();
 
-const groq = process.env.GROQ_API_KEY ? new Groq({
-  apiKey: process.env.GROQ_API_KEY,
-}) : null;
+const groq = getGroqClient();
 
-const createGroqCompletion = async (payload) => aiCallWithRetry({
-  operation: () => groq.chat.completions.create(payload),
-  timeoutMs: 12000,
-  maxRetries: 2,
-  baseDelayMs: 250,
-});
+const createGroqCompletion = async (payload) => {
+  if (!groq) {
+    throw new Error('Groq API is not configured. Please set GROQ_API_KEY environment variable.');
+  }
+  return aiCallWithRetry({
+    operation: () => groq.chat.completions.create(payload),
+    timeoutMs: 12000,
+    maxRetries: 2,
+    baseDelayMs: 250,
+  });
+};
 
 const slugifyProblemTitle = (value = '') =>
   value
