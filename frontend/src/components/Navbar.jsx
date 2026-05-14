@@ -27,7 +27,6 @@ const PAGE_TITLES = {
   '/dsa-path': 'DSA Learning Path',
   '/learning-path': 'Aptitude Path',
   '/advanced-learning-path': 'AI Advanced Roadmap',
-  '/ai-tutor': 'AI Tutor',
   '/company-prep': 'Company Prep',
   '/company-interview': 'AI Interview',
   '/multi-round-interview': 'Full Interview Loop',

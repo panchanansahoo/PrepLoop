@@ -10,7 +10,6 @@
 
 PrepLoop empowers job seekers in the tech industry with a unified, intelligent platform that seamlessly bridges the gap between raw technical practice (DSA/System Design) and actual interview execution. PrepLoop acts as your personal AI interviewer, coding environment, progress tracker, and community hub.
 
-<<<<<<< HEAD
 ---
 =======
 - `frontend/` - React + Vite app
@@ -20,7 +19,7 @@ PrepLoop empowers job seekers in the tech industry with a unified, intelligent p
 - `scripts/` - content/data generation helpers
 - `Company_Interview/` - company-specific interview datasets
 - `Dsa_pattern/` - DSA pattern resources
->>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
+
 
 ## ✨ Core Features
 
@@ -41,7 +40,7 @@ PrepLoop empowers job seekers in the tech industry with a unified, intelligent p
 - Job updates integration
 - Payment integration (Razorpay)
 - Voice-related routes/services
->>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
+
 
 ### 💻 Technical Practice Workflows
 - **DSA Playgrounds**: In-browser coding environments with syntax highlighting, execution, and test cases validation.
@@ -137,6 +136,7 @@ SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 # AI & Voice
 GROQ_API_KEY=your_groq_api_key
+DEEPGRAM_API_KEY=your_deepgram_key # Optional — Kokoro TTS runs locally
 
 # Integrations (Optional)
 SMTP_USER=your_smtp_user
@@ -200,6 +200,7 @@ SMTP_PASS=your_smtp_password
 RECAPTCHA_SECRET_KEY=your_recaptcha_secret
 
 # Voice (optional — Kokoro TTS runs locally, no key needed)
+DEEPGRAM_API_KEY=your_deepgram_key
 
 # Jobs integrations (optional)
 RAPIDAPI_KEY=your_rapidapi_key
@@ -302,7 +303,7 @@ Dive deeper into specific modules and guides available in the `docs/` folder:
 - Observability deployment quick guide: `QUICK_START.md`
 - Changelog: `CHANGELOG.md`
 - Contribution guide: `CONTRIBUTING.md`
->>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
+
 
 - 🏗️ **[System Architecture](docs/ARCHITECTURE.md)**
 - 🔒 **[Security Guide](docs/SECURITY.md)**
@@ -335,7 +336,7 @@ Additional commands:
 - `npm run discord:check` - quick validation checks
 
 ## API Overview
->>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
+
 
 - If port `5000` is occupied, the backend automatically retries on the next available port.
 - Ensure CORS is correctly configured by matching `FRONTEND_URL` in the backend to your active frontend origin.
@@ -361,7 +362,7 @@ Additional commands:
 - `/api/notes`
 - `/api/admin`
 - `/api/jobs`
->>>>>>> 194857e3611815c67a2631090e2e4dd2b5d66421
+
 
 <p align="center">
   Made with ❤️ by the PrepLoop Team.

@@ -335,7 +335,7 @@ export default function CoinWallet() {
                 </div>
                 <div>
                   <strong>AI flows</strong>
-                  <span>Use coins to unlock tutor and interview sessions when needed.</span>
+                  <span>Use coins to unlock interview sessions when needed.</span>
                 </div>
               </div>
 

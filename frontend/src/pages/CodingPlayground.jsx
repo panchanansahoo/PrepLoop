@@ -24,7 +24,7 @@ const getAuthHeaders = () => buildAuthHeaders();
 
 // Enhanced error parser with line number extraction
 const parseErrorWithLineInfo = (errorText = '') => {
-    const text = String(errorText || '').trim();
+    const text = String(errorText || '').trimEnd();
     // Try to extract line:col info from common compiler formats
     const lineMatch = text.match(/:?(\d+):\s*(\d+):?/); // "file.py:5:10" or ":5:10"
     const lineNum = lineMatch ? parseInt(lineMatch[1]) : null;
@@ -33,7 +33,9 @@ const parseErrorWithLineInfo = (errorText = '') => {
 };
 
 const getPlaygroundFriendlyError = (rawError = '', status = 0) => {
-    const message = String(rawError || '').trim();
+    if (!rawError) return rawError;
+    
+    const message = String(rawError);
     const lower = message.toLowerCase();
 
     if (lower.includes('code must be a string') || lower.includes('code is required')) {
@@ -52,7 +54,7 @@ const getPlaygroundFriendlyError = (rawError = '', status = 0) => {
         return 'Server error while executing code. Please try again.';
     }
 
-    return message || 'Execution failed. Please try again.';
+    return message;
 };
 
 const findBracketErrors = (source = '') => {
@@ -417,35 +419,7 @@ export default function CodingPlayground() {
     const [liveErrors, setLiveErrors] = useState([]);
     const [liveLintPending, setLiveLintPending] = useState(false);
     const [voiceErrorsEnabled, setVoiceErrorsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-enabled') === '1');
-    const [voiceRate, setVoiceRate] = useState(() => {
-        const raw = Number(localStorage.getItem('pg-voice-errors-rate'));
-        if (Number.isFinite(raw) && raw >= 0.7 && raw <= 1.6) return raw;
-        return 1;
-    });
-    const [voiceVolume, setVoiceVolume] = useState(() => {
-        const raw = Number(localStorage.getItem('pg-voice-errors-volume'));
-        if (Number.isFinite(raw) && raw >= 0 && raw <= 1) return raw;
-        return 0.9;
-    });
-    const [voiceWarningsEnabled, setVoiceWarningsEnabled] = useState(() => localStorage.getItem('pg-voice-errors-warnings') === '1');
-    const [attentionSoundEnabled, setAttentionSoundEnabled] = useState(() => {
-        const saved = localStorage.getItem('pg-error-attention-sound-enabled');
-        return saved === null ? true : saved === '1';
-    });
-    const [attentionSoundVolume, setAttentionSoundVolume] = useState(() => {
-        const saved = Number(localStorage.getItem('pg-error-attention-sound-volume'));
-        if (Number.isFinite(saved) && saved >= 0 && saved <= 1) return saved;
-        return 0.55;
-    });
-    const [voiceName, setVoiceName] = useState(() => localStorage.getItem('pg-voice-errors-name') || '');
-    const [voiceAnnouncementLang, setVoiceAnnouncementLang] = useState(() => {
-        const saved = localStorage.getItem('pg-voice-errors-lang');
-        return saved === 'hi' ? 'hi' : 'en';
-    });
-    const [voiceOptions, setVoiceOptions] = useState([]);
     const [voiceSupported, setVoiceSupported] = useState(false);
-    const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-    const [showAdvancedVoiceSettings, setShowAdvancedVoiceSettings] = useState(false);
     const [runPhase, setRunPhase] = useState('idle');
     const [lastExecutionMeta, setLastExecutionMeta] = useState(null);
     const [consoleFilter, setConsoleFilter] = useState('all');
@@ -597,8 +571,9 @@ export default function CodingPlayground() {
                 outputText.split('\n').forEach(line => {
                     outputLines.push({ type: 'output', text: line });
                 });
-            } else if (!data.success && errorText) {
-                errorText.split('\n').forEach(line => {
+            } else if (!data.success) {
+                const combinedError = errorText || outputText || 'Execution failed. Please try again.';
+                combinedError.split('\n').forEach(line => {
                     const errorInfo = parseErrorWithLineInfo(line);
                     let displayText = getPlaygroundFriendlyError(errorInfo.text, res.status);
                     if (errorInfo.lineNum) {
@@ -944,7 +919,7 @@ export default function CodingPlayground() {
     }, [liveErrors.length]);
 
     useEffect(() => {
-        const supported = typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+        const supported = typeof window !== 'undefined' && ('AudioContext' in window || 'webkitAudioContext' in window);
         setVoiceSupported(supported);
     }, []);
 
@@ -956,54 +931,7 @@ export default function CodingPlayground() {
         prevVoiceEnabledRef.current = voiceErrorsEnabled;
     }, [voiceErrorsEnabled, voiceSupported]);
 
-    useEffect(() => {
-        localStorage.setItem('pg-voice-errors-rate', String(voiceRate));
-    }, [voiceRate]);
 
-    useEffect(() => {
-        localStorage.setItem('pg-voice-errors-volume', String(voiceVolume));
-    }, [voiceVolume]);
-
-    useEffect(() => {
-        localStorage.setItem('pg-voice-errors-warnings', voiceWarningsEnabled ? '1' : '0');
-    }, [voiceWarningsEnabled]);
-
-    useEffect(() => {
-        localStorage.setItem('pg-error-attention-sound-enabled', attentionSoundEnabled ? '1' : '0');
-    }, [attentionSoundEnabled]);
-
-    useEffect(() => {
-        localStorage.setItem('pg-error-attention-sound-volume', String(attentionSoundVolume));
-    }, [attentionSoundVolume]);
-
-    useEffect(() => {
-        localStorage.setItem('pg-voice-errors-name', voiceName);
-    }, [voiceName]);
-
-    useEffect(() => {
-        localStorage.setItem('pg-voice-errors-lang', voiceAnnouncementLang);
-    }, [voiceAnnouncementLang]);
-
-    useEffect(() => {
-        if (!voiceSupported || typeof window === 'undefined') return;
-
-        const hydrateVoices = () => {
-            const list = window.speechSynthesis.getVoices() || [];
-            setVoiceOptions(list);
-            if (!list.length) return;
-            if (voiceName && list.some((voice) => voice.name === voiceName)) return;
-            const preferred = list.find((voice) => /heera/i.test(voice.name))
-                || list.find((voice) => /en/i.test(voice.lang))
-                || list[0];
-            if (preferred) setVoiceName(preferred.name);
-        };
-
-        hydrateVoices();
-        window.speechSynthesis.addEventListener('voiceschanged', hydrateVoices);
-        return () => {
-            window.speechSynthesis.removeEventListener('voiceschanged', hydrateVoices);
-        };
-    }, [voiceName, voiceSupported]);
 
     const stopVoicePlayback = useCallback(() => {
         if (voiceTimerRef.current) {
@@ -1027,10 +955,7 @@ export default function CodingPlayground() {
         }
     }, []);
 
-    const hasHindiVoice = useMemo(
-        () => voiceOptions.some((voice) => /^hi(-|$)/i.test(voice.lang) || /hindi/i.test(voice.name)),
-        [voiceOptions],
-    );
+
 
     const speakViaCloud = useCallback(async (text, language) => {
         try {
@@ -1046,7 +971,7 @@ export default function CodingPlayground() {
                 body: JSON.stringify({
                     text: String(text).trim().slice(0, 550),
                     persona: 'friendly',
-                    language: language || voiceAnnouncementLang,
+                    language: language || 'en',
                     provider: 'groq-orpheus'
                 }),
                 signal: controller.signal,
@@ -1074,8 +999,8 @@ export default function CodingPlayground() {
 
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
-            audio.volume = voiceVolume;
-            audio.playbackRate = voiceRate;
+            audio.volume = 1;
+            audio.playbackRate = 1;
             audio.onended = () => {
                 URL.revokeObjectURL(url);
                 if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
@@ -1091,96 +1016,14 @@ export default function CodingPlayground() {
         } catch {
             return false;
         }
-    }, [voiceAnnouncementLang, voiceRate, voiceVolume]);
+    }, []);
 
     const playVoiceAnnouncement = useCallback(async (announcement, language) => {
         const text = String(announcement || '').trim();
         if (!text) return false;
 
-        if ((language === 'hi' || !language) && !hasHindiVoice) {
-            const usedCloud = await speakViaCloud(text, language);
-            if (usedCloud) return true;
-        }
-
-        if (typeof window === 'undefined' || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
-            return false;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = language === 'hi' ? Math.min(voiceRate, 0.95) : voiceRate;
-        utterance.volume = voiceVolume;
-        utterance.pitch = language === 'hi' ? 0.98 : 1.08;
-        utterance.lang = language === 'hi' ? 'hi-IN' : 'en-US';
-
-        const selectedVoice = voiceOptions.find((voice) => voice.name === voiceName)
-            || voiceOptions.find((voice) => {
-                if (language === 'hi') return /^hi(-|$)/i.test(voice.lang) || /hindi/i.test(voice.name);
-                return /^en(-|$)/i.test(voice.lang);
-            });
-
-        const friendlyBrowserVoice = voiceOptions.find((voice) => {
-            const name = String(voice.name || '').toLowerCase();
-            const lang = String(voice.lang || '').toLowerCase();
-            if (language === 'hi') return /^hi(-|$)/i.test(lang) || /hindi/.test(name) || /india/.test(name);
-            return /^en(-|$)/i.test(lang) && (/female|aria|samantha|victoria|zira|alloy|nova|luna|vega|rachel|susan|google uk english female|microsoft aria|microsoft jenny|natural/i.test(name) || voice.default);
-        });
-
-        if (selectedVoice) {
-            utterance.voice = selectedVoice;
-        } else if (friendlyBrowserVoice) {
-            utterance.voice = friendlyBrowserVoice;
-        }
-
-        if (voiceAudioRef.current) {
-            try {
-                voiceAudioRef.current.pause();
-            } catch {
-                // Ignore pause errors.
-            }
-        }
-
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(utterance);
-        return true;
-    }, [hasHindiVoice, speakViaCloud, voiceName, voiceOptions, voiceRate, voiceVolume]);
-
-    const playAttentionPing = useCallback(() => {
-        if (typeof window === 'undefined') return;
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        if (!AudioCtx) return;
-
-        const ensureCtx = () => {
-            if (!attentionAudioContextRef.current) {
-                attentionAudioContextRef.current = new AudioCtx();
-            }
-            return attentionAudioContextRef.current;
-        };
-
-        const ctx = ensureCtx();
-        if (!ctx) return;
-
-        const now = ctx.currentTime;
-        const master = ctx.createGain();
-        master.gain.setValueAtTime(Math.max(0, Math.min(1, attentionSoundVolume)) * 0.18, now);
-        master.connect(ctx.destination);
-
-        const scheduleTone = (startOffset, frequency, duration) => {
-            const oscillator = ctx.createOscillator();
-            const toneGain = ctx.createGain();
-            oscillator.type = 'triangle';
-            oscillator.frequency.setValueAtTime(frequency, now + startOffset);
-            toneGain.gain.setValueAtTime(0.0001, now + startOffset);
-            toneGain.gain.exponentialRampToValueAtTime(1, now + startOffset + 0.01);
-            toneGain.gain.exponentialRampToValueAtTime(0.0001, now + startOffset + duration);
-            oscillator.connect(toneGain);
-            toneGain.connect(master);
-            oscillator.start(now + startOffset);
-            oscillator.stop(now + startOffset + duration + 0.02);
-        };
-
-        scheduleTone(0, 740, 0.12);
-        scheduleTone(0.16, 988, 0.15);
-    }, [attentionSoundVolume]);
+        return await speakViaCloud(text, language);
+    }, [speakViaCloud]);
 
     const toSpokenErrorMessage = useCallback((message, language) => {
         const isHindi = language === 'hi';
@@ -1241,20 +1084,7 @@ export default function CodingPlayground() {
         return `${opener} ${body} ${closer}`.trim();
     }, [toSpokenErrorMessage]);
 
-    const handleVoiceTest = useCallback(async () => {
-        const sample = buildVoiceAnnouncement(
-            liveErrors.length > 0
-                ? liveErrors
-                : [{ line: 1, col: 1, message: voiceAnnouncementLang === 'hi' ? 'लगता है यहाँ कोलन या ब्रैकेट मिस हो सकता है, एक बार चेक करें।' : 'Looks like a colon or bracket may be missing here, please take a quick look.', severity: 'error' }],
-            voiceAnnouncementLang,
-        ) || (
-            voiceAnnouncementLang === 'hi'
-                ? 'दोस्ताना वॉयस प्रीव्यू तैयार है।'
-                : 'Friendly voice preview is ready.'
-        );
 
-        await playVoiceAnnouncement(sample, voiceAnnouncementLang);
-    }, [buildVoiceAnnouncement, liveErrors, playVoiceAnnouncement, voiceAnnouncementLang]);
 
     useEffect(() => {
         if (!voiceSupported || !voiceErrorsEnabled) {
@@ -1274,9 +1104,7 @@ export default function CodingPlayground() {
             severity: error.severity === 'warning' ? 'warning' : 'error',
         }));
 
-        const announceable = voiceWarningsEnabled
-            ? normalized
-            : normalized.filter((error) => error.severity === 'error');
+        const announceable = normalized.filter((error) => error.severity === 'error');
 
         if (announceable.length === 0) {
             lastVoiceSignatureRef.current = '';
@@ -1294,9 +1122,9 @@ export default function CodingPlayground() {
         }
 
         voiceTimerRef.current = setTimeout(() => {
-            const announcement = buildVoiceAnnouncement(announceable, voiceAnnouncementLang);
+            const announcement = buildVoiceAnnouncement(announceable, 'en');
             if (!announcement) return;
-            playVoiceAnnouncement(announcement, voiceAnnouncementLang);
+            playVoiceAnnouncement(announcement, 'en');
         }, 420);
 
         return () => {
@@ -1310,62 +1138,11 @@ export default function CodingPlayground() {
         voiceErrorsEnabled,
         stopVoicePlayback,
         buildVoiceAnnouncement,
-        voiceAnnouncementLang,
         playVoiceAnnouncement,
-        voiceName,
-        voiceOptions,
-        voiceRate,
         voiceSupported,
-        voiceVolume,
-        voiceWarningsEnabled,
     ]);
 
-    useEffect(() => {
-        if (!attentionSoundEnabled) {
-            if (attentionTimerRef.current) {
-                clearTimeout(attentionTimerRef.current);
-                attentionTimerRef.current = null;
-            }
-            return;
-        }
 
-        const onlyErrors = (liveErrors || [])
-            .filter((entry) => entry.severity !== 'warning')
-            .map((entry) => ({
-                line: entry.line || 1,
-                col: entry.col || 1,
-                message: String(entry.message || 'Error').trim(),
-            }));
-
-        if (!onlyErrors.length) {
-            lastAttentionSignatureRef.current = '';
-            if (attentionTimerRef.current) {
-                clearTimeout(attentionTimerRef.current);
-                attentionTimerRef.current = null;
-            }
-            return;
-        }
-
-        const signature = JSON.stringify(onlyErrors);
-        if (signature === lastAttentionSignatureRef.current) return;
-        lastAttentionSignatureRef.current = signature;
-
-        if (attentionTimerRef.current) {
-            clearTimeout(attentionTimerRef.current);
-            attentionTimerRef.current = null;
-        }
-
-        attentionTimerRef.current = setTimeout(() => {
-            playAttentionPing();
-        }, 160);
-
-        return () => {
-            if (attentionTimerRef.current) {
-                clearTimeout(attentionTimerRef.current);
-                attentionTimerRef.current = null;
-            }
-        };
-    }, [attentionSoundEnabled, liveErrors, playAttentionPing]);
 
     useEffect(() => {
         return () => {
@@ -1917,17 +1694,9 @@ export default function CodingPlayground() {
                                 </div>
                                 <div style={{ display: 'grid', gap: '10px', marginBottom: '10px', padding: '10px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.02)' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowVoiceSettings((value) => !value)}
-                                            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', border: 'none', background: 'transparent', color: 'inherit', padding: 0, cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
-                                        >
+                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: voiceSupported ? 'pointer' : 'not-allowed', opacity: voiceSupported ? 1 : 0.55, fontWeight: 600 }}>
                                             <Volume2 size={12} />
-                                            Friendly voice
-                                            <ChevronDown size={12} style={{ transform: showVoiceSettings ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                                        </button>
-                                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '12px', cursor: voiceSupported ? 'pointer' : 'not-allowed', opacity: voiceSupported ? 1 : 0.55 }}>
-                                            <span>On</span>
+                                            <span>AI Voice</span>
                                             <input
                                                 type="checkbox"
                                                 checked={voiceErrorsEnabled}
@@ -1936,146 +1705,16 @@ export default function CodingPlayground() {
                                             />
                                         </label>
                                     </div>
-                                    <div style={{ display: 'grid', gap: '8px', padding: '8px 10px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.01)' }}>
-                                        <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '12px', cursor: 'pointer' }}>
-                                            <span>Attention sound</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={attentionSoundEnabled}
-                                                onChange={(e) => setAttentionSoundEnabled(e.target.checked)}
-                                            />
-                                        </label>
-                                        {attentionSoundEnabled && (
-                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
-                                                <span>Alert loudness: {Math.round(attentionSoundVolume * 100)}%</span>
-                                                <input
-                                                    type="range"
-                                                    min="0"
-                                                    max="1"
-                                                    step="0.05"
-                                                    value={attentionSoundVolume}
-                                                    onChange={(e) => setAttentionSoundVolume(Number(e.target.value))}
-                                                />
-                                            </label>
-                                        )}
-                                        <button
-                                            type="button"
-                                            className="pg-btn"
-                                            style={{ padding: '8px 12px', fontSize: '12px', justifySelf: 'start' }}
-                                            onClick={playAttentionPing}
-                                        >
-                                            Test attention ping
-                                        </button>
-                                    </div>
+
                                     {!voiceSupported && (
                                         <div style={{ fontSize: '11px', opacity: 0.75 }}>
                                             Voice readout is not available in this browser/device.
                                         </div>
                                     )}
+
                                     {voiceSupported && voiceErrorsEnabled && (
                                         <div style={{ fontSize: '12px', color: 'rgba(248,250,252,0.82)' }}>
-                                            Live errors are read aloud in a friendly voice while you type.
-                                        </div>
-                                    )}
-
-                                    {showVoiceSettings && voiceSupported && (
-                                        <div style={{ display: 'grid', gap: '10px', paddingTop: '4px' }}>
-                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
-                                                <span>Choose language</span>
-                                                <select
-                                                    value={voiceAnnouncementLang}
-                                                    onChange={(e) => setVoiceAnnouncementLang(e.target.value)}
-                                                    style={{ width: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(15,23,42,0.95)', color: 'inherit', padding: '8px 10px' }}
-                                                >
-                                                    <option value="en">English</option>
-                                                    <option value="hi">Hindi</option>
-                                                </select>
-                                            </label>
-
-                                            <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
-                                                <span>Choose voice</span>
-                                                <select
-                                                    value={voiceName}
-                                                    onChange={(e) => setVoiceName(e.target.value)}
-                                                    style={{ width: '100%', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(15,23,42,0.95)', color: 'inherit', padding: '8px 10px' }}
-                                                >
-                                                    {voiceOptions.length === 0 && <option value="">Default browser voice</option>}
-                                                    {voiceOptions.map((voice) => (
-                                                        <option key={voice.name} value={voice.name}>
-                                                            {voice.name} {voice.lang ? `(${voice.lang})` : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </label>
-
-                                            <div style={{ display: 'grid', gap: '8px' }}>
-                                                <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
-                                                    <span>Talk speed: {voiceRate.toFixed(1)}x</span>
-                                                    <input
-                                                        type="range"
-                                                        min="0.7"
-                                                        max="1.6"
-                                                        step="0.1"
-                                                        value={voiceRate}
-                                                        onChange={(e) => setVoiceRate(Number(e.target.value))}
-                                                    />
-                                                </label>
-                                                <label style={{ display: 'grid', gap: '6px', fontSize: '12px' }}>
-                                                    <span>Sound level: {Math.round(voiceVolume * 100)}%</span>
-                                                    <input
-                                                        type="range"
-                                                        min="0"
-                                                        max="1"
-                                                        step="0.05"
-                                                        value={voiceVolume}
-                                                        onChange={(e) => setVoiceVolume(Number(e.target.value))}
-                                                    />
-                                                </label>
-                                            </div>
-
-                                            <label style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '12px', cursor: 'pointer' }}>
-                                                <span>Include warnings</span>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={voiceWarningsEnabled}
-                                                    onChange={(e) => setVoiceWarningsEnabled(e.target.checked)}
-                                                />
-                                            </label>
-
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleVoiceTest}
-                                                    className="pg-btn"
-                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
-                                                >
-                                                    Try it
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={stopVoicePlayback}
-                                                    className="pg-btn"
-                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
-                                                >
-                                                    Stop speaking
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setShowAdvancedVoiceSettings((value) => !value)}
-                                                    className="pg-btn"
-                                                    style={{ padding: '8px 12px', fontSize: '12px' }}
-                                                >
-                                                    More options
-                                                </button>
-                                            </div>
-
-                                            {showAdvancedVoiceSettings && (
-                                                <div style={{ display: 'grid', gap: '8px', padding: '10px', borderRadius: '10px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px', lineHeight: 1.5, color: 'rgba(248,250,252,0.78)' }}>
-                                                    <div>Selected language: {voiceAnnouncementLang === 'hi' ? 'Hindi' : 'English'}</div>
-                                                    <div>Available voices: {voiceOptions.length}</div>
-                                                    <div>{hasHindiVoice ? 'A Hindi voice is available in this browser.' : 'No Hindi voice was found, so the cloud voice may be used when needed.'}</div>
-                                                </div>
-                                            )}
+                                            Live errors are read aloud while you type.
                                         </div>
                                     )}
                                 </div>

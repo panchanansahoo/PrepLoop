@@ -76,7 +76,8 @@ export const authenticateToken = async (req, res, next) => {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     
     if (error || !user) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
+      console.warn(`[auth] JWT validation failed for token (403):`, error || 'User not found in token');
+      return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
     }
 
     const role = await resolveUserRole(user.id);
@@ -97,6 +98,7 @@ export const authenticateToken = async (req, res, next) => {
 // Middleware to require admin role — must be used after authenticateToken
 export const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
+    console.warn(`[auth] 403 Forbidden: Admin access required for user ${req.user?.id} (role: ${req.user?.role}) on ${req.method} ${req.originalUrl}`);
     return res.status(403).json({ error: 'Admin access required' });
   }
   next();
@@ -104,6 +106,7 @@ export const requireAdmin = (req, res, next) => {
 
 export const requireHR = (req, res, next) => {
   if (!req.user || (req.user.role !== 'hr' && req.user.role !== 'admin')) {
+    console.warn(`[auth] 403 Forbidden: HR access required for user ${req.user?.id} (role: ${req.user?.role}) on ${req.method} ${req.originalUrl}`);
     return res.status(403).json({ error: 'HR or Admin access required' });
   }
   next();
@@ -127,7 +130,7 @@ export const optionalAuth = async (req, res, next) => {
       }
     } catch (error) {
       // Token invalid but continue anyway
-      console.error('Optional auth error:', error);
+      console.warn(`[auth] Optional auth JWT validation failed, continuing anonymously:`, error.message);
     }
   }
   next();

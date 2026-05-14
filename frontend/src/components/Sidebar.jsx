@@ -49,7 +49,6 @@ const navSections = [
             { path: '/library', label: 'Library', subtitle: 'Books, guides & resources', icon: BookOpen },
             { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
             { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
-            { path: '/ai-tutor', label: 'AI Tutor', subtitle: 'Guided DSA, SQL & aptitude', icon: Sparkles },
             { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
         ]
     },

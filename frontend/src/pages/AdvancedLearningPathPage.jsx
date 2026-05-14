@@ -1,14 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useTheme } from '../context/ThemeContext';
 
 const PAGE_HTML_PATH = '/advanced_learning_path_dsa_aptitude_sql_sysdesign.html';
 
 export default function AdvancedLearningPathPage() {
   const [status, setStatus] = useState('ready');
   const [errorMessage, setErrorMessage] = useState('');
+  const { theme } = useTheme();
+  const iframeRef = useRef(null);
 
   useEffect(() => {
     setStatus('ready');
   }, []);
+
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'THEME_CHANGE', theme }, '*');
+    }
+  }, [theme]);
 
   return (
     <div style={{ minHeight: '100vh', padding: '16px' }}>
@@ -42,7 +51,8 @@ export default function AdvancedLearningPathPage() {
 
       {status !== 'error' && (
         <iframe
-          src={PAGE_HTML_PATH}
+          ref={iframeRef}
+          src={`${PAGE_HTML_PATH}?theme=${theme}`}
           title="Advanced Learning Path"
           onLoad={() => {
             setStatus('ready');

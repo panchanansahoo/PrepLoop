@@ -14,6 +14,8 @@ import { InterviewConversationService } from './interviewConversationService.js'
 import { InterviewPromptService } from './interviewPromptService.js';
 import { InterviewFollowUpRulesService } from './interviewFollowUpRulesService.js';
 import interviewGroundingService from './interviewGroundingService.js';
+import { canMakeRequest, recordRequest } from '../utils/rateLimitBudget.js';
+
 // Note: Code review implementation is provided in this file; avoid importing
 // a non-existent `codeReviewService.js` module which would conflict with the
 // local `CodeReviewService` class defined below.

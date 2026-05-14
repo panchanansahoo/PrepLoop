@@ -1,0 +1,530 @@
+/* Alternative Card & List View Styling */
+
+.roadmap-alternative-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--roadmap-shell-bg);
+}
+
+/* View Toggle */
+.view-toggle {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    border-bottom: 1px solid rgba(214, 184, 141, 0.16);
+    background: var(--roadmap-panel-bg);
+}
+
+.toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid rgba(214, 184, 141, 0.16);
+    border-radius: 8px;
+    color: var(--roadmap-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.toggle-btn:hover {
+    background: rgba(214, 184, 141, 0.1);
+    border-color: rgba(214, 184, 141, 0.32);
+    color: var(--roadmap-text);
+}
+
+.toggle-btn.active {
+    background: rgba(158, 199, 255, 0.15);
+    border-color: rgba(158, 199, 255, 0.4);
+    color: var(--roadmap-ice);
+}
+
+/* Content Container */
+.alt-view-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* Branch Section */
+.branch-section {
+    margin-bottom: 32px;
+}
+
+.branch-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(214, 184, 141, 0.16);
+}
+
+.branch-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--roadmap-text);
+    margin: 0;
+}
+
+.branch-count {
+    font-size: 12px;
+    color: var(--roadmap-muted);
+    background: rgba(214, 184, 141, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+/* Grid View */
+.alt-view-grid .guides-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* List View */
+.alt-view-list .guides-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Guide Card */
+.guide-card {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    background: var(--roadmap-panel-bg);
+    border: 1px solid rgba(214, 184, 141, 0.16);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: slideInUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.guide-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(214, 184, 141, 0.32);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.3);
+}
+
+.guide-card-easy {
+    border-left: 4px solid #10b981;
+}
+
+.guide-card-medium {
+    border-left: 4px solid #f59e0b;
+}
+
+.guide-card-hard {
+    border-left: 4px solid #ef4444;
+}
+
+/* Card Status */
+.card-status {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.status-icon {
+    color: var(--roadmap-subtle);
+}
+
+.status-icon.completed {
+    color: #10b981;
+}
+
+.status-icon.not-started {
+    color: var(--roadmap-subtle);
+}
+
+.status-icon.in-progress {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+    border-radius: 50%;
+}
+
+/* Card Content */
+.card-content {
+    flex: 1;
+    margin-bottom: 12px;
+}
+
+.card-content h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--roadmap-text);
+    margin: 0 0 8px 0;
+    line-height: 1.3;
+}
+
+.card-description {
+    font-size: 12px;
+    color: var(--roadmap-muted);
+    margin: 0 0 12px 0;
+    line-height: 1.4;
+}
+
+/* Card Stats */
+.card-stats {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--roadmap-subtle);
+    background: rgba(214, 184, 141, 0.08);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.difficulty-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+/* Progress Bar */
+.progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(214, 184, 141, 0.16);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    font-size: 11px;
+    color: var(--roadmap-muted);
+    margin: 0 0 12px 0;
+}
+
+/* Card Action */
+.card-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, rgba(158, 199, 255, 0.2), rgba(214, 184, 141, 0.15));
+    border: 1px solid rgba(158, 199, 255, 0.3);
+    border-radius: 6px;
+    color: var(--roadmap-ice);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.card-action:hover {
+    background: linear-gradient(135deg, rgba(158, 199, 255, 0.3), rgba(214, 184, 141, 0.25));
+    border-color: rgba(158, 199, 255, 0.5);
+    transform: translateX(2px);
+}
+
+/* Guide List Item */
+.guide-list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--roadmap-panel-bg);
+    border: 1px solid rgba(214, 184, 141, 0.16);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.guide-list-item:hover {
+    background: var(--roadmap-panel-strong);
+    border-color: rgba(214, 184, 141, 0.32);
+}
+
+.guide-item-easy {
+    border-left: 3px solid #10b981;
+}
+
+.guide-item-medium {
+    border-left: 3px solid #f59e0b;
+}
+
+.guide-item-hard {
+    border-left: 3px solid #ef4444;
+}
+
+/* Item Status */
+.item-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.status-progress {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f59e0b;
+    border: 2px solid #f59e0b;
+    border-radius: 50%;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+/* Item Info */
+.item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.item-header h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--roadmap-text);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.difficulty-tag {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    background: rgba(214, 184, 141, 0.1);
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.item-description {
+    font-size: 11px;
+    color: var(--roadmap-muted);
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Item Stats */
+.item-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--roadmap-subtle);
+    white-space: nowrap;
+}
+
+.mini-progress {
+    width: 40px;
+    height: 3px;
+    background: rgba(214, 184, 141, 0.16);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.mini-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    transition: width 0.5s ease;
+}
+
+/* Item Action */
+.item-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: 1px solid rgba(158, 199, 255, 0.2);
+    border-radius: 6px;
+    color: var(--roadmap-ice);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.item-action:hover {
+    background: rgba(158, 199, 255, 0.1);
+    border-color: rgba(158, 199, 255, 0.4);
+    transform: translateX(2px);
+}
+
+/* Animations */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar */
+.alt-view-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.alt-view-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.alt-view-content::-webkit-scrollbar-thumb {
+    background: rgba(214, 184, 141, 0.2);
+    border-radius: 4px;
+}
+
+.alt-view-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(214, 184, 141, 0.32);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .alt-view-grid .guides-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .alt-view-content {
+        padding: 12px;
+    }
+
+    .branch-section {
+        margin-bottom: 24px;
+    }
+
+    .branch-header h2 {
+        font-size: 16px;
+    }
+
+    .alt-view-grid .guides-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+    }
+
+    .guide-card {
+        padding: 12px;
+    }
+
+    .card-content h3 {
+        font-size: 13px;
+    }
+
+    .card-description {
+        font-size: 11px;
+        display: none;
+    }
+
+    .guide-list-item {
+        padding: 10px;
+        flex-wrap: wrap;
+    }
+
+    .item-info {
+        flex-basis: 100%;
+        min-width: 100%;
+    }
+
+    .item-stats {
+        flex-basis: 100%;
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .alt-view-grid .guides-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 8px;
+    }
+
+    .view-toggle {
+        padding: 12px;
+        gap: 4px;
+    }
+
+    .toggle-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+
+    .toggle-btn svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .guide-card {
+        padding: 10px;
+    }
+
+    .card-content h3 {
+        font-size: 12px;
+    }
+
+    .card-stats {
+        gap: 4px;
+    }
+
+    .stat {
+        font-size: 10px;
+        padding: 3px 6px;
+    }
+
+    .card-action {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .branch-header h2 {
+        font-size: 14px;
+    }
+
+    .guide-list-item {
+        gap: 8px;
+    }
+}

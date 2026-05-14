@@ -216,7 +216,6 @@ export default function LearningHub() {
 
             <div className="lp-grid lp-grid--3">
                 {[
-                    { label: 'AI Tutor', desc: 'Guided learning for DSA, SQL & aptitude', icon: '🤖', path: '/ai-tutor', color: '#a78bfa', glow: 'lp-card--violet' },
                     { label: 'System Design', desc: 'Architecture & scaling mastery', icon: '🏗️', path: '/system-design', color: '#10b981', glow: 'lp-card--emerald' },
                     { label: 'AI Roadmap', desc: 'AI-generated personalized plan', icon: '🗺️', path: '/advanced-learning-path', color: '#38bdf8', glow: 'lp-card--cyan' },
                 ].map(item => (

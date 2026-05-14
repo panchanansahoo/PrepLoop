@@ -15,7 +15,7 @@ async function run() {
 
   // buildAvatarPath
   const path = buildAvatarPath('user_1', 'photo.png');
-  assert.strictEqual(path, 'avatars/user_1.png');
+  assert.match(path, /^avatars\/user_1_\d+\.png$/);
 
   // claimCustomUrl with mocked supabaseAdmin
   const fakeRows = [];

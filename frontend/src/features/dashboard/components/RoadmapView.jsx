@@ -9,7 +9,9 @@ import {
     ChevronRight,
     Compass,
     GitBranch,
+    Grid3X3,
     Layers,
+    List,
     Maximize2,
     Minimize2,
     Minus,
@@ -26,6 +28,15 @@ import 'reactflow/dist/style.css';
 
 import { useTheme } from '../../../context/ThemeContext';
 import useRoadmapProgress from '../../../hooks/useRoadmapProgress';
+import useRoadmapFilters from '../../../hooks/useRoadmapFilters';
+import useAIRecommendations from '../../../hooks/useAIRecommendations';
+import useRoadmapAnalytics from '../../../hooks/useRoadmapAnalytics';
+import { useDebounce } from '../../../hooks/usePerformanceOptimizations';
+import RoadmapFilters from './RoadmapFilters';
+import RoadmapQuickStats from './RoadmapQuickStats';
+import RoadmapRecommendations from './RoadmapRecommendations';
+import RoadmapAnalytics from './RoadmapAnalytics';
+import RoadmapAlternativeView from './RoadmapAlternativeView';
 import './roadmap-view.css';
 
 const ROOT_COLORS = {
@@ -602,7 +613,21 @@ export default function RoadmapView({
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const [query, setQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const [flowInstance, setFlowInstance] = useState(null);
+
+    // Debounce search input for performance
+    const [debouncedSetQuery] = useDebounce((value) => {
+        setDebouncedQuery(value);
+    }, 300);
+
+    // Update debounced query when user types
+    const handleQueryChange = useCallback((value) => {
+        setQuery(value);
+        debouncedSetQuery(value);
+    }, [debouncedSetQuery]);
+
+    const [currentView, setCurrentView] = useState('mindmap'); // mindmap, grid, list
     const defaultCollapsedNodeIds = useMemo(() => collectExpandableNodeIds(hierarchy), [hierarchy]);
     const defaultCollapsedNodeIdsKey = useMemo(
         () => Array.from(defaultCollapsedNodeIds).sort().join('|'),
@@ -610,6 +635,7 @@ export default function RoadmapView({
     );
     const [collapsedNodeIds, setCollapsedNodeIds] = useState(() => new Set(defaultCollapsedNodeIds));
     const [legendOpen, setLegendOpen] = useState(true);
+    const [showStats, setShowStats] = useState(true);
 
     const patternIndexes = useMemo(() => createPatternIndexes(patterns), [patterns]);
     const topicProgressIndex = useMemo(() => createTopicProgressIndex(topics), [topics]);
@@ -630,9 +656,33 @@ export default function RoadmapView({
         [guideProgressById, hierarchy, patternIndexes, topicProgressIndex]
     );
 
+    // Initialize filters hook
+    const uniqueGuides = useMemo(() => collectUniqueGuides(enrichedRoots), [enrichedRoots]);
+    const totalProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.problemCount, 0);
+    const solvedProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.solvedCount, 0);
+
+    const {
+        selectedDifficulties,
+        selectedStatuses,
+        sortBy,
+        isFiltered,
+        filteredGuides,
+        filteredStats,
+        setSelectedDifficulties,
+        setSelectedStatuses,
+        setSortBy,
+        resetFilters,
+    } = useRoadmapFilters(enrichedRoots, guideProgressById, totalProblems, solvedProblems);
+
+    // Get AI recommendations
+    const { recommendations, stats: recommendationStats, insights } = useAIRecommendations(enrichedRoots, guideProgressById);
+
+    // Get analytics data
+    const analytics = useRoadmapAnalytics(enrichedRoots, guideProgressById);
+
     const filteredRoots = useMemo(
-        () => enrichedRoots.map((root) => filterNode(root, query)).filter(Boolean),
-        [enrichedRoots, query]
+        () => enrichedRoots.map((root) => filterNode(root, debouncedQuery)).filter(Boolean),
+        [enrichedRoots, debouncedQuery]
     );
     const handleToggleNode = useCallback((nodeId) => {
         setCollapsedNodeIds((current) => {
@@ -650,9 +700,6 @@ export default function RoadmapView({
         setCollapsedNodeIds(new Set(defaultCollapsedNodeIds));
     }, [defaultCollapsedNodeIds, defaultCollapsedNodeIdsKey]);
 
-    const uniqueGuides = useMemo(() => collectUniqueGuides(enrichedRoots), [enrichedRoots]);
-    const totalProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.problemCount, 0);
-    const solvedProblems = Array.from(uniqueGuides.values()).reduce((sum, guide) => sum + guide.solvedCount, 0);
     const clickableLeaves = Array.from(uniqueGuides.values()).filter((guide) => guide.generated).length;
     const overallProgress = totalProblems > 0 ? Math.round((solvedProblems / totalProblems) * 100) : 0;
 
@@ -844,14 +891,79 @@ export default function RoadmapView({
                                 type="text"
                                 placeholder={searchPlaceholder}
                                 value={query}
-                                onChange={(event) => setQuery(event.target.value)}
+                                onChange={(event) => handleQueryChange(event.target.value)}
                             />
+                        </div>
+
+                        {/* Filters */}
+                        <RoadmapFilters
+                            selectedDifficulties={selectedDifficulties}
+                            onDifficultyChange={setSelectedDifficulties}
+                            selectedStatuses={selectedStatuses}
+                            onStatusChange={setSelectedStatuses}
+                            sortBy={sortBy}
+                            onSortChange={setSortBy}
+                            onReset={resetFilters}
+                            onApply={() => {}}
+                            isFiltered={isFiltered}
+                        />
+
+                        {/* View Toggle */}
+                        <div className="roadmap-view-toggle">
+                            <button
+                                className={`view-toggle-btn ${currentView === 'mindmap' ? 'active' : ''}`}
+                                onClick={() => setCurrentView('mindmap')}
+                                title="Mindmap view"
+                            >
+                                <Sparkles size={14} />
+                                Mindmap
+                            </button>
+                            <button
+                                className={`view-toggle-btn ${currentView === 'grid' ? 'active' : ''}`}
+                                onClick={() => setCurrentView('grid')}
+                                title="Grid view"
+                            >
+                                <Grid3X3 size={14} />
+                                Grid
+                            </button>
+                            <button
+                                className={`view-toggle-btn ${currentView === 'list' ? 'active' : ''}`}
+                                onClick={() => setCurrentView('list')}
+                                title="List view"
+                            >
+                                <List size={14} />
+                                List
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* ── Canvas ── */}
-                <div className="roadmap-mindmap-canvas">
+                {/* AI Recommendations */}
+                <div className="roadmap-recommendations-wrapper">
+                    <RoadmapRecommendations
+                        recommendations={recommendations}
+                        stats={recommendationStats}
+                        insights={insights}
+                        onSelectGuide={() => {}}
+                        isExpanded={completedGuideCount > 0}
+                    />
+                </div>
+
+                {/* Advanced Analytics */}
+                <div className="roadmap-analytics-wrapper">
+                    <RoadmapAnalytics
+                        analytics={analytics}
+                        onExport={() => {
+                            // Export functionality can be implemented here
+                            console.log('Export requested', analytics);
+                        }}
+                        isExpanded={completedGuideCount > 2}
+                    />
+                </div>
+
+                {/* View Conditional Rendering */}
+                {currentView === 'mindmap' ? (
+                    <div className="roadmap-mindmap-canvas">
                     <div className="roadmap-canvas-atmosphere" aria-hidden="true">
                         <span className="roadmap-canvas-glow roadmap-canvas-glow-a" />
                         <span className="roadmap-canvas-glow roadmap-canvas-glow-b" />
@@ -967,6 +1079,18 @@ export default function RoadmapView({
                         )}
                     </div>
 
+                    {/* Quick Stats Sidebar (right) */}
+                    {showStats && (
+                        <RoadmapQuickStats
+                            totalProblems={totalProblems}
+                            solvedProblems={solvedProblems}
+                            completedGuideCount={completedGuideCount}
+                            totalGuideCount={uniqueGuides.size}
+                            branchStats={branchStats}
+                            trackingData={{}}
+                        />
+                    )}
+
                     {filteredRoots.length === 0 ? (
                         <div className="roadmap-empty-state">
                             <Search size={20} />
@@ -1005,6 +1129,17 @@ export default function RoadmapView({
                         </ReactFlow>
                     )}
                 </div>
+                ) : (
+                    <RoadmapAlternativeView
+                        guides={filteredRoots}
+                        gridLayout={currentView === 'grid'}
+                        guideProgressById={guideProgressById}
+                        onSelectGuide={(guideId) => {
+                            // Optional: navigate to guide in mindmap
+                            console.log('Selected guide:', guideId);
+                        }}
+                    />
+                )}
             </div>
         </div>
     );

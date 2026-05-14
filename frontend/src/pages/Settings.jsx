@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Bell, Moon, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
+import { Bell, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 
 export default function Settings() {
@@ -20,16 +20,48 @@ export default function Settings() {
     const [saved, setSaved] = useState(false);
     const [status, setStatus] = useState('idle');
 
-    const syncLanguagePreferences = (language) => {
-        localStorage.setItem('app-language', language);
-        localStorage.setItem('pg-voice-errors-lang', language === 'hi' ? 'hi' : 'en');
+    useEffect(() => {
+        // Load initial local settings if present
+        const savedLang = localStorage.getItem('app-language');
+        const savedEditor = localStorage.getItem('app-code-editor');
+        if (savedLang || savedEditor) {
+            setSettings(prev => ({
+                ...prev,
+                ...(savedLang && { language: savedLang }),
+                ...(savedEditor && { codeEditor: savedEditor })
+            }));
+        }
+
+        const fetchSettings = async () => {
+            if (!user) return;
+            try {
+                const res = await fetch('/api/user/settings', {
+                    headers: buildAuthHeaders(user)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.settings) {
+                        setSettings(prev => ({ ...prev, ...data.settings }));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch settings', err);
+            }
+        };
+        fetchSettings();
+    }, [user]);
+
+    const syncLocalPreferences = (s) => {
+        localStorage.setItem('app-language', s.language);
+        localStorage.setItem('pg-voice-errors-lang', s.language === 'hi' ? 'hi' : 'en');
+        localStorage.setItem('app-code-editor', s.codeEditor);
     };
 
     const handleSave = async () => {
         setSaving(true);
         setStatus('idle');
         try {
-            syncLanguagePreferences(settings.language);
+            syncLocalPreferences(settings);
             const res = await fetch('/api/user/settings', {
                 method: 'PUT',
                 headers: buildAuthHeaders(user),
@@ -51,7 +83,8 @@ export default function Settings() {
     const Toggle = ({ checked, onChange, label }) => (
         <button
             type="button"
-            aria-pressed={checked}
+            role="switch"
+            aria-checked={checked}
             aria-label={label}
             onClick={() => onChange(!checked)}
             className={`account-toggle ${checked ? 'is-on' : 'is-off'}`}
@@ -175,6 +208,17 @@ export default function Settings() {
                                 <option value="en">English</option>
                                 <option value="hi">Hindi</option>
                                 <option value="es">Spanish</option>
+                            </select>
+                        </SettingRow>
+                        <SettingRow label="Code Editor">
+                            <select
+                                value={settings.codeEditor}
+                                onChange={e => setSettings({ ...settings, codeEditor: e.target.value })}
+                                className="account-select"
+                            >
+                                <option value="vscode">VS Code</option>
+                                <option value="sublime">Sublime Text</option>
+                                <option value="vim">Vim</option>
                             </select>
                         </SettingRow>
                         <SettingRow label="Default difficulty" desc="For code practice problems">

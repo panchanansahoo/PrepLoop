@@ -3,9 +3,6 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "engines": {
-    "node": "22.x"
-  },
   "scripts": {
     "dev": "node scripts/devRunner.cjs",
     "discord:install": "npm install --prefix discord-bot",
@@ -33,7 +30,7 @@
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "lint:fix": "npm run lint:fix --prefix backend && npm run lint:fix --prefix frontend",
     "format": "npm run format --prefix backend && npm run format --prefix frontend",
-    "scan:secrets": "node scripts/scan-secrets.cjs",
+    "scan:secrets": "node scripts/scan-secrets.mjs",
     "redis:guardrails": "node scripts/redis-azure-guardrails.mjs",
     "redis:guardrails:strict": "node scripts/redis-azure-guardrails.mjs --strict",
     "backup:db": "node backend/scripts/backup-db.js",
@@ -56,9 +53,13 @@
     "cache:stats": "node backend/scripts/cacheStats.js",
     "security:audit": "node backend/scripts/securityAudit.js",
     "performance:report": "node backend/scripts/performanceReport.js",
-    "collaboration:test": "node backend/scripts/testCollaboration.js"
+    "collaboration:test": "node backend/scripts/testCollaboration.js",
+    "optimize:phase1": "node scripts/run-phase1-optimization.js",
+    "optimize:db": "node backend/scripts/optimize-database.js",
+    "build:analyze": "cd frontend && npm run build && npx vite-bundle-visualizer dist/stats.html"
   },
   "devDependencies": {
+    "sharp": "^0.34.5",
     "typescript": "^6.0.3"
   }
 }

@@ -72,6 +72,7 @@ async function initializeServer() {
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
     const portfolioRoutes = (await import('./routes/portfolio.js')).default;
+    const analyticsRoutes = (await import('./routes/analytics.js')).default;
     
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -245,6 +246,13 @@ async function initializeServer() {
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
     app.use('/api/portfolio', portfolioRoutes);
+    app.use('/api/analytics', analyticsRoutes);
+
+    // Catch-all 404 handler for undefined API routes to prevent silent failures
+    app.use('/api', (req, res, next) => {
+      console.warn(`[404] API Endpoint Not Found: ${req.method} ${req.originalUrl}`);
+      res.status(404).json({ error: 'Endpoint not found' });
+    });
 
     // Error handler middleware
     app.use(errorHandler);

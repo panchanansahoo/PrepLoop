@@ -17,7 +17,8 @@ const normalizeProfileUpdatePayload = (body = {}) => {
     if (trimmed !== '') updates.experience_level = trimmed;
   }
   if (currentRoleRaw !== undefined) {
-    updates.designation = String(currentRoleRaw || '').trim();
+    const trimmed = String(currentRoleRaw || '').trim();
+    if (trimmed !== '') updates.designation = trimmed;
   }
   if (bioRaw !== undefined) {
     updates.bio = typeof bioRaw === 'string' ? bioRaw.trim() : bioRaw;
@@ -79,26 +80,33 @@ const normalizeProfileUpdatePayload = (body = {}) => {
 
   // Validate and sanitize inputs
   if (phone !== undefined) {
-    updates.phone = String(phone || '').trim().substring(0, 20);
+    const trimmed = String(phone || '').trim().substring(0, 20);
+    if (trimmed !== '') updates.phone = trimmed;
   }
   if (location !== undefined) {
-    updates.location = String(location || '').trim().substring(0, 100);
+    const trimmed = String(location || '').trim().substring(0, 100);
+    if (trimmed !== '') updates.location = trimmed;
   }
   if (website !== undefined) {
     let sanitizedWebsite = String(website || '').trim();
-    if (sanitizedWebsite && !sanitizedWebsite.startsWith('http')) {
-      sanitizedWebsite = `https://${sanitizedWebsite}`;
+    if (sanitizedWebsite !== '') {
+      if (!sanitizedWebsite.startsWith('http')) {
+        sanitizedWebsite = `https://${sanitizedWebsite}`;
+      }
+      updates.website = sanitizedWebsite.substring(0, 200);
     }
-    updates.website = sanitizedWebsite.substring(0, 200);
   }
   if (company !== undefined) {
-    updates.company = String(company || '').trim().substring(0, 100);
+    const trimmed = String(company || '').trim().substring(0, 100);
+    if (trimmed !== '') updates.company = trimmed;
   }
   if (yearsOfExperience !== undefined) {
-    updates.years_of_experience = String(yearsOfExperience || '').trim().substring(0, 20);
+    const trimmed = String(yearsOfExperience || '').trim().substring(0, 20);
+    if (trimmed !== '') updates.years_of_experience = trimmed;
   }
   if (specialization !== undefined) {
-    updates.specialization = String(specialization || '').trim().substring(0, 100);
+    const trimmed = String(specialization || '').trim().substring(0, 100);
+    if (trimmed !== '') updates.specialization = trimmed;
   }
   if (socialLinks !== undefined) {
     // Ensure social_links is a valid JSON object

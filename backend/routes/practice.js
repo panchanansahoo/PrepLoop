@@ -410,13 +410,20 @@ const extractPythonSyntaxError = (stderr = "") => {
   const lineMatch = output.match(/line\s+(\d+)/i);
   const line = lineMatch?.[1] ? Number(lineMatch[1]) : 1;
 
-  const lines = output.split("\n").map((lineText) => lineText.trim()).filter(Boolean);
-  const syntaxLine = lines.find((lineText) => lineText.includes("SyntaxError")) || "Syntax error";
+  const lines = output.split("\n").map((lineText) => lineText.trimEnd()).filter(Boolean);
+  
+  let col = 1;
+  const caretLine = lines.find((lineText) => lineText.includes("^"));
+  if (caretLine) {
+    col = Math.max(1, caretLine.indexOf("^") + 1);
+  }
+
+  const syntaxLine = lines.find((lineText) => lineText.trim().startsWith("SyntaxError")) || "Syntax error";
   return {
     line: Number.isFinite(line) ? line : 1,
-    col: 1,
+    col,
     severity: "error",
-    message: syntaxLine,
+    message: syntaxLine.trim(),
   };
 };
 
@@ -943,8 +950,8 @@ router.post("/lint", authenticateToken, async (req, res) => {
         return res.json({ success: true, errors: [], checkedWith: "js-parser" });
       } catch (err) {
         const raw = String(err?.stack || err?.message || "Syntax error");
-        const lineMatch = raw.match(/<anonymous>:(\d+):(\d+)/);
-        const line = lineMatch?.[1] ? Math.max(1, Number(lineMatch[1]) - 1) : 1;
+        const lineMatch = raw.match(/<anonymous>:(\d+)(?::(\d+))?/);
+        const line = lineMatch?.[1] ? Math.max(1, Number(lineMatch[1])) : 1;
         const col = lineMatch?.[2] ? Math.max(1, Number(lineMatch[2])) : 1;
         return res.json({
           success: true,

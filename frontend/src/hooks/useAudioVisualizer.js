@@ -1,5 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+// Global singletons to prevent "MediaElement already connected" errors
+// and to avoid repeatedly creating/destroying AudioContexts.
+let globalAudioContext = null;
+const mediaElementSourceCache = new WeakMap();
+
+function getGlobalAudioContext() {
+  if (typeof window === 'undefined') return null;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return null;
+
+  if (!globalAudioContext || globalAudioContext.state === 'closed') {
+    globalAudioContext = new AudioContextClass();
+  }
+  return globalAudioContext;
+}
+
 export function normalizeBars(frequencyData, barCount = 8) {
   if (!frequencyData || frequencyData.length === 0) {
     return Array.from({ length: barCount }, () => 0);
@@ -45,15 +61,18 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
   const rafRef = useRef(null);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return undefined;
+    const audioContext = getGlobalAudioContext();
+    if (!audioContext) return undefined;
+
+    // Resume context if suspended (browser autoplay policy)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume().catch(() => {});
+    }
 
     let mounted = true;
-    const audioContext = new AudioContextClass();
-
     let inputSource = null;
     let outputSource = null;
+
     const inputAnalyser = audioContext.createAnalyser();
     const outputAnalyser = audioContext.createAnalyser();
     inputAnalyser.fftSize = 128;
@@ -70,11 +89,20 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
 
     if (outputAudioElement && outputAudioElement.src) {
       try {
-        outputSource = audioContext.createMediaElementSource(outputAudioElement);
+        // Only create MediaElementSource ONCE per HTMLMediaElement
+        if (mediaElementSourceCache.has(outputAudioElement)) {
+          outputSource = mediaElementSourceCache.get(outputAudioElement);
+        } else {
+          outputSource = audioContext.createMediaElementSource(outputAudioElement);
+          mediaElementSourceCache.set(outputAudioElement, outputSource);
+        }
+        
+        // Re-connect the cached or new source to our analyser and destination
+        outputSource.disconnect(); // Clear any old connections safely
         outputSource.connect(outputAnalyser);
         outputAnalyser.connect(audioContext.destination);
-      } catch {
-        // Media element may already be connected in another context.
+      } catch (err) {
+        console.warn('[useAudioVisualizer] Could not connect output element:', err);
       }
     }
 
@@ -105,16 +133,18 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
       mounted = false;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       if (outputSource) {
-        try { outputSource.disconnect(); } catch { /* no-op */ }
+        try { 
+            outputSource.disconnect(); 
+            // Crucial: Connect it back directly to destination so audio still plays 
+            // even when the visualizer component is unmounted or re-rendering!
+            outputSource.connect(audioContext.destination);
+        } catch { /* no-op */ }
       }
       if (inputSource) {
         try { inputSource.disconnect(); } catch { /* no-op */ }
       }
-      try {
-        audioContext.close();
-      } catch {
-        // no-op
-      }
+      
+      // Do NOT close the global audio context here, as it is shared and reused!
     };
   }, [inputStream, outputAudioElement, barCount]);
 
