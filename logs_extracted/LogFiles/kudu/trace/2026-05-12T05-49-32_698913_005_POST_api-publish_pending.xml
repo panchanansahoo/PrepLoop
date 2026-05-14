@@ -1,0 +1,78 @@
+<step title="Incoming Request" date="2026-05-12T05:49:32.670" instance="698913" url="/api/publish?type=zip" method="POST" type="request" pid="833,1,3" Accept="*/*" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="AZURECLI/2.85.0 (MSI)" Accept-Encoding="gzip, deflate" Authorization="Bas..." Cache-Control="no-cache" Content-Type="application/octet-stream" Cookie="ARRAffinity=698913a5424f2eeda458508b90e17c42d5b281e1351a29ef36455cc28fc893c9; ARRAffinitySameSite=698913a5424f2eeda458508b90e17c42d5b281e1351a29ef36455cc28fc893c9" Content-Length="5682282" x-ms-client-request-id="2c12b2ec-4dc6-11f1-b1b0-c49ea1e053f3" x-ms-artifact-checksum="923b97c9ba6c42fc6e15cc7b0740421e18ef8084f67dc7c5266b244edbb6b43b" X-ARR-LOG-ID="2c12b2ec-4dc6-11f1-b1b0-c49ea1e053f3" CLIENT-IP="106.192.80.134:7297" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/publish?type=zip" X-Client-IP="106.192.80.134" X-Client-Port="7297" >
+  <step title="OneDeploy" date="2026-05-12T05:49:32.777" >
+    <step title="None repository commit" date="2026-05-12T05:49:32.813" >
+      <step title="Commit id: ed17d997-4978-4258-a952-1d1e94fb89d2" date="2026-05-12T05:49:32.820" Message="N/A" AuthorName="N/A" AuthorEmail="N/A" /><!-- duration: 4ms -->
+    </step><!-- duration: 15ms -->
+    <step title="Starting PushDeployAsync" date="2026-05-12T05:49:32.834" /><!-- duration: 6ms -->
+    <step title="Writing artifact to /tmp/zipdeploy/4de3a3f4-a717-4c6b-b3b4-41b3c9a1120a.zip" date="2026-05-12T05:49:32.870" >
+      <step title="Writing multipart request body to /tmp/zipdeploy/4de3a3f4-a717-4c6b-b3b4-41b3c9a1120a.zip" date="2026-05-12T05:49:32.876" /><!-- duration: 4ms -->
+    </step><!-- duration: 6190ms -->
+    <step title="Attempting to fetch target branch HEAD" date="2026-05-12T05:49:39.120" /><!-- duration: 20ms -->
+    <step title="Acquiring Deployment Lock" date="2026-05-12T05:49:39.178" /><!-- duration: 30ms -->
+    <step title="Acquired Deployment Lock" date="2026-05-12T05:49:39.320" /><!-- duration: 11ms -->
+    <step title="Performing fetch based deployment" date="2026-05-12T05:49:39.369" >
+      <step title="Creating temporary deployment" date="2026-05-12T05:49:39.390" /><!-- duration: 113ms -->
+      <step title="Releasing Deployment Lock" date="2026-05-12T05:49:40.740" /><!-- duration: 4ms -->
+      <step title="Cleaning up temp folders from previous zip deployments and extracting pushed zip file /tmp/zipdeploy/4de3a3f4-a717-4c6b-b3b4-41b3c9a1120a.zip (5.42 MB) to /tmp/zipdeploy/extracted" date="2026-05-12T05:49:40.821" >
+        <step title="ChmodRecursive Process exited with total time taken in ms: 80" date="2026-05-12T05:49:41.435" /><!-- duration: 9ms -->
+      </step><!-- duration: 628ms -->
+      <step title="None repository commit" date="2026-05-12T05:49:41.456" >
+        <step title="Commit id: ed17d997-4978-4258-a952-1d1e94fb89d2" date="2026-05-12T05:49:41.464" Message="OneDeploy" AuthorName="N/A" AuthorEmail="N/A" /><!-- duration: 3ms -->
+      </step><!-- duration: 15ms -->
+      <step title="Deployment timer started" date="2026-05-12T05:49:43.492" >
+        <step title="DeploymentManager.Deploy(id:ed17d997-4978-4258-a952-1d1e94fb89d2)" date="2026-05-12T05:49:43.500" >
+          <step title="Collecting changeset information" date="2026-05-12T05:49:43.513" /><!-- duration: 101ms -->
+          <step title="Updating submodules" date="2026-05-12T05:49:43.621" /><!-- duration: 1213ms -->
+          <step title="Determining deployment builder" date="2026-05-12T05:49:45.087" >
+            <step title="Builder is OryxBuilder" date="2026-05-12T05:49:45.107" /><!-- duration: 5ms -->
+          </step><!-- duration: 29ms -->
+          <step title="PreDeployment: context.CleanOutputPath False" date="2026-05-12T05:49:45.172" >
+            <step title="PreDeployment: context.OutputPath /home/site/wwwroot" date="2026-05-12T05:49:45.296" >
+              <step title="Building" date="2026-05-12T05:49:45.514" >
+                <step title="Executing external process" date="2026-05-12T05:49:46.173" type="process" path="bash" arguments="-c &quot;oryx build /tmp/zipdeploy/extracted -o /home/site/wwwroot --platform nodejs --platform-version 20 -p virtualenv_name= --log-file /tmp/build-debug.log  -i /tmp/8deafea453168a0 -p compress_node_modules=tar-gz | tee /tmp/oryx-build.log ; exit $PIPESTATUS &quot;" >
+                  <step title="Error occurred" date="2026-05-12T05:51:22.365" type="error" text="GetParentProcessLinux (1217) failed.: Could not find a part of the path &apos;/proc/1217/stat&apos;." stackTrace="   at Interop.ThrowExceptionForIoErrno(ErrorInfo errorInfo, String path, Boolean isDirError)
+   at Microsoft.Win32.SafeHandles.SafeFileHandle.Open(String fullPath, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, UnixFileMode openPermissions, Int64&amp; fileLength, UnixFileMode&amp; filePermissions, Boolean failForSymlink, Boolean&amp; wasSymlink, Func`4 createOpenException)
+   at System.IO.Strategies.OSFileStreamStrategy..ctor(String path, FileMode mode, FileAccess access, FileShare share, FileOptions options, Int64 preallocationSize, Nullable`1 unixCreateMode)
+   at System.IO.StreamReader.ValidateArgsAndOpenPath(String path, Encoding encoding, Int32 bufferSize)
+   at System.IO.File.ReadLines(String path)
+   at Kudu.Core.Infrastructure.ProcessExtensions.GetParentProcessLinux(Process process, ITracer tracer) in /tmp/KuduLite/Kudu.Core/Infrastructure/ProcessExtensions.cs:line 155" /><!-- duration: 60ms -->
+                  <step title="Cpu: npm install(1187,36.740s)+build.sh(1095,0.090s)+oryx(1071,8.320s)+tee(1072,0.020s)+bash(1070,0.000s)=total(45.120s)" date="2026-05-12T05:51:23.037" /><!-- duration: 29ms -->
+                  <step title="bash: no io activity for 61s, prev-cpu=-1.000s, current-cpu=45.120s" date="2026-05-12T05:51:23.097" /><!-- duration: 38ms -->
+                  <step title="Cpu: node(1249,2.880s)+sh(1248,0.070s)+npm install(1187,62.290s)+build.sh(1095,0.090s)+oryx(1071,9.340s)+tee(1072,0.020s)+bash(1070,0.000s)=total(74.690s)" date="2026-05-12T05:52:31.085" /><!-- duration: 71ms -->
+                  <step title="bash: no io activity for 60s, prev-cpu=-1.000s, current-cpu=74.690s" date="2026-05-12T05:52:31.364" /><!-- duration: 61ms -->
+                  <step title="Cpu: gzip(1295,36.840s)+sh(1294,0.000s)+tar(1293,2.560s)+build.sh(1095,0.090s)+oryx(1071,10.300s)+tee(1072,0.020s)+bash(1070,0.000s)=total(49.810s)" date="2026-05-12T05:54:16.404" /><!-- duration: 72ms -->
+                  <step title="bash: no io activity for 61s, prev-cpu=-1.000s, current-cpu=49.810s" date="2026-05-12T05:54:16.854" /><!-- duration: 100ms -->
+                  <step title="Cpu: gzip(1295,51.950s)+sh(1294,0.000s)+tar(1293,3.410s)+build.sh(1095,0.090s)+oryx(1071,10.970s)+tee(1072,0.020s)+bash(1070,0.000s)=total(66.430s)" date="2026-05-12T05:55:18.165" /><!-- duration: 58ms -->
+                  <step title="bash: no io activity for 123s, prev-cpu=49.810s, current-cpu=66.430s" date="2026-05-12T05:55:18.255" /><!-- duration: 128ms -->
+                  <step title="Cpu: gzip(1295,65.280s)+sh(1294,0.000s)+tar(1293,3.850s)+build.sh(1095,0.090s)+oryx(1071,11.220s)+tee(1072,0.020s)+bash(1070,0.000s)=total(80.460s)" date="2026-05-12T05:56:19.530" /><!-- duration: 20ms -->
+                  <step title="bash: no io activity for 185s, prev-cpu=66.430s, current-cpu=80.460s" date="2026-05-12T05:56:19.580" /><!-- duration: 21ms -->
+                  <step title="Cpu: gzip(1295,103.490s)+sh(1294,0.000s)+tar(1293,5.000s)+build.sh(1095,0.090s)+oryx(1071,11.640s)+tee(1072,0.020s)+bash(1070,0.000s)=total(120.240s)" date="2026-05-12T05:57:20.114" /><!-- duration: 29ms -->
+                  <step title="bash: no io activity for 245s, prev-cpu=80.460s, current-cpu=120.240s" date="2026-05-12T05:57:20.263" /><!-- duration: 62ms -->
+                  <step title="Cpu: gzip(1295,142.490s)+sh(1294,0.000s)+tar(1293,6.010s)+build.sh(1095,0.090s)+oryx(1071,11.910s)+tee(1072,0.020s)+bash(1070,0.000s)=total(160.520s)" date="2026-05-12T05:58:20.881" /><!-- duration: 18ms -->
+                  <step title="bash: no io activity for 306s, prev-cpu=120.240s, current-cpu=160.520s" date="2026-05-12T05:58:20.919" /><!-- duration: 39ms -->
+                  <step title="Cpu: gzip(1295,179.170s)+sh(1294,0.000s)+tar(1293,7.520s)+build.sh(1095,0.090s)+oryx(1071,12.230s)+tee(1072,0.020s)+bash(1070,0.000s)=total(199.030s)" date="2026-05-12T05:59:21.561" /><!-- duration: 69ms -->
+                  <step title="bash: no io activity for 367s, prev-cpu=160.520s, current-cpu=199.030s" date="2026-05-12T05:59:21.699" /><!-- duration: 49ms -->
+                  <step title="Cpu: rsync(1574,2.250s)+rsync(1566,0.770s)+rsync(1564,3.630s)+build.sh(1095,0.100s)+oryx(1071,12.730s)+tee(1072,0.020s)+bash(1070,0.000s)=total(19.490s)" date="2026-05-12T06:00:55.378" /><!-- duration: 61ms -->
+                  <step title="bash: no io activity for 61s, prev-cpu=-1.000s, current-cpu=19.490s" date="2026-05-12T06:00:55.548" /><!-- duration: 21ms -->
+                </step><!-- duration: 703085ms -->
+                <step title="Using GenericDeploymentLogParser" date="2026-05-12T06:01:30.704" /><!-- duration: 19ms -->
+                <step title="Modified file to trigger a restart of the app container." date="2026-05-12T06:01:33.847" /><!-- duration: 12ms -->
+                <step title="Skip function trigger and logicapp sync because function is not enabled." date="2026-05-12T06:01:34.078" /><!-- duration: 19ms -->
+                <step title="Purge deployment items" date="2026-05-12T06:01:36.944" >
+                  <step title="Remove temp-e02b, Pending, received at 05/12/2026 05:58:59" date="2026-05-12T06:01:38.732" /><!-- duration: 22ms -->
+                  <step title="Remove temp-e580, Failed, received at 05/12/2026 05:49:39" date="2026-05-12T06:01:38.972" /><!-- duration: 38ms -->
+                  <step title="Remove 2526ad25-, Failed, received at 04/28/2026 12:28:39" date="2026-05-12T06:01:39.425" /><!-- duration: 16ms -->
+                  <step title="Remove f4c684ae-, Success, received at 04/17/2026 06:42:38" date="2026-05-12T06:01:39.622" /><!-- duration: 31ms -->
+                </step><!-- duration: 2748ms -->
+              </step><!-- duration: 714344ms -->
+            </step><!-- duration: 714593ms -->
+            <step title="Cleaning up temp files" date="2026-05-12T06:01:39.910" /><!-- duration: 56267ms -->
+            <step title="Cleaning up temp files" date="2026-05-12T06:02:36.220" /><!-- duration: 711ms -->
+            <step title="Reloading status file with latest updates" date="2026-05-12T06:02:37.221" >
+              <step title="WebHooksManager.PublishEventAsync: PostDeployment" date="2026-05-12T06:02:37.482" /><!-- duration: 5533ms -->
+            </step><!-- duration: 5815ms -->
+            <step title="Cleaning up temporary deployment - fetch deployment was successful" date="2026-05-12T06:02:43.265" /><!-- duration: 71ms -->
+          </step><!-- duration: 778724ms -->
+        </step><!-- duration: 780659ms -->
+        <step title="Outgoing response" date="2026-05-12T06:02:45.101" type="response" statusCode="200" statusText="OK" /><!-- duration: 73ms -->
+      </step><!-- duration: 781732ms -->

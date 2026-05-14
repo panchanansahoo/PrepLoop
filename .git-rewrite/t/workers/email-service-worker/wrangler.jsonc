@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "preploop-email-service-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-04-11",
+  "send_email": [
+    {
+      "name": "SEND_EMAIL",
+      "destination_address": "preploop.me@gmail.com"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+<step title="Incoming Request" date="2026-05-13T17:04:48.881" instance="698913" url="/logstream" method="GET" type="request" pid="832,1,18" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="AZURECLI/2.85.0 (MSI)" Accept-Encoding="identity" Authorization="Bas..." x-ms-client-request-id="d405b5d5-4eed-11f1-94a4-f6cd1da6e146" X-ARR-LOG-ID="d405b5d5-4eed-11f1-94a4-f6cd1da6e146" CLIENT-IP="106.192.94.97:10064" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/logstream" X-Client-IP="106.192.94.97" X-Client-Port="10064" >
+  <step title="LogStreamHandlerMiddleware.Invoke" date="2026-05-13T17:04:48.903" /><!-- duration: 384ms -->
+  <step title="Error occurred" date="2026-05-13T17:05:49.317" type="error" text="LogStreamManager: ProcessRequest end" /><!-- duration: 18ms -->
+  <step title="Outgoing response" date="2026-05-13T17:05:49.366" type="response" statusCode="200" statusText="OK" /><!-- duration: 5ms -->
+</step><!-- duration: 60496ms -->

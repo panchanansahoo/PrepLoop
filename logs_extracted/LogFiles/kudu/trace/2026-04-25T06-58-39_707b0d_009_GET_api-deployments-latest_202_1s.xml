@@ -1,0 +1,8 @@
+<step title="Incoming Request" date="2026-04-25T06:58:39.538" instance="707b0d" url="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-04-25_06-58-09Z" method="GET" type="request" pid="831,1,17" Host="preploop-api-staging.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_5a7b45536e0219c8085d530f9b3115543fc61c64bb51f9e827a0a05da294791b_v3.0.8" Authorization="Bea..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=707b0d70755be76ef3e6e5a1c5d0039c897b41d612ba848bdfd7e95c1d11999d; ARRAffinitySameSite=707b0d70755be76ef3e6e5a1c5d0039c897b41d612ba848bdfd7e95c1d11999d" Content-Length="0" X-ARR-LOG-ID="b24db464-f609-476d-bc7e-defa246fa9e0" CLIENT-IP="20.55.222.83:47104" X-SITE-DEPLOYMENT-ID="preploop-api-staging" WAS-DEFAULT-HOSTNAME="preploop-api-staging.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments/latest?deployer=OneDeploy&amp;time=2026-04-25_06-58-09Z" X-Client-IP="20.55.222.83" X-Client-Port="47104" >
+  <step title="DeploymentService.GetResult" date="2026-04-25T06:58:39.567" >
+    <step title="DeploymentService.GetLatestDeployment" date="2026-04-25T06:58:39.576" >
+      <step title="DeploymentManager.GetResults" date="2026-04-25T06:58:39.587" /><!-- duration: 956ms -->
+    </step><!-- duration: 995ms -->
+  </step><!-- duration: 1014ms -->
+  <step title="Outgoing response" date="2026-04-25T06:58:40.591" type="response" statusCode="202" statusText="Accepted" /><!-- duration: 10ms -->
+</step><!-- duration: 1082ms -->

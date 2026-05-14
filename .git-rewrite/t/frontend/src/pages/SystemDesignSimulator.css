@@ -1,0 +1,2333 @@
+/* System Design Simulator v2 */
+.sd-sim-catalog {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+}
+
+.sd-sim-hero {
+    position: relative;
+    text-align: center;
+    padding: 60px 0 40px;
+    overflow: hidden;
+}
+
+.sd-sim-hero-glow {
+    position: absolute;
+    top: -40%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 400px;
+    background: radial-gradient(ellipse, rgba(16, 185, 129, 0.06) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.sd-sim-hero-content {
+    position: relative;
+    z-index: 1;
+}
+
+.sd-sim-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.sd-sim-title {
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 12px;
+    letter-spacing: -0.03em;
+}
+
+.sd-sim-subtitle {
+    color: var(--zinc-400);
+    font-size: 16px;
+    max-width: 560px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+.sd-sim-controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.sd-sim-search-wrap {
+    flex: 1;
+    min-width: 240px;
+    position: relative;
+}
+
+.sd-sim-search-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--zinc-500);
+    pointer-events: none;
+}
+
+.sd-sim-search-input {
+    width: 100%;
+    padding: 12px 14px 12px 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.sd-sim-search-input:focus {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.sd-sim-search-count {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--zinc-500);
+    font-size: 12px;
+}
+
+.sd-sim-diff-filters {
+    display: flex;
+    gap: 6px;
+}
+
+.sd-sim-diff-pill {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--zinc-400);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.sd-sim-diff-pill.active {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.sd-sim-diff-pill[data-difficulty="Easy"].active {
+    background: rgba(34, 197, 94, 0.12);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+}
+
+.sd-sim-diff-pill[data-difficulty="Medium"].active {
+    background: rgba(251, 191, 36, 0.12);
+    border-color: rgba(251, 191, 36, 0.3);
+    color: #fbbf24;
+}
+
+.sd-sim-diff-pill[data-difficulty="Hard"].active {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+.sd-sim-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+.sd-sim-card {
+    position: relative;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+    padding: 24px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    animation: fadeUp 0.5s ease forwards;
+    animation-delay: var(--card-delay);
+    opacity: 0;
+}
+
+.sd-sim-card:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateY(-4px);
+}
+
+.sd-sim-card-diff {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.sd-sim-card-body {
+    flex: 1;
+}
+
+.sd-sim-card-icon {
+    font-size: 32px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.sd-sim-card-name {
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.sd-sim-card-desc {
+    color: var(--zinc-400);
+    font-size: 13px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.sd-sim-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sd-sim-card-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--zinc-500);
+    font-size: 12px;
+}
+
+.sd-sim-card-action {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: #34d399;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.sd-sim-card-glow {
+    position: absolute;
+    bottom: -60px;
+    right: -60px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(16, 185, 129, 0.06);
+    pointer-events: none;
+    transition: all 0.4s;
+}
+
+.sd-sim-card:hover .sd-sim-card-glow {
+    transform: scale(2);
+    opacity: 0.8;
+}
+
+.sd-sim-empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--zinc-500);
+}
+
+.sd-sim-empty h3 {
+    color: var(--zinc-400);
+    margin: 16px 0 8px;
+}
+
+.sd-sim-canvas-page {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    z-index: 10;
+}
+
+.sd-sim-topbar {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(5, 5, 7, 0.95);
+    backdrop-filter: blur(12px);
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.sd-sim-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    color: var(--zinc-400);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.sd-sim-back-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sd-sim-topbar-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.sd-sim-topbar-icon {
+    font-size: 20px;
+}
+
+.sd-sim-topbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.sd-sim-topbar-diff {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-weight: 600;
+}
+
+.sd-sim-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sd-sim-toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 2px;
+}
+
+.sd-sim-tb {
+    width: 30px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--zinc-500);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.sd-sim-tb:hover:not(:disabled) {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sd-sim-tb:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.sd-sim-tb.active {
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.sd-sim-zoom-label {
+    font-size: 10px;
+    color: var(--zinc-500);
+    min-width: 32px;
+    text-align: center;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.sd-sim-topbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--zinc-400);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sd-sim-topbar-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sd-sim-ref-btn {
+    background: rgba(96, 165, 250, 0.08);
+    border-color: rgba(96, 165, 250, 0.25);
+    color: #60a5fa;
+}
+
+.sd-sim-ref-btn:hover {
+    background: rgba(96, 165, 250, 0.18);
+    border-color: rgba(96, 165, 250, 0.4);
+    color: #93c5fd;
+    box-shadow: 0 2px 12px rgba(96, 165, 250, 0.15);
+}
+
+.sd-sim-submit-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 16px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.15));
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.sd-sim-submit-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.3), rgba(52, 211, 153, 0.25));
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.2);
+}
+
+.sd-sim-submit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.sd-sim-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(52, 211, 153, 0.3);
+    border-top-color: #34d399;
+    border-radius: 50%;
+    animation: sd-spin 0.8s linear infinite;
+}
+
+@keyframes sd-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.sd-sim-workspace {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.sd-sim-palette {
+    width: 220px;
+    border-right: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(5, 5, 7, 0.5);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+.sd-sim-palette.collapsed {
+    width: 44px;
+}
+
+.sd-sim-palette-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sd-sim-palette-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--zinc-400);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.sd-sim-palette-toggle {
+    background: none;
+    border: none;
+    color: var(--zinc-500);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+
+.sd-sim-palette-toggle:hover {
+    color: #fff;
+}
+
+.sd-sim-palette-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
+}
+
+.sd-sim-palette-cat {
+    margin-bottom: 4px;
+}
+
+.sd-sim-palette-cat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 6px 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.sd-sim-palette-cat-header:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.sd-sim-palette-items {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 2px 0;
+}
+
+.sd-sim-palette-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    cursor: grab;
+    transition: all 0.2s;
+    width: 100%;
+    text-align: left;
+}
+
+.sd-sim-palette-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sd-sim-palette-item:active {
+    cursor: grabbing;
+}
+
+.sd-sim-palette-item-icon {
+    font-size: 15px;
+    flex-shrink: 0;
+}
+
+.sd-sim-palette-item-label {
+    font-size: 11.5px;
+    color: var(--zinc-300);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sd-sim-palette-item-add {
+    color: var(--zinc-600);
+    opacity: 0;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.sd-sim-palette-item:hover .sd-sim-palette-item-add {
+    opacity: 1;
+    color: #34d399;
+}
+
+.sd-sim-canvas-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: #08080a;
+    cursor: default;
+}
+
+.sd-sim-canvas-transform {
+    position: absolute;
+    inset: 0;
+    will-change: transform;
+}
+
+.sd-sim-grid-bg {
+    pointer-events: none;
+}
+
+.sd-sim-connections-svg {
+    pointer-events: none;
+    z-index: 10;
+}
+
+.sd-sim-connections-svg g {
+    pointer-events: all;
+}
+
+.sd-sim-conn-path {
+    transition: stroke 0.2s, stroke-width 0.2s;
+}
+
+.sd-sim-connections-svg g:hover .sd-sim-conn-path {
+    stroke: rgba(52, 211, 153, 0.7) !important;
+    stroke-width: 2.5 !important;
+}
+
+.sd-sim-conn-flow {
+    animation: sd-flow 1.5s linear infinite;
+}
+
+@keyframes sd-flow {
+    to {
+        stroke-dashoffset: -16;
+    }
+}
+
+.sd-sim-conn-preview {
+    animation: sd-preview-dash 0.6s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes sd-preview-dash {
+    to {
+        stroke-dashoffset: -12;
+    }
+}
+
+.sd-sim-connect-indicator {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    background: rgba(96, 165, 250, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    color: #60a5fa;
+    font-size: 13px;
+    z-index: 20;
+    backdrop-filter: blur(8px);
+}
+
+.sd-sim-connect-cancel {
+    background: none;
+    border: none;
+    color: #60a5fa;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+    display: flex;
+}
+
+.sd-sim-connect-cancel:hover {
+    background: rgba(96, 165, 250, 0.2);
+}
+
+.sd-sim-node {
+    position: absolute;
+    width: 140px;
+    min-height: 76px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 16px 8px 12px;
+    cursor: grab;
+    z-index: 5;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s, transform 0.15s;
+    user-select: none;
+    overflow: visible;
+}
+
+.sd-sim-node-color-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    border-radius: 12px 12px 0 0;
+}
+
+.sd-sim-node:hover {
+    border-color: var(--node-color, rgba(255, 255, 255, 0.2));
+    background: rgba(255, 255, 255, 0.055);
+    transform: translateY(-1px);
+}
+
+.sd-sim-node.selected {
+    border-color: var(--node-color, #60a5fa);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--node-color) 20%, transparent), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.sd-sim-node.connecting {
+    border-color: #60a5fa;
+    box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
+    animation: sd-pulse 1.5s infinite;
+}
+
+@keyframes sd-pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 16px rgba(96, 165, 250, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 0 28px rgba(96, 165, 250, 0.4);
+    }
+}
+
+.sd-sim-node:active {
+    cursor: grabbing;
+}
+
+.sd-sim-node-icon {
+    font-size: 22px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sd-sim-node-label {
+    font-size: 10.5px;
+    color: var(--zinc-300);
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    cursor: default;
+}
+
+.sd-sim-node-edit-input {
+    width: 110px;
+    padding: 2px 4px;
+    font-size: 10.5px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.5);
+    border-radius: 4px;
+    text-align: center;
+    outline: none;
+    font-weight: 600;
+}
+
+.sd-sim-node-config-badge {
+    position: absolute;
+    bottom: 4px;
+    right: 6px;
+    color: var(--zinc-600);
+}
+
+.sd-sim-node-actions {
+    position: absolute;
+    top: -32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 10;
+    background: rgba(5, 5, 7, 0.9);
+    padding: 4px 6px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.sd-sim-node-action-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1px solid;
+    transition: all 0.2s;
+}
+
+.sd-sim-node-action-btn.connect {
+    background: rgba(96, 165, 250, 0.15);
+    border-color: rgba(96, 165, 250, 0.3);
+    color: #60a5fa;
+}
+
+.sd-sim-node-action-btn.connect:hover {
+    background: rgba(96, 165, 250, 0.3);
+}
+
+.sd-sim-node-action-btn.duplicate {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.3);
+    color: #a855f7;
+}
+
+.sd-sim-node-action-btn.duplicate:hover {
+    background: rgba(168, 85, 247, 0.3);
+}
+
+.sd-sim-node-action-btn.delete {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+.sd-sim-node-action-btn.delete:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+.sd-sim-canvas-empty {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--zinc-600);
+    z-index: 1;
+    pointer-events: none;
+    text-align: center;
+}
+
+.sd-sim-canvas-empty h3 {
+    color: var(--zinc-500);
+    font-size: 18px;
+    margin: 16px 0 6px;
+}
+
+.sd-sim-canvas-empty p {
+    font-size: 12px;
+    color: var(--zinc-600);
+}
+
+.sd-sim-minimap {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    width: 160px;
+    height: 100px;
+    background: rgba(5, 5, 7, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    z-index: 15;
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
+
+.sd-sim-right-panel {
+    width: 280px;
+    border-left: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(5, 5, 7, 0.5);
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.05) transparent;
+}
+
+.sd-sim-section {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.sd-sim-config-section {
+    border-color: rgba(96, 165, 250, 0.15);
+    background: rgba(96, 165, 250, 0.03);
+}
+
+.sd-sim-section-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 10px 12px;
+    background: none;
+    border: none;
+    color: var(--zinc-300);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sd-sim-section-header:hover {
+    color: #fff;
+}
+
+.sd-sim-section-header span {
+    flex: 1;
+    text-align: left;
+}
+
+.sd-sim-section-body {
+    padding: 0 12px 12px;
+}
+
+.sd-sim-req-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--zinc-500);
+    display: block;
+    margin-bottom: 5px;
+}
+
+.sd-sim-req-item {
+    display: flex;
+    gap: 5px;
+    align-items: flex-start;
+    margin-bottom: 3px;
+    font-size: 11px;
+    color: var(--zinc-400);
+    line-height: 1.5;
+}
+
+.sd-sim-req-dot {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.sd-sim-config-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.sd-sim-config-field:last-child {
+    border-bottom: none;
+}
+
+.sd-sim-config-field label {
+    font-size: 11px;
+    color: var(--zinc-400);
+}
+
+.sd-sim-config-input {
+    width: 80px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 11px;
+    outline: none;
+    text-align: right;
+}
+
+.sd-sim-config-input:focus {
+    border-color: rgba(96, 165, 250, 0.4);
+}
+
+.sd-sim-config-toggle {
+    padding: 3px 10px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid;
+}
+
+.sd-sim-config-toggle.on {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+.sd-sim-config-toggle:not(.on) {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.08);
+    color: var(--zinc-500);
+}
+
+.sd-sim-protocol-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.sd-sim-protocol-btn {
+    padding: 3px 8px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--zinc-400);
+    transition: all 0.15s;
+}
+
+.sd-sim-protocol-btn:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.sd-sim-protocol-btn.active {
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #34d399;
+}
+
+.sd-sim-conn-text-input-wrap {
+    margin-bottom: 10px;
+}
+
+.sd-sim-conn-text-input {
+    width: 100%;
+    padding: 7px 10px;
+    border-radius: 7px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 12px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.sd-sim-conn-text-input:focus {
+    border-color: rgba(16, 185, 129, 0.4);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.sd-sim-conn-text-input::placeholder {
+    color: var(--zinc-600);
+}
+
+.sd-sim-delete-conn-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+    padding: 6px;
+    border-radius: 6px;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    font-size: 11px;
+    cursor: pointer;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.sd-sim-delete-conn-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+.sd-sim-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sd-sim-warning-item {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 6px 8px;
+    border-radius: 6px;
+}
+
+.sd-sim-warning-item.error {
+    background: rgba(239, 68, 68, 0.08);
+    color: #fca5a5;
+}
+
+.sd-sim-warning-item.error svg {
+    color: #f87171;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.sd-sim-warning-item.warning {
+    background: rgba(251, 191, 36, 0.08);
+    color: #fde68a;
+}
+
+.sd-sim-warning-item.warning svg {
+    color: #fbbf24;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.sd-sim-warning-item.info {
+    background: rgba(96, 165, 250, 0.08);
+    color: #bfdbfe;
+}
+
+.sd-sim-warning-item.info svg {
+    color: #60a5fa;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.sd-sim-coverage-pct {
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: auto;
+}
+
+.sd-sim-coverage-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 2px;
+    margin: 0 12px 4px;
+    overflow: hidden;
+}
+
+.sd-sim-coverage-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease, background 0.5s ease;
+}
+
+.sd-sim-coverage-text {
+    padding: 0 12px 10px;
+    color: var(--zinc-500);
+    font-size: 10px;
+}
+
+.sd-sim-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.sd-sim-stat {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 10px;
+    text-align: center;
+}
+
+.sd-sim-stat-num {
+    display: block;
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+}
+
+.sd-sim-stat-label {
+    font-size: 10px;
+    color: var(--zinc-500);
+}
+
+.sd-sim-hints {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sd-sim-hint-item {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    font-size: 11px;
+    color: var(--zinc-400);
+    line-height: 1.5;
+}
+
+.sd-sim-hint-num {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    border-radius: 5px;
+    background: rgba(251, 191, 36, 0.12);
+    color: #fbbf24;
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+}
+
+.sd-sim-feedback {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sd-sim-feedback-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sd-sim-feedback-header h3 {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.sd-sim-feedback-close {
+    background: none;
+    border: none;
+    color: var(--zinc-500);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+}
+
+.sd-sim-feedback-close:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sd-sim-score-ring {
+    text-align: center;
+    padding: 6px 0;
+}
+
+.sd-sim-feedback-section {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.sd-sim-feedback-section h4 {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.sd-sim-feedback-item {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    font-size: 11px;
+    margin-bottom: 6px;
+    line-height: 1.5;
+}
+
+.sd-sim-feedback-item.strength {
+    color: var(--zinc-300);
+}
+
+.sd-sim-feedback-item.strength svg {
+    color: #34d399;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.sd-sim-feedback-item.improvement {
+    color: var(--zinc-300);
+}
+
+.sd-sim-feedback-item.improvement svg {
+    color: #fbbf24;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.sd-sim-feedback-detail {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.sd-sim-feedback-detail p {
+    font-size: 11px;
+    color: var(--zinc-400);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.sd-sim-feedback-back-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    justify-content: center;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--zinc-300);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sd-sim-feedback-back-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Light Mode Overrides
+   ══════════════════════════════════════════════════════════════ */
+
+/* ─── Catalog Hero ─── */
+[data-theme="light"] .sd-sim-title {
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-badge {
+    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: #059669;
+}
+
+/* ─── Search & Filters ─── */
+[data-theme="light"] .sd-sim-search-input {
+    background: #fff;
+    border-color: #e2e8f0;
+    color: #1e293b;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .sd-sim-search-input:focus {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: #fff;
+}
+
+[data-theme="light"] .sd-sim-diff-pill {
+    background: #fff;
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+
+[data-theme="light"] .sd-sim-diff-pill.active {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-diff-pill[data-difficulty="Easy"].active {
+    background: rgba(34, 197, 94, 0.08);
+    border-color: rgba(34, 197, 94, 0.3);
+    color: #16a34a;
+}
+
+[data-theme="light"] .sd-sim-diff-pill[data-difficulty="Medium"].active {
+    background: rgba(251, 191, 36, 0.08);
+    border-color: rgba(251, 191, 36, 0.3);
+    color: #d97706;
+}
+
+[data-theme="light"] .sd-sim-diff-pill[data-difficulty="Hard"].active {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #dc2626;
+}
+
+/* ─── Catalog Cards ─── */
+[data-theme="light"] .sd-sim-card {
+    background: #fff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .sd-sim-card:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: #fff;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .sd-sim-card-name {
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-card-footer {
+    border-top-color: #f1f5f9;
+}
+
+[data-theme="light"] .sd-sim-card-action {
+    color: #059669;
+}
+
+[data-theme="light"] .sd-sim-card-glow {
+    background: rgba(16, 185, 129, 0.04);
+}
+
+/* ─── Canvas Topbar ─── */
+[data-theme="light"] .sd-sim-topbar {
+    border-bottom-color: #e2e8f0;
+    background: rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="light"] .sd-sim-topbar-title {
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-back-btn:hover {
+    color: #1e293b;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .sd-sim-toolbar-group {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-tb:hover:not(:disabled) {
+    color: #1e293b;
+    background: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-tb.active {
+    color: #059669;
+    background: rgba(16, 185, 129, 0.1);
+}
+
+[data-theme="light"] .sd-sim-topbar-btn {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+[data-theme="light"] .sd-sim-topbar-btn:hover {
+    color: #1e293b;
+    border-color: #cbd5e1;
+}
+
+[data-theme="light"] .sd-sim-ref-btn {
+    background: rgba(96, 165, 250, 0.06);
+    border-color: rgba(96, 165, 250, 0.25);
+    color: #2563eb;
+}
+
+[data-theme="light"] .sd-sim-ref-btn:hover {
+    background: rgba(96, 165, 250, 0.12);
+}
+
+[data-theme="light"] .sd-sim-submit-btn {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.08));
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #059669;
+}
+
+[data-theme="light"] .sd-sim-submit-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.15));
+}
+
+/* ─── Palette Sidebar ─── */
+[data-theme="light"] .sd-sim-palette {
+    border-right-color: #e2e8f0;
+    background: #fafafa;
+}
+
+[data-theme="light"] .sd-sim-palette-header {
+    border-bottom-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-palette-toggle:hover {
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-palette-list {
+    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+
+[data-theme="light"] .sd-sim-palette-cat-header:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="light"] .sd-sim-palette-item:hover {
+    background: rgba(0, 0, 0, 0.04);
+    border-color: #e2e8f0;
+}
+
+/* ─── Canvas Area ─── */
+[data-theme="light"] .sd-sim-canvas-area {
+    background: #f5f5f7;
+}
+
+/* ─── Nodes ─── */
+[data-theme="light"] .sd-sim-node {
+    background: #fff;
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .sd-sim-node:hover {
+    background: #fff;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .sd-sim-node.selected {
+    background: #fff;
+    box-shadow: 0 0 24px color-mix(in srgb, var(--node-color) 15%, transparent), 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .sd-sim-node-edit-input {
+    color: #1e293b;
+    background: rgba(0, 0, 0, 0.04);
+    border-color: rgba(96, 165, 250, 0.5);
+}
+
+[data-theme="light"] .sd-sim-node-actions {
+    background: #fff;
+    border-color: #e2e8f0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* ─── Canvas Empty State ─── */
+[data-theme="light"] .sd-sim-canvas-empty h3 {
+    color: #64748b;
+}
+
+[data-theme="light"] .sd-sim-canvas-empty p {
+    color: #94a3b8;
+}
+
+/* ─── Minimap ─── */
+[data-theme="light"] .sd-sim-minimap {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: #e2e8f0;
+}
+
+/* ─── Right Panel ─── */
+[data-theme="light"] .sd-sim-right-panel {
+    border-left-color: #e2e8f0;
+    background: #fafafa;
+    scrollbar-color: rgba(0, 0, 0, 0.08) transparent;
+}
+
+[data-theme="light"] .sd-sim-section {
+    background: #fff;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-config-section {
+    border-color: rgba(96, 165, 250, 0.2);
+    background: rgba(96, 165, 250, 0.02);
+}
+
+[data-theme="light"] .sd-sim-section-header:hover {
+    color: #1e293b;
+}
+
+/* ─── Config Fields ─── */
+[data-theme="light"] .sd-sim-config-field {
+    border-bottom-color: #f1f5f9;
+}
+
+[data-theme="light"] .sd-sim-config-input {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-config-input:focus {
+    border-color: rgba(96, 165, 250, 0.5);
+}
+
+[data-theme="light"] .sd-sim-config-toggle:not(.on) {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #64748b;
+}
+
+[data-theme="light"] .sd-sim-config-toggle.on {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #059669;
+}
+
+/* ─── Protocol Buttons ─── */
+[data-theme="light"] .sd-sim-protocol-btn {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+[data-theme="light"] .sd-sim-protocol-btn:hover {
+    border-color: #cbd5e1;
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-protocol-btn.active {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #059669;
+}
+
+/* ─── Connection Text Input ─── */
+[data-theme="light"] .sd-sim-conn-text-input {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-conn-text-input:focus {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: #fff;
+}
+
+/* ─── Warnings ─── */
+[data-theme="light"] .sd-sim-warning-item.error {
+    background: rgba(239, 68, 68, 0.06);
+    color: #b91c1c;
+}
+
+[data-theme="light"] .sd-sim-warning-item.warning {
+    background: rgba(251, 191, 36, 0.06);
+    color: #92400e;
+}
+
+[data-theme="light"] .sd-sim-warning-item.info {
+    background: rgba(96, 165, 250, 0.06);
+    color: #1e40af;
+}
+
+/* ─── Coverage Bar ─── */
+[data-theme="light"] .sd-sim-coverage-bar {
+    background: #e2e8f0;
+}
+
+/* ─── Stats ─── */
+[data-theme="light"] .sd-sim-stat {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-stat-num {
+    color: #1e293b;
+}
+
+/* ─── Hints ─── */
+[data-theme="light"] .sd-sim-hint-num {
+    background: rgba(251, 191, 36, 0.1);
+    color: #d97706;
+}
+
+/* ─── Feedback Panel ─── */
+[data-theme="light"] .sd-sim-feedback-header h3 {
+    color: #1e293b;
+}
+
+[data-theme="light"] .sd-sim-feedback-close:hover {
+    color: #1e293b;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .sd-sim-feedback-section {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-feedback-detail {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .sd-sim-feedback-back-btn {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #475569;
+}
+
+[data-theme="light"] .sd-sim-feedback-back-btn:hover {
+    color: #1e293b;
+    border-color: #cbd5e1;
+}
+
+/* ─── Connect Indicator ─── */
+[data-theme="light"] .sd-sim-connect-indicator {
+    background: rgba(96, 165, 250, 0.06);
+    border-color: rgba(96, 165, 250, 0.25);
+}
+
+/* ─── Empty State ─── */
+[data-theme="light"] .sd-sim-empty h3 {
+    color: #334155;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIMULATION UI – Clarity Overhaul v2
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ─── Simulate / Stop Buttons ─── */
+.sd-sim-simulate-btn {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: #fff !important;
+    border: none !important;
+    gap: 6px;
+    font-weight: 600;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+}
+.sd-sim-simulate-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.15) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+}
+.sd-sim-simulate-btn:hover:not(:disabled)::after { transform: translateX(100%); }
+.sd-sim-simulate-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4), 0 0 40px rgba(16, 185, 129, 0.15);
+    transform: translateY(-1px);
+}
+.sd-sim-simulate-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+.sd-sim-stop-sim-btn {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: #fff !important;
+    border: none !important;
+    gap: 6px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+.sd-sim-stop-sim-btn:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ─── Metrics Bar (Top) – Compact Chips ─── */
+.sd-sim-metrics-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, rgba(5, 5, 15, 0.95) 0%, rgba(8, 8, 20, 0.92) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 12px;
+    flex-shrink: 0;
+    backdrop-filter: blur(16px);
+    z-index: 50;
+}
+.sd-sim-metrics-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.sd-sim-metrics-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.sd-sim-metric-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.45);
+}
+.sd-sim-metric-chip svg {
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+.sd-sim-metric-chip-val {
+    font-weight: 800;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.sd-sim-metric-chip-unit {
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    opacity: 0.6;
+}
+.sd-sim-active-chaos-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.25);
+    color: #fbbf24;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    animation: sd-sim-chaos-pulse 2s ease-in-out infinite;
+}
+@keyframes sd-sim-chaos-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+    50% { box-shadow: 0 0 8px 1px rgba(245, 158, 11, 0.15); }
+}
+.sd-sim-metric-elapsed {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.25);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+/* ─── Node Status Badges – Health Bar Style ─── */
+.sd-sim-node-status-badge {
+    position: absolute;
+    bottom: -34px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 30;
+    backdrop-filter: blur(12px);
+    pointer-events: auto;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    cursor: default;
+}
+.sd-sim-health-bar-wrap {
+    width: 32px;
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.sd-sim-health-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.5s ease, background 0.3s;
+}
+.sd-sim-status-label {
+    font-size: 9.5px;
+    letter-spacing: 0.2px;
+}
+
+/* Status: Healthy */
+.sd-sim-status-healthy {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    color: #34d399;
+}
+.sd-sim-status-healthy .sd-sim-health-bar { background: #10b981; }
+
+/* Status: Warning (Stressed) */
+.sd-sim-status-warning {
+    background: rgba(234, 179, 8, 0.1);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    color: #fbbf24;
+}
+.sd-sim-status-warning .sd-sim-health-bar { background: #eab308; }
+
+/* Status: Degraded */
+.sd-sim-status-degraded {
+    background: rgba(249, 115, 22, 0.1);
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    color: #fb923c;
+    animation: sd-sim-pulse-warn 2s ease-in-out infinite;
+}
+.sd-sim-status-degraded .sd-sim-health-bar { background: #f97316; }
+
+/* Status: Critical */
+.sd-sim-status-critical {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    animation: sd-sim-pulse-danger 1.5s ease-in-out infinite;
+}
+.sd-sim-status-critical .sd-sim-health-bar { background: #ef4444; }
+
+/* Status: Down */
+.sd-sim-status-down {
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    color: #a78bfa;
+    animation: sd-sim-pulse-danger 1s ease-in-out infinite;
+}
+.sd-sim-status-down .sd-sim-health-bar { background: #8b5cf6; width: 0% !important; }
+
+.sd-sim-fix-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid rgba(96, 165, 250, 0.4);
+    background: rgba(96, 165, 250, 0.1);
+    color: #60a5fa;
+    font-size: 8.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-left: 2px;
+}
+.sd-sim-fix-btn:hover {
+    background: rgba(96, 165, 250, 0.25);
+    border-color: #60a5fa;
+    box-shadow: 0 0 10px rgba(96, 165, 250, 0.3);
+}
+
+@keyframes sd-sim-pulse-warn {
+    0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+    50% { box-shadow: 0 2px 10px rgba(0,0,0,0.35), 0 0 12px 2px rgba(249, 115, 22, 0.15); }
+}
+@keyframes sd-sim-pulse-danger {
+    0%, 100% { box-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+    50% { box-shadow: 0 2px 10px rgba(0,0,0,0.35), 0 0 14px 3px rgba(239, 68, 68, 0.2); }
+}
+
+/* ─── Packet Animations ─── */
+.sd-sim-packet {
+    filter: drop-shadow(0 0 4px currentColor);
+    transition: cx 0.12s linear, cy 0.12s linear;
+}
+
+/* ─── Control Bar (Bottom) ─── */
+.sd-sim-control-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, rgba(8, 8, 20, 0.92) 0%, rgba(5, 5, 15, 0.96) 100%);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(16px);
+    z-index: 50;
+    font-size: 12px;
+}
+.sd-sim-ctrl-section {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.sd-sim-ctrl-divider {
+    width: 1px;
+    height: 26px;
+    background: rgba(255, 255, 255, 0.06);
+    flex-shrink: 0;
+}
+.sd-sim-section-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+.sd-sim-ctrl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.sd-sim-ctrl-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.sd-sim-play-btn {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+.sd-sim-play-btn:hover {
+    background: rgba(16, 185, 129, 0.18) !important;
+    border-color: rgba(16, 185, 129, 0.4) !important;
+    color: #34d399 !important;
+}
+.sd-sim-play-btn.paused {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    animation: sd-sim-pulse-warn 2s ease-in-out infinite;
+}
+.sd-sim-speed-btns {
+    display: flex;
+    gap: 2px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 7px;
+    padding: 2px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+.sd-sim-speed-btn {
+    padding: 3px 10px;
+    border-radius: 5px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.sd-sim-speed-btn:hover {
+    color: rgba(255, 255, 255, 0.65);
+    background: rgba(255, 255, 255, 0.04);
+}
+.sd-sim-speed-btn.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+/* Traffic section */
+.sd-sim-traffic-section {
+    gap: 8px;
+}
+.sd-sim-traffic-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100px;
+    height: 4px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    outline: none;
+    cursor: pointer;
+}
+.sd-sim-traffic-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #10b981;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+}
+.sd-sim-traffic-slider::-webkit-slider-thumb:hover {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.5);
+}
+.sd-sim-traffic-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #10b981;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.35);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+}
+.sd-sim-traffic-val {
+    color: #10b981;
+    font-weight: 800;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    min-width: 50px;
+    text-align: right;
+}
+
+/* Chaos / Fault Injection section */
+.sd-sim-chaos-section {
+    gap: 6px;
+    flex: 1;
+}
+.sd-sim-chaos-title {
+    color: rgba(245, 158, 11, 0.5) !important;
+}
+.sd-sim-chaos-grid {
+    display: flex;
+    gap: 3px;
+    flex-wrap: wrap;
+}
+.sd-sim-chaos-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 7px;
+    border-radius: 6px;
+    border: 1px solid color-mix(in srgb, var(--chaos-color, #f59e0b) 15%, transparent);
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 5%, transparent);
+    color: color-mix(in srgb, var(--chaos-color, #f59e0b) 55%, white);
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.sd-sim-chaos-btn-label {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+.sd-sim-chaos-btn:hover {
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 12%, transparent);
+    border-color: color-mix(in srgb, var(--chaos-color, #f59e0b) 40%, transparent);
+    color: var(--chaos-color, #f59e0b);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--chaos-color, #f59e0b) 15%, transparent);
+    transform: translateY(-1px);
+}
+.sd-sim-chaos-btn.active {
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 18%, transparent);
+    border-color: color-mix(in srgb, var(--chaos-color, #f59e0b) 55%, transparent);
+    color: var(--chaos-color, #f59e0b);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--chaos-color, #f59e0b) 25%, transparent),
+                inset 0 0 6px color-mix(in srgb, var(--chaos-color, #f59e0b) 8%, transparent);
+}
+.sd-sim-reset-chaos-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    background: rgba(239, 68, 68, 0.06);
+    color: rgba(239, 68, 68, 0.6);
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.sd-sim-reset-chaos-btn:hover {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* ─── Simulation Light Theme ─── */
+[data-theme="light"] .sd-sim-metrics-bar {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.95) 100%);
+    border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .sd-sim-metric-chip {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.06);
+    color: rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] .sd-sim-metric-elapsed {
+    color: rgba(0, 0, 0, 0.3);
+}
+[data-theme="light"] .sd-sim-active-chaos-tag {
+    background: rgba(245, 158, 11, 0.08);
+    border-color: rgba(245, 158, 11, 0.2);
+    color: #b45309;
+}
+[data-theme="light"] .sd-sim-control-bar {
+    background: linear-gradient(180deg, rgba(248, 250, 252, 0.95) 0%, rgba(255, 255, 255, 0.97) 100%);
+    border-top-color: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .sd-sim-ctrl-divider {
+    background: rgba(0, 0, 0, 0.06);
+}
+[data-theme="light"] .sd-sim-section-label {
+    color: rgba(0, 0, 0, 0.4);
+}
+[data-theme="light"] .sd-sim-ctrl-btn {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.03);
+    color: rgba(0, 0, 0, 0.55);
+}
+[data-theme="light"] .sd-sim-ctrl-btn:hover {
+    background: rgba(0, 0, 0, 0.07);
+    color: #111;
+}
+[data-theme="light"] .sd-sim-play-btn {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: #059669;
+}
+[data-theme="light"] .sd-sim-speed-btns {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .sd-sim-speed-btn {
+    color: rgba(0, 0, 0, 0.35);
+}
+[data-theme="light"] .sd-sim-speed-btn:hover {
+    color: rgba(0, 0, 0, 0.65);
+}
+[data-theme="light"] .sd-sim-speed-btn.active {
+    color: #059669;
+    background: rgba(16, 185, 129, 0.12);
+}
+[data-theme="light"] .sd-sim-traffic-slider {
+    background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .sd-sim-traffic-slider::-webkit-slider-thumb {
+    border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .sd-sim-traffic-val {
+    color: #059669;
+}
+[data-theme="light"] .sd-sim-chaos-btn {
+    border-color: color-mix(in srgb, var(--chaos-color, #f59e0b) 15%, transparent);
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 5%, transparent);
+    color: color-mix(in srgb, var(--chaos-color, #f59e0b) 80%, black);
+}
+[data-theme="light"] .sd-sim-chaos-btn:hover {
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 10%, transparent);
+    color: color-mix(in srgb, var(--chaos-color, #f59e0b) 90%, black);
+}
+[data-theme="light"] .sd-sim-chaos-btn.active {
+    background: color-mix(in srgb, var(--chaos-color, #f59e0b) 15%, transparent);
+    border-color: color-mix(in srgb, var(--chaos-color, #f59e0b) 40%, transparent);
+}
+[data-theme="light"] .sd-sim-chaos-title {
+    color: rgba(180, 83, 9, 0.6) !important;
+}
+[data-theme="light"] .sd-sim-node-status-badge {
+    backdrop-filter: blur(12px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .sd-sim-health-bar-wrap {
+    background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .sd-sim-status-healthy {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.2);
+    color: #059669;
+}
+[data-theme="light"] .sd-sim-status-warning {
+    background: rgba(234, 179, 8, 0.08);
+    border-color: rgba(234, 179, 8, 0.2);
+    color: #a16207;
+}
+[data-theme="light"] .sd-sim-status-degraded {
+    background: rgba(249, 115, 22, 0.08);
+    border-color: rgba(249, 115, 22, 0.2);
+    color: #c2410c;
+}
+[data-theme="light"] .sd-sim-status-critical {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+}
+[data-theme="light"] .sd-sim-status-down {
+    background: rgba(139, 92, 246, 0.08);
+    border-color: rgba(139, 92, 246, 0.2);
+    color: #7c3aed;
+}
+[data-theme="light"] .sd-sim-reset-chaos-btn {
+    border-color: rgba(239, 68, 68, 0.15);
+    background: rgba(239, 68, 68, 0.04);
+    color: rgba(239, 68, 68, 0.5);
+}
+[data-theme="light"] .sd-sim-reset-chaos-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+}
+
+@media (max-width: 900px) {
+    .sd-sim-palette {
+        width: 180px;
+    }
+
+    .sd-sim-right-panel {
+        width: 240px;
+    }
+
+    .sd-sim-toolbar-group {
+        display: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .sd-sim-palette {
+        display: none;
+    }
+
+    .sd-sim-right-panel {
+        display: none;
+    }
+
+    .sd-sim-topbar {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 8px;
+        gap: 6px;
+    }
+
+    .sd-sim-grid {
+        grid-template-columns: 1fr;
+    }
+}
