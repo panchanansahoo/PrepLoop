@@ -55,9 +55,7 @@
   --font-mono: 'JetBrains Mono', monospace;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   PREMIUM LIGHT MODE â€” Sophisticated, Warm & Elevated
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === PREMIUM LIGHT MODE — Sophisticated, Warm & Elevated === */
 [data-theme="light"] {
   /* Core Palette - Warm Premium Light */
   --bg-primary: #fafbfd;
@@ -102,7 +100,7 @@
   --red: #dc2626;
 }
 
-/* â”€â”€â”€ Body â”€â”€â”€ */
+/* --- Body --- */
 [data-theme="light"],
 html[data-theme="light"] {
   background: #fafbfd;
@@ -113,7 +111,7 @@ html[data-theme="light"] {
   color: #1a1d2e;
 }
 
-/* â”€â”€â”€ Navbar â”€â”€â”€ */
+/* --- Navbar --- */
 [data-theme="light"] .navbar.scrolled {
   background: rgba(255, 255, 255, 0.72) !important;
   backdrop-filter: blur(20px) saturate(180%) !important;
@@ -122,7 +120,7 @@ html[data-theme="light"] {
   box-shadow: 0 1px 2px rgba(99, 102, 241, 0.04), 0 4px 16px rgba(99, 102, 241, 0.06) !important;
 }
 
-/* â”€â”€â”€ Sidebar â”€â”€â”€ */
+/* --- Sidebar --- */
 [data-theme="light"] .sidebar {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(244, 240, 255, 0.75) 100%);
   backdrop-filter: blur(24px) saturate(180%);
@@ -190,7 +188,7 @@ html[data-theme="light"] {
   color: #4f46e5;
 }
 
-/* â”€â”€â”€ Buttons â€” Premium Gradient Style â”€â”€â”€ */
+/* --- Buttons — Premium Gradient Style --- */
 [data-theme="light"] .btn-primary {
   background: linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #818cf8 100%);
   color: #ffffff;
@@ -240,7 +238,7 @@ html[data-theme="light"] {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
-/* â”€â”€â”€ Cards â€” Glass Elevation â”€â”€â”€ */
+/* --- Cards — Glass Elevation --- */
 [data-theme="light"] .card {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(16px) saturate(160%);
@@ -256,7 +254,7 @@ html[data-theme="light"] {
   transform: translateY(-2px);
 }
 
-/* â”€â”€â”€ Text Gradient â”€â”€â”€ */
+/* --- Text Gradient --- */
 [data-theme="light"] .text-gradient {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 35%, #a855f7 65%, #ec4899 100%);
   -webkit-background-clip: text;
@@ -265,7 +263,7 @@ html[data-theme="light"] {
   background-size: 200% 200%;
 }
 
-/* â”€â”€â”€ Hero Section â€” Premium Depth â”€â”€â”€ */
+/* --- Hero Section — Premium Depth --- */
 [data-theme="light"] .home-hero::before {
   background: radial-gradient(ellipse 80% 60% at 20% 40%, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
 }
@@ -281,7 +279,7 @@ html[data-theme="light"] {
   background-clip: text;
 }
 
-/* â”€â”€â”€ Feature Cards â”€â”€â”€ */
+/* --- Feature Cards --- */
 [data-theme="light"] .home-feature-card h3 {
   color: #1a1d2e;
 }
@@ -292,7 +290,7 @@ html[data-theme="light"] {
   transform: translateY(-3px);
 }
 
-/* â”€â”€â”€ Pricing â€” Elevated Cards â”€â”€â”€ */
+/* --- Pricing — Elevated Cards --- */
 [data-theme="light"] .pricing-card {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
@@ -334,7 +332,7 @@ html[data-theme="light"] {
   border-color: #6366f1;
 }
 
-/* â”€â”€â”€ Footer â€” Sophisticated â”€â”€â”€ */
+/* --- Footer — Sophisticated --- */
 [data-theme="light"] .footer {
   background: linear-gradient(180deg, #f4f5f9 0%, #eef0f6 50%, #e8eaf4 100%);
   border-top: 1px solid rgba(99, 102, 241, 0.08);
@@ -372,7 +370,7 @@ html[data-theme="light"] {
   border-top-color: rgba(99, 102, 241, 0.06);
 }
 
-/* â”€â”€â”€ Scrollbar â€” Refined â”€â”€â”€ */
+/* --- Scrollbar — Refined --- */
 [data-theme="light"] .custom-scrollbar::-webkit-scrollbar-track {
   background: rgba(99, 102, 241, 0.02);
 }
@@ -402,7 +400,7 @@ html[data-theme="light"] {
   filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.2));
 }
 
-/* â”€â”€â”€ CTA Banner â€” Vibrant â”€â”€â”€ */
+/* --- CTA Banner — Vibrant --- */
 [data-theme="light"] .home-cta-banner {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(168, 85, 247, 0.05) 50%, rgba(236, 72, 153, 0.03) 100%);
   border-top-color: rgba(99, 102, 241, 0.08);
@@ -418,7 +416,7 @@ html[data-theme="light"] {
   color: #5c6078;
 }
 
-/* â”€â”€â”€ Logo Marquee â”€â”€â”€ */
+/* --- Logo Marquee --- */
 [data-theme="light"] .logo-marquee-item {
   color: #1a1d2e;
   opacity: 0.5;
@@ -429,7 +427,7 @@ html[data-theme="light"] {
   opacity: 0.85;
 }
 
-/* â”€â”€â”€ FAQ â€” Refined â”€â”€â”€ */
+/* --- FAQ — Refined --- */
 [data-theme="light"] .faq-question {
   color: #1a1d2e;
 }
@@ -445,7 +443,7 @@ html[data-theme="light"] {
   background: rgba(255, 255, 255, 0.6);
 }
 
-/* â”€â”€â”€ Activity Ticker â”€â”€â”€ */
+/* --- Activity Ticker --- */
 [data-theme="light"] .activity-ticker {
   background: rgba(255, 255, 255, 0.6) !important;
   backdrop-filter: blur(12px) !important;
@@ -455,7 +453,7 @@ html[data-theme="light"] {
   color: #3b3f56 !important;
 }
 
-/* â”€â”€â”€ Hero Visual Container â”€â”€â”€ */
+/* --- Hero Visual Container --- */
 [data-theme="light"] .hero-visual-container {
   border-radius: 24px;
   overflow: hidden;
@@ -463,7 +461,7 @@ html[data-theme="light"] {
   border: 1px solid rgba(99, 102, 241, 0.08);
 }
 
-/* â”€â”€â”€ How It Works â€” Elevated â”€â”€â”€ */
+/* --- How It Works — Elevated --- */
 [data-theme="light"] .hiw-card {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(12px);
@@ -494,27 +492,27 @@ html[data-theme="light"] {
   color: #6366f1;
 }
 
-/* â”€â”€â”€ Stats â”€â”€â”€ */
+/* --- Stats --- */
 [data-theme="light"] .stat-card-animate {
   color: #1a1d2e;
 }
 
-/* â”€â”€â”€ Testimonials â€” Premium â”€â”€â”€ */
+/* --- Testimonials — Premium --- */
 [data-theme="light"] .testimonial-fade p {
   color: #3b3f56 !important;
 }
 
-/* â”€â”€â”€ Glow Effect â”€â”€â”€ */
+/* --- Glow Effect --- */
 [data-theme="light"] .glow-effect {
   box-shadow: 0 0 40px rgba(99, 102, 241, 0.12), 0 0 80px rgba(99, 102, 241, 0.05);
 }
 
-/* â”€â”€â”€ Section Alternating Backgrounds for Depth â”€â”€â”€ */
+/* --- Section Alternating Backgrounds for Depth --- */
 [data-theme="light"] .home-features-grid {
   position: relative;
 }
 
-/* â”€â”€â”€ Input & Form Fields â”€â”€â”€ */
+/* --- Input & Form Fields --- */
 [data-theme="light"] input,
 [data-theme="light"] textarea,
 [data-theme="light"] select {
@@ -535,17 +533,17 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ Brand Icon Enhanced â”€â”€â”€ */
+/* --- Brand Icon Enhanced --- */
 [data-theme="light"] .brand-icon {
   filter: none;
 }
 
-/* â”€â”€â”€ Selection Color â”€â”€â”€ */
+/* --- Selection Color --- */
 [data-theme="light"] ::selection {
   background: rgba(99, 102, 241, 0.15);
   color: #1a1d2e;
 }
-/* â”€â”€â”€ Dashboard Navbar / Premium Topbar â”€â”€â”€ */
+/* --- Dashboard Navbar / Premium Topbar --- */
 [data-theme="light"] .navbar-dashboard {
   background: rgba(255, 255, 255, 0.72) !important;
   border-bottom-color: rgba(99, 102, 241, 0.08) !important;
@@ -580,7 +578,7 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ Search Bar (Dashboard) â”€â”€â”€ */
+/* --- Search Bar (Dashboard) --- */
 [data-theme="light"] .premium-search {
   background: rgba(99, 102, 241, 0.04) !important;
   border-color: rgba(99, 102, 241, 0.1) !important;
@@ -610,7 +608,7 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ Icon Buttons (Dashboard) â”€â”€â”€ */
+/* --- Icon Buttons (Dashboard) --- */
 [data-theme="light"] .icon-btn {
   color: #5c6078;
 }
@@ -620,13 +618,13 @@ html[data-theme="light"] {
   color: #4f46e5;
 }
 
-/* â”€â”€â”€ Notification Badge â”€â”€â”€ */
+/* --- Notification Badge --- */
 [data-theme="light"] .notif-badge {
   background: #dc2626;
   color: #fff;
 }
 
-/* â”€â”€â”€ Dropdowns (Dashboard) â”€â”€â”€ */
+/* --- Dropdowns (Dashboard) --- */
 [data-theme="light"] .premium-dropdown {
   background: rgba(255, 255, 255, 0.95) !important;
   backdrop-filter: blur(20px) saturate(180%);
@@ -672,7 +670,7 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ Notification Dropdown Items â”€â”€â”€ */
+/* --- Notification Dropdown Items --- */
 [data-theme="light"] .notif-item {
   border-bottom-color: rgba(99, 102, 241, 0.04);
 }
@@ -689,7 +687,7 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ Upgrade Button â”€â”€â”€ */
+/* --- Upgrade Button --- */
 [data-theme="light"] .upgrade-btn {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(168, 85, 247, 0.06)) !important;
   border-color: rgba(99, 102, 241, 0.15) !important;
@@ -702,7 +700,7 @@ html[data-theme="light"] {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
-/* â”€â”€â”€ Premium Avatar â”€â”€â”€ */
+/* --- Premium Avatar --- */
 [data-theme="light"] .premium-avatar {
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
@@ -711,7 +709,7 @@ html[data-theme="light"] {
   color: #8b8fa6;
 }
 
-/* â”€â”€â”€ User Dropdown â”€â”€â”€ */
+/* --- User Dropdown --- */
 [data-theme="light"] .user-dropdown-header {
   border-bottom-color: rgba(99, 102, 241, 0.06);
 }
@@ -1795,9 +1793,7 @@ h3 {
   font-size: 18px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   JOIN OUR COMMUNITY â€” SECTION
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === JOIN OUR COMMUNITY — SECTION === */
 
 .joc-section {
   position: relative;
@@ -1810,7 +1806,7 @@ h3 {
   background: #070d19;
 }
 
-/* â”€â”€ Large concentric orbit circles â”€â”€ */
+/* --- Large concentric orbit circles --- */
 .joc-orbit {
   position: absolute;
   border-radius: 50%;
@@ -1840,7 +1836,7 @@ h3 {
   border-color: rgba(100, 180, 255, 0.05);
 }
 
-/* â”€â”€ Member cards â”€â”€ */
+/* --- Member cards --- */
 .joc-member {
   position: absolute;
   z-index: 5;
@@ -1897,7 +1893,7 @@ h3 {
   line-height: 1.3;
 }
 
-/* â”€â”€ Cursor icon â”€â”€ */
+/* --- Cursor icon --- */
 .joc-cursor {
   position: absolute;
   top: 40%;
@@ -1912,7 +1908,7 @@ h3 {
   50% { opacity: 0.65; transform: translate(3px, -3px); }
 }
 
-/* â”€â”€ Drift animations â”€â”€ */
+/* --- Drift animations --- */
 .joc-drift-1 { animation: drift1 7s ease-in-out infinite; }
 .joc-drift-2 { animation: drift2 8s ease-in-out infinite; }
 .joc-drift-3 { animation: drift3 9s ease-in-out infinite; }
@@ -1962,7 +1958,7 @@ h3 {
   75% { transform: translate(-6px, -4px); }
 }
 
-/* â”€â”€ Center content â€” left-aligned like reference â”€â”€ */
+/* --- Center content — left-aligned like reference --- */
 .joc-center {
   position: relative;
   z-index: 10;
@@ -2012,7 +2008,7 @@ h3 {
   border-color: rgba(56, 189, 248, 0.6);
 }
 
-/* â”€â”€ Responsive â”€â”€ */
+/* --- Responsive --- */
 @media (max-width: 768px) {
   .joc-section { min-height: 440px; padding: 50px 16px; }
 
@@ -2345,9 +2341,7 @@ h3 {
   color: white;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   PREMIUM DASHBOARD TOPBAR
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === PREMIUM DASHBOARD TOPBAR === */
 
 .premium-topbar {
   background: rgba(8, 8, 12, 0.75) !important;
@@ -2447,7 +2441,7 @@ h3 {
   margin-left: auto;
 }
 
-/* â”€â”€â”€ Premium Search â”€â”€â”€ */
+/* --- Premium Search --- */
 .premium-search {
   display: flex;
   align-items: center;
@@ -2518,7 +2512,7 @@ h3 {
   display: none;
 }
 
-/* â”€â”€â”€ Search Results Dropdown â”€â”€â”€ */
+/* --- Search Results Dropdown --- */
 .search-results-dropdown {
   position: absolute;
   top: calc(100% + 8px);
@@ -2621,7 +2615,7 @@ h3 {
   color: rgba(255, 255, 255, 0.35);
 }
 
-/* â”€â”€â”€ Topbar Chips (Streak, XP) â”€â”€â”€ */
+/* --- Topbar Chips (Streak, XP) --- */
 .topbar-chip {
   display: inline-flex;
   align-items: center;
@@ -2680,7 +2674,7 @@ h3 {
   color: #a855f7;
 }
 
-/* â”€â”€â”€ Notification Bell â”€â”€â”€ */
+/* --- Notification Bell --- */
 .notif-btn {
   position: relative;
 }
@@ -2716,7 +2710,7 @@ h3 {
   }
 }
 
-/* â”€â”€â”€ Upgrade Button â”€â”€â”€ */
+/* --- Upgrade Button --- */
 .upgrade-btn {
   display: inline-flex;
   align-items: center;
@@ -2744,7 +2738,7 @@ h3 {
   transform: translateY(0);
 }
 
-/* â”€â”€â”€ Premium Avatar â”€â”€â”€ */
+/* --- Premium Avatar --- */
 .premium-avatar-btn {
   display: flex;
   align-items: center;
@@ -2803,7 +2797,7 @@ h3 {
   transform: rotate(180deg);
 }
 
-/* â”€â”€â”€ Premium Dropdowns (shared) â”€â”€â”€ */
+/* --- Premium Dropdowns (shared) --- */
 .premium-dropdown {
   position: absolute;
   right: 0;
@@ -2857,7 +2851,7 @@ h3 {
   color: white;
 }
 
-/* â”€â”€â”€ Notification Dropdown â”€â”€â”€ */
+/* --- Notification Dropdown --- */
 .notif-dropdown {
   width: 340px;
 }
@@ -2906,7 +2900,7 @@ h3 {
   display: block;
 }
 
-/* â”€â”€â”€ User Dropdown â”€â”€â”€ */
+/* --- User Dropdown --- */
 .user-dropdown {
   width: 280px;
 }
@@ -3097,7 +3091,7 @@ h3 {
   }
 }
 
-/* â”€â”€â”€ Responsive â”€â”€â”€ */
+/* --- Responsive --- */
 @media (max-width: 768px) {
   .premium-topbar-inner {
     padding: 0 16px;
@@ -3317,6 +3311,13 @@ h3 {
   max-width: 1600px;
   margin: 0 auto;
 }
+
+.page-content.no-padding {
+  padding: 0;
+  max-width: none;
+  margin: 0;
+}
+
 
 @media (max-width: 768px) {
   .main-content {
@@ -4428,9 +4429,7 @@ h3 {
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   SIDEBAR â€” WELCOME SECTION & GROUPED NAV
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === SIDEBAR — WELCOME SECTION & GROUPED NAV === */
 
 .sidebar-welcome {
   display: flex;
@@ -4498,9 +4497,7 @@ h3 {
   margin: 6px auto;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” HERO ACTIONS & CUSTOMIZE BUTTON
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === DASHBOARD — HERO ACTIONS & CUSTOMIZE BUTTON === */
 
 .dash-hero-actions {
   display: flex;
@@ -4540,9 +4537,7 @@ h3 {
   font-weight: 700;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” WIDGET WRAPPERS & PREMIUM BADGES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === DASHBOARD — WIDGET WRAPPERS & PREMIUM BADGES === */
 
 .dash-widget-wrapper {
   position: relative;
@@ -4595,9 +4590,7 @@ h3 {
   pointer-events: none;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” CUSTOMIZE MODAL
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+  /* DASHBOARD - CUSTOMIZE MODAL */
 
 .dash-modal-overlay {
   position: fixed;
@@ -4830,7 +4823,7 @@ h3 {
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.3);
 }
 
-/* â”€â”€ Responsive for hero actions â”€â”€ */
+/* Responsive for hero actions */
 @media (max-width: 900px) {
   .dash-hero-actions {
     flex-direction: column;
@@ -4851,9 +4844,7 @@ h3 {
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   ADMIN JOB MODAL & FORM STYLES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ADMIN JOB MODAL & FORM STYLES */
 
 .admin-modal-overlay {
   position: fixed;

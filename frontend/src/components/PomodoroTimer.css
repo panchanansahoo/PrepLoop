@@ -1,169 +1,164 @@
-﻿   POMODORO TIMER WIDGET
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-.pomo-widget {
-  background: rgba(10, 10, 10, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 20px;
-  padding: 24px;
-  backdrop-filter: blur(20px);
-  text-align: center;
-}
+﻿   POMODORO TIMER WIDGET .pomo-widget {
+     background: rgba(10, 10, 10, 0.6);
+     border: 1px solid rgba(255, 255, 255, 0.06);
+     border-radius: 20px;
+     padding: 24px;
+     backdrop-filter: blur(20px);
+     text-align: center;
+   }
 
-.pomo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
+   .pomo-header {
+     display: flex;
+     justify-content: space-between;
+     align-items: center;
+     margin-bottom: 16px;
+   }
 
-.pomo-title-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
+   .pomo-title-row {
+     display: flex;
+     align-items: center;
+     gap: 12px;
+   }
 
-.pomo-icon-wrap {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
+   .pomo-icon-wrap {
+     width: 38px;
+     height: 38px;
+     border-radius: 12px;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     flex-shrink: 0;
+   }
 
-.pomo-title {
-  font-size: 16px;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 2px;
-  text-align: left;
-}
+   .pomo-title {
+     font-size: 16px;
+     font-weight: 700;
+     color: #fff;
+     margin: 0 0 2px;
+     text-align: left;
+   }
 
-.pomo-subtitle {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.4);
-  margin: 0;
-  text-align: left;
-}
+   .pomo-subtitle {
+     font-size: 12px;
+     color: rgba(255, 255, 255, 0.4);
+     margin: 0;
+     text-align: left;
+   }
 
-.pomo-mode-toggle {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  margin-bottom: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 12px;
-  padding: 4px;
-}
+   .pomo-mode-toggle {
+     display: flex;
+     gap: 6px;
+     justify-content: center;
+     margin-bottom: 20px;
+     background: rgba(255, 255, 255, 0.04);
+     border-radius: 12px;
+     padding: 4px;
+   }
 
-.pomo-mode-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  border-radius: 10px;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  color: rgba(255, 255, 255, 0.4);
-  background: transparent;
-  transition: all 0.25s;
-}
+   .pomo-mode-btn {
+     display: flex;
+     align-items: center;
+     gap: 6px;
+     padding: 8px 18px;
+     border-radius: 10px;
+     border: none;
+     font-size: 13px;
+     font-weight: 600;
+     cursor: pointer;
+     color: rgba(255, 255, 255, 0.4);
+     background: transparent;
+     transition: all 0.25s;
+   }
 
-.pomo-mode-btn.active {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
+   .pomo-mode-btn.active {
+     background: rgba(255, 255, 255, 0.08);
+     color: #fff;
+     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+   }
 
-.pomo-mode-btn:hover:not(.active) {
-  color: rgba(255, 255, 255, 0.6);
-}
+   .pomo-mode-btn:hover:not(.active) {
+     color: rgba(255, 255, 255, 0.6);
+   }
 
-.pomo-ring-container {
-  position: relative;
-  width: 160px;
-  height: 160px;
-  margin: 0 auto 24px;
-}
+   .pomo-ring-container {
+     position: relative;
+     width: 160px;
+     height: 160px;
+     margin: 0 auto 24px;
+   }
 
-.pomo-svg {
-  display: block;
-}
+   .pomo-svg {
+     display: block;
+   }
 
-.pomo-time-display {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
+   .pomo-time-display {
+     position: absolute;
+     inset: 0;
+     display: flex;
+     flex-direction: column;
+     align-items: center;
+     justify-content: center;
+   }
 
-.pomo-time {
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  font-family: 'JetBrains Mono', monospace;
-}
+   .pomo-time {
+     font-size: 32px;
+     font-weight: 800;
+     letter-spacing: 2px;
+     font-family: 'JetBrains Mono', monospace;
+   }
 
-.pomo-mode-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.35);
-  margin-top: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-weight: 600;
-}
+   .pomo-mode-label {
+     font-size: 11px;
+     color: rgba(255, 255, 255, 0.35);
+     margin-top: 4px;
+     text-transform: uppercase;
+     letter-spacing: 0.08em;
+     font-weight: 600;
+   }
 
-.pomo-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-}
+   .pomo-controls {
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: 16px;
+   }
 
-.pomo-ctrl-btn {
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  transition: all 0.25s;
-}
+   .pomo-ctrl-btn {
+     border: none;
+     cursor: pointer;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     border-radius: 50%;
+     transition: all 0.25s;
+   }
 
-.pomo-reset {
-  width: 40px;
-  height: 40px;
-  background: rgba(255, 255, 255, 0.06);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
+   .pomo-reset {
+     width: 40px;
+     height: 40px;
+     background: rgba(255, 255, 255, 0.06);
+     color: rgba(255, 255, 255, 0.4);
+     border: 1px solid rgba(255, 255, 255, 0.08);
+   }
 
-.pomo-reset:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-}
+   .pomo-reset:hover {
+     background: rgba(255, 255, 255, 0.1);
+     color: #fff;
+   }
 
-.pomo-play {
-  width: 52px;
-  height: 52px;
-  color: #fff;
-  border: none;
-}
+   .pomo-play {
+     width: 52px;
+     height: 52px;
+     color: #fff;
+     border: none;
+   }
 
-.pomo-play:hover {
-  transform: scale(1.08);
-}
+   .pomo-play:hover {
+     transform: scale(1.08);
+   }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-
-   ADVANCED POMODORO TIMER
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-.pomo-header-actions {
+  /* ADVANCED POMODORO TIMER */
+   .pomo-header-actions {
   display: flex;
   gap: 4px;
 }

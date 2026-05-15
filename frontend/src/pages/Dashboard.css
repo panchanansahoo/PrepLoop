@@ -1,6 +1,4 @@
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” PAGE & AMBIENT BACKGROUNDS
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === DASHBOARD — PAGE & AMBIENT BACKGROUNDS === */
 
 .dash-page {
   min-height: 100vh;
@@ -81,7 +79,7 @@
   gap: 20px;
 }
 
-/* â”€â”€ Hero Header â”€â”€ */
+/* --- Hero Header --- */
 .dash-hero {
   display: flex;
   align-items: center;
@@ -147,7 +145,7 @@
   border-color: rgba(255, 255, 255, 0.24);
 }
 
-/* â”€â”€ Grid Rows â”€â”€ */
+/* --- Grid Rows --- */
 .dash-row-2col {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -202,9 +200,7 @@
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” QUICK STATS
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* DASHBOARD â€” QUICK STATS */
 
 .quick-stats-shell {
   display: flex;
@@ -405,10 +401,7 @@
   letter-spacing: 0.06em;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” QUICK ACTIONS
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
+/* DASHBOARD â€” QUICK ACTIONS */
 .quick-actions-section {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -513,9 +506,7 @@
   transform: translateX(4px);
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” RECENT ACTIVITY
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* DASHBOARD — RECENT ACTIVITY */
 
 .recent-activity-card {
   background: rgba(255, 255, 255, 0.025);
@@ -602,9 +593,7 @@
   flex-shrink: 0;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” SKILL RADAR
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* DASHBOARD — SKILL RADAR */
 
 .skill-radar-card {
   background: rgba(255, 255, 255, 0.025);
@@ -634,9 +623,7 @@
   min-height: 260px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   DASHBOARD â€” READINESS SCORE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* DASHBOARD — READINESS SCORE */
 
 .rs-card {
   background: rgba(255, 255, 255, 0.025);
@@ -726,11 +713,8 @@
 
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   PREMIUM LIGHT MODE â€” DASHBOARD & WIDGETS
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
-
-/* â”€â”€â”€ Dashboard Page & Ambient BG â”€â”€â”€ */
+/* PREMIUM LIGHT MODE — DASHBOARD & WIDGETS */
+/* Dashboard Page & Ambient BG */
 [data-theme="light"] .dash-page {
   background: linear-gradient(165deg, #fafbfd 0%, #f0f1fa 30%, #fafbfd 60%, #f4f0ff 100%);
   color: #1a1d2e;
@@ -752,7 +736,7 @@
   background: rgba(168, 85, 247, 0.04);
 }
 
-/* â”€â”€â”€ Dashboard Hero â”€â”€â”€ */
+/* Dashboard Hero */
 [data-theme="light"] .dash-hero-title {
   background: linear-gradient(to right, #1a1d2e, #4f46e5);
   -webkit-background-clip: text;
@@ -768,7 +752,7 @@
   color: #5c6078;
 }
 
-/* â”€â”€â”€ Dashboard Customize Button â”€â”€â”€ */
+/* Dashboard Customize Button */
 [data-theme="light"] .dash-customize-btn {
   background: rgba(99, 102, 241, 0.04);
   border-color: rgba(99, 102, 241, 0.12);
@@ -786,7 +770,7 @@
   color: #6366f1;
 }
 
-/* â”€â”€â”€ Quick Stat Cards â”€â”€â”€ */
+/* Quick Stat Cards */
 [data-theme="light"] .quick-stats-shell {
   background: rgba(255, 255, 255, 0.5);
   border-color: rgba(99, 102, 241, 0.08);
@@ -829,7 +813,7 @@
   color: #5c6078;
 }
 
-/* â”€â”€â”€ Quick Actions â”€â”€â”€ */
+/* Quick Actions */
 [data-theme="light"] .quick-actions-section {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(12px);
@@ -870,7 +854,7 @@
   color: #6366f1;
 }
 
-/* â”€â”€â”€ Recent Activity â”€â”€â”€ */
+/* Recent Activity */
 [data-theme="light"] .recent-activity-card {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(12px);
@@ -900,7 +884,7 @@
   color: rgba(99, 102, 241, 0.15);
 }
 
-/* â”€â”€â”€ Skill Radar â”€â”€â”€ */
+/* Skill Radar */
 [data-theme="light"] .skill-radar-card {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(12px);
@@ -913,7 +897,7 @@
   color: #1a1d2e;
 }
 
-/* â”€â”€â”€ Readiness Score â”€â”€â”€ */
+/* Readiness Score */
 [data-theme="light"] .rs-card {
   background: rgba(255, 255, 255, 0.5);
   backdrop-filter: blur(12px);
@@ -938,7 +922,7 @@
   color: #5c6078;
 }
 
-/* â”€â”€â”€ Widget Remove Button â”€â”€â”€ */
+/* Widget Remove Button */
 [data-theme="light"] .dash-widget-remove {
   background: rgba(99, 102, 241, 0.08);
   border-color: rgba(99, 102, 241, 0.18);
@@ -951,7 +935,7 @@
   color: #dc2626;
 }
 
-/* â”€â”€â”€ Customize Modal â”€â”€â”€ */
+/* Customize Modal */
 [data-theme="light"] .dash-modal-overlay {
   background: rgba(0, 0, 0, 0.3);
 }
@@ -1032,7 +1016,7 @@
   color: #4f46e5;
 }
 
-/* â”€â”€â”€ Premium Badge â”€â”€â”€ */
+/* Premium Badge */
 [data-theme="light"] .dash-widget-premium-badge {
   background: rgba(245, 158, 11, 0.08);
   color: #d97706;
@@ -1709,6 +1693,7 @@
 }
 
 @media (max-width: 1080px) {
+
   .account-grid,
   .settings-grid {
     grid-template-columns: 1fr;
@@ -1881,7 +1866,7 @@
   margin-left: 260px;
 }
 
-/* ─── Loading bar ─── */
+/* Loading bar */
 .dash-loading-bar {
   display: flex;
   justify-content: center;
@@ -1894,6 +1879,11 @@
 }
 
 @keyframes dash-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

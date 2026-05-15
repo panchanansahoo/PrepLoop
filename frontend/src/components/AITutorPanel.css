@@ -1,8 +1,6 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   AI TUTOR â€” Panel, Hub, Cards
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+﻿/* AI TUTOR - Panel, Hub, Cards */
 
-/* â”€â”€â”€ Tutor Panel â”€â”€â”€ */
+/* Tutor Panel */
 .tutor-panel {
   display: flex;
   flex-direction: column;
@@ -22,6 +20,7 @@
   background: rgba(99, 102, 241, 0.05);
 }
 
+/* Messages Area */
 .tutor-panel-brand {
   display: flex;
   align-items: center;
@@ -37,12 +36,10 @@
 }
 
 @keyframes tutor-pulse {
-
-  0%,
-  100% {
+  0%, 100% {
     opacity: 1;
+    transform: scale(1);
   }
-
   50% {
     opacity: 0.6;
   }
@@ -63,7 +60,7 @@
   border: none;
   color: var(--text-secondary);
   cursor: pointer;
-  padding: 4px;
+/* Quick Actions */
   border-radius: 6px;
   transition: all 0.2s;
   display: flex;
@@ -75,7 +72,7 @@
   color: white;
 }
 
-/* â”€â”€â”€ Messages Area â”€â”€â”€ */
+/* Messages Area */
 .tutor-messages {
   flex: 1;
   overflow-y: auto;
@@ -110,7 +107,7 @@
 
 .tutor-welcome h4 {
   font-size: 18px;
-  margin-bottom: 8px;
+/* Pattern Recognition */
   color: white;
 }
 
@@ -129,14 +126,13 @@
     opacity: 0;
     transform: translateY(8px);
   }
-
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
-.tutor-msg-label {
+.tutor-practice-title {
   font-size: 12px;
   font-weight: 600;
   color: #818cf8;
@@ -152,7 +148,7 @@
   font-size: 14px;
 }
 
-/* â”€â”€â”€ Loading Animation â”€â”€â”€ */
+/* Loading Animation */
 .tutor-msg-loading {
   padding: 12px;
 }
@@ -193,10 +189,10 @@
   }
 }
 
-/* â”€â”€â”€ Quick Actions â”€â”€â”€ */
+/* Quick Actions */
 .tutor-quick-actions {
   display: flex;
-  flex-wrap: wrap;
+/* Content Sections */
   gap: 6px;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -210,7 +206,7 @@
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 500;
-  background: rgba(99, 102, 241, 0.08);
+/* Learning Path Config */
   border: 1px solid rgba(99, 102, 241, 0.2);
   border-radius: var(--radius-full);
   color: #a5b4fc;
@@ -219,7 +215,7 @@
   white-space: nowrap;
 }
 
-.tutor-action-btn:hover:not(:disabled) {
+/* Panel Wrapper */
   background: rgba(99, 102, 241, 0.15);
   border-color: rgba(99, 102, 241, 0.4);
   color: white;
@@ -231,7 +227,7 @@
   cursor: not-allowed;
 }
 
-/* â”€â”€â”€ Content Cards â”€â”€â”€ */
+/* DSA Code Editor Integration */
 .tutor-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -295,7 +291,7 @@
   font-size: 13px;
 }
 
-/* â”€â”€â”€ Text & Steps â”€â”€â”€ */
+/* Text & Steps */
 .tutor-text {
   font-size: 14px;
   line-height: 1.6;
@@ -325,7 +321,7 @@
   font-weight: 700;
 }
 
-/* â”€â”€â”€ Visual Blocks â”€â”€â”€ */
+/* Visual Blocks */
 .tutor-ascii {
   background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--border);
@@ -372,7 +368,7 @@
   color: #e2e8f0;
 }
 
-/* â”€â”€â”€ Pattern Recognition â”€â”€â”€ */
+/* Pattern Recognition */
 .tutor-when-item {
   display: flex;
   align-items: flex-start;
@@ -395,7 +391,7 @@
   color: #34d399;
 }
 
-/* â”€â”€â”€ Tricks â”€â”€â”€ */
+/* Tricks */
 .tutor-trick {
   padding: 10px;
   margin: 6px 0;
@@ -430,7 +426,7 @@
   color: #f87171;
 }
 
-/* â”€â”€â”€ Practice â”€â”€â”€ */
+/* Practice */
 .tutor-practice-list {
   display: flex;
   flex-direction: column;
@@ -502,7 +498,7 @@
   color: #fde68a;
 }
 
-/* â”€â”€â”€ Issues â”€â”€â”€ */
+/* Issues */
 .tutor-issue {
   display: flex;
   align-items: flex-start;
@@ -589,9 +585,9 @@
   max-height: 300px;
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* 
    AI TUTOR HUB PAGE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    */
 
 .tutor-hub-page {
   padding: 40px;
@@ -651,7 +647,7 @@
   line-height: 1.6;
 }
 
-/* â”€â”€â”€ Tabs â”€â”€â”€ */
+/* Tabs */
 .tutor-hub-tabs {
   display: flex;
   gap: 8px;
@@ -687,7 +683,7 @@
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
-/* â”€â”€â”€ Content Sections â”€â”€â”€ */
+/* Content Sections */
 .tutor-hub-grid-section {
   animation: tutor-fadeIn 0.3s ease;
 }
@@ -783,7 +779,7 @@
   color: var(--card-color, #818cf8);
 }
 
-/* â”€â”€â”€ Learning Path Config â”€â”€â”€ */
+/* Learning Path Config */
 .tutor-path-config {
   max-width: 500px;
   margin: 0 auto;
@@ -853,7 +849,7 @@
   box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
 }
 
-/* â”€â”€â”€ Panel Wrapper (inside Hub) â”€â”€â”€ */
+/* Panel Wrapper (inside Hub) */
 .tutor-hub-panel-wrapper {
   animation: tutor-fadeIn 0.3s ease;
 }
@@ -881,7 +877,7 @@
   border-color: var(--glass-border-hover);
 }
 
-/* â”€â”€â”€ DSA Code Editor Integration â”€â”€â”€ */
+/* DSA Code Editor Integration */
 .dsa-editor-with-tutor {
   display: flex;
   gap: 0;
@@ -932,7 +928,7 @@
   box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
 }
 
-/* â”€â”€â”€ Responsive â”€â”€â”€ */
+/* Responsive */
 @media (max-width: 768px) {
   .tutor-hub-page {
     padding: 20px;
@@ -956,9 +952,9 @@
   }
 }
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+/* 
    AI TUTOR â€” LIGHT MODE OVERRIDES
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+    */
 
 [data-theme="light"] .tutor-panel-header {
   background: rgba(99, 102, 241, 0.06);
@@ -1128,4 +1124,3 @@
   background: rgba(99, 102, 241, 0.1);
   color: #6366f1;
 }
-

@@ -1340,7 +1340,7 @@
    Light Mode Overrides
    ══════════════════════════════════════════════════════════════ */
 
-/* ─── Catalog Hero ─── */
+/* Catalog Hero */
 [data-theme="light"] .sd-sim-title {
     color: #1e293b;
 }
@@ -1351,7 +1351,7 @@
     color: #059669;
 }
 
-/* ─── Search & Filters ─── */
+/* Search & Filters */
 [data-theme="light"] .sd-sim-search-input {
     background: #fff;
     border-color: #e2e8f0;
@@ -1394,7 +1394,7 @@
     color: #dc2626;
 }
 
-/* ─── Catalog Cards ─── */
+/* Catalog Cards */
 [data-theme="light"] .sd-sim-card {
     background: #fff;
     border-color: #e2e8f0;
@@ -1423,7 +1423,7 @@
     background: rgba(16, 185, 129, 0.04);
 }
 
-/* ─── Canvas Topbar ─── */
+/* Canvas Topbar */
 [data-theme="light"] .sd-sim-topbar {
     border-bottom-color: #e2e8f0;
     background: rgba(255, 255, 255, 0.95);
@@ -1484,7 +1484,7 @@
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(52, 211, 153, 0.15));
 }
 
-/* ─── Palette Sidebar ─── */
+/* Palette Sidebar */
 [data-theme="light"] .sd-sim-palette {
     border-right-color: #e2e8f0;
     background: #fafafa;
@@ -1511,12 +1511,12 @@
     border-color: #e2e8f0;
 }
 
-/* ─── Canvas Area ─── */
+/* Canvas Area */
 [data-theme="light"] .sd-sim-canvas-area {
     background: #f5f5f7;
 }
 
-/* ─── Nodes ─── */
+/* Nodes */
 [data-theme="light"] .sd-sim-node {
     background: #fff;
     border-color: #e2e8f0;
@@ -1545,7 +1545,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-/* ─── Canvas Empty State ─── */
+/* Canvas Empty State */
 [data-theme="light"] .sd-sim-canvas-empty h3 {
     color: #64748b;
 }
@@ -1554,13 +1554,13 @@
     color: #94a3b8;
 }
 
-/* ─── Minimap ─── */
+/* Minimap */
 [data-theme="light"] .sd-sim-minimap {
     background: rgba(255, 255, 255, 0.9);
     border-color: #e2e8f0;
 }
 
-/* ─── Right Panel ─── */
+/* Right Panel */
 [data-theme="light"] .sd-sim-right-panel {
     border-left-color: #e2e8f0;
     background: #fafafa;
@@ -1581,7 +1581,7 @@
     color: #1e293b;
 }
 
-/* ─── Config Fields ─── */
+/* Config Fields */
 [data-theme="light"] .sd-sim-config-field {
     border-bottom-color: #f1f5f9;
 }
@@ -1608,7 +1608,7 @@
     color: #059669;
 }
 
-/* ─── Protocol Buttons ─── */
+/* Protocol Buttons */
 [data-theme="light"] .sd-sim-protocol-btn {
     border-color: #e2e8f0;
     background: #f8fafc;
@@ -1626,7 +1626,7 @@
     color: #059669;
 }
 
-/* ─── Connection Text Input ─── */
+/* Connection Text Input */
 [data-theme="light"] .sd-sim-conn-text-input {
     background: #f8fafc;
     border-color: #e2e8f0;
@@ -1638,7 +1638,7 @@
     background: #fff;
 }
 
-/* ─── Warnings ─── */
+/* Warnings */
 [data-theme="light"] .sd-sim-warning-item.error {
     background: rgba(239, 68, 68, 0.06);
     color: #b91c1c;
@@ -1654,12 +1654,12 @@
     color: #1e40af;
 }
 
-/* ─── Coverage Bar ─── */
+/* Coverage Bar */
 [data-theme="light"] .sd-sim-coverage-bar {
     background: #e2e8f0;
 }
 
-/* ─── Stats ─── */
+/* Stats */
 [data-theme="light"] .sd-sim-stat {
     background: #f8fafc;
     border-color: #e2e8f0;
@@ -1669,13 +1669,13 @@
     color: #1e293b;
 }
 
-/* ─── Hints ─── */
+/* Hints */
 [data-theme="light"] .sd-sim-hint-num {
     background: rgba(251, 191, 36, 0.1);
     color: #d97706;
 }
 
-/* ─── Feedback Panel ─── */
+/* Feedback Panel */
 [data-theme="light"] .sd-sim-feedback-header h3 {
     color: #1e293b;
 }
@@ -1706,13 +1706,13 @@
     border-color: #cbd5e1;
 }
 
-/* ─── Connect Indicator ─── */
+/* Connect Indicator */
 [data-theme="light"] .sd-sim-connect-indicator {
     background: rgba(96, 165, 250, 0.06);
     border-color: rgba(96, 165, 250, 0.25);
 }
 
-/* ─── Empty State ─── */
+/* Empty State */
 [data-theme="light"] .sd-sim-empty h3 {
     color: #334155;
 }
@@ -1721,7 +1721,7 @@
    SIMULATION UI – Clarity Overhaul v2
    ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Simulate / Stop Buttons ─── */
+/* Simulate / Stop Buttons */
 .sd-sim-simulate-btn {
     background: linear-gradient(135deg, #10b981, #059669) !important;
     color: #fff !important;
@@ -1764,7 +1764,7 @@
     transform: translateY(-1px);
 }
 
-/* ─── Metrics Bar (Top) – Compact Chips ─── */
+/* Metrics Bar (Top) Compact Chips */
 .sd-sim-metrics-bar {
     display: flex;
     align-items: center;
@@ -1842,7 +1842,7 @@
     font-weight: 600;
 }
 
-/* ─── Node Status Badges – Health Bar Style ─── */
+/* Node Status Badges Health Bar Style */
 .sd-sim-node-status-badge {
     position: absolute;
     bottom: -34px;
@@ -1953,13 +1953,13 @@
     50% { box-shadow: 0 2px 10px rgba(0,0,0,0.35), 0 0 14px 3px rgba(239, 68, 68, 0.2); }
 }
 
-/* ─── Packet Animations ─── */
+/* Packet Animations */
 .sd-sim-packet {
     filter: drop-shadow(0 0 4px currentColor);
     transition: cx 0.12s linear, cy 0.12s linear;
 }
 
-/* ─── Control Bar (Bottom) ─── */
+/* Control Bar (Bottom) */
 .sd-sim-control-bar {
     position: absolute;
     bottom: 0;
@@ -2174,7 +2174,7 @@
     border-color: rgba(239, 68, 68, 0.4);
 }
 
-/* ─── Simulation Light Theme ─── */
+/* Simulation Light Theme */
 [data-theme="light"] .sd-sim-metrics-bar {
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.97) 0%, rgba(248, 250, 252, 0.95) 100%);
     border-bottom-color: rgba(0, 0, 0, 0.06);

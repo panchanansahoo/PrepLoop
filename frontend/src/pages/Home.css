@@ -569,7 +569,7 @@
   font-weight: 600;
 }
 
-/* ═══ How It Works — Premium Grid ═══ */
+/* How It Works Premium Grid */
 .hiw-grid {
   display: grid;
   grid-template-columns: 1fr auto 1fr auto 1fr;
@@ -717,7 +717,7 @@
   50% { opacity: 1; transform: translateX(-50%) scale(1.2); }
 }
 
-/* ═══ Responsive: How It Works ═══ */
+/* Responsive: How It Works */
 @media (max-width: 900px) {
   .hiw-grid {
     grid-template-columns: 1fr;

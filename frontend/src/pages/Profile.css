@@ -10,7 +10,7 @@
   overflow-x: hidden;
 }
 
-/* ─── Profile Header Card ─── */
+/* Profile Header Card */
 .du-profile-header {
   display: block;
   background: radial-gradient(120% 220% at 100% 50%, rgba(0, 198, 133, 0.2) 0%, rgba(14, 14, 16, 0.98) 45%, #0e0e10 100%);
@@ -301,7 +301,7 @@
   transform: translateY(-1px);
 }
 
-/* ─── Tabs ─── */
+/* Tabs */
 .du-tabs {
   display: flex;
   background: rgba(255, 255, 255, 0.04);
@@ -338,7 +338,7 @@
   color: #fff;
 }
 
-/* ─── Two Column Grid ─── */
+/* Two Column Grid */
 .du-profile-grid {
   display: grid;
   grid-template-columns: 1fr minmax(0, 320px);
@@ -361,7 +361,7 @@
   overflow: hidden;
 }
 
-/* ─── Card Base ─── */
+/* Card Base */
 .du-card {
   background: #0e0e10;
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -381,7 +381,7 @@
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
 }
 
-/* ─── Card Header ─── */
+/* Card Header */
 .du-card-header {
   display: flex;
   align-items: center;
@@ -435,7 +435,7 @@
   border: 1px solid rgba(44, 238, 145, 0.15);
 }
 
-/* ─── Showcase Sections ─── */
+/* Showcase Sections */
 .du-showcase-basic-info {
   display: flex;
   flex-direction: column;
@@ -520,7 +520,7 @@
   text-decoration: none;
 }
 
-/* ─── GitHub Section ─── */
+/* GitHub Section */
 .du-github-connect {
   display: flex;
   align-items: center;
@@ -576,7 +576,7 @@
   transform: none;
 }
 
-/* ─── Stats Grid ─── */
+/* Stats Grid */
 .du-stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -600,7 +600,7 @@
   margin-top: 4px;
 }
 
-/* ─── Heatmap ─── */
+/* Heatmap */
 .du-heatmap-wrapper {
   margin-top: 16px;
 }
@@ -610,7 +610,7 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* ─── Professional Profile Form ─── */
+/* Professional Profile Form */
 .du-tip-banner {
   display: flex;
   align-items: center;
@@ -1036,7 +1036,7 @@
   transform: translateY(-1px);
 }
 
-/* ─── Subscription Sidebar ─── */
+/* Subscription Sidebar */
 .du-sub-meters {
   display: flex;
   flex-direction: column;
@@ -1108,7 +1108,7 @@
   box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
 }
 
-/* ─── Resume Upload Section ─── */
+/* Resume Upload Section */
 .du-resume-dropzone {
   display: flex;
   flex-direction: column;
@@ -1166,7 +1166,7 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ─── Interview Stats ─── */
+/* Interview Stats */
 .du-stats-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1331,7 +1331,7 @@
   letter-spacing: 0.08em;
 }
 
-/* ─── Danger Zone ─── */
+/* Danger Zone */
 .du-danger-card {
   border-color: rgba(239, 68, 68, 0.15);
 }
@@ -1376,7 +1376,7 @@
   transform: translateY(-1px);
 }
 
-/* ─── Status Toast ─── */
+/* Status Toast */
 .du-toast {
   position: fixed;
   bottom: 28px;
@@ -1416,7 +1416,7 @@
   }
 }
 
-/* ─── Profile Themes (sidebar) ─── */
+/* Profile Themes (sidebar) */
 .du-themes-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1453,7 +1453,7 @@
   box-shadow: 0 0 10px rgba(44, 238, 145, 0.2);
 }
 
-/* ─── Responsive ─── */
+/* Responsive */
 @media (max-width: 1024px) {
   .du-profile-grid {
     grid-template-columns: 1fr;
@@ -1542,7 +1542,7 @@
   }
 }
 
-/* ─── Light Mode Overrides ─── */
+/* Light Mode Overrides */
 [data-theme="light"] .du-profile-header,
 [data-theme="light"] .du-card {
   background: rgba(255, 255, 255, 0.7);
@@ -1736,7 +1736,7 @@
   color: #dc2626;
 }
 
-/* ─── Premium Portfolio Showcase ─── */
+/* Premium Portfolio Showcase */
 .du-portfolio-showcase {
   animation: du-fade-in 0.4s ease-out;
 }
@@ -2005,7 +2005,7 @@
   color: #4f46e5;
 }
 
-/* ─── Portfolio CTA Banner ─── */
+/* Portfolio CTA Banner */
 .du-portfolio-cta-banner {
   display: flex;
   align-items: center;

@@ -197,11 +197,20 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  const isFullScreenRoute = isCodeEditorRoute || isPaymentRoute || isAIInterviewRoute;
   const isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
-  const isFullBleedCodingRoute = isFullScreenRoute || isVisualizerRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
-  const showSidebar = !isPublicPage && !isAuthRoute && !isFullBleedCodingRoute;
-  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute;
+
+  // Routes that should NOT have any padding/margins (full viewport)
+  const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute;
+
+  // Routes that should show the global sidebar
+  const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute && !isSimulatorRoute && !isVisualizerRoute;
+
+  // Routes that should hide the top navbar
+  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute;
+
+  // For backward compatibility with existing class logic
+  const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute; 
+
 
   return (
     <div className="app-layout">
@@ -220,8 +229,8 @@ function AppContent() {
         />
       )}
 
-      <div className={`main-content ${showSidebar && !isFullScreenRoute ? (sidebarCollapsed ? 'sidebar-collapsed' : '') : 'no-sidebar'}`}>
-        {!hideNavbar && !isFullScreenRoute && (
+      <div className={`main-content ${showSidebar ? (sidebarCollapsed ? 'sidebar-collapsed' : '') : 'no-sidebar'}`}>
+        {!hideNavbar && (
           <Navbar
             hasSidebar={showSidebar}
             onMobileMenuToggle={() => setMobileSidebarOpen(prev => !prev)}
@@ -230,7 +239,8 @@ function AppContent() {
           />
         )}
 
-        <div className={showSidebar && !isFullBleedCodingRoute ? 'page-content' : ''} id="main-content">
+        <div className={showSidebar && !isFullBleedRoute ? 'page-content' : ''} id="main-content">
+
           <RouteErrorBoundary routeName="page">
             <Suspense fallback={<RouteLoadingSkeleton />}>
               <Routes>
@@ -257,7 +267,8 @@ function AppContent() {
 
                 <Route path="/problems" element={<ProblemExplorer />} />
                 <Route path="/quiz-arena" element={<PrivateRoute><QuizArena /></PrivateRoute>} />
-                <Route path="/code-editor/:problemId" element={<PrivateRoute><DSACodeEditor /></PrivateRoute>} />
+                <Route path="/code-editor/:problemId" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+
                 <Route path="/sql-problems" element={<SQLProblemExplorer />} />
                 <Route path="/sql-editor/:problemId" element={<PrivateRoute><SQLCodeEditor /></PrivateRoute>} />
                 <Route path="/visualizer" element={<AlgorithmPlayground />} />
@@ -293,8 +304,10 @@ function AppContent() {
                 <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
                 <Route path="/improvement-plan" element={<PrivateRoute><ImprovementPlanPage /></PrivateRoute>} />
 
-                <Route path="/playground" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
-                <Route path="/live-coding" element={<PrivateRoute><CodingPlayground /></PrivateRoute>} />
+                <Route path="/playground" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+
+                <Route path="/live-coding" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+
                 <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
                 <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
                 <Route path="/daily-challenges" element={<PrivateRoute><DailyChallengesPage /></PrivateRoute>} />

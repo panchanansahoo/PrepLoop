@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import './CodingPlayground.css';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import { PROBLEMS } from '../data/problemsDatabase';
+import ProblemDescriptionPanel from '../components/editor/ProblemDescriptionPanel';
+
 import Editor from '@monaco-editor/react';
 import ReactMarkdown from 'react-markdown';
 import {
@@ -21,6 +24,9 @@ import { buildAuthHeaders } from '../utils/authHeaders';
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const getAuthHeaders = () => buildAuthHeaders();
+
+const getSolutionUnlockKey = (id) => `dsa-solution-unlocked-${String(id ?? '').trim()}`;
+
 
 // Enhanced error parser with line number extraction
 const parseErrorWithLineInfo = (errorText = '') => {
@@ -57,7 +63,49 @@ const getPlaygroundFriendlyError = (rawError = '', status = 0) => {
     return message;
 };
 
+// ─── Starter code per language ───
+const STARTER_CODE = {
+  python: (name) => `class Solution:
+    def ${name || 'solve'}(self, nums):
+        # Write your solution here
+        pass`,
+  javascript: (name) => `/**
+ * @param {number[]} nums
+ * @return {number[]}
+ */
+function ${name || 'solve'}(nums) {
+  // Write your solution here
+
+}`,
+  cpp: (name) => `#include <vector>
+using namespace std;
+
+class Solution {
+public:
+    vector<int> ${name || 'solve'}(vector<int>& nums) {
+        // Write your solution here
+
+    }
+};`,
+  java: (name) => `import java.util.*;
+
+class Solution {
+    public int[] ${name || 'solve'}(int[] nums) {
+        // Write your solution here
+
+    }
+}`,
+  go: (name) => `package main
+
+func ${name || 'solve'}(nums []int) []int {
+    // Write your solution here
+
+    return nil
+}`,
+};
+
 const findBracketErrors = (source = '') => {
+
     const openToClose = { '(': ')', '[': ']', '{': '}' };
     const closeToOpen = { ')': '(', ']': '[', '}': '{' };
     const stack = [];
@@ -378,7 +426,9 @@ function formatTime(seconds) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
-export default function CodingPlayground() {
+export default function CodingPlayground({ sidebarCollapsed }) {
+    const { problemId } = useParams();
+
     const navigate = useNavigate();
     const editorRef = useRef(null);
     const supportedLanguageIds = LANGUAGES.map((l) => l.id);
@@ -447,7 +497,41 @@ export default function CodingPlayground() {
     const voiceInitializedRef = useRef(false);
     const prevVoiceEnabledRef = useRef(voiceErrorsEnabled);
     const lastVoiceSignatureRef = useRef('');
-    const voiceAudioRef = useRef(null);
+
+    const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
+        return localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true';
+    });
+
+    useEffect(() => {
+        setSolutionUnlocked(localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true');
+    }, [problemId]);
+
+    const [problem, setProblem] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    // ─── Fetch problem data if problemId is present ───
+    useEffect(() => {
+        if (!problemId) {
+            setProblem(null);
+            return;
+        }
+
+        setLoading(true);
+        // Find problem in database
+        const found = PROBLEMS.find(p => String(p.id) === String(problemId));
+        if (found) {
+            setProblem(found);
+            // Set starter code if code is empty or just generic
+            if (!code || code.trim() === '') {
+                const starter = STARTER_CODE[language] ? STARTER_CODE[language](found.functionName) : '';
+                if (starter) setCode(starter);
+            }
+            setSidebarTab('problem');
+        }
+
+        setLoading(false);
+    }, [problemId]);
+
     const voiceFetchAbortRef = useRef(null);
     const attentionAudioContextRef = useRef(null);
     const attentionTimerRef = useRef(null);
@@ -455,7 +539,9 @@ export default function CodingPlayground() {
 
     // ─── Load saved code or default ───
     useEffect(() => {
+        if (problemId) return;
         const saved = localStorage.getItem(`playground-code-${language}`);
+
         if (saved) {
             if (language === 'python' && isLegacyPythonStarter(saved)) {
                 const nextCode = DEFAULT_CODE.python || '';
@@ -496,7 +582,16 @@ export default function CodingPlayground() {
         setLanguage(lang);
         localStorage.setItem('playground-lang', lang);
         setShowLangMenu(false);
+
+        if (problem) {
+            const currentCodeTrimmed = code.trim();
+            if (!currentCodeTrimmed || currentCodeTrimmed.includes('Write your solution here') || currentCodeTrimmed.length < 50) {
+                const starter = STARTER_CODE[lang] ? STARTER_CODE[lang](problem.functionName) : '';
+                if (starter) setCode(starter);
+            }
+        }
     };
+
 
     // ─── Run code ───
     const handleRun = useCallback(async () => {
@@ -1259,6 +1354,18 @@ export default function CodingPlayground() {
     }, []);
 
     useEffect(() => {
+        if (editorRef.current) {
+            // Wait for CSS transition to finish (0.3s)
+            const timers = [
+                setTimeout(() => editorRef.current?.layout(), 50),
+                setTimeout(() => editorRef.current?.layout(), 150),
+                setTimeout(() => editorRef.current?.layout(), 350)
+            ];
+            return () => timers.forEach(clearTimeout);
+        }
+    }, [sidebarCollapsed]);
+
+    useEffect(() => {
         if (!isMobileView) return;
 
         const shouldLock = showMobileConsole || showMobileSidebar || showLangMenu;
@@ -1268,6 +1375,8 @@ export default function CodingPlayground() {
             document.body.style.overflow = '';
         };
     }, [isMobileView, showMobileConsole, showMobileSidebar, showLangMenu]);
+
+
 
     const toggleMobileConsole = () => {
         setShowMobileConsole((open) => {
@@ -1336,12 +1445,14 @@ export default function CodingPlayground() {
     };
 
     const sidebarTabs = useMemo(() => ([
+        ...(problem ? [{ id: 'problem', icon: <FileCode2 size={16} />, label: 'Problem' }] : []),
         { id: 'errors', icon: <AlertTriangle size={16} />, label: `Errors${liveErrors.length ? ` (${liveErrors.length})` : ''}` },
         { id: 'ai', icon: <Bot size={16} />, label: 'AI' },
         { id: 'history', icon: <History size={16} />, label: 'History' },
         { id: 'shortcuts', icon: <Keyboard size={16} />, label: 'Keys' },
         { id: 'info', icon: <Info size={16} />, label: 'Info' },
-    ]), [liveErrors.length]);
+    ]), [liveErrors.length, problem]);
+
 
     const snippetItems = useMemo(() => SNIPPETS.map((s) => ({
         icon: s.icon,
@@ -1394,10 +1505,7 @@ export default function CodingPlayground() {
             {/* ─── Top Bar ─── */}
             <div className="pg-topbar">
                 <div className="pg-topbar-left">
-                    <button onClick={() => navigate('/dashboard')} className="pg-back-btn">
-                        <ArrowLeft size={14} />
-                        <span>Dashboard</span>
-                    </button>
+                    {/* Dashboard button removed as global sidebar handles navigation */}
 
                     <div className="pg-title-group">
                         <div className="pg-title-icon">
@@ -1685,7 +1793,24 @@ export default function CodingPlayground() {
                     </div>
 
                     <div className="pg-sidebar-content">
+                        {sidebarTab === 'problem' && problem && (
+                            <div className="pg-sidebar-section pg-sidebar-problem-section">
+                                <ProblemDescriptionPanel 
+                                    problem={problem} 
+                                    dbProblem={problem}
+                                    language={language}
+                                    solutionUnlocked={solutionUnlocked}
+
+                                    setSolutionUnlocked={(val) => {
+                                        setSolutionUnlocked(val);
+                                        localStorage.setItem(getSolutionUnlockKey(problemId), val);
+                                    }}
+                                />
+
+                            </div>
+                        )}
                         {sidebarTab === 'errors' && (
+
                             <div className="pg-sidebar-section">
                                 <div className="pg-sidebar-section-header">
                                     <AlertTriangle size={14} />

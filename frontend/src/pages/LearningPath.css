@@ -3,7 +3,7 @@
    Namespace: lp-
    ═══════════════════════════════════════════════ */
 
-/* ─── Animations ─── */
+/* Animations */
 @keyframes lp-gradient-shift {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
@@ -24,14 +24,14 @@
   100% { background-position: 200% 0; }
 }
 
-/* ─── Container ─── */
+/* Container */
 .lp-container {
   max-width: 1180px;
   margin: 0 auto;
   padding: 0 20px 64px;
 }
 
-/* ─── Hero Section ─── */
+/* Hero Section */
 .lp-hero {
   position: relative;
   border-radius: 22px;
@@ -169,7 +169,7 @@
   max-width: 560px;
 }
 
-/* ─── Stats Strip ─── */
+/* Stats Strip */
 .lp-stats {
   display: flex;
   gap: 8px;
@@ -217,7 +217,7 @@
   flex-shrink: 0;
 }
 
-/* ─── Section Headers ─── */
+/* Section Headers */
 .lp-section-header {
   display: flex;
   align-items: center;
@@ -248,7 +248,7 @@
   color: rgba(255, 255, 255, 0.40);
 }
 
-/* ─── Card Grid ─── */
+/* Card Grid */
 .lp-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -274,7 +274,7 @@
   }
 }
 
-/* ─── Glass Card ─── */
+/* Glass Card */
 .lp-card {
   position: relative;
   border-radius: 16px;
@@ -388,7 +388,7 @@
   letter-spacing: 0.5px;
 }
 
-/* ─── Step Indicators (4-step methodology) ─── */
+/* Step Indicators (4 step methodology) */
 .lp-steps {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -424,7 +424,7 @@
   color: #a5b4fc;
 }
 
-/* ─── Stage Accordion ─── */
+/* Stage Accordion */
 .lp-stage {
   margin-bottom: 14px;
   animation: lp-fade-up 0.5s ease both;
@@ -512,7 +512,7 @@
   }
 }
 
-/* ─── Timeline (HR Storyboard) ─── */
+/* Timeline (HR Storyboard) */
 .lp-timeline {
   position: relative;
   padding-left: 32px;
@@ -626,7 +626,7 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
-/* ─── Methodology Grid ─── */
+/* Methodology Grid */
 .lp-methodology {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -692,7 +692,7 @@
   margin: 0;
 }
 
-/* ─── Track Selector (DSA time tracks) ─── */
+/* Track Selector (DSA time tracks) */
 .lp-tracks {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -752,7 +752,7 @@
   margin-top: 6px;
 }
 
-/* ─── Skill Radar Wrapper ─── */
+/* Skill Radar Wrapper */
 .lp-radar-wrap {
   border-radius: 16px;
   padding: 32px;
@@ -763,7 +763,7 @@
   margin-top: 20px;
 }
 
-/* ─── Hub Path Cards (Learning Hub launchpad) ─── */
+/* Hub Path Cards (Learning Hub launchpad) */
 .lp-hub-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -882,12 +882,12 @@
   color: #fff;
 }
 
-/* ─── Progress Ring (shared SVG sizing) ─── */
+/* Progress Ring (shared SVG sizing) */
 .lp-progress-ring {
   flex-shrink: 0;
 }
 
-/* ─── Empty State ─── */
+/* Empty State */
 .lp-empty {
   text-align: center;
   padding: 48px 20px;
@@ -895,7 +895,7 @@
   font-size: 14px;
 }
 
-/* ─── Stage Section Title (Tech/System Design) ─── */
+/* Stage Section Title (Tech/System Design) */
 .lp-stage-section {
   margin-bottom: 36px;
 }
@@ -925,7 +925,7 @@
    Namespace: lp-topic-
    ═══════════════════════════════════════════════ */
 
-/* ─── Page Container ─── */
+/* Page Container */
 .lp-topic-page {
   min-height: 100vh;
   background: #030303;
@@ -939,7 +939,7 @@
   padding: 32px 24px 0;
 }
 
-/* ─── Back Button ─── */
+/* Back Button */
 .lp-topic-back {
   display: flex;
   align-items: center;
@@ -955,7 +955,7 @@
 }
 .lp-topic-back:hover { color: #a1a1aa; }
 
-/* ─── Hero Section ─── */
+/* Hero Section */
 .lp-topic-hero {
   border-radius: 18px;
   padding: 28px 32px;
@@ -1025,7 +1025,7 @@
   max-width: 500px;
 }
 
-/* ─── Hero Badges (pills) ─── */
+/* Hero Badges (pills) */
 .lp-topic-badges {
   display: flex;
   gap: 10px;
@@ -1046,7 +1046,7 @@
   color: #71717a;
 }
 
-/* ─── Mastery + Steps ─── */
+/* Mastery + Steps */
 .lp-topic-mastery {
   text-align: center;
 }
@@ -1088,7 +1088,7 @@
   color: #818cf8;
 }
 
-/* ─── Mastery Progress Bar ─── */
+/* Mastery Progress Bar */
 .lp-topic-mastery-bar {
   margin-top: 16px;
   margin-bottom: 24px;
@@ -1113,7 +1113,7 @@
   transition: width 0.5s ease;
 }
 
-/* ─── Tab Navigation ─── */
+/* Tab Navigation */
 .lp-topic-tabs {
   display: flex;
   gap: 4px;
@@ -1145,7 +1145,7 @@
   font-weight: 700;
 }
 
-/* ─── Section Cards ─── */
+/* Section Cards */
 .lp-topic-section {
   margin-bottom: 24px;
   background: rgba(255, 255, 255, 0.02);
@@ -1181,7 +1181,7 @@
   padding: 24px;
 }
 
-/* ─── Step Items ─── */
+/* Step Items */
 .lp-topic-step-item {
   display: flex;
   gap: 12px;
@@ -1210,7 +1210,7 @@
   line-height: 1.7;
 }
 
-/* ─── Visual Diagram Block ─── */
+/* Visual Diagram Block */
 .lp-topic-visual-label {
   display: flex;
   align-items: center;
@@ -1241,7 +1241,7 @@
   overflow-x: auto;
 }
 
-/* ─── Code Block ─── */
+/* Code Block */
 .lp-topic-code-header {
   display: flex;
   align-items: center;
@@ -1283,7 +1283,7 @@
   overflow-x: auto;
 }
 
-/* ─── Banner (Theory intro, decision tree wrapper) ─── */
+/* Banner (Theory intro, decision tree wrapper) */
 .lp-topic-banner {
   margin-bottom: 16px;
   display: flex;
@@ -1327,7 +1327,7 @@
   margin-left: auto;
 }
 
-/* ─── Decision Tree Row ─── */
+/* Decision Tree Row */
 .lp-topic-decision {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
@@ -1352,7 +1352,7 @@
   font-weight: 600;
 }
 
-/* ─── Trick Card ─── */
+/* Trick Card */
 .lp-topic-trick {
   padding: 18px 20px;
   border-radius: 12px;
@@ -1392,7 +1392,7 @@
   border: 1px solid rgba(248, 113, 113, 0.2);
 }
 
-/* ─── Pitfall Item ─── */
+/* Pitfall Item */
 .lp-topic-pitfall {
   padding: 8px 12px;
   margin-bottom: 8px;
@@ -1406,7 +1406,7 @@
 }
 .lp-topic-pitfall:last-child { margin-bottom: 0; }
 
-/* ─── Quick Reference Card ─── */
+/* Quick Reference Card */
 .lp-topic-ref-card {
   margin-bottom: 16px;
   background: rgba(255, 255, 255, 0.02);
@@ -1436,7 +1436,7 @@
   align-items: flex-start;
 }
 
-/* ─── Invariants ─── */
+/* Invariants */
 .lp-topic-invariants {
   margin-bottom: 20px;
   border-radius: 14px;
@@ -1454,7 +1454,7 @@
   line-height: 1.6;
 }
 
-/* ─── Pattern Summary Grid ─── */
+/* Pattern Summary Grid */
 .lp-topic-patterns {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1482,7 +1482,7 @@
   color: #71717a;
 }
 
-/* ─── Section Titles ─── */
+/* Section Titles */
 .lp-topic-heading {
   font-size: 17px;
   font-weight: 700;
@@ -1501,7 +1501,7 @@
   margin-bottom: 12px;
 }
 
-/* ─── Complete / Mark as Done Button ─── */
+/* Complete / Mark as Done Button */
 .lp-topic-complete-wrap {
   text-align: center;
   margin-top: 24px;
@@ -1524,7 +1524,7 @@
   cursor: default;
 }
 
-/* ─── Progress Bar (Practice tab) ─── */
+/* Progress Bar (Practice tab) */
 .lp-topic-progress {
   margin-bottom: 20px;
   display: flex;
@@ -1547,7 +1547,7 @@
   transition: width 0.5s;
 }
 
-/* ─── Difficulty Group ─── */
+/* Difficulty Group */
 .lp-topic-diff-group {
   margin-bottom: 20px;
 }
@@ -1566,7 +1566,7 @@
   display: inline-block;
 }
 
-/* ─── Problem Row ─── */
+/* Problem Row */
 .lp-topic-problem {
   display: flex;
   align-items: center;
@@ -1612,7 +1612,7 @@
   border-radius: 4px;
 }
 
-/* ─── Glass Content Card (inner cards) ─── */
+/* Glass Content Card (inner cards) */
 .lp-topic-glass-card {
   background: rgba(20, 20, 25, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1620,7 +1620,7 @@
   padding: 32px;
 }
 
-/* ─── Flashcard Widget ─── */
+/* Flashcard Widget */
 .lp-topic-flashcard {
   background: rgba(20, 20, 25, 0.8);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -1671,7 +1671,7 @@
   gap: 12px;
 }
 
-/* ─── Scenario Widget ─── */
+/* Scenario Widget */
 .lp-topic-scenario {
   border-radius: 12px;
   overflow: hidden;
@@ -1706,7 +1706,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* ─── Flip Card (Aptitude formulas) ─── */
+/* Flip Card (Aptitude formulas) */
 .lp-topic-flipcard {
   perspective: 800px;
   cursor: pointer;
@@ -1749,7 +1749,7 @@
   margin-top: 8px;
 }
 
-/* ─── Accordion / Method Item ─── */
+/* Accordion / Method Item */
 .lp-topic-accordion {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1783,7 +1783,7 @@
   font-weight: 700;
 }
 
-/* ─── Shortcut Grid Card ─── */
+/* Shortcut Grid Card */
 .lp-topic-shortcut-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -1801,7 +1801,7 @@
   border-color: rgba(129, 140, 248, 0.3);
 }
 
-/* ─── Practice Quiz (Aptitude) ─── */
+/* Practice Quiz (Aptitude) */
 .lp-topic-quiz-filters {
   display: flex;
   align-items: center;
@@ -1846,7 +1846,7 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* ─── Example Answer Cards (HR/Tech) ─── */
+/* Example Answer Cards (HR/Tech) */
 .lp-topic-example {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.05);
@@ -1885,7 +1885,7 @@
   border: 1px solid rgba(52, 211, 153, 0.2);
 }
 
-/* ─── STAR Builder (HR) ─── */
+/* STAR Builder (HR) */
 .lp-topic-star-section {
   background: rgba(0, 0, 0, 0.3);
   padding: 16px;
@@ -1910,7 +1910,7 @@
   line-height: 1.5;
 }
 
-/* ─── Simulator (HR) ─── */
+/* Simulator (HR) */
 .lp-topic-sim-question {
   display: flex;
   gap: 12px;
@@ -1937,7 +1937,7 @@
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* ─── Not Found State ─── */
+/* Not Found State */
 .lp-topic-not-found {
   min-height: 60vh;
   display: flex;
@@ -1947,7 +1947,7 @@
   color: #fff;
 }
 
-/* ─── Results Card (Practice quiz) ─── */
+/* Results Card (Practice quiz) */
 .lp-topic-results {
   text-align: center;
   padding: 40px;
@@ -1971,7 +1971,7 @@
   color: #71717a;
 }
 
-/* ─── Button variants ─── */
+/* Button variants */
 .lp-topic-btn {
   padding: 12px 28px;
   border-radius: 10px;
@@ -2005,7 +2005,7 @@
   border-radius: 8px;
 }
 
-/* ─── Design Practices Grid (System Design) ─── */
+/* Design Practices Grid (System Design) */
 .lp-topic-designs-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -2024,7 +2024,7 @@
   margin-bottom: 6px;
 }
 
-/* ─── Responsive ─── */
+/* Responsive */
 @media (max-width: 768px) {
   .lp-topic-hero {
     padding: 22px 20px;
@@ -2324,7 +2324,7 @@
   color: rgba(30, 27, 75, 0.40);
 }
 
-/* ─── Stage Section Headers ─── */
+/* Stage Section Headers */
 [data-theme="light"] .lp-stage-section-header {
   border-bottom-color: rgba(0, 0, 0, 0.08);
 }

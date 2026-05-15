@@ -1,6 +1,4 @@
-﻿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   COMPANY PREP PAGE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+﻿/* === COMPANY PREP PAGE === */
 
 .company-prep-page {
   max-width: 1000px;
@@ -805,11 +803,9 @@
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   COMPANY PREP HUB LIGHT MODE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === COMPANY PREP HUB LIGHT MODE === */
 
-/* â”€â”€ Hero â”€â”€ */
+/* --- Hero --- */
 [data-theme="light"] .cp-hero {
   background: linear-gradient(135deg, rgba(234, 179, 8, 0.06) 0%, rgba(249, 115, 22, 0.04) 100%);
   border-color: rgba(234, 179, 8, 0.15);
@@ -839,7 +835,7 @@
   color: #1f2937;
 }
 
-/* â”€â”€ Action Bar â”€â”€ */
+/* --- Action Bar --- */
 [data-theme="light"] .cp-search-wrap {
   background: #fff;
   border-color: #e5e7eb;
@@ -880,7 +876,7 @@
   border-color: rgba(236, 72, 153, 0.25);
 }
 
-/* â”€â”€ Filters Panel â”€â”€ */
+/* --- Filters Panel --- */
 [data-theme="light"] .cp-filters-panel {
   background: #fff;
   border-color: #e5e7eb;
@@ -914,7 +910,7 @@
   color: #dc2626;
 }
 
-/* â”€â”€ View Tabs â”€â”€ */
+/* --- View Tabs --- */
 [data-theme="light"] .cp-view-tab {
   color: #6b7280;
 }
@@ -926,7 +922,7 @@
   box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
 
-/* â”€â”€ Company Tiles Grid â”€â”€ */
+/* --- Company Tiles Grid --- */
 [data-theme="light"] .cp-company-tile {
   background: #fff;
   border-color: #e5e7eb;
@@ -972,7 +968,7 @@
   color: #6b7280;
 }
 
-/* â”€â”€ Recommended Section â”€â”€ */
+/* --- Recommended Section --- */
 [data-theme="light"] .cp-recommended-section {
   background: rgba(139, 92, 246, 0.04);
   border-color: rgba(139, 92, 246, 0.1);
@@ -996,7 +992,7 @@
   color: #dc2626;
 }
 
-/* â”€â”€ Questions List â”€â”€ */
+/* --- Questions List --- */
 [data-theme="light"] .cp-list-header {
   color: #9ca3af;
 }
@@ -1045,7 +1041,7 @@
   color: #d1d5db;
 }
 
-/* â”€â”€ Expanded Card â”€â”€ */
+/* --- Expanded Card --- */
 [data-theme="light"] .cp-card-expanded {
   border-top-color: #e5e7eb;
   background: #fafbfc;
@@ -1109,7 +1105,7 @@
   color: #374151 !important;
 }
 
-/* â”€â”€ Notes â”€â”€ */
+/* --- Notes --- */
 [data-theme="light"] .cp-note-editor textarea {
   background: #fff;
   border-color: #e5e7eb;
@@ -1140,7 +1136,7 @@
   color: #9ca3af;
 }
 
-/* â”€â”€ Empty & Updated â”€â”€ */
+/* --- Empty & Updated --- */
 [data-theme="light"] .cp-empty {
   color: #9ca3af;
 }
@@ -1155,7 +1151,7 @@
   color: #16a34a !important;
 }
 
-/* â”€â”€ Pagination â”€â”€ */
+/* --- Pagination --- */
 [data-theme="light"] .cp-page-btn {
   background: #fff;
   border-color: #e5e7eb;
@@ -1187,9 +1183,7 @@
 }
 
 
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   COMPANY TRACK PAGE LIGHT MODE
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* === COMPANY TRACK PAGE LIGHT MODE === */
 
 [data-theme="light"] .ct-list-header svg {
   color: #4f46e5;

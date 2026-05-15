@@ -1,0 +1,8 @@
+/* DIGITAL WELLBEING WIDGET */
+.wb-widget {
+  background: rgba(10, 10, 10, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 24px;
+  backdrop-filter: blur(20px);
+}

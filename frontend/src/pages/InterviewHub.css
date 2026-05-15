@@ -1,4 +1,4 @@
-/* ─── Interview Hub ─── */
+/* Interview Hub */
 
 @keyframes ihub-gradient-shift {
 
@@ -48,7 +48,7 @@
   padding: 0 0 48px;
 }
 
-/* ─── Hero Section ─── */
+/* Hero Section */
 .ihub-hero {
   position: relative;
   border-radius: 20px;
@@ -139,7 +139,7 @@
   box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
 }
 
-/* ─── Stats Strip ─── */
+/* Stats Strip */
 .ihub-stats {
   display: flex;
   gap: 8px;
@@ -171,7 +171,7 @@
   letter-spacing: 0.5px;
 }
 
-/* ─── Section Headers ─── */
+/* Section Headers */
 .ihub-section-header {
   display: flex;
   align-items: center;
@@ -202,7 +202,7 @@
   color: var(--color-text-muted);
 }
 
-/* ─── Mode Cards Grid ─── */
+/* Mode Cards Grid */
 .ihub-modes-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -371,7 +371,7 @@
   gap: 8px;
 }
 
-/* ─── Quick Tools Strip ─── */
+/* Quick Tools Strip */
 .ihub-tools-strip {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -449,7 +449,7 @@
   transform: translateX(2px);
 }
 
-/* ─── Bottom Grid (Performance + Recent) ─── */
+/* Bottom Grid (Performance + Recent) */
 .ihub-bottom-grid {
   display: grid;
   grid-template-columns: 1.1fr 1fr;
@@ -505,7 +505,7 @@
   color: #a78bfa;
 }
 
-/* ─── Weakness Bars ─── */
+/* Weakness Bars */
 .ihub-weakness-item {
   display: flex;
   align-items: center;
@@ -546,7 +546,7 @@
   font-weight: 700;
 }
 
-/* ─── Recent Sessions ─── */
+/* Recent Sessions */
 .ihub-session-row {
   display: flex;
   align-items: center;
@@ -612,7 +612,7 @@
   color: #a78bfa;
 }
 
-/* ─── Empty State ─── */
+/* Empty State */
 .ihub-empty {
   text-align: center;
   padding: 28px 20px;
@@ -632,7 +632,7 @@
   color: var(--color-text-muted);
 }
 
-/* ─── Responsive Tweaks ─── */
+/* Responsive Tweaks */
 @media (max-width: 600px) {
   .ihub-hero {
     padding: 24px 20px 20px;

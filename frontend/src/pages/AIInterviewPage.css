@@ -5,7 +5,7 @@
 
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
 
-/* ── Root Variables ── */
+/* Root Variables */
 .ai-interview-page {
   --ai-bg-primary: #0a0a0f;
   --ai-bg-secondary: #111118;
@@ -29,7 +29,7 @@
   --ai-editor-bg: #0d0d14;
 }
 
-/* ── Full-page container ── */
+/* Full page container */
 .ai-interview-page {
   display: flex;
   flex-direction: column;
@@ -2422,7 +2422,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Hero Section ── */
+/* Hero Section */
 .ai-result-hero {
   display: flex;
   align-items: center;
@@ -2516,7 +2516,7 @@
   border: 1px solid;
 }
 
-/* ── Quick Stats Row ── */
+/* Quick Stats Row */
 .ai-result-stats-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -2562,7 +2562,7 @@
   text-transform: capitalize;
 }
 
-/* ── Tabs ── */
+/* Tabs */
 .ai-result-tabs {
   display: flex;
   gap: 0;
@@ -2592,7 +2592,7 @@
   border-bottom-color: #8b5cf6;
 }
 
-/* ── Content Area ── */
+/* Content Area */
 .ai-result-content {
   min-height: 300px;
 }
@@ -2692,7 +2692,7 @@
   border-color: rgba(245, 158, 11, 0.12);
 }
 
-/* ── Detailed Analysis Tab ── */
+/* Detailed Analysis Tab */
 .ai-result-analysis-text {
   font-size: 14px;
   color: rgba(255, 255, 255, 0.6);
@@ -2715,7 +2715,7 @@
   margin: 14px 0 0;
 }
 
-/* ── Key Moments Tab ── */
+/* Key Moments Tab */
 .ai-result-moment {
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -2789,7 +2789,7 @@
   to { opacity: 1; max-height: 200px; }
 }
 
-/* ── Session Details Tab ── */
+/* Session Details Tab */
 .ai-result-session-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -2868,7 +2868,7 @@
   line-height: 1.6;
 }
 
-/* ── Bottom Actions ── */
+/* Bottom Actions */
 .ai-result-actions {
   display: flex;
   gap: 12px;
@@ -2934,7 +2934,7 @@
   background: #0a0a0f;
 }
 
-/* ── Top Bar ── */
+/* Top Bar */
 .ai-vc-topbar {
   display: flex;
   align-items: center;
@@ -3100,7 +3100,7 @@
   box-shadow: 0 4px 16px rgba(220, 38, 38, 0.3);
 }
 
-/* ── Main Body ── */
+/* Main Body */
 .ai-vc-body {
   flex: 1;
   display: flex;
@@ -3108,7 +3108,7 @@
   position: relative;
 }
 
-/* ── Video Call Area (Left) ── */
+/* Video Call Area (Left) */
 .ai-vc-video-area {
   flex: 1;
   display: flex;
@@ -3124,7 +3124,7 @@
   padding: 16px 80px;
 }
 
-/* ── Video Tiles ── */
+/* Video Tiles */
 .ai-vc-tile {
   border-radius: 16px;
   overflow: hidden;
@@ -3472,7 +3472,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* ── User Camera Tile (PIP) ── */
+/* User Camera Tile (PIP) */
 .ai-vc-tile--user {
   position: absolute;
   bottom: 90px;
@@ -3532,7 +3532,7 @@
   color: #ef4444;
 }
 
-/* ── Floating Controls Bar ── */
+/* Floating Controls Bar */
 .ai-vc-controls {
   position: absolute;
   bottom: 20px;
@@ -3841,7 +3841,7 @@
 .ai-vc-ws-send:hover { opacity: 0.85; }
 .ai-vc-ws-send:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── Chat Overlay Panel ── */
+/* Chat Overlay Panel */
 .ai-vc-chat-overlay {
   position: absolute;
   right: 0;
@@ -3862,7 +3862,7 @@
   to { opacity: 1; transform: translateX(0); }
 }
 
-/* ── Responsive: Video Call ── */
+/* Responsive: Video Call */
 @media (max-width: 1200px) {
   .ai-vc-workspace { width: 400px; }
 }
@@ -3955,7 +3955,7 @@
   word-break: break-word;
 }
 
-/* ── Responsive: Captions ── */
+/* Responsive: Captions */
 @media (max-width: 768px) {
   .ai-vc-captions {
     max-width: 90%;
@@ -3970,7 +3970,7 @@
   }
 }
 
-/* ── Live user-speaking caption enhancements ── */
+/* Live user speaking caption enhancements */
 .ai-vc-captions--live .ai-vc-captions-inner {
   border-color: rgba(74, 222, 128, 0.25);
   box-shadow: 0 0 16px rgba(74, 222, 128, 0.1), 0 4px 24px rgba(0, 0, 0, 0.3);
@@ -4943,7 +4943,7 @@
   white-space: nowrap;
 }
 
-/* ═══ Connection Health Badge ═══ */
+/* Connection Health Badge */
 .ai-vc-connection-badge {
   display: inline-flex;
   align-items: center;
@@ -5024,7 +5024,7 @@
   50% { opacity: 1; transform: scale(1.3); }
 }
 
-/* ═══ Silence Countdown ═══ */
+/* Silence Countdown */
 .ai-vc-silence-countdown {
   display: inline-block;
   margin-left: 8px;
@@ -5040,7 +5040,7 @@
   50% { opacity: 1; }
 }
 
-/* ═══ Responsive: hide connection badge on small screens ═══ */
+/* Responsive: hide connection badge on small screens */
 @media (max-width: 600px) {
   .ai-vc-connection-badge {
     display: none;

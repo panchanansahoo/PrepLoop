@@ -31,7 +31,7 @@
 }
 .crv-back:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
 
-/* ── HERO ── */
+/* HERO */
 .crv-select {
   max-width: 900px;
   margin: 0 auto;
@@ -70,7 +70,7 @@
   line-height: 1.6;
 }
 
-/* ── SCENARIO GRID ── */
+/* SCENARIO GRID */
 .crv-scenario-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -136,7 +136,7 @@
   color: #475569;
 }
 
-/* ── TIMER BAR ── */
+/* TIMER BAR */
 .crv-timer-bar {
   height: 44px;
   background: rgba(15,15,25,0.95);
@@ -187,7 +187,7 @@
   box-shadow: 0 4px 12px rgba(59,130,246,0.3);
 }
 
-/* ── REVIEW LAYOUT ── */
+/* REVIEW LAYOUT */
 .crv-review-layout {
   display: flex;
   flex: 1;
@@ -220,7 +220,7 @@
 }
 .crv-pr-context strong { color: #60a5fa; }
 
-/* ── REVIEW PANEL ── */
+/* REVIEW PANEL */
 .crv-review-panel {
   width: 360px;
   flex-shrink: 0;
@@ -306,7 +306,7 @@
 .crv-add-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .crv-add-btn:not(:disabled):hover { background: rgba(59,130,246,0.2); }
 
-/* ── COMMENTS LIST ── */
+/* COMMENTS LIST */
 .crv-comments-list {
   padding: 16px;
   flex: 1;
@@ -367,7 +367,7 @@
   line-height: 1.5;
 }
 
-/* ── VERDICT ── */
+/* VERDICT */
 .crv-verdict-section {
   padding: 16px;
   border-top: 1px solid rgba(255,255,255,0.06);
@@ -439,7 +439,7 @@
 .crv-summary-input:focus { border-color: rgba(59,130,246,0.3); }
 .crv-summary-input::placeholder { color: #475569; }
 
-/* ── RESULTS ── */
+/* RESULTS */
 .crv-results {
   max-width: 780px;
   margin: 0 auto;

@@ -16,7 +16,7 @@
   overflow: hidden;
 }
 
-/* ── BACK BUTTON ── */
+/* BACK BUTTON */
 .lcc-back {
   display: inline-flex;
   align-items: center;
@@ -376,7 +376,7 @@
   border-color: rgba(239,68,68,0.3);
 }
 
-/* ── SCORES SECTION ── */
+/* SCORES SECTION */
 .lcc-scores-section {
   width: 280px;
   flex-shrink: 0;
@@ -479,7 +479,7 @@
   border-radius: 2px;
 }
 
-/* ── LIVE ISSUES ── */
+/* LIVE ISSUES */
 .lcc-live-issues {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
@@ -676,7 +676,7 @@
   box-shadow: 0 8px 24px rgba(139,92,246,0.4);
 }
 
-/* ── Responsive ── */
+/* Responsive */
 @media (max-width: 768px) {
   .lcc-coding-layout {
     flex-direction: column;

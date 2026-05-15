@@ -33,7 +33,7 @@
 }
 .dbg-back:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
 
-/* ── HERO ── */
+/* HERO */
 .dbg-select {
   max-width: 900px;
   margin: 0 auto;
@@ -73,7 +73,7 @@
   line-height: 1.6;
 }
 
-/* ── CATEGORIES ── */
+/* CATEGORIES */
 .dbg-categories {
   display: flex;
   flex-wrap: wrap;
@@ -102,7 +102,7 @@
   color: #f87171;
 }
 
-/* ── CHALLENGE GRID ── */
+/* CHALLENGE GRID */
 .dbg-challenge-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -177,7 +177,7 @@
   color: #475569;
 }
 
-/* ── TIMER BAR ── */
+/* TIMER BAR */
 .dbg-timer-bar {
   height: 44px;
   background: rgba(15,15,25,0.95);
@@ -238,7 +238,7 @@
   font-weight: 600;
 }
 
-/* ── IDENTIFY LAYOUT ── */
+/* IDENTIFY LAYOUT */
 .dbg-identify-layout, .dbg-fix-layout {
   display: flex;
   flex: 1;
@@ -402,7 +402,7 @@
   box-shadow: 0 6px 18px rgba(239,68,68,0.3);
 }
 
-/* ── FIX SIDEBAR ── */
+/* FIX SIDEBAR */
 .dbg-fix-bugs {
   list-style: none;
   padding: 0;
@@ -418,7 +418,7 @@
 }
 .dbg-fix-bugs li span { color: #f87171; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 
-/* ── EXPLAIN LAYOUT ── */
+/* EXPLAIN LAYOUT */
 .dbg-explain-layout {
   flex: 1;
   display: flex;
@@ -497,7 +497,7 @@
   box-shadow: 0 6px 18px rgba(34,197,94,0.3);
 }
 
-/* ── RESULTS ── */
+/* RESULTS */
 .dbg-results {
   max-width: 780px;
   margin: 0 auto;

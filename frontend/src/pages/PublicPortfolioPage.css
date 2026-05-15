@@ -1,4 +1,4 @@
-/* ── Base ── */
+/* Base */
 .pp-page {
   position: relative;
   min-height: 100vh;
@@ -43,7 +43,7 @@
   padding: 20px 0 64px;
 }
 
-/* ── Loading / State ── */
+/* Loading / State */
 .pp-page-loading {
   display: grid;
   place-items: center;
@@ -73,7 +73,7 @@
 
 .pp-state-icon { color: #7dd3fc; }
 
-/* ── Nav ── */
+/* Nav */
 .pp-nav {
   display: flex;
   align-items: center;
@@ -107,7 +107,7 @@
   font-weight: 600;
 }
 
-/* ── Hero ── */
+/* Hero */
 .pp-hero {
   margin-bottom: 24px;
 }
@@ -275,7 +275,7 @@
   color: #c8d5ea;
 }
 
-/* ── Body Grid ── */
+/* Body Grid */
 .pp-body {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -311,7 +311,7 @@
   font-size: 14px;
 }
 
-/* ── Skills ── */
+/* Skills */
 .pp-chip-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -349,7 +349,7 @@
   color: #fdba74;
 }
 
-/* ── Experience Timeline ── */
+/* Experience Timeline */
 .pp-exp-timeline {
   display: flex;
   flex-direction: column;
@@ -426,7 +426,7 @@
   line-height: 1.7;
 }
 
-/* ── Education ── */
+/* Education */
 .pp-edu-list {
   display: flex;
   flex-direction: column;
@@ -457,7 +457,7 @@
   margin-top: 2px;
 }
 
-/* ── Projects ── */
+/* Projects */
 .pp-project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -578,7 +578,7 @@
   color: #6ee7b7;
 }
 
-/* ── Achievements ── */
+/* Achievements */
 .pp-achievements-list {
   list-style: none;
   margin: 0;
@@ -603,7 +603,7 @@
   margin-top: 2px;
 }
 
-/* ── Footer ── */
+/* Footer */
 .pp-footer {
   margin-top: 40px;
   text-align: center;
@@ -621,7 +621,7 @@
   color: #fdba74;
 }
 
-/* ── Responsive ── */
+/* Responsive */
 @media (max-width: 900px) {
   .pp-hero-grid {
     grid-template-columns: 1fr;
