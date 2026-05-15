@@ -315,7 +315,7 @@ export async function updateUserProgress(userId, problemId, status, code = null)
         status,
         last_attempt: now,
         last_code: code,
-        attempts: supabaseAdmin.raw('COALESCE(attempts, 0) + 1'),
+        attempts: supabaseAdmin.rpc('increment', { x: 1 }), // handled via fetch-then-set below
         updated_at: now,
       }, {
         onConflict: 'user_id,problem_id',

@@ -367,10 +367,6 @@ router.post('/verify', authenticateToken, async (req, res) => {
         // Fix #5: safe hex decode — non-hex input produces wrong-length buffer and crashes timingSafeEqual
         // Compare as utf8 strings of equal known length to avoid RangeError
         const sigBuffer = Buffer.from(expectedSignature, 'utf8');
-        const expectedBuffer = Buffer.from(
-            isHexString(razorpay_signature) ? expectedSignature : '',
-            'utf8'
-        );
         const receivedSigBuffer = Buffer.from(
             isHexString(razorpay_signature) ? razorpay_signature : ' '.repeat(expectedSignature.length),
             'utf8'

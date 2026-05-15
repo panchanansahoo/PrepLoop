@@ -40,7 +40,7 @@ const About = lazyWithRecovery(() => import('./pages/About'));
 const Library = lazyWithRecovery(() => import('./pages/Library'));
 const Contact = lazyWithRecovery(() => import('./pages/Contact'));
 const VerifyEmailPage = lazyWithRecovery(() => import('./pages/VerifyEmailPage'));
-const CheckEmail = lazyWithRecovery(() => import('./pages/VerifyEmail'));
+const VerifyEmailDialog = lazyWithRecovery(() => import('./pages/VerifyEmail'));
 const Onboarding = lazyWithRecovery(() => import('./pages/Onboarding'));
 const Profile = lazyWithRecovery(() => import('./pages/Profile'));
 const History = lazyWithRecovery(() => import('./pages/History'));
@@ -325,7 +325,7 @@ function AppContent() {
                 <Route path="/terms" element={<TermsOfService />} />
                 <Route path="/copilot" element={<AIJobCopilot />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
-                <Route path="/check-email" element={<CheckEmail />} />
+                <Route path="/check-email" element={<VerifyEmailDialog />} />
                 <Route path="/onboarding" element={<PrivateRoute><Onboarding /></PrivateRoute>} />
                 <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />

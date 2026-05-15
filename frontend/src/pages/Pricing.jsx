@@ -23,7 +23,7 @@ const plans = [
     btnText: 'Get Started Free',
     btnStyle: 'pricing-btn-outline',
     popular: false,
-    btnLink: '/signup',
+    btnLink: '/dashboard',
   },
   {
     name: 'Pro',

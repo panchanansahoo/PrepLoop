@@ -141,7 +141,7 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
         .eq('problem_id', canonicalProblemId)
         .order('submitted_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (latestSub) {
         await supabaseAdmin

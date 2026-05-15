@@ -348,7 +348,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                 <Link to="/login" className="btn nav-action-btn navbar-signin-btn">
                   Sign In
                 </Link>
-                <Link to="/signup" className="btn-hero-primary navbar-signup-btn">
+                <Link to="/dashboard" className="btn-hero-primary navbar-signup-btn">
                   Get Started <ChevronRight size={16} />
                 </Link>
               </>
@@ -403,7 +403,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             ) : (
               <>
                 <Link to="/login" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Sign In</Link>
-                <Link to="/signup" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
+                <Link to="/dashboard" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setMobileMenuOpen(false)}>Get Started</Link>
               </>
             )}
           </div>

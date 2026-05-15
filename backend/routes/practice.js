@@ -847,7 +847,7 @@ router.post("/run", authenticateToken, async (req, res) => {
                 testResults: judgedResults,
                 passed,
                 total: judgedResults.length,
-                executionTime: result.executionTime,
+            executionTime: result.executionTime ?? null,
                 message: passed === judgedResults.length ? 'All test cases passed!' : `${passed}/${judgedResults.length} test cases passed`,
               });
             }

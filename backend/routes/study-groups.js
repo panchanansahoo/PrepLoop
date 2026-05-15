@@ -5,7 +5,7 @@ import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 const router = express.Router();
 
 function handleTableNotFoundError(error) {
-  if (error?.code === 'PGRST205') {
+  if (error?.code === 'PGRST205' || error?.code === '42P01' || error?.message?.includes('does not exist')) {
     return {
       isTableNotFound: true,
       response: {

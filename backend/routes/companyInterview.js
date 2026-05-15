@@ -4,6 +4,7 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import crypto from 'crypto';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
@@ -73,7 +74,7 @@ const UPLOAD_DIR = os.tmpdir();
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-    filename: (req, file, cb) => cb(null, `stt_${Date.now()}_${Math.random().toString(36).slice(2)}.webm`)
+    filename: (req, file, cb) => cb(null, `stt_${Date.now()}_${crypto.randomBytes(8).toString('hex')}.webm`)
   }),
   limits: { fileSize: 25 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {

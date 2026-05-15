@@ -497,6 +497,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     const voiceInitializedRef = useRef(false);
     const prevVoiceEnabledRef = useRef(voiceErrorsEnabled);
     const lastVoiceSignatureRef = useRef('');
+    const voiceAudioRef = useRef(null);
 
     const [solutionUnlocked, setSolutionUnlocked] = useState(() => {
         return localStorage.getItem(getSolutionUnlockKey(problemId)) === 'true';
@@ -517,11 +518,9 @@ export default function CodingPlayground({ sidebarCollapsed }) {
         }
 
         setLoading(true);
-        // Find problem in database
         const found = PROBLEMS.find(p => String(p.id) === String(problemId));
         if (found) {
             setProblem(found);
-            // Set starter code if code is empty or just generic
             if (!code || code.trim() === '') {
                 const starter = STARTER_CODE[language] ? STARTER_CODE[language](found.functionName) : '';
                 if (starter) setCode(starter);

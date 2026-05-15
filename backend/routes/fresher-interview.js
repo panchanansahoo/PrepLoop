@@ -134,6 +134,10 @@ router.post('/answer', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Session not found' });
     }
 
+    if (!answer || typeof answer !== 'string' || !answer.trim()) {
+      return res.status(400).json({ error: 'Answer must be a non-empty string' });
+    }
+
     const session = sessions.get(sessionId);
 
     if (session.userId !== req.user.id) {

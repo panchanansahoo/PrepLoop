@@ -623,7 +623,7 @@ router.post('/ai-search', async (req, res) => {
 
     let parsedParams = null;
     let aiSuggestions = [];
-    let searchQuery; // Declare searchQuery before first assignment
+    let searchQuery = query; // Declare searchQuery before first assignment
 
     // ── Use Groq LLM to parse the natural language query ──
     if (GROQ_API_KEY) {

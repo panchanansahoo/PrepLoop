@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPoolStats } from '../config/dbPool.js';
+import { getPoolStats, query } from '../config/dbPool.js';
 import { getActiveConnections } from '../services/websocketService.js';
 import { problemCache, companyCache, systemDesignCache } from '../utils/cache.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
@@ -53,7 +53,6 @@ router.get('/health/detailed', authenticateToken, requireAdmin, async (req, res)
 
   // Database check
   try {
-    const { query } = await import('../config/dbPool.js');
     await query('SELECT 1');
     checks.checks.database = { status: 'healthy', latency: 0 };
   } catch (err) {

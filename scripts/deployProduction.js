@@ -448,9 +448,10 @@ ${COLORS.green}${COLORS.bright}Deployment completed successfully!${COLORS.reset}
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  prompt(question) {
+  async prompt(question) {
     return new Promise((resolve) => {
-      const readline = require('readline').createInterface({
+      const { createInterface } = await import('readline');
+      const readline = createInterface({
         input: process.stdin,
         output: process.stdout,
       });

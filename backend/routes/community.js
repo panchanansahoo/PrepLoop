@@ -132,16 +132,22 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
 
     // Fallback if RPC doesn't exist yet — still better than non-atomic
     if (updateError) {
-      const { data: post } = await supabaseAdmin
+      const { data: post, error: fetchError } = await supabaseAdmin
         .from('community_posts')
         .select('likes')
         .eq('id', id)
         .single();
 
-      await supabaseAdmin
-        .from('community_posts')
-        .update({ likes: (post?.likes || 0) + 1 })
-        .eq('id', id);
+      if (!fetchError && post) {
+        const { error: fallbackError } = await supabaseAdmin
+          .from('community_posts')
+          .update({ likes: (post?.likes || 0) + 1 })
+          .eq('id', id);
+
+        if (fallbackError) {
+          return res.status(500).json({ error: 'Failed to like post' });
+        }
+      }
     }
 
     res.json({ success: true });

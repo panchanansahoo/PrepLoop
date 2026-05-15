@@ -43,6 +43,7 @@ router.post('/', contactLimiter, async (req, res) => {
 
     if (dbError) {
       console.error('DB insert error:', dbError);
+      return res.status(500).json({ error: 'Failed to save message. Please try again later.' });
     }
 
     // Try to send email notification if SMTP is configured

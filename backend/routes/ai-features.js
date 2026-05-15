@@ -45,7 +45,7 @@ router.post(
 
       const { code, problemId, language = 'javascript' } = req.body;
       const userId = req.user.id;
-      const requestId = req.id; // From requestId middleware
+      const requestId = req.requestId; // From requestId middleware
 
       logger.info('Code review request', {
         userId,

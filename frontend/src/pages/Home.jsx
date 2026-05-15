@@ -204,7 +204,7 @@ const pricingPlans = [
     btnText: 'Get Started',
     btnClass: 'btn-outline',
     popular: false,
-    btnLink: '/signup'
+    btnLink: '/dashboard'
   },
   {
     name: 'Pro',
@@ -756,7 +756,7 @@ export default function Home() {
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
-                  <Link to="/signup" className="btn-hero-primary" style={{
+                  <Link to="/dashboard" className="btn-hero-primary" style={{
                     position: 'relative',
                     borderRadius: '999px',
                     padding: '16px 36px',

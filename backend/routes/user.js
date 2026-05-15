@@ -1615,7 +1615,7 @@ router.get("/history", authenticateToken, async (req, res) => {
           title: "Resume ATS Analysis",
           date: new Date(r.created_at).toISOString().split("T")[0],
           timestamp: new Date(r.created_at).getTime(),
-          score: Math.round(r.overall_score) || 0,
+          score: Math.round(r.ats_score) || 0,
           duration: "N/A"
         });
       });
