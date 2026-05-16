@@ -1,204 +1,55 @@
-# 🚀 PrepLoop
-> The modern, full-stack tech interview preparation platform featuring AI-powered coaching and realistic interview simulations.
+## PrepLoop
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![React](https://img.shields.io/badge/React-18-blue)
-![Vite](https://img.shields.io/badge/Vite-5-purple)
-![Node](https://img.shields.io/badge/Node.js-ES_Modules-green)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supabase-blue)
-![Azure](https://img.shields.io/badge/Azure-App_Service-blue)
+PrepLoop is an AI-powered interview preparation platform combining realtime voice interviews, in-browser coding playgrounds, curated company question banks, and personalized coaching.
 
-PrepLoop empowers job seekers in the tech industry with a unified, intelligent platform that seamlessly bridges the gap between raw technical practice (DSA/System Design) and actual interview execution. PrepLoop acts as your personal AI interviewer, coding environment, progress tracker, and community hub.
+This repository is a monorepo containing frontend, backend, tooling, and docs used to run PrepLoop locally and in staging/production.
 
----
-=======
-- `frontend/` - React + Vite app
-- `backend/` - Node.js + Express API server
-- `discord-bot/` - community bot (commands, onboarding, moderation helpers)
-- `docs/` - architecture and API references
-- `scripts/` - content/data generation helpers
-- `Company_Interview/` - company-specific interview datasets
-- `Dsa_pattern/` - DSA pattern resources
+Contents
+- `frontend/` — React + Vite web app
+- `backend/` — Node.js + Express API server
+- `discord-bot/` — Discord integration and moderation bot
+- `docs/` — Architecture and API reference docs
+- `scripts/` — Utility and smoke-test scripts
+- `Company_Interview/` — Company-specific question datasets
 
-
-## ✨ Core Features
-
-<<<<<<< HEAD
-### 🧠 Type-Aware AI Interview Simulations
-- **Dynamic Scenarios**: Covering DSA, System Design, Behavioral, and HR interviews.
-- **Experience-Based Scoring**: Custom rubrics for candidates ranging from Fresher to Experienced.
-- **Low-Latency Voice Interactions**: High-performance TTS/STT pipelines using Kokoro (local), Deepgram, and Groq with intelligent provider fallback to maintain sub-800ms latency.
-- **Silence & Nuance Detection**: Naturally handles user pauses and interruptions.
-=======
-- DSA problem practice and editor workflows
-- AI coaching and interview simulation endpoints
-- **AI Interview Improvement Plans** - Personalized improvement plans based on interview performance
-- **Skill-Match Live Job Recommendations** - Real-time job matching based on user skills with auto-refresh
-- System design preparation modules
-- Community/blog/contact flows
-- Notes, activity tracking, and user profile APIs
-- Job updates integration
-- Payment integration (Razorpay)
-- Voice-related routes/services
-
-
-### 💻 Technical Practice Workflows
-- **DSA Playgrounds**: In-browser coding environments with syntax highlighting, execution, and test cases validation.
-- **System Design Modules**: Interactive guides and canvases to practice distributed system architecture.
-- **Company-Specific Question Banks**: Datasets containing frequently asked questions segmented by top tech companies.
-
-### 📈 AI Improvement Plans & Progress Tracking
-- **Personalized Coaching**: Actionable improvement plans based on interview performance.
-- **Activity Tracking**: Dashboard displaying completed modules, interview scores, and consistency streaks.
-- **Skill-Match Live Job Recommendations**: Real-time job matching based on user skills.
-
-### 🛡️ Enterprise-Grade Security
-- **Hardened Infrastructure**: Redis authentication, non-root Docker containers, and robust security middleware.
-- **Supabase Auth & RLS**: Secure signup/login with custom SMTP email verification flows and Row Level Security.
-
----
-
-## 🏗️ Monorepo Architecture
-
-The project is structured as a monorepo containing multiple distinct services and directories:
-
-- 📁 `frontend/` - React + Vite application
-- 📁 `backend/` - Node.js + Express API server
-- 📁 `discord-bot/` - Community bot (commands, onboarding, moderation helpers)
-- 📁 `docs/` - Architecture and API references
-- 📁 `scripts/` - Content/data generation helpers
-- 📁 `Company_Interview/` - Company-specific interview datasets
-- 📁 `Dsa_pattern/` - DSA pattern resources
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technologies |
-| --- | --- |
-| **Frontend** | React 18, Vite 5, React Router, Tailwind CSS, Mantine UI, React Flow, Supabase JS |
-| **Backend** | Node.js (ES Modules), Express, Supabase (PostgreSQL), Redis, Nodemailer, Razorpay |
-| **AI & Voice Layer** | Groq SDK (LLMs), Kokoro & Deepgram (TTS/STT), WebSocket Realtime Bridge |
-| **Integrations** | RapidAPI, Adzuna (Jobs), Brevo (SMTP) |
-| **Deployment** | Azure App Service |
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm 9+
-- A Supabase project
-- Redis (Running locally or via Docker)
-- (Optional) Groq API key for AI features
-- (Optional) Deepgram API key for Voice fallbacks
-- (Optional) Razorpay keys for payments
-
-### 1) Install Dependencies
-
-From the repository root:
+Quick Start
+1. Install dependencies:
 
 ```bash
 npm run install:all
 ```
 
-Bootstrap env files and verify setup:
+2. Create env files (see `backend/.env.template` and `frontend/.env.template`) and fill required keys.
+
+3. Start dev servers (from repo root):
 
 ```bash
-npm run setup
+npm run dev
 ```
 
-### 2) Environment Configuration
+Useful scripts
+- `npm run dev` — start frontend + backend locally (concurrently)
+- `npm run lint` — run linters
+- `npm test` — run test suites
+- `npm run build --prefix frontend` — build frontend
 
-Generate or copy environment files:
+Notes for contributors
+- Backend is ESM (`"type": "module"`) — keep new `.js` modules ESM-compatible.
+- Add new backend routes by following dynamic import patterns in `backend/index.js`.
+- Frontend tests use Vitest; prefer `getByRole` selectors in tests.
 
-```bash
-npm run setup:env
-```
+Security & Data
+- Uses Supabase Auth + Postgres with Row Level Security (RLS).
+- Default transcript retention: 30 days; users may opt-in for research retention up to 12 months.
 
-#### `backend/.env`
-```env
-# App
-NODE_ENV=development
-PORT=5000
-FRONTEND_URL=http://localhost:5173 # Use https://preploop.me for production
+Support
+- See `docs/ARCHITECTURE.md`, `docs/AI_FEATURES_API.md`, and `docs/DEPLOYMENT_CHECKLIST.md` for detailed operational guidance.
 
-# Redis
-REDIS_URL=redis://localhost:6379
-REDIS_PASSWORD=your_redis_password
+License
+- MIT (please add LICENSE file if required)
 
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-# AI & Voice
-GROQ_API_KEY=your_groq_api_key
-DEEPGRAM_API_KEY=your_deepgram_key # Optional — Kokoro TTS runs locally
-
-# Integrations (Optional)
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-RAZORPAY_KEY_ID=your_razorpay_key_id
-```
-
-#### `frontend/.env`
-```env
-VITE_API_URL=http://localhost:5000 # Use dynamic URL (e.g., https://api.preploop.me) for production
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-
-Validate setup before starting:
-
-```bash
-npm run verify:setup
-```
-
-### 3) Run the Application
-
-<<<<<<< HEAD
-From root, start both the frontend and backend concurrently:
-=======
-```bash
-# Require specific integration keys
-node scripts/verifySetup.js --require=GROQ_API_KEY,RAZORPAY_KEY_ID
-
-# Require all known keys (strict mode)
-npm run verify:setup:strict
-```
-
-If env files do not exist yet:
-
-```bash
-npm run setup:env
-```
-
-Create `backend/.env`:
-
-```env
-# App
-NODE_ENV=development
-PORT=5000
-FRONTEND_URL=http://localhost:5173
-
-# Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-
-# AI
-GROQ_API_KEY=your_groq_api_key
-
-# Email (optional, used by auth/contact flows)
-SMTP_USER=your_smtp_user
-SMTP_PASS=your_smtp_password
-
-# CAPTCHA (optional)
-RECAPTCHA_SECRET_KEY=your_recaptcha_secret
-
+---
+_Last updated: 2026-05-16_
 # Voice (optional — Kokoro TTS runs locally, no key needed)
 DEEPGRAM_API_KEY=your_deepgram_key
 
