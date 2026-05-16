@@ -197,6 +197,15 @@ export function buildAdaptivePointTooltip(entry = {}) {
   return `Turn ${turn}: ${difficultyLabel} — ${adaptiveNote}`;
 }
 
+function generateUniqueMarker() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return `---CODE_MARKER_${crypto.randomUUID()}---`;
+  }
+  return `---CODE_MARKER_${Date.now()}_${Math.random().toString(36).slice(2, 10)}---`;
+}
+
+export const CODE_DELIMITER_MARKER = generateUniqueMarker();
+
 export function resolveSubmittedAnswer({
   providedAnswer = '',
   userInput = '',
@@ -215,7 +224,7 @@ export function resolveSubmittedAnswer({
   return {
     answer,
     fullAnswer: normalizedCode
-      ? `${answer}\n\n--- Code ---\n${normalizedCode}`
+      ? `${answer}\n\n${CODE_DELIMITER_MARKER}\n${normalizedCode}`
       : answer,
   };
 }

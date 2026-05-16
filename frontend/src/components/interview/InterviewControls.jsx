@@ -1,8 +1,8 @@
-import React, { memo, useCallback, useMemo } from 'react';
+import React, { memo, useCallback, useState } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
     Play, Pause, Captions, CaptionsOff, MessageSquare,
-    Bookmark, Phone,
+    Bookmark, Phone, Keyboard, HelpCircle,
 } from 'lucide-react';
 
 /**
@@ -21,20 +21,31 @@ function InterviewControls({
     bookmarked, setBookmarked,
     endInterview,
     connectionMode,
+    onKeyboardHelp,
+    onAskQuestion,
+    awaitingAnswer,
 }) {
+    const [questionText, setQuestionText] = useState('');
+    const [askOpen, setAskOpen] = useState(false);
+    const handleAskSubmit = useCallback(() => {
+        if (!questionText.trim()) return;
+        onAskQuestion(questionText);
+        setQuestionText('');
+        setAskOpen(false);
+    }, [questionText, onAskQuestion]);
     return (
         <div className="ai-vc-controls">
             <div className="ai-vc-controls-group">
                 {/* Mic */}
                 <button
-                    className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''}`}
+                    className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''} ${awaitingAnswer ? 'ai-vc-ctrl--attention' : ''}`}
                     onClick={toggleMic}
-                    title={micOn ? (isListening ? 'Stop listening' : 'Mute') : 'Unmute & start listening'}
-                    aria-label={micOn ? (isListening ? 'Microphone on, actively listening. Click to stop.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.'}
+                    title={awaitingAnswer ? 'Click to start answering' : (micOn ? (isListening ? 'Stop listening' : 'Mute') : 'Unmute & start listening')}
+                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to stop.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
                     aria-pressed={micOn}
                 >
-                    {micOn ? <Mic size={18} /> : <MicOff size={18} />}
-                    <span className="ai-vc-ctrl-label">{isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted'}</span>
+                    {awaitingAnswer ? <Mic size={18} /> : (micOn ? <Mic size={18} /> : <MicOff size={18} />)}
+                    <span className="ai-vc-ctrl-label">{awaitingAnswer ? 'Answer' : (isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted')}</span>
                     {isListening && <span className="ai-vc-listening-dot" />}
                     {isListening && (
                         <span className="ai-vc-conn-mode-badge">
@@ -125,6 +136,30 @@ function InterviewControls({
 
             <div className="ai-vc-controls-divider" />
 
+            {/* Keyboard Shortcuts */}
+            <button
+                className="ai-vc-ctrl"
+                onClick={onKeyboardHelp}
+                title="Keyboard shortcuts (?)"
+                aria-label="Show keyboard shortcuts"
+            >
+                <Keyboard size={18} />
+                <span className="ai-vc-ctrl-label">Keys</span>
+            </button>
+
+            {/* Ask a Question */}
+            <button
+                className={`ai-vc-ctrl ${askOpen ? 'ai-vc-ctrl--active' : ''}`}
+                onClick={() => setAskOpen(prev => !prev)}
+                title="Ask a question"
+                aria-label="Ask the interviewer a question"
+            >
+                <HelpCircle size={18} />
+                <span className="ai-vc-ctrl-label">Ask</span>
+            </button>
+
+            <div className="ai-vc-controls-divider" />
+
             {/* End */}
             <button
                 className="ai-vc-ctrl ai-vc-ctrl--end"
@@ -135,6 +170,19 @@ function InterviewControls({
                 <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
                 <span className="ai-vc-ctrl-label">End</span>
             </button>
+            {askOpen && (
+                <div className="ai-vc-ask-input">
+                    <input
+                        type="text"
+                        value={questionText}
+                        onChange={e => setQuestionText(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAskSubmit(); if (e.key === 'Escape') setAskOpen(false); }}
+                        placeholder="Type your question here..."
+                        autoFocus
+                    />
+                    <button onClick={handleAskSubmit} disabled={!questionText.trim()}>Send</button>
+                </div>
+            )}
         </div>
     );
 }

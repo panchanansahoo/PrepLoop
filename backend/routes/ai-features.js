@@ -317,7 +317,7 @@ router.post(
         totalQuestions = null,
       } = req.body;
       const userId = req.user.id;
-      const requestId = req.id;
+      const requestId = req.requestId;
 
       logger.info('Interview start request', {
         userId,
@@ -378,7 +378,7 @@ router.post(
         interviewMode = process.env.AI_INTERVIEW_MODE || 'full_realtime',
       } = req.body;
       const userId = req.user.id;
-      const requestId = req.id;
+      const requestId = req.requestId;
 
       logger.info('Interview response', {
         userId,
@@ -424,7 +424,7 @@ router.post(
     try {
       const { sessionId } = req.params;
       const userId = req.user.id;
-      const requestId = req.id;
+      const requestId = req.requestId;
 
       logger.info('Interview completion', {
         userId,

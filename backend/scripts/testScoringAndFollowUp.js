@@ -66,7 +66,7 @@ function runFollowUpTests() {
   const codeNoErrorHandling = InterviewFollowUpRulesService.decideBranch({
     analysis: { score: 72 },
     interviewContext: {},
-    candidateResponse: 'Here is my solution:\n--- Code ---\ndef solve(arr):\n  return sorted(arr)',
+    candidateResponse: 'Here is my solution:\n---CODE_MARKER_test123---\ndef solve(arr):\n  return sorted(arr)',
     candidateCode: 'def solve(arr):\n  return sorted(arr)',
   });
   assert.ok(

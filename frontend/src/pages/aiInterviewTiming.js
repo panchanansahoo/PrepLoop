@@ -15,7 +15,10 @@
 // for snappy conversational feel.
 export function getThinkingDelayMs(text = '') {
     const length = String(text || '').trim().length;
-    return Math.min(800, 200 + length * 1.5);
+    const base = Math.min(800, 200 + length * 1.5);
+    // Add ±30% randomness to avoid predictable timing
+    const jitter = base * 0.3 * (Math.random() * 2 - 1);
+    return Math.round(Math.min(1000, Math.max(200, base + jitter)));
 }
 
 // ── Interviewer Reaction ────────────────────────────────────────────

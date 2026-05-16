@@ -49,6 +49,8 @@ function InterviewResults({
         );
     }
 
+const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
+
     return (
         <div className="ai-interview-page">
             <header className="ai-topbar">
@@ -160,14 +162,14 @@ function InterviewResults({
                         <div className="ai-result-stat-icon" style={{ background: 'rgba(251,191,36,0.1)', color: '#fbbf24' }}><Star size={18} /></div>
                         <div className="ai-result-stat-info">
                             <div className="ai-result-stat-label">Key Moments</div>
-                            <div className="ai-result-stat-value">{a?.keyMoments?.length || 0}</div>
+                            <div className="ai-result-stat-value">{ensureArray(a?.keyMoments).length}</div>
                         </div>
                     </div>
                     <div className="ai-result-stat">
                         <div className="ai-result-stat-icon" style={{ background: 'rgba(168,85,247,0.1)', color: '#a855f7' }}><Gauge size={18} /></div>
                         <div className="ai-result-stat-info">
                             <div className="ai-result-stat-label">Categories</div>
-                            <div className="ai-result-stat-value">{a?.categories?.length || 0}</div>
+                            <div className="ai-result-stat-value">{ensureArray(a?.categories).length}</div>
                         </div>
                     </div>
                     {timingAnalysis && (
@@ -210,11 +212,11 @@ function InterviewResults({
                             <div className="ai-result-card">
                                 <h3 className="ai-result-card-title"><Target size={16} /> Competency Breakdown</h3>
                                 <div className="ai-result-categories">
-                                    {a.categories.map((cat, i) => (
+                                    {ensureArray(a.categories).map((cat, i) => (
                                         <div key={i} className="ai-result-cat">
                                             <div className="ai-result-cat-header">
                                                 <div className="ai-result-cat-label">
-                                                    <cat.icon size={14} style={{ color: cat.color }} />
+                                                    {cat.icon && typeof cat.icon !== 'string' ? <cat.icon size={14} style={{ color: cat.color }} /> : <Target size={14} style={{ color: cat.color }} />}
                                                     {cat.name}
                                                 </div>
                                                 <span className="ai-result-cat-score" style={{ color: cat.color }}>{cat.score}/10</span>
@@ -232,7 +234,7 @@ function InterviewResults({
                                 <div className="ai-result-card ai-result-card--green">
                                     <h3 className="ai-result-card-title"><ThumbsUp size={16} style={{ color: '#22c55e' }} /> Strengths</h3>
                                     <ul className="ai-result-list">
-                                        {a.strengths.map((s, i) => (
+                                        {ensureArray(a.strengths).map((s, i) => (
                                             <li key={i}><CheckCircle size={14} className="ai-result-list-icon ai-result-list-icon--green" /> {s}</li>
                                         ))}
                                     </ul>
@@ -240,7 +242,7 @@ function InterviewResults({
                                 <div className="ai-result-card ai-result-card--amber">
                                     <h3 className="ai-result-card-title"><Lightbulb size={16} style={{ color: '#f59e0b' }} /> Areas to Improve</h3>
                                     <ul className="ai-result-list">
-                                        {a.improvements.map((s, i) => (
+                                        {ensureArray(a.improvements).map((s, i) => (
                                             <li key={i}><AlertTriangle size={14} className="ai-result-list-icon ai-result-list-icon--amber" /> {s}</li>
                                         ))}
                                     </ul>
@@ -257,15 +259,15 @@ function InterviewResults({
                                 <p className="ai-result-analysis-text">
                                     Based on your {a.stats.questionsAnswered} questions answered across {a.stats.duration} of interview time,
                                     here is a detailed breakdown of your performance across each competency area.
-                                    Your strongest area was <strong>{a.categories.reduce((a, b) => a.score > b.score ? a : b).name}</strong> with
-                                    a score of {a.categories.reduce((a, b) => a.score > b.score ? a : b).score}/10.
+                                    Your strongest area was <strong>{ensureArray(a.categories).length > 0 ? ensureArray(a.categories).reduce((acc, curr) => acc.score > curr.score ? acc : curr).name : 'General'}</strong> with
+                                    a score of {ensureArray(a.categories).length > 0 ? ensureArray(a.categories).reduce((acc, curr) => acc.score > curr.score ? acc : curr).score : (a.overallScore || 0)}/10.
                                 </p>
                             </div>
-                            {a.categories.map((cat, i) => (
+                            {ensureArray(a.categories).map((cat, i) => (
                                 <div key={i} className="ai-result-card">
                                     <div className="ai-result-analysis-cat-header">
                                         <div className="ai-result-cat-label">
-                                            <cat.icon size={18} style={{ color: cat.color }} />
+                                            {cat.icon && typeof cat.icon !== 'string' ? <cat.icon size={18} style={{ color: cat.color }} /> : <Target size={18} style={{ color: cat.color }} />}
                                             <strong>{cat.name}</strong>
                                         </div>
                                         <div className="ai-result-analysis-score" style={{ color: cat.color }}>
@@ -300,11 +302,11 @@ function InterviewResults({
                                     </p>
                                 </div>
                             )}
-                            {perQBreakdown && perQBreakdown.length > 0 ? (
+                            {ensureArray(perQBreakdown).length > 0 ? (
                                 <div className="ai-result-card">
                                     <h3 className="ai-result-card-title"><Target size={16} /> Per-Question Scores</h3>
                                     <div className="ai-result-q-breakdown">
-                                        {perQBreakdown.map((q, i) => (
+                                        {ensureArray(perQBreakdown).map((q, i) => (
                                             <div key={i} className="ai-result-q-row">
                                                 <div className="ai-result-q-num">Q{q.questionNumber || i + 1}</div>
                                                 <div className="ai-result-q-content">
@@ -336,13 +338,13 @@ function InterviewResults({
                     {/* KEY MOMENTS TAB */}
                     {resultTab === 'moments' && a && (
                         <div className="ai-result-moments">
-                            {a.keyMoments.length === 0 ? (
+                            {ensureArray(a.keyMoments).length === 0 ? (
                                 <div className="ai-result-card ai-result-empty-state">
                                     <Star size={32} className="ai-result-empty-icon" />
                                     <p className="ai-result-empty-text">No key moments recorded for this session</p>
                                 </div>
                             ) : (
-                                a.keyMoments.map((moment, i) => (
+                                ensureArray(a.keyMoments).map((moment, i) => (
                                     <div
                                         key={i}
                                         className={`ai-result-moment ${expandedMoment === i ? 'ai-result-moment--expanded' : ''}`}
@@ -433,10 +435,10 @@ function InterviewResults({
                             <div className="ai-result-card">
                                 <h3 className="ai-result-card-title"><Eye size={16} /> Conversation Transcript</h3>
                                 <div className="ai-result-transcript">
-                                    {conversation.length === 0 ? (
+                                    {ensureArray(conversation).length === 0 ? (
                                         <p className="ai-result-empty-text" style={{ textAlign: 'center', padding: 24 }}>No conversation data available</p>
                                     ) : (
-                                        conversation.map((msg, i) => (
+                                        ensureArray(conversation).map((msg, i) => (
                                             <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
                                                 <div className="ai-result-transcript-role">
                                                     {msg.role === 'interviewer' ? <Sparkles size={12} /> : <User size={12} />}
@@ -453,13 +455,13 @@ function InterviewResults({
                 </div>
 
                 {/* ── AI Next Steps ── */}
-                {a?.nextSteps && a.nextSteps.length > 0 && (
+                {ensureArray(a?.nextSteps).length > 0 && (
                     <div className="ai-results-next-steps">
                         <div className="ai-results-next-steps-header">
                             <Target size={15} /> Recommended Next Steps
                         </div>
                         <div className="ai-results-next-steps-list">
-                            {a.nextSteps.map((step, i) => (
+                            {ensureArray(a.nextSteps).map((step, i) => (
                                 <div key={i} className="ai-results-next-step-item">
                                     <span className="ai-results-next-step-num">{i + 1}</span>
                                     {step}

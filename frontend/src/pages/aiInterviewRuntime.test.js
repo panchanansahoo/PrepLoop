@@ -12,6 +12,7 @@ import {
   getSupportedInterviewRuntimeModes,
   isStrictRealtimeMode,
   resolveSubmittedAnswer,
+  CODE_DELIMITER_MARKER,
 } from './aiInterviewRuntime';
 
 describe('aiInterviewRuntime', () => {
@@ -43,7 +44,7 @@ describe('aiInterviewRuntime', () => {
       })
     ).toEqual({
       answer: 'Final spoken answer',
-      fullAnswer: 'Final spoken answer\n\n--- Code ---\nprint("hello")',
+      fullAnswer: `Final spoken answer\n\n${CODE_DELIMITER_MARKER}\nprint("hello")`,
     });
   });
 

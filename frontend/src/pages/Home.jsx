@@ -783,7 +783,7 @@ export default function Home() {
                     transition: 'all 0.3s ease',
                     textDecoration: 'none'
                   }}>
-                    Watch Video <ChevronRight size={16} />
+                    Features <ChevronRight size={16} />
                   </a>
                 </div>
               </div>

@@ -55,10 +55,21 @@ const NATURAL_PREFIXES = [
   'Sure. ', 'Alright, ', 'Fair enough. ', 'Makes sense. ',
 ];
 
+function deterministicHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
 function maybeAddNaturalPrefix(message) {
-  if (Math.random() > 0.3) return message;
-  const prefix = NATURAL_PREFIXES[Math.floor(Math.random() * NATURAL_PREFIXES.length)];
-  // Don't double-prefix if message already starts with a natural word
+  const msgHash = deterministicHash(message);
+  // 30% injection rate via hash modulus (deterministic per message text)
+  if (msgHash % 100 >= 30) return message;
+  const prefix = NATURAL_PREFIXES[msgHash % NATURAL_PREFIXES.length];
   if (/^(okay|right|interesting|got it|mm|sure|alright|fair|makes)/i.test(message)) return message;
   return prefix + message.charAt(0).toLowerCase() + message.slice(1);
 }
@@ -77,7 +88,7 @@ function buildConversationSummary(turnSummaries = [], askedTopics = []) {
 
 // ── Code excerpt sanitizer ──────────────────────────────────────────
 function extractCodeExcerpt(candidateResponse, maxLines = 15) {
-  const codeMatch = candidateResponse.match(/---\s*Code\s*---\n?([\s\S]*)/i);
+  const codeMatch = candidateResponse.match(/---CODE_MARKER_[a-f0-9-]+---\n?([\s\S]*)/i) || candidateResponse.match(/---\s*Code\s*---\n?([\s\S]*)/i);
   if (!codeMatch) return null;
 
   const code = codeMatch[1].trim();

@@ -5040,6 +5040,253 @@
   50% { opacity: 1; }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   Exit confirmation overlay
+   ═══════════════════════════════════════════════════════════ */
+.ai-vc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: ai-vc-fade-in 0.15s ease-out;
+}
+
+@keyframes ai-vc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.ai-vc-confirm-dialog {
+  background: var(--ai-surface, #1a1a2e);
+  border: 1px solid var(--ai-border, #2a2a3e);
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: ai-vc-scale-in 0.2s ease-out;
+}
+
+@keyframes ai-vc-scale-in {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.ai-vc-confirm-dialog h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 8px;
+}
+
+.ai-vc-confirm-dialog p {
+  color: var(--ai-text-secondary, #a0a0b8);
+  font-size: 14px;
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.ai-vc-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.ai-vc-confirm-btn {
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ai-vc-confirm-btn--cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ai-text-secondary, #a0a0b8);
+}
+
+.ai-vc-confirm-btn--cancel:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+}
+
+.ai-vc-confirm-btn--confirm {
+  background: #ef4444;
+  color: #fff;
+}
+
+.ai-vc-confirm-btn--confirm:hover {
+  background: #dc2626;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Keyboard help overlay
+   ═══════════════════════════════════════════════════════════ */
+.ai-vc-keyboard-help {
+  background: var(--ai-surface, #1a1a2e);
+  border: 1px solid var(--ai-border, #2a2a3e);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  animation: ai-vc-scale-in 0.2s ease-out;
+}
+
+.ai-vc-keyboard-help-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.ai-vc-keyboard-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--ai-text-secondary, #a0a0b8);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+}
+
+.ai-vc-keyboard-close:hover {
+  color: #fff;
+}
+
+.ai-vc-keyboard-help-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-vc-shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ai-text-secondary, #a0a0b8);
+  font-size: 13px;
+}
+
+.ai-vc-shortcut-row kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 26px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Ask a Question inline input
+   ═══════════════════════════════════════════════════════════ */
+.ai-vc-ask-input {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  background: var(--ai-surface, #1a1a2e);
+  border: 1px solid var(--ai-border, #2a2a3e);
+  border-radius: 12px;
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  animation: ai-vc-scale-in 0.15s ease-out;
+  min-width: 280px;
+}
+
+.ai-vc-ask-input input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+}
+
+.ai-vc-ask-input input:focus {
+  border-color: var(--ai-accent, #c4956a);
+}
+
+.ai-vc-ask-input input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.ai-vc-ask-input button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--ai-accent, #c4956a);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ai-vc-ask-input button:hover {
+  background: #b8865a;
+}
+
+.ai-vc-ask-input button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Awaiting answer mic state
+   ═══════════════════════════════════════════════════════════ */
+.ai-vc-ctrl--attention {
+  color: #f59e0b !important;
+  background: rgba(245, 158, 11, 0.12) !important;
+  animation: ai-vc-attention-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ai-vc-attention-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+  50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.15); }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Camera error status overlay
+   ═══════════════════════════════════════════════════════════ */
+.ai-vc-status-overlay {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 8px;
+  background: rgba(239, 68, 68, 0.9);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  animation: ai-vc-fade-in 0.15s ease-out;
+  z-index: 10;
+}
+
 /* Responsive: hide connection badge on small screens */
 @media (max-width: 600px) {
   .ai-vc-connection-badge {

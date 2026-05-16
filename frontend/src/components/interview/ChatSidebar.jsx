@@ -10,6 +10,8 @@ function FeedbackCard({ msg }) {
     const emoji = msg.score >= 80 ? '🌟' : msg.score >= 60 ? '👍' : '📝';
     const label = msg.score >= 80 ? 'Excellent' : msg.score >= 60 ? 'Good' : 'Needs Work';
 
+    const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
+
     return (
         <div className={`ai-chat-feedback-card ai-chat-feedback-card--${tier}`}>
             {/* Score Badge */}
@@ -25,19 +27,19 @@ function FeedbackCard({ msg }) {
             {/* Feedback Text */}
             <div className="ai-chat-feedback-text">{msg.content}</div>
             {/* Strengths */}
-            {msg.strengths && msg.strengths.length > 0 && (
+            {ensureArray(msg.strengths).length > 0 && (
                 <div className="ai-chat-feedback-section">
                     <div className="ai-chat-feedback-section-title ai-chat-feedback-section-title--strength">✓ Strengths</div>
-                    {msg.strengths.map((s, i) => (
+                    {ensureArray(msg.strengths).map((s, i) => (
                         <div key={i} className="ai-chat-feedback-item ai-chat-feedback-item--strength">• {s}</div>
                     ))}
                 </div>
             )}
             {/* Improvements */}
-            {msg.improvements && msg.improvements.length > 0 && (
+            {ensureArray(msg.improvements).length > 0 && (
                 <div className="ai-chat-feedback-section">
                     <div className="ai-chat-feedback-section-title ai-chat-feedback-section-title--improve">⬆ Improve</div>
-                    {msg.improvements.map((s, i) => (
+                    {ensureArray(msg.improvements).map((s, i) => (
                         <div key={i} className="ai-chat-feedback-item ai-chat-feedback-item--improve">• {s}</div>
                     ))}
                 </div>

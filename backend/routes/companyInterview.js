@@ -11,6 +11,7 @@ import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../services/companyQuestionService.js';
 import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../utils/voiceTelemetry.js';
 import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../utils/interviewFeedback.js';
+import { evaluateFresherAnswer } from '../services/interviewAnswerEvaluator.js';
 
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -1471,14 +1472,16 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       const nextQNumForMeta = isComplete ? null : qNum;
       const isNextQuestionAIGenerated = nextQNumForMeta !== null && nextQNumForMeta >= 2 && nextQNumForMeta <= 11;
 
+      const evaluated = evaluateFresherAnswer(userAnswer, 'HR', code);
+
       return res.json(withRuntime({
         feedback: feedbackMessage,
         followUpQuestion: isComplete ? '' : followUpQuestion,
         closingRemark: isComplete ? closingRemark : undefined,
         complete: isComplete,
-        score: deterministicScore(78, 15, qNum + (userAnswer?.length || 0)),
-        strengths: deterministicPick([['Clear communication'], ['Genuine engagement'], ['Good self-awareness']], qNum),
-        improvements: deterministicPick([['Add one concrete example'], ['Relate to team dynamics'], ['Show growth mindset']], qNum + 1),
+        score: evaluated.score,
+        strengths: evaluated.strengths,
+        improvements: evaluated.improvements,
         interviewerReaction: isComplete ? 'encouraging' : 'probing',
         thinkTime: 20,
         hint: 'Answer naturally and relate your response to your experience and values.',
@@ -1540,15 +1543,16 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     }
 
     const nextQNumForMeta = isComplete ? null : qNum;
+    const evaluated = evaluateFresherAnswer(userAnswer, 'Technical', code);
 
     return res.json(withRuntime({
       feedback: feedbackMessage,
       followUpQuestion: isComplete ? '' : followUpQuestion,
       closingRemark: isComplete ? closingRemark : undefined,
       complete: isComplete,
-      score: deterministicScore(72, 18, qNum + (userAnswer?.length || 0)),
-      strengths: deterministicPick([['Clear explanation'], ['Practical thinking'], ['Good communication']], qNum),
-      improvements: deterministicPick([['Mention edge cases'], ['Add more examples'], ['Explain trade-offs']], qNum + 1),
+      score: evaluated.score,
+      strengths: evaluated.strengths,
+      improvements: evaluated.improvements,
       interviewerReaction: isComplete ? 'encouraging' : 'probing',
       thinkTime: 20,
       hint: 'Explain your reasoning step by step, then mention trade-offs or real-world use cases.',
@@ -1752,8 +1756,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     const isLastQuestion = safeQuestionNumber > effectiveTotalQuestions;
 
     if (fresherScriptMode) {
-      const answerLen = userAnswer?.length || 0;
-      const score = Math.max(62, Math.min(94, deterministicScore(70, 18, safeQuestionNumber + answerLen)));
+      const evaluated = evaluateFresherAnswer(userAnswer, stage, code);
 
       if (isLastQuestion) {
         const shouldClose = isFinalNoAnswer(userAnswer);
@@ -1766,9 +1769,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
             followUpQuestion: loopQuestion,
             closingRemark: '',
             complete: false,
-            score,
-            strengths: ['Curiosity and engagement', 'Clear communication'],
-            improvements: ['Frame questions with role impact', 'Prioritize one question at a time'],
+            score: evaluated.score,
+            strengths: evaluated.strengths,
+            improvements: evaluated.improvements,
             interviewerReaction: 'encouraging',
             thinkTime: 20,
             hint: 'A concise, role-focused question is usually strongest at this stage.',
@@ -1784,9 +1787,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
           followUpQuestion: '',
           closingRemark: HR_CLOSING_MESSAGE,
           complete: true,
-          score,
-          strengths: ['Clear communication', 'Structured responses'],
-          improvements: ['Use concrete examples with measurable outcomes', 'Keep answers concise and impact-focused'],
+          score: evaluated.score,
+          strengths: evaluated.strengths,
+          improvements: evaluated.improvements,
           interviewerReaction: 'encouraging',
           thinkTime: 0,
           hint: '',
@@ -1803,9 +1806,9 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
         feedback: 'Good response. Your points were clear; adding one concrete result would make it stronger.',
         followUpQuestion: nextQuestion,
         complete: false,
-        score,
-        strengths: ['Communication clarity', 'Relevant examples'],
-        improvements: ['Add specific outcomes', 'Highlight trade-offs when technical'],
+        score: evaluated.score,
+        strengths: evaluated.strengths,
+        improvements: evaluated.improvements,
         interviewerReaction: safeQuestionNumber >= 11 ? 'encouraging' : 'probing',
         thinkTime: safeQuestionNumber >= 11 ? 20 : 35,
         hint: safeQuestionNumber >= 11 ? 'Ask about team structure, growth path, or first-90-day expectations.' : 'Use a simple structure: context, action, result.',

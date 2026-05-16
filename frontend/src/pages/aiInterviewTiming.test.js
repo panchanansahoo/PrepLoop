@@ -14,24 +14,35 @@ import {
 describe('aiInterviewTiming', () => {
     describe('getThinkingDelayMs', () => {
         it('returns 200ms baseline for empty input', () => {
-            expect(getThinkingDelayMs('')).toBe(200);
-            expect(getThinkingDelayMs()).toBe(200);
-            expect(getThinkingDelayMs(null)).toBe(200);
+            for (const input of ['', undefined, null]) {
+                const r = getThinkingDelayMs(input);
+                // base 200 + ±30% jitter, clamped to min 200 → [200, 260]
+                expect(r).toBeGreaterThanOrEqual(200);
+                expect(r).toBeLessThanOrEqual(260);
+            }
         });
 
         it('scales linearly with text length', () => {
-            const short = getThinkingDelayMs('hello');   // 5 chars → 200 + 7.5 = 207.5 → 207.5
-            const medium = getThinkingDelayMs('a'.repeat(100)); // 200 + 150 = 350
+            const short = getThinkingDelayMs('hello');   // 5 chars → 200 + 7.5 = 207.5 base
+            const medium = getThinkingDelayMs('a'.repeat(100)); // 200 + 150 = 350 base
             expect(short).toBeLessThan(medium);
         });
 
         it('caps at 800ms for very long answers', () => {
-            expect(getThinkingDelayMs('a'.repeat(1000))).toBe(800);
-            expect(getThinkingDelayMs('a'.repeat(5000))).toBe(800);
+            const result1 = getThinkingDelayMs('a'.repeat(1000));
+            const result2 = getThinkingDelayMs('a'.repeat(5000));
+            // base caps at 800, ±30% jitter → [560, 1040], clamped to [200, 1000] → [560, 1000]
+            expect(result1).toBeGreaterThanOrEqual(560);
+            expect(result1).toBeLessThanOrEqual(1000);
+            expect(result2).toBeGreaterThanOrEqual(560);
+            expect(result2).toBeLessThanOrEqual(1000);
         });
 
         it('handles whitespace-only input as empty', () => {
-            expect(getThinkingDelayMs('   ')).toBe(200);
+            const result = getThinkingDelayMs('   ');
+            // trimmed length is 0, same as empty → [200, 260]
+            expect(result).toBeGreaterThanOrEqual(200);
+            expect(result).toBeLessThanOrEqual(260);
         });
     });
 

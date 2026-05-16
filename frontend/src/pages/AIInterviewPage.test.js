@@ -3,8 +3,10 @@ import { getThinkingDelayMs, getQuestionTimeLimit } from './aiInterviewTiming';
 import { shouldAutoSubmitAnswer, getAdaptiveSilenceMs } from '../hooks/useVoiceAI';
 
 describe('AI interview timing helpers', () => {
-  it('caps thinking delay at 800ms', () => {
-    expect(getThinkingDelayMs('a'.repeat(1000))).toBe(800);
+  it('caps thinking delay at 800ms (with ±30% jitter)', () => {
+    const result = getThinkingDelayMs('a'.repeat(1000));
+    expect(result).toBeGreaterThanOrEqual(560);
+    expect(result).toBeLessThanOrEqual(1000);
   });
 
   it('returns known stage timing', () => {
