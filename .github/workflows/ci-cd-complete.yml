@@ -395,6 +395,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-staging, deploy-production]
     if: always()
+    permissions:
+      actions: write
     
     steps:
       - name: Delete old artifacts

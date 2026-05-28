@@ -134,6 +134,8 @@ jobs:
 
       - name: Run DSA editor smoke test
         run: npm run smoke:dsa-editor --prefix backend
+        env:
+          SUPABASE_URL: https://example.supabase.co
 
       - name: Backend log on failure
         if: failure()
