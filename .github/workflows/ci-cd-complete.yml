@@ -255,7 +255,7 @@ jobs:
     if: github.ref == 'refs/heads/develop'
     environment:
       name: staging
-      url: https://staging.preploop.com
+      url: https://staging.preploop.me
     
     steps:
       - name: Checkout code
@@ -267,13 +267,26 @@ jobs:
           name: frontend-build
           path: frontend/dist/
 
-      - name: Deploy to Vercel (Frontend)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontend
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Reset Vercel link
+        working-directory: frontend
+        run: rm -rf .vercel
+
+      - name: Pull Vercel project settings (preview)
+        working-directory: frontend
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel preview
+        working-directory: frontend
+        run: vercel deploy dist --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Azure (Backend)
         uses: azure/webapps-deploy@v2
@@ -285,7 +298,7 @@ jobs:
       - name: Run post-deployment tests
         run: |
           sleep 30
-          curl -f https://staging.preploop.com/health || exit 1
+          curl -f https://staging.preploop.me/health || exit 1
 
   # ============================================
   # Deploy to Production
@@ -297,7 +310,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     environment:
       name: production
-      url: https://preploop.com
+      url: https://preploop.me
     
     steps:
       - name: Checkout code
@@ -316,17 +329,29 @@ jobs:
             backend/package.json \
             frontend/package.json
 
-      - name: Deploy to Vercel (Frontend)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./frontend
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Reset Vercel link
+        working-directory: frontend
+        run: rm -rf .vercel
+
+      - name: Pull Vercel project settings (production)
+        working-directory: frontend
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel production
+        working-directory: frontend
+        run: vercel deploy dist --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Azure (Backend)
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
           app-name: preploop-backend-production
           publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PRODUCTION }}
@@ -335,16 +360,8 @@ jobs:
       - name: Run smoke tests
         run: |
           sleep 60
-          curl -f https://preploop.com/health || exit 1
-          curl -f https://preploop.com/api/monitoring/health || exit 1
-
-      - name: Notify deployment
-        uses: 8398a7/action-slack@v3
-        if: always()
-        with:
-          status: ${{ job.status }}
-          text: 'Production deployment ${{ job.status }}'
-          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          curl -f https://preploop.me/health || exit 1
+          curl -f https://preploop.me/api/monitoring/health || exit 1
 
   # ============================================
   # Performance Monitoring
@@ -360,8 +377,8 @@ jobs:
         uses: treosh/lighthouse-ci-action@v10
         with:
           urls: |
-            https://preploop.com
-            https://preploop.com/dashboard
+            https://preploop.me
+            https://preploop.me/dashboard
           uploadArtifacts: true
           temporaryPublicStorage: true
 
