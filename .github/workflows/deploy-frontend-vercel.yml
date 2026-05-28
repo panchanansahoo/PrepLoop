@@ -86,22 +86,19 @@ jobs:
         run: rm -rf .vercel
 
       - name: Pull Vercel project settings (preview)
-        working-directory: frontend
         run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Install frontend dependencies (preview)
-        run: npm ci --prefix frontend
-
       - name: Build frontend artifacts (preview)
-        working-directory: frontend
-        run: npm run build
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Vercel preview
-        working-directory: frontend
-        run: vercel deploy dist --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -157,22 +154,19 @@ jobs:
         run: rm -rf .vercel
 
       - name: Pull Vercel project settings (production)
-        working-directory: frontend
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Install frontend dependencies (production)
-        run: npm ci --prefix frontend
-
       - name: Build frontend artifacts (production)
-        working-directory: frontend
-        run: npm run build
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Vercel production
-        working-directory: frontend
-        run: vercel deploy dist --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
