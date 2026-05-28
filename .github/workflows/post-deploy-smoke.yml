@@ -28,22 +28,28 @@ jobs:
       - name: Resolve target environment URLs
         id: resolve
         shell: bash
+        env:
+          PROD_BACKEND: ${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}
+          PROD_FRONTEND: ${{ secrets.PRODUCTION_FRONTEND_URL }}
+          STG_BACKEND: ${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}
+          STG_FRONTEND: ${{ secrets.STAGING_FRONTEND_URL }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # For manual runs, default to production URLs.
-            echo "BACKEND_URL=${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
-            echo "FRONTEND_URL=${{ secrets.PRODUCTION_FRONTEND_URL }}" >> "$GITHUB_ENV"
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "BACKEND_URL=$PROD_BACKEND" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=$PROD_FRONTEND" >> "$GITHUB_ENV"
             echo "TARGET_ENV=production" >> "$GITHUB_ENV"
             exit 0
           fi
 
-          if [ "${{ github.event.workflow_run.head_branch }}" = "develop" ]; then
-            echo "BACKEND_URL=${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
-            echo "FRONTEND_URL=${{ secrets.STAGING_FRONTEND_URL }}" >> "$GITHUB_ENV"
+          if [ "$HEAD_BRANCH" = "develop" ]; then
+            echo "BACKEND_URL=$STG_BACKEND" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=$STG_FRONTEND" >> "$GITHUB_ENV"
             echo "TARGET_ENV=staging" >> "$GITHUB_ENV"
           else
-            echo "BACKEND_URL=${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}" >> "$GITHUB_ENV"
-            echo "FRONTEND_URL=${{ secrets.PRODUCTION_FRONTEND_URL }}" >> "$GITHUB_ENV"
+            echo "BACKEND_URL=$PROD_BACKEND" >> "$GITHUB_ENV"
+            echo "FRONTEND_URL=$PROD_FRONTEND" >> "$GITHUB_ENV"
             echo "TARGET_ENV=production" >> "$GITHUB_ENV"
           fi
 

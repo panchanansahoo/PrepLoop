@@ -48,11 +48,11 @@ jobs:
 
       - name: Resolve staging backend health URL
         shell: bash
+        env:
+          STAGING_HEALTH: ${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
         run: |
-          HEALTH_URL="${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}"
-          if [ -z "$HEALTH_URL" ]; then
-            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
-          fi
+          HEALTH_URL="${STAGING_HEALTH:-$FALLBACK_HEALTH}"
           if [ -z "$HEALTH_URL" ]; then
             echo "Missing staging backend health URL secret"
             echo "Set STAGING_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
@@ -119,11 +119,11 @@ jobs:
 
       - name: Resolve production backend health URL
         shell: bash
+        env:
+          PROD_HEALTH: ${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
         run: |
-          HEALTH_URL="${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}"
-          if [ -z "$HEALTH_URL" ]; then
-            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
-          fi
+          HEALTH_URL="${PROD_HEALTH:-$FALLBACK_HEALTH}"
           if [ -z "$HEALTH_URL" ]; then
             echo "Missing production backend health URL secret"
             echo "Set PRODUCTION_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"

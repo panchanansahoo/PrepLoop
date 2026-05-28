@@ -1,10 +1,9 @@
-name: PrepLoop CI/CD Pipeline
+name: "[Legacy] PrepLoop CI/CD Pipeline"
 
+# Superseded by ci.yml + deploy-orchestrator-vercel-azure.yml
+# Kept as manual-only for reference / emergency use.
 on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: '22.x'
