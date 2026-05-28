@@ -56,11 +56,11 @@ jobs:
 
       - name: Resolve staging health URL
         shell: bash
+        env:
+          STAGING_HEALTH: ${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
         run: |
-          HEALTH_URL="${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}"
-          if [ -z "$HEALTH_URL" ]; then
-            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
-          fi
+          HEALTH_URL="${STAGING_HEALTH:-$FALLBACK_HEALTH}"
           if [ -z "$HEALTH_URL" ]; then
             echo "Missing staging backend health URL secret"
             echo "Set STAGING_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
@@ -71,16 +71,14 @@ jobs:
       - name: Resolve staging Azure deployment target
         id: resolve_staging_azure
         shell: bash
+        env:
+          STAGING_APP: ${{ secrets.STAGING_AZURE_WEBAPP_NAME }}
+          FALLBACK_APP: ${{ secrets.AZURE_WEBAPP_NAME }}
+          STAGING_PROFILE: ${{ secrets.STAGING_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          FALLBACK_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         run: |
-          APP_NAME="${{ secrets.STAGING_AZURE_WEBAPP_NAME }}"
-          if [ -z "$APP_NAME" ]; then
-            APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
-          fi
-
-          PUBLISH_PROFILE="${{ secrets.STAGING_AZURE_WEBAPP_PUBLISH_PROFILE }}"
-          if [ -z "$PUBLISH_PROFILE" ]; then
-            PUBLISH_PROFILE="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
-          fi
+          APP_NAME="${STAGING_APP:-$FALLBACK_APP}"
+          PUBLISH_PROFILE="${STAGING_PROFILE:-$FALLBACK_PROFILE}"
 
           if [ -z "$APP_NAME" ] || [ -z "$PUBLISH_PROFILE" ]; then
             echo "Missing staging Azure deployment secrets"
@@ -89,10 +87,10 @@ jobs:
             exit 1
           fi
 
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           {
-            echo "app_name=$APP_NAME"
             echo "publish_profile<<EOF"
-            echo "$PUBLISH_PROFILE"
+            printf '%s\n' "$PUBLISH_PROFILE"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -138,11 +136,11 @@ jobs:
 
       - name: Resolve production health URL
         shell: bash
+        env:
+          PROD_HEALTH: ${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
         run: |
-          HEALTH_URL="${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}"
-          if [ -z "$HEALTH_URL" ]; then
-            HEALTH_URL="${{ secrets.BACKEND_HEALTHCHECK_URL }}"
-          fi
+          HEALTH_URL="${PROD_HEALTH:-$FALLBACK_HEALTH}"
           if [ -z "$HEALTH_URL" ]; then
             echo "Missing production backend health URL secret"
             echo "Set PRODUCTION_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
@@ -153,16 +151,14 @@ jobs:
       - name: Resolve production Azure deployment target
         id: resolve_production_azure
         shell: bash
+        env:
+          PROD_APP: ${{ secrets.PRODUCTION_AZURE_WEBAPP_NAME }}
+          FALLBACK_APP: ${{ secrets.AZURE_WEBAPP_NAME }}
+          PROD_PROFILE: ${{ secrets.PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE }}
+          FALLBACK_PROFILE: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
         run: |
-          APP_NAME="${{ secrets.PRODUCTION_AZURE_WEBAPP_NAME }}"
-          if [ -z "$APP_NAME" ]; then
-            APP_NAME="${{ secrets.AZURE_WEBAPP_NAME }}"
-          fi
-
-          PUBLISH_PROFILE="${{ secrets.PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE }}"
-          if [ -z "$PUBLISH_PROFILE" ]; then
-            PUBLISH_PROFILE="${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}"
-          fi
+          APP_NAME="${PROD_APP:-$FALLBACK_APP}"
+          PUBLISH_PROFILE="${PROD_PROFILE:-$FALLBACK_PROFILE}"
 
           if [ -z "$APP_NAME" ] || [ -z "$PUBLISH_PROFILE" ]; then
             echo "Missing production Azure deployment secrets"
@@ -171,10 +167,10 @@ jobs:
             exit 1
           fi
 
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
           {
-            echo "app_name=$APP_NAME"
             echo "publish_profile<<EOF"
-            echo "$PUBLISH_PROFILE"
+            printf '%s\n' "$PUBLISH_PROFILE"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
