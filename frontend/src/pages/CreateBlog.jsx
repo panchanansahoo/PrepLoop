@@ -4,6 +4,7 @@ import { ArrowLeft, Image as ImageIcon, Loader, Save, FileText, Mail } from 'luc
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 // --- EDITOR SWITCH ---
 // Use 'SimpleEditor' if Tiptap dependencies are broken/missing (White Screen fix).
@@ -48,9 +49,8 @@ export default function CreateBlog() {
 
     setSaving(true);
     try {
-      const response = await fetch(`${API_URL}/api/blog`, {
+      const response = await authFetch(`${API_URL}/api/blog`, {
         method: 'POST',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify({
           title,
           content,

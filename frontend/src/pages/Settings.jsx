@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { Bell, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
+import './Dashboard.css';
 
 export default function Settings() {
     const { user, logout } = useAuth();
@@ -35,9 +37,7 @@ export default function Settings() {
         const fetchSettings = async () => {
             if (!user) return;
             try {
-                const res = await fetch('/api/user/settings', {
-                    headers: buildAuthHeaders(user)
-                });
+                const res = await authFetch('/api/user/settings');
                 if (res.ok) {
                     const data = await res.json();
                     if (data.settings) {
@@ -62,9 +62,8 @@ export default function Settings() {
         setStatus('idle');
         try {
             syncLocalPreferences(settings);
-            const res = await fetch('/api/user/settings', {
+            const res = await authFetch('/api/user/settings', {
                 method: 'PUT',
-                headers: buildAuthHeaders(user),
                 body: JSON.stringify(settings)
             });
             if (!res.ok) {

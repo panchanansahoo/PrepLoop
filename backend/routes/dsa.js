@@ -2,6 +2,7 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { all425Problems } from '../data/allProblems.js';
+import { aiCallWithRetry } from '../utils/aiClient.js';
 import Groq from 'groq-sdk';
 
 const router = express.Router();
@@ -350,6 +351,58 @@ router.get('/progress', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching progress:', error);
     res.status(500).json({ error: 'Failed to fetch progress' });
+  }
+});
+
+router.post('/ai', optionalAuth, async (req, res) => {
+  try {
+    const { prompt, code, language, problemId } = req.body;
+
+    if (!prompt || !prompt.trim()) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
+
+    if (!groq) {
+      return res.json({
+        response: "AI assistant is not available right now. Please try again later.",
+        degraded: true,
+      });
+    }
+
+    const systemPrompt = `You are an expert DSA coding assistant integrated into a LeetCode-style code editor. You help users understand algorithms, debug their code, and improve their solutions.
+
+Guidelines:
+- Be concise and technically precise
+- When explaining errors, identify the root cause and suggest specific fixes
+- When asked about complexity, analyze time and space complexity
+- When reviewing code, point out bugs, edge cases, and optimization opportunities
+- Use markdown formatting with code blocks when showing code
+- Do NOT write the entire solution unless the user asks for it`;
+
+    const completion = await aiCallWithRetry({
+      operation: () => groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.5,
+        max_tokens: 2048,
+      }),
+      timeoutMs: 15000,
+      maxRetries: 2,
+      baseDelayMs: 250,
+    });
+
+    const responseContent = completion.choices?.[0]?.message?.content || '';
+
+    res.json({ response: responseContent });
+  } catch (error) {
+    console.error('Error in DSA AI chat:', error.message || error);
+    res.json({
+      response: "I encountered an error processing your request. Please try again.",
+      degraded: true,
+    });
   }
 });
 

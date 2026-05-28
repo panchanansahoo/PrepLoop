@@ -1,10 +1,13 @@
 import express from 'express';
 import Groq from 'groq-sdk';
-import pdf from 'pdf-parse';
+import { createRequire } from 'module';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import multer from 'multer';
+
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 // Multer memory storage for resume uploads
 const resumeUploader = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });

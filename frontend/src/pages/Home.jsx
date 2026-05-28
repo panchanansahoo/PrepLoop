@@ -363,8 +363,19 @@ function ActivityTicker() {
       height: '38px'
     }}>
       <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e', flexShrink: 0, animation: 'pulse-dot 2s infinite' }} />
-      <span className="ticker-text" key={currentIndex} style={{ whiteSpace: 'nowrap', animation: 'fadeSlideUp 0.4s ease', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        {activity.icon} {activity.text}
+      <span className="ticker-text" key={currentIndex} style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        flex: 1,
+        whiteSpace: 'nowrap',
+        animation: 'fadeSlideUp 0.4s ease',
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>{activity.icon}</span>
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{activity.text}</span>
       </span>
       <span style={{ color: 'var(--text-muted)', fontSize: '11px', flexShrink: 0 }}>{activity.time}</span>
     </div>
@@ -386,29 +397,63 @@ function JobUpdatesPreview() {
     if (!el) return;
 
     let fetched = false;
+
+    const fetchJobs = async () => {
+      if (fetched) return;
+      fetched = true;
+      try {
+        const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+        setJobs((data.jobs || []).slice(0, 3));
+      } catch (err) {
+        console.error('Failed to fetch jobs preview:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !fetched) {
-          fetched = true;
+        if (entry.isIntersecting) {
           observer.disconnect();
-          const fetchJobs = async () => {
-            try {
-              const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-              const { data } = await axios.get(`${API}/api/jobs?limit=3`);
-              setJobs(data.jobs || []);
-            } catch (err) {
-              console.error('Failed to fetch jobs preview:', err);
-            } finally {
-              setLoading(false);
-            }
-          };
           fetchJobs();
         }
       },
       { rootMargin: '200px' } // Start fetching 200px before visible
     );
+
     observer.observe(el);
-    return () => observer.disconnect();
+
+    // Background prefetch: try to fetch on idle (or after short timeout)
+    // This makes the jobs appear quickly for most users even if
+    // the section isn't immediately scrolled into view.
+    let idleHandle = null;
+    const schedulePrefetch = () => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        idleHandle = window.requestIdleCallback(() => {
+          // If already fetched via observer, this will no-op.
+          fetchJobs();
+        }, { timeout: 1000 });
+      } else {
+        // Fallback: fetch after a short delay
+        idleHandle = setTimeout(() => {
+          fetchJobs();
+        }, 800);
+      }
+    };
+
+    schedulePrefetch();
+
+    return () => {
+      observer.disconnect();
+      if (idleHandle) {
+        if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+          window.cancelIdleCallback(idleHandle);
+        } else {
+          clearTimeout(idleHandle);
+        }
+      }
+    };
   }, []);
 
   // Color palette for company initials
@@ -490,20 +535,20 @@ function JobUpdatesPreview() {
                   position: 'relative',
                   overflow: 'hidden',
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
-                  e.currentTarget.style.background = 'var(--bg-card-hover)';
-                  e.currentTarget.style.transform = 'translateY(-4px)';
-                  e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.05)';
-                  e.currentTarget.querySelector('.card-accent').style.opacity = '1';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                  e.currentTarget.style.background = 'var(--bg-card)';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = 'none';
-                  e.currentTarget.querySelector('.card-accent').style.opacity = '0';
-                }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
+                    e.currentTarget.style.background = 'var(--bg-card-hover)';
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(139,92,246,0.05)';
+                    e.currentTarget.querySelector('.card-accent').style.opacity = '1';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = 'var(--border)';
+                    e.currentTarget.style.background = 'var(--bg-card)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                    e.currentTarget.querySelector('.card-accent').style.opacity = '0';
+                  }}
                 >
                   {/* Gradient top accent */}
                   <div className="card-accent" style={{
@@ -604,16 +649,16 @@ function JobUpdatesPreview() {
                         textDecoration: 'none', transition: 'all 0.3s ease',
                         boxShadow: '0 2px 12px rgba(139,92,246,0.25)', marginLeft: 'auto'
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
-                        e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,92,246,0.4)';
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'linear-gradient(135deg, #8b5cf6, #6366f1)';
-                        e.currentTarget.style.boxShadow = '0 2px 12px rgba(139,92,246,0.25)';
-                        e.currentTarget.style.transform = 'translateY(0)';
-                      }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #7c3aed, #4f46e5)';
+                          e.currentTarget.style.boxShadow = '0 4px 20px rgba(139,92,246,0.4)';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'linear-gradient(135deg, #8b5cf6, #6366f1)';
+                          e.currentTarget.style.boxShadow = '0 2px 12px rgba(139,92,246,0.25)';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                        }}
                       >
                         Apply Now <ExternalLink size={13} />
                       </a>
@@ -637,7 +682,7 @@ function JobUpdatesPreview() {
 
         {/* View All CTA */}
         <div style={{ textAlign: 'center' }}>
-          <Button asChild size="lg" variant="outline" className="h-[48px] px-8 text-base">
+          <Button asChild size="lg" variant="outline" className="h-12 px-8 text-base">
             <Link to="/job-updates">
               View All Job Updates <ArrowRight size={16} style={{ marginLeft: '6px' }} />
             </Link>
@@ -722,32 +767,32 @@ export default function Home() {
 
               <h1 style={{ fontSize: 'clamp(34px, 8vw, 80px)', lineHeight: '1.05', fontWeight: '600', marginBottom: '32px', letterSpacing: '-0.03em' }}>
                 Accelerate Your <br />
-                <span className="text-gradient">Career Growth</span>
+                <span className="text-gradient">Career</span> Growth
               </h1>
 
               <p style={{ fontSize: 'clamp(16px, 3.8vw, 20px)', lineHeight: '1.6', color: 'var(--zinc-400)', maxWidth: '540px', marginBottom: '48px' }}>
                 Master technical interviews with AI-driven mock sessions and personalized feedback.
               </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 'fit-content' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '40px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', width: 'fit-content' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', marginBottom: '40px' }}>
                   <span style={{ fontSize: '11px', letterSpacing: '0.15em', fontWeight: '700', color: '#888', marginBottom: '16px', textTransform: 'uppercase' }}>
                     LAUNCHED ON
                   </span>
-                  <div style={{ display: 'flex', gap: '24px', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '24px', alignItems: 'center', justifyContent: 'flex-start', flexWrap: 'wrap' }}>
                     {/* Fazier Badge */}
-                    <a href="https://fazier.com/launches/www.preploop.me" target="_blank" rel="noopener noreferrer" 
-                      style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
+                    <a href="https://fazier.com/launches/www.preploop.me" target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-block', transition: 'transform 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                       <img src="https://fazier.com/api/v1//public/badges/launch_badges.svg?badge_type=launched&theme=light" width="120" alt="Fazier badge" />
                     </a>
 
                     {/* Product Hunt Badge */}
-                    <a href="https://www.producthunt.com/products/preploop?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-preploop" target="_blank" rel="noopener noreferrer" 
-                      style={{ display: 'inline-block', transition: 'transform 0.2s' }} 
-                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'} 
+                    <a href="https://www.producthunt.com/products/preploop?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-preploop" target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'inline-block', transition: 'transform 0.2s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                       onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
                       <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1127272&theme=light&t=1776597903520" width="250" height="54" alt="PrepLoop - All‑in‑one AI platform for tech interview prep | Product Hunt" />
@@ -755,7 +800,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-start' }}>
                   <Link to="/dashboard" className="btn-hero-primary" style={{
                     position: 'relative',
                     borderRadius: '999px',
@@ -770,7 +815,7 @@ export default function Home() {
                   }}>
                     Start for free
                   </Link>
-                  
+
                   <a href="#features" className="btn-hero-outline" style={{
                     position: 'relative',
                     borderRadius: '999px',
@@ -934,20 +979,20 @@ export default function Home() {
                 boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-6px)';
-                e.currentTarget.style.borderColor = f.color;
-                e.currentTarget.style.boxShadow = `0 12px 40px ${f.color}30, inset 0 0 0 1px ${f.color}20`;
-                e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1.1) rotate(5deg)';
-                e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(6px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.borderColor = 'var(--border)';
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1) rotate(0deg)';
-                e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(0)';
-              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-6px)';
+                  e.currentTarget.style.borderColor = f.color;
+                  e.currentTarget.style.boxShadow = `0 12px 40px ${f.color}30, inset 0 0 0 1px ${f.color}20`;
+                  e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1.1) rotate(5deg)';
+                  e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(6px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.borderColor = 'var(--border)';
+                  e.currentTarget.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.1)';
+                  e.currentTarget.querySelector('.feature-icon-wrapper').style.transform = 'scale(1) rotate(0deg)';
+                  e.currentTarget.querySelector('.feature-arrow').style.transform = 'translateX(0)';
+                }}
               >
                 {/* Tag */}
                 {f.tag && (
@@ -1167,22 +1212,22 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '48px' }}>
-            <button onClick={prevTestimonial} style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              width: '48px', height: '48px', borderRadius: '12px', 
-              background: 'var(--bg-card)', border: '1px solid var(--border)', 
+            <button onClick={prevTestimonial} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '48px', height: '48px', borderRadius: '12px',
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
               color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-            }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+            }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}>
               <ChevronLeft size={20} />
             </button>
-            <button onClick={nextTestimonial} style={{ 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', 
-              width: '48px', height: '48px', borderRadius: '12px', 
-              background: 'var(--bg-card)', border: '1px solid var(--border)', 
+            <button onClick={nextTestimonial} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: '48px', height: '48px', borderRadius: '12px',
+              background: 'var(--bg-card)', border: '1px solid var(--border)',
               color: 'var(--text-primary)', cursor: 'pointer', transition: 'all 0.2s',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-            }} onMouseEnter={e => e.currentTarget.style.background='var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background='var(--bg-card)'}>
+            }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}>
               <ChevronRight size={20} />
             </button>
           </div>
@@ -1410,18 +1455,18 @@ export default function Home() {
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-card-hover)';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--bg-card)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-card-hover)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'var(--bg-card)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
             >
               <Mail size={18} /> support@preploop.me
             </a>
-            
+
             {/* Background 'FAQ' Watermark */}
             <div style={{
               position: 'absolute',
@@ -1457,20 +1502,20 @@ export default function Home() {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   boxShadow: isOpen ? '0 8px 32px rgba(139,92,246,0.1), inset 0 0 0 1px rgba(139,92,246,0.05)' : 'none'
                 }}
-                onMouseEnter={(e) => {
-                  if (!isOpen) {
-                    e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
-                    e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.1)';
-                    e.currentTarget.style.background = 'var(--bg-card-hover)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isOpen) {
-                    e.currentTarget.style.borderColor = 'var(--border)';
-                    e.currentTarget.style.boxShadow = 'none';
-                    e.currentTarget.style.background = 'var(--bg-card)';
-                  }
-                }}
+                  onMouseEnter={(e) => {
+                    if (!isOpen) {
+                      e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.4)';
+                      e.currentTarget.style.boxShadow = '0 8px 24px rgba(139, 92, 246, 0.1)';
+                      e.currentTarget.style.background = 'var(--bg-card-hover)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isOpen) {
+                      e.currentTarget.style.borderColor = 'var(--border)';
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.background = 'var(--bg-card)';
+                    }
+                  }}
                 >
                   <button
                     onClick={() => setOpenFaq(isOpen ? null : i)}
@@ -1487,19 +1532,19 @@ export default function Home() {
                       color: 'var(--text-primary)',
                     }}
                   >
-                    <span style={{ 
-                      fontSize: '14px', 
-                      fontWeight: '700', 
-                      color: isOpen ? 'var(--text-primary)' : 'var(--text-muted)', 
+                    <span style={{
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      color: isOpen ? 'var(--text-primary)' : 'var(--text-muted)',
                       fontFamily: 'var(--font-mono, monospace)',
                       width: '28px'
                     }}>
                       {num}
                     </span>
-                    <span style={{ 
-                      flex: 1, 
-                      fontSize: '18px', 
-                      fontWeight: '500', 
+                    <span style={{
+                      flex: 1,
+                      fontSize: '18px',
+                      fontWeight: '500',
                       lineHeight: '1.4',
                       color: isOpen ? 'var(--text-primary)' : 'var(--text-secondary)'
                     }}>

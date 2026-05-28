@@ -13,6 +13,7 @@ import { PROBLEMS } from '../data/problemsDatabase';
 import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../data/editorThemes';
 import { markProblemAsAttempted } from '../data/dsaLearningProgress';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -198,7 +199,7 @@ export default function DSACodeEditor() {
   // ─── Fetch DB problem for examples/constraints ───
   useEffect(() => {
     if (problem && problem.id && !isNaN(parseInt(problem.id))) {
-      fetch(`${API_URL}/api/dsa/problems/${problem.id}`, { headers: getAuthHeaders() })
+      authFetch(`${API_URL}/api/dsa/problems/${problem.id}`)
         .then(r => r.json())
         .then(data => { if (data.problem) setDbProblem(data.problem); })
         .catch(() => { });
@@ -426,9 +427,8 @@ export default function DSACodeEditor() {
     try {
       const resolvedProblemId = problem?.id || problemId;
       // Use /run endpoint with problemId for structured test case execution
-      const res = await fetch(`${API_URL}/api/practice/run`, {
+      const res = await authFetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ code, language, problemId: resolvedProblemId }),
       });
 
@@ -490,9 +490,8 @@ export default function DSACodeEditor() {
     try {
       const resolvedProblemId = problem?.id || problemId;
 
-      const res = await fetch(`${API_URL}/api/practice/submit`, {
+      const res = await authFetch(`${API_URL}/api/practice/submit`, {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ problemId: resolvedProblemId, code, language }),
       });
 
@@ -587,6 +586,18 @@ export default function DSACodeEditor() {
       monacoRef.current.editor.setTheme(themeId);
     }
   };
+
+  // Automatically change the global theme (and sidebar color) to match the code editor theme
+  useEffect(() => {
+    const isLightTheme = editorTheme.includes('light');
+    document.documentElement.setAttribute('data-theme', isLightTheme ? 'light' : 'dark');
+    
+    return () => {
+      // Restore the user's preferred global theme when unmounting
+      const globalTheme = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', globalTheme);
+    };
+  }, [editorTheme]);
 
   const langInfo = LANGUAGES.find(l => l.id === language) || LANGUAGES[0];
 

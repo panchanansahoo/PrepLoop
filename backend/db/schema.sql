@@ -25,6 +25,7 @@ CREATE TABLE profiles (
   bio TEXT,
   skills TEXT,
   education TEXT,
+  qualification TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_login TIMESTAMP WITH TIME ZONE
 );

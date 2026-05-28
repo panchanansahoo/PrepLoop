@@ -22,11 +22,11 @@ function StudyGroupCard({ group, onJoin, isJoined }) {
   return (
     <div style={{
       padding: '18px 20px', borderRadius: 16,
-      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+      background: 'var(--bg-tertiary)', border: '1px solid var(--bg-hover)',
       transition: 'all 0.2s', cursor: 'pointer',
     }}
-    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; }}
-    onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.2)'; }}
+    onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--bg-tertiary)'; e.currentTarget.style.borderColor = 'var(--bg-hover)'; }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
         <div style={{
@@ -38,8 +38,8 @@ function StudyGroupCard({ group, onJoin, isJoined }) {
           {group.emoji}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{group.name}</div>
-          <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{group.member_count} members</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{group.name}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{group.member_count} members</div>
         </div>
         {onJoin && (
           <button
@@ -57,7 +57,7 @@ function StudyGroupCard({ group, onJoin, isJoined }) {
           </button>
         )}
       </div>
-      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', lineHeight: 1.5, margin: '0 0 12px' }}>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, margin: '0 0 12px' }}>
         {group.description}
       </p>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -65,7 +65,7 @@ function StudyGroupCard({ group, onJoin, isJoined }) {
           {(group.tags || []).slice(0, 3).map((tag, i) => (
             <span key={i} style={{
               padding: '3px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
-              background: 'rgba(139,92,246,0.08)', color: '#a78bfa',
+              background: 'var(--bg-tertiary)', color: 'var(--accent-primary)',
               border: '1px solid rgba(139,92,246,0.12)',
             }}>
               {tag}
@@ -74,9 +74,9 @@ function StudyGroupCard({ group, onJoin, isJoined }) {
         </div>
         <div style={{
           display: 'flex', alignItems: 'center', gap: 4,
-          fontSize: 11, fontWeight: 600, color: '#6ee7b7',
+          fontSize: 11, fontWeight: 600, color: 'var(--success-main)',
         }}>
-          <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#6ee7b7' }} />
+          <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success-main)' }} />
           {group.online_count || 0} online
         </div>
       </div>
@@ -89,12 +89,12 @@ function EventCard({ event }) {
   return (
     <div style={{
       padding: '16px 18px', borderRadius: 14,
-      background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+      background: 'var(--bg-tertiary)', border: '1px solid var(--bg-hover)',
       display: 'flex', alignItems: 'center', gap: 14,
       transition: 'all 0.2s', cursor: 'pointer',
     }}
-    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+    onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
     >
       <div style={{
         width: 52, height: 52, borderRadius: 14, flexShrink: 0,
@@ -103,11 +103,11 @@ function EventCard({ event }) {
         border: `1px solid ${event.color}20`,
       }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: event.color, textTransform: 'uppercase' }}>{event.month}</div>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{event.day}</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1 }}>{event.day}</div>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>{event.title}</div>
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 3 }}>{event.title}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
           {event.time} · {event.type}
         </div>
       </div>
@@ -126,10 +126,10 @@ function EventCard({ event }) {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const UPCOMING_EVENTS = [
-  { title: 'Weekly Mock Interview Marathon', month: 'APR', day: '01', time: '7:00 PM IST', type: 'Mock Interview', color: '#c084fc', live: false },
-  { title: 'System Design: Design Twitter', month: 'APR', day: '03', time: '8:00 PM IST', type: 'Workshop', color: '#60a5fa', live: false },
-  { title: 'DSA Speed Round Challenge', month: 'APR', day: '05', time: '6:30 PM IST', type: 'Contest', color: '#fbbf24', live: false },
-  { title: 'Resume Review AMA', month: 'APR', day: '08', time: '9:00 PM IST', type: 'AMA', color: '#6ee7b7', live: false },
+  { title: 'Weekly Mock Interview Marathon', month: 'APR', day: '01', time: '7:00 PM IST', type: 'Mock Interview', color: 'var(--accent-primary)', live: false },
+  { title: 'System Design: Design Twitter', month: 'APR', day: '03', time: '8:00 PM IST', type: 'Workshop', color: 'var(--info-main)', live: false },
+  { title: 'DSA Speed Round Challenge', month: 'APR', day: '05', time: '6:30 PM IST', type: 'Contest', color: 'var(--warning-main)', live: false },
+  { title: 'Resume Review AMA', month: 'APR', day: '08', time: '9:00 PM IST', type: 'AMA', color: 'var(--success-main)', live: false },
 ];
 
 const LEADERBOARD = [
@@ -286,58 +286,58 @@ export default function CommunityHub() {
           zIndex: 1000, padding: 20,
         }} onClick={() => setShowCreateModal(false)}>
           <div style={{
-            background: '#1a1a2e', borderRadius: 20, padding: 28, maxWidth: 500, width: '100%',
-            border: '1px solid rgba(255,255,255,0.1)',
+            background: 'var(--bg-card)', borderRadius: 20, padding: 28, maxWidth: 500, width: '100%',
+            border: '1px solid var(--border)',
           }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: '#fff' }}>Create Study Group</h3>
+            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 20, color: 'var(--text-primary)' }}>Create Study Group</h3>
             <form onSubmit={handleCreateGroup}>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Group Name *</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Group Name *</label>
                 <input name="name" required style={{
-                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
                 }} placeholder="e.g., DSA Grinders" />
               </div>
               <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Description</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Description</label>
                 <textarea name="description" rows={3} style={{
-                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
                   resize: 'vertical',
                 }} placeholder="What's this group about?" />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Emoji</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Emoji</label>
                   <input name="emoji" defaultValue="📚" style={{
-                    width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                    width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                    background: 'var(--bg-hover)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
                   }} />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Color</label>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Color</label>
                   <input name="color" type="color" defaultValue="#60a5fa" style={{
-                    width: '100%', height: 42, borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                    background: 'rgba(255,255,255,0.05)', cursor: 'pointer',
+                    width: '100%', height: 42, borderRadius: 10, border: '1px solid var(--border)',
+                    background: 'var(--bg-hover)', cursor: 'pointer',
                   }} />
                 </div>
               </div>
               <div style={{ marginBottom: 20 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)', marginBottom: 6 }}>Tags (comma-separated)</label>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 6 }}>Tags (comma-separated)</label>
                 <input name="tags" style={{
-                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'rgba(255,255,255,0.05)', color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                  width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'var(--bg-hover)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
                 }} placeholder="e.g., LeetCode, Daily, DSA" />
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" onClick={() => setShowCreateModal(false)} style={{
-                  flex: 1, padding: '10px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.1)',
-                  background: 'transparent', color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 600,
+                  flex: 1, padding: '10px', borderRadius: 10, border: '1px solid var(--border)',
+                  background: 'transparent', color: 'var(--text-secondary)', fontSize: 14, fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}>Cancel</button>
                 <button type="submit" style={{
                   flex: 1, padding: '10px', borderRadius: 10, border: 'none',
-                  background: '#60a5fa', color: '#fff', fontSize: 14, fontWeight: 700,
+                  background: 'var(--info-main)', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700,
                   cursor: 'pointer', fontFamily: 'inherit',
                 }}>Create Group</button>
               </div>
@@ -357,8 +357,8 @@ export default function CommunityHub() {
             <Users size={22} color="#60a5fa" />
           </div>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, color: '#fff' }}>Community Hub</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Community Hub</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
               Connect, compete, and grow with fellow engineers
             </p>
           </div>
@@ -382,9 +382,9 @@ export default function CommunityHub() {
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <DiscordIcon size={28} color="#5865F2" />
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: '#fff' }}>Join Our Discord Community</h2>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Join Our Discord Community</h2>
           </div>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: 0, maxWidth: 500 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, maxWidth: 500 }}>
             Get instant help, join study groups, participate in contests, and connect with 5,000+ engineers preparing for interviews.
           </p>
           <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
@@ -399,7 +399,7 @@ export default function CommunityHub() {
                   display: 'flex', alignItems: 'center', gap: 6, 
                   fontSize: i === 0 ? 13 : 11, 
                   fontWeight: i === 0 ? 700 : 400,
-                  color: i === 0 ? '#60a5fa' : 'rgba(255,255,255,0.4)' 
+                  color: i === 0 ? '#60a5fa' : 'var(--text-muted)' 
                 }}>
                   <Icon size={14} />
                   {stat.label}
@@ -414,13 +414,13 @@ export default function CommunityHub() {
           rel="noopener noreferrer"
           style={{
             padding: '12px 28px', borderRadius: 14, textDecoration: 'none',
-            background: '#5865F2', color: '#fff', fontSize: 14, fontWeight: 700,
+            background: '#5865F2', color: 'var(--text-primary)', fontSize: 14, fontWeight: 700,
             display: 'flex', alignItems: 'center', gap: 8,
             boxShadow: '0 4px 24px rgba(88,101,242,0.35)',
             transition: 'all 0.3s', position: 'relative', zIndex: 1,
           }}
         >
-          <DiscordIcon size={18} color="#fff" />
+          <DiscordIcon size={18} color="#ffffff" />
           Join Discord
           <ExternalLink size={14} />
         </a>
@@ -431,7 +431,7 @@ export default function CommunityHub() {
       {/* ── Section Tabs ── */}
       <div style={{
         display: 'flex', gap: 4, padding: 4, borderRadius: 14,
-        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+        background: 'var(--bg-tertiary)', border: '1px solid var(--bg-hover)',
         marginBottom: 24, overflowX: 'auto',
       }}>
         {sections.map(sec => {
@@ -442,7 +442,7 @@ export default function CommunityHub() {
               flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
               padding: '10px 16px', borderRadius: 10, border: 'none', cursor: 'pointer',
               background: active ? 'rgba(59,130,246,0.15)' : 'transparent',
-              color: active ? '#60a5fa' : 'rgba(255,255,255,0.4)',
+              color: active ? '#60a5fa' : 'var(--text-muted)',
               fontWeight: active ? 700 : 500, fontSize: 13, fontFamily: 'inherit',
               transition: 'all 0.2s', whiteSpace: 'nowrap',
             }}>
@@ -459,7 +459,7 @@ export default function CommunityHub() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
             {[
               { label: 'Discord', desc: 'Join 5,000+ members', icon: DiscordIcon, color: '#5865F2', href: 'https://discord.gg/preploop' },
-              { label: 'GitHub', desc: 'Open-source resources', icon: Github, color: '#fff', href: 'https://github.com/preploop' },
+              { label: 'GitHub', desc: 'Open-source resources', icon: Github, color: 'var(--text-primary)', href: 'https://github.com/preploop' },
               { label: 'Twitter / X', desc: 'Tips & announcements', icon: Twitter, color: '#1DA1F2', href: 'https://twitter.com/preploop' },
               { label: 'LinkedIn', desc: 'Career connections', icon: Linkedin, color: '#0A66C2', href: 'https://linkedin.com/company/preploop' },
             ].map((social, i) => {
@@ -481,10 +481,10 @@ export default function CommunityHub() {
                     <Icon size={20} color={social.color} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{social.label}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{social.desc}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{social.label}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{social.desc}</div>
                   </div>
-                  <ExternalLink size={14} color="rgba(255,255,255,0.2)" style={{ marginLeft: 'auto' }} />
+                  <ExternalLink size={14} color="var(--border-light)" style={{ marginLeft: 'auto' }} />
                 </a>
               );
             })}
@@ -500,7 +500,7 @@ export default function CommunityHub() {
                 <TrendingUp size={18} color="#fbbf24" /> Trending Discussions
               </h3>
               <button onClick={() => setActiveSection('discussions')} style={{
-                background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer',
+                background: 'none', border: 'none', color: 'var(--info-main)', cursor: 'pointer',
                 fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
@@ -508,34 +508,34 @@ export default function CommunityHub() {
               </button>
             </div>
             {loading ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)' }}>Loading...</div>
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>Loading...</div>
             ) : error ? (
-              <div style={{ textAlign: 'center', padding: 20, color: '#f87171' }}>{error}</div>
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--error-main)' }}>{error}</div>
             ) : discussions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: 20, color: 'rgba(255,255,255,0.4)' }}>No discussions yet. Be the first to start one!</div>
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-muted)' }}>No discussions yet. Be the first to start one!</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {discussions.slice(0, 3).map((d, i) => (
                   <div key={d.id || i} style={{
                     padding: '12px 16px', borderRadius: 12,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+                    background: 'var(--bg-tertiary)', border: '1px solid var(--bg-tertiary)',
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     transition: 'background 0.2s', cursor: 'pointer',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', marginBottom: 3 }}>{d.title}</div>
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)' }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 3 }}>{d.title}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                         by {d.author_name || 'Anonymous'} · {formatTimeAgo(d.created_at)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12, flexShrink: 0 }}>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <MessageCircle size={12} /> {d.reply_count || 0}
                       </span>
-                      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4 }}>
                         <Heart size={12} /> {d.likes || 0}
                       </span>
                     </div>
@@ -555,7 +555,7 @@ export default function CommunityHub() {
                 <Users size={18} color="#6ee7b7" /> Popular Study Groups
               </h3>
               <button onClick={() => setActiveSection('groups')} style={{
-                background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer',
+                background: 'none', border: 'none', color: 'var(--info-main)', cursor: 'pointer',
                 fontSize: 12, fontWeight: 600, fontFamily: 'inherit',
                 display: 'flex', alignItems: 'center', gap: 4,
               }}>
@@ -586,7 +586,7 @@ export default function CommunityHub() {
               onClick={() => setShowCreateModal(true)}
               style={{
                 padding: '8px 16px', borderRadius: 10, border: 'none',
-                background: 'rgba(59,130,246,0.15)', color: '#60a5fa',
+                background: 'var(--bg-tertiary)', color: 'var(--info-main)',
                 fontSize: 12, fontWeight: 700, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}
@@ -595,7 +595,7 @@ export default function CommunityHub() {
             </button>
           </div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)' }}>Loading groups...</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading groups...</div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
               {studyGroups.map((group, i) => (
@@ -617,14 +617,14 @@ export default function CommunityHub() {
             <Trophy size={18} color="#fbbf24" /> Community Leaderboard
           </h3>
           <div style={{
-            background: 'rgba(255,255,255,0.03)', borderRadius: 16,
-            border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden',
+            background: 'var(--bg-tertiary)', borderRadius: 16,
+            border: '1px solid var(--bg-hover)', overflow: 'hidden',
           }}>
             {/* Header */}
             <div style={{
               display: 'grid', gridTemplateColumns: '50px 1fr 100px 80px 80px',
-              padding: '10px 18px', borderBottom: '1px solid rgba(255,255,255,0.06)',
-              fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: 0.5,
+              padding: '10px 18px', borderBottom: '1px solid var(--bg-hover)',
+              fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5,
             }}>
               <div>Rank</div><div>Engineer</div><div style={{ textAlign: 'right' }}>Points</div>
               <div style={{ textAlign: 'right' }}>Solved</div><div style={{ textAlign: 'right' }}>Streak</div>
@@ -636,25 +636,25 @@ export default function CommunityHub() {
                 <div key={i} style={{
                   display: 'grid', gridTemplateColumns: '50px 1fr 100px 80px 80px',
                   padding: '14px 18px', alignItems: 'center',
-                  borderBottom: i < LEADERBOARD.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  borderBottom: i < LEADERBOARD.length - 1 ? '1px solid var(--bg-tertiary)' : 'none',
                   background: isTop3 ? `${rankColors[i]}05` : 'transparent',
                   transition: 'background 0.2s',
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                 onMouseLeave={(e) => e.currentTarget.style.background = isTop3 ? `${rankColors[i]}05` : 'transparent'}
                 >
                   <div style={{
                     fontSize: 18, fontWeight: 800,
-                    color: isTop3 ? rankColors[i] : 'rgba(255,255,255,0.4)',
+                    color: isTop3 ? rankColors[i] : 'var(--text-muted)',
                   }}>
                     {entry.avatar}
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{entry.name}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{entry.name}</div>
                   </div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#a78bfa' }}>{entry.points.toLocaleString()}</div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#6ee7b7' }}>{entry.solved}</div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#f59e0b' }}>{entry.streak}🔥</div>
+                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--accent-primary)' }}>{entry.points.toLocaleString()}</div>
+                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--success-main)' }}>{entry.solved}</div>
+                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--warning-main)' }}>{entry.streak}🔥</div>
                 </div>
               );
             })}
@@ -679,16 +679,16 @@ export default function CommunityHub() {
           </div>
           <div style={{
             marginTop: 20, padding: '16px 20px', borderRadius: 14,
-            background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.1)',
+            background: 'var(--bg-tertiary)', border: '1px solid rgba(139,92,246,0.1)',
             textAlign: 'center',
           }}>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px' }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
               Want to host an event or workshop? We'd love to feature you!
             </p>
             <a href="https://discord.gg/preploop" target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '8px 20px', borderRadius: 10, textDecoration: 'none',
-              background: 'rgba(139,92,246,0.15)', color: '#c084fc',
+              background: 'var(--bg-tertiary)', color: 'var(--accent-primary)',
               fontSize: 12, fontWeight: 700, border: '1px solid rgba(139,92,246,0.2)',
             }}>
               <Mic size={14} /> Apply to Host <ExternalLink size={12} />
@@ -708,11 +708,11 @@ export default function CommunityHub() {
             <MessageCircle size={18} color="#60a5fa" /> Community Discussions
           </h3>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)' }}>Loading discussions...</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading discussions...</div>
           ) : error ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#f87171' }}>{error}</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--error-main)' }}>{error}</div>
           ) : discussions.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.4)' }}>No discussions yet. Be the first to start one!</div>
+            <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No discussions yet. Be the first to start one!</div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {discussions.map((d, i) => {
@@ -724,16 +724,16 @@ export default function CommunityHub() {
                 return (
                   <div key={d.id || i} style={{
                     padding: '16px 18px', borderRadius: 14,
-                    background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                    background: 'var(--bg-tertiary)', border: '1px solid var(--bg-hover)',
                     transition: 'all 0.2s', cursor: 'pointer',
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.03)'}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
                   >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 6 }}>{d.title}</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)', marginBottom: 6 }}>{d.title}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--text-muted)' }}>
                           <span>by {d.author_name || 'Anonymous'}</span>
                           <span>·</span>
                           <span>{formatTimeAgo(d.created_at)}</span>
@@ -749,12 +749,12 @@ export default function CommunityHub() {
                       </div>
                       <div style={{ display: 'flex', gap: 12, flexShrink: 0, marginTop: 4 }}>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa' }}>{d.reply_count || 0}</div>
-                          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>replies</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--info-main)' }}>{d.reply_count || 0}</div>
+                          <div style={{ fontSize: 9, color: 'var(--border-light)' }}>replies</div>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: '#f87171' }}>{d.likes || 0}</div>
-                          <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.25)' }}>likes</div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--error-main)' }}>{d.likes || 0}</div>
+                          <div style={{ fontSize: 9, color: 'var(--border-light)' }}>likes</div>
                         </div>
                       </div>
                     </div>

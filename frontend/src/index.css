@@ -43,8 +43,8 @@ table {
   min-width: 0;
 }
 
-.main-content > *,
-.page-content > * {
+.main-content>*,
+.page-content>* {
   min-width: 0;
 }
 
@@ -165,6 +165,7 @@ table {
 }
 
 @media (max-width: 768px) {
+
   .chat-panel,
   .orb-chat-panel,
   .copilot-panel {
@@ -199,8 +200,17 @@ table {
 }
 
 @keyframes error-orb-pulse {
-  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.15); }
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+  }
 }
 
 .error-boundary-card {
@@ -217,7 +227,10 @@ table {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
-.error-boundary-icon { font-size: 3rem; margin-bottom: 1rem; }
+.error-boundary-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
 
 .error-boundary-title {
   font-size: 1.75rem;

@@ -23,6 +23,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import './AIJobCopilot.css';
 
 const TARGET_ROLES = [
@@ -109,12 +110,10 @@ export default function AIJobCopilot() {
     setAiResponse(null);
 
     try {
-      const headers = buildAuthHeaders(user);
-      const response = await fetch(buildApiUrl('/copilot/ask', {
+      const response = await authFetch(buildApiUrl('/copilot/ask', {
         rawBaseUrl: import.meta.env.VITE_API_URL || '',
       }), {
         method: 'POST',
-        headers,
         body: JSON.stringify({ 
           query,
           context: targetRole ? `Target role: ${targetRole}` : undefined

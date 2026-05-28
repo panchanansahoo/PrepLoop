@@ -4,6 +4,12 @@ import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/aut
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 import { fetchAllIndianJobs } from '../utils/indianJobApis.js';
 import { getCachedJobs, setCachedJobs, checkRateLimit } from '../utils/jobCache.js';
+import {
+  buildCareerSearchQuery,
+  hasMeaningfulProfileSignals,
+  normalizeProfileSignals,
+  scoreJobsAgainstProfile,
+} from '../services/preploopCareerService.js';
 
 const router = express.Router();
 
@@ -173,7 +179,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
       // Adzuna's URL already scopes to India (/in/), so strip "India" and "fresher" from keywords
       const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
       const keyword = encodeURIComponent(cleanQuery);
-      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=20&what=${keyword}&max_days_old=30`;
+      const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/1?app_id=${ADZUNA_APP_ID}&app_key=${ADZUNA_APP_KEY}&results_per_page=50&what=${keyword}&max_days_old=30`;
       const safeAdzunaUrl = ensureAllowedExternalJobUrl(adzunaUrl);
       const response = await fetch(safeAdzunaUrl);
 
@@ -214,7 +220,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   // ── Fallback 2: Indeed India (free, no key needed) ──
   try {
     const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').trim() || 'software developer';
-    const indeedUrl = `https://in.indeed.com/jobs?q=${encodeURIComponent(cleanQuery)}&l=India&sort=date&fromage=30&format=json&limit=20`;
+    const indeedUrl = `https://in.indeed.com/jobs?q=${encodeURIComponent(cleanQuery)}&l=India&sort=date&fromage=30&format=json&limit=50`;
     const response = await fetch(indeedUrl, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PrepLoop/1.0)' }
     });
@@ -223,7 +229,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
       const html = await response.text();
       const jobMatches = html.match(/data-jk="([^"]+)"/g) || [];
       if (jobMatches.length > 0) {
-        const jobs = jobMatches.slice(0, 20).map((match, idx) => {
+        const jobs = jobMatches.slice(0, 50).map((match, idx) => {
           const jobId = match.match(/data-jk="([^"]+)"/)?.[1];
           return {
             id: `indeed_${jobId || idx}`,
@@ -445,18 +451,12 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
       console.error('Profile fetch error:', profileError);
     }
 
-    // Parse user skills
-    const userSkills = profileData?.skills 
-      ? String(profileData.skills).toLowerCase().split(',').map(s => s.trim()).filter(Boolean)
-      : [];
-    
-    const experienceSummary = String(profileData?.experience_summary || '').toLowerCase();
-    const preferredRole = String(profileData?.preferred_role || '').trim();
-    const experienceLevel = String(profileData?.experience_level || '').toLowerCase();
+    const profileSignals = normalizeProfileSignals(profileData || {});
+    const hasSignals = hasMeaningfulProfileSignals(profileSignals);
 
-    // If user has no skills, return 3 most recent jobs from database
-    if (userSkills.length === 0 && !preferredRole && experienceSummary.length < 20) {
-      console.log(`User ${req.user.id} has no skills - fetching 3 most recent jobs`);
+    // If user has no meaningful career signals, return 3 most recent jobs from database
+    if (!hasSignals) {
+      console.log(`User ${req.user.id} has no career signals - fetching 3 most recent jobs`);
       
       const { data: recentJobs, error: jobsError } = await supabaseAdmin
         .from('job_listings')
@@ -473,12 +473,15 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
         ...job,
         matchScore: 50,
         matchedSkills: [],
+        matchedSignals: [],
         source: job.source || 'admin'
       }));
 
       return res.json({
         jobs,
         userSkills: [],
+        userLocation: null,
+        userQualification: null,
         searchQuery: 'Recent Jobs',
         profileComplete: false,
         timestamp: new Date().toISOString()
@@ -486,75 +489,18 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
     }
 
     // Build intelligent search query based on user profile
-    let searchQuery = '';
+    const searchQuery = buildCareerSearchQuery(profileSignals);
     
-    if (preferredRole) {
-      // Use preferred role if available
-      searchQuery = preferredRole;
-    } else if (userSkills.length >= 2) {
-      // Build query from top skills
-      const topSkills = userSkills.slice(0, 3).join(' ');
-      searchQuery = `${topSkills} developer`;
-    } else if (experienceSummary.length > 20) {
-      // Extract role from experience summary
-      searchQuery = experienceSummary.slice(0, 50);
-    } else if (experienceLevel.includes('fresher') || experienceLevel.includes('entry')) {
-      searchQuery = 'fresher software engineer';
-    } else {
-      // Default fallback
-      searchQuery = 'software developer';
-    }
-
-    console.log(`Skill-match query for user ${req.user.id}: "${searchQuery}" (skills: ${userSkills.join(', ') || 'none'})`);
+    console.log(
+      `Skill-match query for user ${req.user.id}: "${searchQuery}" ` +
+      `(skills: ${profileSignals.skills.join(', ') || 'none'}, location: ${profileSignals.location || 'none'}, qualification: ${profileSignals.qualification || 'none'})`
+    );
 
     // Fetch jobs based on the query
     const jobs = await fetchExternalJobs(searchQuery, 1);
 
     // Calculate match scores based on user skills
-    const matchedJobs = jobs.map(job => {
-      const jobText = `${job.title} ${job.description} ${(job.requirements || []).join(' ')}`.toLowerCase();
-      
-      // Find matched skills
-      const matchedSkills = userSkills.filter(skill => {
-        const skillLower = skill.toLowerCase();
-        return jobText.includes(skillLower);
-      });
-      
-      // Calculate match score
-      let matchScore = 50; // Base score
-      
-      if (userSkills.length > 0) {
-        // Skill overlap score (0-60 points)
-        const skillOverlap = (matchedSkills.length / userSkills.length) * 60;
-        matchScore = Math.round(skillOverlap);
-        
-        // Bonus for title match (up to +20 points)
-        const titleLower = job.title.toLowerCase();
-        if (preferredRole && titleLower.includes(preferredRole.toLowerCase())) {
-          matchScore += 20;
-        } else if (userSkills.some(skill => titleLower.includes(skill.toLowerCase()))) {
-          matchScore += 15;
-        }
-        
-        // Bonus for experience level match (up to +10 points)
-        if (experienceLevel) {
-          if (experienceLevel.includes('fresher') && (titleLower.includes('fresher') || titleLower.includes('entry') || titleLower.includes('graduate'))) {
-            matchScore += 10;
-          } else if (experienceLevel.includes('mid') && (titleLower.includes('mid') || titleLower.includes('senior'))) {
-            matchScore += 10;
-          }
-        }
-        
-        // Cap at 100
-        matchScore = Math.min(100, matchScore);
-      }
-
-      return {
-        ...job,
-        matchScore,
-        matchedSkills: matchedSkills.slice(0, 5)
-      };
-    });
+    const matchedJobs = scoreJobsAgainstProfile(jobs, profileSignals);
 
     // Sort by match score (highest first)
     matchedJobs.sort((a, b) => b.matchScore - a.matchScore);
@@ -564,9 +510,13 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
 
     res.json({
       jobs: filteredJobs.slice(0, 10),
-      userSkills,
+      userSkills: profileSignals.skills,
+      userLocation: profileSignals.location || null,
+      userQualification: profileSignals.qualification || null,
+      userPreferredRole: profileSignals.preferredRole || null,
       searchQuery,
-      profileComplete: userSkills.length > 0,
+      profileComplete: hasSignals,
+      profileSignals,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -601,7 +551,7 @@ router.get('/live', async (req, res) => {
     const jobs = await fetchExternalJobs(query, 1);
     
     res.json({
-      jobs: jobs.slice(0, 20),
+      jobs: jobs.slice(0, 50),
       hasUpdates: true,
       timestamp: new Date().toISOString(),
       nextPoll: 300, // Poll every 5 minutes
@@ -757,7 +707,7 @@ router.get('/', optionalAuth, async (req, res) => {
       type,
       search,
       page = 1,
-      limit = 20,
+      limit = 50,
       source,
     } = req.query;
 
@@ -807,7 +757,7 @@ router.get('/', optionalAuth, async (req, res) => {
         : [...adminJobs, ...externalJobs];
 
     // Respect the limit parameter for the combined results
-    const requestedLimit = parseInt(limit, 10);
+    const requestedLimit = Math.min(50, parseInt(limit, 10));
     const combinedJobs = allJobs.slice(0, requestedLimit);
 
     res.json({

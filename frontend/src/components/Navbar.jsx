@@ -21,7 +21,8 @@ const PAGE_TITLES = {
   '/problems': 'Problem Explorer',
   '/code-editor': 'Code Editor',
   '/playground': 'Playground',
-  '/visualizer': 'Algorithm Visualizer',
+  '/visualizer': 'DSA Animations',
+  '/system-design-sim': 'System Design Simulator',
   '/sql-problems': 'SQL Mastery',
   '/aptitude': 'Aptitude',
   '/dsa-path': 'DSA Learning Path',
@@ -49,10 +50,10 @@ function getPageTitle(pathname) {
 
 function getBreadcrumbItems(pathname) {
   if (pathname === '/roadmap') {
-      return [
-        { label: 'Home', to: '/dashboard', icon: 'home' },
-        { label: 'Roadmap', to: '/roadmap' },
-      ];
+    return [
+      { label: 'Home', to: '/dashboard', icon: 'home' },
+      { label: 'Roadmap', to: '/roadmap' },
+    ];
   }
 
   if (pathname.startsWith('/roadmap/')) {
@@ -267,11 +268,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
             {/* Logout */}
             <div className="user-dropdown-footer">
-              <button 
+              <button
                 onClick={() => {
                   setIsDropdownOpen(false);
                   handleLogout();
-                }} 
+                }}
                 className="user-dropdown-logout"
               >
                 <LogOut size={16} />
@@ -288,8 +289,8 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
   const isPublicPage = publicPaths.includes(location.pathname);
 
-  // Render Public Navbar if not logged in OR if on a public page
-  if (!user || isPublicPage) {
+  // Render Public Navbar if on a public page (no sidebar), OR if not logged in and NOT on an app page with sidebar
+  if ((!user && !hasSidebar) || isPublicPage) {
     return (
       <nav className={`navbar public-navbar ${scrolled ? 'scrolled' : ''}`}>
         <div className="container nav-content">
@@ -321,15 +322,15 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             </button>
             {user ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <Link 
-                  to="/dashboard" 
-                  className="btn" 
-                  style={{ 
-                    padding: '6px 14px', 
-                    fontSize: '0.85rem', 
-                    borderRadius: '20px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                <Link
+                  to="/dashboard"
+                  className="btn"
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '0.85rem',
+                    borderRadius: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
                     gap: '4px',
                     background: 'var(--color-bg-card)',
                     backdropFilter: 'blur(12px)',
@@ -376,17 +377,17 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             <Link to="/job-updates" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Job Updates</Link>
             <Link to="/blog" className="mobile-link" onClick={() => setMobileMenuOpen(false)}>Blog</Link>
             {user ? (
-              <Link 
-                to="/dashboard" 
-                className="btn" 
-                style={{ 
-                  width: '100%', 
+              <Link
+                to="/dashboard"
+                className="btn"
+                style={{
+                  width: '100%',
                   justifyContent: 'center',
-                  padding: '10px 16px', 
-                  fontSize: '0.95rem', 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
+                  padding: '10px 16px',
+                  fontSize: '0.95rem',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
                   gap: '6px',
                   background: 'var(--color-bg-card)',
                   backdropFilter: 'blur(12px)',
@@ -395,7 +396,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
                   color: 'var(--color-text-primary)',
                   marginTop: '10px',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
-                }} 
+                }}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Go to Dashboard
@@ -421,11 +422,11 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
       <div className="premium-topbar-inner">
 
         {/* Left: Mobile menu + Page title */}
-          <div className="topbar-left">
-            <button
-              className="icon-btn mobile-only"
-              onClick={onMobileMenuToggle}
-            >
+        <div className="topbar-left">
+          <button
+            className="icon-btn mobile-only"
+            onClick={onMobileMenuToggle}
+          >
             <Menu size={22} />
           </button>
 
@@ -505,17 +506,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
           </div>
 
           {/* AI Mock Shortcut */}
-          <Link 
-            to="/company-interview" 
+          <Link
+            to="/company-interview"
             className="btn desktop-only navbar-ai-mock-btn"
           >
             <Sparkles size={14} /> AI Mock
           </Link>
-
-          {/* Coin Balance */}
-          <div className="desktop-only">
-            <CoinDisplay />
-          </div>
 
           {/* Theme Toggle */}
           <button
@@ -526,69 +522,88 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
-          {/* Notification Bell */}
-          <div className="relative" ref={notifRef}>
-            <button
-              className="icon-btn notif-btn"
-              onClick={() => { setIsNotifOpen(!isNotifOpen); setIsDropdownOpen(false); }}
-            >
-              <Bell size={19} />
-              {unreadCount > 0 && (
-                <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
-              )}
-            </button>
-
-            {isNotifOpen && (
-              <div className="premium-dropdown notif-dropdown">
-                <div className="premium-dropdown-header">
-                  <span>Notifications</span>
-                  <button className="premium-dropdown-action" onClick={markAllAsRead}>Mark all read</button>
-                </div>
-                <div className="notif-list">
-                  {notifications.length > 0 ? (
-                    notifications.map(notif => (
-                      <div
-                        key={notif.id}
-                        className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
-                        onClick={() => {
-                          markAsRead(notif.id);
-                          if (notif.external) {
-                            window.open(notif.link, '_blank');
-                          } else {
-                            navigate(notif.link);
-                            setIsNotifOpen(false);
-                          }
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        {!notif.isRead && <div className="notif-dot" />}
-                        <div>
-                          <p className="notif-text">{notif.title}</p>
-                          <span className="notif-time">{notif.timeText}</span>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="notif-item">
-                      <div>
-                        <p className="notif-text" style={{ color: 'var(--zinc-500)' }}>No new notifications</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+          {user ? (
+            <>
+              {/* Coin Balance */}
+              <div className="desktop-only">
+                <CoinDisplay />
               </div>
-            )}
-          </div>
 
-          {userTier.toLowerCase() !== 'pro' && (
-            <Link to="/pricing" className="upgrade-btn desktop-only navbar-upgrade-btn">
-              <Crown size={14} />
-              <span>Upgrade</span>
-            </Link>
+              {/* Notification Bell */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  className="icon-btn notif-btn"
+                  onClick={() => { setIsNotifOpen(!isNotifOpen); setIsDropdownOpen(false); }}
+                >
+                  <Bell size={19} />
+                  {unreadCount > 0 && (
+                    <span className="notif-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <div className="premium-dropdown notif-dropdown">
+                    <div className="premium-dropdown-header">
+                      <span>Notifications</span>
+                      <button className="premium-dropdown-action" onClick={markAllAsRead}>Mark all read</button>
+                    </div>
+                    <div className="notif-list">
+                      {notifications.length > 0 ? (
+                        notifications.map(notif => (
+                          <div
+                            key={notif.id}
+                            className={`notif-item ${!notif.isRead ? 'unread' : ''}`}
+                            onClick={() => {
+                              markAsRead(notif.id);
+                              if (notif.external) {
+                                window.open(notif.link, '_blank');
+                              } else {
+                                navigate(notif.link);
+                                setIsNotifOpen(false);
+                              }
+                            }}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            {!notif.isRead && <div className="notif-dot" />}
+                            <div>
+                              <p className="notif-text">{notif.title}</p>
+                              <span className="notif-time">{notif.timeText}</span>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="notif-item">
+                          <div>
+                            <p className="notif-text" style={{ color: 'var(--zinc-500)' }}>No new notifications</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {userTier.toLowerCase() !== 'pro' && (
+                <Link to="/pricing" className="upgrade-btn desktop-only navbar-upgrade-btn">
+                  <Crown size={14} />
+                  <span>Upgrade</span>
+                </Link>
+              )}
+
+              {/* Premium Avatar */}
+              {renderAvatarDropdown()}
+            </>
+          ) : (
+            /* Guest auth actions */
+            <div className="desktop-only" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Link to="/login" className="btn nav-action-btn navbar-signin-btn" style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)', color: 'var(--color-text-secondary)', fontWeight: 600, textDecoration: 'none', transition: 'all 0.2s' }}>
+                Sign In
+              </Link>
+              <Link to="/signup" className="btn-hero-primary navbar-signup-btn" style={{ padding: '6px 16px', fontSize: '13px', borderRadius: '10px', fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Get Started <ChevronRight size={14} />
+              </Link>
+            </div>
           )}
-
-          {/* Premium Avatar */}
-          {renderAvatarDropdown()}
         </div>
       </div>
     </div>

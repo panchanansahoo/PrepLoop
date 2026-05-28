@@ -64,6 +64,18 @@ const resolveUserRole = async (userId) => {
   return role;
 };
 
+const isTokenExpired = (errorMessage) => {
+  if (!errorMessage) return false;
+  const lower = errorMessage.toLowerCase();
+  return (
+    lower.includes('token is expired') ||
+    lower.includes('exp') ||
+    lower.includes('expired') ||
+    lower.includes('token exp') ||
+    lower.includes('exp claim')
+  );
+};
+
 export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -76,6 +88,17 @@ export const authenticateToken = async (req, res, next) => {
     const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
     
     if (error || !user) {
+      // Check if the error is specifically a token expiration issue
+      const errorMsg = error?.message || '';
+      if (isTokenExpired(errorMsg)) {
+        console.warn(`[auth] JWT token expired, instructing client to refresh`);
+        return res.status(401).json({ 
+          error: 'Token expired', 
+          code: 'TOKEN_EXPIRED',
+          details: 'Please refresh your token'
+        });
+      }
+
       console.warn(`[auth] JWT validation failed for token (403):`, error || 'User not found in token');
       return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
     }

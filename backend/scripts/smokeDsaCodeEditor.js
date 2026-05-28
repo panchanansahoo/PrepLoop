@@ -2,11 +2,18 @@ import process from 'process';
 import { buildLocalEndpoint, ensureLocalBaseUrl } from './utils/safeLocalUrl.js';
 
 const BASE_URL = ensureLocalBaseUrl(process.env.DSA_SMOKE_BASE_URL || 'http://localhost:5000');
+const TOKEN = process.env.DSA_SMOKE_TOKEN || process.env.TEST_AUTH_TOKEN || '';
+
+function buildHeaders() {
+  const headers = { 'Content-Type': 'application/json' };
+  if (TOKEN) headers.Authorization = `Bearer ${TOKEN}`;
+  return headers;
+}
 
 async function requestJson(path, { method = 'GET', body } = {}) {
   const response = await fetch(buildLocalEndpoint(BASE_URL, path), {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders(),
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -32,17 +39,37 @@ async function checkLegacyProblemResolution() {
   assert(legacy.json?.problem?.title, 'Legacy response missing problem.title');
 
   const canonical = await requestJson('/api/dsa/problems/two-sum');
-  assert(canonical.status === 200, `Expected 200 for /api/dsa/problems/two-sum, got ${canonical.status}`);
+  assert(
+    canonical.status === 200,
+    `Expected 200 for /api/dsa/problems/two-sum, got ${canonical.status}`
+  );
   assert(canonical.json?.problem?.title, 'Canonical response missing problem.title');
 
   const legacyTitle = String(legacy.json.problem.title).trim().toLowerCase();
   const canonicalTitle = String(canonical.json.problem.title).trim().toLowerCase();
   assert(
     legacyTitle === canonicalTitle,
-    `Legacy and canonical problem mismatch: ${legacy.json.problem.title} vs ${canonical.json.problem.title}`,
+    `Legacy and canonical problem mismatch: ${legacy.json.problem.title} vs ${canonical.json.problem.title}`
   );
 
   console.log('OK /api/dsa/problems/1 resolves to canonical problem data');
+}
+
+async function checkUnauthenticatedPracticeRunIsProtected() {
+  const runResult = await requestJson('/api/practice/run', {
+    method: 'POST',
+    body: {
+      problemId: 1,
+      language: 'python',
+      code: 'print("hello")',
+    },
+  });
+
+  assert(
+    runResult.status === 401,
+    `Expected 401 for unauthenticated /api/practice/run, got ${runResult.status}`
+  );
+  console.log('OK unauth POST /api/practice/run -> 401');
 }
 
 async function checkPracticeRunForLegacyId() {
@@ -71,22 +98,33 @@ async function checkPracticeRunForLegacyId() {
   assert(runResult.json?.success === true, 'Expected success=true from /api/practice/run');
   assert(typeof runResult.json?.passed === 'number', 'Expected numeric passed count');
   assert(typeof runResult.json?.total === 'number', 'Expected numeric total count');
-  assert(runResult.json.passed === runResult.json.total, `Expected all tests to pass, got ${runResult.json.passed}/${runResult.json.total}`);
+  assert(
+    runResult.json.passed === runResult.json.total,
+    `Expected all tests to pass, got ${runResult.json.passed}/${runResult.json.total}`
+  );
 
   const payloadText = JSON.stringify(runResult.json);
   assert(
     !payloadText.includes('takes 2 positional arguments but 3 were given'),
-    'Detected Python signature mismatch regression in /api/practice/run output',
+    'Detected Python signature mismatch regression in /api/practice/run output'
   );
 
-  console.log('OK /api/practice/run works with legacy problemId=1 and Python Solution.twoSum signature');
+  console.log(
+    'OK /api/practice/run works with legacy problemId=1 and Python Solution.twoSum signature'
+  );
 }
 
 async function main() {
   try {
     console.log(`DSA code-editor smoke target: ${BASE_URL}`);
+    console.log(TOKEN ? 'Mode: AUTHENTICATED' : 'Mode: UNAUTHENTICATED');
+
     await checkLegacyProblemResolution();
-    await checkPracticeRunForLegacyId();
+    if (TOKEN) {
+      await checkPracticeRunForLegacyId();
+    } else {
+      await checkUnauthenticatedPracticeRunIsProtected();
+    }
     console.log('DSA code-editor smoke test passed.');
   } catch (error) {
     console.error(`DSA code-editor smoke test failed: ${error.message}`);

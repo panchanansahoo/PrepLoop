@@ -9,6 +9,7 @@ import {
   Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown
 } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import '../styles/JobUpdates.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -124,11 +125,11 @@ export default function JobUpdates() {
       if (activeCategory !== 'all') params.append('category', activeCategory);
       if (debouncedSearch) params.append('search', debouncedSearch);
       params.append('page', page.toString());
-      params.append('limit', '20');
+      params.append('limit', '50');
 
       const headers = buildAuthHeaders(user);
 
-      const response = await fetch(`${API_URL}/api/jobs?${params}`, { headers });
+      const response = await authFetch(`${API_URL}/api/jobs?${params}`);
       if (!response.ok) throw new Error('Failed to fetch jobs');
 
       const data = await response.json();
@@ -238,9 +239,7 @@ export default function JobUpdates() {
     if (!headers.Authorization) return;
 
     try {
-      const response = await fetch(`${API_URL}/api/jobs/career-ops/history?limit=10`, {
-        headers,
-      });
+      const response = await authFetch(`${API_URL}/api/jobs/career-ops/history?limit=10`);
 
       if (!response.ok) return;
 
@@ -279,9 +278,8 @@ export default function JobUpdates() {
         .map(skill => skill.trim())
         .filter(Boolean);
 
-      const response = await fetch(`${API_URL}/api/jobs/career-ops/evaluate`, {
+      const response = await authFetch(`${API_URL}/api/jobs/career-ops/evaluate`, {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           company: careerOpsInput.company,
           role: careerOpsInput.role,

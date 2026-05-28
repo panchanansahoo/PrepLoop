@@ -342,3 +342,88 @@
 
   .smj-add-skills-btn { width: 100%; justify-content: center; }
 }
+
+/* Light Mode Overrides */
+[data-theme="light"] .smj-widget {
+  background: var(--color-bg-card, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .smj-refresh-btn {
+  background: rgba(0, 0, 0, 0.05);
+  color: #475569;
+}
+
+[data-theme="light"] .smj-refresh-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .smj-spinner {
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-top-color: #3b82f6;
+}
+
+[data-theme="light"] .smj-retry-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #475569;
+}
+
+[data-theme="light"] .smj-retry-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .smj-card {
+  background: #f8fafc;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .smj-card:hover {
+  background: #f1f5f9;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .smj-logo {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .smj-logo-placeholder {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .smj-job-title {
+  color: #0f172a;
+}
+
+[data-theme="light"] .smj-company {
+  color: #64748b;
+}
+
+[data-theme="light"] .smj-meta-item {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  color: #475569;
+}
+
+[data-theme="light"] .smj-tag {
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #3b82f6;
+}
+
+[data-theme="light"] .smj-apply-btn {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .smj-apply-btn:hover {
+  background: #e2e8f0;
+}
+
+[data-theme="light"] .smj-footer {
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}

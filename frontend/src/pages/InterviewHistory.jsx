@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { Link } from 'react-router-dom';
 
@@ -92,7 +93,7 @@ export default function InterviewHistory() {
         try {
             let url = buildInterviewHistoryApiUrl('/company-interview/sessions?limit=50');
             if (filterCompany) url += `&company=${filterCompany}`;
-            const res = await fetch(url, { headers: getAuthHeaders() });
+            const res = await authFetch(url);
             const data = await res.json();
             setSessions(Array.isArray(data) ? data : []);
         } catch (e) {
@@ -103,7 +104,7 @@ export default function InterviewHistory() {
 
     const fetchSessionDetail = async (id) => {
         try {
-            const res = await fetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${id}`), { headers: getAuthHeaders() });
+            const res = await authFetch(buildInterviewHistoryApiUrl(`/company-interview/sessions/${id}`));
             const data = await res.json();
             setSelectedSession(data);
         } catch (e) {
@@ -123,8 +124,8 @@ export default function InterviewHistory() {
         return (
             <div style={{
                 minHeight: '100vh',
-                background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f23 100%)',
-                color: '#e2e8f0',
+                background: 'var(--bg-main)',
+                color: 'var(--text-primary)',
                 padding: '32px 20px',
                 fontFamily: "'Inter', system-ui, sans-serif"
             }}>
@@ -132,7 +133,7 @@ export default function InterviewHistory() {
                     <button
                         onClick={() => setSelectedSession(null)}
                         style={{
-                            background: 'none', border: 'none', color: '#64748b',
+                            background: 'none', border: 'none', color: 'var(--text-muted)',
                             display: 'flex', alignItems: 'center', gap: 6,
                             cursor: 'pointer', fontSize: 13, marginBottom: 20
                         }}
@@ -142,8 +143,8 @@ export default function InterviewHistory() {
 
                     {/* Session Header */}
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16,
                         padding: 24,
                         marginBottom: 20,
@@ -155,13 +156,13 @@ export default function InterviewHistory() {
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             fontSize: 24
                         }}>
-                            {selectedSession.session_type === 'multi-round' ? <Zap size={24} color="white" /> : getStageIcon(selectedSession.stage)}
+                            {selectedSession.session_type === 'multi-round' ? <Zap size={24} color="var(--text-primary)" /> : getStageIcon(selectedSession.stage)}
                         </div>
                         <div style={{ flex: 1 }}>
                             <h2 style={{ fontSize: 18, fontWeight: 700, textTransform: 'capitalize', margin: 0 }}>
                                 {selectedSession.company} · {selectedSession.role}
                             </h2>
-                            <p style={{ color: '#94a3b8', fontSize: 13, margin: '4px 0 0' }}>
+                            <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: '4px 0 0' }}>
                                 {selectedSession.stage} · {selectedSession.difficulty} · {new Date(selectedSession.completed_at).toLocaleString()}
                             </p>
                         </div>
@@ -174,29 +175,29 @@ export default function InterviewHistory() {
                     </div>
 
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16,
                         padding: 20,
                         marginBottom: 20
                     }}>
                         <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <BarChart3 size={14} style={{ color: '#22c55e' }} /> Session Summary
+                            <BarChart3 size={14} style={{ color: 'var(--success-main)' }} /> Session Summary
                         </h3>
-                        <p style={{ margin: 0, color: '#cbd5e1', fontSize: 13, lineHeight: 1.65 }}>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.65 }}>
                             {extractSessionSummary(selectedSession)}
                         </p>
                     </div>
 
                     {/* Conversation Replay */}
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16,
                         padding: 20
                     }}>
                         <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <MessageSquare size={14} style={{ color: '#8b5cf6' }} /> Conversation Replay
+                            <MessageSquare size={14} style={{ color: 'var(--accent-primary)' }} /> Conversation Replay
                         </h3>
                         {(selectedSession.conversation || []).filter(c => c.role !== 'feedback').map((msg, i) => (
                             <div key={i} style={{
@@ -235,24 +236,24 @@ export default function InterviewHistory() {
     return (
         <div style={{
             minHeight: '100vh',
-            background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f23 100%)',
-            color: '#e2e8f0',
+            background: 'var(--bg-main)',
+            color: 'var(--text-primary)',
             padding: '32px 20px',
             fontFamily: "'Inter', system-ui, sans-serif"
         }}>
             <div style={{ maxWidth: 800, margin: '0 auto' }}>
                 {/* Header */}
                 <div style={{ marginBottom: 24 }}>
-                    <Link to="/dashboard" style={{ color: '#64748b', textDecoration: 'none', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
+                    <Link to="/dashboard" style={{ color: 'var(--text-muted)', textDecoration: 'none', fontSize: 13, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
                         <ArrowLeft size={14} /> Back to Dashboard
                     </Link>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <h1 style={{ fontSize: 22, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8, margin: 0 }}>
-                            <Clock size={22} style={{ color: '#f59e0b' }} /> Interview History
+                            <Clock size={22} style={{ color: 'var(--warning-main)' }} /> Interview History
                         </h1>
                         <Link to="/interview-analytics" style={{
-                            padding: '8px 14px', background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)',
-                            borderRadius: 8, color: '#8b5cf6', fontSize: 12, fontWeight: 600,
+                            padding: '8px 14px', background: 'var(--bg-tertiary)', border: '1px solid rgba(139,92,246,0.2)',
+                            borderRadius: 8, color: 'var(--accent-primary)', fontSize: 12, fontWeight: 600,
                             textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6
                         }}>
                             <BarChart3 size={14} /> Analytics
@@ -261,8 +262,8 @@ export default function InterviewHistory() {
                 </div>
 
                 <div style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border)',
                     borderRadius: 12,
                     padding: 12,
                     marginBottom: 16,
@@ -275,8 +276,8 @@ export default function InterviewHistory() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
-                        background: 'rgba(15,23,42,0.72)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border)',
                         borderRadius: 10,
                         padding: '8px 10px'
                     }}>
@@ -290,7 +291,7 @@ export default function InterviewHistory() {
                                 background: 'transparent',
                                 border: 'none',
                                 outline: 'none',
-                                color: '#e2e8f0',
+                                color: 'var(--text-primary)',
                                 fontSize: 12,
                             }}
                         />
@@ -301,11 +302,11 @@ export default function InterviewHistory() {
                         placeholder="Company"
                         style={{
                             width: 130,
-                            background: 'rgba(15,23,42,0.72)',
-                            border: '1px solid rgba(255,255,255,0.08)',
+                            background: 'var(--bg-tertiary)',
+                            border: '1px solid var(--border)',
                             borderRadius: 10,
                             padding: '9px 10px',
-                            color: '#e2e8f0',
+                            color: 'var(--text-primary)',
                             fontSize: 12,
                             outline: 'none',
                         }}
@@ -315,27 +316,27 @@ export default function InterviewHistory() {
                 {/* Sessions List */}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}>
-                        <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: '#8b5cf6' }} />
+                        <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-primary)' }} />
                     </div>
                 ) : filteredSessions.length === 0 ? (
                     <div style={{
                         textAlign: 'center', padding: 60,
-                        background: 'rgba(255,255,255,0.02)',
-                        border: '1px solid rgba(255,255,255,0.05)',
+                        background: 'var(--bg-card)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16
                     }}>
-                        <Clock size={40} style={{ color: '#475569', marginBottom: 12 }} />
+                        <Clock size={40} style={{ color: 'var(--text-muted)', marginBottom: 12 }} />
                         <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
                             {sessions.length === 0 ? 'No interview sessions yet' : 'No sessions match this search'}
                         </h3>
-                        <p style={{ color: '#64748b', fontSize: 13, marginBottom: 20 }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
                             {sessions.length === 0
                                 ? 'Complete an interview to see your history here'
                                 : 'Try a different keyword, stage, or company filter'}
                         </p>
                         <Link to="/company-interview" style={{
                             padding: '10px 20px', background: 'linear-gradient(135deg, #8b5cf6, #6d28d9)',
-                            borderRadius: 10, color: 'white', fontSize: 13, fontWeight: 600, textDecoration: 'none'
+                            borderRadius: 10, color: 'var(--text-primary)', fontSize: 13, fontWeight: 600, textDecoration: 'none'
                         }}>
                             Start an Interview
                         </Link>
@@ -349,8 +350,8 @@ export default function InterviewHistory() {
                                 style={{
                                     display: 'flex', alignItems: 'center', gap: 14,
                                     padding: '14px 18px',
-                                    background: 'rgba(255,255,255,0.03)',
-                                    border: '1px solid rgba(255,255,255,0.06)',
+                                    background: 'var(--bg-card)',
+                                    border: '1px solid var(--border)',
                                     borderRadius: 12,
                                     cursor: 'pointer',
                                     transition: 'all 0.2s'
@@ -369,10 +370,10 @@ export default function InterviewHistory() {
                                     <div style={{ fontWeight: 600, fontSize: 14, textTransform: 'capitalize' }}>
                                         {session.company} · {session.role}
                                     </div>
-                                    <div style={{ fontSize: 12, color: '#64748b', marginTop: 3 }}>
+                                    <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 3 }}>
                                         {session.stage} · {session.difficulty} · {new Date(session.completed_at).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
                                     </div>
-                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 6, lineHeight: 1.5 }}>
+                                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
                                         {extractSessionSummary(session)}
                                     </div>
                                 </div>
@@ -382,7 +383,7 @@ export default function InterviewHistory() {
                                 }}>
                                     {session.overall_score}%
                                 </div>
-                                <ChevronRight size={16} style={{ color: '#475569' }} />
+                                <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                             </div>
                         ))}
                     </div>

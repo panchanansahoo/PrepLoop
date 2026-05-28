@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lightbulb, Target, TrendingUp, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 export default function InterviewRecommendations() {
   const [recommendations, setRecommendations] = useState(null);
@@ -15,10 +16,7 @@ export default function InterviewRecommendations() {
     try {
       setLoading(true);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/recommendations`, {
-        method: 'GET',
-        headers: buildAuthHeaders(),
-      });
+      const response = await authFetch(`${API_URL}/api/recommendations`);
 
       if (response.ok) {
         const data = await response.json();

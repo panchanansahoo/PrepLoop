@@ -60,6 +60,28 @@ const removeTempWorkspace = (workspacePath) => {
     try { fs.rmSync(workspacePath, { recursive: true, force: true }); } catch { }
 };
 
+const dedentPythonCode = (code) => {
+    const lines = String(code || '').replace(/\r\n/g, '\n').split('\n');
+    const nonEmptyLines = lines.filter((line) => line.trim().length > 0);
+    if (nonEmptyLines.length === 0) {
+        return '';
+    }
+
+    const commonIndent = nonEmptyLines.reduce((min, line) => {
+        const match = line.match(/^[ \t]*/)?.[0] || '';
+        return Math.min(min, match.length);
+    }, Number.POSITIVE_INFINITY);
+
+    return lines
+        .map((line) => {
+            if (!line.trim()) return '';
+            const leading = line.match(/^[ \t]*/)?.[0] || '';
+            return line.slice(Math.min(commonIndent, leading.length)).replace(/[ \t]+$/g, '');
+        })
+        .join('\n')
+        .replace(/^\n+|\n+$/g, '');
+};
+
 const LANGUAGE_ALIASES = {
     c: 'c',
     py: 'python',
@@ -213,7 +235,8 @@ export async function executeCode(code, language, input = '') {
     }
 
     try {
-        fs.writeFileSync(tmpFile, code, 'utf-8');
+        const sourceCode = normalizedLanguage === 'python' ? dedentPythonCode(code) : code;
+        fs.writeFileSync(tmpFile, sourceCode, 'utf-8');
         const outFile = tmpFile.replace(langConfig.ext, '');
         const compiledOutFile = process.platform === 'win32' && langConfig.compile ? `${outFile}.exe` : outFile;
         let compileTime = 0;

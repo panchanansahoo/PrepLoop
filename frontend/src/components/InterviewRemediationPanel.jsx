@@ -72,7 +72,7 @@ export default function InterviewRemediationPanel({ failedConcepts = [], onClose
                 </Link>
 
                 {item.mapping.practiceIds && item.mapping.practiceIds.length > 0 && (
-                  <Link to={`/code-editor/${item.mapping.practiceIds[0]}`} className="remediation-link practice">
+                  <Link to={`/editor/${item.mapping.practiceIds[0]}`} className="remediation-link practice">
                     <Code2 size={14} />
                     <span>Practice Problem</span>
                     <ArrowRight size={12} />

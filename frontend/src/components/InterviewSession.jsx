@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Loader, Send, Mic, MicOff, Lightbulb } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 export default function InterviewSession({ interview, config, onComplete }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -109,9 +110,8 @@ export default function InterviewSession({ interview, config, onComplete }) {
     setFeedback(null);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/interview/0/feedback`, {
+      const response = await authFetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/interview/0/feedback`, {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           questionIndex: currentQuestionIndex,
           answerText: currentAnswer

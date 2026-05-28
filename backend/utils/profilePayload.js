@@ -7,6 +7,7 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   const bioRaw = body.bio;
   const skillsRaw = body.skills;
   const educationRaw = body.education;
+  const qualificationRaw = body.qualification;
 
   if (fullNameRaw !== undefined) {
     const trimmed = String(fullNameRaw || '').trim();
@@ -28,6 +29,9 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   }
   if (educationRaw !== undefined) {
     updates.education = typeof educationRaw === 'string' ? educationRaw.trim() : educationRaw;
+  }
+  if (qualificationRaw !== undefined) {
+    updates.qualification = typeof qualificationRaw === 'string' ? qualificationRaw.trim() : qualificationRaw;
   }
 
   const githubUsername = body.githubUsername || body.github_username;

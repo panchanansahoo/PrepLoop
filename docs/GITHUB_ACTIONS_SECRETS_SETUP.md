@@ -8,6 +8,7 @@ This guide walks you through configuring GitHub repository secrets for the Prepl
 - Backend environment variables (Supabase credentials, API keys, etc.)
 - Vercel account setup (for frontend deployment)
 - Azure App Service publish profile (for backend deployment)
+- GitHub environments named `staging` and `production` for environment-scoped deployment secrets
 
 ---
 
@@ -23,7 +24,7 @@ Before setting secrets, gather these values:
 | `SUPABASE_ANON_KEY` | `eyJhbGc...` | Supabase API tokens |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGc...` | Supabase API tokens (restricted) |
 | `JWT_SECRET` | `your-random-secret-32+chars` | Generate: `openssl rand -base64 32` |
-| `FRONTEND_URL` | `https://preploop.vercel.app` | Your Vercel frontend URL |
+| `FRONTEND_URL` | `https://preploop.me` | Your Vercel frontend URL |
 | `GROQ_API_KEY` | `gsk_...` | Groq API dashboard |
 | `RAZORPAY_KEY_ID` | `rzp_live_...` | Razorpay dashboard |
 | `RAZORPAY_KEY_SECRET` | `...` | Razorpay dashboard |
@@ -54,8 +55,8 @@ Before setting secrets, gather these values:
 |--------|-------|--------|
 | `STAGING_BACKEND_HEALTHCHECK_URL` | `https://preploop-api-staging.azurewebsites.net/health` | develop |
 | `PRODUCTION_BACKEND_HEALTHCHECK_URL` | `https://preploop-api-prod.azurewebsites.net/health` | main (after prod setup) |
-| `STAGING_FRONTEND_URL` | `https://preploop-staging.vercel.app/` | develop |
-| `PRODUCTION_FRONTEND_URL` | `https://preploop.vercel.app/` | main (after prod setup) |
+| `STAGING_FRONTEND_URL` | `https://staging.preploop.me/` | develop |
+| `PRODUCTION_FRONTEND_URL` | `https://preploop.me/` | main (after prod setup) |
 
 ---
 
@@ -84,7 +85,7 @@ Name: JWT_SECRET
 Value: [Generate: openssl rand -base64 32]
 
 Name: FRONTEND_URL
-Value: [Your Vercel frontend URL, e.g., https://preploop.vercel.app]
+Value: [Your Vercel frontend URL, e.g., https://preploop.me]
 
 Name: GROQ_API_KEY
 Value: [Your Groq API key]
@@ -141,13 +142,13 @@ Name: STAGING_BACKEND_HEALTHCHECK_URL
 Value: https://preploop-api-staging.azurewebsites.net/health
 
 Name: STAGING_FRONTEND_URL
-Value: https://preploop-staging.vercel.app/
+Value: https://staging.preploop.me/
 
 Name: PRODUCTION_BACKEND_HEALTHCHECK_URL
 Value: https://preploop-api-prod.azurewebsites.net/health
 
 Name: PRODUCTION_FRONTEND_URL
-Value: https://preploop.vercel.app/
+Value: https://preploop.me/
 ```
 
 ---
@@ -226,7 +227,7 @@ Watch the GitHub Actions workflow:
 3. Look for health check results
 4. Verify your app at:
    - **Backend**: `https://preploop-api-staging.azurewebsites.net/health`
-   - **Frontend**: `https://preploop-staging.vercel.app/`
+   - **Frontend**: `https://staging.preploop.me/`
 
 ---
 

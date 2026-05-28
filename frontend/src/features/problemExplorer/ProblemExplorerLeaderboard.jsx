@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Crown, Medal, Trophy, Flame, RefreshCw } from 'lucide-react';
-import { buildAuthHeaders } from '../../utils/authHeaders';
+import { authFetch } from '../../utils/authFetch';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
 const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
@@ -25,8 +25,7 @@ export function ProblemExplorerLeaderboard({ isLight }) {
     setError('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/problem-leaderboard?limit=8`, {
-        headers: buildAuthHeaders(),
+      const response = await authFetch(`${API_BASE_URL}/api/user/problem-leaderboard?limit=8`, {
         signal,
       });
 

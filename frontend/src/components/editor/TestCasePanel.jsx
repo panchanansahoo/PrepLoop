@@ -8,6 +8,7 @@ import {
   generateStressTests, detectProblemType
 } from '../../data/testCaseEngine';
 import { buildAuthHeaders } from '../../utils/authHeaders';
+import { authFetch } from '../../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -190,9 +191,8 @@ const TestCasePanel = forwardRef(function TestCasePanel({
     setRunning(true);
     try {
       // Use the structured /run endpoint with problemId for proper per-test-case execution
-      const res = await fetch(`${API_URL}/api/practice/run`, {
+      const res = await authFetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ code, language, problemId }),
       });
       const data = await res.json();
@@ -291,9 +291,8 @@ const TestCasePanel = forwardRef(function TestCasePanel({
     for (const t of tests) {
       const startTime = Date.now();
       try {
-        const res = await fetch(`${API_URL}/api/practice/execute`, {
+        const res = await authFetch(`${API_URL}/api/practice/execute`, {
           method: 'POST',
-          headers: getAuthHeaders(),
           body: JSON.stringify({ code, language, input: t.input }),
         });
         const data = await res.json();

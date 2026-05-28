@@ -4,6 +4,7 @@ import {
     MessageSquare, Zap, Lightbulb, AlertCircle, Loader2, Eye, EyeOff
 } from 'lucide-react';
 import './AICopilot.css';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -29,9 +30,8 @@ export default function AICopilot({ isOpen, onToggle, currentQuestion, partialAn
 
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/copilot-suggest`, {
+            const res = await authFetch(`${API_URL}/api/company-interview/copilot-suggest`, {
                 method: 'POST',
-                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     currentQuestion: question,
                     partialAnswer: answer,
@@ -81,9 +81,8 @@ export default function AICopilot({ isOpen, onToggle, currentQuestion, partialAn
         nudgeTimerRef.current = setTimeout(async () => {
             lastNudgeFetchRef.current = Date.now();
             try {
-                const res = await fetch(`${API_URL}/api/company-interview/nudge`, {
+                const res = await authFetch(`${API_URL}/api/company-interview/nudge`, {
                     method: 'POST',
-                    headers: getAuthHeaders(),
                     body: JSON.stringify({
                         partialAnswer,
                         currentQuestion,

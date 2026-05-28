@@ -8,6 +8,7 @@ import {
   Radio, BookOpen
 } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import './InterviewHub.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -166,9 +167,7 @@ export default function InterviewSuite() {
       setLoading(true);
       try {
         // Load weakness heatmap
-        const heatRes = await fetch(`${API_URL}/api/interview-suite/weakness/heatmap`, {
-          headers: getAuthHeaders(),
-        });
+        const heatRes = await authFetch(`${API_URL}/api/interview-suite/weakness/heatmap`);
         const heatData = await heatRes.json();
         setHeatmap(Array.isArray(heatData?.heatmap) ? heatData.heatmap.slice(0, 6) : []);
       } catch {
@@ -177,9 +176,7 @@ export default function InterviewSuite() {
 
       try {
         // Load recent sessions
-        const sessRes = await fetch(`${API_URL}/api/interview/sessions?limit=5`, {
-          headers: getAuthHeaders(),
-        });
+        const sessRes = await authFetch(`${API_URL}/api/interview/sessions?limit=5`);
         const sessData = await sessRes.json();
         const sessions = Array.isArray(sessData?.sessions) ? sessData.sessions : (Array.isArray(sessData) ? sessData : []);
         setRecentSessions(sessions.slice(0, 5));

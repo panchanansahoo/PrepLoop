@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Pause, Volume2, Download, Share2, MessageCircle, ThumbsUp, ArrowLeft } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 
 /**
@@ -23,9 +24,7 @@ export default function InterviewReplay() {
   const fetchInterviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${buildInterviewApiUrl('/interviews')}?sort=${sortBy}`, {
-        headers: buildAuthHeaders(),
-      });
+      const response = await authFetch(`${buildInterviewApiUrl('/interviews')}?sort=${sortBy}`);
       const data = await response.json();
       setInterviews(data);
     } catch (error) {
@@ -38,9 +37,7 @@ export default function InterviewReplay() {
   const downloadInterview = (interviewId) => {
     (async () => {
       try {
-        const response = await fetch(buildInterviewApiUrl(`/interviews/${interviewId}/download`), {
-          headers: buildAuthHeaders(),
-        });
+        const response = await authFetch(buildInterviewApiUrl(`/interviews/${interviewId}/download`));
         if (!response.ok) {
           throw new Error('Failed to download interview');
         }

@@ -110,7 +110,7 @@ function AdminRoute({ children }) {
 
 function ProblemRedirect() {
   const { id } = useParams();
-  return <Navigate to={`/code-editor/${id}`} replace />;
+  return <Navigate to={`/dsa-editor/${id}`} replace />;
 }
 
 // ErrorBoundary imported from GlobalErrorBoundary (premium recovery UI)
@@ -139,7 +139,7 @@ function AppContent() {
         setCmdOpen(prev => !prev);
       }
       // ? key opens shortcuts (only when not typing in an input)
-      if (e.key === '?' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName)) {
+      if (e.key === '?' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
         e.preventDefault();
         setShortcutsOpen(prev => !prev);
       }
@@ -188,7 +188,7 @@ function AppContent() {
 
   // Public pages that don't show sidebar
   const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot']);
-  const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor');
+  const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/dsa-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
@@ -203,13 +203,13 @@ function AppContent() {
   const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute;
 
   // Routes that should show the global sidebar
-  const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute && !isSimulatorRoute && !isVisualizerRoute;
+  const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute;
 
   // Routes that should hide the top navbar
-  const hideNavbar = isPaymentRoute || isAuthRoute || isSimulatorRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute;
 
   // For backward compatibility with existing class logic
-  const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute; 
+  const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute;
 
 
   return (
@@ -249,8 +249,8 @@ function AppContent() {
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/community" element={<PrivateRoute><CommunityHub /></PrivateRoute>} />
-                <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+                <Route path="/community" element={<CommunityHub />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/overview" element={<PrivateRoute><Overview /></PrivateRoute>} />
                 <Route path="/roadmap/language" element={<LanguageRoadmap />} />
                 <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
@@ -258,7 +258,7 @@ function AppContent() {
                 <Route path="/patterns/:id" element={<PatternDetail />} />
                 <Route
                   path="/problems/:id"
-                  element={<PrivateRoute><ProblemSolver /></PrivateRoute>}
+                  element={<ProblemSolver />}
                 />
                 <Route
                   path="/problem/:id"
@@ -266,17 +266,18 @@ function AppContent() {
                 />
 
                 <Route path="/problems" element={<ProblemExplorer />} />
-                <Route path="/quiz-arena" element={<PrivateRoute><QuizArena /></PrivateRoute>} />
-                <Route path="/code-editor/:problemId" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+                <Route path="/quiz-arena" element={<QuizArena />} />
+                <Route path="/code-editor/:problemId" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
+                <Route path="/dsa-editor/:problemId" element={<DSACodeEditor />} />
 
                 <Route path="/sql-problems" element={<SQLProblemExplorer />} />
-                <Route path="/sql-editor/:problemId" element={<PrivateRoute><SQLCodeEditor /></PrivateRoute>} />
+                <Route path="/sql-editor/:problemId" element={<SQLCodeEditor />} />
                 <Route path="/visualizer" element={<AlgorithmPlayground />} />
                 <Route path="/aptitude" element={<AptitudeHub />} />
                 <Route path="/aptitude/practice/:category" element={<AptitudePractice />} />
                 <Route path="/aptitude/results" element={<AptitudeResults />} />
-                <Route path="/exam-hub" element={<PrivateRoute><ExamHub /></PrivateRoute>} />
-                <Route path="/exam-practice/:examId" element={<PrivateRoute><ExamPractice /></PrivateRoute>} />
+                <Route path="/exam-hub" element={<ExamHub />} />
+                <Route path="/exam-practice/:examId" element={<ExamPractice />} />
                 <Route path="/learning-path" element={<LearningPath />} />
                 <Route path="/advanced-learning-path" element={<AdvancedLearningPathPage />} />
                 <Route path="/learning-path/:topicId" element={<TopicLearning />} />
@@ -288,30 +289,30 @@ function AppContent() {
                 <Route path="/hr-path/:topicId" element={<HRTopicLearning />} />
                 <Route path="/system-design" element={<SystemDesignPath />} />
                 <Route path="/system-design/:topicId" element={<SystemDesignTopicLearning />} />
-                <Route path="/system-design-sim" element={<PrivateRoute><SystemDesignSimulator /></PrivateRoute>} />
-                <Route path="/company-prep" element={<PrivateRoute><CompanyPrep /></PrivateRoute>} />
-                <Route path="/company-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
-                <Route path="/ai-interview" element={<PrivateRoute><AIInterviewPage /></PrivateRoute>} />
-                <Route path="/voice-test" element={<PrivateRoute><SimpleVoiceTest /></PrivateRoute>} />
+                <Route path="/system-design-sim" element={<SystemDesignSimulator />} />
+                <Route path="/company-prep" element={<CompanyPrep />} />
+                <Route path="/company-interview" element={<AIInterviewPage />} />
+                <Route path="/ai-interview" element={<AIInterviewPage />} />
+                <Route path="/voice-test" element={<SimpleVoiceTest />} />
                 <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
                 <Route path="/interview" element={<Navigate to="/interview-suite" replace />} />
                 <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
                 <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
-                <Route path="/interview-suite" element={<PrivateRoute><InterviewSuite /></PrivateRoute>} />
-                <Route path="/multi-round-interview" element={<PrivateRoute><MultiRoundInterview /></PrivateRoute>} />
-                <Route path="/interview-platform" element={<PrivateRoute><InterviewPlatform /></PrivateRoute>} />
-                <Route path="/interview-analytics" element={<PrivateRoute><InterviewAnalytics /></PrivateRoute>} />
-                <Route path="/interview-history" element={<PrivateRoute><InterviewHistory /></PrivateRoute>} />
-                <Route path="/improvement-plan" element={<PrivateRoute><ImprovementPlanPage /></PrivateRoute>} />
+                <Route path="/interview-suite" element={<InterviewSuite />} />
+                <Route path="/multi-round-interview" element={<MultiRoundInterview />} />
+                <Route path="/interview-platform" element={<InterviewPlatform />} />
+                <Route path="/interview-analytics" element={<InterviewAnalytics />} />
+                <Route path="/interview-history" element={<InterviewHistory />} />
+                <Route path="/improvement-plan" element={<ImprovementPlanPage />} />
 
-                <Route path="/playground" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+                <Route path="/playground" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
 
-                <Route path="/live-coding" element={<PrivateRoute><CodingPlayground sidebarCollapsed={sidebarCollapsed} /></PrivateRoute>} />
+                <Route path="/live-coding" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
 
-                <Route path="/debugging-interview" element={<PrivateRoute><DebuggingInterview /></PrivateRoute>} />
-                <Route path="/code-review-interview" element={<PrivateRoute><CodeReviewInterview /></PrivateRoute>} />
-                <Route path="/daily-challenges" element={<PrivateRoute><DailyChallengesPage /></PrivateRoute>} />
-                <Route path="/job-updates" element={<PrivateRoute><JobUpdates /></PrivateRoute>} />
+                <Route path="/debugging-interview" element={<DebuggingInterview />} />
+                <Route path="/code-review-interview" element={<CodeReviewInterview />} />
+                <Route path="/daily-challenges" element={<DailyChallengesPage />} />
+                <Route path="/job-updates" element={<JobUpdates />} />
 
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />
@@ -330,7 +331,7 @@ function AppContent() {
                 <Route path="/profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
                 <Route path="/history" element={<PrivateRoute><History /></PrivateRoute>} />
                 <Route path="/wallet" element={<PrivateRoute><CoinWallet /></PrivateRoute>} />
-                <Route path="/resume-analyzer" element={<PrivateRoute><ResumeAnalyzer /></PrivateRoute>} />
+                <Route path="/resume-analyzer" element={<ResumeAnalyzer />} />
                 <Route path="/dashboard/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
                 <Route path="/dashboard/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
 

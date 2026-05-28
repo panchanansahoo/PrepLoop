@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, MessageSquare, Brain, Code2, Sparkles, Github, Linkedin, Chrome } from 'lucide-react';
 import logo from '../assets/logo.svg';
@@ -354,6 +354,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login, loginWithGoogle, loginWithGithub, loginWithLinkedin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo = new URLSearchParams(location.search).get('redirect');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -361,7 +363,9 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/dashboard');
+      // Navigate to redirect path if provided (from auth gate), else dashboard
+      const target = redirectTo && redirectTo.startsWith('/') ? decodeURIComponent(redirectTo) : '/dashboard';
+      navigate(target);
     } catch (err) {
       console.error("Login error:", err);
       if (!err.response && (err.message === 'Network Error' || err.code === 'ERR_NETWORK' || err.code === 'ECONNREFUSED')) {

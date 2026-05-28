@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { ArrowRight, ArrowLeft, CheckCircle, Target, Clock, BookOpen } from 'lucide-react';
 
 const steps = [
@@ -82,9 +83,8 @@ export default function Onboarding() {
     const handleFinish = async () => {
         setSaving(true);
         try {
-            await fetch('/api/user/preferences', {
+            await authFetch('/api/user/preferences', {
                 method: 'PUT',
-                headers: buildAuthHeaders(user),
                 body: JSON.stringify({
                     experienceLevel: answers[0],
                     targetCompanies: answers[1],

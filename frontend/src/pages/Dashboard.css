@@ -3,7 +3,7 @@
 .dash-page {
   min-height: 100vh;
   background: #060608;
-  color: #fff;
+  color: var(--text-primary);
   position: relative;
   overflow-x: hidden;
 }
@@ -100,12 +100,12 @@
 }
 
 .dash-hero-name {
-  -webkit-text-fill-color: #fff;
+  -webkit-text-fill-color: var(--text-primary);
 }
 
 .dash-hero-sub {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted);
   font-weight: 500;
   margin: 0;
   line-height: 1.5;
@@ -120,7 +120,7 @@
   font-size: 14px;
   font-weight: 700;
   background: linear-gradient(135deg, #7c3aed, #6366f1);
-  color: #fff;
+  color: #ffffff;
   text-decoration: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 4px 20px rgba(124, 58, 237, 0.25);
@@ -134,15 +134,15 @@
 }
 
 .dash-hero-cta-secondary {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.88);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  color: var(--text-primary);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .dash-hero-cta-secondary:hover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
-  border-color: rgba(255, 255, 255, 0.24);
+  border-color: var(--border-light);
 }
 
 /* --- Grid Rows --- */
@@ -221,7 +221,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.42);
+  color: var(--text-muted);
 }
 
 .quick-stats-title {
@@ -230,7 +230,7 @@
   line-height: 1.2;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .quick-stats-summary {
@@ -240,9 +240,9 @@
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.78);
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
@@ -254,9 +254,9 @@
   gap: 6px;
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  background: linear-gradient(135deg, var(--bg-tertiary), rgba(255, 255, 255, 0.02));
+  box-shadow: inset 0 1px 0 var(--bg-tertiary);
 }
 
 .quick-stats-empty-kicker {
@@ -264,12 +264,12 @@
   font-weight: 800;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .quick-stats-empty-banner p {
   margin: 0;
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.45;
 }
@@ -293,7 +293,7 @@
 }
 
 .quick-stat-card {
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px 22px;
   display: flex;
@@ -351,7 +351,7 @@
 }
 
 .quick-stat-card:hover {
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--border-light);
   transform: translateY(-4px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
 }
@@ -390,13 +390,13 @@
 .quick-stat-note {
   font-size: 13px;
   line-height: 1.35;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--text-secondary);
 }
 
 .quick-stat-label {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -404,7 +404,7 @@
 /* DASHBOARD â€” QUICK ACTIONS */
 .quick-actions-section {
   background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--bg-hover);
   border-radius: 20px;
   padding: 24px;
 }
@@ -419,12 +419,12 @@
 .quick-actions-title {
   font-size: 16px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .quick-actions-subtitle {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -452,17 +452,17 @@
   gap: 14px;
   padding: 16px 18px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-tertiary);
   text-decoration: none;
-  color: #fff;
+  color: var(--text-primary);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   animation: fadeSlideUp 0.4s ease both;
 }
 
 .quick-action-card:hover {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.14);
+  background: var(--bg-hover);
+  border-color: var(--border-light);
   transform: translateY(-3px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
@@ -490,27 +490,27 @@
 
 .quick-action-desc {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .quick-action-arrow {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.12);
+  color: var(--border-light);
   transition: all 0.2s;
   flex-shrink: 0;
 }
 
 .quick-action-card:hover .quick-action-arrow {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
   transform: translateX(4px);
 }
 
 /* DASHBOARD — RECENT ACTIVITY */
 
 .recent-activity-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-hover);
   border-radius: 18px;
   padding: 22px;
   height: 100%;
@@ -529,7 +529,7 @@
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .recent-activity-list {
@@ -551,8 +551,8 @@
 }
 
 .recent-activity-item:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
+  border-color: var(--bg-tertiary);
 }
 
 .recent-activity-icon {
@@ -573,7 +573,7 @@
 .recent-activity-item-title {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -584,20 +584,20 @@
   align-items: center;
   gap: 6px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--border-light);
   margin-top: 2px;
 }
 
 .recent-activity-chevron {
-  color: rgba(255, 255, 255, 0.08);
+  color: var(--border);
   flex-shrink: 0;
 }
 
 /* DASHBOARD — SKILL RADAR */
 
 .skill-radar-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-hover);
   border-radius: 18px;
   padding: 22px;
   height: 100%;
@@ -611,7 +611,7 @@
   gap: 8px;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
@@ -626,8 +626,8 @@
 /* DASHBOARD — READINESS SCORE */
 
 .rs-card {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--bg-hover);
   border-radius: 18px;
   padding: 22px;
 }
@@ -642,7 +642,7 @@
 .rs-header h3 {
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
 }
 
@@ -671,13 +671,13 @@
   justify-content: space-between;
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .rs-break-bar {
   height: 5px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-tertiary);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -703,7 +703,7 @@
 .rs-compact-label {
   font-size: 12px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-muted);
 }
 
 .rs-compact-status {
@@ -772,7 +772,7 @@
 
 /* Quick Stat Cards */
 [data-theme="light"] .quick-stats-shell {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
   border-color: rgba(99, 102, 241, 0.08);
 }
 
@@ -815,7 +815,7 @@
 
 /* Quick Actions */
 [data-theme="light"] .quick-actions-section {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(99, 102, 241, 0.08);
@@ -831,7 +831,7 @@
 }
 
 [data-theme="light"] .quick-action-card {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.72);
   border-color: rgba(99, 102, 241, 0.06);
   color: #1a1d2e;
 }
@@ -856,7 +856,7 @@
 
 /* Recent Activity */
 [data-theme="light"] .recent-activity-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(99, 102, 241, 0.08);
@@ -886,7 +886,7 @@
 
 /* Skill Radar */
 [data-theme="light"] .skill-radar-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(99, 102, 241, 0.08);
@@ -899,7 +899,7 @@
 
 /* Readiness Score */
 [data-theme="light"] .rs-card {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--bg-card);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-color: rgba(99, 102, 241, 0.08);
@@ -1070,7 +1070,7 @@
   justify-content: center;
   font-size: 24px;
   font-weight: 700;
-  color: white;
+  color: #ffffff;
   box-shadow: 0 0 20px var(--accent-soft);
 }
 
@@ -1129,7 +1129,7 @@
 .stat-value {
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: var(--text-primary);
   line-height: 1;
 }
 
@@ -1252,7 +1252,7 @@
   width: 260px;
   height: 260px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 70%);
+  background: radial-gradient(circle, var(--bg-tertiary) 0%, transparent 70%);
 }
 
 .account-hero {
@@ -1262,7 +1262,7 @@
   gap: 24px;
   padding: 28px 28px 24px;
   margin-bottom: 22px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-primary));
   border: 1px solid var(--border);
   border-radius: 24px;
   backdrop-filter: blur(14px);
@@ -1312,7 +1312,7 @@
   padding: 5px 10px;
   border-radius: 999px;
   border: 1px solid var(--border-light);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: 12px;
   line-height: 1;
@@ -1367,14 +1367,14 @@
 .account-inline-button {
   color: var(--text-primary);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-tertiary);
 }
 
 .account-secondary-button:hover,
 .account-inline-button:hover {
   transform: translateY(-1px);
   border-color: var(--border-light);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--bg-hover);
 }
 
 .account-danger-button {
@@ -1504,7 +1504,7 @@
   font-size: 2rem;
   font-weight: 700;
   color: var(--text-invert);
-  background: linear-gradient(135deg, var(--text-primary), rgba(255, 255, 255, 0.55));
+  background: linear-gradient(135deg, var(--text-primary), var(--text-muted));
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.22);
 }
 
@@ -1587,7 +1587,7 @@
 .account-select {
   width: 100%;
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-tertiary);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 12px 14px;
@@ -1656,7 +1656,7 @@
 }
 
 .account-toggle.is-off {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-tertiary);
 }
 
 .account-toggle-thumb {
@@ -1666,7 +1666,7 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--text-primary);
   transition: transform 0.18s ease;
 }
 
@@ -1739,7 +1739,7 @@
 
 .btn-get-credits {
   background: var(--accent-gradient);
-  color: white;
+  color: #ffffff;
   border: none;
   padding: 10px 20px;
   border-radius: var(--radius-full);
@@ -1792,7 +1792,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: white;
+  color: var(--text-primary);
 }
 
 .time-ago {
@@ -1838,7 +1838,7 @@
 .section-title {
   font-size: 20px;
   margin-bottom: 24px;
-  color: white;
+  color: var(--text-primary);
   font-weight: 600;
   display: flex;
   align-items: center;

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Briefcase, MapPin, TrendingUp, ExternalLink, Sparkles, RefreshCw, Building2, Wallet, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { useNavigate } from 'react-router-dom';
 import './SkillMatchJobs.css';
 
@@ -48,9 +49,7 @@ export default function SkillMatchJobs() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_URL}/api/jobs/skill-match`, {
-        headers: buildAuthHeaders(user),
-      });
+      const res = await authFetch(`${API_URL}/api/jobs/skill-match`);
       if (res.ok) {
         const data = await res.json();
         const fetched = data.jobs || [];
@@ -103,7 +102,7 @@ export default function SkillMatchJobs() {
           <p>No matching jobs found.</p>
           {!profileComplete && (
             <>
-              <p className="smj-hint">Add skills to your profile to get personalized job recommendations.</p>
+               <p className="smj-hint">Add skills, location, and qualification to your profile to get better job recommendations.</p>
               <button className="smj-cta-btn" onClick={() => navigate('/profile')}>
                 <UserPlus size={16} /> Complete Your Profile
               </button>

@@ -7,6 +7,7 @@ Primary deployment entrypoint:
 1. `.github/workflows/deploy-orchestrator-vercel-azure.yml`
 
 The orchestrator calls backend and frontend workflows with `secrets: inherit`, so the same repository/environment secrets are used by both child workflows.
+The deploy jobs are bound to the `staging` and `production` GitHub environments, so put deployment secrets in those environments when possible.
 
 Path:
 
@@ -41,7 +42,7 @@ These are runtime settings for the backend environment, not GitHub secrets.
 Examples:
 
 1. AZURE_WEBAPP_NAME=preploop-api-staging
-2. BACKEND_HEALTHCHECK_URL=https://api-staging.preploop.com/health
+2. BACKEND_HEALTHCHECK_URL=https://api-staging.preploop.me/health
 
 ## Secrets for Frontend Vercel Workflow
 
@@ -56,7 +57,7 @@ Required secrets:
 
 Examples:
 
-1. BACKEND_HEALTHCHECK_URL=https://api.preploop.com/health
+1. BACKEND_HEALTHCHECK_URL=https://api.preploop.me/health
 
 ## Frontend Runtime Variables in Vercel Dashboard
 
@@ -79,10 +80,10 @@ Required secrets:
 
 Examples:
 
-1. STAGING_BACKEND_HEALTHCHECK_URL=https://api-staging.preploop.com/health
-2. PRODUCTION_BACKEND_HEALTHCHECK_URL=https://api.preploop.com/health
-3. STAGING_FRONTEND_URL=https://staging.preploop.com
-4. PRODUCTION_FRONTEND_URL=https://preploop.com
+1. STAGING_BACKEND_HEALTHCHECK_URL=https://api-staging.preploop.me/health
+2. PRODUCTION_BACKEND_HEALTHCHECK_URL=https://api.preploop.me/health
+3. STAGING_FRONTEND_URL=https://staging.preploop.me
+4. PRODUCTION_FRONTEND_URL=https://preploop.me
 
 ## Notes
 

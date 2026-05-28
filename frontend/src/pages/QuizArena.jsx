@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import './QuizArena.css';
 
@@ -278,9 +279,7 @@ export default function QuizArena() {
   const loadLeaderboard = async (topicId = topic) => {
     setLoadingLeaderboard(true);
     try {
-      const response = await fetch(buildQuizApiUrl(`/user/quiz-leaderboard?topic=${encodeURIComponent(topicId)}&limit=8`), {
-        headers: buildAuthHeaders(),
-      });
+      const response = await authFetch(buildQuizApiUrl(`/user/quiz-leaderboard?topic=${encodeURIComponent(topicId)}&limit=8`));
 
       if (!response.ok) {
         setLeaderboard([]);
@@ -350,9 +349,8 @@ export default function QuizArena() {
     setSaveMessage('');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/user/quiz/attempt`, {
+      const response = await authFetch(`${API_BASE_URL}/api/user/quiz/attempt`, {
         method: 'POST',
-        headers,
         body: JSON.stringify({
           topic,
           score: finalScore,

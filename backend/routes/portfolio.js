@@ -1,6 +1,6 @@
 import express from 'express';
+import { createRequire } from 'module';
 import multer from 'multer';
-import pdfParse from 'pdf-parse';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { parseResumeToProfile } from '../services/portfolioResumeParserService.js';
@@ -11,6 +11,8 @@ import { createPortfolioSite, unpublishPortfolioSite } from '../services/portfol
 import { createShortLink, reservePortfolioSlug, resolveShortLink } from '../services/portfolioShortLinkService.js';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
 
 const router = express.Router();
 const DEFAULT_PUBLIC_DOMAIN = process.env.PORTFOLIO_PUBLIC_DOMAIN || 'https://preploop.com/u';

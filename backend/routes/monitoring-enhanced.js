@@ -4,6 +4,7 @@ import { getCacheStats } from '../middleware/apiCache.js';
 import { getSecurityStats } from '../middleware/securityEnhanced.js';
 import cacheManager from '../utils/cacheManager.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
 const router = express.Router();
 const logger = createLogger('monitoring');
@@ -142,7 +143,7 @@ router.get('/health', async (req, res) => {
 });
 
 // GET /api/monitoring/metrics - Performance metrics
-router.get('/metrics', (req, res) => {
+router.get('/metrics', authenticateToken, requireAdmin, (req, res) => {
   try {
     const topEndpoints = Array.from(metrics.requests.byEndpoint.entries())
       .sort((a, b) => b[1].count - a[1].count)
@@ -182,7 +183,7 @@ router.get('/metrics', (req, res) => {
 });
 
 // GET /api/monitoring/security - Security statistics
-router.get('/security', (req, res) => {
+router.get('/security', authenticateToken, requireAdmin, (req, res) => {
   try {
     const securityStats = getSecurityStats();
     res.json({
@@ -196,7 +197,7 @@ router.get('/security', (req, res) => {
 });
 
 // GET /api/monitoring/cache - Cache statistics
-router.get('/cache', (req, res) => {
+router.get('/cache', authenticateToken, requireAdmin, (req, res) => {
   try {
     const apiCacheStats = getCacheStats();
     res.json({
@@ -210,7 +211,7 @@ router.get('/cache', (req, res) => {
 });
 
 // POST /api/monitoring/reset - Reset metrics (admin only)
-router.post('/reset', (req, res) => {
+router.post('/reset', authenticateToken, requireAdmin, (req, res) => {
   metrics.requests = {
     total: 0,
     success: 0,

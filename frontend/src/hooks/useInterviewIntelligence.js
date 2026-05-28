@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { authFetch } from '../utils/authFetch';
 
 const FILLERS = ['um', 'uh', 'like', 'you know', 'basically', 'literally', 'sort of', 'right'];
 
@@ -57,14 +58,9 @@ export default function useInterviewIntelligence({ getAuthHeaders } = {}) {
   }, []);
 
   const analyzeAnswer = useCallback(async (answer, question = '') => {
-    const headers = typeof getAuthHeaders === 'function' ? getAuthHeaders() : {};
     try {
-      const res = await fetch('/api/voice/analyze-answer', {
+      const res = await authFetch('/api/voice/analyze-answer', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
         body: JSON.stringify({ answer, question }),
       });
 
@@ -94,7 +90,7 @@ export default function useInterviewIntelligence({ getAuthHeaders } = {}) {
       setFollowUpQuestion(fallback.followUpQuestion);
       return fallback;
     }
-  }, [confidenceScore, getAuthHeaders]);
+  }, [confidenceScore]);
 
   return useMemo(() => ({
     fillerCounts,

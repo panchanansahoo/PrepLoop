@@ -1,7 +1,7 @@
-﻿/* CODING PLAYGROUND — PREMIUM EDITOR UI */
+/* CODING PLAYGROUND — PREMIUM EDITOR UI */
 
 .pg-root {
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
   max-width: 100%;
   display: flex;
@@ -64,8 +64,22 @@
 }
 
 .pg-topbar-center {
-  flex: 1;
   justify-content: center;
+}
+
+.pg-topbar-tools {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+
+.pg-topbar-tools::-webkit-scrollbar {
+  height: 0;
+  display: none;
+}
+
+.pg-topbar-run {
+  flex-shrink: 0;
 }
 
 .pg-topbar-right {
@@ -730,6 +744,12 @@
 .pg-console-clear:hover {
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.6);
+}
+
+.pg-console-clear.pg-active {
+  background: rgba(34, 197, 94, 0.1);
+  color: #4ade80;
+  border-radius: 8px;
 }
 
 .pg-console-body {
@@ -1983,11 +2003,11 @@
 }
 
 [data-theme="light"] .pg-info-label {
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 [data-theme="light"] .pg-info-value {
-  color: rgba(0, 0, 0, 0.7);
+  color: rgba(0, 0, 0, 0.85);
 }
 
 /* â”€â”€â”€ Sidebar Action Buttons â”€â”€â”€ */
@@ -2048,6 +2068,11 @@
 [data-theme="light"] .pg-console-clear:hover {
   background: rgba(0, 0, 0, 0.04);
   color: rgba(0, 0, 0, 0.65);
+}
+
+[data-theme="light"] .pg-console-clear.pg-active {
+  background: rgba(34, 197, 94, 0.08);
+  color: #16a34a;
 }
 
 [data-theme="light"] .pg-console-body::-webkit-scrollbar-thumb {
@@ -2115,7 +2140,7 @@
 }
 
 [data-theme="light"] .pg-status-item {
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 /* â”€â”€â”€ Modal Overlays â”€â”€â”€ */
@@ -2163,7 +2188,7 @@
 }
 
 [data-theme="light"] .pg-history-meta {
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(0, 0, 0, 0.65);
 }
 
 [data-theme="light"] .pg-history-lang {
@@ -2172,7 +2197,7 @@
 }
 
 [data-theme="light"] .pg-history-preview {
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 /* â”€â”€â”€ Keyboard Shortcuts â”€â”€â”€ */
@@ -2191,7 +2216,7 @@
 }
 
 [data-theme="light"] .pg-shortcut-row span {
-  color: rgba(0, 0, 0, 0.55);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 /* â”€â”€â”€ AI Chat Panel Light â”€â”€â”€ */
@@ -2209,9 +2234,9 @@
 }
 
 [data-theme="light"] .pg-ai-chip {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.1);
-  color: rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.15);
+  color: rgba(0, 0, 0, 0.85);
 }
 
 [data-theme="light"] .pg-ai-chip:hover:not(:disabled) {
@@ -2226,7 +2251,7 @@
 }
 
 [data-theme="light"] .pg-ai-empty {
-  color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="light"] .pg-ai-empty-icon {
@@ -2236,17 +2261,17 @@
 }
 
 [data-theme="light"] .pg-ai-empty p {
-  color: rgba(0, 0, 0, 0.35);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 [data-theme="light"] .pg-ai-empty span {
-  color: rgba(0, 0, 0, 0.2);
+  color: rgba(0, 0, 0, 0.6);
 }
 
 [data-theme="light"] .pg-ai-suggestion-btn {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.06);
-  color: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: rgba(0, 0, 0, 0.75);
 }
 
 [data-theme="light"] .pg-ai-suggestion-btn:hover {
@@ -2355,4 +2380,3 @@
 [data-theme="light"] .pg-ai-model-badge {
   color: rgba(0, 0, 0, 0.15);
 }
-

@@ -20,7 +20,7 @@ export const companyTracks = [
             { section: 'Quantitative Aptitude', topics: ['Number System', 'Percentages', 'Profit & Loss', 'Time & Work', 'Permutations'], link: '/aptitude' },
             { section: 'Verbal Ability', topics: ['Reading Comprehension', 'Error Detection', 'Sentence Completion', 'Synonyms/Antonyms'], link: null },
             { section: 'Programming Logic', topics: ['Arrays', 'Strings', 'Basic Sorting', 'Pattern Programs', 'Loops'], link: '/problems' },
-            { section: 'Coding', topics: ['Two Pointers', 'HashMap', 'String Manipulation', 'Basic DP'], link: '/code-editor/two-sum' },
+            { section: 'Coding', topics: ['Two Pointers', 'HashMap', 'String Manipulation', 'Basic DP'], link: '/editor/two-sum' },
         ],
         mustDo: ['Arrays basics', 'String problems', 'Aptitude speed math', 'Email writing'],
         tips: ['Focus on speed for NQT', 'Practice aptitude daily', 'Coding section is moderate difficulty'],

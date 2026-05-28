@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, Volume2, Clock, SkipForward, CheckCircle, AlertCircle } from 'lucide-react';
 import RealtimeFeedback from './RealtimeFeedback';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 /**
  * Modern Interactive Interview Component
@@ -41,9 +42,8 @@ export default function ModernInterviewContainer() {
   // Start interview
   const startInterview = async () => {
     try {
-      const response = await fetch('/api/ai/interview/v2/start', {
+      const response = await authFetch('/api/ai/interview/v2/start', {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           type: selectedType,
           difficulty: selectedDifficulty,
@@ -111,9 +111,8 @@ export default function ModernInterviewContainer() {
   // Get real-time feedback
   const getRealtimeFeedback = async () => {
     try {
-      const response = await fetch('/api/ai/interview/v2/feedback/realtime', {
+      const response = await authFetch('/api/ai/interview/v2/feedback/realtime', {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           question: currentQuestion.question,
           answer: currentAnswer,
@@ -145,9 +144,8 @@ export default function ModernInterviewContainer() {
 
     // Get next question
     try {
-      const response = await fetch('/api/ai/interview/v2/next-question', {
+      const response = await authFetch('/api/ai/interview/v2/next-question', {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           previousResponses: answers,
           type: selectedType,
@@ -168,9 +166,8 @@ export default function ModernInterviewContainer() {
   // Complete interview
   const completeInterview = async () => {
     try {
-      const response = await fetch('/api/ai/interview/v2/analysis/detailed', {
+      const response = await authFetch('/api/ai/interview/v2/analysis/detailed', {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           responses: answers.map(a => ({ question: a.question.question, answer: a.answer })),
           type: selectedType,

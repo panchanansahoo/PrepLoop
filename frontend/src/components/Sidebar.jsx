@@ -46,7 +46,6 @@ const navSections = [
         items: [
             { path: '/dsa-path', label: 'DSA Learning Path', subtitle: 'DSA roadmap & patterns', icon: GraduationCap },
             { path: '/technical-path', label: 'Technical Path', subtitle: 'CS & System Design', icon: Server },
-            { path: '/library', label: 'Library', subtitle: 'Books, guides & resources', icon: BookOpen },
             { path: '/hr-path', label: 'HR Path', subtitle: 'Behavioral & Soft Skills', icon: Users },
             { path: '/learning-path', label: 'Aptitude Path', subtitle: 'Formulas & shortcuts', icon: GraduationCap },
             { path: '/system-design', label: 'System Design Mastery', subtitle: 'Architecture & scaling', icon: Network },
@@ -67,7 +66,6 @@ const navSections = [
     {
         category: 'Career',
         items: [
-            { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest jobs & internships', icon: Briefcase },
             { path: '/community', label: 'Community Hub', subtitle: 'Connect & discuss', icon: MessageSquare },
         ]
     },
@@ -98,7 +96,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             category: 'Admin',
             items: [
                 { path: '/admin', label: 'Admin Dashboard', subtitle: 'Manage users & content', icon: ShieldCheck },
-                { path: '/admin/library', label: 'Library Manager', subtitle: 'Manage library books', icon: BookOpen },
             ]
         });
     }
@@ -179,52 +176,27 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
                     ))}
                 </nav>
 
-                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 'auto' }}>
+                <div className="sidebar-footer" style={{ padding: isCollapsed && !mobileOpen ? '16px 8px' : '16px' }}>
                     <div onClick={() => setIsFeedbackModalOpen(true)} style={{ textDecoration: 'none', display: 'block' }}>
                         <div 
-                            style={{
-                                background: 'rgba(255, 255, 255, 0.02)',
-                                border: '1px solid rgba(255, 255, 255, 0.05)',
-                                borderRadius: '12px',
-                                padding: isCollapsed && !mobileOpen ? '8px 0' : '8px 12px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'flex-start',
-                                gap: '2px',
-                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                cursor: 'pointer',
-                                position: 'relative',
-                                overflow: 'hidden',
-                                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'linear-gradient(145deg, rgba(99, 102, 241, 0.1), rgba(168, 85, 247, 0.05))';
-                                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.3)';
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 6px 16px rgba(168, 85, 247, 0.15)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
-                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
-                            }}
+                            className="sidebar-feedback-card"
+                            style={{ padding: isCollapsed && !mobileOpen ? '8px 0' : '8px 12px' }}
                         >
                             {isCollapsed && !mobileOpen ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', width: '100%' }}>
-                                    <MessageSquare size={16} color="#38bdf8" />
-                                    <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 600 }}>+10</span>
+                                    <MessageSquare size={16} className="feedback-icon" />
+                                    <span style={{ fontSize: '9px', color: 'var(--warning-main, #fbbf24)', fontWeight: 600 }}>+10</span>
                                 </div>
                             ) : (
                                 <>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                                        <MessageSquare size={14} color="#38bdf8" style={{ flexShrink: 0 }} />
-                                        <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500, lineHeight: 1 }}>
+                                        <MessageSquare size={14} className="feedback-icon" style={{ flexShrink: 0 }} />
+                                        <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, lineHeight: 1 }}>
                                             Help us improve PrepLoop (30s)
                                         </span>
                                     </div>
                                     <div style={{ width: '100%', paddingLeft: '20px' }}>
-                                        <span style={{ fontSize: '10px', color: '#eab308', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1 }}>
+                                        <span style={{ fontSize: '10px', color: 'var(--warning-dark, #eab308)', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1 }}>
                                             +10 coins
                                         </span>
                                     </div>

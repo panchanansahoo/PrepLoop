@@ -1,0 +1,88 @@
+{
+    "expo": {
+        "name": "PrepLoop",
+        "slug": "preploop-mobile",
+        "version": "1.0.0",
+        "description": "AI-powered coding interview preparation — DSA patterns, mock interviews, resume analyzer, and progress tracking.",
+        "orientation": "portrait",
+        "userInterfaceStyle": "dark",
+        "newArchEnabled": true,
+        "icon": "./assets/icon.png",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#070709"
+        },
+        "assetBundlePatterns": ["**/*"],
+        "scheme": "preploop",
+        "ios": {
+            "supportsTablet": false,
+            "bundleIdentifier": "com.preploop.mobile",
+            "infoPlist": {
+                "NSMicrophoneUsageDescription": "PrepLoop uses your microphone for AI mock interview voice sessions."
+            }
+        },
+        "android": {
+            "package": "com.preploop.mobile",
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#0a0a0f"
+            },
+            "permissions": [
+                "INTERNET",
+                "ACCESS_NETWORK_STATE",
+                "RECORD_AUDIO",
+                "VIBRATE",
+                "RECEIVE_BOOT_COMPLETED",
+                "SCHEDULE_EXACT_ALARM"
+            ],
+            "versionCode": 1,
+            "intentFilters": [
+                {
+                    "action": "VIEW",
+                    "autoVerify": true,
+                    "data": [
+                        {
+                            "scheme": "https",
+                            "host": "preploop.com",
+                            "pathPrefix": "/problems"
+                        },
+                        {
+                            "scheme": "https",
+                            "host": "preploop.com",
+                            "pathPrefix": "/interview"
+                        },
+                        {
+                            "scheme": "preploop",
+                            "host": "*"
+                        }
+                    ],
+                    "category": ["BROWSABLE", "DEFAULT"]
+                }
+            ]
+        },
+        "web": {
+            "bundler": "metro"
+        },
+        "plugins": [
+            "expo-secure-store",
+            [
+                "expo-notifications",
+                {
+                    "icon": "./assets/notification-icon.png",
+                    "color": "#8b5cf6",
+                    "defaultChannel": "default"
+                }
+            ]
+        ],
+        "extra": {
+            "eas": {}
+        },
+        "updates": {
+            "enabled": false
+        },
+        "runtimeVersion": {
+            "policy": "appVersion"
+        }
+    }
+}

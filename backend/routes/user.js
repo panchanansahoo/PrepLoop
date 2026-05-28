@@ -87,6 +87,7 @@ const buildProfileResponse = (req, profile) => {
     currentRole: profile?.designation || profile?.current_role || '',
     skills: profile?.skills || '',
     education: profile?.education || '',
+    qualification: profile?.qualification || profile?.education || '',
     experience: experienceSummary || (experienceYears != null ? String(experienceYears) : experienceLevel),
     experienceSummary,
     experienceYears,
@@ -127,6 +128,7 @@ const buildProfileResponse = (req, profile) => {
       current_role: flatProfile.currentRole,
       skills: flatProfile.skills,
       education: flatProfile.education,
+      qualification: flatProfile.qualification,
       experience: flatProfile.experience,
       experience_summary: flatProfile.experienceSummary,
       experience_years: flatProfile.experienceYears,
@@ -171,7 +173,7 @@ const isProfileCompleteForReward = (profile) => {
     profile?.designation,
     experienceValue,
     profile?.skills,
-    profile?.education,
+    profile?.education || profile?.qualification,
     profile?.bio,
     profile?.location,  // New field
     profile?.company   // New field

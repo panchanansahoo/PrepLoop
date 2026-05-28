@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageSquare, Brain, Code2, FileText, Clock, Filter, ChevronRight } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -23,7 +24,7 @@ export default function History() {
 
   const fetchHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/user/history`, { headers: buildAuthHeaders() });
+      const res = await authFetch(`${API_URL}/api/user/history`);
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);

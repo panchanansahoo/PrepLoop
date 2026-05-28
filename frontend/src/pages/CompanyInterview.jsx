@@ -13,6 +13,7 @@ import { Upload, FileText } from 'lucide-react';
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { Link } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
 import EmotionDetector from '../components/EmotionDetector';
@@ -450,10 +451,7 @@ export default function CompanyInterview() {
     const loadLatestResumeForInterview = async () => {
         setResumeUploadLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/resume/latest`, {
-                method: 'GET',
-                headers: getAuthHeaders(),
-            });
+            const res = await authFetch(`${API_URL}/api/resume/latest`);
 
             const data = await res.json();
             if (!res.ok) {
@@ -699,9 +697,8 @@ export default function CompanyInterview() {
 
         // Try high-quality backend TTS first
         try {
-            const res = await fetch(`${API_URL}/api/voice/tts`, {
+            const res = await authFetch(`${API_URL}/api/voice/tts`, {
                 method: 'POST',
-                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     text: spokenText,
                     persona: ttsPersona,
@@ -1118,8 +1115,8 @@ export default function CompanyInterview() {
     const requestHint = async () => {
         setHintLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/hint`, {
-                method: 'POST', headers: getAuthHeaders(),
+            const res = await authFetch(`${API_URL}/api/company-interview/hint`, {
+                method: 'POST',
                 body: JSON.stringify({
                     company: config.company, role: config.role, stage: config.stage,
                     currentQuestion, conversationHistory: conversation
@@ -1158,11 +1155,10 @@ export default function CompanyInterview() {
 
         const resolvedExperienceLevel = isFresherHrTechMode ? 'fresher' : 'experienced';
         let effectiveInterviewMode = interviewRuntimeMode;
-        const headers = getAuthHeaders();
 
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/start`, {
-                method: 'POST', headers,
+            const res = await authFetch(`${API_URL}/api/company-interview/start`, {
+                method: 'POST',
                 body: JSON.stringify({
                     ...config,
                     totalQuestions,
@@ -1364,8 +1360,8 @@ export default function CompanyInterview() {
             const lastScoreVal = sessionScores.length > 0 ? sessionScores[sessionScores.length - 1] : null;
             const avgScoreVal = sessionScores.length > 0 ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : null;
 
-            const res = await fetch(`${API_URL}/api/company-interview/follow-up`, {
-                method: 'POST', headers: getAuthHeaders(),
+            const res = await authFetch(`${API_URL}/api/company-interview/follow-up`, {
+                method: 'POST',
                 body: JSON.stringify({
                     company: config.company, role: config.role, stage: config.stage,
                     difficulty: config.difficulty,
@@ -1535,8 +1531,8 @@ export default function CompanyInterview() {
 
     const fetchSpeechFeedback = async (text, duration) => {
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/speech-feedback`, {
-                method: 'POST', headers: getAuthHeaders(),
+            const res = await authFetch(`${API_URL}/api/company-interview/speech-feedback`, {
+                method: 'POST',
                 body: JSON.stringify({ transcript: text, duration })
             });
             const data = await res.json();
@@ -1592,8 +1588,8 @@ export default function CompanyInterview() {
         let reportData = null;
 
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/detailed-report`, {
-                method: 'POST', headers: getAuthHeaders(),
+            const res = await authFetch(`${API_URL}/api/company-interview/detailed-report`, {
+                method: 'POST',
                 body: JSON.stringify({
                     company: config.company,
                     role: config.role,
@@ -1619,8 +1615,8 @@ export default function CompanyInterview() {
 
         // Auto-save session to backend (non-blocking)
         try {
-            fetch(`${API_URL}/api/company-interview/save-session`, {
-                method: 'POST', headers: getAuthHeaders(),
+            authFetch(`${API_URL}/api/company-interview/save-session`, {
+                method: 'POST',
                 body: JSON.stringify({
                     type: 'single',
                     company: config.company, role: config.role,

@@ -15,6 +15,7 @@ jobs:
   smoke:
     name: Smoke Validation
     runs-on: ubuntu-latest
+    environment: ${{ github.event_name == 'workflow_dispatch' && 'production' || github.event.workflow_run.head_branch == 'develop' && 'staging' || 'production' }}
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (

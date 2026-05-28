@@ -1,8 +1,11 @@
 import express from 'express';
+import { createRequire } from 'module';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
-import pdf from 'pdf-parse';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+
+const require = createRequire(import.meta.url);
+const pdf = require('pdf-parse');
 
 const upload = multer({ storage: multer.memoryStorage() });
 const router = express.Router();

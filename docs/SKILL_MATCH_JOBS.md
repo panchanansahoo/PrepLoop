@@ -7,6 +7,7 @@ The Skill-Match Live Job Recommendations feature provides personalized job recom
 ## Features
 
 - **Automatic Skill Matching**: Analyzes user profile skills and matches them against job descriptions
+- **Profile Signal Matching**: Uses skills, location, and qualification together for better scoring
 - **Match Score**: Each job displays a percentage match score based on skill overlap
 - **Live Updates**: Automatically refreshes job listings every 5 minutes
 - **Manual Refresh**: Users can manually refresh to get the latest jobs
@@ -79,7 +80,7 @@ The widget is registered in the Dashboard's `WIDGET_REGISTRY`:
 2. **Query Building**: Creates a search query from user's experience summary or top 3 skills
 3. **Job Fetching**: Retrieves jobs from external APIs (Indian job portals, JSearch, Adzuna, Remotive)
 4. **Skill Matching**: Compares user skills against job descriptions and requirements
-5. **Score Calculation**: Calculates match percentage: `(matched_skills / total_user_skills) * 100`
+5. **Score Calculation**: Calculates a weighted score using skill overlap, title fit, location, and qualification signals
 6. **Sorting**: Jobs are sorted by match score (highest first)
 7. **Display**: Top 5 jobs are displayed in the dashboard widget
 

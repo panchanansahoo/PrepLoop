@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import {
   Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp,
@@ -33,10 +34,10 @@ function ATSGauge({ score, size = 180 }) {
   }, [score]);
 
   const getColor = (s) => {
-    if (s >= 80) return '#6ee7b7';
-    if (s >= 60) return '#fbbf24';
-    if (s >= 40) return '#fb923c';
-    return '#f87171';
+    if (s >= 80) return 'var(--success-main, #6ee7b7)';
+    if (s >= 60) return 'var(--warning-main, #fbbf24)';
+    if (s >= 40) return 'var(--warning-dark, #fb923c)';
+    return 'var(--error-main, #f87171)';
   };
 
   const color = getColor(score);
@@ -51,7 +52,7 @@ function ATSGauge({ score, size = 180 }) {
             <feComposite in="SourceGraphic" in2="blur" operator="over" />
           </filter>
         </defs>
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="var(--border-light)" strokeWidth="10" />
         <circle
           cx={size / 2} cy={size / 2} r={radius} fill="none"
           stroke={color} strokeWidth="10" strokeLinecap="round"
@@ -65,7 +66,7 @@ function ATSGauge({ score, size = 180 }) {
         alignItems: 'center', justifyContent: 'center',
       }}>
         <div style={{ fontSize: 42, fontWeight: 800, color, lineHeight: 1 }}>{animatedScore}</div>
-        <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 4, fontWeight: 600 }}>ATS Score</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, fontWeight: 600 }}>ATS Score</div>
         <div style={{
           fontSize: 11, fontWeight: 700, marginTop: 6,
           padding: '3px 10px', borderRadius: 20,
@@ -81,9 +82,9 @@ function ATSGauge({ score, size = 180 }) {
 // ── Keyword tag ──
 function KeywordTag({ label, type }) {
   const colors = {
-    technical: { bg: 'rgba(139,92,246,0.12)', color: '#c084fc', border: 'rgba(139,92,246,0.2)' },
-    soft: { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: 'rgba(59,130,246,0.2)' },
-    missing: { bg: 'rgba(248,113,113,0.12)', color: '#f87171', border: 'rgba(248,113,113,0.2)' },
+    technical: { bg: 'rgba(139,92,246,0.12)', color: 'var(--accent-primary, #c084fc)', border: 'rgba(139,92,246,0.2)' },
+    soft: { bg: 'rgba(59,130,246,0.12)', color: 'var(--info-main, #60a5fa)', border: 'rgba(59,130,246,0.2)' },
+    missing: { bg: 'rgba(248,113,113,0.12)', color: 'var(--error-main, #f87171)', border: 'rgba(248,113,113,0.2)' },
   };
   const c = colors[type] || colors.technical;
   return (
@@ -147,9 +148,7 @@ export default function ResumeAnalyzer() {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const res = await fetch(buildResumeApiUrl('/api/resume/history'), {
-        headers: buildAuthHeaders(user),
-      });
+      const res = await authFetch(buildResumeApiUrl('/api/resume/history'));
       if (res.ok) {
         const data = await res.json();
         setHistory(data.analyses || []);
@@ -209,15 +208,16 @@ export default function ResumeAnalyzer() {
       if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
         const formData = new FormData();
         formData.append('resume', fileInputRef.current._file);
+        const headers = buildAuthHeaders(user);
+        delete headers['Content-Type'];
         res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
-          headers: buildAuthHeaders(user),
+          headers,
           body: formData,
         });
       } else {
-        res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
+        res = await authFetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
-          headers: buildAuthHeaders(user),
           body: JSON.stringify({ resumeText }),
         });
       }
@@ -238,9 +238,7 @@ export default function ResumeAnalyzer() {
 
   const loadAnalysis = async (id) => {
     try {
-      const res = await fetch(buildResumeApiUrl(`/api/resume/${id}`), {
-        headers: buildAuthHeaders(user),
-      });
+      const res = await authFetch(buildResumeApiUrl(`/api/resume/${id}`));
       if (res.ok) {
         const data = await res.json();
         setResult({
@@ -316,9 +314,8 @@ export default function ResumeAnalyzer() {
     setGenerating(true);
     setError('');
     try {
-      const res = await fetch('/api/resume/generate', {
+      const res = await authFetch('/api/resume/generate', {
         method: 'POST',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify({ ...createFormData, template: selectedTemplate }),
       });
       if (!res.ok) {
@@ -406,7 +403,7 @@ export default function ResumeAnalyzer() {
   const templates = [
     { id: 1, name: 'Modern Professional', desc: 'Clean, contemporary design', atsScore: 95, color: '#6ee7b7' },
     { id: 2, name: 'Classic Corporate', desc: 'Traditional, conservative format', atsScore: 98, color: '#fbbf24' },
-    { id: 3, name: 'Technical Focused', desc: 'Skills and project emphasis', atsScore: 92, color: '#60a5fa' },
+    { id: 3, name: 'Technical Focused', desc: 'Skills and project emphasis', atsScore: 92, color: 'var(--info-main, #60a5fa)' },
   ];
 
   return (
@@ -423,8 +420,8 @@ export default function ResumeAnalyzer() {
             <FileText size={22} color="#a78bfa" />
           </div>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, color: '#fff' }}>Resume Analyzer</h1>
-            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+            <h1 style={{ fontSize: 26, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Resume Analyzer</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
               AI-powered ATS scoring, keyword analysis & interview prep insights
             </p>
           </div>
@@ -436,10 +433,10 @@ export default function ResumeAnalyzer() {
         <div>
           {/* Choose Your Path */}
           <div style={{ marginBottom: 48 }}>
-            <h2 style={{ fontSize: 32, fontWeight: 800, textAlign: 'center', color: '#fff', marginBottom: 12 }}>
+            <h2 style={{ fontSize: 32, fontWeight: 800, textAlign: 'center', color: 'var(--text-primary)', marginBottom: 12 }}>
               Choose Your Path
             </h2>
-            <p style={{ fontSize: 15, textAlign: 'center', color: 'rgba(255,255,255,0.5)', marginBottom: 32 }}>
+            <p style={{ fontSize: 15, textAlign: 'center', color: 'var(--text-secondary)', marginBottom: 32 }}>
               Select your preferred option
             </p>
 
@@ -481,25 +478,25 @@ export default function ResumeAnalyzer() {
                   </span>
                 </div>
 
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8, position: 'relative', zIndex: 1 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, position: 'relative', zIndex: 1 }}>
                   Enhance Existing Resume
                 </h3>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20, position: 'relative', zIndex: 1 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, position: 'relative', zIndex: 1 }}>
                   Upload your current resume and get detailed analysis with AI-powered improvements
                 </p>
 
                 <div style={{ marginBottom: 24, position: 'relative', zIndex: 1 }}>
-                  <h4 style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     How it works:
                   </h4>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#6ee7b7" /> Upload your PDF or DOCX resume
                     </li>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#6ee7b7" /> Get comprehensive ATS analysis
                     </li>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#6ee7b7" /> Receive optimization suggestions
                     </li>
                   </ul>
@@ -508,7 +505,7 @@ export default function ResumeAnalyzer() {
                 <button style={{
                   width: '100%', padding: '14px 24px', borderRadius: 12,
                   background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                  color: '#fff', fontSize: 14, fontWeight: 700, border: 'none',
+                  color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, border: 'none',
                   cursor: 'pointer', fontFamily: 'inherit', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', gap: 8,
                   boxShadow: '0 4px 24px rgba(139,92,246,0.25)',
@@ -556,25 +553,25 @@ export default function ResumeAnalyzer() {
                   </span>
                 </div>
 
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#fff', marginBottom: 8, position: 'relative', zIndex: 1 }}>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', marginBottom: 8, position: 'relative', zIndex: 1 }}>
                   Create Resume from Scratch
                 </h3>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', marginBottom: 20, position: 'relative', zIndex: 1 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 20, position: 'relative', zIndex: 1 }}>
                   Tell us about yourself in natural language and we'll create a professional resume
                 </p>
 
                 <div style={{ marginBottom: 24, position: 'relative', zIndex: 1 }}>
-                  <h4 style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.4)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  <h4 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
                     How it works:
                   </h4>
                   <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#a78bfa" /> Fill out natural language form
                     </li>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#a78bfa" /> Choose your preferred template
                     </li>
-                    <li style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <li style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
                       <CheckCircle2 size={14} color="#a78bfa" /> AI creates structured resume
                     </li>
                   </ul>
@@ -583,7 +580,7 @@ export default function ResumeAnalyzer() {
                 <button style={{
                   width: '100%', padding: '14px 24px', borderRadius: 12,
                   background: 'linear-gradient(135deg, #a855f7, #d946ef)',
-                  color: '#fff', fontSize: 14, fontWeight: 700, border: 'none',
+                  color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, border: 'none',
                   cursor: 'pointer', fontFamily: 'inherit', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', gap: 8,
                   boxShadow: '0 4px 24px rgba(168,85,247,0.25)',
@@ -598,10 +595,10 @@ export default function ResumeAnalyzer() {
 
           {/* Professional Templates */}
           <div>
-            <h2 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center', color: '#fff', marginBottom: 8 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center', color: 'var(--text-primary)', marginBottom: 8 }}>
               Professional Templates
             </h2>
-            <p style={{ fontSize: 13, textAlign: 'center', color: 'rgba(255,255,255,0.5)', marginBottom: 28 }}>
+            <p style={{ fontSize: 13, textAlign: 'center', color: 'var(--text-secondary)', marginBottom: 28 }}>
               Choose from 3 ATS-optimized templates designed by professionals
             </p>
 
@@ -625,7 +622,7 @@ export default function ResumeAnalyzer() {
                   onClick={() => setSelectedTemplate(template.id)}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>
                       {template.name}
                     </h3>
                     <span style={{
@@ -637,17 +634,17 @@ export default function ResumeAnalyzer() {
                     </span>
                   </div>
 
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>
+                  <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
                     {template.desc}
                   </p>
 
                   {/* Mock resume preview */}
                   <div style={{
                     padding: 16, borderRadius: 12,
-                    background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                     marginBottom: 16, height: 180, overflow: 'hidden',
                   }}>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', lineHeight: 1.6, fontFamily: 'monospace' }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.6, fontFamily: 'monospace' }}>
                       <div style={{ fontWeight: 700, color: template.color, marginBottom: 4 }}>John Doe</div>
                       <div style={{ fontSize: 10, marginBottom: 8 }}>john@example.com • (123) 456-7890</div>
                       <div style={{ fontSize: 10 }}>
@@ -660,9 +657,9 @@ export default function ResumeAnalyzer() {
 
                   <button style={{
                     width: '100%', padding: '10px 16px', borderRadius: 10,
-                    background: selectedTemplate === template.id ? `${template.color}20` : 'rgba(255,255,255,0.05)',
-                    color: selectedTemplate === template.id ? template.color : '#fff',
-                    fontSize: 12, fontWeight: 700, border: `1px solid ${selectedTemplate === template.id ? template.color : 'rgba(255,255,255,0.1)'}`,
+                    background: selectedTemplate === template.id ? `${template.color}20` : 'var(--bg-tertiary)',
+                    color: selectedTemplate === template.id ? template.color : 'var(--text-primary)',
+                    fontSize: 12, fontWeight: 700, border: `1px solid ${selectedTemplate === template.id ? template.color : 'var(--border-light)'}`,
                     cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.2s',
                   }}>
                     {selectedTemplate === template.id ? '✓ Selected' : 'Select Template'}
@@ -680,8 +677,8 @@ export default function ResumeAnalyzer() {
           {/* Back button */}
           <button onClick={() => { setMode('landing'); setResult(null); resetAnalysis(); }} style={{
             marginBottom: 16, padding: '8px 14px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600,
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
             width: 'fit-content',
           }}>
@@ -707,10 +704,10 @@ export default function ResumeAnalyzer() {
                 onDrop={handleDrop}
                 onClick={handleOpenFilePicker}
                 style={{
-                  border: `2px dashed ${dragOver ? '#a78bfa' : 'rgba(255,255,255,0.1)'}`,
+                  border: `2px dashed ${dragOver ? '#a78bfa' : 'var(--border-light)'}`,
                   borderRadius: 16, padding: '48px 32px', textAlign: 'center',
                   cursor: 'pointer', transition: 'all 0.3s ease',
-                  background: dragOver ? 'rgba(139,92,246,0.06)' : 'rgba(255,255,255,0.02)',
+                  background: dragOver ? 'rgba(139,92,246,0.06)' : 'var(--bg-secondary)',
                   marginBottom: 20,
                 }}
               >
@@ -734,14 +731,14 @@ export default function ResumeAnalyzer() {
                     <div style={{ fontSize: 15, fontWeight: 700, color: '#6ee7b7', marginBottom: 4 }}>
                       <CheckCircle2 size={16} style={{ verticalAlign: -2 }} /> {fileName}
                     </div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Click or drop to replace</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Click or drop to replace</div>
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginBottom: 4 }}>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
                       Drag & drop your resume here, or click to browse
                     </div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                       Supports PDF, TXT, and DOCX files
                     </div>
                   </div>
@@ -750,9 +747,9 @@ export default function ResumeAnalyzer() {
 
               {/* Divider */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '20px 0' }}>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
-                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: 600 }}>OR PASTE TEXT</span>
-                <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.06)' }} />
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>OR PASTE TEXT</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
 
               {/* Text input */}
@@ -763,14 +760,14 @@ export default function ResumeAnalyzer() {
                 rows={8}
                 style={{
                   width: '100%', padding: '16px 18px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 14, color: '#fff', fontSize: 14, fontFamily: 'inherit',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 14, color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit',
                   resize: 'vertical', lineHeight: 1.6,
                   outline: 'none',
                 }}
                 onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
               />
 
               {/* Error */}
@@ -778,7 +775,7 @@ export default function ResumeAnalyzer() {
                 <div style={{
                   marginTop: 12, padding: '10px 14px', borderRadius: 10,
                   background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
-                  color: '#f87171', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+                  color: 'var(--error-main, #f87171)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
                 }}>
                   <XCircle size={16} /> {error}
                 </div>
@@ -792,7 +789,7 @@ export default function ResumeAnalyzer() {
                   width: '100%', marginTop: 20, padding: '14px 24px',
                   borderRadius: 14, border: 'none', cursor: analyzing ? 'wait' : 'pointer',
                   background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                  color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                  color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                   opacity: analyzing || (!resumeText && !fileName) ? 0.5 : 1,
                   transition: 'all 0.3s',
@@ -816,15 +813,15 @@ export default function ResumeAnalyzer() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 24 }}>
                 {[
                   { icon: Target, label: 'ATS Score', desc: 'Comprehensive compatibility rating', color: '#6ee7b7' },
-                  { icon: Tag, label: 'Keyword Analysis', desc: 'Technical & soft skill scanning', color: '#60a5fa' },
-                  { icon: Sparkles, label: 'AI Suggestions', desc: 'Personalized improvement tips', color: '#c084fc' },
+                  { icon: Tag, label: 'Keyword Analysis', desc: 'Technical & soft skill scanning', color: 'var(--info-main, #60a5fa)' },
+                  { icon: Sparkles, label: 'AI Suggestions', desc: 'Personalized improvement tips', color: 'var(--accent-primary, #c084fc)' },
                   { icon: Mic, label: 'Interview Prep', desc: 'Resume-based question areas', color: '#fbbf24' },
                 ].map((feat, i) => {
                   const Icon = feat.icon;
                   return (
                     <div key={i} style={{
                       padding: '14px 16px', borderRadius: 14,
-                      background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)',
+                      background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                       display: 'flex', alignItems: 'center', gap: 12,
                     }}>
                       <div style={{
@@ -836,8 +833,8 @@ export default function ResumeAnalyzer() {
                         <Icon size={16} color={feat.color} />
                       </div>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{feat.label}</div>
-                        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>{feat.desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>{feat.label}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{feat.desc}</div>
                       </div>
                     </div>
                   );
@@ -863,19 +860,19 @@ export default function ResumeAnalyzer() {
                     <BarChart3 size={22} color="#818cf8" />
                   </div>
                   <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 800, color: '#fff', margin: 0 }}>Resume Analysis Results</h2>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: '3px 0 0' }}>
-                      Analysis results for: <span style={{ color: '#c084fc', fontWeight: 600 }}>{fileName || 'Resume'}</span>
+                    <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-primary)', margin: 0 }}>Resume Analysis Results</h2>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '3px 0 0' }}>
+                      Analysis results for: <span style={{ color: 'var(--accent-primary, #c084fc)', fontWeight: 600 }}>{fileName || 'Resume'}</span>
                     </p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', margin: '2px 0 0' }}>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>
                       Completed on {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} at {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                     </p>
                   </div>
                 </div>
                 <button style={{
                   padding: '8px 18px', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600,
+                  background: 'var(--border)', border: '1px solid var(--border-light)',
+                  color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
                 }}>
                   <Download size={14} /> Share
@@ -886,7 +883,7 @@ export default function ResumeAnalyzer() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
                 {[
                   { label: 'ATS Score', value: `${analysis.atsScore}%`, icon: Eye, color: '#fbbf24' },
-                  { label: 'Job Match', value: analysis.keywordMatch?.industryFit || 'N/A', icon: Briefcase, color: '#60a5fa' },
+                  { label: 'Job Match', value: analysis.keywordMatch?.industryFit || 'N/A', icon: Briefcase, color: 'var(--info-main, #60a5fa)' },
                   { label: 'Suggestions', value: String(analysis.suggestions?.length || 0), icon: Sparkles, color: '#a78bfa' },
                   { label: 'Score Boost', value: `+${Math.min(100 - analysis.atsScore, 25)}%`, icon: TrendingUp, color: '#6ee7b7' },
                 ].map((card, i) => {
@@ -897,8 +894,8 @@ export default function ResumeAnalyzer() {
                       border: '1px solid var(--border)',
                     }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                        <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{card.label}</span>
-                        <Icon size={16} color="rgba(255,255,255,0.25)" />
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>{card.label}</span>
+                        <Icon size={16} color="var(--text-muted)" />
                       </div>
                       <div style={{ fontSize: 28, fontWeight: 800, color: card.color }}>{card.value}</div>
                     </div>
@@ -910,7 +907,7 @@ export default function ResumeAnalyzer() {
               <div style={{
                 display: 'grid', gridTemplateColumns: `repeat(${tabs.length}, 1fr)`,
                 borderRadius: 12, overflow: 'hidden',
-                background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                 marginBottom: 20,
               }}>
                 {tabs.map((tab, idx) => {
@@ -919,10 +916,10 @@ export default function ResumeAnalyzer() {
                     <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
                       padding: '13px 16px', border: 'none', cursor: 'pointer',
                       background: active ? 'rgba(139,92,246,0.12)' : 'transparent',
-                      color: active ? '#c084fc' : 'rgba(255,255,255,0.4)',
+                      color: active ? '#c084fc' : 'var(--text-muted)',
                       fontWeight: active ? 700 : 500, fontSize: 13, fontFamily: 'inherit',
                       transition: 'all 0.2s',
-                      borderRight: idx < tabs.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
+                      borderRight: idx < tabs.length - 1 ? '1px solid var(--border-light)' : 'none',
                     }}>
                       {tab.label}
                     </button>
@@ -938,10 +935,10 @@ export default function ResumeAnalyzer() {
                       background: 'var(--bg-card)', borderRadius: 20, padding: 28,
                       border: '1px solid var(--border)',
                     }}>
-                      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Target size={16} color="#a78bfa" /> ATS Score Breakdown
                       </h3>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 24px' }}>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 24px' }}>
                         How your resume performs against ATS systems
                       </p>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -957,10 +954,10 @@ export default function ResumeAnalyzer() {
                           return (
                             <div key={i}>
                               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 600 }}>{cat.label}</span>
+                                <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 600 }}>{cat.label}</span>
                                 <span style={{ fontSize: 13, fontWeight: 700, color: cat.color }}>{clampedScore}%</span>
                               </div>
-                              <div style={{ height: 8, borderRadius: 8, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ height: 8, borderRadius: 8, background: 'var(--border)', overflow: 'hidden' }}>
                                 <div style={{
                                   height: '100%', width: `${clampedScore}%`,
                                   background: `linear-gradient(90deg, ${cat.color}, ${cat.color}cc)`,
@@ -978,10 +975,10 @@ export default function ResumeAnalyzer() {
                       background: 'var(--bg-card)', borderRadius: 20, padding: 28,
                       border: '1px solid var(--border)',
                     }}>
-                      <h3 style={{ fontSize: 16, fontWeight: 700, color: '#fff', margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-primary)', margin: 0, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Star size={16} color="#fbbf24" /> Key Insights
                       </h3>
-                      <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 24px' }}>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 24px' }}>
                         Your resume's main strengths and areas for improvement
                       </p>
 
@@ -992,11 +989,11 @@ export default function ResumeAnalyzer() {
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {analysis.strengths?.length > 0 ? analysis.strengths.map((s, i) => (
-                            <div key={i} style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, paddingLeft: 10, borderLeft: '2px solid rgba(110,231,183,0.25)' }}>
+                            <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, paddingLeft: 10, borderLeft: '2px solid rgba(110,231,183,0.25)' }}>
                               • {s}
                             </div>
                           )) : (
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>No strengths identified yet</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>No strengths identified yet</span>
                           )}
                         </div>
                       </div>
@@ -1008,11 +1005,11 @@ export default function ResumeAnalyzer() {
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                           {analysis.weaknesses?.length > 0 ? analysis.weaknesses.map((w, i) => (
-                            <div key={i} style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', lineHeight: 1.6, paddingLeft: 10, borderLeft: '2px solid rgba(251,146,60,0.25)' }}>
+                            <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6, paddingLeft: 10, borderLeft: '2px solid rgba(251,146,60,0.25)' }}>
                               • {w}
                             </div>
                           )) : (
-                            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', fontStyle: 'italic' }}>• Analysis temporarily unavailable</span>
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>• Analysis temporarily unavailable</span>
                           )}
                         </div>
                       </div>
@@ -1022,32 +1019,32 @@ export default function ResumeAnalyzer() {
 
                 {activeTab === 'ats' && (
                   <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 28, border: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c084fc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-primary, #c084fc)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Layout size={16} /> Section-by-Section Analysis
                     </h3>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 20px' }}>Detailed breakdown of each resume section</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px' }}>Detailed breakdown of each resume section</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     {(analysis.sectionAnalysis?.length > 0) ? analysis.sectionAnalysis.map((sec, i) => {
                       const statusColors = { strong: '#6ee7b7', needs_work: '#fbbf24', weak: '#fb923c', missing: '#f87171' };
                       const statusLabels = { strong: 'Strong', needs_work: 'Needs Work', weak: 'Weak', missing: 'Missing' };
                       const sc = statusColors[sec.status] || '#fbbf24';
                       return (
-                        <div key={i} style={{ padding: '16px 18px', borderRadius: 14, background: 'rgba(255,255,255,0.02)', border: `1px solid ${sc}20` }}>
+                        <div key={i} style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: `1px solid ${sc}20` }}>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{sec.sectionName}</span>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{sec.sectionName}</span>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: `${sc}15`, color: sc }}>{statusLabels[sec.status] || sec.status}</span>
                               <span style={{ fontSize: 13, fontWeight: 800, color: sc }}>{sec.score}/100</span>
                             </div>
                           </div>
-                          <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: 8 }}>
+                          <div style={{ height: 4, borderRadius: 4, background: 'var(--border)', overflow: 'hidden', marginBottom: 8 }}>
                             <div style={{ height: '100%', width: `${sec.score}%`, background: sc, borderRadius: 4, transition: 'width 0.8s ease' }} />
                           </div>
-                          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.6, margin: 0 }}>{sec.feedback}</p>
+                          <p style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6, margin: 0 }}>{sec.feedback}</p>
                         </div>
                       );
                     }) : (
-                      <div style={{ textAlign: 'center', padding: 32, color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+                      <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-muted)', fontSize: 13 }}>
                         <Layers size={24} style={{ marginBottom: 8 }} />
                         <p>Section analysis not available. Try running a new analysis.</p>
                       </div>
@@ -1058,13 +1055,13 @@ export default function ResumeAnalyzer() {
 
                 {activeTab === 'matching' && (
                   <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 28, border: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c084fc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-primary, #c084fc)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Zap size={16} /> Keyword & Skills Analysis
                     </h3>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 24px' }}>Keywords detected and gaps in your resume</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 24px' }}>Keywords detected and gaps in your resume</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                       <div>
-                        <h4 style={{ fontSize: 13, fontWeight: 700, color: '#c084fc', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent-primary, #c084fc)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                           Technical Skills Found
                         </h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1072,13 +1069,13 @@ export default function ResumeAnalyzer() {
                             <KeywordTag key={i} label={k} type="technical" />
                           ))}
                           {(!analysis.keywordMatch?.technical || analysis.keywordMatch.technical.length === 0) && (
-                            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>No technical keywords detected</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No technical keywords detected</span>
                           )}
                         </div>
                       </div>
 
                       <div>
-                        <h4 style={{ fontSize: 13, fontWeight: 700, color: '#60a5fa', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--info-main, #60a5fa)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                           Soft Skills Found
                         </h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1086,13 +1083,13 @@ export default function ResumeAnalyzer() {
                             <KeywordTag key={i} label={k} type="soft" />
                           ))}
                           {(!analysis.keywordMatch?.soft || analysis.keywordMatch.soft.length === 0) && (
-                            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>No soft skills detected</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No soft skills detected</span>
                           )}
                         </div>
                       </div>
 
                       <div>
-                        <h4 style={{ fontSize: 13, fontWeight: 700, color: '#f87171', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--error-main, #f87171)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <AlertTriangle size={14} /> Missing Keywords (Add These!)
                         </h4>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -1100,7 +1097,7 @@ export default function ResumeAnalyzer() {
                             <KeywordTag key={i} label={k} type="missing" />
                           ))}
                           {(!analysis.keywordMatch?.missing || analysis.keywordMatch.missing.length === 0) && (
-                            <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>No missing keywords — great coverage!</span>
+                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No missing keywords — great coverage!</span>
                           )}
                         </div>
                       </div>
@@ -1108,10 +1105,10 @@ export default function ResumeAnalyzer() {
                       {/* Keyword stats bar */}
                       <div style={{
                         padding: '16px 20px', borderRadius: 14,
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
                       }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)', marginBottom: 10 }}>KEYWORD COVERAGE</div>
-                        <div style={{ height: 10, borderRadius: 10, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', display: 'flex' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 10 }}>KEYWORD COVERAGE</div>
+                        <div style={{ height: 10, borderRadius: 10, background: 'var(--border)', overflow: 'hidden', display: 'flex' }}>
                           {(() => {
                             const tech = analysis.keywordMatch?.technical?.length || 0;
                             const soft = analysis.keywordMatch?.soft?.length || 0;
@@ -1128,11 +1125,11 @@ export default function ResumeAnalyzer() {
                         </div>
                         <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
                           {[
-                            { label: 'Technical', color: '#c084fc', count: analysis.keywordMatch?.technical?.length || 0 },
-                            { label: 'Soft Skills', color: '#60a5fa', count: analysis.keywordMatch?.soft?.length || 0 },
-                            { label: 'Missing', color: '#f87171', count: analysis.keywordMatch?.missing?.length || 0 },
+                            { label: 'Technical', color: 'var(--accent-primary, #c084fc)', count: analysis.keywordMatch?.technical?.length || 0 },
+                            { label: 'Soft Skills', color: 'var(--info-main, #60a5fa)', count: analysis.keywordMatch?.soft?.length || 0 },
+                            { label: 'Missing', color: 'var(--error-main, #f87171)', count: analysis.keywordMatch?.missing?.length || 0 },
                           ].map((item, i) => (
-                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
+                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)' }}>
                               <div style={{ width: 8, height: 8, borderRadius: 4, background: item.color }} />
                               {item.label} ({item.count})
                             </div>
@@ -1145,10 +1142,10 @@ export default function ResumeAnalyzer() {
 
                 {activeTab === 'suggestions' && (
                   <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 28, border: '1px solid var(--border)' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 700, color: '#c084fc', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent-primary, #c084fc)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Sparkles size={16} /> AI-Powered Suggestions
                     </h3>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: '0 0 20px' }}>Prioritized improvements to boost your resume score</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 20px' }}>Prioritized improvements to boost your resume score</p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       {analysis.suggestions?.map((s, i) => (
                         <div key={i} style={{
@@ -1164,11 +1161,11 @@ export default function ResumeAnalyzer() {
                           <div style={{
                             width: 28, height: 28, borderRadius: 8, flexShrink: 0,
                             background: 'rgba(139,92,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 12, fontWeight: 800, color: '#c084fc',
+                            fontSize: 12, fontWeight: 800, color: 'var(--accent-primary, #c084fc)',
                           }}>
                             {i + 1}
                           </div>
-                          <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.6 }}>
+                          <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                             {s}
                           </div>
                         </div>
@@ -1181,12 +1178,12 @@ export default function ResumeAnalyzer() {
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 marginTop: 28, paddingTop: 20,
-                borderTop: '1px solid rgba(255,255,255,0.06)',
+                borderTop: '1px solid var(--border-light)',
               }}>
                 <button onClick={() => { setMode('landing'); setResult(null); resetAnalysis(); }} style={{
                   padding: '10px 20px', borderRadius: 12,
-                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                  color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600,
+                  background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                  color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600,
                   cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8,
                 }}>
                   <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to Menu
@@ -1194,8 +1191,8 @@ export default function ResumeAnalyzer() {
                 <div style={{ display: 'flex', gap: 12 }}>
                   <button onClick={resetAnalysis} style={{
                     padding: '10px 20px', borderRadius: 12,
-                    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: 600,
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600,
                     cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8,
                   }}>
                     <RefreshCw size={14} /> Analyze Another Resume
@@ -1203,7 +1200,7 @@ export default function ResumeAnalyzer() {
                   <button onClick={() => { setMode('create'); setResult(null); }} style={{
                     padding: '10px 24px', borderRadius: 12,
                     background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                    border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+                    border: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
                     cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 8,
                     boxShadow: '0 4px 20px rgba(139,92,246,0.25)',
                   }}>
@@ -1223,8 +1220,8 @@ export default function ResumeAnalyzer() {
           {/* Back button */}
           <button onClick={() => { setMode('landing'); setSelectedTemplate(null); setCreateFormData({ fullName: '', email: '', phone: '', summary: '', experience: '', education: '', skills: '' }); }} style={{
             marginBottom: 20, padding: '8px 14px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-            color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600,
+            background: 'var(--bg-tertiary)', border: '1px solid var(--border)',
+            color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
             cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
             width: 'fit-content',
           }}>
@@ -1238,11 +1235,11 @@ export default function ResumeAnalyzer() {
                 background: 'var(--bg-card)', borderRadius: 20, padding: 32,
                 border: '1px solid var(--border)', marginBottom: 24,
               }}>
-                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: '#fff', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <FileText size={22} color="#d8b4fe" />
                   Create Your Resume
                 </h2>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 28 }}>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 28 }}>
                   Fill in your information and we'll generate a professional resume
                 </p>
 
@@ -1250,7 +1247,7 @@ export default function ResumeAnalyzer() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {/* Full Name */}
                   <div>
-                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Full Name *</label>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Full Name *</label>
                     <input
                       type="text"
                       value={createFormData.fullName}
@@ -1258,19 +1255,19 @@ export default function ResumeAnalyzer() {
                       placeholder="John Doe"
                       style={{
                         width: '100%', padding: '12px 16px', borderRadius: 12,
-                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                        color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                        background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                        color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none',
                         transition: 'all 0.2s',
                       }}
                       onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                     />
                   </div>
 
                   {/* Email & Phone */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Email *</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Email *</label>
                       <input
                         type="email"
                         value={createFormData.email}
@@ -1278,16 +1275,16 @@ export default function ResumeAnalyzer() {
                         placeholder="john@example.com"
                         style={{
                           width: '100%', padding: '12px 16px', borderRadius: 12,
-                          background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                          color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                          background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                          color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none',
                           transition: 'all 0.2s',
                         }}
                         onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                        onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Phone</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Phone</label>
                       <input
                         type="tel"
                         value={createFormData.phone}
@@ -1295,12 +1292,12 @@ export default function ResumeAnalyzer() {
                         placeholder="(123) 456-7890"
                         style={{
                           width: '100%', padding: '12px 16px', borderRadius: 12,
-                          background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-                          color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none',
+                          background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                          color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none',
                           transition: 'all 0.2s',
                         }}
                         onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                        onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                        onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
                     </div>
                   </div>
@@ -1308,25 +1305,25 @@ export default function ResumeAnalyzer() {
                   {/* Location & LinkedIn */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>Location</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>Location</label>
                       <input type="text" value={createFormData.location} onChange={(e) => setCreateFormData({ ...createFormData, location: e.target.value })}
-                        placeholder="Chicago, IL" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s' }}
-                        onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'} onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                        placeholder="Chicago, IL" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s' }}
+                        onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.6)', marginBottom: 8 }}>{FORM_LABELS.linkedInUrl}</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>{FORM_LABELS.linkedInUrl}</label>
                       <input type="text" value={createFormData.linkedin} onChange={(e) => setCreateFormData({ ...createFormData, linkedin: e.target.value })}
-                        placeholder="linkedin.com/in/yourname" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s' }}
-                        onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'} onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                        placeholder="linkedin.com/in/yourname" style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s' }}
+                        onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'} onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                       />
                     </div>
                   </div>
 
                   {/* ═══ EDUCATION ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <BookOpen size={14} color="#a78bfa" /> Education
                       </label>
                       <button onClick={addEducation} type="button" style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#c4b5fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1334,43 +1331,43 @@ export default function ResumeAnalyzer() {
                       </button>
                     </div>
                     {createFormData.education.map((edu, idx) => (
-                      <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
+                      <div key={idx} style={{ background: 'var(--bg-secondary)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid var(--border)', position: 'relative' }}>
                         {createFormData.education.length > 1 && (
-                          <button onClick={() => removeEducation(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <button onClick={() => removeEducation(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: 'var(--error-main, #f87171)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                             <Minus size={12} />
                           </button>
                         )}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input placeholder="University / Institution Name *" value={edu.institution} onChange={(e) => updateEducation(idx, 'institution', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                           <input placeholder="Dates (e.g. Jan 2022 – May 2023)" value={edu.dates} onChange={(e) => updateEducation(idx, 'dates', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input placeholder="Degree (e.g. Master of Science in Business Analytics)" value={edu.degree} onChange={(e) => updateEducation(idx, 'degree', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <input placeholder="Location (e.g. Chicago, IL)" value={edu.location} onChange={(e) => updateEducation(idx, 'location', e.target.value)}
-                              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                             />
                             <input placeholder="GPA (e.g. 3.91/4.0)" value={edu.gpa} onChange={(e) => updateEducation(idx, 'gpa', e.target.value)}
-                              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                              style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                             />
                           </div>
                         </div>
                         <input placeholder="Coursework (comma-separated, e.g. Data Mining, Statistics, Machine Learning)" value={edu.coursework} onChange={(e) => updateEducation(idx, 'coursework', e.target.value)}
-                          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                         />
                       </div>
                     ))}
                   </div>
 
                   {/* ═══ SKILLS ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <Layers size={14} color="#a78bfa" /> Skills
                     </label>
                     <textarea
@@ -1378,16 +1375,16 @@ export default function ResumeAnalyzer() {
                       onChange={(e) => setCreateFormData({ ...createFormData, skills: e.target.value })}
                       placeholder="List all your skills separated by commas. They'll be auto-categorized.&#10;e.g. Python, R, SQL, Power BI, Tableau, React, MongoDB, AWS, Docker"
                       rows={3}
-                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', resize: 'vertical' }}
+                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', resize: 'vertical' }}
                       onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                     />
                   </div>
 
                   {/* ═══ EXPERIENCE ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Briefcase size={14} color="#a78bfa" /> Work Experience
                       </label>
                       <button onClick={addExperience} type="button" style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#c4b5fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1395,39 +1392,39 @@ export default function ResumeAnalyzer() {
                       </button>
                     </div>
                     {createFormData.experience.map((exp, idx) => (
-                      <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
+                      <div key={idx} style={{ background: 'var(--bg-secondary)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid var(--border)', position: 'relative' }}>
                         {createFormData.experience.length > 1 && (
-                          <button onClick={() => removeExperience(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <button onClick={() => removeExperience(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: 'var(--error-main, #f87171)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                             <Minus size={12} />
                           </button>
                         )}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input placeholder="Company Name *" value={exp.company} onChange={(e) => updateExperience(idx, 'company', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                           <input placeholder="Dates (e.g. Aug 2023 – Present)" value={exp.dates} onChange={(e) => updateExperience(idx, 'dates', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input placeholder="Job Title (e.g. Business Analyst II)" value={exp.title} onChange={(e) => updateExperience(idx, 'title', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                           <input placeholder="Location (e.g. Chicago, IL)" value={exp.location} onChange={(e) => updateExperience(idx, 'location', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                         </div>
                         <textarea placeholder="Key achievements / responsibilities (one per line)&#10;• Performed data analysis on group insurance accounts&#10;• Developed KPI metrics dashboard using Power BI" value={exp.bullets} onChange={(e) => updateExperience(idx, 'bullets', e.target.value)}
-                          rows={3} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical' }}
+                          rows={3} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical' }}
                         />
                       </div>
                     ))}
                   </div>
 
                   {/* ═══ PROJECTS ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Layout size={14} color="#a78bfa" /> Projects
                       </label>
                       <button onClick={addProject} type="button" style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#c4b5fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1435,34 +1432,34 @@ export default function ResumeAnalyzer() {
                       </button>
                     </div>
                     {createFormData.projects.map((proj, idx) => (
-                      <div key={idx} style={{ background: 'rgba(255,255,255,0.02)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid rgba(255,255,255,0.06)', position: 'relative' }}>
+                      <div key={idx} style={{ background: 'var(--bg-secondary)', borderRadius: 14, padding: 16, marginBottom: 10, border: '1px solid var(--border)', position: 'relative' }}>
                         {createFormData.projects.length > 1 && (
-                          <button onClick={() => removeProject(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                          <button onClick={() => removeProject(idx)} type="button" style={{ position: 'absolute', top: 10, right: 10, width: 24, height: 24, borderRadius: 6, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: 'var(--error-main, #f87171)', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
                             <Minus size={12} />
                           </button>
                         )}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                           <input placeholder="Project Name *" value={proj.name} onChange={(e) => updateProject(idx, 'name', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                           <input placeholder="Dates (e.g. Aug 2022 – Dec 2022)" value={proj.dates} onChange={(e) => updateProject(idx, 'dates', e.target.value)}
-                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                           />
                         </div>
                         <input placeholder="Technologies (e.g. Python, SQL, Tableau, Spark)" value={proj.tech} onChange={(e) => updateProject(idx, 'tech', e.target.value)}
-                          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 10 }}
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 10 }}
                         />
                         <textarea placeholder="Key achievements (one per line)&#10;• Analyzed financial data for 100,000 borrowers&#10;• Achieved 96% accuracy using Random Forest" value={proj.bullets} onChange={(e) => updateProject(idx, 'bullets', e.target.value)}
-                          rows={2} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical' }}
+                          rows={2} style={{ width: '100%', padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none', resize: 'vertical' }}
                         />
                       </div>
                     ))}
                   </div>
 
                   {/* ═══ LEADERSHIP & AWARDS ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Award size={14} color="#a78bfa" /> Leadership & Awards
                       </label>
                       <button onClick={addAward} type="button" style={{ padding: '4px 10px', borderRadius: 8, background: 'rgba(168,85,247,0.15)', border: '1px solid rgba(168,85,247,0.3)', color: '#c4b5fd', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -1472,10 +1469,10 @@ export default function ResumeAnalyzer() {
                     {createFormData.awards.map((award, idx) => (
                       <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
                         <input placeholder="e.g. Nominated for Chancellor's award at UIC for excellence in academics" value={award} onChange={(e) => updateAward(idx, e.target.value)}
-                          style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 10, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
                         />
                         {createFormData.awards.length > 1 && (
-                          <button onClick={() => removeAward(idx)} type="button" style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0, alignSelf: 'center' }}>
+                          <button onClick={() => removeAward(idx)} type="button" style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)', color: 'var(--error-main, #f87171)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0, alignSelf: 'center' }}>
                             <Minus size={12} />
                           </button>
                         )}
@@ -1484,18 +1481,18 @@ export default function ResumeAnalyzer() {
                   </div>
 
                   {/* ═══ PROFESSIONAL SUMMARY ═══ */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 16 }}>
-                    <label style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.7)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <Star size={14} color="#a78bfa" /> Professional Summary <span style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.3)' }}>(optional — AI will generate if empty)</span>
+                  <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 16 }}>
+                    <label style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <Star size={14} color="#a78bfa" /> Professional Summary <span style={{ fontSize: 10, fontWeight: 500, color: 'var(--text-muted)' }}>(optional — AI will generate if empty)</span>
                     </label>
                     <textarea
                       value={createFormData.summary}
                       onChange={(e) => setCreateFormData({ ...createFormData, summary: e.target.value })}
                       placeholder="Brief overview of your professional background and career goals..."
                       rows={3}
-                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', resize: 'vertical' }}
+                      style={{ width: '100%', padding: '12px 16px', borderRadius: 12, background: 'var(--bg-secondary)', border: '1px solid var(--border)', color: 'var(--text-primary)', fontSize: 14, fontFamily: 'inherit', outline: 'none', transition: 'all 0.2s', resize: 'vertical' }}
                       onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.3)'}
-                      onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
+                      onBlur={(e) => e.target.style.borderColor = 'var(--border-light)'}
                     />
                   </div>
 
@@ -1503,7 +1500,7 @@ export default function ResumeAnalyzer() {
                     <div style={{
                       padding: '10px 14px', borderRadius: 10,
                       background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.15)',
-                      color: '#f87171', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
+                      color: 'var(--error-main, #f87171)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8,
                     }}>
                       <XCircle size={16} /> {error}
                     </div>
@@ -1517,7 +1514,7 @@ export default function ResumeAnalyzer() {
                     width: '100%', marginTop: 20, padding: '14px 24px',
                     borderRadius: 14, border: 'none', cursor: generating ? 'wait' : 'pointer',
                     background: 'linear-gradient(135deg, #a855f7, #d946ef)',
-                    color: '#fff', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                    color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
                     transition: 'all 0.3s',
                     boxShadow: '0 4px 24px rgba(168,85,247,0.25)',
@@ -1539,10 +1536,10 @@ export default function ResumeAnalyzer() {
                 background: 'var(--bg-card)', borderRadius: 20, padding: 20,
                 border: '1px solid var(--border)', position: 'sticky', top: 20,
               }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: '#fff' }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: 'var(--text-primary)' }}>
                   Resume Template
                 </h3>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginBottom: 16 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
                   Choose your preferred template format
                 </p>
 
@@ -1553,9 +1550,9 @@ export default function ResumeAnalyzer() {
                       onClick={() => setSelectedTemplate(template.id)}
                       style={{
                         padding: '12px 14px', borderRadius: 12,
-                        background: selectedTemplate === template.id ? `${template.color}20` : 'rgba(255,255,255,0.03)',
-                        border: `1px solid ${selectedTemplate === template.id ? template.color : 'rgba(255,255,255,0.08)'}`,
-                        color: selectedTemplate === template.id ? template.color : '#fff',
+                        background: selectedTemplate === template.id ? `${template.color}20` : 'var(--bg-secondary)',
+                        border: `1px solid ${selectedTemplate === template.id ? template.color : 'var(--border-light)'}`,
+                        color: selectedTemplate === template.id ? template.color : 'var(--text-primary)',
                         fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
                         textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                         transition: 'all 0.2s',
@@ -1567,7 +1564,7 @@ export default function ResumeAnalyzer() {
                       }}
                       onMouseLeave={(e) => {
                         if (selectedTemplate !== template.id) {
-                          e.currentTarget.style.background = 'rgba(255,255,255,0.03)';
+                          e.currentTarget.style.background = 'var(--bg-secondary)';
                         }
                       }}
                     >
@@ -1586,7 +1583,7 @@ export default function ResumeAnalyzer() {
                     <div style={{ fontSize: 11, fontWeight: 600, color: templates.find(t => t.id === selectedTemplate)?.color, marginBottom: 4 }}>
                       ✓ Selected Template
                     </div>
-                    <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
                       {templates.find(t => t.id === selectedTemplate)?.desc}
                     </div>
                   </div>
@@ -1608,8 +1605,8 @@ export default function ResumeAnalyzer() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <button onClick={() => { setMode('create'); setGeneratedResume(null); }} style={{
                 padding: '9px 16px', borderRadius: 10,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600,
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border-light)',
+                color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
                 cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5,
               }}>
                 <ChevronRight size={13} style={{ transform: 'rotate(180deg)' }} /> Back to Form
@@ -1636,7 +1633,7 @@ export default function ResumeAnalyzer() {
               <button onClick={printResume} style={{
                 padding: '9px 20px', borderRadius: 10,
                 background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                border: 'none', color: '#fff', fontSize: 12, fontWeight: 700,
+                border: 'none', color: 'var(--text-primary)', fontSize: 12, fontWeight: 700,
                 cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
                 boxShadow: '0 4px 16px rgba(139,92,246,0.25)',
               }}>
@@ -1901,8 +1898,8 @@ export default function ResumeAnalyzer() {
           }}>
             <button onClick={() => { setMode('landing'); setGeneratedResume(null); }} style={{
               padding: '10px 22px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-              color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 600,
+              background: 'var(--bg-tertiary)', border: '1px solid var(--border-light)',
+              color: 'var(--text-secondary)', fontSize: 12, fontWeight: 600,
               cursor: 'pointer', fontFamily: 'inherit',
             }}>
               Start Over
@@ -1910,7 +1907,7 @@ export default function ResumeAnalyzer() {
             <button onClick={printResume} style={{
               padding: '10px 24px', borderRadius: 10,
               background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-              border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+              border: 'none', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700,
               cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 7,
               boxShadow: '0 4px 20px rgba(139,92,246,0.25)',
             }}>

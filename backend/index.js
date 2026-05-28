@@ -15,7 +15,12 @@ import { validateEnvironment } from './config/envValidation.js';
 import { corsOptions } from './config/cors.js';
 import { requestIdMiddleware } from './middleware/requestId.js';
 import { sanitizeInput } from './middleware/sanitization.js';
-import { aiEndpointsLimiter, paymentEndpointsLimiter, jobsEndpointsLimiter, adminEndpointsLimiter } from './middleware/apiRateLimiter.js';
+import {
+  aiEndpointsLimiter,
+  paymentEndpointsLimiter,
+  jobsEndpointsLimiter,
+  adminEndpointsLimiter,
+} from './middleware/apiRateLimiter.js';
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import cacheManager from './utils/cacheManager.js';
@@ -73,10 +78,16 @@ async function initializeServer() {
     const copilotRoutes = (await import('./routes/copilot.js')).default;
     const portfolioRoutes = (await import('./routes/portfolio.js')).default;
     const analyticsRoutes = (await import('./routes/analytics.js')).default;
-    
+    const careerAnalyticsRoutes = (await import('./routes/career-analytics.js')).default;
+    const contestsRoutes = (await import('./routes/contests.js')).default;
+    const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
+    const feedbackRoutes = (await import('./routes/feedback.js')).default;
+    const monitoringEnhancedRoutes = (await import('./routes/monitoring-enhanced.js')).default;
+
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
-    const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
+    const { healthCheck, readinessCheck, livenessCheck } =
+      await import('./middleware/healthCheck.js');
 
     console.log('✅ Routes loaded successfully');
 
@@ -102,48 +113,52 @@ async function initializeServer() {
     });
 
     // Middleware setup
-    
-  // Advanced security middleware
+
+    // Advanced security middleware
 
     app.use(enhancedSecurity());
 
-  app.use(helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", 'data:', 'https:'],
+    app.use(
+      helmet({
+        contentSecurityPolicy: {
+          directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+            scriptSrc: ["'self'"],
+            imgSrc: ["'self'", 'data:', 'https:'],
+          },
         },
-      },
-      hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true,
-      },
-    }));
-    
+        hsts: {
+          maxAge: 31536000,
+          includeSubDomains: true,
+          preload: true,
+        },
+      })
+    );
+
     // Enable compression
-    app.use(compression({
-      filter: (req, res) => {
-        if (req.headers['x-no-compression']) {
-          return false;
-        }
-        return compression.filter(req, res);
-      },
-      level: 6,
-    }));
-    
+    app.use(
+      compression({
+        filter: (req, res) => {
+          if (req.headers['x-no-compression']) {
+            return false;
+          }
+          return compression.filter(req, res);
+        },
+        level: 6,
+      })
+    );
+
     // CORS with secure configuration
     app.use(cors(corsOptions));
     app.use('/api/payment/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
-    
+
     // Input sanitization (skip for webhooks)
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
-    
+
     // Rate limiting
     app.use('/api/auth', authLimiter);
     app.use('/api/ai', aiEndpointsLimiter);
@@ -152,14 +167,15 @@ async function initializeServer() {
     app.use('/api/jobs', jobsEndpointsLimiter);
     app.use('/api/admin', adminEndpointsLimiter);
     app.use('/api/', limiter);
-  app.use('/api', apiCacheMiddleware());
+    app.use('/api', apiCacheMiddleware());
 
-
-    const enableVoiceDebugLogs = process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
+    const enableVoiceDebugLogs =
+      process.env.VOICE_DEBUG_LOGS === 'true' || process.env.NODE_ENV === 'development';
     if (enableVoiceDebugLogs) {
       app.use('/api/voice', (req, res, next) => {
         const startedAt = Date.now();
-        const requestId = req.requestId || res.locals.requestId || req.get('X-Request-ID') || 'unknown';
+        const requestId =
+          req.requestId || res.locals.requestId || req.get('X-Request-ID') || 'unknown';
         let responseCompleted = false;
         voiceHttpLogger.info('Voice request started', {
           requestId,
@@ -247,6 +263,11 @@ async function initializeServer() {
     app.use('/api/copilot', copilotRoutes);
     app.use('/api/portfolio', portfolioRoutes);
     app.use('/api/analytics', analyticsRoutes);
+    app.use('/api/career', careerAnalyticsRoutes);
+    app.use('/api', contestsRoutes);
+    app.use('/api/real-interview', realInterviewRoutes);
+    app.use('/api/feedback', feedbackRoutes);
+    app.use('/api/monitoring', monitoringEnhancedRoutes);
 
     // Catch-all 404 handler for undefined API routes to prevent silent failures
     app.use('/api', (req, res, next) => {
@@ -256,7 +277,6 @@ async function initializeServer() {
 
     // Error handler middleware
     app.use(errorHandler);
-
   } catch (error) {
     console.error('❌ Failed to initialize server:', error.message);
     console.error(error.stack);
@@ -279,11 +299,11 @@ function startServer(port, attempt = 0) {
       if (process.env.NODE_ENV === 'production') {
         console.error(
           `❌ Port ${port} is already in use (production mode). ` +
-          'Exiting immediately - do not attempt port retry in production.'
+            'Exiting immediately - do not attempt port retry in production.'
         );
         process.exit(1);
       }
-      
+
       // In development, retry with next port
       if (attempt < MAX_PORT_RETRIES) {
         const nextPort = port + 1;
@@ -335,28 +355,32 @@ process.on('uncaughtException', (error) => {
 let shutdownManager = null;
 
 // Initialize server and start listening
-initializeServer().then(() => {
-  const server = startServer(DEFAULT_PORT);
+initializeServer()
+  .then(() => {
+    const server = startServer(DEFAULT_PORT);
 
-  // Initialize collaboration service (must happen before shutdown setup)
-  collaborationService.initialize(server);
-  console.log('✅ Collaboration service initialized');
+    // Initialize collaboration service (must happen before shutdown setup)
+    collaborationService.initialize(server);
+    console.log('✅ Collaboration service initialized');
 
-  // Setup graceful shutdown with configurable timeouts
-  shutdownManager = setupGracefulShutdown(server, {
-    shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
-    forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
+    // Setup graceful shutdown with configurable timeouts
+    shutdownManager = setupGracefulShutdown(server, {
+      shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
+      forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
+    });
+
+    console.log('✅ Graceful shutdown handlers registered');
+
+    // ── Eager model preload (fire-and-forget, non-blocking) ──
+    import('./services/voiceService.js')
+      .then((mod) => mod.default.preloadKokoroTTS())
+      .catch((err) =>
+        console.warn('[startup] Kokoro preload import failed (non-fatal):', err.message)
+      );
+  })
+  .catch((error) => {
+    console.error('❌ Failed to start server:', error.message);
+    process.exit(1);
   });
-
-  console.log('✅ Graceful shutdown handlers registered');
-
-  // ── Eager model preload (fire-and-forget, non-blocking) ──
-  import('./services/voiceService.js')
-    .then(mod => mod.default.preloadKokoroTTS())
-    .catch(err => console.warn('[startup] Kokoro preload import failed (non-fatal):', err.message));
-}).catch((error) => {
-  console.error('❌ Failed to start server:', error.message);
-  process.exit(1);
-});
 
 export default app;

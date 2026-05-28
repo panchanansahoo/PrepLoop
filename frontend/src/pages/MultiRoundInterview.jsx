@@ -7,6 +7,7 @@ import {
 import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { Link, useNavigate } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -137,9 +138,8 @@ export default function MultiRoundInterview() {
     // Save session to backend
     const saveMultiRoundSession = async (results) => {
         try {
-            await fetch(`${API_URL}/api/company-interview/save-session`, {
+            await authFetch(`${API_URL}/api/company-interview/save-session`, {
                 method: 'POST',
-                headers: getAuthHeaders(),
                 body: JSON.stringify({
                     type: 'multi-round',
                     company,
@@ -173,7 +173,7 @@ export default function MultiRoundInterview() {
             <div style={{
                 minHeight: '100vh',
                 background: '#080811',
-                color: '#e2e8f0',
+                color: 'var(--text-primary)',
                 padding: '48px 24px',
                 fontFamily: "'Inter', system-ui, sans-serif",
                 position: 'relative',
@@ -199,7 +199,7 @@ export default function MultiRoundInterview() {
                     {/* Header */}
                     <div style={{ textAlign: 'center', marginBottom: 48 }}>
                         <Link to="/dashboard" style={{
-                            color: 'rgba(255,255,255,0.35)', textDecoration: 'none', fontSize: 13,
+                            color: 'var(--border)', textDecoration: 'none', fontSize: 13,
                             display: 'inline-flex', alignItems: 'center', gap: 6,
                             marginBottom: 20, transition: 'color 0.2s', fontWeight: 500
                         }}>
@@ -207,24 +207,24 @@ export default function MultiRoundInterview() {
                         </Link>
                         <h1 style={{
                             fontSize: 32, fontWeight: 800, marginBottom: 10, letterSpacing: '-0.5px',
-                            background: 'linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.75) 100%)',
+                            background: 'linear-gradient(135deg, #fff 0%, var(--border) 100%)',
                             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text'
                         }}>
                             <Zap size={26} style={{ color: '#8b5cf6', verticalAlign: '-3px', marginRight: 8 }} />
                             Full Interview Loop
                         </h1>
-                        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: 500 }}>
+                        <p style={{ color: 'var(--border)', fontSize: 14, fontWeight: 500 }}>
                             Simulate a complete multi-round interview cycle — just like the real thing
                         </p>
                     </div>
 
                     {/* Interview Setup Card */}
                     <div style={{
-                        background: 'linear-gradient(145deg, rgba(15,15,30,0.9) 0%, rgba(10,10,22,0.95) 100%)',
+                        background: 'var(--bg-card)',
                         border: '1.5px solid rgba(99,102,241,0.1)',
                         borderRadius: 20, padding: 28, marginBottom: 20,
                         backdropFilter: 'blur(20px)',
-                        boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 var(--border)',
                         position: 'relative', overflow: 'hidden'
                     }}>
                         {/* Top gradient line */}
@@ -234,7 +234,7 @@ export default function MultiRoundInterview() {
                         }} />
                         <h3 style={{
                             fontSize: 13, fontWeight: 700, marginBottom: 18,
-                            color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px'
+                            color: 'var(--border)', textTransform: 'uppercase', letterSpacing: '1px'
                         }}>
                             Interview Setup
                         </h3>
@@ -246,7 +246,7 @@ export default function MultiRoundInterview() {
                             ].map((field, i) => (
                                 <div key={i}>
                                     <label style={{
-                                        fontSize: 10, color: 'rgba(255,255,255,0.3)', display: 'block',
+                                        fontSize: 10, color: 'var(--border)', display: 'block',
                                         marginBottom: 6, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px'
                                     }}>{field.label}</label>
                                     <select
@@ -254,8 +254,8 @@ export default function MultiRoundInterview() {
                                         onChange={field.onChange}
                                         style={{
                                             width: '100%', padding: '11px 36px 11px 14px',
-                                            background: 'rgba(255,255,255,0.04)',
-                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            background: 'var(--border)',
+                                            border: '1px solid var(--border)',
                                             borderRadius: 12, color: '#fff', fontSize: 13,
                                             fontWeight: 600, fontFamily: 'inherit',
                                             outline: 'none', cursor: 'pointer', appearance: 'none',
@@ -274,11 +274,11 @@ export default function MultiRoundInterview() {
 
                     {/* Round Selection Card */}
                     <div style={{
-                        background: 'linear-gradient(145deg, rgba(15,15,30,0.9) 0%, rgba(10,10,22,0.95) 100%)',
+                        background: 'var(--bg-card)',
                         border: '1.5px solid rgba(99,102,241,0.1)',
                         borderRadius: 20, padding: 28, marginBottom: 24,
                         backdropFilter: 'blur(20px)',
-                        boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04)',
+                        boxShadow: '0 8px 40px rgba(0,0,0,0.3), inset 0 1px 0 var(--border)',
                         position: 'relative', overflow: 'hidden'
                     }}>
                         <div style={{
@@ -287,7 +287,7 @@ export default function MultiRoundInterview() {
                         }} />
                         <h3 style={{
                             fontSize: 13, fontWeight: 700, marginBottom: 18,
-                            color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '1px'
+                            color: 'var(--border)', textTransform: 'uppercase', letterSpacing: '1px'
                         }}>
                             Select Interview Rounds
                         </h3>
@@ -302,8 +302,8 @@ export default function MultiRoundInterview() {
                                             padding: '18px 20px',
                                             background: isSelected
                                                 ? `linear-gradient(145deg, ${round.color}12, ${round.color}08)`
-                                                : 'rgba(255,255,255,0.02)',
-                                            border: `1.5px solid ${isSelected ? round.color + '35' : 'rgba(255,255,255,0.06)'}`,
+                                                : 'var(--border)',
+                                            border: `1.5px solid ${isSelected ? round.color + '35' : 'var(--border)'}`,
                                             borderRadius: 16,
                                             cursor: 'pointer',
                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -317,15 +317,15 @@ export default function MultiRoundInterview() {
                                         }}
                                         onMouseEnter={e => {
                                             if (!isSelected) {
-                                                e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                                e.currentTarget.style.background = 'var(--border)';
+                                                e.currentTarget.style.borderColor = 'var(--border)';
                                                 e.currentTarget.style.transform = 'translateY(-2px)';
                                             }
                                         }}
                                         onMouseLeave={e => {
                                             if (!isSelected) {
-                                                e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
-                                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                                                e.currentTarget.style.background = 'var(--border)';
+                                                e.currentTarget.style.borderColor = 'var(--border)';
                                                 e.currentTarget.style.transform = 'scale(1)';
                                             }
                                         }}
@@ -333,27 +333,27 @@ export default function MultiRoundInterview() {
                                         <div style={{
                                             width: 44, height: 44,
                                             borderRadius: 12,
-                                            background: isSelected ? round.color + '18' : 'rgba(255,255,255,0.04)',
+                                            background: isSelected ? round.color + '18' : 'var(--border)',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            color: isSelected ? round.color : 'rgba(255,255,255,0.35)',
+                                            color: isSelected ? round.color : 'var(--border)',
                                             transition: 'all 0.3s',
                                             flexShrink: 0,
-                                            border: `1px solid ${isSelected ? round.color + '25' : 'rgba(255,255,255,0.04)'}`
+                                            border: `1px solid ${isSelected ? round.color + '25' : 'var(--border)'}`
                                         }}>
                                             {round.icon}
                                         </div>
                                         <div style={{ flex: 1 }}>
                                             <div style={{
                                                 fontWeight: 700, fontSize: 14,
-                                                color: isSelected ? '#fff' : 'rgba(255,255,255,0.7)',
+                                                color: isSelected ? '#fff' : 'var(--border)',
                                                 transition: 'color 0.3s'
                                             }}>{round.name}</div>
                                             <div style={{
-                                                fontSize: 12, color: 'rgba(255,255,255,0.35)',
+                                                fontSize: 12, color: 'var(--border)',
                                                 marginTop: 3, lineHeight: 1.4
                                             }}>{round.description}</div>
                                             <div style={{
-                                                fontSize: 11, color: isSelected ? round.color : 'rgba(255,255,255,0.25)',
+                                                fontSize: 11, color: isSelected ? round.color : 'var(--border)',
                                                 marginTop: 5, fontWeight: 600,
                                                 display: 'flex', alignItems: 'center', gap: 8,
                                                 transition: 'color 0.3s'
@@ -366,7 +366,7 @@ export default function MultiRoundInterview() {
                                         <div style={{
                                             width: 22, height: 22,
                                             borderRadius: 7,
-                                            border: `2px solid ${isSelected ? round.color : 'rgba(255,255,255,0.12)'}`,
+                                            border: `2px solid ${isSelected ? round.color : 'var(--border)'}`,
                                             background: isSelected ? round.color : 'transparent',
                                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -390,9 +390,9 @@ export default function MultiRoundInterview() {
                             padding: '18px',
                             background: selectedRounds.length > 0
                                 ? 'linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #8b5cf6 100%)'
-                                : 'rgba(255,255,255,0.04)',
-                            color: selectedRounds.length > 0 ? 'white' : 'rgba(255,255,255,0.25)',
-                            border: selectedRounds.length > 0 ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                                : 'var(--border)',
+                            color: selectedRounds.length > 0 ? 'white' : 'var(--border)',
+                            border: selectedRounds.length > 0 ? 'none' : '1px solid var(--border)',
                             borderRadius: 16,
                             fontSize: 16,
                             fontWeight: 700,
@@ -404,7 +404,7 @@ export default function MultiRoundInterview() {
                             transition: 'all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)',
                             fontFamily: 'inherit',
                             boxShadow: selectedRounds.length > 0
-                                ? '0 6px 30px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.15)'
+                                ? '0 6px 30px rgba(99,102,241,0.35), inset 0 1px 0 var(--border)'
                                 : 'none',
                             letterSpacing: '0.3px',
                             position: 'relative',
@@ -419,7 +419,7 @@ export default function MultiRoundInterview() {
                         onMouseLeave={e => {
                             e.currentTarget.style.transform = '';
                             e.currentTarget.style.boxShadow = selectedRounds.length > 0
-                                ? '0 6px 30px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.15)' : 'none';
+                                ? '0 6px 30px rgba(99,102,241,0.35), inset 0 1px 0 var(--border)' : 'none';
                         }}
                     >
                         <Play size={18} />
@@ -429,7 +429,7 @@ export default function MultiRoundInterview() {
                     {/* Privacy note */}
                     <div style={{
                         textAlign: 'center', marginTop: 16, fontSize: 11,
-                        color: 'rgba(255,255,255,0.2)', display: 'flex',
+                        color: 'var(--border)', display: 'flex',
                         alignItems: 'center', justifyContent: 'center', gap: 4
                     }}>
                         🔒 Your interview data is private and never shared
@@ -450,7 +450,7 @@ export default function MultiRoundInterview() {
             <div style={{
                 minHeight: '100vh',
                 background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f23 100%)',
-                color: '#e2e8f0',
+                color: 'var(--text-primary)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -464,7 +464,7 @@ export default function MultiRoundInterview() {
                                 width: i === currentRoundIdx ? 32 : 10,
                                 height: 10,
                                 borderRadius: 5,
-                                background: i < currentRoundIdx ? '#22c55e' : i === currentRoundIdx ? round.color : 'rgba(255,255,255,0.1)',
+                                background: i < currentRoundIdx ? '#22c55e' : i === currentRoundIdx ? round.color : 'var(--border)',
                                 transition: 'all 0.3s'
                             }} />
                         ))}
@@ -505,10 +505,10 @@ export default function MultiRoundInterview() {
                     <h2 style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
                         Round {currentRoundIdx + 1}: {currentRound?.name}
                     </h2>
-                    <p style={{ color: '#94a3b8', fontSize: 14, marginBottom: 8 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 8 }}>
                         {currentRound?.description}
                     </p>
-                    <p style={{ color: '#64748b', fontSize: 12, marginBottom: 32 }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 32 }}>
                         {currentRound?.questions} questions · {currentRound?.duration}
                     </p>
 
@@ -548,7 +548,7 @@ export default function MultiRoundInterview() {
             <div style={{
                 minHeight: '100vh',
                 background: 'linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #0f0f23 100%)',
-                color: '#e2e8f0',
+                color: 'var(--text-primary)',
                 padding: '40px 20px',
                 fontFamily: "'Inter', system-ui, sans-serif"
             }}>
@@ -559,15 +559,15 @@ export default function MultiRoundInterview() {
                         <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>
                             Interview Complete!
                         </h1>
-                        <p style={{ color: '#94a3b8', fontSize: 14 }}>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
                             {companyObj.name} · {role} · {activeRounds.length} rounds completed
                         </p>
                     </div>
 
                     {/* Overall Score */}
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        background: 'var(--border)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16,
                         padding: 32,
                         textAlign: 'center',
@@ -576,7 +576,7 @@ export default function MultiRoundInterview() {
                         <div style={{
                             width: 100, height: 100,
                             borderRadius: '50%',
-                            background: `conic-gradient(${verdict.color} ${overallScore * 3.6}deg, rgba(255,255,255,0.05) 0deg)`,
+                            background: `conic-gradient(${verdict.color} ${overallScore * 3.6}deg, var(--border) 0deg)`,
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             margin: '0 auto 16px'
                         }}>
@@ -597,8 +597,8 @@ export default function MultiRoundInterview() {
 
                     {/* Per-Round Breakdown */}
                     <div style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
+                        background: 'var(--border)',
+                        border: '1px solid var(--border)',
                         borderRadius: 16,
                         padding: 24,
                         marginBottom: 24
@@ -610,7 +610,7 @@ export default function MultiRoundInterview() {
                                 <div key={i} style={{
                                     display: 'flex', alignItems: 'center', gap: 12,
                                     padding: '12px 0',
-                                    borderBottom: i < roundResults.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none'
+                                    borderBottom: i < roundResults.length - 1 ? '1px solid var(--border)' : 'none'
                                 }}>
                                     <div style={{
                                         width: 34, height: 34,
@@ -624,7 +624,7 @@ export default function MultiRoundInterview() {
                                     </div>
                                     <div style={{ flex: 1 }}>
                                         <div style={{ fontWeight: 600, fontSize: 13 }}>{round?.name}</div>
-                                        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
                                             {result.strengths?.slice(0, 2).join(' · ')}
                                         </div>
                                     </div>
@@ -645,10 +645,10 @@ export default function MultiRoundInterview() {
                             onClick={() => { setPhase('setup'); setCurrentRoundIdx(0); setRoundResults([]); }}
                             style={{
                                 padding: '12px 24px',
-                                background: 'rgba(255,255,255,0.06)',
-                                border: '1px solid rgba(255,255,255,0.1)',
+                                background: 'var(--border)',
+                                border: '1px solid var(--border)',
                                 borderRadius: 10,
-                                color: '#e2e8f0',
+                                color: 'var(--text-primary)',
                                 fontSize: 13,
                                 fontWeight: 600,
                                 cursor: 'pointer',

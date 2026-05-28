@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart3, LineChart as LineChartIcon, TrendingUp, Target } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { useTheme } from '../context/ThemeContext';
 
 export default function InterviewAnalytics() {
@@ -18,10 +19,7 @@ export default function InterviewAnalytics() {
     try {
       setLoading(true);
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/analytics/overview`, {
-        method: 'GET',
-        headers: buildAuthHeaders(),
-      });
+      const response = await authFetch(`${API_URL}/api/analytics/overview`);
 
       if (response.ok) {
         const data = await response.json();

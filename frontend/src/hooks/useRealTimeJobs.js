@@ -179,7 +179,7 @@ export function useJobs(filters = {}) {
 
       const params = new URLSearchParams({
         page: filters.page || 1,
-        limit: filters.limit || 20,
+        limit: filters.limit || 50,
         ...(filters.search && { search: filters.search }),
         ...(filters.category && { category: filters.category }),
         ...(filters.type && { type: filters.type }),

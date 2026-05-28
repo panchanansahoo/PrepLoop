@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useCoins } from '../context/CoinContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const FILTERS = [
@@ -81,9 +82,7 @@ export default function CoinWallet() {
         if (filter !== 'all') params.set('type', filter);
         if (search) params.set('q', search);
 
-        const res = await fetch(`${API_URL}/api/coins/history?${params.toString()}`, {
-          headers: buildAuthHeaders(),
-        });
+        const res = await authFetch(`${API_URL}/api/coins/history?${params.toString()}`);
 
         const data = await res.json();
         if (cancelled) return;

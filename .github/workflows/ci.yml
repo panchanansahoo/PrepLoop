@@ -109,6 +109,14 @@ jobs:
         run: |
           nohup npm run start --prefix backend > backend.log 2>&1 &
           echo $! > backend.pid
+        env:
+          NODE_ENV: test
+          PORT: 5000
+          FRONTEND_URL: http://localhost:5173
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          JWT_SECRET: test-jwt-secret-key-with-32-characters
 
       - name: Wait for backend health
         shell: bash

@@ -52,7 +52,67 @@ export default function useDashboardData() {
 
     useEffect(() => {
         if (!userId || isGuest) {
-            setData(EMPTY_DATA);
+            // Provide demo data so guests see a populated dashboard
+            const demoHeatmap = {};
+            const today = new Date();
+            for (let i = 0; i < 90; i++) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().split('T')[0];
+                // Vary activity: recent days more active, some gaps
+                if (i % 7 === 6) continue; // skip some Sundays
+                demoHeatmap[key] = Math.max(0, Math.floor(Math.random() * 5) + (i < 15 ? 2 : 0));
+            }
+
+            setData({
+                stats: { problemsSolved: 147, totalSubmissions: 312, mockInterviews: 12, resumesAnalyzed: 3 },
+                streak: 15,
+                bestStreak: 28,
+                avgScore: 78,
+                totalXP: 4250,
+                heatmapData: demoHeatmap,
+                skillBreakdown: { dsa: 72, sql: 58, aptitude: 65, systemDesign: 45, behavioral: 80 },
+                topicProgress: [
+                    { topic: 'Arrays', solved: 28, total: 40 },
+                    { topic: 'Trees', solved: 15, total: 30 },
+                    { topic: 'Dynamic Programming', solved: 10, total: 35 },
+                    { topic: 'Graphs', solved: 8, total: 25 },
+                ],
+                recentActivity: [
+                    { type: 'problem', title: 'Two Sum', difficulty: 'Easy', score: 100, timestamp: new Date(Date.now() - 3600000).toISOString() },
+                    { type: 'interview', title: 'Google Frontend Mock', difficulty: 'Medium', score: 82, timestamp: new Date(Date.now() - 86400000).toISOString() },
+                    { type: 'problem', title: 'LRU Cache', difficulty: 'Hard', score: 90, timestamp: new Date(Date.now() - 172800000).toISOString() },
+                    { type: 'quiz', title: 'JavaScript Fundamentals', difficulty: 'Medium', score: 88, timestamp: new Date(Date.now() - 259200000).toISOString() },
+                ],
+                weeklyGoals: { easy: 5, medium: 3, hard: 1 },
+                readinessData: { practiceCount: 147, mockCount: 12, streak: 15, timedSessions: 34 },
+                thisWeekProblems: 18,
+                lastWeekProblems: 14,
+                thisWeekTime: 720,
+                lastWeekTime: 540,
+                thisWeekXP: 450,
+                lastWeekXP: 380,
+                currentLevel: 8,
+                currentXP: 4250,
+                nextLevelXP: 5000,
+                rank: 'Silver',
+                dailyChallenge: {
+                    name: 'Amazon',
+                    type: 'company',
+                    dsa: [
+                        { title: 'Maximum Subarray', difficulty: 'Medium', slug: 'maximum-subarray' },
+                        { title: 'Merge Intervals', difficulty: 'Medium', slug: 'merge-intervals' },
+                    ],
+                    sql: [
+                        { title: 'Department Highest Salary', difficulty: 'Medium', slug: 'department-highest-salary' },
+                    ],
+                },
+                upcomingContests: [
+                    { platform: 'LeetCode', name: 'Weekly Contest 412', startTime: new Date(Date.now() + 172800000).toISOString(), url: '#' },
+                    { platform: 'Codeforces', name: 'Codeforces Round #920', startTime: new Date(Date.now() + 345600000).toISOString(), url: '#' },
+                ],
+                pomodoroStats: { sessionsToday: 3, sessionsByDate: {} },
+            });
             setLoading(false);
             return;
         }

@@ -176,24 +176,34 @@ export default function QuickStats({ data }) {
                     <div
                         key={card.label}
                         className={`quick-stat-card ${isEmpty ? 'quick-stat-card-empty' : ''}`}
-                        style={{ 
-                            background: c.baseBg,
-                            borderColor: card.borderGlow, // Add subtle colored glow to border
+                        style={{
+                            flex: 1,
+                            minWidth: '200px',
+                            padding: '24px',
+                            borderRadius: '16px',
+                            background: isLight ? `${card.color}15` : `${card.color}12`,
+                            border: `1px solid ${isLight ? `${card.color}30` : `${card.color}20`}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            minHeight: '130px',
                         }}
                     >
-                        <div className="quick-stat-bg-fill" style={{ position: 'absolute', inset: 0, background: card.bgGlow, zIndex: 0 }} />
-                        <div className="quick-stat-top-row">
-                            <div className="quick-stat-icon" style={{ background: `${card.color}${isLight ? '20' : '30'}` }}>
-                                <Icon size={20} style={{ color: card.color }} />
+                        <div className="quick-stat-content" style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative', zIndex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: card.color, fontWeight: 700, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                <Icon size={18} />
+                                {card.label}
                             </div>
-                            <div className="quick-stat-label">{card.label}</div>
-                        </div>
-                        <div className={`quick-stat-value ${isEmpty ? 'quick-stat-value-empty' : ''}`} style={{ color: card.color }}>
-                            {card.value > 0 ? (
-                                <AnimatedCounter end={card.value} suffix={card.suffix} />
-                            ) : (
-                                <span>{displayValue}</span>
-                            )}
+                            <div style={{ fontSize: '3rem', fontWeight: 800, color: card.color, lineHeight: 1 }}>
+                                {card.value > 0 ? (
+                                    <AnimatedCounter end={card.value} suffix={card.suffix} />
+                                ) : (
+                                    <span>{displayValue}</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 );

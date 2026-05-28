@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Send, Trash2, Sparkles, Bot, User, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
@@ -48,10 +48,6 @@ export default function AIAssistantOrb() {
   const animFrameRef = useRef(null);
   const recognitionRef = useRef(null);
   const wakeRecognitionRef = useRef(null);
-
-  const getHeaders = () => {
-    return buildAuthHeaders(user);
-  };
 
   // Load chat history on open
   useEffect(() => {
@@ -220,7 +216,7 @@ export default function AIAssistantOrb() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/chat/history`, { headers: getHeaders() });
+      const res = await authFetch(`${API_URL}/api/chat/history`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data.map(m => ({ role: m.role, content: m.content })));
@@ -250,9 +246,8 @@ export default function AIAssistantOrb() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/chat/message`, {
+      const res = await authFetch(`${API_URL}/api/chat/message`, {
         method: 'POST',
-        headers: getHeaders(),
         body: JSON.stringify({ message: userMsg }),
       });
       if (res.ok) {
@@ -509,7 +504,7 @@ export default function AIAssistantOrb() {
 
   const clearChat = async () => {
     try {
-      await fetch(`${API_URL}/api/chat/clear`, { method: 'DELETE', headers: getHeaders() });
+      await authFetch(`${API_URL}/api/chat/clear`, { method: 'DELETE' });
       setMessages([]);
     } catch (err) {
       console.error('Failed to clear chat:', err);

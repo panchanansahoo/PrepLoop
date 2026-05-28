@@ -4,6 +4,7 @@ import {
     AlertCircle, CheckCircle, Brain, Clipboard, Zap
 } from 'lucide-react';
 import './JDInterviewSetup.css';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -22,9 +23,8 @@ export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClos
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch(`${API_URL}/api/company-interview/jd-questions`, {
+            const res = await authFetch(`${API_URL}/api/company-interview/jd-questions`, {
                 method: 'POST',
-                headers: getAuthHeaders(),
                 body: JSON.stringify({ jobDescription: jdText })
             });
             if (!res.ok) throw new Error('Failed to parse JD');

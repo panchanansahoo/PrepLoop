@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Shield, Lock, CheckCircle2, ArrowLeft, Zap, Sparkles, Check, Code2, ExternalLink } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const isDev = import.meta.env.DEV;
@@ -115,18 +115,15 @@ export default function Payment() {
                 return;
             }
 
-            const authHeaders = buildAuthHeaders(user);
-            if (!authHeaders.Authorization) {
+
+            if (!user) {
                 setError('Please log in to make a payment.');
                 setIsProcessing(false);
                 return;
             }
 
             // 2. Payment health preflight
-            const healthRes = await fetch(`${API_URL}/api/payment/health`, {
-                method: 'GET',
-                headers: authHeaders,
-            });
+            const healthRes = await authFetch(`${API_URL}/api/payment/health`);
 
             const healthData = await parseJsonSafely(healthRes);
             if (!healthRes.ok || !healthData?.ready) {
@@ -148,9 +145,8 @@ export default function Payment() {
             }
 
             // 3. Create order on backend
-            const orderRes = await fetch(`${API_URL}/api/payment/create-order`, {
+            const orderRes = await authFetch(`${API_URL}/api/payment/create-order`, {
                 method: 'POST',
-                headers: authHeaders,
                 body: JSON.stringify({ plan: plan.toLowerCase() === 'premium' ? 'elite' : plan.toLowerCase() }),
             });
 
@@ -199,14 +195,13 @@ export default function Payment() {
                 handler: async function (response) {
                     // 5. Verify payment on backend
                     try {
-                        const verifyRes = await fetch(`${API_URL}/api/payment/verify`, {
+                        const verifyRes = await authFetch(`${API_URL}/api/payment/verify`, {
                             method: 'POST',
-                            headers: authHeaders,
                             body: JSON.stringify({
                                 razorpay_order_id: response.razorpay_order_id,
                                 razorpay_payment_id: response.razorpay_payment_id,
                                 razorpay_signature: response.razorpay_signature,
-                            }),
+                            })
                         });
 
                         const verifyData = await parseJsonSafely(verifyRes);

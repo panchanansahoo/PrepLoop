@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Zap, BookOpen, Code, Users, Loader } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 export default function InterviewStart({ onStartInterview }) {
   const [selectedType, setSelectedType] = useState('technical');
@@ -29,9 +30,8 @@ export default function InterviewStart({ onStartInterview }) {
 
     try {
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-      const response = await fetch(`${API_URL}/api/interview/start`, {
+      const response = await authFetch(`${API_URL}/api/interview/start`, {
         method: 'POST',
-        headers: buildAuthHeaders(),
         body: JSON.stringify({
           type: selectedType,
           difficulty: selectedDifficulty,

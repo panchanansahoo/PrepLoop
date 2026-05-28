@@ -270,11 +270,11 @@
 
 .sd-sim-canvas-page {
     position: relative;
-    height: 100vh;
+    height: calc(100vh - 57px);
     display: flex;
     flex-direction: column;
     background: var(--bg-primary);
-    z-index: 10;
+    z-index: 1;
 }
 
 .sd-sim-topbar {

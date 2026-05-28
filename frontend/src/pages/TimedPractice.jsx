@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import {
     Timer, Zap, Clock, Target, Play, Pause, RotateCcw,
     CheckCircle2, XCircle, ArrowRight, Trophy, Brain
@@ -54,9 +55,8 @@ export default function TimedPractice() {
     const startSession = async (mode) => {
         setLoading(true);
         try {
-            const res = await fetch('/api/practice/timed-session', {
+            const res = await authFetch('/api/practice/timed-session', {
                 method: 'POST',
-                headers: buildAuthHeaders(user),
                 body: JSON.stringify({ mode: mode.id }),
             });
             const data = await res.json();
@@ -222,7 +222,7 @@ export default function TimedPractice() {
                         </button>
                     </div>
 
-                    <Link to={`/code-editor/${q.id}`} target="_blank" className="tp-open-editor">
+                    <Link to={`/editor/${q.id}`} target="_blank" className="tp-open-editor">
                         Open in Editor →
                     </Link>
                 </div>

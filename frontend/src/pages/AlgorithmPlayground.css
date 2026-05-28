@@ -1,4 +1,4 @@
-﻿/* === DSA Animations Catalog === */
+/* === DSA Animations Catalog === */
 
 .algo-catalog {
   min-height: calc(100vh - 80px);
@@ -470,8 +470,8 @@
 /* === Visualizer View — AlgoMaster Split Screen === */
 
 .viz-page {
-  height: 100vh;
-  max-height: 100vh;
+  height: calc(100vh - 57px);
+  max-height: calc(100vh - 57px);
   overflow: hidden;
   background: #0a0a14;
   display: flex;

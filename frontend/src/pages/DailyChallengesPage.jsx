@@ -354,7 +354,7 @@ function QuestionRow({ q, idx, isLight }) {
 
     // Determine internal route based on type
     const internalRoute = q.internalId
-        ? (q.type === 'sql' ? `/sql-editor/${q.internalId}` : `/code-editor/${q.internalId}`)
+        ? (q.type === 'sql' ? `/sql-editor/${q.internalId}` : `/editor/${q.internalId}`)
         : null;
 
     const sharedStyle = {

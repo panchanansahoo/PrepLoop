@@ -315,7 +315,7 @@ export default function ProblemExplorer() {
         const recent = JSON.parse(localStorage.getItem('cl_recent') || '[]');
         const updated = [problemId, ...recent.filter(id => id !== problemId)].slice(0, 10);
         localStorage.setItem('cl_recent', JSON.stringify(updated));
-        navigate(`/code-editor/${problemId}`);
+        navigate(`/dsa-editor/${problemId}`);
     }, [navigate]);
 
     const filteredProblems = useMemo(() => {
@@ -634,7 +634,7 @@ export default function ProblemExplorer() {
                                     transition: 'all 0.2s ease',
                                     letterSpacing: '-0.01em',
                                 }}
-                                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = comp.color; e.currentTarget.style.borderColor = `${comp.color}20`; }  }}
+                                    onMouseEnter={e => { if (!isActive) { e.currentTarget.style.color = comp.color; e.currentTarget.style.borderColor = `${comp.color}20`; } }}
                                     onMouseLeave={e => { if (!isActive) { e.currentTarget.style.color = isLight ? '#94a3b8' : 'rgba(255,255,255,0.35)'; e.currentTarget.style.borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)'; } }}
                                 >
                                     {comp.name}
@@ -789,7 +789,7 @@ export default function ProblemExplorer() {
                     initialLoading={initialLoading}
                     roman={ROMAN}
                     getExplanationSnippet={getExplanationSnippet}
-                    onSolveProblem={(problemId) => navigate(`/problem/${problemId}`)}
+                    onSolveProblem={(problemId) => navigate(`/dsa-editor/${problemId}`)}
                 />
 
                 {/* ══════════ ALL QUESTIONS VIEW ══════════ */}
@@ -802,7 +802,7 @@ export default function ProblemExplorer() {
                     sortDir={sortDir}
                     setSortBy={setSortBy}
                     setSortDir={setSortDir}
-                    onSolveProblem={(problemId) => navigate(`/problem/${problemId}`)}
+                    onSolveProblem={(problemId) => navigate(`/dsa-editor/${problemId}`)}
                     getExplanationSnippet={getExplanationSnippet}
                 />
 

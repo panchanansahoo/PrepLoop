@@ -48,7 +48,7 @@ const DailyChallenge = ({ challengeData = null }) => {
 
     const renderQuestionRow = (q, idx, isSql = false) => {
         const hasNumericInternalId = /^\d+$/.test(String(q.internalId ?? ''));
-        const route = hasNumericInternalId ? `${isSql ? '/sql-editor' : '/code-editor'}/${q.internalId}` : null;
+        const route = hasNumericInternalId ? `${isSql ? '/sql-editor' : '/editor'}/${q.internalId}` : null;
         const Wrapper = route ? Link : 'a';
         const wrapperProps = route
             ? { to: route }
@@ -207,14 +207,15 @@ const DailyChallenge = ({ challengeData = null }) => {
                                 color: '#fbbf24',
                                 marginBottom: 4,
                             }}>
-                                Today's Challenge
+                                TODAY'S CHALLENGE
                             </div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12 }}>
                                 <div style={{
-                                    fontSize: 24,
-                                    fontWeight: 800,
-                                    letterSpacing: '-0.02em',
-                                    color: isLight ? '#1e293b' : '#ffffff',
+                                    fontSize: challenge.name === 'Netflix' ? 28 : 24,
+                                    fontWeight: 900,
+                                    letterSpacing: challenge.name === 'Netflix' ? '1px' : '-0.02em',
+                                    color: challenge.name === 'Netflix' ? '#E50914' : (isLight ? '#1e293b' : '#ffffff'),
+                                    textTransform: challenge.name === 'Netflix' ? 'uppercase' : 'none',
                                 }}>
                                     {challenge.name}
                                 </div>

@@ -36,8 +36,15 @@
 }
 
 @keyframes hsGlowFloat {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(30px, -20px) scale(1.08); }
+
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+
+  50% {
+    transform: translate(30px, -20px) scale(1.08);
+  }
 }
 
 .hs-grid-overlay {
@@ -191,15 +198,13 @@
   position: absolute;
   inset: -2px;
   border-radius: 22px;
-  background: linear-gradient(
-    160deg,
-    rgba(139, 92, 246, 0.7) 0%,
-    rgba(99, 102, 241, 0.25) 20%,
-    rgba(75, 85, 200, 0.15) 40%,
-    rgba(99, 102, 241, 0.2) 60%,
-    rgba(139, 92, 246, 0.35) 80%,
-    rgba(168, 85, 247, 0.65) 100%
-  );
+  background: linear-gradient(160deg,
+      rgba(139, 92, 246, 0.7) 0%,
+      rgba(99, 102, 241, 0.25) 20%,
+      rgba(75, 85, 200, 0.15) 40%,
+      rgba(99, 102, 241, 0.2) 60%,
+      rgba(139, 92, 246, 0.35) 80%,
+      rgba(168, 85, 247, 0.65) 100%);
   z-index: -1;
   pointer-events: none;
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
@@ -210,8 +215,17 @@
 }
 
 @keyframes hsAuraGlow {
-  0%, 100% { opacity: 0.6; filter: blur(24px); }
-  50% { opacity: 0.85; filter: blur(30px); }
+
+  0%,
+  100% {
+    opacity: 0.6;
+    filter: blur(24px);
+  }
+
+  50% {
+    opacity: 0.85;
+    filter: blur(30px);
+  }
 }
 
 /* ── Top Bezel / Notch ── */
@@ -237,12 +251,11 @@
   right: 10%;
   height: 1px;
   background: linear-gradient(90deg,
-    transparent,
-    rgba(139, 92, 246, 0.8) 20%,
-    rgba(168, 85, 247, 0.9) 50%,
-    rgba(139, 92, 246, 0.8) 80%,
-    transparent
-  );
+      transparent,
+      rgba(139, 92, 246, 0.8) 20%,
+      rgba(168, 85, 247, 0.9) 50%,
+      rgba(139, 92, 246, 0.8) 80%,
+      transparent);
 }
 
 .hs-macbook-camera {
@@ -274,16 +287,20 @@
   z-index: 2;
   pointer-events: none;
   background: linear-gradient(180deg,
-    rgba(139, 92, 246, 0.4),
-    rgba(139, 92, 246, 0.08) 30%,
-    rgba(139, 92, 246, 0.04) 50%,
-    rgba(139, 92, 246, 0.08) 70%,
-    rgba(139, 92, 246, 0.3)
-  );
+      rgba(139, 92, 246, 0.4),
+      rgba(139, 92, 246, 0.08) 30%,
+      rgba(139, 92, 246, 0.04) 50%,
+      rgba(139, 92, 246, 0.08) 70%,
+      rgba(139, 92, 246, 0.3));
 }
 
-.hs-macbook-screen::before { left: 0; }
-.hs-macbook-screen::after { right: 0; }
+.hs-macbook-screen::before {
+  left: 0;
+}
+
+.hs-macbook-screen::after {
+  right: 0;
+}
 
 /* ── Browser Toolbar ── */
 .hs-browser-toolbar {
@@ -317,12 +334,11 @@
   right: 10%;
   height: 1px;
   background: linear-gradient(90deg,
-    transparent,
-    rgba(139, 92, 246, 0.6) 20%,
-    rgba(168, 85, 247, 0.7) 50%,
-    rgba(139, 92, 246, 0.6) 80%,
-    transparent
-  );
+      transparent,
+      rgba(139, 92, 246, 0.6) 20%,
+      rgba(168, 85, 247, 0.7) 50%,
+      rgba(139, 92, 246, 0.6) 80%,
+      transparent);
 }
 
 .hs-macbook-indent {
@@ -787,8 +803,15 @@
 }
 
 @keyframes hsChatFade {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hs-chat-prompt {

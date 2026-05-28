@@ -6,6 +6,7 @@ import {
   ChevronUp, AlertCircle, Code2, History, ArrowRight
 } from 'lucide-react';
 import { buildAuthHeaders } from '../../utils/authHeaders';
+import { authFetch } from '../../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -205,7 +206,7 @@ export default function ProblemDescriptionPanel({
     if (activeTopTab !== 'solution' || !solutionIdentifier || !hasSubmitted || solutionCode !== null) return;
     setLoadingSolution(true);
     setSolutionError(null);
-    fetch(`${API_URL}/api/dsa/problems/${encodeURIComponent(solutionIdentifier)}/solution`, { headers: getAuthHeaders() })
+    authFetch(`${API_URL}/api/dsa/problems/${encodeURIComponent(solutionIdentifier)}/solution`)
       .then(r => r.json())
       .then(data => {
         setSolutionCode(data.solution ?? null);
@@ -221,7 +222,7 @@ export default function ProblemDescriptionPanel({
   useEffect(() => {
     if (activeTopTab !== 'history' || !resolvedId) return;
     setLoadingHistory(true);
-    fetch(`${API_URL}/api/practice/submissions?problemId=${resolvedId}`, { headers: getAuthHeaders() })
+    authFetch(`${API_URL}/api/practice/submissions?problemId=${resolvedId}`)
       .then(r => {
         if (r.status === 401) return { submissions: [] };
         return r.json();
@@ -497,7 +498,7 @@ export default function ProblemDescriptionPanel({
                     color: 'rgba(255, 255, 255, 0.7)',
                     fontSize: 13, lineHeight: 1.8
                   }}>
-                    {normalizedConstraints.split('\\n').filter(c => c.trim() !== '').map((constraint, i) => {
+                    {normalizedConstraints.split(/\\n|\n/).filter(c => c.trim() !== '').map((constraint, i) => {
                       const cleanConstraint = constraint.trim().replace(/^- /, '');
                       return (
                         <li key={i} style={{ marginBottom: 6 }}>
@@ -672,6 +673,60 @@ export default function ProblemDescriptionPanel({
                   }}>
                     <Lightbulb size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
                     <p style={{ fontSize: 12, fontWeight: 600 }}>No hints available for this problem</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Related Questions ── */}
+            {activeSubTab === 'related' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{
+                  fontSize: 10, color: 'rgba(255,255,255,0.3)', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4,
+                }}>Related Questions</div>
+                {relatedProblems.length > 0 ? (
+                  relatedProblems.map((rp) => {
+                    const rpDc = diffColors[rp.difficulty] || diffColors.Medium;
+                    return (
+                      <button
+                        key={rp.id}
+                        onClick={() => navigate && navigate(`/editor/${rp.id}`)}
+                        style={{
+                          padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                          background: 'rgba(255,255,255,0.02)', textAlign: 'left',
+                          border: '1px solid rgba(255,255,255,0.06)',
+                          color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600,
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          transition: 'all 0.2s ease',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = 'rgba(139,92,246,0.06)';
+                          e.currentTarget.style.borderColor = 'rgba(139,92,246,0.15)';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+                          e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                        }}
+                      >
+                        <span>{rp.title}</span>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 5, fontSize: 10, fontWeight: 700,
+                          background: rpDc.bg, color: rpDc.text,
+                          border: `1px solid ${rpDc.border}`,
+                        }}>
+                          {rp.difficulty}
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div style={{
+                    textAlign: 'center', padding: '40px 20px',
+                    color: 'rgba(255,255,255,0.3)',
+                  }}>
+                    <Link2 size={28} style={{ marginBottom: 10, opacity: 0.3 }} />
+                    <p style={{ fontSize: 12, fontWeight: 600 }}>No related problems found</p>
                   </div>
                 )}
               </div>

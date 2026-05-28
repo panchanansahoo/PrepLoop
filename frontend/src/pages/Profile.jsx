@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
 import { buildAuthHeaders, mergeAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import {
   User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut,
   Github, Sparkles, FileText, Upload, Pencil, Save, X,
@@ -220,7 +221,7 @@ export default function Profile() {
 
   const fetchProfile = useCallback(async () => {
     try {
-      const res = await fetch('/api/user/profile', { headers: buildAuthHeaders(user) });
+      const res = await authFetch('/api/user/profile');
       if (res.ok) {
         const data = await res.json();
         const normalized = {
@@ -242,7 +243,7 @@ export default function Profile() {
 
   const fetchLatestResumeSnapshot = useCallback(async () => {
     try {
-      const res = await fetch('/api/resume/latest', { headers: buildAuthHeaders(user) });
+      const res = await authFetch('/api/resume/latest');
       if (!res.ok) return;
       const data = await res.json();
       setResumeSnapshot(data?.resumeProfile || null);
@@ -254,7 +255,7 @@ export default function Profile() {
   const fetchJobMatches = useCallback(async () => {
     setJobMatchesLoading(true);
     try {
-      const res = await fetch('/api/jobs/skill-match', { headers: buildAuthHeaders(user) });
+      const res = await authFetch('/api/jobs/skill-match');
       if (res.ok) {
         const data = await res.json();
         setJobMatches((data.jobs || []).slice(0, 3).map(j => ({
@@ -372,9 +373,8 @@ export default function Profile() {
     setStatus('idle');
     try {
       const payload = buildProfilePayload(profile);
-      const res = await fetch('/api/user/profile', {
+      const res = await authFetch('/api/user/profile', {
         method: 'PUT',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('Failed to save profile');
@@ -404,9 +404,8 @@ export default function Profile() {
     setStatus('idle');
     try {
       const payload = buildProfilePayload({ ...profile, githubUsername: githubUsername.trim() });
-      const res = await fetch('/api/user/profile', {
+      const res = await authFetch('/api/user/profile', {
         method: 'PUT',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('Failed to save github username');
@@ -424,9 +423,8 @@ export default function Profile() {
     setStatus('idle');
     try {
       const payload = buildProfilePayload({ ...profile, githubUsername: '' });
-      const res = await fetch('/api/user/profile', {
+      const res = await authFetch('/api/user/profile', {
         method: 'PUT',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('Failed to disconnect github');
@@ -444,9 +442,8 @@ export default function Profile() {
     const next = !isPublic;
     setIsPublic(next);
     try {
-      await fetch('/api/user/profile', {
+      await authFetch('/api/user/profile', {
         method: 'PUT',
-        headers: buildAuthHeaders(user),
         body: JSON.stringify({ is_public: next })
       });
     } catch (err) {
@@ -848,9 +845,8 @@ export default function Profile() {
                       if (!slug) return;
                       setClaimStatus('busy');
                       try {
-                        const res = await fetch('/api/user/profile/claim-url', {
+                        const res = await authFetch('/api/user/profile/claim-url', {
                           method: 'POST',
-                          headers: { ...buildAuthHeaders(user), 'Content-Type': 'application/json' },
                           body: JSON.stringify({ custom_url: slug })
                         });
                         if (!res.ok) {

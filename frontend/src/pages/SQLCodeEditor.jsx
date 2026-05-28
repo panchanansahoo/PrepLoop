@@ -8,6 +8,7 @@ import SchemaViewer from '../components/sql/SchemaViewer';
 import SQLResultsPanel from '../components/sql/SQLResultsPanel';
 import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -112,9 +113,8 @@ export default function SQLCodeEditor() {
     setResults(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/practice/execute`, {
+      const res = await authFetch(`${API_URL}/api/practice/execute`, {
         method: 'POST',
-        headers: getAuthHeaders(),
         body: JSON.stringify({ code, language: 'sql', input: '' }),
       });
 
