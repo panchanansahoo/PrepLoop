@@ -40,8 +40,7 @@ export default defineConfig({
           // Keep manual chunking focused on very heavy dependencies.
           // Let Rollup auto-split the rest to avoid circular chunk warnings.
           if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-monaco';
-          if (id.includes('@blocknote')) return 'vendor-blocknote';
-          if (id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-tiptap';
+          if (id.includes('@blocknote') || id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-editor';
           if (id.includes('prettier')) return 'vendor-prettier';
           if (id.includes('@react-three') || id.includes('/@react-three/')) return 'vendor-react-three';
           if (id.includes('/three/')) return 'vendor-three-core';
