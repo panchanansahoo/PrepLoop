@@ -9,15 +9,15 @@ import {
 
 describe("useVoiceAI helpers", () => {
   it("uses longer silence windows for shorter answers", () => {
-    expect(getAdaptiveSilenceMs(20)).toBe(4500);
-    expect(getAdaptiveSilenceMs(80)).toBe(3500);
-    expect(getAdaptiveSilenceMs(260)).toBe(2500);
+    expect(getAdaptiveSilenceMs(20)).toBe(6000);
+    expect(getAdaptiveSilenceMs(80)).toBe(5000);
+    expect(getAdaptiveSilenceMs(260)).toBe(4000);
   });
 
   it("gives candidates a natural pause before auto-submit", () => {
-    expect(getPostSpeechAutoSubmitMs(20)).toBe(4500);
-    expect(getPostSpeechAutoSubmitMs(80)).toBe(3500);
-    expect(getPostSpeechAutoSubmitMs(260)).toBe(2500);
+    expect(getPostSpeechAutoSubmitMs(20)).toBe(6000);
+    expect(getPostSpeechAutoSubmitMs(80)).toBe(5000);
+    expect(getPostSpeechAutoSubmitMs(260)).toBe(4000);
   });
 
   it("builds voice api urls from the configured backend origin", () => {

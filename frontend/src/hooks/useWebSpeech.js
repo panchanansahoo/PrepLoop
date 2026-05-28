@@ -212,21 +212,58 @@ export function useWebSpeech({
             window.speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
+            // Slightly slower rate sounds more natural and professional
+            utterance.rate = 0.95;
+            utterance.pitch = personaGender === 'male' ? 0.95 : 1.0;
+            utterance.volume = 1.0;
             
-            // Try to find a good voice
+            // Find the best available voice with tiered priority
             const voices = window.speechSynthesis.getVoices();
             if (voices.length > 0) {
-                const englishVoices = voices.filter(v => v.lang.startsWith('en'));
-                const preferred = personaGender === 'male' 
-                    ? englishVoices.find(v => v.name.includes('Male') || v.name.includes('David'))
-                    : englishVoices.find(v => v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Samantha'));
-                
-                if (preferred) {
-                    utterance.voice = preferred;
-                } else if (englishVoices.length > 0) {
-                    utterance.voice = englishVoices[0];
+                const g = (personaGender || 'female').toLowerCase();
+                let selectedVoice = null;
+
+                // Priority 1: Google's neural voices (Chrome) — excellent quality
+                const googleNames = g === 'male'
+                    ? ['Google US English Male', 'Google UK English Male']
+                    : ['Google US English Female', 'Google UK English Female'];
+                for (const name of googleNames) {
+                    const v = voices.find(v => v.name === name);
+                    if (v) { selectedVoice = v; break; }
+                }
+
+                // Priority 2: Microsoft neural voices (Edge, Windows 11)
+                if (!selectedVoice) {
+                    const msNames = g === 'male'
+                        ? ['Guy', 'Ryan', 'Mark', 'Christopher']
+                        : ['Jenny', 'Aria', 'Sara', 'Sonia'];
+                    for (const name of msNames) {
+                        const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+                        if (v) { selectedVoice = v; break; }
+                    }
+                }
+
+                // Priority 3: Apple voices (Safari, macOS)
+                if (!selectedVoice) {
+                    const appleNames = g === 'male'
+                        ? ['Daniel', 'Alex', 'Tom']
+                        : ['Samantha', 'Karen', 'Moira'];
+                    for (const name of appleNames) {
+                        const v = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+                        if (v) { selectedVoice = v; break; }
+                    }
+                }
+
+                // Priority 4: Any English voice
+                if (!selectedVoice) {
+                    const englishVoices = voices.filter(v => v.lang.startsWith('en'));
+                    if (englishVoices.length > 0) {
+                        selectedVoice = englishVoices[0];
+                    }
+                }
+
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
                 }
             }
 

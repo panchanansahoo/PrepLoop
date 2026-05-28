@@ -126,15 +126,18 @@ router.post('/tts', optionalAuth, async (req, res) => {
         );
 
         if (result.fallback) {
+            console.warn(`[voice/tts] ⚠ All providers failed → browser fallback (text: ${text.substring(0, 60)}...)`);
             return res.status(200).json({ fallback: true });
         }
 
         const audioBuffer = Buffer.isBuffer(result.audio) ? result.audio : Buffer.from(result.audio || '');
 
         if (!audioBuffer || audioBuffer.length === 0) {
-            console.warn('[voice/tts] Empty audio buffer received');
+            console.warn('[voice/tts] Empty audio buffer received from provider:', result.provider);
             return res.status(200).json({ fallback: true });
         }
+
+        console.log(`[voice/tts] ✓ Served ${audioBuffer.length} bytes via ${result.provider} (voice: ${result.voice || 'default'})`);
 
         res.set({
             'Content-Type':   result.contentType,

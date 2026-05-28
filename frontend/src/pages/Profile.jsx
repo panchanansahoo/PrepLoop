@@ -46,33 +46,34 @@ function buildInitialProfile(user) {
 }
 
 function normalizeProfileData(data) {
+  const merged = { ...(data?.user || {}), ...(data || {}) };
   return {
-    fullName: data?.fullName ?? data?.full_name ?? '',
-    full_name: data?.full_name ?? data?.fullName ?? '',
-    email: data?.email ?? '',
-    bio: data?.bio ?? '',
-    currentRole: data?.currentRole ?? data?.designation ?? data?.role_title ?? '',
-    designation: data?.designation ?? data?.currentRole ?? '',
-    experience: data?.experience ?? data?.experienceLevel ?? data?.experience_level ?? '',
-    experienceLevel: data?.experienceLevel ?? data?.experience_level ?? '',
-    experience_level: data?.experience_level ?? data?.experienceLevel ?? '',
-    skills: data?.skills ?? '',
-    education: data?.education ?? '',
-    githubUsername: data?.githubUsername ?? data?.github_username ?? '',
-    phone: data?.phone ?? '',
-    location: data?.location ?? '',
-    website: data?.website ?? '',
-    company: data?.company ?? '',
-    yearsOfExperience: data?.yearsOfExperience ?? data?.years_of_experience ?? '',
-    specialization: data?.specialization ?? '',
-    avatar_url: data?.avatar_url ?? '',
-    custom_url: data?.custom_url ?? '',
-    is_public: data?.is_public ?? false,
-    socialLinks: data?.socialLinks ?? data?.social_links ?? {
-      twitter: data?.twitter ?? '',
-      linkedin: data?.linkedin ?? '',
-      portfolio: data?.portfolio ?? '',
-      dribbble: data?.dribbble ?? ''
+    fullName: merged.fullName ?? merged.full_name ?? '',
+    full_name: merged.full_name ?? merged.fullName ?? '',
+    email: merged.email ?? '',
+    bio: merged.bio ?? '',
+    currentRole: merged.currentRole ?? merged.designation ?? merged.role_title ?? '',
+    designation: merged.designation ?? merged.currentRole ?? '',
+    experience: merged.experience ?? merged.experienceLevel ?? merged.experience_level ?? '',
+    experienceLevel: merged.experienceLevel ?? merged.experience_level ?? '',
+    experience_level: merged.experience_level ?? merged.experienceLevel ?? '',
+    skills: merged.skills ?? '',
+    education: merged.education ?? '',
+    githubUsername: merged.githubUsername ?? merged.github_username ?? '',
+    phone: merged.phone ?? '',
+    location: merged.location ?? '',
+    website: merged.website ?? '',
+    company: merged.company ?? '',
+    yearsOfExperience: merged.yearsOfExperience ?? merged.years_of_experience ?? '',
+    specialization: merged.specialization ?? '',
+    avatar_url: merged.avatar_url ?? '',
+    custom_url: merged.custom_url ?? '',
+    is_public: merged.is_public ?? false,
+    socialLinks: merged.socialLinks ?? merged.social_links ?? {
+      twitter: merged.twitter ?? '',
+      linkedin: merged.linkedin ?? '',
+      portfolio: merged.portfolio ?? '',
+      dribbble: merged.dribbble ?? ''
     }
   };
 }
@@ -224,10 +225,7 @@ export default function Profile() {
       const res = await authFetch('/api/user/profile');
       if (res.ok) {
         const data = await res.json();
-        const normalized = {
-          ...normalizeProfileData(data),
-          ...normalizeProfileData(data?.user)
-        };
+        const normalized = normalizeProfileData(data);
         setProfile((prev) => ({
           ...prev,
           ...normalized
@@ -686,10 +684,7 @@ export default function Profile() {
       if (!res.ok) throw new Error('Upload failed');
       const data = await res.json();
 
-      const normalized = {
-        ...normalizeProfileData(data),
-        ...normalizeProfileData(data?.user)
-      };
+      const normalized = normalizeProfileData(data);
 
       setProfile((prev) => ({ ...prev, ...normalized }));
       setStatus('saved');
@@ -827,7 +822,7 @@ export default function Profile() {
                   type="button"
                   onClick={() => { setClaimEditing(true); setClaimValue(profile.custom_url || ''); }}
                 >
-                  Claim Custom URL
+                  {profile.custom_url ? 'Edit Custom URL' : 'Claim Custom URL'}
                 </button>
               ) : (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -854,17 +849,18 @@ export default function Profile() {
                           throw new Error(err?.error || 'Failed to claim');
                         }
                         const data = await res.json();
-                        const normalized = { ...normalizeProfileData(data), ...normalizeProfileData(data?.user) };
+                        const normalized = normalizeProfileData(data);
                         setProfile((prev) => ({ ...prev, ...normalized }));
                         setClaimEditing(false);
                         setClaimStatus('saved');
                       } catch (err) {
                         console.error('Claim error', err);
                         setClaimStatus('error');
+                        alert(err.message || 'Failed to claim custom URL');
                       }
                     }}
                   >
-                    Claim
+                    {profile.custom_url ? 'Update' : 'Claim'}
                   </button>
                   <button className="du-cancel-btn" onClick={() => { setClaimEditing(false); setClaimStatus('idle'); }}>
                     Cancel

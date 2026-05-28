@@ -20,12 +20,13 @@ const MAX_ANSWER_WAIT_MS = 60_000; // safety: force-submit after 60s
 const BACKCHANNEL_MIN_MS = 8_000; // min speech duration before backchannel
 const BACKCHANNEL_GAP_MS = 12_000; // min gap between backchannel clips
 
-const SILENCE_AFTER_SPEECH_MAX_MS = 4_500;
-const TOTAL_SILENCE_AUTO_SUBMIT_MS = 10_000;
+const SILENCE_AFTER_SPEECH_MAX_MS = 6_000;
+const TOTAL_SILENCE_AUTO_SUBMIT_MS = 15_000;
 
-const SILENCE_SHORT = 4500;
-const SILENCE_MEDIUM = 3500;
-const SILENCE_LONG = 2500;
+// Silence thresholds: LONGER answers get MORE pause time (user is mid-thought)
+const SILENCE_SHORT = 6000;  // < 50 chars: user just started, give time to continue
+const SILENCE_MEDIUM = 5000; // 50-200 chars: mid-answer, natural pause
+const SILENCE_LONG = 4000;   // > 200 chars: substantial answer, still need pause between thoughts
 const MAX_TRANSCRIPT_LENGTH = 10_000;
 
 // TTS retry
@@ -140,8 +141,10 @@ function playBrowserSpeechFallback(
     };
     const utter = new SpeechSynthesisUtterance(text);
     if (voice) utter.voice = voice;
-    utter.rate = 1.0;
-    utter.pitch = gender === "male" ? 0.9 : 1.0;
+    // Slightly slower rate sounds more natural and professional
+    utter.rate = 0.95;
+    utter.pitch = gender === "male" ? 0.95 : 1.0;
+    utter.volume = 1.0;
     utter.onend = settle;
     utter.onerror = settle;
     if (controller?.signal) {
@@ -381,6 +384,13 @@ export function useVoiceAI({
         if (remainingMs <= 0) {
           afterSpeechSilenceRef.current = null;
           setSilenceCountdown(0);
+          // Safety: if browser STT still has interim (partial) text,
+          // the user is mid-sentence — do NOT submit yet, reschedule.
+          if (interimRef.current && interimRef.current.trim().length > 0) {
+            console.log("[useVoiceAI] Interim text detected, deferring auto-submit");
+            scheduleAfterSpeechSilence(2000); // re-check in 2s
+            return;
+          }
           if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
             submitAnswer();
           }
@@ -639,36 +649,44 @@ export function useVoiceAI({
       const voices = window.speechSynthesis.getVoices();
       if (!voices.length) return null;
       const g = (gender || personaGender || "female").toLowerCase();
-      const maleNames = [
-        "Daniel",
-        "Alex",
-        "David",
-        "Google UK English Male",
-        "Microsoft David",
-        "Microsoft Mark",
-      ];
-      const femaleNames = [
-        "Samantha",
-        "Karen",
-        "Google UK English Female",
-        "Microsoft Zira",
-        "Microsoft Jenny",
-        "Moira",
-        "Fiona",
-      ];
-      const preferred = g === "male" ? maleNames : femaleNames;
-      for (const name of preferred) {
+
+      // Priority 1: Google's neural voices (Chrome) — these sound excellent
+      const googlePremium = g === "male"
+        ? ["Google US English Male", "Google UK English Male"]
+        : ["Google US English Female", "Google UK English Female"];
+      for (const name of googlePremium) {
+        const v = voices.find((v) => v.name === name);
+        if (v) return v;
+      }
+
+      // Priority 2: Microsoft neural voices (Edge, Windows 11)
+      const msPremium = g === "male"
+        ? ["Microsoft Guy Online (Natural)", "Microsoft Ryan Online (Natural)", "Microsoft Mark Online (Natural)"]
+        : ["Microsoft Jenny Online (Natural)", "Microsoft Aria Online (Natural)", "Microsoft Sara Online (Natural)"];
+      for (const name of msPremium) {
+        const v = voices.find((v) => v.name.includes(name.replace(" Online (Natural)", "")));
+        if (v) return v;
+      }
+
+      // Priority 3: Apple neural voices (Safari, macOS)
+      const applePremium = g === "male"
+        ? ["Daniel", "Alex", "Tom"]
+        : ["Samantha", "Karen", "Moira", "Fiona"];
+      for (const name of applePremium) {
+        const v = voices.find((v) => v.name.includes(name) && v.lang.startsWith("en"));
+        if (v) return v;
+      }
+
+      // Priority 4: Any OS-level voices by name keyword
+      const fallbackNames = g === "male"
+        ? ["David", "Mark", "James", "George"]
+        : ["Zira", "Jenny", "Hazel", "Susan"];
+      for (const name of fallbackNames) {
         const v = voices.find((v) => v.name.includes(name));
         if (v) return v;
       }
-      const kw =
-        g === "male"
-          ? /male|man|david|alex|daniel|mark/i
-          : /female|woman|samantha|jenny|karen|zira/i;
-      const gendered = voices.find(
-        (v) => v.lang.startsWith("en") && kw.test(v.name),
-      );
-      if (gendered) return gendered;
+
+      // Priority 5: Any English voice
       return voices.find((v) => v.lang.startsWith("en")) || voices[0] || null;
     },
     [personaGender],

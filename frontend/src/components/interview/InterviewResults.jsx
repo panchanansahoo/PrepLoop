@@ -56,7 +56,7 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
             <header className="ai-topbar">
                 <div className="ai-topbar-left">
                     <div className="ai-breadcrumb">
-                        <span className="ai-breadcrumb-link" onClick={() => navigate('/interview-suite')}>← Interview Suite</span>
+                        <span className="ai-breadcrumb-link" onClick={() => window.location.href = '/interview-suite'}>← Interview Suite</span>
                         <ChevronRight size={12} className="ai-breadcrumb-sep" />
                         <span className="ai-breadcrumb-current">Session Results</span>
                     </div>
@@ -479,7 +479,7 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
                     <button className="ai-result-cta ai-result-cta--secondary" onClick={onStartNew}>
                         <RefreshCw size={16} /> Start New Interview
                     </button>
-                    <button className="ai-result-cta ai-result-cta--secondary" onClick={() => navigate('/interview-suite')}>
+                    <button className="ai-result-cta ai-result-cta--secondary" onClick={() => window.location.href = '/interview-suite'}>
                         <ArrowLeft size={16} /> Back to Interview Suite
                     </button>
                 </div>

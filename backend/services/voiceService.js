@@ -8,6 +8,7 @@
  */
 import 'dotenv/config';
 import Groq from 'groq-sdk';
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -187,7 +188,7 @@ export function getAvailableProviders() {
         },
         recommended: {
             tts: providers.elevenlabs ? 'elevenlabs' : providers.openai ? 'openai' : providers.edge ? 'edge' : providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
-            stt: 'browser', // Always use client-side Web Speech API
+            stt: 'browser',
         }
     };
 }
@@ -225,87 +226,65 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         }
     };
 
-    // ElevenLabs — ultra-realistic human TTS
-    if (providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs') && !isInCooldown('elevenlabs')) {
+    // Helper: try a provider, log result
+    const tryProvider = async (name, fn) => {
         try {
             const t0 = Date.now();
-            const result = await elevenLabsTTS(cleanText, persona, g);
+            const result = await fn();
             if (result) {
-                updateStats('elevenlabs', true, Date.now() - t0);
+                const latency = Date.now() - t0;
+                updateStats(name, true, latency);
+                console.log(`[TTS] ✓ ${name} succeeded (${latency}ms, voice: ${result.voice || 'default'})`);
                 return result;
             }
-            updateStats('elevenlabs', false);
+            updateStats(name, false);
+            console.warn(`[TTS] ✗ ${name} returned null`);
         } catch (err) {
-            console.warn('[TTS] ElevenLabs failed:', err.message?.substring(0, 120));
-            updateStats('elevenlabs', false);
+            console.warn(`[TTS] ✗ ${name} failed:`, err.message?.substring(0, 150));
+            updateStats(name, false);
         }
+        return null;
+    };
+
+    // Provider chain — ordered by reliability for production:
+    // 1. ElevenLabs (premium, best quality)
+    // 2. OpenAI (premium, very high quality)
+    // 3. Edge TTS (FREE, Azure Neural — most reliable free option)
+    // 4. Groq Orpheus (free tier, cloud)
+    // 5. Kokoro (local ONNX, may fail on constrained hosts)
+    // 6. Browser fallback (last resort)
+
+    let result = null;
+
+    // ElevenLabs — ultra-realistic human TTS
+    if (!result && providers.elevenlabs && (!preferredProvider || preferredProvider === 'elevenlabs') && !isInCooldown('elevenlabs')) {
+        result = await tryProvider('elevenlabs', () => elevenLabsTTS(cleanText, persona, g));
     }
 
     // OpenAI — very high quality TTS
-    if (providers.openai && (!preferredProvider || preferredProvider === 'openai') && !isInCooldown('openai')) {
-        try {
-            const t0 = Date.now();
-            const result = await openAITTS(cleanText, persona, g);
-            if (result) {
-                updateStats('openai', true, Date.now() - t0);
-                return result;
-            }
-            updateStats('openai', false);
-        } catch (err) {
-            console.warn('[TTS] OpenAI failed:', err.message?.substring(0, 120));
-            updateStats('openai', false);
-        }
+    if (!result && providers.openai && (!preferredProvider || preferredProvider === 'openai') && !isInCooldown('openai')) {
+        result = await tryProvider('openai', () => openAITTS(cleanText, persona, g));
     }
 
-    // Edge TTS — Free, High Quality Human TTS (Azure Neural)
-    if (providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
-        try {
-            const t0 = Date.now();
-            const result = await edgeNeuralTTS(cleanText, persona, g);
-            if (result) {
-                updateStats('edge', true, Date.now() - t0);
-                return result;
-            }
-            updateStats('edge', false);
-        } catch (err) {
-            console.warn('[TTS] Edge TTS failed:', err.message?.substring(0, 120));
-            updateStats('edge', false);
-        }
+    // Edge TTS — Free, High Quality Azure Neural voices (most reliable free option)
+    if (!result && providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
+        result = await tryProvider('edge', () => edgeNeuralTTS(cleanText, persona, g));
     }
 
-    // Groq Orpheus — cloud TTS (free tier, chunks long text automatically)
-    if (providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
-        try {
-            const t0 = Date.now();
-            const result = await groqOrpheusTTS(cleanText, persona, g);
-            if (result) {
-                updateStats('groq', true, Date.now() - t0);
-                return result;
-            }
-            updateStats('groq', false);
-        } catch (err) {
-            console.warn('[TTS] Groq Orpheus failed:', err.message?.substring(0, 120));
-            updateStats('groq', false);
-        }
+    // Groq Orpheus — cloud TTS (free tier)
+    if (!result && providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
+        result = await tryProvider('groq', () => groqOrpheusTTS(cleanText, persona, g));
     }
 
-    // Kokoro — local, free, CPU-only (English only)
-    if ((!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
-        try {
-            const t0 = Date.now();
-            const result = await kokoroTTS(cleanText, persona, g);
-            if (result) {
-                updateStats('kokoro', true, Date.now() - t0);
-                return result;
-            }
-            updateStats('kokoro', false);
-        } catch (err) {
-            console.warn('[TTS] Kokoro failed:', err.message?.substring(0, 120));
-            updateStats('kokoro', false);
-        }
+    // Kokoro — local, free, CPU-only (may fail on constrained servers)
+    if (!result && (!preferredProvider || preferredProvider === 'kokoro') && !isInCooldown('kokoro')) {
+        result = await tryProvider('kokoro', () => kokoroTTS(cleanText, persona, g));
     }
+
+    if (result) return result;
 
     // All server-side TTS failed — signal frontend to use browser speechSynthesis
+    console.warn('[TTS] ⚠ All providers failed — falling back to browser speechSynthesis');
     return { fallback: true };
 }
 
@@ -451,9 +430,22 @@ async function openAITTS(text, persona, gender = 'female') {
 }
 
 async function edgeNeuralTTS(text, persona, gender = 'female') {
+    // Premium Azure Neural voices — selected for natural, warm interview tone
     const edgeVoices = {
-        female: { friendly: 'en-US-JennyNeural', analytical: 'en-US-AriaNeural', formal: 'en-GB-SoniaNeural', casual: 'en-US-AnaNeural', default: 'en-US-JennyNeural' },
-        male: { friendly: 'en-US-GuyNeural', analytical: 'en-US-ChristopherNeural', formal: 'en-GB-RyanNeural', casual: 'en-US-EricNeural', default: 'en-US-GuyNeural' }
+        female: {
+            friendly:   'en-US-JennyMultilingualNeural',  // Best quality, warm
+            analytical: 'en-US-AriaNeural',               // Clear, professional
+            formal:     'en-GB-SoniaNeural',              // British, authoritative
+            casual:     'en-US-JennyNeural',              // Natural, conversational
+            default:    'en-US-JennyMultilingualNeural',
+        },
+        male: {
+            friendly:   'en-US-GuyNeural',                // Warm, natural
+            analytical: 'en-US-ChristopherNeural',        // Clear, measured
+            formal:     'en-GB-RyanNeural',               // British, professional
+            casual:     'en-US-EricNeural',               // Relaxed, approachable
+            default:    'en-US-GuyNeural',
+        }
     };
     
     const voice = (edgeVoices[gender] || edgeVoices.female)[persona] || (edgeVoices[gender] || edgeVoices.female).default;
@@ -461,10 +453,12 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
     const tts = new EdgeTTS({
         voice: voice,
         lang: 'en-US',
-        outputFormat: 'audio-24khz-48kbitrate-mono-mp3'
+        // Doubled bitrate: 96kbps produces richer, fuller audio than 48kbps
+        outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
     });
     
-    const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${Math.random().toString(36).substring(7)}.mp3`);
+    // Use crypto.randomBytes() instead of Math.random() per project rules
+    const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.mp3`);
     
     await tts.ttsPromise(text, tempFilePath);
     
@@ -511,19 +505,15 @@ async function kokoroTTS(text, persona, gender = 'female') {
 
     const t0 = Date.now();
     
-    // Limit text length to reduce generation time while keeping questions intact.
-    // 500 chars covers most interview questions + context without truncation.
-    const maxChars = 500;
-    const truncatedText = text.length > maxChars ? text.substring(0, maxChars) + '...' : text;
-    
     try {
-        const audio = await tts.generate(truncatedText, { voice, speed: 1.15 }); // Slightly faster, natural tone
+        // Natural speed (1.0) — no rushing, let the voice breathe
+        const audio = await tts.generate(text, { voice, speed: 1.0 });
         const latency = Date.now() - t0;
 
         const wavBuffer = Buffer.from(audio.toWav());
         if (wavBuffer.length < 100) throw new Error('Kokoro returned empty audio');
 
-        console.log(`[Kokoro] Generated ${(audio.audio.length / audio.sampling_rate).toFixed(1)}s audio in ${latency}ms (voice: ${voice}, chars: ${truncatedText.length})`);
+        console.log(`[Kokoro] Generated ${(audio.audio.length / audio.sampling_rate).toFixed(1)}s audio in ${latency}ms (voice: ${voice}, chars: ${text.length})`);
         return { audio: wavBuffer, contentType: 'audio/wav', provider: 'kokoro', voice };
     } catch (err) {
         console.warn('[Kokoro] Generation failed:', err.message?.substring(0, 120));

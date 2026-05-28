@@ -1171,7 +1171,8 @@ export function useInterviewSession() {
 
   const hasRecentSpeech = useCallback(() => {
     const hasTranscript = stateRefs.current.transcript.trim().length > 0;
-    const recentAudio = Date.now() - lastSpeechTimestampRef.current < 3000;
+    // 5-second window: natural pauses between thoughts are 3-5 seconds
+    const recentAudio = Date.now() - lastSpeechTimestampRef.current < 5000;
     return hasTranscript || recentAudio;
   }, []);
 
@@ -1179,11 +1180,13 @@ export function useInterviewSession() {
     stopSilenceHandling();
     if (phase !== "interview") return;
 
+    // Stage 1: Show encouragement after 8s of silence (was 5s — too aggressive)
     silenceStageTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
       setInterviewerStatus(getSilencePrompt(interviewType, 0));
 
+      // Stage 2: Offer to rephrase after another 8s
       silenceStageTimerRef.current = setTimeout(() => {
         if (!isListeningRef.current || hasRecentSpeech()) return;
         setSilenceStage(2);
@@ -1196,15 +1199,16 @@ export function useInterviewSession() {
         if (isListeningRef.current) stopVoiceRecording();
         speakInterviewerText(rephraseText).then(() => {
           if (!isPaused && phase === "interview") startVoiceRecording();
+          // Stage 3: Auto-skip after another 8s of silence
           silenceStageTimerRef.current = setTimeout(() => {
             if (hasRecentSpeech()) return;
             setSilenceStage(3);
             setInterviewerStatus("");
             if (sendAnswerRef.current) sendAnswerRef.current(true);
-          }, 5000);
+          }, 8000);
         });
-      }, 5000);
-    }, 5000);
+      }, 8000);
+    }, 8000);
   }, [
     phase,
     speakInterviewerText,
