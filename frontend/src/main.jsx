@@ -1,4 +1,4 @@
-import { createRoot } from 'react-dom/client'
+import ReactDOM from 'react-dom/client'
 import './index.css'
 import './App.css'
 import App from './App.jsx'
@@ -86,7 +86,7 @@ analytics.init({
 console.log('✅ Monitoring and analytics initialized');
 
 
-createRoot(document.getElementById('root')).render(
+ReactDOM.createRoot(document.getElementById('root')).render(
   <ErrorBoundary>
     <App />
   </ErrorBoundary>,

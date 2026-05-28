@@ -3,6 +3,8 @@
  */
 
 const ALLOWED_ORIGINS = [
+  'https://www.preploop.me',
+  'https://preploop.me',
   process.env.FRONTEND_URL,
   process.env.PRODUCTION_FRONTEND_URL,
   process.env.STAGING_FRONTEND_URL,
