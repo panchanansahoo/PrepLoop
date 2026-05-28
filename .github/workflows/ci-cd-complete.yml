@@ -253,9 +253,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, integration]
     if: github.ref == 'refs/heads/develop'
-    environment:
-      name: staging
-      url: https://staging.preploop.me
     
     steps:
       - name: Checkout code
@@ -289,10 +286,10 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy to Azure (Backend)
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
-          app-name: preploop-backend-staging
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_STAGING }}
+          app-name: ${{ secrets.STAGING_AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.STAGING_AZURE_WEBAPP_PUBLISH_PROFILE || secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./backend
 
       - name: Run post-deployment tests
@@ -308,9 +305,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build, integration]
     if: github.ref == 'refs/heads/main'
-    environment:
-      name: production
-      url: https://preploop.me
     
     steps:
       - name: Checkout code
@@ -353,8 +347,8 @@ jobs:
       - name: Deploy to Azure (Backend)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: preploop-backend-production
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE_PRODUCTION }}
+          app-name: ${{ secrets.PRODUCTION_AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: ./backend
 
       - name: Run smoke tests
