@@ -1,36 +1,22 @@
-name: Azure Web App CI/CD
+# =============================================================================
+# DEPRECATED — Superseded by deploy-orchestrator-vercel-azure.yml
+#   which calls deploy-backend-azure.yml → deploy-frontend-vercel.yml
+#
+# This stub had placeholder values and caused Rollup build failures.
+# Kept as manual-only for reference; will not run on push.
+# =============================================================================
+
+name: "[Deprecated] Azure Web App CI/CD"
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Use Node.js 18
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
+      - name: Deprecation notice
         run: |
-          npm ci
-
-      - name: Build frontend
-        run: |
-          npm run build --prefix frontend
-
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v2
-        with:
-          app-name: 'REPLACE_WITH_YOUR_APP_NAME' # set your Azure Web App name here
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: './frontend'
-
-# Notes:
-# - Create secret AZURE_WEBAPP_PUBLISH_PROFILE in the repository (paste raw publish profile XML)
-# - Replace app-name above with your Azure Web App name or set it via repository secret and reference here.
+          echo "This workflow is deprecated."
+          echo "Use 'Deploy Orchestrator (Azure Backend -> Vercel Frontend)' instead."
+          exit 0
