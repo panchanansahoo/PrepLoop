@@ -23,12 +23,13 @@ export function validateFrontendRuntimeConfig() {
   const errors = [];
   const apiUrl = import.meta.env.VITE_API_URL;
 
-  // In production, VITE_API_URL is required
+  // In production, VITE_API_URL is recommended but not required
+  // (Vercel rewrites in vercel.json can proxy /api/* to the backend)
   if (IS_PRODUCTION) {
     if (!apiUrl) {
-      errors.push(
-        '❌ VITE_API_URL is not configured in production. ' +
-        'API requests will fail. Set VITE_API_URL environment variable to your backend URL.'
+      console.warn(
+        '⚠️  VITE_API_URL is not configured in production. ' +
+        'API requests will use relative paths (handled by Vercel rewrites).'
       );
     }
 
@@ -41,7 +42,7 @@ export function validateFrontendRuntimeConfig() {
 
     // Production shouldn't use localhost
     if (apiUrl && apiUrl.includes('localhost')) {
-      errors.push(
+      console.warn(
         '⚠️  VITE_API_URL contains "localhost" in production. ' +
         'Production frontends should use external API URLs. ' +
         `Current: "${apiUrl}"`
