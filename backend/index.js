@@ -69,6 +69,7 @@ async function initializeServer() {
     const jobsRoutes = (await import('./routes/jobs.js')).default;
     const coinsRoutes = (await import('./routes/coins.js')).default;
     const chatRoutes = (await import('./routes/chat.js')).default;
+    const clientLogsRoutes = (await import('./routes/clientLogs.js')).default;
     const scheduleRoutes = (await import('./routes/schedule.js')).default;
     const hrRoutes = (await import('./routes/hr.js')).default;
     const libraryRoutes = (await import('./routes/library.js')).default;
@@ -254,6 +255,7 @@ async function initializeServer() {
     app.use('/api/jobs', jobsRoutes);
     app.use('/api/coins', coinsRoutes);
     app.use('/api/chat', chatRoutes);
+    app.use('/api/client-logs', clientLogsRoutes);
     app.use('/api/schedule', scheduleRoutes);
     app.use('/api/hr', hrRoutes);
     app.use('/api/library', libraryRoutes);

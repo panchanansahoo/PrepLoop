@@ -95,7 +95,7 @@ class Logger {
       if (typeof sendBeacon === 'function') {
         // sendBeacon is a bound method, must use call/apply
         const blob = new Blob([JSON.stringify(logEntry)], { type: 'application/json' });
-        const success = sendBeacon.call(window.navigator, '/api/logs', blob);
+        const success = sendBeacon.call(window.navigator, '/api/client-logs', blob);
         
         if (success) {
           this.monitoringErrorCount = 0; // Reset counter on success
@@ -129,7 +129,7 @@ class Logger {
   async sendToMonitoringViaFetch(logEntry) {
     try {
       // Use keepalive flag so request completes even if page unloads
-      await fetch('/api/logs', {
+      await fetch('/api/client-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(logEntry),

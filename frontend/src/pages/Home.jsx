@@ -402,8 +402,7 @@ function JobUpdatesPreview() {
       if (fetched) return;
       fetched = true;
       try {
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-        const { data } = await axios.get(`${API}/api/jobs?limit=3`);
+        const { data } = await axios.get('/api/jobs?limit=3');
         setJobs((data.jobs || []).slice(0, 3));
       } catch (err) {
         console.error('Failed to fetch jobs preview:', err);

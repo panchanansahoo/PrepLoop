@@ -51,28 +51,27 @@ class EnhancedErrorBoundary extends Component {
 
   reportError = async (error, errorInfo) => {
     try {
-      // Send to backend error tracking endpoint
-      await fetch('/api/errors/report', {
+      await fetch('/api/client-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          type: 'render-error',
+          message: error.message,
           error: {
-            message: error.message,
-            stack: error.stack,
             name: error.name,
+            message: error.message,
           },
-          errorInfo: {
-            componentStack: errorInfo.componentStack,
-          },
+          stack: error.stack,
           context: {
             url: window.location.href,
             userAgent: navigator.userAgent,
             timestamp: new Date().toISOString(),
+            componentStack: errorInfo?.componentStack?.slice(0, 5000),
           },
         }),
       });
     } catch (err) {
-      console.error('Failed to report error:', err);
+      // Silently fail — error reporting should never crash the app
     }
   };
 

@@ -15,6 +15,8 @@ import RouteErrorBoundary from './components/RouteErrorBoundary';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
 import { useToast, ToastContainer } from './hooks/useToast';
+import { ToastProvider } from './context/ToastContext';
+import NetworkStatus from './components/NetworkStatus';
 
 const AIAssistantOrb = lazyWithRecovery(() => import('./components/AIAssistantOrb'));
 
@@ -370,7 +372,10 @@ function App() {
                 v7_relativeSplatPath: true,
               }}
             >
-              <AppContent />
+              <ToastProvider>
+                <NetworkStatus />
+                <AppContent />
+              </ToastProvider>
             </Router>
           </CoinProvider>
         </AuthProvider>

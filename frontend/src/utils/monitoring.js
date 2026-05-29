@@ -95,20 +95,21 @@ class Logger {
    * Send error to tracking service
    */
   sendToErrorTracking(message, error, data) {
-    // TODO: Integrate with error tracking service (Sentry, LogRocket, etc.)
     if (import.meta.env.PROD) {
-      // Example: Send to backend logging endpoint
-      fetch('/api/logs/error', {
+      fetch('/api/client-logs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          type: 'error',
           message,
-          error: error?.message,
+          error: error ? { name: error.name, message: error.message } : null,
           stack: error?.stack,
+          context: {
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            timestamp: new Date().toISOString(),
+          },
           data,
-          userAgent: navigator.userAgent,
-          url: window.location.href,
-          timestamp: new Date().toISOString(),
         }),
       }).catch(() => {
         // Silently fail if logging endpoint is unavailable
