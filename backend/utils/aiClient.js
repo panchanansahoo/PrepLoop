@@ -1,3 +1,6 @@
+import crypto from 'crypto';
+import { breakers, CircuitBreakerOpenError } from './circuitBreaker.js';
+
 const DEFAULT_TIMEOUT_MS = Number.parseInt(process.env.AI_TIMEOUT_MS || '12000', 10);
 const DEFAULT_MAX_RETRIES = Number.parseInt(process.env.AI_MAX_RETRIES || '2', 10);
 const DEFAULT_BASE_DELAY_MS = Number.parseInt(process.env.AI_RETRY_BASE_DELAY_MS || '250', 10);
@@ -42,12 +45,37 @@ export const isTransientAiError = (error) => {
   );
 };
 
+/**
+ * Central AI call wrapper with retry + circuit breaker.
+ * 
+ * @param {Object} options
+ * @param {Function} options.operation - The async AI API call to execute
+ * @param {number} [options.timeoutMs] - Timeout per attempt
+ * @param {number} [options.maxRetries] - Max retry attempts
+ * @param {number} [options.baseDelayMs] - Base delay for exponential backoff
+ * @param {string} [options.serviceName] - Circuit breaker name: 'gemini' | 'groq' | 'elevenLabs' | 'razorpay'
+ */
 export const aiCallWithRetry = async ({
   operation,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   maxRetries = DEFAULT_MAX_RETRIES,
   baseDelayMs = DEFAULT_BASE_DELAY_MS,
+  serviceName = 'groq',
 }) => {
+  // Check circuit breaker before attempting
+  const breaker = breakers[serviceName];
+  if (breaker) {
+    return breaker.execute(async () => {
+      return _executeWithRetry({ operation, timeoutMs, maxRetries, baseDelayMs });
+    });
+  }
+
+  // No breaker configured for this service — run without
+  return _executeWithRetry({ operation, timeoutMs, maxRetries, baseDelayMs });
+};
+
+/** Internal retry loop (separated to work inside circuit breaker) */
+const _executeWithRetry = async ({ operation, timeoutMs, maxRetries, baseDelayMs }) => {
   let lastError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
@@ -60,7 +88,7 @@ export const aiCallWithRetry = async ({
         throw error;
       }
 
-      const jitter = Math.floor(Math.random() * baseDelayMs);
+      const jitter = crypto.randomInt(baseDelayMs);
       const backoffMs = baseDelayMs * (2 ** attempt) + jitter;
       await sleep(backoffMs);
     }
@@ -68,3 +96,5 @@ export const aiCallWithRetry = async ({
 
   throw lastError;
 };
+
+export { CircuitBreakerOpenError };

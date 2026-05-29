@@ -17,9 +17,10 @@ import { useTheme } from '../context/ThemeContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 import './QuizArena.css';
 
-const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
+const rawApiUrl = API_URL.trim();
 let API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
 
 // Fix for mobile testing: if API is localhost but we are accessing via local IP

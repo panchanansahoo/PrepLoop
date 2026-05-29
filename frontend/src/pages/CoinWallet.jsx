@@ -19,7 +19,7 @@ import { useCoins } from '../context/CoinContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config/api.js';
 const FILTERS = [
   { key: 'all', label: 'All activity' },
   { key: 'earn', label: 'Earned' },

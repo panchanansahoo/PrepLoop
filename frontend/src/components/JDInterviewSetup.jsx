@@ -6,7 +6,7 @@ import {
 import './JDInterviewSetup.css';
 import { authFetch } from '../utils/authFetch';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 
 export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClose }) {
     const [jdText, setJdText] = useState('');

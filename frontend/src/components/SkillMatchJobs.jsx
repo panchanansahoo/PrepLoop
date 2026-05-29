@@ -6,7 +6,7 @@ import { authFetch } from '../utils/authFetch';
 import { useNavigate } from 'react-router-dom';
 import './SkillMatchJobs.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 
 const FALLBACK_JOBS = [
   { id: 'demo_1', title: 'Software Engineer - Frontend', company: 'Google', location: 'Bengaluru, India', salary_range: '₹15 - 25 LPA', type: 'full-time', matchScore: 85, matchedSkills: ['React', 'JavaScript', 'TypeScript'], apply_link: 'https://careers.google.com', logo_url: 'https://logo.clearbit.com/google.com' },

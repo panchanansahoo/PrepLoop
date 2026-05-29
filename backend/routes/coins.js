@@ -122,7 +122,7 @@ router.get('/balance', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('coins')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     res.json({ coins: data?.coins || 0 });
@@ -185,7 +185,7 @@ router.post('/earn', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('coins')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -289,7 +289,7 @@ router.post('/redeem', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('coins')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 
@@ -380,7 +380,7 @@ router.post('/spend', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('coins')
       .eq('id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (fetchError) throw fetchError;
 

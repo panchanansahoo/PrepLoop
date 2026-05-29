@@ -106,7 +106,7 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
       .select('id')
       .eq('post_id', id)
       .eq('user_id', req.user.id)
-      .single();
+      .maybeSingle();
 
     if (existingLikeError && existingLikeError.code !== 'PGRST116') {
       throw existingLikeError;
@@ -136,7 +136,7 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
         .from('community_posts')
         .select('likes')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (!fetchError && post) {
         const { error: fallbackError } = await supabaseAdmin
@@ -189,7 +189,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
         .from('community_posts')
         .select('replies')
         .eq('id', id)
-        .single();
+        .maybeSingle();
       await supabaseAdmin
         .from('community_posts')
         .update({ replies: (post?.replies || 0) + 1 })

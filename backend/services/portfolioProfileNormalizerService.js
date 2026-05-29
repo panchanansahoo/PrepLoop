@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 const RECENT_ACTIVITY_DAYS = 120;
 const DEFAULT_FEATURED_COUNT = 5;
 
@@ -136,7 +138,7 @@ const mapGitHubProjects = (github = {}) => {
   const projects = toArray(github.repositories).map((repo) => {
     const visibilityScore = scoreRepositoryVisibility(repo);
     return {
-      id: String(repo.id || repo.name || Math.random()),
+      id: String(repo.id || repo.name || crypto.randomBytes(8).toString('hex')),
       name: repo.name,
       description: repo.description || '',
       stack: uniqueSkills([

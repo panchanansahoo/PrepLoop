@@ -3,8 +3,10 @@ import nodemailer from 'nodemailer';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { contactLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const logger = createLogger('contact');
 
 // Reuse a single transporter (connection pooling)
 const transporter = nodemailer.createTransport({
@@ -42,7 +44,7 @@ router.post('/', contactLimiter, async (req, res) => {
       .insert({ name, email, subject, message });
 
     if (dbError) {
-      console.error('DB insert error:', dbError);
+      logger.error('DB insert error', { error: dbError.message, code: dbError.code });
       return res.status(500).json({ error: 'Failed to save message. Please try again later.' });
     }
 
@@ -56,9 +58,9 @@ router.post('/', contactLimiter, async (req, res) => {
           text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\nMessage:\n${message}`,
           replyTo: email
         });
-        console.log(`✅ Email sent to support@preploop.me from ${email}`);
+        logger.info('Email sent to support', { from: email });
       } catch (emailError) {
-        console.error('Email sending failed (contact saved to DB):', emailError.message);
+        logger.error('Email sending failed (contact saved to DB)', { error: emailError.message });
       }
     }
 
@@ -66,7 +68,7 @@ router.post('/', contactLimiter, async (req, res) => {
     res.json({ success: true, message: 'Message sent successfully!' });
 
   } catch (error) {
-    console.error('Contact form error:', error);
+    logger.error('Contact form error', { error: error.message });
     res.status(500).json({ error: 'Failed to send message. Please try again later.' });
   }
 });

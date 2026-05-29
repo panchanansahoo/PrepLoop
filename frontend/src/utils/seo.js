@@ -1,71 +1,12 @@
 /**
  * SEO Optimization Utilities
- * Provides meta tags, structured data, and sitemap generation
+ * Provides structured data and sitemap generation
+ *
+ * NOTE: The page-level SEO component (using react-helmet-async) was removed
+ * because the package is not installed and no component imported it.
+ * If you need per-page <head> management, install react-helmet-async and
+ * restore the SEO component.
  */
-
-import React from 'react';
-import { Helmet } from 'react-helmet-async';
-
-/**
- * SEO Component for page-level optimization
- */
-export const SEO = ({
-  title,
-  description,
-  keywords = [],
-  image,
-  url,
-  type = 'website',
-  author = 'PrepLoop',
-  publishedTime,
-  modifiedTime,
-  structuredData,
-}) => {
-  const siteUrl = 'https://preploop.com';
-  const fullUrl = url ? `${siteUrl}${url}` : siteUrl;
-  const imageUrl = image ? `${siteUrl}${image}` : `${siteUrl}/og-image.png`;
-
-  const defaultTitle = 'PrepLoop - Master Technical Interviews';
-  const defaultDescription = 'Comprehensive interview preparation platform with DSA practice, AI coaching, system design, and real-time job matching.';
-
-  const fullTitle = title ? `${title} | PrepLoop` : defaultTitle;
-  const metaDescription = description || defaultDescription;
-
-  return (
-    <Helmet>
-      {/* Basic Meta Tags */}
-      <title>{fullTitle}</title>
-      <meta name="description" content={metaDescription} />
-      {keywords.length > 0 && <meta name="keywords" content={keywords.join(', ')} />}
-      <meta name="author" content={author} />
-      <link rel="canonical" href={fullUrl} />
-
-      {/* Open Graph */}
-      <meta property="og:type" content={type} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={metaDescription} />
-      <meta property="og:url" content={fullUrl} />
-      <meta property="og:image" content={imageUrl} />
-      <meta property="og:site_name" content="PrepLoop" />
-      {publishedTime && <meta property="article:published_time" content={publishedTime} />}
-      {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
-
-      {/* Twitter Card */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={metaDescription} />
-      <meta name="twitter:image" content={imageUrl} />
-      <meta name="twitter:site" content="@preploop" />
-
-      {/* Structured Data */}
-      {structuredData && (
-        <script type="application/ld+json">
-          {JSON.stringify(structuredData)}
-        </script>
-      )}
-    </Helmet>
-  );
-};
 
 /**
  * Generate structured data for different page types
@@ -248,7 +189,6 @@ Sitemap: https://preploop.com/sitemap.xml
 };
 
 export default {
-  SEO,
   generateStructuredData,
   SitemapGenerator,
   generateRobotsTxt,

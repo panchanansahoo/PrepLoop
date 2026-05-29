@@ -51,7 +51,7 @@ const resolveUserRole = async (userId) => {
       .from('profiles')
       .select('role')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profile?.role) {
       role = profile.role;

@@ -5,8 +5,7 @@ import { Shield, Lock, CheckCircle2, ArrowLeft, Zap, Sparkles, Check, Code2, Ext
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { authFetch } from '../utils/authFetch';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 const isDev = import.meta.env.DEV;
 
 function getPaymentErrorMessage(status, errorCode, fallbackMessage) {

@@ -7,6 +7,7 @@ import {
   BookOpen, Target, Mic, Code2, Zap, Crown, Medal, Award,
   Globe, Hash, ArrowRight, Clock, TrendingUp, Heart
 } from 'lucide-react';
+import { API_URL } from '../config/api.js';
 
 // ── Discord SVG Icon ──
 function DiscordIcon({ size = 20, color = 'currentColor' }) {
@@ -123,7 +124,7 @@ function EventCard({ event }) {
   );
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// API_URL imported from '../config/api.js' at top of file
 
 const UPCOMING_EVENTS = [
   { title: 'Weekly Mock Interview Marathon', month: 'APR', day: '01', time: '7:00 PM IST', type: 'Mock Interview', color: 'var(--accent-primary)', live: false },

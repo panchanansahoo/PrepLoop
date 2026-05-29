@@ -3,6 +3,7 @@ import { getPoolStats } from '../config/dbPoolUnified.js';
 import { getCacheStats } from '../middleware/apiCache.js';
 import { getSecurityStats } from '../middleware/securityEnhanced.js';
 import cacheManager from '../utils/cacheManager.js';
+import { breakers } from '../utils/circuitBreaker.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
@@ -131,6 +132,22 @@ router.get('/health', async (req, res) => {
 
     if (!memHealthy) health.status = 'degraded';
 
+    // Circuit breaker health
+    const breakerStatus = {};
+    for (const [name, breaker] of Object.entries(breakers)) {
+      const stats = breaker.getStatus();
+      breakerStatus[name] = {
+        state: stats.state,
+        failureCount: stats.failureCount,
+        successCount: stats.successCount,
+      };
+      if (stats.state === 'OPEN') health.status = 'degraded';
+    }
+    health.checks.circuitBreakers = {
+      status: Object.values(breakerStatus).some(b => b.state === 'OPEN') ? 'degraded' : 'healthy',
+      services: breakerStatus,
+    };
+
     res.json(health);
   } catch (error) {
     logger.error('Health check failed', { error: error.message });
@@ -232,6 +249,20 @@ router.post('/reset', authenticateToken, requireAdmin, (req, res) => {
 
   logger.info('Metrics reset');
   res.json({ message: 'Metrics reset successfully' });
+});
+
+// GET /api/monitoring/circuit-breakers - Circuit breaker details
+router.get('/circuit-breakers', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const result = {};
+    for (const [name, breaker] of Object.entries(breakers)) {
+      result[name] = breaker.getStatus();
+    }
+    res.json({ circuitBreakers: result, timestamp: new Date().toISOString() });
+  } catch (error) {
+    logger.error('Circuit breaker stats failed', { error: error.message });
+    res.status(500).json({ error: 'Failed to retrieve circuit breaker stats' });
+  }
 });
 
 export default router;

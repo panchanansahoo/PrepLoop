@@ -83,7 +83,7 @@ router.get('/admin/posts', authenticateToken, requireAdmin, async (req, res) => 
 router.get('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data, error } = await supabaseAdmin.from('blog_posts').select('*').eq('id', id).single();
+    const { data, error } = await supabaseAdmin.from('blog_posts').select('*').eq('id', id).maybeSingle();
     if (error || !data) return res.status(404).json({ error: 'Blog post not found' });
     res.json(data);
   } catch (error) {
@@ -105,7 +105,7 @@ router.post('/admin/posts', authenticateToken, requireAdmin, async (req, res) =>
       return res.status(400).json({ error: 'Invalid slug format. Use lowercase letters, numbers, and hyphens only.' });
     }
 
-    const { data: existing } = await supabaseAdmin.from('blog_posts').select('id').eq('slug', slugStr).single();
+    const { data: existing } = await supabaseAdmin.from('blog_posts').select('id').eq('slug', slugStr).maybeSingle();
     if (existing) return res.status(409).json({ error: 'Slug already exists' });
 
     const published_at = status === 'published' ? new Date().toISOString() : null;
@@ -127,7 +127,7 @@ router.put('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res)
     const { id } = req.params;
     const { title, slug, content, excerpt, featured_image_url, status } = req.body;
 
-    const { data: currentPost, error: fetchError } = await supabaseAdmin.from('blog_posts').select('*').eq('id', id).single();
+    const { data: currentPost, error: fetchError } = await supabaseAdmin.from('blog_posts').select('*').eq('id', id).maybeSingle();
     if (fetchError || !currentPost) return res.status(404).json({ error: 'Blog post not found' });
 
     const updateData = { updated_at: new Date().toISOString() };
@@ -144,7 +144,7 @@ router.put('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res)
       if (!isValidSlug(slug)) {
         return res.status(400).json({ error: 'Invalid slug format.' });
       }
-      const { data: existing } = await supabaseAdmin.from('blog_posts').select('id').eq('slug', slug).neq('id', id).single();
+      const { data: existing } = await supabaseAdmin.from('blog_posts').select('id').eq('slug', slug).neq('id', id).maybeSingle();
       if (existing) return res.status(409).json({ error: 'Slug already exists' });
       updateData.slug = slug;
     }
@@ -161,7 +161,7 @@ router.put('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res)
 router.delete('/admin/posts/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { data: post, error: fetchError } = await supabaseAdmin.from('blog_posts').select('id').eq('id', id).single();
+    const { data: post, error: fetchError } = await supabaseAdmin.from('blog_posts').select('id').eq('id', id).maybeSingle();
     if (fetchError || !post) return res.status(404).json({ error: 'Blog post not found' });
 
     const { error } = await supabaseAdmin.from('blog_posts').delete().eq('id', id);
@@ -240,7 +240,7 @@ router.get('/public/posts/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
     const { data, error } = await supabaseAdmin
-      .from('blog_posts').select('*').eq('slug', slug).eq('status', 'published').single();
+      .from('blog_posts').select('*').eq('slug', slug).eq('status', 'published').maybeSingle();
 
     if (error || !data) return res.status(404).json({ error: 'Blog post not found' });
 
@@ -323,7 +323,7 @@ router.get('/:slug', async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('blogs')
       .select('*, author:author_id(id, full_name, avatar_url)')
-      .eq('slug', slug).single();
+      .eq('slug', slug).maybeSingle();
     if (error) throw error;
     // Atomic view increment via RPC; ignore errors
     await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id }).catch(() => {});

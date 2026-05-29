@@ -365,20 +365,14 @@ class CacheManager {
   async deletePattern(pattern) {
     try {
       if (this.isConnected && this.client) {
-        if (this._isUpstash()) {
-          // Upstash: use SCAN-based key listing (avoids KEYS command on large datasets)
-          // For small free-tier datasets, direct keys() is acceptable
-          const keys = await this.client.keys(pattern);
-          if (keys.length > 0) {
-            this._commandCount += 2; // keys + del
+        // Use SCAN-based iteration instead of KEYS to avoid blocking Redis on large datasets
+        const keys = await this.scanKeys(pattern);
+        if (keys.length > 0) {
+          this._commandCount++; // del
+          if (this._isUpstash()) {
             await this.client.del(...keys);
             logger.debug('Cache pattern deleted (Upstash)', { pattern, count: keys.length });
-          }
-        } else {
-          // Legacy Redis TCP
-          const keys = await this.client.keys(pattern);
-          if (keys.length > 0) {
-            this._commandCount += 2;
+          } else {
             await this.client.del(keys);
             logger.debug('Cache pattern deleted', { pattern, count: keys.length });
           }

@@ -5,13 +5,13 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { optionalAuth, authenticateToken } from '../middleware/auth.js';
-import { supabaseAdmin } from '../db/supabaseClient.js';
-import { aiCallWithRetry } from '../utils/aiClient.js';
-import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../services/companyQuestionService.js';
-import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../utils/voiceTelemetry.js';
-import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../utils/interviewFeedback.js';
-import { evaluateFresherAnswer } from '../services/interviewAnswerEvaluator.js';
+import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
+import { supabaseAdmin } from '../../db/supabaseClient.js';
+import { aiCallWithRetry } from '../../utils/aiClient.js';
+import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../../services/companyQuestionService.js';
+import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
+import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
+import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY

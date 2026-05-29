@@ -1,4 +1,5 @@
 import os from 'os';
+import crypto from 'crypto';
 import { createLogger } from './structuredLogger.js';
 
 const logger = createLogger('performance-monitor');
@@ -60,7 +61,7 @@ class PerformanceMonitor {
   }
 
   _genId() {
-    return `pm_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+    return `pm_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
   }
 }
 

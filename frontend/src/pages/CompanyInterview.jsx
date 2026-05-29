@@ -38,7 +38,7 @@ import {
     normalizeFeedbackList,
 } from './companyInterviewConfig';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 const AUTO_SUBMIT_COUNTDOWN_SECONDS = AUTO_SUBMIT_DELAY_MS / 1000;
 
 export default function CompanyInterview() {

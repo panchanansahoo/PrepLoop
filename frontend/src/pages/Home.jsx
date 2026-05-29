@@ -510,7 +510,7 @@ function JobUpdatesPreview() {
         </div>
 
         {jobs.length > 0 ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))', gap: '16px', marginBottom: '48px' }}>
+          <div className="home-jobs-grid">
             {jobs.map((job, i) => {
               const grad = gradients[i % gradients.length];
               const initials = (job.company || 'C').split(/[\s&]+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
@@ -963,7 +963,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 350px), 1fr))', gap: '24px' }}>
+          <div className="home-features-grid">
             {features.map((f, i) => (
               <Link to={f.link} key={i} className="card feature-card-hover" style={{
                 background: 'var(--bg-card)',
@@ -1257,7 +1257,7 @@ export default function Home() {
               Connect, learn, and grow with a supportive community of engineers preparing for their next big role.
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '32px', alignItems: 'center' }}>
+          <div className="home-community-grid">
             {/* Discord & Community CTA */}
             <div style={{
               background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)',
@@ -1286,7 +1286,7 @@ export default function Home() {
               <p style={{ fontSize: '14px', color: 'var(--text-secondary)', textAlign: 'center', marginBottom: '20px' }}>
                 Connect with 5,000+ engineers
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px', textAlign: 'center' }}>
+              <div className="home-discord-stats-grid">
                 <div>
                   <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>5K+</div>
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Members</div>
@@ -1419,12 +1419,7 @@ export default function Home() {
       {/*                      FAQ                        */}
       {/* ═══════════════════════════════════════════════ */}
       <section className="container" style={{ margin: '120px auto', position: 'relative', zIndex: 10, scrollMarginTop: '100px' }} id="faq">
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
-          gap: '64px',
-          alignItems: 'flex-start'
-        }}>
+        <div className="home-faq-grid">
           {/* Left Side: Header & CTA */}
           <div style={{ position: 'sticky', top: '120px', overflow: 'visible' }}>
             <h2 style={{ fontSize: 'clamp(40px, 5.5vw, 64px)', fontWeight: '800', lineHeight: 1.1, marginBottom: '24px', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>

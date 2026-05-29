@@ -5,6 +5,7 @@ import vm from 'vm';
 import os from 'os';
 import path from 'path';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import crypto from 'crypto';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import {
   all425Problems,
@@ -1353,7 +1354,11 @@ router.post('/timed-session', authenticateToken, async (req, res) => {
     if (error) throw error;
 
     // Shuffle and pick requested count
-    const shuffled = (problems || []).sort(() => Math.random() - 0.5);
+    const shuffled = [...(problems || [])];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = crypto.randomInt(i + 1);
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
     const selected = shuffled.slice(0, count || 5);
 
     res.json({

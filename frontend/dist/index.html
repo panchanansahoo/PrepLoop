@@ -52,13 +52,28 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Preload primary fonts (render-blocking — needed for initial paint) -->
   <link
-    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap"
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
+    crossorigin="anonymous">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap"
     rel="stylesheet" crossorigin="anonymous">
-  <script type="module" crossorigin src="/assets/js/index-Di_hOPEo.js"></script>
-  <link rel="modulepreload" crossorigin href="/assets/js/vendor-editor-o6AlSJXv.js">
-  <link rel="stylesheet" crossorigin href="/assets/vendor-editor-Cgzy66y4.css">
-  <link rel="stylesheet" crossorigin href="/assets/index-DzHH9j9J.css">
+  <!-- Defer JetBrains Mono (only used in code editors) — non-blocking -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'" crossorigin="anonymous">
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet" crossorigin="anonymous">
+  </noscript>
+  <script type="module" crossorigin src="/assets/js/index-DPgeK1K2.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/js/vendor-editor-mOhNwcmt.js">
+  <link rel="stylesheet" crossorigin href="/assets/vendor-editor-bQo81-N2.css">
+  <link rel="stylesheet" crossorigin href="/assets/index-Bd7j7Qqt.css">
 </head>
 
 <body>

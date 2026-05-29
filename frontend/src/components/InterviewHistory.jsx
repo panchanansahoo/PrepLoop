@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Filter, ChevronRight, Clock } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
 
 export default function InterviewHistory({ userId }) {
   const [interviews, setInterviews] = useState([]);
@@ -16,7 +17,6 @@ export default function InterviewHistory({ userId }) {
   const fetchInterviewHistory = async () => {
     try {
       setLoading(true);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await authFetch(`${API_URL}/api/interview/history`);
 
       if (response.ok) {

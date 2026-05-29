@@ -3,6 +3,7 @@
  * Handles instant answer processing, live feedback, and streaming responses
  */
 import { WebSocketServer } from 'ws';
+import crypto from 'crypto';
 
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
@@ -362,7 +363,7 @@ Provide feedback in JSON format:
   }
 
   generateSessionId() {
-    return `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    return `session_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 
   getActiveSessionCount() {

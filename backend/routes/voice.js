@@ -10,9 +10,11 @@ import fs from 'fs';
 import path from 'path';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import voiceService, { groqClient } from '../services/voiceService.js';
+import { createLogger } from '../utils/structuredLogger.js';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();
+const logger = createLogger('voice');
 
 // ── Rate limiter for sensitive endpoints (in-memory, per-user) ──
 const tokenRateLimits = new Map();
@@ -126,7 +128,7 @@ router.post('/tts', optionalAuth, async (req, res) => {
         );
 
         if (result.fallback) {
-            console.warn(`[voice/tts] ⚠ All providers failed → browser fallback (text: ${text.substring(0, 60)}...)`);
+            logger.warn('All TTS providers failed, using browser fallback', { textPreview: text.substring(0, 60) });
             return res.status(200).json({ fallback: true });
         }
 

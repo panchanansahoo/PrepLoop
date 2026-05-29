@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { getGroqClient } from '../utils/groqClient.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -565,7 +566,11 @@ router.post('/start', authenticateToken, async (req, res) => {
       const questions = getFallbackQuestions(type, difficulty);
       const questionCount = 5;
       // Fix #5: sample without replacement to avoid duplicate questions
-      const shuffled = [...questions].sort(() => Math.random() - 0.5);
+      const shuffled = [...questions];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = crypto.randomInt(i + 1);
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
       const selectedQuestions = shuffled.slice(0, Math.min(questionCount, shuffled.length));
 
       res.json({
@@ -631,7 +636,7 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     } else {
       const questions = getFallbackQuestions(type, difficulty);
       // Simple random fallback
-      const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
+      const randomQuestion = questions[crypto.randomInt(questions.length)];
       res.json({ question: randomQuestion });
     }
   } catch (error) {

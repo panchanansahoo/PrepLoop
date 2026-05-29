@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Mail, MessageSquare, MapPin, Send, Linkedin, Github, Twitter, Loader } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { API_URL } from '../config/api.js';
 
 
 export default function Contact() {
@@ -26,7 +27,7 @@ export default function Contact() {
         e.preventDefault();
         setSending(true);
         try {
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/contact`, {
+            const response = await fetch(`${API_URL}/api/contact`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

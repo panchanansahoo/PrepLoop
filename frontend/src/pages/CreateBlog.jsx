@@ -11,7 +11,7 @@ import { authFetch } from '../utils/authFetch';
 // Use 'TiptapEditor' for the full Notion-style experience (requires dependencies to be fixed).
 import NotionEditor from '../components/editor/NotionEditor';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 
 export default function CreateBlog() {
   const [title, setTitle] = useState('');

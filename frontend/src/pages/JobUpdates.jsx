@@ -11,8 +11,9 @@ import {
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import '../styles/JobUpdates.css';
+import { API_URL } from '../config/api.js';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 
 const CATEGORIES = [
   { id: 'all', label: 'All Jobs', icon: Briefcase },

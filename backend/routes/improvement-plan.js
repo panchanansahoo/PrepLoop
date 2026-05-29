@@ -247,7 +247,7 @@ router.get('/:planId/stats', authenticateToken, async (req, res) => {
       .select('progress, plan_data')
       .eq('id', planId)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (error || !plan) {
       return res.status(404).json({

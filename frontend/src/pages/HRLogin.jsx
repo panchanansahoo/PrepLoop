@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, User, Building, Award, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config/api.js';
 
 export default function HRLogin() {
   const navigate = useNavigate();

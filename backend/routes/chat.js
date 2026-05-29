@@ -58,7 +58,7 @@ const spendCoinsForChat = async (userId, cost) => {
     .from('profiles')
     .select('coins')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (fetchError) throw fetchError;
 
@@ -104,7 +104,7 @@ const refundCoinsForChatFailure = async (userId, cost) => {
     .from('profiles')
     .select('coins')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   const currentCoins = profile?.coins || 0;
   const refundedBalance = currentCoins + cost;

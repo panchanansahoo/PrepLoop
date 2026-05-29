@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { randomUUID, randomInt } from 'crypto';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -1599,12 +1599,12 @@ export class InterviewSimulatorService {
         p => Array.isArray(p.companies) && p.companies.some(c => c.toLowerCase() === companyLower)
       );
       // 70% chance to pick a company-tagged problem if available
-      if (companyMatches.length > 0 && Math.random() < 0.7) {
+      if (companyMatches.length > 0 && randomInt(100) < 70) {
         candidates = companyMatches;
       }
     }
 
-    const selected = candidates[Math.floor(Math.random() * candidates.length)];
+    const selected = candidates[randomInt(candidates.length)];
     if (userId && selected.id) recordUsedProblem(userId, selected.id);
 
     return {
@@ -1788,7 +1788,7 @@ export class InterviewSimulatorService {
     const hintsByType = {
       dsa: {
         1: "Let's simplify. What would a brute-force approach look like, even if it's not optimal?",
-        2: `Consider using a ${['hash map', 'two-pointer technique', 'stack', 'sliding window'][Math.floor(Math.random() * 4)]}. How might that help here?`,
+        2: `Consider using a ${['hash map', 'two-pointer technique', 'stack', 'sliding window'][randomInt(4)]}. How might that help here?`,
         3: "Here's the key insight: try breaking the problem into smaller subproblems. Can you implement just the core logic for the base case?",
       },
       system_design: {

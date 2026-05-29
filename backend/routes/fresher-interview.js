@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -169,7 +170,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
     if (session.phase === 'intro' && session.currentQuestionIndex === 5) {
       if (session.roundType === 'hr') {
         session.phase = 'hr';
-        const randomHR = HR_QUESTIONS[Math.floor(Math.random() * HR_QUESTIONS.length)];
+        const randomHR = HR_QUESTIONS[crypto.randomInt(HR_QUESTIONS.length)];
         session.askedQuestions.push(randomHR);
         
         return res.json({
@@ -181,7 +182,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
       } else {
         session.phase = 'technical';
         session.techCount = { dsa: 0, oop: 0, other: 0 };
-        const dsaQ = DSA_QUESTIONS[Math.floor(Math.random() * DSA_QUESTIONS.length)];
+        const dsaQ = DSA_QUESTIONS[crypto.randomInt(DSA_QUESTIONS.length)];
         session.askedQuestions.push(dsaQ);
         session.techCount.dsa = 1;
         
@@ -200,7 +201,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
       const availableHR = HR_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
       
       if (availableHR.length > 0) {
-        const randomHR = availableHR[Math.floor(Math.random() * availableHR.length)];
+        const randomHR = availableHR[crypto.randomInt(availableHR.length)];
         session.askedQuestions.push(randomHR);
         
         return res.json({
@@ -230,7 +231,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
       // Need 2 OOP questions
       if (session.techCount.oop < 2) {
         const availableOOP = OOP_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
-        const oopQ = availableOOP[Math.floor(Math.random() * availableOOP.length)];
+        const oopQ = availableOOP[crypto.randomInt(availableOOP.length)];
         session.askedQuestions.push(oopQ);
         session.techCount.oop++;
         
@@ -245,7 +246,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
       // Need 3 more random technical questions
       if (session.techCount.other < 3) {
         const availableTech = OTHER_TECHNICAL_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
-        const techQ = availableTech[Math.floor(Math.random() * availableTech.length)];
+        const techQ = availableTech[crypto.randomInt(availableTech.length)];
         session.askedQuestions.push(techQ);
         session.techCount.other++;
         

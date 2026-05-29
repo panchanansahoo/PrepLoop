@@ -10,8 +10,10 @@ import {
   normalizeProfileSignals,
   scoreJobsAgainstProfile,
 } from '../services/preploopCareerService.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const logger = createLogger('jobs');
 
 // ─── Free Job API (JSearch via RapidAPI) ─────────────────────────
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
@@ -97,26 +99,26 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   const cacheKey = `jobs_${indianQuery}_${page}`;
   const cached = getCachedJobs(cacheKey);
   if (cached) {
-    console.log(`Returning ${cached.length} cached Indian jobs for: ${indianQuery}`);
+    logger.info(`Returning ${cached.length} cached Indian jobs for: ${indianQuery}`);
     return cached;
   }
 
   // ── Priority 1: Free Indian Job APIs (Indeed, Naukri, Foundit, LinkedIn) ──
   try {
-    console.log(`Fetching Indian jobs for query: ${indianQuery}`);
+    logger.info(`Fetching Indian jobs for query: ${indianQuery}`);
     const indianJobs = await Promise.race([
       fetchAllIndianJobs(indianQuery, 'India'),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
     ]);
     
     if (indianJobs && indianJobs.length > 0) {
-      console.log(`✓ Fetched ${indianJobs.length} jobs from Indian job portals`);
+      logger.info(`Fetched ${indianJobs.length} jobs from Indian job portals`);
       setCachedJobs(cacheKey, indianJobs);
       return indianJobs;
     }
-    console.log('No jobs from Indian portals, trying fallbacks...');
+    logger.info('No jobs from Indian portals, trying fallbacks...');
   } catch (error) {
-    console.error('Indian job APIs error:', error.message);
+    logger.error('Indian job APIs error', { error: error.message });
   }
 
   // ── Try JSearch (RapidAPI) - Filter for India only ──
@@ -163,13 +165,13 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
           }));
 
         if (jobs.length > 0) {
-          console.log(`✓ Fetched ${jobs.length} Indian jobs from JSearch`);
+          logger.info(`Fetched ${jobs.length} Indian jobs from JSearch`);
           setCachedJobs(cacheKey, jobs);
           return jobs;
         }
       }
     } catch (error) {
-      console.error('JSearch API error:', error.message);
+      logger.error('JSearch API error', { error: error.message });
     }
   }
 
@@ -207,13 +209,13 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
         }));
 
         if (jobs.length > 0) {
-          console.log(`✓ Fetched ${jobs.length} Indian jobs from Adzuna`);
+          logger.info(`Fetched ${jobs.length} Indian jobs from Adzuna`);
           setCachedJobs(cacheKey, jobs);
           return jobs;
         }
       }
     } catch (error) {
-      console.error('Adzuna API error:', error.message);
+      logger.error('Adzuna API error', { error: error.message });
     }
   }
 
@@ -251,20 +253,20 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
           };
         });
         if (jobs.length > 0) {
-          console.log(`✓ Fetched ${jobs.length} Indian jobs from Indeed`);
+          logger.info(`Fetched ${jobs.length} Indian jobs from Indeed`);
           return jobs;
         }
       }
     }
   } catch (error) {
-    console.error('Indeed India error:', error.message);
+    logger.error('Indeed India error', { error: error.message });
   }
 
   // ── Skip Remotive API (not India-focused) ──
   // Remotive is primarily for remote jobs outside India
 
   // ── Final fallback: curated Indian jobs ──
-  console.log('Using curated Indian fallback jobs');
+  logger.info('Using curated Indian fallback jobs');
   setCachedJobs(cacheKey, CURATED_JOBS);
   return CURATED_JOBS;
 }
@@ -448,7 +450,7 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') {
-      console.error('Profile fetch error:', profileError);
+      logger.error('Profile fetch error', { error: profileError.message, code: profileError.code });
     }
 
     const profileSignals = normalizeProfileSignals(profileData || {});
@@ -456,7 +458,7 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
 
     // If user has no meaningful career signals, return 3 most recent jobs from database
     if (!hasSignals) {
-      console.log(`User ${req.user.id} has no career signals - fetching 3 most recent jobs`);
+      logger.info('User has no career signals - fetching 3 most recent jobs', { userId: req.user.id });
       
       const { data: recentJobs, error: jobsError } = await supabaseAdmin
         .from('job_listings')
@@ -466,7 +468,7 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
         .limit(3);
 
       if (jobsError) {
-        console.error('Recent jobs fetch error:', jobsError);
+        logger.error('Recent jobs fetch error', { error: jobsError.message });
       }
 
       const jobs = (recentJobs || []).map(job => ({
@@ -491,10 +493,13 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
     // Build intelligent search query based on user profile
     const searchQuery = buildCareerSearchQuery(profileSignals);
     
-    console.log(
-      `Skill-match query for user ${req.user.id}: "${searchQuery}" ` +
-      `(skills: ${profileSignals.skills.join(', ') || 'none'}, location: ${profileSignals.location || 'none'}, qualification: ${profileSignals.qualification || 'none'})`
-    );
+    logger.info('Skill-match query', {
+      userId: req.user.id,
+      searchQuery,
+      skills: profileSignals.skills.join(', ') || 'none',
+      location: profileSignals.location || 'none',
+      qualification: profileSignals.qualification || 'none',
+    });
 
     // Fetch jobs based on the query
     const jobs = await fetchExternalJobs(searchQuery, 1);
@@ -520,7 +525,7 @@ router.get('/skill-match', authenticateToken, async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Skill-match jobs error:', error);
+    logger.error('Skill-match jobs error', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch skill-matched jobs' });
   }
 });
@@ -558,7 +563,7 @@ router.get('/live', async (req, res) => {
       query
     });
   } catch (error) {
-    console.error('Live jobs error:', error);
+    logger.error('Live jobs error', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch live jobs' });
   }
 });
@@ -633,11 +638,11 @@ Return this exact JSON structure:
             // Fix: use let instead of var to avoid function-scope leak
             searchQuery = parsed.optimized_query || query;
           } catch (parseErr) {
-            console.error('Failed to parse Groq JSON response:', parseErr.message);
+            logger.error('Failed to parse Groq JSON response', { error: parseErr.message });
           }
         }
       } catch (groqErr) {
-        console.error('Groq API error:', groqErr.message);
+        logger.error('Groq API error', { error: groqErr.message });
       }
     }
 
@@ -679,7 +684,7 @@ Return this exact JSON structure:
       ai_powered: !!parsedParams,
     });
   } catch (error) {
-    console.error('AI Job search error:', error);
+    logger.error('AI Job search error', { error: error.message });
     res.status(500).json({ error: 'AI search failed. Please try again.' });
   }
 });
@@ -737,7 +742,7 @@ router.get('/', optionalAuth, async (req, res) => {
     const { data, count, error } = await query.range(offset, offset + parseInt(limit) - 1);
 
     if (error) {
-      console.error('Supabase job fetch error:', error);
+      logger.error('Supabase job fetch error', { error: error.message, code: error.code });
     } else {
       adminJobs = (data || []).map(j => ({ ...j, source: 'admin' }));
       totalAdmin = count || 0;
@@ -773,7 +778,7 @@ router.get('/', optionalAuth, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Jobs fetch error:', error);
+    logger.error('Jobs fetch error', { error: error.message });
     res.status(500).json({ error: 'Failed to fetch job listings' });
   }
 });
@@ -821,7 +826,7 @@ router.post('/career-ops/evaluate', authenticateToken, async (req, res) => {
       }
     } catch (persistError) {
       if (!isMissingCareerOpsSchema(persistError)) {
-        console.warn('Career Ops persistence skipped:', persistError.message || persistError);
+        logger.warn('Career Ops persistence skipped', { error: persistError.message || String(persistError) });
       }
     }
 
@@ -833,7 +838,7 @@ router.post('/career-ops/evaluate', authenticateToken, async (req, res) => {
       historyItem,
     });
   } catch (error) {
-    console.error('Career Ops evaluate error:', error);
+    logger.error('Career Ops evaluate error', { error: error.message });
     return res.status(500).json({ error: 'Failed to evaluate job fit.' });
   }
 });
@@ -869,7 +874,7 @@ router.get('/career-ops/history', authenticateToken, async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('Career Ops history error:', error);
+    logger.error('Career Ops history error', { error: error.message });
     return res.status(500).json({ error: 'Failed to fetch Career Ops history' });
   }
 });
@@ -929,7 +934,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    console.error('Create job error:', error);
+    logger.error('Create job error', { error: error.message });
     res.status(500).json({ error: 'Failed to create job listing' });
   }
 });
@@ -956,7 +961,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    console.error('Update job error:', error);
+    logger.error('Update job error', { error: error.message });
     res.status(500).json({ error: 'Failed to update job listing' });
   }
 });
@@ -974,7 +979,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (error) throw error;
     res.json({ message: 'Job listing deleted successfully' });
   } catch (error) {
-    console.error('Delete job error:', error);
+    logger.error('Delete job error', { error: error.message });
     res.status(500).json({ error: 'Failed to delete job listing' });
   }
 });
@@ -1003,7 +1008,7 @@ router.patch('/:id/toggle', authenticateToken, requireAdmin, async (req, res) =>
     if (error) throw error;
     res.json(data);
   } catch (error) {
-    console.error('Toggle job error:', error);
+    logger.error('Toggle job error', { error: error.message });
     res.status(500).json({ error: 'Failed to toggle job status' });
   }
 });

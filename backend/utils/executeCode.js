@@ -207,7 +207,7 @@ export async function executeCode(code, language, input = '') {
     let availableCmd = null;
     for (const cmd of langConfig.commands) {
         try {
-            execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 3000 });
+            execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 3000, maxBuffer: SANDBOX_MAX_BUFFER });
             availableCmd = cmd;
             break;
         } catch { /* try next */ }

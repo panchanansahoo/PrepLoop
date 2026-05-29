@@ -3,6 +3,7 @@ import { BarChart3, LineChart as LineChartIcon, TrendingUp, Target } from 'lucid
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { useTheme } from '../context/ThemeContext';
+import { API_URL } from '../config/api.js';
 
 export default function InterviewAnalytics() {
   const [analytics, setAnalytics] = useState(null);
@@ -18,7 +19,6 @@ export default function InterviewAnalytics() {
   const fetchAnalytics = async () => {
     try {
       setLoading(true);
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await authFetch(`${API_URL}/api/analytics/overview`);
 
       if (response.ok) {

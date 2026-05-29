@@ -1,4 +1,5 @@
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import crypto from 'crypto';
 
 export const FRESHER_HR_FIXED = {
     Q1: 'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
@@ -258,7 +259,7 @@ export async function generateFresherScriptedQuestion(questionNumber, company, r
         };
         const chosenAngleList = topicAngles[questionNumber] || [];
         const chosenAngle = chosenAngleList.length > 0
-            ? chosenAngleList[Math.floor(Math.random() * chosenAngleList.length)]
+            ? chosenAngleList[crypto.randomInt(chosenAngleList.length)]
             : 'Ask the topic naturally and keep it fresher-friendly.';
 
         const userPrompt = `

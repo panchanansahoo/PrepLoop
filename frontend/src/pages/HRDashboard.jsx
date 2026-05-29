@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { buildApiUrl } from '../utils/safeApiUrl';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config/api.js';
 
 function buildHrApiUrl(path) {
   return buildApiUrl(path, { rawBaseUrl: API_URL, apiPrefix: '/api' });

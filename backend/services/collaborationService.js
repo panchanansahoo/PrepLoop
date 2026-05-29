@@ -5,6 +5,7 @@
 
 import { WebSocketServer } from 'ws';
 import { createLogger } from '../utils/structuredLogger.js';
+import crypto from 'crypto';
 
 const logger = createLogger('collaboration');
 
@@ -367,7 +368,7 @@ class CollaborationService {
   }
 
   generateSessionId() {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 }
 

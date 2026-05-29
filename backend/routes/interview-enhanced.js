@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
@@ -249,7 +250,7 @@ router.post('/questions/adaptive', authenticateToken, async (req, res) => {
 
     // Fallback to static questions based on performance
     const fallbackQuestions = getAdaptiveFallbackQuestions(type, nextDifficulty, performanceAnalysis);
-    const randomQuestion = fallbackQuestions[Math.floor(Math.random() * fallbackQuestions.length)];
+    const randomQuestion = fallbackQuestions[crypto.randomInt(fallbackQuestions.length)];
 
     res.json({ question: randomQuestion, adaptiveDifficulty: nextDifficulty });
   } catch (error) {

@@ -1,6 +1,5 @@
 import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config/api.js';
 
 /**
  * Create axios instance with default config
@@ -135,7 +134,7 @@ apiClient.interceptors.response.use(
  * Helper functions
  */
 function generateRequestId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `${Date.now()}-${crypto.randomUUID()}`;
 }
 
 function sleep(ms) {

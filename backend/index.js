@@ -84,6 +84,8 @@ async function initializeServer() {
     const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
     const feedbackRoutes = (await import('./routes/feedback.js')).default;
     const monitoringEnhancedRoutes = (await import('./routes/monitoring-enhanced.js')).default;
+    const errorReportRoutes = (await import('./routes/errorReport.js')).default;
+    const feedRoutes = (await import('./routes/feed.js')).default;
 
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -228,6 +230,10 @@ async function initializeServer() {
     app.get('/health/ready', readinessCheck);
     app.get('/health/live', livenessCheck);
 
+    // CSRF token endpoint (for cookie-based auth flows)
+    const { csrfTokenEndpoint } = await import('./middleware/csrf.js');
+    app.get('/api/csrf-token', csrfTokenEndpoint);
+
     // Register all routes
     app.use('/api/auth', authRoutes);
     app.use('/api/dsa', dsaRoutes);
@@ -270,6 +276,8 @@ async function initializeServer() {
     app.use('/api/real-interview', realInterviewRoutes);
     app.use('/api/feedback', feedbackRoutes);
     app.use('/api/monitoring', monitoringEnhancedRoutes);
+    app.use('/api/errors', errorReportRoutes);
+    app.use('/api/feed', feedRoutes);
 
     // Catch-all 404 handler for undefined API routes to prevent silent failures
     app.use('/api', (req, res, next) => {

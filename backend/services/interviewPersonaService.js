@@ -1,4 +1,5 @@
 // ─── JSON parser (markdown-aware) ───
+import crypto from 'crypto';
 
 export function safeJsonParse(text) {
   try {
@@ -448,7 +449,7 @@ export const INTERVIEWER_NAMES = [
 ];
 
 export function pickFallbackInterviewerName() {
-  return INTERVIEWER_NAMES[Math.floor(Math.random() * INTERVIEWER_NAMES.length)];
+  return INTERVIEWER_NAMES[crypto.randomInt(INTERVIEWER_NAMES.length)];
 }
 
 export async function generateInterviewerName(company = '', groq = null) {

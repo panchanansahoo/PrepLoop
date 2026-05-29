@@ -29,7 +29,7 @@ const resolveProblemId = async (problemIdentifier) => {
       .from('problems')
       .select('id')
       .eq('id', numericId)
-      .single();
+      .maybeSingle();
     if (byId?.id) return byId.id;
   }
 
@@ -143,7 +143,7 @@ router.get('/patterns/:id', optionalAuth, async (req, res) => {
       .from('patterns')
       .select('*')
       .eq('id', id)
-      .single();
+      .maybeSingle();
 
     if (patternError || !pattern) {
       return res.status(404).json({ error: 'Pattern not found' });
@@ -199,7 +199,7 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
       .from('problems')
       .select('*, patterns(name, category)')
       .eq('id', canonicalProblemId)
-      .single();
+      .maybeSingle();
 
     if (error || !problem) {
       return res.status(404).json({ error: 'Problem not found' });
@@ -220,7 +220,7 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
         .select('*')
         .eq('user_id', req.user.id)
         .eq('problem_id', canonicalProblemId)
-        .single();
+        .maybeSingle();
       userProgress = progress || null;
     }
 
@@ -252,7 +252,7 @@ router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
       .from('problems')
       .select('id, title, difficulty, explore_questions, extended_test_cases, exploration_metadata')
       .eq('id', canonicalProblemId)
-      .single();
+      .maybeSingle();
 
     if (error || !problem) {
       return res.status(404).json({ error: 'Problem not found' });
@@ -289,7 +289,7 @@ router.get('/problems/:id/solution', optionalAuth, async (req, res) => {
       .from('problems')
       .select('id, title, description, solution_code')
       .eq('id', canonicalProblemId)
-      .single();
+      .maybeSingle();
 
     if (error || !problem) {
       return res.status(404).json({ error: 'Problem not found' });

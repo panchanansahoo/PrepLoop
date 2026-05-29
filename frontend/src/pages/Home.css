@@ -5447,3 +5447,70 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+/* === RESPONSIVE GRID CLASSES (converted from inline styles) === */
+
+.home-jobs-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+  margin-bottom: 48px;
+}
+
+@media (max-width: 768px) {
+  .home-jobs-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 350px), 1fr));
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .home-features-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-community-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 32px;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .home-community-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-discord-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .home-discord-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 64px;
+  align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .home-faq-grid {
+    grid-template-columns: 1fr;
+  }
+}

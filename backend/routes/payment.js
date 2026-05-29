@@ -9,8 +9,10 @@ import dotenv from 'dotenv';
 import '../config/env.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const logger = createLogger('payment');
 
 const isProfilesAccessBlocked = (error) => {
     const code = String(error?.code || '').toUpperCase();
@@ -168,7 +170,7 @@ router.get('/health', authenticateToken, async (req, res) => {
             .limit(1);
 
         if (error) {
-            console.error('[PAYMENT_HEALTH_DB_ERROR]', {
+            logger.error('Payment health DB error', {
                 code: error.code,
                 message: error.message,
             });
@@ -191,7 +193,7 @@ router.get('/health', authenticateToken, async (req, res) => {
             },
         });
     } catch (err) {
-        console.error('[PAYMENT_HEALTH_ERROR]', {
+        logger.error('Payment health check failed', {
             message: err?.message,
             stack: isDev ? err?.stack : undefined,
         });
@@ -213,7 +215,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         const razorpayConfig = getRazorpayConfig();
 
         if (!razorpayConfig.configured) {
-            console.error('[PAYMENT_CONFIG_ERROR] Razorpay keys are missing or invalid. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+            logger.error('Razorpay keys are missing or invalid. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
             return res.status(503).json({
                 error: 'Payment service is not configured. Please contact support.',
                 errorCode: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
@@ -243,7 +245,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
             .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString()); // Last 30 min
 
         if (existingOrdersError) {
-            console.error('[PAYMENT_CREATE_ORDER_DB_LOOKUP_ERROR]', {
+            logger.error('Payment create order DB lookup error', {
                 userId: user.id,
                 code: existingOrdersError.code,
                 message: existingOrdersError.message,
@@ -283,7 +285,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         });
 
         if (dbError) {
-            console.error('[PAYMENT_CREATE_ORDER_DB_INSERT_ERROR]', {
+            logger.error('Payment create order DB insert error', {
                 userId: user.id,
                 orderId: order.id,
                 code: dbError.code,
@@ -305,7 +307,7 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         });
     } catch (err) {
         const mapped = mapCreateOrderError(err);
-        console.error('[PAYMENT_CREATE_ORDER_ERROR]', {
+        logger.error('Payment create order error', {
             statusCode: err?.statusCode,
             code: err?.error?.code || err?.code,
             message: err?.error?.description || err?.message,
@@ -349,7 +351,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
 
         // SECURITY: Ensure the order belongs to the authenticated user
         if (paymentRecord.user_id !== user.id) {
-            console.error(`SECURITY: User ${user.id} tried to verify order belonging to ${paymentRecord.user_id}`);
+            logger.error('SECURITY: User tried to verify order belonging to another user', { userId: user.id, ownerUserId: paymentRecord.user_id });
             return res.status(403).json({ error: 'Forbidden' });
         }
 
@@ -381,7 +383,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
                 .update({ status: 'failed' })
                 .eq('razorpay_order_id', razorpay_order_id);
 
-            console.error(`SECURITY: Signature mismatch for order ${razorpay_order_id}`);
+            logger.error('SECURITY: Signature mismatch for order', { orderId: razorpay_order_id });
             return res.status(400).json({ error: 'Payment verification failed' });
         }
 
@@ -397,7 +399,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
             .eq('razorpay_order_id', razorpay_order_id);
 
         if (updatePaymentError) {
-            console.error('Update payment error:', updatePaymentError);
+            logger.error('Update payment error', { error: updatePaymentError.message });
         }
 
         // Upgrade user subscription tier
@@ -407,7 +409,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
             .eq('id', user.id);
 
         if (updateProfileError) {
-            console.error('Update profile error:', updateProfileError);
+            logger.error('Update profile error', { error: updateProfileError.message });
             if (isProfilesAccessBlocked(updateProfileError)) {
                 return res.status(202).json({
                     success: true,
@@ -427,7 +429,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
             paymentId: razorpay_payment_id,
         });
     } catch (err) {
-        console.error('Verify payment error:', err);
+        logger.error('Verify payment error', { error: err.message });
         res.status(500).json({ error: 'Payment verification failed' });
     }
 });
@@ -444,7 +446,7 @@ router.post('/webhook', async (req, res) => {
 
         // If no webhook secret configured, skip webhook processing
         if (!webhookSecret) {
-            console.warn('RAZORPAY_WEBHOOK_SECRET not configured. Webhook processing skipped.');
+            logger.warn('RAZORPAY_WEBHOOK_SECRET not configured. Webhook processing skipped.');
             return res.status(200).json({ status: 'ok' });
         }
 
@@ -470,7 +472,7 @@ router.post('/webhook', async (req, res) => {
             crypto.timingSafeEqual(expectedBuf, receivedBuf);
 
         if (!signaturesMatch) {
-            console.error('SECURITY: Invalid webhook signature');
+            logger.error('SECURITY: Invalid webhook signature');
             return res.status(400).json({ error: 'Invalid signature' });
         }
 
@@ -508,12 +510,12 @@ router.post('/webhook', async (req, res) => {
 
                 if (updateProfileError) {
                     if (isProfilesAccessBlocked(updateProfileError)) {
-                        console.warn(`Webhook: payment captured but profile update blocked for order ${orderId}`);
+                        logger.warn('Webhook: payment captured but profile update blocked', { orderId });
                     } else {
                         throw updateProfileError;
                     }
                 } else {
-                    console.log(`Webhook: Payment ${payment.id} captured, user upgraded to ${existing.plan}`);
+                    logger.info('Webhook: Payment captured, user upgraded', { paymentId: payment.id, plan: existing.plan });
                 }
             }
         } else if (eventType === 'payment.failed') {
@@ -525,13 +527,13 @@ router.post('/webhook', async (req, res) => {
                 .update({ status: 'failed' })
                 .eq('razorpay_order_id', orderId);
 
-            console.log(`Webhook: Payment failed for order ${orderId}`);
+            logger.info('Webhook: Payment failed for order', { orderId });
         }
 
         // Always respond 200 to Razorpay to acknowledge receipt
         res.status(200).json({ status: 'ok' });
     } catch (err) {
-        console.error('Webhook error:', err);
+        logger.error('Webhook error', { error: err.message });
         // Still respond 200 to prevent Razorpay from retrying
         res.status(200).json({ status: 'ok' });
     }
@@ -559,7 +561,7 @@ router.get('/history', authenticateToken, async (req, res) => {
         // SECURITY: Never return razorpay_signature or internal IDs to frontend
         res.json({ payments: data });
     } catch (err) {
-        console.error('Payment history error:', err);
+        logger.error('Payment history error', { error: err.message });
         res.status(500).json({ error: 'Failed to fetch payment history' });
     }
 });

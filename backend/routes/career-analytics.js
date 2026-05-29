@@ -34,7 +34,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (profileError || !profile) {
       return res.status(404).json({ error: 'Profile not found' });
@@ -195,7 +195,7 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
 

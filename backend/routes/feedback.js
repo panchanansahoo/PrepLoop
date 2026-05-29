@@ -51,7 +51,7 @@ router.post('/', optionalAuth, async (req, res) => {
               .from('profiles')
               .select('coins')
               .eq('id', userId)
-              .single();
+              .maybeSingle();
               
             const balance = (profile?.coins || 0) + 10;
             

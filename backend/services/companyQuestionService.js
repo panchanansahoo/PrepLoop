@@ -2,6 +2,8 @@
 // Provides access to company interview questions for the AI interview system.
 // Data loading is lazy so backend startup does not depend on frontend-only files.
 
+import crypto from 'crypto';
+
 // In-memory cache for the question bank
 let questionCache = null;
 let companiesList = null;
@@ -124,7 +126,7 @@ export async function getRandomQuestionSet(company, role, stage, difficulty, cou
     // Fisher-Yates shuffle
     const shuffled = [...filtered];
     for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
+        const j = crypto.randomInt(i + 1);
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Zap, BookOpen, Code, Users, Loader } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
 
 export default function InterviewStart({ onStartInterview }) {
   const [selectedType, setSelectedType] = useState('technical');
@@ -29,7 +30,6 @@ export default function InterviewStart({ onStartInterview }) {
     setError('');
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const response = await authFetch(`${API_URL}/api/interview/start`, {
         method: 'POST',
         body: JSON.stringify({

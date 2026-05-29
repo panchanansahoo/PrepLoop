@@ -1,5 +1,7 @@
 import { WebSocketServer } from 'ws';
+import crypto from 'crypto';
 import { createLogger } from '../utils/structuredLogger.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 
 const logger = createLogger('websocket-manager');
 
@@ -36,8 +38,32 @@ class WebSocketManager {
   }
 
   setupWebSocketServer() {
-    this.wss.on('connection', (ws, req) => {
-      this.handleConnection(ws, req);
+    this.wss.on('connection', async (ws, request) => {
+      // ── JWT Authentication via query-string token ──
+      try {
+        const url = new URL(request.url, `http://${request.headers.host}`);
+        const token = url.searchParams.get('token');
+
+        if (!token) {
+          ws.close(4001, 'Authentication required');
+          return;
+        }
+
+        const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+        if (error || !user) {
+          ws.close(4003, 'Invalid token');
+          return;
+        }
+
+        ws.userId = user.id;
+        ws.authenticated = true;
+      } catch (err) {
+        logger.error('WebSocket auth failed', { error: err.message });
+        ws.close(4003, 'Authentication failed');
+        return;
+      }
+
+      this.handleConnection(ws, request);
     });
 
     this.wss.on('error', (error) => {
@@ -49,7 +75,7 @@ class WebSocketManager {
     const connectionId = this.generateConnectionId();
     ws.connectionId = connectionId;
     ws.isAlive = true;
-    ws.userId = null;
+    // ws.userId and ws.authenticated are already set by the connection handler
     ws.rooms = new Set();
 
     logger.info('WebSocket connection established', { connectionId });
@@ -118,14 +144,14 @@ class WebSocketManager {
   }
 
   handleAuth(ws, message) {
-    const { userId, token } = message;
+    const { userId } = message;
 
-    // In production, verify token here
-    // For now, simple validation
-    if (!userId) {
+    // Token is already verified at connection time via query-string JWT.
+    // This handler now only validates the userId matches the authenticated user.
+    if (!userId || (ws.authenticated && ws.userId !== userId)) {
       this.sendToConnection(ws, {
         type: 'auth_error',
-        message: 'User ID required',
+        message: 'User ID mismatch or missing',
       });
       return;
     }
@@ -383,7 +409,7 @@ class WebSocketManager {
   }
 
   generateConnectionId() {
-    return `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `conn_${Date.now()}_${crypto.randomUUID()}`;
   }
 
   getStats() {

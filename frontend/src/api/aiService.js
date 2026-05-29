@@ -4,9 +4,10 @@
  */
 
 import { buildApiUrl, normalizeRelativePath } from '../utils/safeApiUrl';
+import { API_URL } from '../config/api.js';
 
 // Fix #13: normalize base URL — strip trailing /api if present so we can append it consistently
-const _rawApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const _rawApiUrl = API_URL;
 
 function buildAiFeaturesUrl(endpoint) {
   const safeEndpoint = normalizeRelativePath(endpoint);

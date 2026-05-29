@@ -1,14 +1,14 @@
 import express from "express";
-import { supabaseAdmin } from "../db/supabaseClient.js";
-import { authenticateToken, optionalAuth } from "../middleware/auth.js";
+import { supabaseAdmin } from "../../db/supabaseClient.js";
+import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
 import multer from 'multer';
-import { validateCustomUrl, buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
-import dsaLearningPath, { getModuleProblems, getModuleProgress } from "../data/dsaLearningPath.js";
-import lldLearningPath from "../data/lldLearningPath.js";
-import aiLearningPath from "../data/aiLearningPath.js";
-import { applyCoinTransaction } from "../utils/coinTransactions.js";
-import { calculateDashboardStreak } from "../utils/dashboardStreak.js";
-import { normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
+import { validateCustomUrl, buildAvatarPath, claimCustomUrl } from '../../utils/profileUtils.js';
+import dsaLearningPath, { getModuleProblems, getModuleProgress } from "../../data/dsaLearningPath.js";
+import lldLearningPath from "../../data/lldLearningPath.js";
+import aiLearningPath from "../../data/aiLearningPath.js";
+import { applyCoinTransaction } from "../../utils/coinTransactions.js";
+import { calculateDashboardStreak } from "../../utils/dashboardStreak.js";
+import { normalizeProfileUpdatePayload } from "../../utils/profilePayload.js";
 const router = express.Router();
 const PROFILE_COMPLETION_COIN_REWARD = 20;
 

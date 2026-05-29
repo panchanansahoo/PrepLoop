@@ -1,5 +1,6 @@
 import { createLogger } from '../utils/structuredLogger.js';
 import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 const logger = createLogger('alerting-system');
 
@@ -520,11 +521,11 @@ class AlertingSystem {
 
   // Helper methods
   generateAlertId() {
-    return `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `alert_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 
   generateIncidentId() {
-    return `incident_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `incident_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
   }
 
   getSeverityColor(severity) {

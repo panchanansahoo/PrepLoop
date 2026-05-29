@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import { authFetch } from '../utils/authFetch';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '../config/api.js';
 const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
 const VOICE_MODE_STORAGE_KEY = 'pg-ai-assistant-voice-enabled';
 const VOICE_AUTO_SEND_STORAGE_KEY = 'pg-ai-assistant-voice-auto-send';
