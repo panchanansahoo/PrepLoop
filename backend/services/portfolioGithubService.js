@@ -1,4 +1,13 @@
+import { CircuitBreaker, CircuitBreakerOpenError } from '../utils/circuitBreaker.js';
+
 const GITHUB_API_BASE = 'https://api.github.com';
+
+// Circuit breaker for GitHub API calls
+const githubBreaker = new CircuitBreaker('github', {
+  failureThreshold: 5,
+  resetTimeout: 60000, // 60 seconds
+  halfOpenMaxAttempts: 2,
+});
 
 const githubHeaders = () => {
   const headers = {
@@ -14,28 +23,35 @@ const githubHeaders = () => {
 };
 
 const fetchJson = async (url) => {
-  const response = await fetch(url, { headers: githubHeaders() });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(`GitHub API request failed (${response.status}): ${body}`);
-  }
+  return githubBreaker.execute(async () => {
+    const response = await fetch(url, { headers: githubHeaders() });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`GitHub API request failed (${response.status}): ${body}`);
+    }
 
-  return response.json();
+    return response.json();
+  });
 };
 
 const fetchReadme = async (owner, repo) => {
   try {
-    const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/readme`, {
-      headers: githubHeaders(),
+    return githubBreaker.execute(async () => {
+      const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/readme`, {
+        headers: githubHeaders(),
+      });
+
+      if (!response.ok) return '';
+      const data = await response.json();
+      if (!data?.content) return '';
+
+      const decoded = Buffer.from(data.content, 'base64').toString('utf8');
+      return decoded;
     });
-
-    if (!response.ok) return '';
-    const data = await response.json();
-    if (!data?.content) return '';
-
-    const decoded = Buffer.from(data.content, 'base64').toString('utf8');
-    return decoded;
-  } catch {
+  } catch (error) {
+    if (error.isCircuitBreakerError) {
+      console.error('[GitHub Circuit Breaker] Circuit open for readme fetch:', error.message);
+    }
     return '';
   }
 };

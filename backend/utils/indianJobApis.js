@@ -1,174 +1,200 @@
 // Free Indian Job APIs - Production-ready with proper error handling and data extraction
+import { CircuitBreaker, CircuitBreakerOpenError } from './circuitBreaker.js';
+
+// Circuit breaker for job search APIs
+const jobSearchBreaker = new CircuitBreaker('jobSearch', {
+  failureThreshold: 4,
+  resetTimeout: 45000, // 45 seconds
+  halfOpenMaxAttempts: 2,
+});
 
 export async function fetchIndeedIndiaJobs(query = 'software developer', location = 'India') {
   try {
-    const searchQuery = encodeURIComponent(query);
-    const searchLocation = encodeURIComponent(location);
-    const url = `https://in.indeed.com/jobs?q=${searchQuery}&l=${searchLocation}&sort=date&fromage=30`;
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-      }
-    });
-    
-    clearTimeout(timeout);
-
-    if (!response.ok) return [];
-
-    const html = await response.text();
-    
-    // Extract job IDs from Indeed's HTML
-    const jobIdMatches = html.match(/data-jk="([a-zA-Z0-9]+)"/g) || [];
-    const titleMatches = html.match(/data-jk="[^"]+"[^>]*>([^<]+)</g) || [];
-    const companyMatches = html.match(/class="companyName"[^>]*>([^<]+)</g) || [];
-    const locationMatches = html.match(/class="companyLocation"[^>]*>([^<]+)</g) || [];
-    
-    const jobs = [];
-    const maxJobs = Math.min(15, jobIdMatches.length);
-    
-    for (let i = 0; i < maxJobs; i++) {
-      const jobId = jobIdMatches[i]?.match(/data-jk="([^"]+)"/)?.[1];
-      const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Software Developer';
-      const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Various Companies';
-      const jobLocation = locationMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || location;
+    return await jobSearchBreaker.execute(async () => {
+      const searchQuery = encodeURIComponent(query);
+      const searchLocation = encodeURIComponent(location);
+      const url = `https://in.indeed.com/jobs?q=${searchQuery}&l=${searchLocation}&sort=date&fromage=30`;
       
-      if (jobId) {
-        jobs.push({
-          id: `indeed_${jobId}`,
-          title,
-          company,
-          location: jobLocation,
-          salary_range: null,
-          description: `${title} position at ${company}. View full details on Indeed India.`,
-          apply_link: `https://in.indeed.com/viewjob?jk=${jobId}`,
-          source: 'indeed_india',
-          created_at: new Date().toISOString(),
-        });
-      }
-    }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+        }
+      });
+      
+      clearTimeout(timeout);
 
-    return jobs;
+      if (!response.ok) return [];
+
+      const html = await response.text();
+      
+      // Extract job IDs from Indeed's HTML
+      const jobIdMatches = html.match(/data-jk="([a-zA-Z0-9]+)"/g) || [];
+      const titleMatches = html.match(/data-jk="[^"]+"[^>]*>([^<]+)</g) || [];
+      const companyMatches = html.match(/class="companyName"[^>]*>([^<]+)</g) || [];
+      const locationMatches = html.match(/class="companyLocation"[^>]*>([^<]+)</g) || [];
+      
+      const jobs = [];
+      const maxJobs = Math.min(15, jobIdMatches.length);
+      
+      for (let i = 0; i < maxJobs; i++) {
+        const jobId = jobIdMatches[i]?.match(/data-jk="([^"]+)"/)?.[1];
+        const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Software Developer';
+        const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Various Companies';
+        const jobLocation = locationMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || location;
+        
+        if (jobId) {
+          jobs.push({
+            id: `indeed_${jobId}`,
+            title,
+            company,
+            location: jobLocation,
+            salary_range: null,
+            description: `${title} position at ${company}. View full details on Indeed India.`,
+            apply_link: `https://in.indeed.com/viewjob?jk=${jobId}`,
+            source: 'indeed_india',
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      return jobs;
+    });
   } catch (error) {
-    console.error('Indeed India fetch error:', error.message);
+    if (error.isCircuitBreakerError) {
+      console.error('[Job Search Circuit Breaker] Circuit open for Indeed:', error.message);
+    } else {
+      console.error('Indeed India fetch error:', error.message);
+    }
     return [];
   }
 }
 
 export async function fetchNaukriJobs(query = 'software developer') {
   try {
-    // Naukri.com API endpoint (public job search)
-    const searchQuery = encodeURIComponent(query);
-    const url = `https://www.naukri.com/${searchQuery.replace(/%20/g, '-')}-jobs`;
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html',
-      }
-    });
-    
-    clearTimeout(timeout);
-
-    if (!response.ok) return [];
-
-    const html = await response.text();
-    
-    // Extract job data from Naukri HTML
-    const jobMatches = html.match(/data-job-id="([^"]+)"/g) || [];
-    const titleMatches = html.match(/class="title"[^>]*>([^<]+)</g) || [];
-    const companyMatches = html.match(/class="comp-name"[^>]*>([^<]+)</g) || [];
-    
-    const jobs = [];
-    const maxJobs = Math.min(15, jobMatches.length);
-    
-    for (let i = 0; i < maxJobs; i++) {
-      const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
-      const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || query;
-      const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Top Company';
+    return await jobSearchBreaker.execute(async () => {
+      // Naukri.com API endpoint (public job search)
+      const searchQuery = encodeURIComponent(query);
+      const url = `https://www.naukri.com/${searchQuery.replace(/%20/g, '-')}-jobs`;
       
-      if (jobId) {
-        jobs.push({
-          id: `naukri_${jobId}`,
-          title,
-          company,
-          location: 'India',
-          salary_range: null,
-          description: `${title} role at ${company}. Apply on Naukri.com for full details.`,
-          apply_link: `https://www.naukri.com/job-listings-${jobId}`,
-          source: 'naukri',
-          created_at: new Date().toISOString(),
-        });
-      }
-    }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html',
+        }
+      });
+      
+      clearTimeout(timeout);
 
-    return jobs;
+      if (!response.ok) return [];
+
+      const html = await response.text();
+      
+      // Extract job data from Naukri HTML
+      const jobMatches = html.match(/data-job-id="([^"]+)"/g) || [];
+      const titleMatches = html.match(/class="title"[^>]*>([^<]+)</g) || [];
+      const companyMatches = html.match(/class="comp-name"[^>]*>([^<]+)</g) || [];
+      
+      const jobs = [];
+      const maxJobs = Math.min(15, jobMatches.length);
+      
+      for (let i = 0; i < maxJobs; i++) {
+        const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
+        const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || query;
+        const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Top Company';
+        
+        if (jobId) {
+          jobs.push({
+            id: `naukri_${jobId}`,
+            title,
+            company,
+            location: 'India',
+            salary_range: null,
+            description: `${title} role at ${company}. Apply on Naukri.com for full details.`,
+            apply_link: `https://www.naukri.com/job-listings-${jobId}`,
+            source: 'naukri',
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      return jobs;
+    });
   } catch (error) {
-    console.error('Naukri fetch error:', error.message);
+    if (error.isCircuitBreakerError) {
+      console.error('[Job Search Circuit Breaker] Circuit open for Naukri:', error.message);
+    } else {
+      console.error('Naukri fetch error:', error.message);
+    }
     return [];
   }
 }
 
 export async function fetchFounditJobs(query = 'software developer') {
   try {
-    // Foundit (formerly Monster India) job search
-    const searchQuery = encodeURIComponent(query);
-    const url = `https://www.foundit.in/srp/results?query=${searchQuery}&locations=India`;
-    
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    
-    const response = await fetch(url, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'text/html',
-      }
-    });
-    
-    clearTimeout(timeout);
-
-    if (!response.ok) return [];
-
-    const html = await response.text();
-    
-    // Extract basic job info
-    const jobMatches = html.match(/data-job-id="([^"]+)"/g) || [];
-    
-    const jobs = [];
-    const maxJobs = Math.min(10, jobMatches.length);
-    
-    for (let i = 0; i < maxJobs; i++) {
-      const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
+    return await jobSearchBreaker.execute(async () => {
+      // Foundit (formerly Monster India) job search
+      const searchQuery = encodeURIComponent(query);
+      const url = `https://www.foundit.in/srp/results?query=${searchQuery}&locations=India`;
       
-      if (jobId) {
-        jobs.push({
-          id: `foundit_${jobId}`,
-          title: `${query} Position`,
-          company: 'Leading Company',
-          location: 'India',
-          salary_range: null,
-          description: `${query} opportunity in India. View details on Foundit.`,
-          apply_link: `https://www.foundit.in/job/${jobId}`,
-          source: 'foundit',
-          created_at: new Date().toISOString(),
-        });
-      }
-    }
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'text/html',
+        }
+      });
+      
+      clearTimeout(timeout);
 
-    return jobs;
+      if (!response.ok) return [];
+
+      const html = await response.text();
+      
+      // Extract basic job info
+      const jobMatches = html.match(/data-job-id="([^"]+)"/g) || [];
+      
+      const jobs = [];
+      const maxJobs = Math.min(10, jobMatches.length);
+      
+      for (let i = 0; i < maxJobs; i++) {
+        const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
+        
+        if (jobId) {
+          jobs.push({
+            id: `foundit_${jobId}`,
+            title: `${query} Position`,
+            company: 'Leading Company',
+            location: 'India',
+            salary_range: null,
+            description: `${query} opportunity in India. View details on Foundit.`,
+            apply_link: `https://www.foundit.in/job/${jobId}`,
+            source: 'foundit',
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+
+      return jobs;
+    });
   } catch (error) {
-    console.error('Foundit fetch error:', error.message);
+    if (error.isCircuitBreakerError) {
+      console.error('[Job Search Circuit Breaker] Circuit open for Foundit:', error.message);
+    } else {
+      console.error('Foundit fetch error:', error.message);
+    }
     return [];
   }
 }
