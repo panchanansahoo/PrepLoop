@@ -281,7 +281,7 @@ export default function Analytics() {
               </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: 20 }}>
             {TOPICS.slice(0, 12).map((topic, i) => {
               const topicProblems = PROBLEMS.filter(p => p.topics.includes(topic));
               const randomSolved = Math.floor(Math.random() * topicProblems.length); // Use random for visual depth if solvedTotal is 0

@@ -221,7 +221,7 @@ export default function HRDashboard() {
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
         {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 180px), 1fr))', gap: 12, marginBottom: 24 }}>
           {[
             { label: 'Total Slots', value: slots.length, icon: Calendar, color: '#818cf8' },
             { label: 'Interviews', value: bookings.length, icon: Video, color: '#34d399' },

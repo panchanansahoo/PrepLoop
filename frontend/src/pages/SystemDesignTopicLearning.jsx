@@ -144,7 +144,7 @@ function TricksTab({ topic, isLight }) {
             {topic.keyDesigns && topic.keyDesigns.length > 0 && (
                 <>
                     <h3 style={{ color: '#818cf8', fontSize: '16px', fontWeight: 600, marginTop: '12px', marginBottom: '4px' }}>🎯 Practice Designs</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 240px), 1fr))', gap: '12px' }}>
                         {topic.keyDesigns.map((design, i) => (
                             <div key={i} style={{
                                 background: 'rgba(129,140,248,0.06)', border: '1px solid rgba(129,140,248,0.2)',

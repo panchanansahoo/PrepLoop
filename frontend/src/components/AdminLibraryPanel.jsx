@@ -495,7 +495,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Category & Difficulty - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Category
@@ -549,7 +549,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Cover URL & Pages - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Pages
@@ -574,7 +574,7 @@ export default function AdminLibraryPanel() {
                                 </div>
 
                                 {/* Published Year & Tags - Two columns */}
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <div>
                                         <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600' }}>
                                             Published Year

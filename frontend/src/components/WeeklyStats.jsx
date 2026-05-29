@@ -100,7 +100,7 @@ export default function WeeklyStats({ weeklyData }) {
                 </div>
             </div>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '16px' }}>
                 <StatComparison label="Problems Solved" current={data.thisWeek.problems} previous={data.lastWeek.problems} change={problemsChange} unit="" />
                 <StatComparison label="Study Time" current={data.thisWeek.time} previous={data.lastWeek.time} change={timeChange} unit="h" />
                 <StatComparison label="Points Earned" current={data.thisWeek.points} previous={data.lastWeek.points} change={pointsChange} unit="" />

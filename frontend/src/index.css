@@ -20,6 +20,8 @@ body {
 
 body {
   margin: 0;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 img,

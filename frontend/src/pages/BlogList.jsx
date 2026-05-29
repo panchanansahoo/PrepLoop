@@ -119,7 +119,7 @@ export default function BlogList() {
                         No articles found. Be the first to write one!
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '32px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 350px), 1fr))', gap: '32px' }}>
                         {filteredBlogs.map(blog => (
                             <Link to={`/blog/${blog.slug}`} key={blog.id} className="card" style={{ display: 'block', textDecoration: 'none', padding: 0, overflow: 'hidden' }}>
                                 {blog.cover_image && (

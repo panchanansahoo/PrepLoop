@@ -86,7 +86,7 @@ export default function AptitudeHub() {
 
                 {/* Stats Row */}
                 <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                    display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
                     gap: 16, maxWidth: 700, margin: '0 auto 48px'
                 }}>
                     {[
@@ -244,7 +244,7 @@ export default function AptitudeHub() {
                                     <div style={{
                                         padding: '0 28px 24px',
                                         display: 'grid',
-                                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
                                         gap: 12
                                     }}>
                                         {subcatEntries.map(([subKey, sub]) => {
@@ -306,7 +306,7 @@ export default function AptitudeHub() {
             {/* Practice Modes Section */}
             <section style={{ maxWidth: 1200, margin: '48px auto 0', padding: '0 24px' }}>
                 <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>Practice Modes</h2>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 240px), 1fr))', gap: 16 }}>
                     {[
                         { mode: 'learning', title: 'Learning Mode', desc: 'No timer, instant solutions, unlimited attempts', icon: <BookOpen size={20} />, color: '#34d399', gradient: 'linear-gradient(135deg, #34d399, #10b981)' },
                         { mode: 'practice', title: 'Practice Mode', desc: 'Optional timer, solutions after each attempt', icon: <Target size={20} />, color: '#818cf8', gradient: 'linear-gradient(135deg, #818cf8, #6366f1)' },

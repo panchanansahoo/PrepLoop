@@ -98,7 +98,7 @@ export default function QuickStats({ data }) {
             <style>{`
                 .quick-stats-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
                     gap: 16px;
                 }
                 .quick-stat-card {

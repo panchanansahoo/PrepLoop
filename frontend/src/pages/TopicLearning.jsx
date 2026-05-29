@@ -57,7 +57,7 @@ function TheoryTab({ topic, progress, onComplete }) {
                             <p key={ti} style={{ fontSize: 15, color: '#a1a1aa', lineHeight: 1.7, marginBottom: 12 }}>{text}</p>
                         ))}
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: 16 }}>
                         {section.formulas.map((f, fi) => (
                             <FormulaCard key={fi} formula={f.formula} example={f.example} color={topic.color} />
                         ))}

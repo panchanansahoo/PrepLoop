@@ -325,7 +325,7 @@ export default function Library() {
                     <>
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))',
                             gap: '32px',
                             marginBottom: '40px'
                         }}>
@@ -641,12 +641,12 @@ export default function Library() {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="Title *" name="title" value={editFormData.title} onChange={handleEditInputChange} isLight={isLight} required />
                                     <Field label="Author *" name="author" value={editFormData.author} onChange={handleEditInputChange} isLight={isLight} required />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="ISBN" name="isbn" value={editFormData.isbn} onChange={handleEditInputChange} isLight={isLight} />
                                     <Field label="Resource URL" name="resource_url" value={editFormData.resource_url} onChange={handleEditInputChange} isLight={isLight} />
                                 </div>
@@ -656,26 +656,26 @@ export default function Library() {
                                     <textarea name="description" value={editFormData.description} onChange={handleEditInputChange} rows="4" style={inputStyle(isLight, true)} />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <SelectField label="Category" name="category" value={editFormData.category} onChange={handleEditInputChange} isLight={isLight} options={['DSA', 'System Design', 'Programming', 'Web Development', 'Interview Prep', 'Career', 'AI/ML', 'Database']} />
                                     <SelectField label="Difficulty" name="difficulty_level" value={editFormData.difficulty_level} onChange={handleEditInputChange} isLight={isLight} options={['Beginner', 'Intermediate', 'Advanced']} />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="Pages" name="pages" type="number" value={editFormData.pages} onChange={handleEditInputChange} isLight={isLight} />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="Publisher" name="publisher" value={editFormData.publisher} onChange={handleEditInputChange} isLight={isLight} />
                                     <Field label="Subcategory" name="subcategory" value={editFormData.subcategory} onChange={handleEditInputChange} isLight={isLight} />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="Publication Date" name="publication_date" type="date" value={editFormData.publication_date} onChange={handleEditInputChange} isLight={isLight} />
                                     <Field label="Edition" name="edition" value={editFormData.edition} onChange={handleEditInputChange} isLight={isLight} />
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '16px' }}>
                                     <Field label="Amazon URL" name="amazon_url" value={editFormData.amazon_url} onChange={handleEditInputChange} isLight={isLight} />
                                     <Field label="Goodreads URL" name="goodreads_url" value={editFormData.goodreads_url} onChange={handleEditInputChange} isLight={isLight} />
                                 </div>

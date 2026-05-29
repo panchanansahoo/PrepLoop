@@ -3,7 +3,12 @@ import { Crown, Medal, Trophy, Flame, RefreshCw } from 'lucide-react';
 import { authFetch } from '../../utils/authFetch';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
-const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
+let API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
+
+// Fix for mobile testing: if API is localhost but we are accessing via local IP
+if (API_BASE_URL.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  API_BASE_URL = API_BASE_URL.replace('localhost', window.location.hostname);
+}
 
 const TOP_COLORS = ['#fbbf24', '#c0c0c0', '#cd7f32'];
 
@@ -38,6 +43,7 @@ export function ProblemExplorerLeaderboard({ isLight }) {
       setCurrentUserRank(Number.isFinite(data?.currentUserRank) ? data.currentUserRank : null);
     } catch (fetchError) {
       if (fetchError?.name === 'AbortError') return;
+      console.error('Failed to load problem leaderboard:', fetchError);
       setError('Could not load leaderboard right now.');
       setLeaderboard([]);
       setCurrentUserRank(null);

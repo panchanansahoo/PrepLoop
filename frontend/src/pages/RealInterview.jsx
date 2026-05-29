@@ -182,7 +182,7 @@ export default function RealInterview() {
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+            <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))' }}>
               {slots.map(slot => (
                 <div
                   key={slot.id}

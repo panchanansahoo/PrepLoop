@@ -274,7 +274,7 @@ export default function DailyChallengesPage() {
                                 {/* Questions Grid */}
                                 <div style={{
                                     display: 'grid',
-                                    gridTemplateColumns: filterSection === 'all' ? 'repeat(auto-fit, minmax(380px, 1fr))' : '1fr',
+                                    gridTemplateColumns: filterSection === 'all' ? 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))' : '1fr',
                                     gap: 0,
                                 }}>
                                     {/* DSA */}

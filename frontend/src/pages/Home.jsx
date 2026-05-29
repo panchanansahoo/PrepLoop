@@ -755,7 +755,7 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════ */}
       <section className="home-hero" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', textAlign: 'left', paddingTop: '120px', position: 'relative', zIndex: 10 }}>
         <div className="container">
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.2fr) minmax(0, 1fr)', gap: '64px', alignItems: 'center' }}>
+          <div className="home-hero-grid">
 
             {/* Left Content */}
             <div style={{ zIndex: 10, position: 'relative' }}>
@@ -1258,7 +1258,7 @@ export default function Home() {
               Connect, learn, and grow with a supportive community of engineers preparing for their next big role.
             </p>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '32px', alignItems: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: '32px', alignItems: 'center' }}>
             {/* Discord & Community CTA */}
             <div style={{
               background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(124, 58, 237, 0.08) 100%)',
@@ -1318,12 +1318,7 @@ export default function Home() {
             </div>
 
             {/* Quick Links Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px',
-              gridColumn: 'span 1'
-            }}>
+            <div className="community-links-grid" style={{ gridColumn: 'span 1' }}>
               {/* Study Groups Link */}
               <Link to="/community" style={{
                 background: 'var(--bg-card)',
@@ -1427,7 +1422,7 @@ export default function Home() {
       <section className="container" style={{ margin: '120px auto', position: 'relative', zIndex: 10, scrollMarginTop: '100px' }} id="faq">
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
           gap: '64px',
           alignItems: 'flex-start'
         }}>

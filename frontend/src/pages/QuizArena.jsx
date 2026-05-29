@@ -20,7 +20,12 @@ import { buildApiUrl } from '../utils/safeApiUrl';
 import './QuizArena.css';
 
 const rawApiUrl = (import.meta.env.VITE_API_URL || 'http://localhost:5000').trim();
-const API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
+let API_BASE_URL = rawApiUrl.endsWith('/api') ? rawApiUrl.slice(0, -4) : rawApiUrl.replace(/\/$/, '');
+
+// Fix for mobile testing: if API is localhost but we are accessing via local IP
+if (API_BASE_URL.includes('localhost') && typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  API_BASE_URL = API_BASE_URL.replace('localhost', window.location.hostname);
+}
 
 function buildQuizApiUrl(path) {
   return buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });

@@ -82,7 +82,7 @@
 /* Grid View */
 .alt-view-grid .guides-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
     gap: 16px;
 }
 
@@ -426,7 +426,7 @@
 /* Responsive Design */
 @media (max-width: 1024px) {
     .alt-view-grid .guides-grid {
-        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
     }
 }
 
@@ -444,7 +444,7 @@
     }
 
     .alt-view-grid .guides-grid {
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
         gap: 12px;
     }
 
@@ -479,7 +479,7 @@
 
 @media (max-width: 480px) {
     .alt-view-grid .guides-grid {
-        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr));
         gap: 8px;
     }
 

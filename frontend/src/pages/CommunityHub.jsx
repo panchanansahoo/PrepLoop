@@ -456,7 +456,7 @@ export default function CommunityHub() {
       {activeSection === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {/* Social Links */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
             {[
               { label: 'Discord', desc: 'Join 5,000+ members', icon: DiscordIcon, color: '#5865F2', href: 'https://discord.gg/preploop' },
               { label: 'GitHub', desc: 'Open-source resources', icon: Github, color: 'var(--text-primary)', href: 'https://github.com/preploop' },
@@ -562,7 +562,7 @@ export default function CommunityHub() {
                 View All <ChevronRight size={14} />
               </button>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
               {studyGroups.slice(0, 4).map((group, i) => (
                 <StudyGroupCard key={group.id || i} group={group} onJoin={handleJoinGroup} isJoined={joinedGroups.has(group.id)} />
               ))}
@@ -597,7 +597,7 @@ export default function CommunityHub() {
           {loading ? (
             <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading groups...</div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 12 }}>
               {studyGroups.map((group, i) => (
                 <StudyGroupCard key={group.id || i} group={group} onJoin={handleJoinGroup} isJoined={joinedGroups.has(group.id)} />
               ))}

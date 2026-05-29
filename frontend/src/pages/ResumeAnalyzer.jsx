@@ -440,7 +440,7 @@ export default function ResumeAnalyzer() {
               Select your preferred option
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: 24 }}>
               {/* Enhance Existing Resume */}
               <div style={{
                 background: 'var(--bg-card)', borderRadius: 20, padding: 32,
@@ -602,7 +602,7 @@ export default function ResumeAnalyzer() {
               Choose from 3 ATS-optimized templates designed by professionals
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 300px), 1fr))', gap: 20 }}>
               {templates.map((template) => (
                 <div key={template.id} style={{
                   background: 'var(--bg-card)', borderRadius: 20, padding: 24,
@@ -810,7 +810,7 @@ export default function ResumeAnalyzer() {
               </button>
 
               {/* Features grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginTop: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 24 }}>
                 {[
                   { icon: Target, label: 'ATS Score', desc: 'Comprehensive compatibility rating', color: '#6ee7b7' },
                   { icon: Tag, label: 'Keyword Analysis', desc: 'Technical & soft skill scanning', color: 'var(--info-main, #60a5fa)' },

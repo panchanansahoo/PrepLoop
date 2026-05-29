@@ -107,7 +107,7 @@ export default function SQLProblemExplorer() {
         </div>
 
         {/* Category cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 200px), 1fr))', gap: 12, marginBottom: 28 }}>
           {SQL_CATEGORIES.map(cat => {
             const count = SQL_PROBLEMS.filter(p => p.category === cat.id).length;
             const isActive = catFilter === cat.id;

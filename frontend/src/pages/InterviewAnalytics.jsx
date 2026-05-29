@@ -205,7 +205,7 @@ export default function InterviewAnalytics() {
                     {Object.entries(analytics?.stageBreakdown || {}).length === 0 ? (
                         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No data yet</p>
                     ) : (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: 12 }}>
                             {Object.entries(analytics?.stageBreakdown || {}).map(([stage, stats]) => (
                                 <div key={stage} style={{
                                     padding: 16,

@@ -112,7 +112,7 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
           border: isLight ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.06)',
           borderRadius: 16, padding: 32, marginBottom: 32
         }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 20, textAlign: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 120px), 1fr))', gap: 20, textAlign: 'center' }}>
             {[
               { label: 'Score', value: `${totalMarks}/${maxMarks}`, color: passed ? '#34d399' : '#f87171', icon: <Star size={18} /> },
               { label: 'Percentage', value: `${percentage}%`, color: passed ? '#34d399' : '#f87171', icon: <Target size={18} /> },

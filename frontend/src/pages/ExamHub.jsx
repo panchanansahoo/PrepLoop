@@ -73,7 +73,7 @@ export default function ExamHub() {
 
         {/* Stats */}
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 140px), 1fr))',
           gap: 16, maxWidth: 700, margin: '0 auto 48px'
         }}>
           {[
@@ -174,7 +174,7 @@ export default function ExamHub() {
         <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 32, textAlign: 'center' }}>
           How <span style={{ color: '#f59e0b' }}>Exam Practice</span> Works
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 16 }}>
           {[
             { step: '01', title: 'Pick an Exam', desc: 'Choose your target company and exam tier', icon: <Building2 size={20} />, color: '#818cf8' },
             { step: '02', title: 'Select Mode', desc: 'Full mock or section-wise timed practice', icon: <Target size={20} />, color: '#34d399' },
@@ -293,7 +293,7 @@ function ExamCard({ exam, isLight, navigate }) {
         <div style={{
           borderTop: isLight ? '1px solid rgba(0,0,0,0.06)' : '1px solid rgba(255,255,255,0.04)',
           padding: '20px 28px',
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 260px), 1fr))', gap: 12
         }}>
           {exam.sections.map(sec => (
             <div
