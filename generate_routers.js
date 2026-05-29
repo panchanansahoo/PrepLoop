@@ -22,14 +22,9 @@ for (let i = 0; i < routeMatches.length; i++) {
       braceCount--;
       if (started && braceCount === 0) {
         let k = j + 1;
-        while (k < content.length && (content[k] === ' ' || content[k] === '\n' || content[k] === '\r' || content[k] === ')')) {
-          if (content[k] === ')') {
-            if (content[k+1] === ';') {
-              endIndex = k + 2;
-            } else {
-              endIndex = k + 1;
-            }
-            break;
+        while (k < content.length && (content[k] === ' ' || content[k] === '\n' || content[k] === '\r' || content[k] === ')' || content[k] === ',' || content[k] === ';')) {
+          if (content[k] === ';' || content[k] === ')') {
+            endIndex = k + 1;
           }
           k++;
         }
