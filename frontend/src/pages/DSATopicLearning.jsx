@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
     ArrowLeft, BookOpen, Zap, Sparkles, Target, Check, ChevronRight, Clock,
-    AlertTriangle, Lightbulb, Code2, ExternalLink, CheckCircle2, Circle
+    AlertTriangle, Lightbulb, Code2, _ExternalLink, CheckCircle2, Circle
 } from 'lucide-react';
 import { DSA_TOPICS } from '../data/dsaLearningPathData';
 import { DSA_THEORY } from '../data/dsaTheoryData';

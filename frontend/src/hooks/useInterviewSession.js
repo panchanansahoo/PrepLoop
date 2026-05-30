@@ -46,7 +46,7 @@ const SKILL_MAP = {
 };
 
 export function useInterviewSession() {
-  const { user, getAuthHeaders } = useAuth();
+  const { _user, getAuthHeaders } = useAuth();
 
   const [phase, setPhase] = useState("lobby");
   const [interviewType, setInterviewType] = useState("technical");
@@ -61,7 +61,7 @@ export function useInterviewSession() {
         AI_INTERVIEW_GENDER_STORAGE_KEY,
         interviewerGender,
       );
-    } catch {}
+    } catch { /* empty */ }
   }, [interviewerGender]);
 
   const voiceHookRef = useRef(null);
@@ -256,7 +256,7 @@ export function useInterviewSession() {
     } catch {
       try {
         window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
-      } catch {}
+      } catch { /* empty */ }
     }
   }, []);
 
@@ -279,7 +279,7 @@ export function useInterviewSession() {
           timestamp: Date.now(),
         }),
       );
-    } catch {}
+    } catch { /* empty */ }
   }, [
     conversation,
     phase,
@@ -298,7 +298,7 @@ export function useInterviewSession() {
     setSavedSession(null);
     try {
       window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
-    } catch {}
+    } catch { /* empty */ }
   }, []);
 
   const restoreSession = useCallback((session) => {
@@ -761,7 +761,7 @@ export function useInterviewSession() {
         : `Welcome! Let's start with a technical warm-up. Can you walk me through one project you built recently, your design choices, and the key trade-offs you made?`;
 
     try {
-      const headers = getAuthHeaders ? getAuthHeaders() : {};
+      const _headers = getAuthHeaders ? getAuthHeaders() : {};
       const advancedOpts = {
         interviewerIntensity:
           experienceLevel === "fresher" ? "supportive" : "balanced",
@@ -966,7 +966,7 @@ export function useInterviewSession() {
         ];
 
       try {
-        const headers = getAuthHeaders ? getAuthHeaders() : {};
+        const _headers = getAuthHeaders ? getAuthHeaders() : {};
         const followUpAdvancedOpts = {
           interviewerIntensity:
             experienceLevel === "fresher" ? "supportive" : "balanced",
@@ -1252,7 +1252,7 @@ export function useInterviewSession() {
     try {
       const stats = voiceAI.getAnalytics();
       console.info("[AI Interview] Voice analytics:", stats);
-    } catch {}
+    } catch { /* empty */ }
     clearSavedSession();
     setAnalysisLoading(true);
     setPhase("summary");

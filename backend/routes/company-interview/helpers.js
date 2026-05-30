@@ -1,17 +1,17 @@
-import express from 'express';
+import _express from 'express';
 import Groq from 'groq-sdk';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
-import { supabaseAdmin } from '../../db/supabaseClient.js';
+import { optionalAuth as _optionalAuth, authenticateToken as _authenticateToken } from '../../middleware/auth.js';
+import { supabaseAdmin as _supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../../services/companyQuestionService.js';
-import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
-import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { getRandomQuestionSet as _getRandomQuestionSet, getFilteredQuestions as _getFilteredQuestions, getQuestionCount as _getQuestionCount } from '../../services/companyQuestionService.js';
+import { buildInitialVoiceTelemetry as _buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot as _buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
+import { buildAnswerFeedbackPrompt as _buildAnswerFeedbackPrompt, normalizeInterviewFeedback as _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
+import { evaluateFresherAnswer as _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
@@ -426,7 +426,7 @@ export function getFresherHRAIPrompt(qNum) {
   return FRESHER_HR_TOPICS[qNum];
 }
 
-async function generateFresherHRQuestion(qNum, resumeContext = null) {
+export async function generateFresherHRQuestion(qNum, _resumeContext = null) {
   if (qNum === 1) return FRESHER_HR_FIXED.Q1;
   if (qNum === 12) return FRESHER_HR_FIXED.Q12;
   if (qNum === 13) return null; // Handled separately
@@ -437,7 +437,7 @@ async function generateFresherHRQuestion(qNum, resumeContext = null) {
   if (!topicData) return null;
 
   try {
-    const resumeContext_ = resumeContext || {};
+    const resumeContext_ = _resumeContext || {};
     const contextStr = resumeContext_.summary ? `Candidate context: ${resumeContext_.summary}. ` : '';
     const systemPrompt = `You are a friendly HR interviewer conducting a fresher-level HR interview. ${topicData.prompt}`;
     const userPrompt = `${contextStr}Generate a single, clear HR behavioral interview question for Q${qNum} on the topic: ${topicData.topic}. The question should be appropriate for a fresher (recent grad) and encourage them to share a real example or anecdote. Return ONLY the question, no numbering or explanation.`;
@@ -465,7 +465,7 @@ export function getFresherHRClosing(hasQuestions) {
   return hasQuestions ? FRESHER_HR_CLOSINGS.YES : FRESHER_HR_CLOSINGS.NO;
 }
 
-async function generateFresherTechnicalQuestion(qNum, resumeContext = null) {
+export async function generateFresherTechnicalQuestion(qNum, _resumeContext = null) {
   if (qNum === 1) return FRESHER_TECHNICAL_FIXED.Q1;
   if (qNum === 12) return FRESHER_TECHNICAL_FIXED.Q12;
   if (qNum === 13) return null; // Handled separately
@@ -476,7 +476,7 @@ async function generateFresherTechnicalQuestion(qNum, resumeContext = null) {
   if (!topicData) return null;
 
   try {
-    const resumeContext_ = resumeContext || {};
+    const resumeContext_ = _resumeContext || {};
     const contextStr = resumeContext_.summary ? `Candidate context: ${resumeContext_.summary}. ` : '';
     const systemPrompt = `You are a friendly technical interviewer conducting a fresher-level interview. ${topicData.prompt}`;
     const userPrompt = `${contextStr}Generate a single, clear technical interview question for Q${qNum} on the topic: ${topicData.topic}. The question should be appropriate for a fresher (recent grad). Return ONLY the question, no numbering or explanation.`;
@@ -518,7 +518,7 @@ export function pickFallbackInterviewerName() {
   return INTERVIEWER_NAMES[crypto.randomInt(INTERVIEWER_NAMES.length)];
 }
 
-async function generateInterviewerName(company = '') {
+export async function generateInterviewerName(company = '') {
   if (!groq) return pickFallbackInterviewerName();
 
   try {
@@ -549,11 +549,11 @@ async function generateInterviewerName(company = '') {
   }
 }
 
-export function getResumeProjectPrompt(resumeContext) {
+export function getResumeProjectPrompt(_resumeContext) {
   return 'Tell me about one project from your resume that you are most proud of. What problem were you solving, and what was your specific contribution?';
 }
 
-export function getTopSkillPrompt(resumeContext) {
+export function getTopSkillPrompt(_resumeContext) {
   return 'Which technical skill mentioned in your resume are you most confident in, and where have you applied it practically?';
 }
 
@@ -631,7 +631,7 @@ export function getFresherFallbackQuestion(questionNumber, company, resumeContex
   return '';
 }
 
-async function generateFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer = '') {
+export async function generateFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer = '') {
   const topic = getFresherQuestionTopic(questionNumber);
   if (!topic) return getFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer);
 
@@ -786,7 +786,7 @@ export function isFinalNoAnswer(userAnswer = '') {
     return true;
   }
 
-  return /\b(no|none|nothing|no questions|no more questions|not really|that(?: is|\'s)? all)\b/.test(normalized);
+  return /\b(no|none|nothing|no questions|no more questions|not really|that(?: is|'s)? all)\b/.test(normalized);
 }
 
 // ─── Enhanced Interviewer Persona System ───
@@ -1095,3 +1095,56 @@ export function buildFocusSignal(previousQuestion = '', userAnswer = '') {
     note: 'Candidate is broadly on track. Continue natural probing.',
   };
 }
+
+// Backwards-compatible underscore-prefixed aliases (some modules import legacy names)
+export const _COMPANY_CATEGORIES = COMPANY_CATEGORIES;
+export const _getCompanyCategory = getCompanyCategory;
+export const _PERSONA_PROFILES = PERSONA_PROFILES;
+export const _DEFAULT_ADVANCED_OPTIONS = DEFAULT_ADVANCED_OPTIONS;
+export const _INTERVIEW_RUNTIME_MODES = INTERVIEW_RUNTIME_MODES;
+export const _MAX_HISTORY_TURNS = MAX_HISTORY_TURNS;
+export const _truncateConversationHistory = truncateConversationHistory;
+export const _deterministicScore = deterministicScore;
+export const _deterministicPick = deterministicPick;
+export const _safeDeleteUploadFile = safeDeleteUploadFile;
+export const _safeJsonParse = safeJsonParse;
+export const _UPLOAD_DIR = UPLOAD_DIR;
+export const _upload = upload;
+export const _STAGE_ALIASES = STAGE_ALIASES;
+export const _resolveInterviewStage = resolveInterviewStage;
+export const _resolveResumeInterviewModeForExperience = resolveResumeInterviewModeForExperience;
+export const _normalizeAdvancedOptions = normalizeAdvancedOptions;
+export const _formatResumeContext = formatResumeContext;
+export const _HR_CLOSING_MESSAGE = HR_CLOSING_MESSAGE;
+export const _STATIC_INTERVIEW_QUESTIONS = STATIC_INTERVIEW_QUESTIONS;
+export const _STATIC_INTERVIEW_CLOSINGS = STATIC_INTERVIEW_CLOSINGS;
+export const _FRESHER_HR_FIXED = FRESHER_HR_FIXED;
+export const _FRESHER_HR_TOPICS = FRESHER_HR_TOPICS;
+export const _FRESHER_HR_CLOSINGS = FRESHER_HR_CLOSINGS;
+export const _FRESHER_TECHNICAL_FIXED = FRESHER_TECHNICAL_FIXED;
+export const _FRESHER_TECHNICAL_TOPICS = FRESHER_TECHNICAL_TOPICS;
+export const _getStaticInterviewQuestions = getStaticInterviewQuestions;
+export const _getStaticInterviewQuestion = getStaticInterviewQuestion;
+export const _getStaticInterviewClosing = getStaticInterviewClosing;
+export const _getFresherTechnicalQuestion = getFresherTechnicalQuestion;
+export const _getFresherHRQuestion = getFresherHRQuestion;
+export const _getFresherTechnicalAIPrompt = getFresherTechnicalAIPrompt;
+export const _getFresherHRAIPrompt = getFresherHRAIPrompt;
+export const _getFresherHRClosing = getFresherHRClosing;
+export const _INTERVIEWER_NAMES = INTERVIEWER_NAMES;
+export const _pickFallbackInterviewerName = pickFallbackInterviewerName;
+export const _getResumeProjectPrompt = getResumeProjectPrompt;
+export const _getTopSkillPrompt = getTopSkillPrompt;
+export const _buildHrResponseSnippet = buildHrResponseSnippet;
+export const _getFresherScriptedQuestion = getFresherScriptedQuestion;
+export const _getFresherQuestionTopic = getFresherQuestionTopic;
+export const _getFresherFallbackQuestion = getFresherFallbackQuestion;
+export const _isFinalNoAnswer = isFinalNoAnswer;
+export const _getInterviewerPersona = getInterviewerPersona;
+export const _getCompanyChallengeProfile = getCompanyChallengeProfile;
+export const _getAdaptiveDifficultyPrompt = getAdaptiveDifficultyPrompt;
+export const _buildInterviewMemoryPrompt = buildInterviewMemoryPrompt;
+export const _buildFocusSignal = buildFocusSignal;
+export const _normalizeInterviewRuntimeMode = normalizeInterviewRuntimeMode;
+export const _buildInterviewRuntime = buildInterviewRuntime;
+

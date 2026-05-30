@@ -1,7 +1,7 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import {
-  Play, Plus, Trash2, CheckCircle2, XCircle, Clock, Cpu,
-  Zap, FlaskConical, X
+  Play, Plus, _Trash2, CheckCircle2, XCircle, Clock, Cpu,
+  _Zap, FlaskConical, X
 } from 'lucide-react';
 import {
   EDGE_CASE_TEMPLATES, createTestCase, runTestCases,
@@ -12,7 +12,7 @@ import { authFetch } from '../../utils/authFetch';
 
 import { API_URL } from '../../config/api.js';
 
-const getAuthHeaders = () => buildAuthHeaders();
+const _getAuthHeaders = () => buildAuthHeaders();
 
 /* ── Utility: parse "nums = [2,7,11,15], target = 9" into [{name, value}] ── */
 function parseInputParams(inputStr) {
@@ -322,7 +322,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const current = testCases[activeCase] || testCases[0];
   const passedCount = testCases.filter(t => t.status === 'passed').length;
   const totalCount = testCases.length;
-  const allPassed = passedCount === totalCount && testCases.every(t => t.status === 'passed');
+  const _allPassed = passedCount === totalCount && testCases.every(t => t.status === 'passed');
   const hasResults = testCases.some(t => t.status !== 'pending');
 
   return (
