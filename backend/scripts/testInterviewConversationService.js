@@ -102,7 +102,9 @@ function run() {
   console.log('Interview conversation service tests passed');
 }
 
-run().catch((error) => {
+try {
+  run();
+} catch (error) {
   console.error('Interview conversation service tests failed:', error.message);
   process.exit(1);
-});
+}
