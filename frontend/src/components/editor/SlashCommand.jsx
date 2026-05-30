@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Extension } from '@tiptap/core';
 import Suggestion from '@tiptap/suggestion';
 import { ReactRenderer } from '@tiptap/react';
@@ -12,7 +12,7 @@ import {
     Quote,
     Code,
     Image as ImageIcon,
-    CheckSquare,
+    _CheckSquare,
     Minus
 } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Target, Play, Check, AlertTriangle, Lightbulb, Clock } from 'lucide-react';
 import { HR_TOPICS } from '../data/hrLearningPathData';

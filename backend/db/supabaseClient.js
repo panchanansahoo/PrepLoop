@@ -27,3 +27,6 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || sup
 });
 
 export default supabase;
+
+// Backwards-compatible alias
+export const _supabaseAdmin = supabaseAdmin;

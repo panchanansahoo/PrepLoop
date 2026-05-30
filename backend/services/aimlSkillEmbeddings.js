@@ -199,8 +199,8 @@ export async function getSkillEmbedding(skill) {
 /**
  * Find similar skills in a list using semantic matching
  */
-export async function findSimilarSkills(userSkill, candidateSkills, threshold = 0.6) {
-  const userSkillLower = userSkill.toLowerCase().trim();
+export function findSimilarSkills(userSkill, candidateSkills, threshold = 0.6) {
+  const _userSkillLower = userSkill.toLowerCase().trim();
   
   const similarities = candidateSkills.map(candidate => {
     const similarity = getSemanticSimilarity(userSkill, candidate);

@@ -923,7 +923,7 @@ export function useVoiceAI({
             guardTimer = setTimeout(() => {
               try {
                 audioRef.current?.pause();
-              } catch {}
+              } catch { /* empty */ }
               settle();
             }, TTS_PLAYBACK_GUARD_MS);
           });
@@ -955,7 +955,7 @@ export function useVoiceAI({
               URL.revokeObjectURL(audioRef.current.src);
             }
             audioRef.current.src = "";
-          } catch {}
+          } catch { /* empty */ }
         }
       } finally {
         setOutputAudioEl(null);

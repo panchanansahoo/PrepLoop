@@ -88,7 +88,7 @@ export function parseExecutionError(raw, language) {
   }
 }
 
-export function buildErrorMarkers(parsed, language) {
+export function buildErrorMarkers(parsed, _language) {
   const markers = [];
   for (const line of parsed.lines) {
     if (line.type === 'error' || line.type === 'trace') {
@@ -105,7 +105,7 @@ export function buildErrorMarkers(parsed, language) {
   return markers;
 }
 
-export function classifyErrorType(raw, language) {
+export function classifyErrorType(raw, _language) {
   const text = String(raw || '').toLowerCase();
   if (text.includes('time limit') || text.includes('tle') || text.includes('timeout')) return 'tle';
   if (text.includes('memory limit') || text.includes('mle') || text.includes('out of memory')) return 'mle';

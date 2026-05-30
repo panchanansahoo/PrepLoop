@@ -356,7 +356,7 @@ router.get('/progress', authenticateToken, async (req, res) => {
 
 router.post('/ai', optionalAuth, async (req, res) => {
   try {
-    const { prompt, code, language, problemId } = req.body;
+    const { prompt, code: _code, language: _language, problemId: _problemId } = req.body;
 
     if (!prompt || !prompt.trim()) {
       return res.status(400).json({ error: 'Prompt is required' });

@@ -1,10 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import {
-    Trophy, Target, Clock, Zap, Check, X, ChevronDown, ChevronRight,
-    ArrowLeft, RotateCcw, ArrowRight, Lightbulb, BarChart3,
-    BookOpen, Bookmark, Star, TrendingUp, Award
-} from 'lucide-react';
+import { Trophy, Target, Clock, Zap, Check, X, ChevronDown, ChevronRight, ArrowLeft, RotateCcw, ArrowRight, Lightbulb, BarChart3, BookOpen, Bookmark, Star, TrendingUp } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function AptitudeResults() {
@@ -26,10 +22,10 @@ export default function AptitudeResults() {
         category = 'all',
         subcategory = '',
         negativeMarking = false,
-        bookmarks = []
+        _bookmarks = []
     } = state || {};
     const accuracy = attempted > 0 ? Math.round((correct / attempted) * 100) : 0;
-    const score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
+    const _score = negativeMarking ? correct - (attempted - correct) * 0.25 : correct;
     const totalPoints = questions.filter(q => answers[q.id] === q.correctAnswer).reduce((s, q) => s + q.xp, 0);
     const avgTime = attempted > 0 ? Math.round(totalTime / attempted) : 0;
     const skipped = total - attempted;

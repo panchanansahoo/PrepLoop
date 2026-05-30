@@ -1,24 +1,24 @@
 import express from 'express';
-import Groq from 'groq-sdk';
-import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import crypto from 'crypto';
+import _Groq from 'groq-sdk';
+import _multer from 'multer';
+import _fs from 'fs';
+import _path from 'path';
+import _os from 'os';
+import _crypto from 'crypto';
 import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../../services/companyQuestionService.js';
-import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
-import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
-import { groq, safeDeleteUploadFile, MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, UPLOAD_DIR, upload, COMPANY_CATEGORIES, getCompanyCategory, PERSONA_PROFILES, DEFAULT_ADVANCED_OPTIONS, INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, STATIC_INTERVIEW_QUESTIONS, STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, getFresherHRQuestion, getFresherHRAIPrompt, getFresherHRClosing, INTERVIEWER_NAMES, pickFallbackInterviewerName, getResumeProjectPrompt, getTopSkillPrompt, buildHrResponseSnippet, getFresherScriptedQuestion, getFresherQuestionTopic, getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal } from './helpers.js';
+import { getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from '../../services/companyQuestionService.js';
+import { buildInitialVoiceTelemetry, _buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
+import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
+import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { groq, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Start Interview ───
 router.post('/start', optionalAuth, async (req, res) => {
-  const requestStartTime = Date.now();
+  const _requestStartTime = Date.now();
   const {
     company,
     role,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, Activity, Award, ArrowRight, Target, BookOpen } from 'lucide-react';
 
 export default function InterviewComplete({ interview, onNewInterview }) {

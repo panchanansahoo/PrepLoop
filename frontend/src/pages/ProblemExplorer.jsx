@@ -1,15 +1,6 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Search, Filter, ChevronDown, ChevronUp, Check, X,
-    Clock, Building2, Tag, BarChart3, Target, Flame,
-    ArrowUpDown, CheckCircle2, Circle, AlertCircle,
-    ExternalLink, SlidersHorizontal, Bookmark, Shuffle,
-    Zap, Star, Sparkles, History, StickyNote,
-    ChevronRight, Trophy, BarChart2, Eye, EyeOff,
-    ChevronLeft, ListFilter, BookOpen, TrendingUp,
-    Lock, MessageSquare, Play, Code2, List
-} from 'lucide-react';
+import { Clock, Building2, Tag, BarChart3, ArrowUpDown, CheckCircle2, Circle, AlertCircle, ExternalLink, SlidersHorizontal, Bookmark, Shuffle, Zap, Star, Sparkles, ChevronRight, Trophy, ChevronLeft, ListFilter, BookOpen, TrendingUp, Lock, MessageSquare, Play, Code2, List, Target, BarChart2, History } from 'lucide-react';
 import { PROBLEMS, COMPANIES, TOPICS, PATTERNS, getDifficultyCounts } from '../data/problemsDatabase';
 import { useTheme } from '../context/ThemeContext';
 import { filterAndSortProblems } from '../features/problemExplorer/filtering';
@@ -42,7 +33,7 @@ function getDailyChallenge() {
 
 // Top companies for quick prep
 const QUICK_PREP_COMPANIES = ['google', 'amazon', 'meta', 'microsoft', 'apple'];
-const ITEMS_PER_PAGE = 30;
+const _ITEMS_PER_PAGE = 30;
 
 // Study plan presets
 const STUDY_PLANS = [
@@ -229,10 +220,10 @@ export default function ProblemExplorer() {
         setActivePlan,
         viewMode,
         setViewMode,
-        page,
+        _page,
         setPage,
-        isLoading,
-        setIsLoading,
+        _isLoading,
+        _setIsLoading,
         initialLoading,
         setInitialLoading,
         weeklyGoal,
@@ -247,14 +238,14 @@ export default function ProblemExplorer() {
         setActiveNote,
         noteText,
         setNoteText,
-        expandedPatterns,
-        setExpandedPatterns,
+        _expandedPatterns,
+        _setExpandedPatterns,
         expandedCategories,
         setExpandedCategories,
         expandedSubPatterns,
         setExpandedSubPatterns,
         solvedSet,
-        setSolvedSet,
+        _setSolvedSet,
         bookmarks,
         setBookmarks,
         notes,
@@ -278,7 +269,7 @@ export default function ProblemExplorer() {
         setter(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item]);
     };
 
-    const toggleBookmark = useCallback((e, problemId) => {
+    const _toggleBookmark = useCallback((e, problemId) => {
         e.stopPropagation();
         setBookmarks(prev => {
             const next = new Set(prev);
@@ -304,7 +295,7 @@ export default function ProblemExplorer() {
         setActiveNote(null);
     }, []);
 
-    const openNote = useCallback((e, problemId) => {
+    const _openNote = useCallback((e, problemId) => {
         e.stopPropagation();
         setActiveNote(problemId);
         setNoteText(notes[problemId] || '');
@@ -367,7 +358,7 @@ export default function ProblemExplorer() {
         setPage(1);
     };
 
-    const handleSort = (key) => {
+    const _handleSort = (key) => {
         if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortBy(key); setSortDir('asc'); }
     };
@@ -414,7 +405,7 @@ export default function ProblemExplorer() {
     // Progress calculations
     const solvedCount = solvedSet.size;
     const totalCount = PROBLEMS.length;
-    const progressPercent = totalCount > 0 ? Math.round((solvedCount / totalCount) * 100) : 0;
+    const _progressPercent = totalCount > 0 ? Math.round((solvedCount / totalCount) * 100) : 0;
 
     // Solved by difficulty for hero section
     const solvedByDifficulty = useMemo(() => {

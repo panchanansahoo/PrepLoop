@@ -1,4 +1,4 @@
-import { CircuitBreaker, CircuitBreakerOpenError } from '../utils/circuitBreaker.js';
+import { CircuitBreaker, CircuitBreakerOpenError as _CircuitBreakerOpenError } from '../utils/circuitBreaker.js';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -22,7 +22,7 @@ const githubHeaders = () => {
   return headers;
 };
 
-const fetchJson = async (url) => {
+const fetchJson = (url) => {
   return githubBreaker.execute(async () => {
     const response = await fetch(url, { headers: githubHeaders() });
     if (!response.ok) {
@@ -34,7 +34,7 @@ const fetchJson = async (url) => {
   });
 };
 
-const fetchReadme = async (owner, repo) => {
+const fetchReadme = (owner, repo) => {
   try {
     return githubBreaker.execute(async () => {
       const response = await fetch(`${GITHUB_API_BASE}/repos/${owner}/${repo}/readme`, {

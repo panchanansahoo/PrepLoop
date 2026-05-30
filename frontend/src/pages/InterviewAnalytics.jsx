@@ -1,9 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-    BarChart3, TrendingUp, Trophy, Star, Clock, Target,
-    Briefcase, Code2, Brain, Users, ArrowLeft, ChevronRight,
-    Award, Zap, AlertTriangle, Loader2
-} from 'lucide-react';
+import {useState, useEffect} from 'react';
+import { BarChart3, TrendingUp, Trophy, Star, Clock, Target, Briefcase, Code2, Brain, Users, ArrowLeft, ChevronRight, Award, Zap, AlertTriangle, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
@@ -17,7 +13,7 @@ export default function InterviewAnalytics() {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const getAuthHeaders = () => {
+    const _getAuthHeaders = () => {
         return buildAuthHeaders(user);
     };
 
@@ -48,7 +44,7 @@ export default function InterviewAnalytics() {
 
         const maxScore = 100;
         const chartWidth = 100; // percentage
-        const barWidth = Math.min(40, chartWidth / data.length);
+        const _barWidth = Math.min(40, chartWidth / data.length);
 
         return (
             <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120, padding: '0 4px' }}>

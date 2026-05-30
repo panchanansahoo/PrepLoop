@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useRealTimeJobs } from '../hooks/useRealTimeJobs';
 
 export default function RealTimeJobsExample() {

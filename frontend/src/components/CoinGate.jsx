@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Coins, Lock, ArrowRight } from 'lucide-react';
 import { useCoins } from '../context/CoinContext';
 import { Link } from 'react-router-dom';

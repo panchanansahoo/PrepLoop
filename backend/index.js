@@ -142,11 +142,11 @@ async function initializeServer() {
     // Enable compression
     app.use(
       compression({
-        filter: (req, res) => {
+        filter: (req, _res) => {
           if (req.headers['x-no-compression']) {
             return false;
           }
-          return compression.filter(req, res);
+          return compression.filter(req, _res);
         },
         level: 6,
       })
@@ -280,7 +280,7 @@ async function initializeServer() {
     app.use('/api/feed', feedRoutes);
 
     // Catch-all 404 handler for undefined API routes to prevent silent failures
-    app.use('/api', (req, res, next) => {
+    app.use('/api', (req, res, _next) => {
       console.warn(`[404] API Endpoint Not Found: ${req.method} ${req.originalUrl}`);
       res.status(404).json({ error: 'Endpoint not found' });
     });
@@ -298,41 +298,41 @@ const DEFAULT_PORT = Number(process.env.PORT || 5000);
 const MAX_PORT_RETRIES = 10;
 
 function startServer(port, attempt = 0) {
-  const server = app.listen(port, () => {
-    console.log(`🚀 Server running on http://localhost:${port}`);
-    console.log(`📚 API documentation available at http://localhost:${port}/api`);
-  });
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, () => {
+      console.log(`🚀 Server running on http://localhost:${port}`);
+      console.log(`📚 API documentation available at http://localhost:${port}/api`);
+      resolve(server);
+    });
 
-  server.on('error', (error) => {
-    if (error.code === 'EADDRINUSE') {
-      // In production, fail immediately - don't retry ports
-      if (process.env.NODE_ENV === 'production') {
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        // In production, fail immediately - don't retry ports
+        if (process.env.NODE_ENV === 'production') {
+          console.error(
+            `❌ Port ${port} is already in use (production mode). ` +
+              'Exiting immediately - do not attempt port retry in production.'
+          );
+          return reject(error);
+        }
+
+        // In development, retry with next port
+        if (attempt < MAX_PORT_RETRIES) {
+          const nextPort = port + 1;
+          console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
+          return resolve(startServer(nextPort, attempt + 1));
+        }
+
         console.error(
-          `❌ Port ${port} is already in use (production mode). ` +
-            'Exiting immediately - do not attempt port retry in production.'
+          `❌ Port ${port} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
         );
-        process.exit(1);
+        return reject(error);
       }
 
-      // In development, retry with next port
-      if (attempt < MAX_PORT_RETRIES) {
-        const nextPort = port + 1;
-        console.warn(`Port ${port} is already in use. Retrying on ${nextPort}...`);
-        startServer(nextPort, attempt + 1);
-        return;
-      }
-
-      console.error(
-        `❌ Port ${port} is already in use and max retries (${MAX_PORT_RETRIES}) exceeded.`
-      );
-      process.exit(1);
-    }
-
-    console.error('❌ Server error:', error.message);
-    process.exit(1);
+      console.error('❌ Server error:', error.message);
+      return reject(error);
+    });
   });
-
-  return server;
 }
 
 // Register process error handlers BEFORE server startup
@@ -362,19 +362,17 @@ process.on('uncaughtException', (error) => {
 });
 
 // Graceful shutdown will be registered after server starts
-let shutdownManager = null;
 
 // Initialize server and start listening
 initializeServer()
-  .then(() => {
-    const server = startServer(DEFAULT_PORT);
-
+  .then(() => startServer(DEFAULT_PORT))
+  .then((server) => {
     // Initialize collaboration service (must happen before shutdown setup)
     collaborationService.initialize(server);
     console.log('✅ Collaboration service initialized');
 
     // Setup graceful shutdown with configurable timeouts
-    shutdownManager = setupGracefulShutdown(server, {
+    setupGracefulShutdown(server, {
       shutdownTimeout: Number(process.env.SHUTDOWN_TIMEOUT || 30000), // 30 seconds
       forceExitTimeout: Number(process.env.FORCE_EXIT_TIMEOUT || 5000), // 5 seconds
     });

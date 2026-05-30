@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Mic, Settings, X, CheckCircle, AlertCircle, Loader2, Video, Volume2, Shield } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {Camera, Settings, X, CheckCircle, AlertCircle, Loader2, Video, Volume2, Shield} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function SetupInterviewModal({ isOpen, onClose, onStart, config }) {

@@ -1,13 +1,6 @@
-import React, { memo, useState } from 'react';
+import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Clock, ChevronRight, Sparkles, CheckCircle, Star,
-    Award, TrendingUp, BarChart3, Target, Brain, Shield,
-    ThumbsUp, AlertTriangle, Download, Share2,
-    RefreshCw, ArrowLeft, FileText, User, Building2,
-    Lightbulb, ChevronDown, ChevronUp, Eye, Timer,
-    Trophy, Gauge, MessageSquare, Code2, Zap, Pause,
-} from 'lucide-react';
+import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause } from 'lucide-react';
 
 /**
  * InterviewResults — Summary/Results dashboard.

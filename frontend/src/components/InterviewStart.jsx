@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Zap, BookOpen, Code, Users, Loader } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 

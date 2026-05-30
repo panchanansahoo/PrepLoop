@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import './DigitalWellbeing.css';
-import { Heart, Clock, Eye, Zap, Coffee, PauseCircle, PlayCircle, Trophy, Flame, Target, TrendingUp } from 'lucide-react';
+import {Heart, Clock, Eye, Zap, Coffee, PauseCircle, PlayCircle, Flame, Target, TrendingUp} from 'lucide-react';
 
 const STORAGE_KEY = 'preploop_wb_data';
 const GOALS = [60, 120, 180, 240]; // minutes
@@ -22,7 +22,7 @@ function loadData() {
         const saved = localStorage.getItem(STORAGE_KEY);
         const data = saved ? JSON.parse(saved) : null;
         if (data) return data;
-    } catch {}
+    } catch { /* empty */ }
     return {
         dailyGoalMinutes: 120,
         days: {},

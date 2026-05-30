@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Mail, Lock, User, Building, Award, ChevronRight, Eye, EyeOff } from 'lucide-react';
 
@@ -40,7 +40,7 @@ export default function HRLogin() {
       localStorage.setItem('hr_token', data.token);
       localStorage.setItem('hr_user', JSON.stringify(data.user));
       navigate('/hr/dashboard');
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again.');
     } finally {
       setLoading(false);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, BookOpen, CheckCircle2, Circle, Lightbulb } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';

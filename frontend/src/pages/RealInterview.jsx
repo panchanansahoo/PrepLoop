@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, Clock, User, Video, ChevronRight, Star, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
@@ -7,7 +7,7 @@ import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
 export default function RealInterview() {
-  const { user } = useAuth();
+  const { _user } = useAuth();
   const [tab, setTab] = useState('slots'); // 'slots' | 'bookings'
   const [slots, setSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
@@ -61,7 +61,7 @@ export default function RealInterview() {
       } else {
         alert(data.error || 'Failed to book slot');
       }
-    } catch (err) {
+    } catch {
       alert('Failed to book interview');
     } finally {
       setBookingSlot(null);
@@ -78,7 +78,7 @@ export default function RealInterview() {
         loadBookings();
         loadSlots(selectedDate);
       }
-    } catch (err) {
+    } catch {
       alert('Failed to cancel booking');
     }
   };

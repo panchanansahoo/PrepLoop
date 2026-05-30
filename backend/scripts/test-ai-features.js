@@ -32,7 +32,7 @@ const colors = {
   blue: '\x1b[34m',
 };
 
-async function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
+function makeRequest(method, path, body = null, token = TEST_AUTH_TOKEN) {
   return new Promise((resolve) => {
     const url = new URL(buildLocalEndpoint(API_BASE, `/api${path}`));
     const headers = { 'Content-Type': 'application/json' };

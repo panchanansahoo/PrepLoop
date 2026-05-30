@@ -71,7 +71,7 @@ class WebSocketManager {
     });
   }
 
-  handleConnection(ws, req) {
+  handleConnection(ws, _req) {
     const connectionId = this.generateConnectionId();
     ws.connectionId = connectionId;
     ws.isAlive = true;

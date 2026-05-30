@@ -2,7 +2,7 @@
  * VideoInterviewer — Advanced AI interviewer video component
  * Features: Lip-sync, emotion detection, smooth state transitions
  */
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback } from 'react';
 import { Volume2, Mic, Brain, Sparkles } from 'lucide-react';
 import './VideoInterviewer.css';
 

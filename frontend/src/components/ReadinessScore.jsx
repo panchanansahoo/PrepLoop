@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import {useEffect, useRef} from 'react';
 import { Shield } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

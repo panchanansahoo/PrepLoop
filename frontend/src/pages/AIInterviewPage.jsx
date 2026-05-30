@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Editor from '@monaco-editor/react';
+
 import { useAuth } from '../context/AuthContext';
-import { useVoiceAI } from '../hooks/useVoiceAI';
-import useInterviewIntelligence from '../hooks/useInterviewIntelligence';
+
+
 import VoiceWaveform from '../components/VoiceWaveform';
 import InterviewResults from '../components/interview/InterviewResults';
 import InterviewLobby from '../components/interview/InterviewLobby';
@@ -14,11 +14,7 @@ import ChatSidebar from '../components/interview/ChatSidebar';
 import InterviewTopBar from '../components/interview/InterviewTopBar';
 import ScoreCueToast from '../components/interview/ScoreCueToast';
 import HintBanner from '../components/interview/HintBanner';
-import {
-    Mic, MicOff, Sparkles,
-    MessageSquare, Volume2, Wifi, User, Building2,
-    AlertTriangle, Brain, Code2, Shield, Keyboard,
-} from 'lucide-react';
+import { Mic, MicOff, Sparkles, MessageSquare, Volume2, Wifi, User, Building2, AlertTriangle, Brain, Code2, Shield, Keyboard } from 'lucide-react';
 import {
     BOILERPLATE,
     COMPANY_INTERVIEWERS,
@@ -39,46 +35,46 @@ export default function AIInterviewPage() {
 
     const {
         phase, interviewType, realtimeMode, interviewerGender, activeTab,
-        language, code, lineCount, elapsed, isPaused, totalPauseTime,
-        questionElapsed, currentQuestion, questionIndex, totalQuestions,
-        stageLabel, stagePlan, loading, consecutiveSilentQuestions,
+        language, code, _lineCount, elapsed, isPaused,_totalPauseTimee,
+        questionElapsed, _currentQuestion, questionIndex, totalQuestions,
+        stageLabel, stagePlan, loading, _consecutiveSilentQuestions,
         scoreCue, activeHint, analysisLoading, cameraOn, bookmarked,
         speakerMuted, micOn, interviewerVideoReady, interviewerVisibleMode,
         aiSpeaking, transcript, silenceCountdown, chatOpen, conversation,
-        userInput, interviewerStatus, silenceStage, notes, savedSession,
+        userInput, interviewerStatus, _silenceStage, notes, savedSession,
         setupStep, experienceLevel, targetRole, targetCompany, companySearch,
-        companyTab, resumeFile, activeResumeContext, resultTab, analysisResult,
-        expandedMoment, captionsOn, workspacePanelOpen, workspaceDropdownOpen,
+        companyTab, resumeFile, _activeResumeContext,_resultTabb, analysisResult,
+        _expandedMoment, captionsOn, workspacePanelOpen, workspaceDropdownOpen,
         cameraError, showEndConfirm, awaitingAnswer,
     } = state;
 
     const {
-        sendAnswerRef, chatEndRef, ttsAudioRef,
-        streamRef, interviewerSpeakingVideoRef, interviewerListeningVideoRef,
+        _sendAnswerRef, chatEndRef,_ttsAudioReff,
+        _streamRef, interviewerSpeakingVideoRef, interviewerListeningVideoRef,
         interviewerTargetModeRef, videoRef,
     } = refs;
 
     const {
         setPhase, setInterviewType, setRealtimeMode, setInterviewerGender,
         setActiveTab, setLanguage, setCode, setNotes,
-        setIsPaused, setCurrentQuestion, setQuestionIndex,
-        setTotalQuestions, setStageLabel, setStagePlan,
-        setLoading, setScoreCue, setActiveHint,
-        setCameraOn, setBookmarked, setSpeakerMuted,
-        setChatOpen, setConversation, setUserInput, setInterviewerStatus,
+        _setIsPaused,_setCurrentQuestionn, setQuestionIndex,
+        _setTotalQuestions,_setStageLabell_setStagePlanan,
+        _setLoading, setScoreCue, setActiveHint,
+        _setCameraOn, setBookmarked, setSpeakerMuted,
+        setChatOpen, setConversation, setUserInput, _setInterviewerStatus,
         setSetupStep, setExperienceLevel, setTargetRole, setTargetCompany,
-        setCompanySearch, setCompanyTab, setResumeFile, setActiveResumeContext,
-        setResultTab, setAnalysisResult, setExpandedMoment,
+        setCompanySearch, setCompanyTab, setResumeFile, _setActiveResumeContext,
+        _setResultTab, setAnalysisResult,_setExpandedMomentt,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
-        setSavedSession, setMicOn, setElapsed,
+        _setSavedSession,_setMicOnn, setElapsed,
         clearSavedSession, restoreSession, setTranscript,
         handleLanguageChange, handleReset, startInterview, sendAnswer,
         endInterview, togglePause, toggleMic, toggleCamera,
-        handleVoiceInput, startVoiceRecording, stopVoiceRecording,
-        speakInterviewerText, speakSequence, stopSilenceHandling,
+        handleVoiceInput, _startVoiceRecording,_stopVoiceRecordingg,
+        _speakInterviewerText,_speakSequencee_stopSilenceHandlingng,
         handleInterviewerTimeUpdate, handleInterviewerLoadedMetadata,
         handleInterviewerCanPlay,
-        setShowEndConfirm, setCameraError, setAwaitingAnswer,
+        setShowEndConfirm, _setCameraError,_setAwaitingAnswerr,
         handleAskQuestion, startAnswer,
     } = actions;
 

@@ -6,7 +6,7 @@ function loadProgress() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch {}
+  } catch { /* empty */ }
   return null;
 }
 

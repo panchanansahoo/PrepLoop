@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import AdminLibraryPanel from '../components/AdminLibraryPanel';
 import { AlertCircle } from 'lucide-react';

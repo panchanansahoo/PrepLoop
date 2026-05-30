@@ -5,13 +5,13 @@ import { createLogger } from '../utils/structuredLogger.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { getRedisClient } from '../config/redis.js';
 import { 
-  DIFFICULTY_LEVELS, 
-  ACHIEVEMENTS, 
-  calculateDifficulty, 
-  adjustDayDifficulty, 
-  calculateTaskPoints,
+  DIFFICULTY_LEVELS as _DIFFICULTY_LEVELS, 
+  ACHIEVEMENTS as _ACHIEVEMENTS, 
+  calculateDifficulty as _calculateDifficulty, 
+  adjustDayDifficulty as _adjustDayDifficulty, 
+  calculateTaskPoints as _calculateTaskPoints,
   getPotentialAchievements,
-  calculateStreak
+  calculateStreak as _calculateStreak
 } from './improvementPlanEnhancements.js';
 
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
@@ -318,7 +318,6 @@ export class ImprovementPlanService {
       communication: 'Explain solutions clearly and concisely',
       problem_solving: 'Break down problems systematically',
       technical_depth: 'Demonstrate strong fundamentals',
-      complexity_analysis: 'Analyze and explain complexity confidently',
       complexity_analysis: 'Analyze and explain complexity confidently',
       edge_case_handling: 'Identify edge cases proactively',
       system_design: 'Design scalable systems with clear tradeoffs',

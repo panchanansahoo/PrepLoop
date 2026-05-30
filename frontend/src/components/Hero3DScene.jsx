@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useState } from 'react';
+import {useRef, useMemo} from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -233,7 +233,7 @@ function DataFlowParticles({ count = 60 }) {
     const ref = useRef();
 
     const particles = useMemo(() => {
-        return Array.from({ length: count }, (_, i) => ({
+        return Array.from({ length: count }, (_, _i) => ({
             orbit: 1.5 + Math.random() * 2.2,
             speed: (0.2 + Math.random() * 0.6) * (Math.random() > 0.5 ? 1 : -1),
             yOffset: (Math.random() - 0.5) * 3,

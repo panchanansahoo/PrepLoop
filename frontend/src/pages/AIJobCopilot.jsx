@@ -1,25 +1,6 @@
-import React, { useMemo, useRef, useState, useEffect } from 'react';
-import {
-  ArrowUpRight,
-  Briefcase,
-  CheckCircle2,
-  ChevronRight,
-  FileText,
-  Loader2,
-  Linkedin,
-  Sparkles,
-  Star,
-  Target,
-  TrendingUp,
-  Twitter,
-  Upload,
-  Wand2,
-  MessageCircle,
-  XCircle,
-  Send,
-  Bot,
-} from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { useMemo, useRef, useState, useEffect } from 'react';
+import { ArrowUpRight, Briefcase, CheckCircle2, ChevronRight, FileText, Loader2, Linkedin, Sparkles, Star, Target, TrendingUp, Twitter, Upload, Wand2, MessageCircle, XCircle, Send, Bot } from 'lucide-react';
+import {useLocation} from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { buildAuthHeaders } from '../utils/authHeaders';

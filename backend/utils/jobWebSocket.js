@@ -7,7 +7,7 @@ const UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes
 let updateTimer = null;
 
 export function setupJobWebSocket(wss) {
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws, _req) => {
     console.log('New WebSocket client connected for job updates');
     connectedClients.add(ws);
 

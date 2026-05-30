@@ -1,19 +1,7 @@
-import React, { useState, useRef, useCallback, useMemo, useEffect, useReducer } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useCallback, useMemo, useEffect, useReducer } from 'react';
+
 import './SystemDesignSimulator.css';
-import {
-    ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, Clock,
-    Sparkles, Plus, Trash2, Zap, Check, X, RotateCcw, MousePointer,
-    Link2, Eye, EyeOff, Lightbulb, Target, AlertTriangle, Star,
-    Maximize2, Minimize2, ZoomIn, ZoomOut, Grid3X3, Undo2, Redo2,
-    Layout, Settings2, Tag, Shield, Copy, Move,
-    Globe, Smartphone, Cpu, Server, HardDrive, Database, Cloud,
-    Wifi, Radio, Router, Layers, MessageSquare, Bell, Lock,
-    BarChart3, Activity, MonitorCheck, Workflow, Container, Cog,
-    Network, FileText, Archive, Gauge, GitBranch, Bot, BookOpen, Image,
-    Play, Pause, Square, Flame, Skull, Unplug, TrendingUp, Brain, Timer,
-    SkipForward, Wrench, DollarSign, CircleDot
-} from 'lucide-react';
+import { ArrowLeft, Search, ChevronRight, ChevronDown, ChevronUp, Clock, Sparkles, Plus, Trash2, Zap, Check, X, RotateCcw, MousePointer, Link2, Eye, EyeOff, Lightbulb, Target, AlertTriangle, Star, Maximize2, Minimize2, ZoomIn, ZoomOut, Grid3X3, Undo2, Redo2, Layout, Settings2, Tag, Shield, Copy, Move, Globe, Smartphone, Cpu, Server, HardDrive, Database, Cloud, Wifi, Radio, Router, Layers, MessageSquare, Bell, Lock, BarChart3, Activity, MonitorCheck, Workflow, Container, Cog, Network, FileText, Archive, Gauge, GitBranch, Bot, BookOpen, Image, Play, Pause, Square, Flame, Skull, Unplug, TrendingUp, Brain, Timer, SkipForward, Wrench, DollarSign, CircleDot } from 'lucide-react';
 
 const ICON_MAP = {
     'web-client': Globe, 'mobile-client': Smartphone, 'iot-device': Cpu,
@@ -40,8 +28,8 @@ function getIcon(componentId, size = 18) {
     const Icon = ICON_MAP[componentId];
     return Icon ? <Icon size={size} /> : <Server size={size} />;
 }
-import { SD_PROBLEMS, SD_COMPONENT_CATEGORIES, ALL_COMPONENTS } from '../data/systemDesignProblems';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import {SD_PROBLEMS, SD_COMPONENT_CATEGORIES} from '../data/systemDesignProblems';
+
 import { authFetch } from '../utils/authFetch';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -312,7 +300,7 @@ function DesignCanvas({ problem, onBack }) {
     const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, scale: 1 });
     const [isPanning, setIsPanning] = useState(false);
     const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-    const [connLabelEditing, setConnLabelEditing] = useState(null);
+    const [_connLabelEditing,_setConnLabelEditingg] = useState(null);
     const [nodeConfigs, setNodeConfigs] = useState({});
     const [editingLabel, setEditingLabel] = useState(null);
     const [editLabelText, setEditLabelText] = useState('');
@@ -605,7 +593,7 @@ function DesignCanvas({ problem, onBack }) {
 
     const toggleCategory = (catId) => { setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] })); };
 
-    const getNodeCenter = (node) => ({ x: node.x + 70, y: node.y + 38 });
+    const _getNodeCenter = (node) => ({ x: node.x + 70, y: node.y + 38 });
 
     const updateConfig = (nodeId, key, value) => {
         setNodeConfigs(prev => ({ ...prev, [nodeId]: { ...(prev[nodeId] || {}), [key]: value } }));

@@ -13,7 +13,7 @@
  */
 
 const IS_PRODUCTION = import.meta.env.PROD;
-const IS_DEVELOPMENT = import.meta.env.DEV;
+const _IS_DEVELOPMENT = import.meta.env.DEV;
 
 /**
  * Validate frontend runtime configuration

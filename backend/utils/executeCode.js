@@ -128,7 +128,7 @@ const LANG_CONFIG = {
             const match = code.match(/public\s+class\s+(\w+)/);
             return match ? match[1] : 'Main';
         },
-        compile: (file, out, cmd, className) => `${cmd} "${file}"`,
+        compile: (file, out, cmd, _className) => `${cmd} "${file}"`,
         run: (file, cmd, out, className) => {
             const dir = path.dirname(file);
             return `java -cp "${dir}" ${className}`;
@@ -145,7 +145,7 @@ const LANG_CONFIG = {
  */
 const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
 
-export async function executeCode(code, language, input = '') {
+export function executeCode(code, language, input = '') {
     const startTime = Date.now();
     const requestedLanguage = normalizeLanguage(language);
     const normalizedLanguage = requestedLanguage === 'typescript' ? 'javascript' : requestedLanguage;

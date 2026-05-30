@@ -67,7 +67,7 @@ function runSmokeScript(baseUrl) {
   });
 }
 
-async function resolveBaseUrl() {
+function resolveBaseUrl() {
   return resolveLocalBaseUrl({
     envVarName: 'INTERVIEW_SUITE_BASE_URL',
     fallback: DEFAULT_BASE_URL,
@@ -78,7 +78,7 @@ async function main() {
   let serverProcess = null;
   let startedServer = false;
   const serverLogs = [];
-  let baseUrl = DEFAULT_BASE_URL;
+  let baseUrl;
 
   const appendLog = (chunk, stream) => {
     const text = chunk.toString('utf8').trim();

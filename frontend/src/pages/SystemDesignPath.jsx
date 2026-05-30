@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, Clock, ArrowRight, CheckCircle, Layers, Target, Trophy } from 'lucide-react';
 import { SD_PHASES, SD_TOPICS } from '../data/systemDesignData';

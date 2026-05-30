@@ -83,7 +83,7 @@ export const recordDailyActivity = () => {
       streak.current = streak.dates.includes(yesterday) ? streak.current + 1 : 1;
       localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
     }
-  } catch {}
+  } catch { /* empty */ }
 };
 
 export const getStreakDays = () => {

@@ -28,7 +28,7 @@ const COMPANY_CATEGORIES = {
   indian_it: ['tcs', 'infosys', 'wipro', 'hcl', 'techmahindra', 'cognizant'],
 };
 
-const DEBUG_REVIEW_CHALLENGES = {
+const FALLBACK_CHALLENGES = {
   debug: [
     {
       title: 'Cache Misses In Production',
@@ -526,7 +526,7 @@ router.get('/replay/:sessionId', authenticateToken, async (req, res) => {
 router.get('/weakness/heatmap', authenticateToken, async (req, res) => {
   try {
     const limit = clamp(Number(req.query.limit) || 30, 5, 100);
-    const querySessions = async (scoreColumn) => supabaseAdmin
+    const querySessions = (scoreColumn) => supabaseAdmin
       .from('interview_sessions')
       .select(scoreColumn)
       .eq('user_id', req.user.id)
@@ -684,7 +684,7 @@ router.post('/debug-code-review/start', authenticateToken, async (req, res) => {
     const difficulty = asString(req.body.difficulty, 'medium');
     const company = asString(req.body.company, 'target company');
 
-    const fallback = DEBUG_REVIEW_CHALLENGES[mode][0];
+    const fallback = FALLBACK_CHALLENGES[mode][0];
 
     const generated = await groqJson(
       'You create interview coding challenges. Return JSON with keys: title, language, prompt, starterCode, rubric(array of bullet strings). Keep challenge realistic and concise.',

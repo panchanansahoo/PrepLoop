@@ -14,8 +14,8 @@ import zlib from 'zlib';
 import { promisify } from 'util';
 
 const logger = createLogger('cache-manager');
-const gzip = promisify(zlib.gzip);
-const gunzip = promisify(zlib.gunzip);
+const _gzip = promisify(zlib.gzip);
+const _gunzip = promisify(zlib.gunzip);
 
 // Lazy-load @upstash/redis to avoid hard dependency if not configured
 let Redis = null;
@@ -37,7 +37,7 @@ class CacheManager {
     this.isConnected = false;
     this.memoryCache = new Map();
     this.hotCache = new Map(); // Frequently accessed items
-    this.compressionCache = new Map(); // Compressed large objects
+    this._compressionCache = new Map(); // Compressed large objects
     this.accessCounts = new Map();
     this.metrics = {
       hits: 0,
@@ -58,7 +58,7 @@ class CacheManager {
     const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
     
     // Legacy support: also check old REDIS_URL for local dev with docker-compose
-    const legacyRedisUrl = process.env.REDIS_URL;
+    const _legacyRedisUrl = process.env.REDIS_URL;
 
     if (upstashUrl && upstashToken) {
       try {
@@ -233,7 +233,6 @@ class CacheManager {
   }
 
   cleanupStaleEntries() {
-    const now = Date.now();
     let cleanedCount = 0;
 
     // Clean memory cache

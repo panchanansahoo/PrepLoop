@@ -55,7 +55,7 @@ export const isTransientAiError = (error) => {
  * @param {number} [options.baseDelayMs] - Base delay for exponential backoff
  * @param {string} [options.serviceName] - Circuit breaker name: 'gemini' | 'groq' | 'elevenLabs' | 'razorpay'
  */
-export const aiCallWithRetry = async ({
+export const aiCallWithRetry = ({
   operation,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   maxRetries = DEFAULT_MAX_RETRIES,
@@ -65,7 +65,7 @@ export const aiCallWithRetry = async ({
   // Check circuit breaker before attempting
   const breaker = breakers[serviceName];
   if (breaker) {
-    return breaker.execute(async () => {
+    return breaker.execute(() => {
       return _executeWithRetry({ operation, timeoutMs, maxRetries, baseDelayMs });
     });
   }
@@ -98,3 +98,6 @@ const _executeWithRetry = async ({ operation, timeoutMs, maxRetries, baseDelayMs
 };
 
 export { CircuitBreakerOpenError };
+
+// Backwards-compatible alias
+export const _aiCallWithRetry = aiCallWithRetry;

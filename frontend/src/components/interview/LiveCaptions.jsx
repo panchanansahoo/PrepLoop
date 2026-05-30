@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 /**
  * LiveCaptions — Real-time captions overlay for the video call.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   getPerformanceTrends,
   getInterviewHistory,
@@ -6,7 +6,7 @@ import {
 } from '../../api/aiService';
 import {
   TrendingUp,
-  TrendingDown,
+  _TrendingDown,
   BarChart3,
   Calendar,
   Award,

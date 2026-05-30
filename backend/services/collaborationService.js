@@ -273,7 +273,7 @@ class CollaborationService {
   /**
    * Handle control request (for turn-based editing)
    */
-  handleControlRequest(userId, data) {
+  handleControlRequest(userId, _data) {
     const user = this.users.get(userId);
     if (!user || !user.sessionId) return;
 

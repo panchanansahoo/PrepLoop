@@ -1,16 +1,5 @@
-import React, { useState } from 'react';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  Zap, 
-  ThumbsUp, 
-  MessageSquare,
-  ChevronDown,
-  ChevronRight,
-  TrendingUp,
-  Award,
-  Code
-} from 'lucide-react';
+import { useState } from 'react';
+import { CheckCircle, AlertTriangle, Zap, ThumbsUp, MessageSquare, ChevronDown, ChevronRight, TrendingUp, Award, Code } from 'lucide-react';
 import './CodeReview.css';
 
 export default function CodeReviewDisplay({ reviewData }) {

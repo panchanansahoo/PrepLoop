@@ -20,7 +20,7 @@ const testProblemId = 1; // Used the seeded problem 1 (Two Sum)
 const TIMEOUT_MS = 5000;
 const CONCURRENT_REQUESTS = 2;
 
-async function sleep(ms) {
+function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
@@ -148,7 +148,7 @@ async function runRegressionTests() {
     const results = await Promise.all(requests);
     
     console.log('\nResults:');
-    results.forEach((result, idx) => {
+    results.forEach((result, _idx) => {
       const status = result.success ? '✅' : '❌';
       console.log(`  Request ${result.requestId}: ${status} Coins awarded: ${result.coinsAwarded}`);
       if (result.error) console.log(`           Error: ${result.error}`);

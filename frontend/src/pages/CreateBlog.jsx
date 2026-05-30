@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Image as ImageIcon, Loader, Save, FileText, Mail } from 'lucide-react';
+import {ArrowLeft, Image as ImageIcon, Loader, FileText, Mail} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 
 // --- EDITOR SWITCH ---
@@ -132,7 +132,7 @@ export default function CreateBlog() {
           if (cursor && cursor.block) {
             targetBlock = cursor.block;
           }
-        } catch (e) {
+        } catch {
           // Ignore error, fallback to end
         }
 

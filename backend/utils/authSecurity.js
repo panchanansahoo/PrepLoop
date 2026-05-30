@@ -40,7 +40,7 @@ export const validatePasswordStrength = (password) => {
     errors.push('Password must contain numbers');
   }
 
-  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
     errors.push('Password must contain special characters');
   }
 
@@ -76,7 +76,7 @@ function calculatePasswordStrength(password) {
   if (password.length >= 20) score++;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
   if (/\d/.test(password)) score++;
-  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score++;
+  if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) score++;
 
   return Math.min(score, 5);
 }
@@ -95,7 +95,7 @@ export const hashPassword = async (password) => {
     const salt = await bcrypt.genSalt(14);
     return await bcrypt.hash(password, salt);
   } catch (error) {
-    throw new Error(`Password hashing failed: ${error.message}`);
+    throw new Error(`Password hashing failed: ${error.message}`, { cause: error });
   }
 };
 
@@ -124,7 +124,7 @@ export const generateSecureToken = (length = 32) => {
   try {
     return crypto.randomBytes(length).toString('hex');
   } catch (error) {
-    throw new Error(`Token generation failed: ${error.message}`);
+    throw new Error(`Token generation failed: ${error.message}`, { cause: error });
   }
 };
 

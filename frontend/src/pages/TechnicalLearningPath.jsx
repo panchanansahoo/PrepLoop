@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Server, ChevronRight, Target, Trophy, Clock } from 'lucide-react';
+import {Server, ChevronRight, Target, Trophy} from 'lucide-react';
 import { TECHNICAL_STAGES, TECHNICAL_TOPICS, getTechnicalTopicIds, getTechnicalTopicsByStage } from '../data/technicalLearningPathData';
 import { getTechnicalTopicProgress, getTechOverallProgress } from '../data/technicalLearningProgress';
 import './LearningPath.css';

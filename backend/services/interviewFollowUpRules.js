@@ -33,7 +33,7 @@ function extractCodeSignals(code) {
   return {
     hasErrorHandling: /(try|catch|except|throw|raise|if.*error|if.*null|if.*none|if.*undefined|if.*!|\.catch)/.test(lower),
     hasEdgeCases: /(edge case|boundary|empty|null|undefined|zero|negative|overflow|underflow)/.test(lower),
-    hasComments: /(\/\/|#\s|\/\*|\"\"\"|''')/.test(code),
+    hasComments: /(\/\/|#\s|\/\*|"""|''')/.test(code),
     hasFunctions: /(function |def |=>|const \w+ = \(|class )/.test(code),
     lineCount: code.split('\n').length,
   };

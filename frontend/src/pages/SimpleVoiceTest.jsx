@@ -1,9 +1,9 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 
 export default function SimpleVoiceTest() {
     const [status, setStatus] = useState('Ready');
     const [transcript, setTranscript] = useState('');
-    const mediaRecorderRef = useRef(null);
+    const _mediaRecorderRef = useRef(null);
     const streamRef = useRef(null);
     const audioRef = useRef(null);
 

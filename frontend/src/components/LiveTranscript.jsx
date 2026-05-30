@@ -10,7 +10,7 @@
  *   active      boolean  — whether currently being written (shows cursor)
  *   className   string
  */
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import './LiveTranscript.css';
 
 export default function LiveTranscript({

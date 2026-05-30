@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import {useEffect, useState} from 'react';
 import { Link } from 'react-router-dom';
 import {
   Sparkles, Target, Brain, FileText, Mic, Code2,
@@ -107,7 +107,7 @@ const QUICK_TOOLS = [
   },
 ];
 
-function getAuthHeaders() {
+function _getAuthHeaders() {
   return buildAuthHeaders();
 }
 

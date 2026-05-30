@@ -46,7 +46,7 @@ async function run() {
   const result = await service.withSpan(
     'interview.test.success',
     { attributes: { 'interview.session_id': 's-1' } },
-    async (span) => {
+    (span) => {
       span.addEvent('interview.step');
       return 42;
     }
@@ -83,7 +83,7 @@ async function run() {
 
   let threw = false;
   try {
-    await errorService.withSpan('interview.test.error', {}, async () => {
+    await errorService.withSpan('interview.test.error', {}, () => {
       throw new Error('boom');
     });
   } catch {

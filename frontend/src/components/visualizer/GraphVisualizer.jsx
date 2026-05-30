@@ -68,7 +68,7 @@ export default function GraphVisualizer({ step }) {
     return C.unvisited;
   };
 
-  const getNodeGlow = (node) => {
+  const _getNodeGlow = (node) => {
     if (node === current) return `0 0 20px ${C.current}80`;
     if (node === exploring) return `0 0 16px ${C.exploring}60`;
     return 'none';

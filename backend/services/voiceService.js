@@ -155,9 +155,7 @@ const KOKORO_VOICES = {
     }
 };
 
-// ─── Deepgram STT config ───
-const DEEPGRAM_STT_URL = 'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&interim_results=false';
-const DEEPGRAM_CHUNK_URL = 'https://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&punctuate=true&language=en&interim_results=true&utterance_end_ms=1000&vad_events=true';
+
 
 function normalizeGender(gender) {
     const n = String(gender || '').trim().toLowerCase();
@@ -199,7 +197,7 @@ export function getAvailableProviders() {
  * When fallback: true is returned, the frontend should use browser speechSynthesis.
  * Now with intelligent provider selection based on performance.
  */
-export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, language = 'en', gender = 'female') {
+export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, _language = 'en', gender = 'female') {
     if (!text || text.trim().length === 0) throw new Error('Text is required for TTS');
 
     const cleanText = String(text).trim();
@@ -294,7 +292,7 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
  * This function returns { fallback: true } to signal the frontend
  * to use the browser's built-in SpeechRecognition.
  */
-export async function speechToText(filePath, preferredProvider = null) {
+export function speechToText(_filePath, _preferredProvider = null) {
     // All STT is now client-side via Web Speech API (free forever)
     console.info('[STT] Server-side STT removed — using client-side Web Speech API');
     return { fallback: true, text: '' };
@@ -392,7 +390,7 @@ async function elevenLabsTTS(text, persona, gender = 'female') {
     });
 
     if (!response.ok) {
-        let errText = await response.text().catch(() => '');
+        const errText = await response.text().catch(() => '');
         throw new Error(`ElevenLabs API error: ${response.status} ${response.statusText} ${errText}`);
     }
 
@@ -420,7 +418,7 @@ async function openAITTS(text, persona, gender = 'female') {
     });
 
     if (!response.ok) {
-        let errText = await response.text().catch(() => '');
+        const errText = await response.text().catch(() => '');
         throw new Error(`OpenAI TTS API error: ${response.status} ${response.statusText} ${errText}`);
     }
 
@@ -531,8 +529,8 @@ async function kokoroTTS(text, persona, gender = 'female') {
 // Deepgram API calls have been removed to achieve zero recurring cost.
 
 
-async function groqWhisperSTT(filePath) {
-    const safeFilePath = resolveSafeAudioPath(filePath);
+async function _groqWhisperSTT(_filePath) {
+    const safeFilePath = resolveSafeAudioPath(_filePath);
 
     const GROQ_WHISPER_TIMEOUT_MS = 15_000; // 15s max for Whisper STT
     const transcription = await groq.audio.transcriptions.create({

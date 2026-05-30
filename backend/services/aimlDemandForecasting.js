@@ -5,7 +5,7 @@
  * using exponential smoothing and trend analysis over quarterly periods.
  */
 
-import { supabaseAdmin } from '../db/supabaseClient.js';
+import { supabase, supabaseAdmin as _supabaseAdmin } from '../db/supabaseClient.js';
 
 /**
  * Exponential smoothing forecast

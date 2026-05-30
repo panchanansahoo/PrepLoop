@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef, useState, useCallback } from 'react';
+import {useEffect, useRef, useState, useCallback} from 'react';
 
 // ─── Premium color palette with richer tones ───
 const COLORS = {

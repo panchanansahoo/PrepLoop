@@ -1,5 +1,3 @@
-import React from 'react';
-
 /**
  * A lightweight loading skeleton for Suspense route transitions.
  * Uses pure CSS animation — no canvas, no particles, instant mount.

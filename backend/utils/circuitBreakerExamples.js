@@ -9,7 +9,7 @@
 // 1. GITHUB API SERVICE (Recommended Integration)
 // ─────────────────────────────────────────────────────────────
 
-import { breakers, CircuitBreakerOpenError } from '../utils/circuitBreaker.js';
+import { breakers, CircuitBreaker } from '../utils/circuitBreaker.js';
 
 const GITHUB_API_BASE = 'https://api.github.com';
 
@@ -60,7 +60,7 @@ const fetchJsonWithCircuitBreaker = async (url) => {
 // ─────────────────────────────────────────────────────────────
 
 // Add circuit breaker to job search APIs
-const fetchWithJobApiBreaker = async (url, options = {}) => {
+const _fetchWithJobApiBreaker = async (url, options = {}) => {
   // Create a job API breaker if not already configured
   if (!breakers.jobSearch) {
     breakers.jobSearch = new CircuitBreaker('jobSearch', { 
@@ -127,7 +127,7 @@ export const verifyEmailWithCircuitBreaker = async (email, token) => {
     if (error.isCircuitBreakerError) {
       // For verification, you might want to queue for later retry
       console.error('[Email Verification Circuit Breaker]', error.message);
-      throw new Error('Verification service temporarily unavailable');
+      throw new Error('Verification service temporarily unavailable', { cause: error });
     }
     throw error;
   }
@@ -158,7 +158,7 @@ export const createPaymentWithCircuitBreaker = async (amount, currency = 'INR') 
   } catch (error) {
     if (error.isCircuitBreakerError) {
       console.error('[Razorpay Circuit Breaker]', error.message);
-      throw new Error('Payment service temporarily unavailable. Please try again later.');
+      throw new Error('Payment service temporarily unavailable. Please try again later.', { cause: error });
     }
     throw error;
   }
@@ -299,5 +299,3 @@ export const fetchMultipleWithCircuitBreaker = async (urls, breaker) => {
 
   return results;
 };
-
-export { CircuitBreakerOpenError };

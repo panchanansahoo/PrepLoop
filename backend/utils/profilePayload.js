@@ -50,7 +50,7 @@ const normalizeProfileUpdatePayload = (body = {}) => {
           trimmed = parts[0];
         }
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore URL parse errors and fall back to raw trimmed value
     }
     // Remove leading @ if present
@@ -119,8 +119,8 @@ const normalizeProfileUpdatePayload = (body = {}) => {
       if (typeof parsed === 'object' && parsed !== null) {
         updates.social_links = parsed;
       }
-    } catch (e) {
-      console.error('Invalid social_links format:', e);
+    } catch (_e) {
+      // ignore URL parse errors and fall back to raw trimmed value
     }
   }
 

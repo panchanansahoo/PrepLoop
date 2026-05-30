@@ -39,7 +39,7 @@ async function createBackup() {
   }
 }
 
-async function cleanOldBackups() {
+function cleanOldBackups() {
   // Cleanup logic would go here
   console.log(`Keeping last ${MAX_BACKUPS} backups`);
 }

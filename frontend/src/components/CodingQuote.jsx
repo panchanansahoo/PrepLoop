@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import {useState} from 'react';
 
 const quotes = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },

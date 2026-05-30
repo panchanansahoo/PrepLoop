@@ -35,7 +35,7 @@ function loadProblemBank() {
   try {
     const raw = readFileSync(join(__dirname, '..', 'data', 'interviewProblemBank.json'), 'utf-8');
     _problemBank = JSON.parse(raw);
-  } catch (err) {
+    } catch (_err) {
     _problemBank = null;
     _problemBank = null;
   }
@@ -789,7 +789,8 @@ export class InterviewSimulatorService {
       // Cache the working schema shape index to avoid re-probing on every call.
       // After the first successful insert, subsequent calls skip directly to the
       // known-good payload shape, eliminating 1-3 unnecessary failed inserts.
-      const startIndex = _knownPayloadIndex !== null ? _knownPayloadIndex : 0;
+      let knownPayloadIndex = _knownPayloadIndex;
+      const startIndex = knownPayloadIndex !== null ? knownPayloadIndex : 0;
 
       for (let i = startIndex; i < payloadCandidates.length; i++) {
         ({ data: sessionData, error: sessionError } = await supabaseAdmin
@@ -799,8 +800,8 @@ export class InterviewSimulatorService {
           .single());
 
         if (!sessionError) {
-          if (_knownPayloadIndex === null) {
-            _knownPayloadIndex = i;
+          if (knownPayloadIndex === null) {
+            knownPayloadIndex = i;
             logger.info(`Schema shape cached at index ${i}`);
           }
           break;
@@ -853,7 +854,7 @@ export class InterviewSimulatorService {
       const problem = await interviewTelemetryService.withSpan(
         'interview.session.problem_select',
         { attributes: telemetryAttributes },
-        async () => this._generateProblemStatement(interviewType, difficulty, companyFocus, userId)
+        () => this._generateProblemStatement(interviewType, difficulty, companyFocus, userId)
       );
 
       // Update session with problem
@@ -867,7 +868,7 @@ export class InterviewSimulatorService {
             'interview.session_id': String(sessionData.id || ''),
           },
         },
-        async () => supabaseAdmin
+        () => supabaseAdmin
           .from('interview_sessions')
           .update({
             problem_statement: problem.statement,
@@ -1123,7 +1124,7 @@ export class InterviewSimulatorService {
               'interview.stage': String(advancedInterviewState.stage || 'intake'),
             },
           },
-          async () => this._generateInterviewerFollowUp(
+          () => this._generateInterviewerFollowUp(
             session.problem_statement,
             session.transcript || [],
             candidateResponse,
@@ -1196,7 +1197,7 @@ export class InterviewSimulatorService {
       }
 
       // Update session
-      const { currentScores, adaptiveUpdate, adaptiveFollowUp } = await interviewTelemetryService.withSpan(
+      const { currentScores, adaptiveUpdate, adaptiveFollowUp, scoreHistory } = await interviewTelemetryService.withSpan(
         'interview.scoring.update',
         {
           attributes: {
@@ -1204,7 +1205,7 @@ export class InterviewSimulatorService {
             'interview.stage': String(advancedInterviewState.stage || 'intake'),
           },
         },
-        async (span) => {
+        (span) => {
           const scores = this._calculateRollingScores(analysis, updatedTranscript, session.interview_type, session.experience_level);
 
           // ── Score history + trend analysis (sliding window) ─────────
@@ -1284,9 +1285,8 @@ export class InterviewSimulatorService {
         updated_at: new Date().toISOString()
       };
 
-      let updatedSession = null;
       let updateError = null;
-      ({ data: updatedSession, error: updateError } = await interviewTelemetryService.withSpan(
+      ({ error: updateError } = await interviewTelemetryService.withSpan(
         'interview.session.persist',
         {
           attributes: {
@@ -1295,7 +1295,7 @@ export class InterviewSimulatorService {
             'interview.turn': Number(interviewContext.turns || 1),
           },
         },
-        async () => supabaseAdmin
+        () => supabaseAdmin
           .from('interview_sessions')
           .update(updatePayload)
           .eq('id', sessionId)
@@ -1314,7 +1314,6 @@ export class InterviewSimulatorService {
           user_id: userId,
         };
         virtualInterviewSessions.set(sessionId, { ...virtualSession, _createdAt: Date.now() });
-        updatedSession = virtualSession;
       }
 
       // Log service usage
@@ -1372,7 +1371,7 @@ export class InterviewSimulatorService {
       const session = await interviewTelemetryService.withSpan(
         'interview.session.load_for_completion',
         { attributes: telemetryAttributes },
-        async () => this.getInterviewSession(sessionId, userId)
+        () => this.getInterviewSession(sessionId, userId)
       );
 
       // Generate comprehensive performance analysis
@@ -1384,7 +1383,7 @@ export class InterviewSimulatorService {
             'interview.type': String(session.interview_type || 'dsa'),
           },
         },
-        async () => this._generatePerformanceAnalysis(session)
+        () => this._generatePerformanceAnalysis(session)
       );
 
       // Calculate overall scores
@@ -1396,7 +1395,7 @@ export class InterviewSimulatorService {
             'interview.type': String(session.interview_type || 'dsa'),
           },
         },
-        async (span) => {
+        (span) => {
           const calculated = this._calculateScores(analysis, session.transcript, session.interview_type);
           span.setAttribute('interview.score.final', Number(calculated?.interviewScore || 0));
           return calculated;
@@ -1476,7 +1475,7 @@ export class InterviewSimulatorService {
             'interview.type': String(session.interview_type || 'dsa'),
           },
         },
-        async () => supabaseAdmin
+        () => supabaseAdmin
           .from('interview_sessions')
           .update(completionPayload)
           .eq('id', sessionId)
@@ -1568,7 +1567,7 @@ export class InterviewSimulatorService {
     return `${focusLine} Here is your problem: ${problem.statement} ${difficultyTone[difficulty] || difficultyTone.medium}`;
   }
 
-  static async _generateProblemStatement(interviewType, difficulty, companyFocus, userId = null) {
+  static _generateProblemStatement(interviewType, difficulty, companyFocus, userId = null) {
     const bank = loadProblemBank();
     const normalizedType = String(interviewType || 'dsa').toLowerCase().replace('system-design', 'system_design');
     const normalizedDifficulty = String(difficulty || 'medium').toLowerCase();
@@ -1633,7 +1632,7 @@ export class InterviewSimulatorService {
           'interview.transcript_count': Number(Array.isArray(transcript) ? transcript.length : 0),
         },
       },
-      async () => InterviewPromptService.buildFollowUpPrompt({
+      () => InterviewPromptService.buildFollowUpPrompt({
         problemStatement,
         transcript,
         candidateResponse,
@@ -1656,12 +1655,12 @@ export class InterviewSimulatorService {
       },
       async (span) => {
         const raw = await InterviewConversationService.requestFollowUpContent({
-          groqClient: groq,
+          groqClient: geminiAi,
           modelConfig: INTERVIEW_MODEL_CONFIG,
           prompt,
         });
-        setSpanAttribute(span, 'interview.model.latency_ms', Number(raw.modelLatencyMs || 0));
-        setSpanAttribute(span, 'interview.model.fallback_triggered', Boolean(raw.fallbackTriggered));
+        span.setAttribute('interview.model.latency_ms', Number(raw.modelLatencyMs || 0));
+        span.setAttribute('interview.model.fallback_triggered', Boolean(raw.fallbackTriggered));
         return raw;
       }
     );
@@ -1675,16 +1674,16 @@ export class InterviewSimulatorService {
           'interview.stage': String(interviewContext?.stage || interviewContext?.interviewState?.stage || 'intake'),
         },
       },
-      async (span) => {
+      (span) => {
         const normalized = InterviewConversationService.normalizeFollowUp({
           content: rawFollowUp?.content,
           interviewMode,
           interviewType,
           forceFallback: Boolean(rawFollowUp?.fallbackTriggered),
         });
-        setSpanAttribute(span, 'interview.parse.success', Boolean(normalized.parseSuccess));
-        setSpanAttribute(span, 'interview.parse.fallback_triggered', Boolean(normalized.parseFallbackTriggered));
-        addSpanEvent(span, 'interview.followup.branch', {
+        span.setAttribute('interview.parse.success', Boolean(normalized.parseSuccess));
+        span.setAttribute('interview.parse.fallback_triggered', Boolean(normalized.parseFallbackTriggered));
+        span.addEvent('interview.followup.branch', {
           parseFallback: Boolean(normalized.parseFallbackTriggered),
         });
         return {
@@ -1714,7 +1713,7 @@ export class InterviewSimulatorService {
 
     // HR/behavioral candidates give shorter conversational answers — lower word threshold
     const stuckWordThreshold = (normalizedType === 'hr' || normalizedType === 'behavioral') ? 8 : 14;
-    const candidateStuck = wordCount < stuckWordThreshold || /i\s+don\'t\s+know|stuck|not sure|blanking/.test(lower);
+    const candidateStuck = wordCount < stuckWordThreshold || /i\s+don't\s+know|stuck|not sure|blanking/.test(lower);
 
     return {
       wordCount,
@@ -1781,7 +1780,7 @@ export class InterviewSimulatorService {
   // Tier 1 (Nudge): gentle redirect to simpler approach
   // Tier 2 (Scaffold): suggest specific data structure or technique
   // Tier 3 (Teach): give high-level approach, ask candidate to implement a piece
-  static _buildProgressiveHint(interviewType, stuckCount, interviewContext = {}) {
+  static _buildProgressiveHint(interviewType, stuckCount, _interviewContext = {}) {
     const normalizedType = String(interviewType || 'dsa').toLowerCase();
     const tier = Math.min(3, Math.max(1, stuckCount));
 
@@ -1849,7 +1848,7 @@ export class InterviewSimulatorService {
   }
 
   // ── Topic extractor: identify primary probing area from interviewer message ──
-  static _extractPrimaryTopic(interviewerMessage, interviewType) {
+  static _extractPrimaryTopic(interviewerMessage, _interviewType) {
     const lower = String(interviewerMessage || '').toLowerCase();
     if (!lower || lower.length < 10) return null;
 
@@ -1894,7 +1893,7 @@ export class InterviewSimulatorService {
     });
   }
 
-  static async _analyzeInterviewResponse(response, problemStatement, interviewType, interviewContext = {}) {
+  static _analyzeInterviewResponse(response, _problemStatement, interviewType, interviewContext = {}) {
     const signals = this._extractResponseSignals(response, interviewType);
     const normalizedType = String(interviewType || 'dsa').toLowerCase();
     const responseLower = String(response || '').toLowerCase();
@@ -2004,7 +2003,7 @@ export class InterviewSimulatorService {
     };
   }
 
-  static async _generatePerformanceAnalysis(session) {
+  static _generatePerformanceAnalysis(session) {
     const transcript = Array.isArray(session.transcript) ? session.transcript : [];
     const candidateTurns = transcript.filter((entry) => entry.role === 'candidate');
     const candidateTexts = candidateTurns.map((entry) => String(entry.text || ''));
@@ -2223,9 +2222,8 @@ export class InterviewSimulatorService {
   }
 
   // ── Dynamic Recommendations: actionable coaching based on performance ─
-  static _generateDynamicRecommendations(interviewType, areasForImprovement = [], strengths = []) {
+  static _generateDynamicRecommendations(interviewType, areasForImprovement = [], _strengths = []) {
     const normalizedType = String(interviewType || 'dsa').toLowerCase();
-    const gaps = areasForImprovement.map(a => String(a).toLowerCase());
 
     // Build recommendation from actual gaps
     if (areasForImprovement.length > 0) {
@@ -2267,16 +2265,15 @@ export class InterviewSimulatorService {
   }
 
   static async _updatePerformanceTrend(userId, interviewType, companyFocus, scores) {
-    let existing = null;
-    let selectError = null;
-
-    ({ data: existing, error: selectError } = await supabaseAdmin
+    const selectResult = await supabaseAdmin
       .from('interview_performance_trends')
       .select('*')
       .eq('user_id', userId)
       .eq('interview_type', interviewType)
       .eq('company_focus', companyFocus || null)
-      .single());
+      .single();
+    let existing = selectResult.data;
+    const selectError = selectResult.error;
 
     if (selectError && isMissingColumnError(selectError, 'company_focus')) {
       ({ data: existing } = await supabaseAdmin
@@ -2304,8 +2301,7 @@ export class InterviewSimulatorService {
         .eq('id', existing.id);
     } else {
       // Create new trend
-      let insertError = null;
-      ({ error: insertError } = await supabaseAdmin
+      const { error: insertError } = await supabaseAdmin
         .from('interview_performance_trends')
         .insert({
           user_id: userId,
@@ -2314,7 +2310,7 @@ export class InterviewSimulatorService {
           interview_count: 1,
           avg_score: scores.interviewScore,
           last_interview_date: new Date().toISOString()
-        }));
+        });
 
       if (insertError && isMissingColumnError(insertError, 'company_focus')) {
         await supabaseAdmin

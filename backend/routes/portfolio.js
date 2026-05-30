@@ -38,7 +38,7 @@ const mapProfileRowToResponse = (row) => ({
 });
 
 // POST /api/portfolio/profiles/parse-linkedin
-router.post('/profiles/parse-linkedin', authenticateToken, async (req, res) => {
+router.post('/profiles/parse-linkedin', authenticateToken, (req, res) => {
   try {
     const { exportText } = req.body || {};
     if (!exportText || !String(exportText).trim()) {

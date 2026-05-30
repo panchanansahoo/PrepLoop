@@ -1,10 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-    Building2, Clock, Target, CheckCircle2, ArrowRight,
-    BookOpen, Star, ChevronRight, Award, Lightbulb, Users
-} from 'lucide-react';
-import { companyTracks, getTrackById, getTracksByCategory } from '../data/companyTracks';
+import { Building2, Clock, Target, CheckCircle2, ArrowRight, BookOpen, Star, ChevronRight, Award, Lightbulb, Users } from 'lucide-react';
+import {getTrackById, getTracksByCategory} from '../data/companyTracks';
 
 function TrackList() {
     const grouped = getTracksByCategory();

@@ -9,7 +9,6 @@ const additionalModules = [
     description: 'Sequence models and NLP techniques',
     topics: ['RNN', 'LSTM', 'GRU', 'Word Embeddings', 'Attention', 'Seq2Seq'],
     estimatedTime: '2.5 weeks',
-    problems: 14,
     unlocked: false,
     
     theory: {

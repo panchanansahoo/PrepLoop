@@ -1,9 +1,5 @@
-import React, { useState, useRef, useCallback, useMemo } from 'react';
-import {
-    Play, ChevronRight, Trophy, Star, BarChart3,
-    CheckCircle, Clock, ArrowRight, RotateCcw, Zap,
-    Code2, Users, Brain, Briefcase, Award, Target
-} from 'lucide-react';
+import React, { useState, _useRef, useCallback, useMemo } from 'react';
+import { Play, ChevronRight, Trophy, Star, BarChart3, CheckCircle, Clock, ArrowRight, RotateCcw, Zap, Code2, Users, Brain, Briefcase, Award, Target } from 'lucide-react';
 import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
@@ -74,7 +70,7 @@ export default function MultiRoundInterview() {
     const companyObj = COMPANIES.find(c => c.id === company) || COMPANIES[0];
     const activeRounds = ROUND_TYPES.filter(r => selectedRounds.includes(r.id));
 
-    const getAuthHeaders = () => {
+    const _getAuthHeaders = () => {
         return buildAuthHeaders(user);
     };
 

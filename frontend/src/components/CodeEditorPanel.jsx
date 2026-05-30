@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Editor from '@monaco-editor/react';
 import { Code2, X, Play, RotateCcw, Loader2, CheckCircle } from 'lucide-react';
 import './CodeEditorPanel.css';

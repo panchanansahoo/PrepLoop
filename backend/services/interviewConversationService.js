@@ -30,7 +30,7 @@ export class InterviewConversationService {
     return JSON.parse(jsonMatch?.[0] || '{}');
   }
 
-  static buildFallbackFollowUp(interviewMode = 'full_realtime', interviewType = 'dsa') {
+  static buildFallbackFollowUp(_interviewMode = 'full_realtime', interviewType = 'dsa') {
     const typeFallback = getFallbackForType(interviewType);
 
     return {
@@ -127,7 +127,7 @@ export class InterviewConversationService {
       };
     }
 
-    let parsed = null;
+    let parsed;
 
     try {
       parsed = this.parseFollowUpContent(content || '{}');

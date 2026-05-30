@@ -1,11 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
-import {
-    ExternalLink, Code2, Database, Sparkles, Building2,
-    Trophy, Star, ChevronRight, Filter, Search, X, ArrowRight
-} from 'lucide-react';
+import { ExternalLink, Code2, Database, Sparkles, Building2, Trophy, Star, ChevronRight, Filter, Search, X, ArrowRight } from 'lucide-react';
 
 const DIFFICULTY_COLORS = {
     Easy: { text: '#6ee7b7', bg: 'rgba(110,231,183,0.1)', border: 'rgba(110,231,183,0.2)' },
@@ -194,7 +191,7 @@ export default function DailyChallengesPage() {
                     {filtered.map((company, idx) => {
                         const Icon = company.icon;
                         const isToday = dailyChallenges.indexOf(company) === todayIndex;
-                        const realIdx = dailyChallenges.indexOf(company);
+                        const _realIdx = dailyChallenges.indexOf(company);
 
                         return (
                             <div

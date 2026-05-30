@@ -20,9 +20,9 @@ async function run() {
   // claimCustomUrl with mocked supabaseAdmin
   const fakeRows = [];
   const supabaseMock = {
-    from(table) {
+    from(_table) {
       return {
-        select(selectStr) {
+        select(_selectStr) {
           this._op = 'select';
           return this;
         },
@@ -31,10 +31,9 @@ async function run() {
           return this;
         },
         limit() { return this; },
-        async then() { return [null]; },
-        async maybeSingle() { return { data: fakeRows.length ? fakeRows[0] : null, error: null }; },
-        async update(obj) { 
-          // pretend update succeeded
+        then() { return [null]; },
+        maybeSingle() { return { data: fakeRows.length ? fakeRows[0] : null, error: null }; },
+        update(obj) { 
           return { data: { id: 'user_1', custom_url: obj.custom_url }, error: null };
         }
       };
@@ -46,43 +45,42 @@ async function run() {
   assert.strictEqual(claimRes.success, true);
 
   // Simulate taken slug by returning existing row
-  const supabaseTakenMock = {
-    from(table) {
+  const _supabaseTakenMock = {
+    from(_table) {
       return {
         select() { return this; },
         eq() { return this; },
         limit() { return this; },
-        async then() { return [null]; },
-        async maybeSingle() { return { data: null, error: null }; },
-        async update() { return { data: { id: 'user_2', custom_url: 'taken' }, error: null }; },
-        async select() { return { data: [{ id: 'user_2' }], error: null }; }
+        then() { return [null]; },
+        maybeSingle() { return { data: null, error: null }; },
+        update() { return { data: { id: 'user_2', custom_url: 'taken' }, error: null }; },
       };
     }
   };
 
   // Overwrite fetch path to simulate existing
-  const supabaseTakenFlow = {
-    from(table) {
+  const _supabaseTakenFlow = {
+    from(_table) {
       return {
         select() { return this; },
         eq() { return this; },
         limit() { return this; },
-        async _executeSelect() { return { data: [{ id: 'user_2' }], error: null }; },
-        async update() { return { data: null, error: null }; },
-        async then() { return this._executeSelect(); },
+        _executeSelect() { return { data: [{ id: 'user_2' }], error: null }; },
+        update() { return { data: null, error: null }; },
+        then() { return this._executeSelect(); },
       };
     }
   };
 
   // For taken-case, we simulate by calling claimCustomUrl but using a wrapper that returns existing row
   const takenCheckMock = {
-    from(table) {
+    from(_table) {
       return {
         select() { return this; },
         eq() { return this; },
         limit() { return this; },
-        async then() { return [{ id: 'user_2' }]; },
-        async update() { return { data: null, error: null }; }
+        then() { return [{ id: 'user_2' }]; },
+        update() { return { data: null, error: null }; }
       };
     }
   };

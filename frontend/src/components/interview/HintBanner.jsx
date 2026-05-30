@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { Lightbulb, Wrench, BookOpen, X } from 'lucide-react';
 
 const TIER_CONFIG = {

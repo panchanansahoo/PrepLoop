@@ -1,8 +1,5 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import {
-  Play, Plus, _Trash2, CheckCircle2, XCircle, Clock, Cpu,
-  _Zap, FlaskConical, X
-} from 'lucide-react';
+import { Play, Plus, Trash2, CheckCircle2, XCircle, Clock, Cpu, Zap, FlaskConical, X } from 'lucide-react';
 import {
   EDGE_CASE_TEMPLATES, createTestCase, runTestCases,
   generateStressTests, detectProblemType

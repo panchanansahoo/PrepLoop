@@ -1,4 +1,3 @@
-import React from 'react';
 import { BubbleMenu } from '@tiptap/react';
 import {
     Bold,
@@ -6,7 +5,7 @@ import {
     Strikethrough,
     Code,
     Link,
-    List as ListIcon
+    List as _ListIcon
 } from 'lucide-react';
 
 export default function EditorMenu({ editor }) {

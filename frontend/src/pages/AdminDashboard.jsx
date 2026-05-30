@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './AdminDashboard.css';
 import axios from 'axios';
 import { buildApiUrl } from '../utils/safeApiUrl';

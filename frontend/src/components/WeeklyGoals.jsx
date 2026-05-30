@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Target } from 'lucide-react';
 
@@ -28,7 +28,7 @@ function getInitialGoals(weeklyData) {
                 return parsed;
             }
         }
-    } catch { }
+    } catch { /* empty */ }
 
     return {
         week: getWeekKey(), target: 15, completed: 0, items: [

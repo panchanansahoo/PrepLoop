@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import {
-    Terminal, BarChart3, Eye, Layers, ChevronDown,
-    Play, Pause, SkipForward, SkipBack, RotateCcw
-} from 'lucide-react';
+import { Terminal, BarChart3, Eye, Layers, ChevronDown, Play, Pause, SkipForward, SkipBack, RotateCcw } from 'lucide-react';
 import ArrayVisualizer from '../visualizer/ArrayVisualizer';
 import GraphVisualizer from '../visualizer/GraphVisualizer';
 
@@ -169,7 +166,7 @@ export default function VisualizationPanel({
             // Try parsing as JSON array
             const parsed = JSON.parse(trimmed);
             if (Array.isArray(parsed)) return parsed;
-        } catch { }
+        } catch { /* empty */ }
         // Try extracting numbers from output like "[1, 2, 3]"
         const match = output?.output?.match(/\[([^\]]+)\]/);
         if (match) {

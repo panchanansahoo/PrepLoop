@@ -1,6 +1,5 @@
-import React from 'react';
-import { ChevronRight, ChevronDown, BookOpen, Play, Star, Crown, Layers, Zap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import {ChevronRight, Crown, Layers} from 'lucide-react';
+
 import { SubPatternList } from './SubPatternList';
 
 // Category-specific accent colors for visual differentiation
@@ -39,8 +38,8 @@ export function PatternCategoryItem({
     extraProblems,
     totalProblems,
     attemptedProblems,
-    globalIdxRef,
-    totalSubPatterns,
+    _globalIdxRef,
+    _totalSubPatterns,
     isLight,
     roman,
     solvedSet,
@@ -367,15 +366,15 @@ export function PatternCategoryItem({
 function ExtraProblemsSection({
     category,
     extraProblems,
-    totalPatternCount,
+    _totalPatternCount,
     expandedSubPatterns,
     setExpandedSubPatterns,
     solvedSet,
     isLight,
     search,
     selectedDifficulties,
-    onSolveProblem,
-    gc,
+    _onSolveProblem,
+    _gc,
 }) {
     const extraKey = `${category.id}__extra`;
     const isExtraExpanded = !!expandedSubPatterns[extraKey];

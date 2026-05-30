@@ -103,7 +103,7 @@ export function createTestCase(input, expectedOutput, name = '') {
 
 export function runTestCases(code, language, testCases) {
   // Mock execution - simulates running test cases
-  return testCases.map((tc, i) => {
+  return testCases.map((tc, _i) => {
     const delay = randomInt(10, 120);
     const memoryUsage = randomInt(12, 18);
     const shouldPass = Math.random() > 0.2; // 80% pass rate for mock

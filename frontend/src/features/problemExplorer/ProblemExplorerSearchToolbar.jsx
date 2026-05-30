@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Search, SlidersHorizontal, X, Command } from 'lucide-react';
 
 export function ProblemExplorerSearchToolbar({

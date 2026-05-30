@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,7 +16,7 @@ import {
   Crown,
 } from 'lucide-react';
 import { useCoins } from '../context/CoinContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 
 import { API_URL } from '../config/api.js';
@@ -98,7 +98,7 @@ export default function CoinWallet() {
         setLedger(page === 1 ? items : (prev) => prev.concat(items));
         setSummary(data?.summary || { totalEarned: 0, totalSpent: 0, totalRedeemed: 0 });
         setHasMore(Boolean(data?.hasMore));
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setLedger([]);
           setHasMore(false);

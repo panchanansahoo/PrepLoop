@@ -6,7 +6,7 @@ const router = express.Router();
 const logger = createLogger('error-report');
 
 // Client-side error reporting endpoint
-router.post('/report', optionalAuth, async (req, res) => {
+router.post('/report', optionalAuth, (req, res) => {
   try {
     const { error, componentStack, url, userAgent, timestamp } = req.body;
     const userId = req.user?.id || 'anonymous';

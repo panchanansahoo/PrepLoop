@@ -1,12 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
-import {
-    Bookmark, Search, Tag, Filter, Plus, Trash2,
-    Edit3, Save, X, Hash, ListFilter, StickyNote
-} from 'lucide-react';
+import { Bookmark, Search, Tag, Filter, Plus, Trash2, Edit3, Save, X, Hash, ListFilter, StickyNote } from 'lucide-react';
 
 const TYPES = [
     { id: 'all', label: 'All' },
@@ -23,7 +20,7 @@ const PRESET_TAGS = [
 ];
 
 export default function NotesBookmarks() {
-    const { user } = useAuth();
+    const { _user } = useAuth();
     const API_BASE_URL = import.meta.env.VITE_API_URL || '';
     const buildNotesApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
     const [bookmarks, setBookmarks] = useState([]);
@@ -78,7 +75,7 @@ export default function NotesBookmarks() {
                 setNewBookmark({ title: '', type: 'custom', tags: [], note: '' });
                 setShowAddForm(false);
             }
-        } catch (err) {
+        } catch {
             // Fallback: save to localStorage
             const saved = JSON.parse(localStorage.getItem('preploop_bookmarks') || '[]');
             const newEntry = {
@@ -118,7 +115,7 @@ export default function NotesBookmarks() {
                 method: 'DELETE',
             });
             await fetchBookmarks();
-        } catch (err) {
+        } catch {
             // Fallback
             const saved = JSON.parse(localStorage.getItem('preploop_bookmarks') || '[]');
             localStorage.setItem('preploop_bookmarks', JSON.stringify(saved.filter(b => b.id !== id)));

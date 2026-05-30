@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { ArrowRight, ArrowLeft, CheckCircle, Target, Clock, BookOpen } from 'lucide-react';
 
@@ -55,7 +55,7 @@ const steps = [
 
 export default function Onboarding() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { _user } = useAuth();
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState({});
     const [saving, setSaving] = useState(false);

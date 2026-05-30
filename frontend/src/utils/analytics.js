@@ -228,7 +228,7 @@ class AnalyticsService {
   /**
    * Cohort analysis
    */
-  cohortAnalysis(cohortBy = 'week', metric = 'retention') {
+  cohortAnalysis(cohortBy = 'week', _metric = 'retention') {
     // Group users by cohort
     const cohorts = new Map();
 
@@ -326,7 +326,7 @@ class AnalyticsService {
     return variants[variants.length - 1];
   }
 
-  matchesTargeting(targeting) {
+  matchesTargeting(_targeting) {
     // Implement targeting logic
     return true;
   }
@@ -354,7 +354,7 @@ class AnalyticsService {
     return date.toISOString().split('T')[0];
   }
 
-  calculateRetention(users, cohortDate) {
+  calculateRetention(users, _cohortDate) {
     // Simplified retention calculation
     return Array.from(users).filter((userId) => {
       const userEvents = this.events.filter((e) => e.properties.userId === userId);

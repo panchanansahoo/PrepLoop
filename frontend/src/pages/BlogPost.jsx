@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, Clock, User, ArrowLeft, Share2, Bookmark } from 'lucide-react';
+import {User, ArrowLeft, Share2, Bookmark} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import DOMPurify from 'dompurify';
 import NotionViewer from '../components/editor/NotionViewer';

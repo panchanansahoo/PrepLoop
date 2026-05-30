@@ -1,12 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, _useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import {
-  ArrowLeft, GitPullRequest, MessageSquare, Send, CheckCircle, AlertTriangle,
-  ChevronRight, RotateCcw, Award, TrendingUp, Clock, Target, Star,
-  ThumbsUp, ThumbsDown, Code2, Zap, Eye, Shield, Scale
-} from 'lucide-react';
-import { CODE_REVIEW_SCENARIOS, SCORING_RUBRICS } from '../data/interviewModesData';
+import { ArrowLeft, GitPullRequest, MessageSquare, Send, CheckCircle, AlertTriangle, ChevronRight, RotateCcw, Award, TrendingUp, Clock, Target, Star, ThumbsUp, ThumbsDown, Code2, Zap, Eye, Shield, Scale } from 'lucide-react';
+import {CODE_REVIEW_SCENARIOS} from '../data/interviewModesData';
 import InterviewRemediationPanel from '../components/InterviewRemediationPanel';
 import './CodeReviewInterview.css';
 

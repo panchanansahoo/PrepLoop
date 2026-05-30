@@ -1,12 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import {
-  ArrowLeft, Bug, Play, Timer, CheckCircle, X, AlertTriangle,
-  Eye, Wrench, Zap, TrendingUp, RotateCcw, ChevronRight,
-  MessageSquare, Award, Clock, Target, Code2, Lightbulb, ArrowRight
-} from 'lucide-react';
-import { DEBUGGING_CHALLENGES, SCORING_RUBRICS } from '../data/interviewModesData';
+import { ArrowLeft, Bug, Play, Timer, CheckCircle, X, AlertTriangle, Eye, Wrench, Zap, TrendingUp, RotateCcw, ChevronRight, MessageSquare, Award, Clock, Target, Code2, Lightbulb, ArrowRight } from 'lucide-react';
+import {DEBUGGING_CHALLENGES} from '../data/interviewModesData';
 import { analyzeDebuggingBehavior } from '../utils/interviewScoringEngine';
 import InterviewRemediationPanel from '../components/InterviewRemediationPanel';
 import './DebuggingInterview.css';
@@ -48,7 +44,7 @@ export default function DebuggingInterview() {
   const [bugInput, setBugInput] = useState('');
   const [timer, setTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
-  const [startTime, setStartTime] = useState(null);
+  const [_startTime, setStartTime] = useState(null);
   const [phaseTimestamps, setPhaseTimestamps] = useState({});
   const [hintsUsed, setHintsUsed] = useState(0);
   const [showHint, setShowHint] = useState(false);

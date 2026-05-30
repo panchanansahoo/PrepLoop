@@ -170,3 +170,8 @@ export default {
     getAvailableCompanies,
     getQuestionCount,
 };
+
+// Backwards-compatible underscore-prefixed aliases
+export const _getFilteredQuestions = getFilteredQuestions;
+export const _getQuestionCount = getQuestionCount;
+export const _getRandomQuestionSet = getRandomQuestionSet;

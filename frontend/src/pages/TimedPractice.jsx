@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import {
     Timer, Zap, Clock, Target, Play, Pause, RotateCcw,
@@ -39,7 +39,7 @@ const MODES = [
 ];
 
 export default function TimedPractice() {
-    const { user } = useAuth();
+    const { _user } = useAuth();
     const [phase, setPhase] = useState('select'); // select | active | results
     const [selectedMode, setSelectedMode] = useState(null);
     const [session, setSession] = useState(null);

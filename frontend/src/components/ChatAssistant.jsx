@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, Trash2, Sparkles, Bot, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
@@ -69,7 +69,7 @@ export default function ChatAssistant() {
           : (data?.error || 'Sorry, something went wrong. Please try again.');
         setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.' }]);
     } finally {
       setLoading(false);

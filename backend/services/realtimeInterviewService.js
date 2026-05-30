@@ -8,7 +8,7 @@ import crypto from 'crypto';
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
 let _groqPromise = null;
-async function getGroqClient() {
+function getGroqClient() {
   if (_groqPromise) return _groqPromise;
   _groqPromise = (async () => {
     try {
@@ -30,7 +30,7 @@ class RealtimeInterviewService {
   initialize(server) {
     this.wss = new WebSocketServer({ server, path: '/ws/interview' });
 
-    this.wss.on('connection', (ws, req) => {
+    this.wss.on('connection', (ws, _req) => {
       const sessionId = this.generateSessionId();
       console.log(`[RealtimeInterview] New connection: ${sessionId}`);
 
@@ -86,7 +86,7 @@ class RealtimeInterviewService {
     const session = this.sessions.get(sessionId);
     if (!session) return;
 
-    const { ws, context } = session;
+    const { ws, context: _context } = session;
 
     switch (message.type) {
       case 'start':
@@ -195,7 +195,7 @@ class RealtimeInterviewService {
     context.questionIndex++;
   }
 
-  async handleTranscript(session, message) {
+  handleTranscript(session, message) {
     const { ws } = session;
     const { text, isFinal } = message;
 

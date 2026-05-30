@@ -1,31 +1,31 @@
-import express from "express";
+import _express from "express";
 import { supabaseAdmin } from "../db/supabaseClient.js";
-import { authenticateToken, optionalAuth } from "../middleware/auth.js";
+import { authenticateToken as _authenticateToken, optionalAuth as _optionalAuth } from "../middleware/auth.js";
 import multer from 'multer';
-import { validateCustomUrl, buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
-import dsaLearningPath, {
-  getModuleProblems,
-  getModuleProgress,
+import { validateCustomUrl as _validateCustomUrl, buildAvatarPath as _buildAvatarPath, claimCustomUrl as _claimCustomUrl } from '../utils/profileUtils.js';
+import _dsaLearningPath, {
+  getModuleProblems as _getModuleProblems,
+  getModuleProgress as _getModuleProgress,
 } from "../data/dsaLearningPath.js";
-import lldLearningPath from "../data/lldLearningPath.js";
-import aiLearningPath from "../data/aiLearningPath.js";
+import _lldLearningPath from "../data/lldLearningPath.js";
+import _aiLearningPath from "../data/aiLearningPath.js";
 import { applyCoinTransaction } from "../utils/coinTransactions.js";
-import { calculateDashboardStreak } from "../utils/dashboardStreak.js";
-import { normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
+import { calculateDashboardStreak as _calculateDashboardStreak } from "../utils/dashboardStreak.js";
+import { normalizeProfileUpdatePayload as _normalizeProfileUpdatePayload } from "../utils/profilePayload.js";
 
 
 const PROFILE_COMPLETION_COIN_REWARD = 20;
 
 // Multer memory storage for small avatar uploads
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const _upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const isProfilesAccessBlocked = (error) => {
+const _isProfilesAccessBlocked = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '42P17' || message.includes('infinite recursion detected in policy');
 };
 
-const isMissingRelationError = (error) => {
+const _isMissingRelationError = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '42P01' || message.includes('does not exist');
@@ -41,7 +41,7 @@ const QUIZ_TOPICS = new Set([
   'oop',
 ]);
 
-const normalizeQuizTopic = (value) => {
+const _normalizeQuizTopic = (value) => {
   const normalized = String(value || '')
     .trim()
     .toLowerCase()
@@ -63,7 +63,7 @@ const normalizeQuizTopic = (value) => {
   return QUIZ_TOPICS.has(resolved) ? resolved : null;
 };
 
-const buildProfileResponse = (req, profile) => {
+const _buildProfileResponse = (req, profile) => {
   const fullName = profile?.full_name || req.user?.user_metadata?.full_name || '';
   const subscriptionTier = profile?.subscription_tier || 'free';
   const experienceLevel = profile?.experience_level || 'beginner';
@@ -88,7 +88,7 @@ const buildProfileResponse = (req, profile) => {
     skills: profile?.skills || '',
     education: profile?.education || '',
     qualification: profile?.qualification || profile?.education || '',
-    experience: experienceSummary || (experienceYears != null ? String(experienceYears) : experienceLevel),
+    experience: experienceSummary || (experienceYears !== null ? String(experienceYears) : experienceLevel),
     experienceSummary,
     experienceYears,
     company: profile?.company || '',
@@ -180,7 +180,7 @@ const isProfileCompleteForReward = (profile) => {
   ].every(hasText);
 };
 
-const awardProfileCompletionCoins = async (userId, profile) => {
+const _awardProfileCompletionCoins = async (userId, profile) => {
   if (!profile || !isProfileCompleteForReward(profile)) {
     return { coinsAwarded: 0, coinBalance: profile?.coins ?? null, applied: false };
   }
@@ -274,7 +274,7 @@ let dashboardPatternCatalogCache = {
   problemCountByPatternId: new Map(),
 };
 
-const getDashboardPatternCatalog = async () => {
+const _getDashboardPatternCatalog = async () => {
   const now = Date.now();
   if (
     dashboardPatternCatalogCache.fetchedAt &&
@@ -327,7 +327,7 @@ const getLevelInfo = (xp) => {
   return { ...LEVELS[0], index: 0 };
 };
 
-const getLevelProgressInfo = (xp) => {
+const _getLevelProgressInfo = (xp) => {
   const totalXP = Number(xp) || 0;
   const currentLevel = getLevelInfo(totalXP);
   const nextLevel = LEVELS[currentLevel.index + 1] || null;
@@ -349,7 +349,7 @@ const getLevelProgressInfo = (xp) => {
   };
 };
 
-const getWeekRange = (offsetWeeks = 0) => {
+const _getWeekRange = (offsetWeeks = 0) => {
   const start = new Date();
   start.setDate(start.getDate() - start.getDay() - (offsetWeeks * 7));
   start.setHours(0, 0, 0, 0);
@@ -360,7 +360,7 @@ const getWeekRange = (offsetWeeks = 0) => {
   return { start, end };
 };
 
-const buildWeeklyStats = (submissions, start, end) => {
+const _buildWeeklyStats = (submissions, start, end) => {
   const accepted = (submissions || []).filter((submission) => {
     const submittedAt = new Date(submission.submitted_at);
     return submission.status === 'accepted' && submittedAt >= start && submittedAt < end;
@@ -383,14 +383,14 @@ const buildWeeklyStats = (submissions, start, end) => {
   };
 };
 
-const buildDateKey = (value) => {
+const _buildDateKey = (value) => {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
 };
 
-const computeCurrentStreak = (dateKeys = []) => {
+const _computeCurrentStreak = (dateKeys = []) => {
   if (!Array.isArray(dateKeys) || dateKeys.length === 0) return 0;
 
   const uniqueSorted = [...new Set(dateKeys)]
@@ -421,7 +421,7 @@ const computeCurrentStreak = (dateKeys = []) => {
   return streak;
 };
 
-const toDisplayName = (profile) => {
+const _toDisplayName = (profile) => {
   const fullName = String(profile?.full_name || '').trim();
   if (fullName.length > 0) return fullName;
 
@@ -440,12 +440,12 @@ const toDisplayName = (profile) => {
 
 
 
-const getStableDailySeed = () => {
+const _getStableDailySeed = () => {
   const now = new Date();
   return Number(`${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`);
 };
 
-const pickDeterministicItems = (items, count, seed) => {
+const _pickDeterministicItems = (items, count, seed) => {
   if (!Array.isArray(items) || items.length === 0 || count <= 0) return [];
 
   const used = new Set();
@@ -463,7 +463,7 @@ const pickDeterministicItems = (items, count, seed) => {
   return result;
 };
 
-const buildUpcomingItemsFromCalendar = (events = []) => {
+const _buildUpcomingItemsFromCalendar = (events = []) => {
   const now = new Date();
 
   return (events || [])
@@ -507,7 +507,7 @@ const buildUpcomingItemsFromCalendar = (events = []) => {
     });
 };
 
-const fetchSqlProblemRecommendations = async (limit = 250) => {
+const _fetchSqlProblemRecommendations = async (limit = 250) => {
   const candidates = [
     { table: 'sql_problems', select: 'id, title, difficulty' },
     { table: 'sql_challenges', select: 'id, title, difficulty' },
@@ -579,17 +579,11 @@ const fetchSqlProblemRecommendations = async (limit = 250) => {
 
 // Get specific module from DSA learning path
 
-,
-);
-
 // Get complete LLD learning path
 
 
 
 // Get specific module from LLD learning path
-
-,
-);
 
 // Get/Update user settings
 

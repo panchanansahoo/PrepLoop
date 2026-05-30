@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronRight, Sparkles, TrendingUp, AlertCircle, Zap, Target, Award } from 'lucide-react';
 import './roadmap-recommendations.css';
 

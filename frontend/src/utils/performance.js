@@ -18,7 +18,7 @@ export const measureWebVitals = () => {
 
   try {
     observer.observe({ entryTypes: ['largest-contentful-paint', 'first-input', 'layout-shift'] });
-  } catch (e) {
+  } catch {
     // Browser doesn't support these metrics
   }
 };
@@ -95,7 +95,7 @@ export const reportLongTask = () => {
 
   try {
     observer.observe({ entryTypes: ['longtask'] });
-  } catch (e) {
+  } catch {
     // Browser doesn't support longtask
   }
 };

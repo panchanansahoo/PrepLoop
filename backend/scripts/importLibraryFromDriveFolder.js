@@ -63,7 +63,7 @@ function decodeEscapes(text) {
   );
 
   return uDecoded
-    .replace(/\\\//g, '/')
+    .replace(/\//g, '/')
     .replace(/\\"/g, '"');
 }
 
@@ -77,7 +77,7 @@ function normalizeWhitespace(input) {
 function normalizeLabel(input) {
   return normalizeWhitespace(input)
     .replace(/-+/g, ' ')
-    .replace(/[\[\]{}]/g, ' ')
+    .replace(/[\]{}]/g, ' ')
     .replace(/\s*\([^)]*\)\s*$/g, ' ')
     .replace(/\bpdf\b$/i, ' ')
     .replace(/\s+/g, ' ')
@@ -279,7 +279,7 @@ function deriveBookFields(fileName, fileUrl) {
   };
 }
 
-function parsePdfEntriesFromHtml(html, folderId) {
+function _parsePdfEntriesFromHtml(html, folderId) {
   const decoded = decodeEscapes(html);
 
   const pattern = /\["([a-zA-Z0-9_-]{10,})",\["([a-zA-Z0-9_-]{10,})"\],"((?:[^"\\]|\\.)*)","([^"]+)",/g;
@@ -354,7 +354,7 @@ async function fetchDriveFolderHtml(folderUrl) {
   return response.text();
 }
 
-async function fetchDriveFolderHtmlById(folderId) {
+function fetchDriveFolderHtmlById(folderId) {
   const folderUrl = `https://drive.google.com/drive/folders/${folderId}?usp=sharing`;
   return fetchDriveFolderHtml(folderUrl);
 }

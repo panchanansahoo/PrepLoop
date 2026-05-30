@@ -1,10 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  GraduationCap, Clock, Target, Zap, ChevronRight, ChevronDown,
-  Building2, FileText, Shield, AlertTriangle, Play, Sparkles,
-  Trophy, BarChart3, Timer, Hash, BookOpen, Star
-} from 'lucide-react';
+import { GraduationCap, Clock, Target, Zap, ChevronRight, ChevronDown, Building2, FileText, Shield, AlertTriangle, Play, Sparkles, Trophy, BarChart3, Timer, Hash, BookOpen, Star } from 'lucide-react';
 import { EXAM_CATALOG, getExamsByCompany } from '../data/examData';
 import { useTheme } from '../context/ThemeContext';
 
@@ -21,7 +17,7 @@ const COMPANY_META = {
 
 export default function ExamHub() {
   const [expandedCompany, setExpandedCompany] = useState(null);
-  const [selectedTier, setSelectedTier] = useState('all');
+  const [_selectedTier,_setSelectedTierr] = useState('all');
   const navigate = useNavigate();
   const { theme } = useTheme();
   const isLight = theme === 'light';

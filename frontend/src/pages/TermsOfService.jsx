@@ -1,4 +1,3 @@
-import React from 'react';
 import { FileText, CheckCircle, AlertCircle, HelpCircle } from 'lucide-react';
 
 

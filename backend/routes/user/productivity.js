@@ -1,37 +1,37 @@
 import express from "express";
 import { supabaseAdmin } from "../../db/supabaseClient.js";
-import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
-import multer from 'multer';
-import { validateCustomUrl, buildAvatarPath, claimCustomUrl } from "../../utils/profileUtils.js";
-import dsaLearningPath, {
-  getModuleProblems,
-  getModuleProgress,
+import { authenticateToken, optionalAuth as _optionalAuth } from "../../middleware/auth.js";
+import _multer from 'multer';
+import { validateCustomUrl as _validateCustomUrl, buildAvatarPath as _buildAvatarPath, claimCustomUrl as _claimCustomUrl } from "../../utils/profileUtils.js";
+import _dsaLearningPath, {
+  getModuleProblems as _getModuleProblems,
+  getModuleProgress as _getModuleProgress,
 } from "../../data/dsaLearningPath.js";
-import lldLearningPath from "../../data/lldLearningPath.js";
-import aiLearningPath from "../../data/aiLearningPath.js";
-import { applyCoinTransaction } from "../../utils/coinTransactions.js";
-import { calculateDashboardStreak } from "../../utils/dashboardStreak.js";
-import { normalizeProfileUpdatePayload } from "../../utils/profilePayload.js";
+import _lldLearningPath from "../../data/lldLearningPath.js";
+import _aiLearningPath from "../../data/aiLearningPath.js";
+import { applyCoinTransaction as _applyCoinTransaction } from "../../utils/coinTransactions.js";
+import { calculateDashboardStreak as _calculateDashboardStreak } from "../../utils/dashboardStreak.js";
+import { normalizeProfileUpdatePayload as _normalizeProfileUpdatePayload } from "../../utils/profilePayload.js";
 
 
-const PROFILE_COMPLETION_COIN_REWARD = 20;
+const _PROFILE_COMPLETION_COIN_REWARD = 20;
 
 // Multer memory storage for small avatar uploads
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const _upload = _multer({ storage: _multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
-const isProfilesAccessBlocked = (error) => {
+const _isProfilesAccessBlocked = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '42P17' || message.includes('infinite recursion detected in policy');
 };
 
-const isMissingRelationError = (error) => {
+const _isMissingRelationError = (error) => {
   const code = String(error?.code || '').toUpperCase();
   const message = String(error?.message || '').toLowerCase();
   return code === '42P01' || message.includes('does not exist');
 };
 
-const QUIZ_TOPICS = new Set([
+const _QUIZ_TOPICS = new Set([
   'dsa',
   'db',
   'system-design',
@@ -41,7 +41,7 @@ const QUIZ_TOPICS = new Set([
   'oop',
 ]);
 
-const normalizeQuizTopic = (value) => {
+const _normalizeQuizTopic = (value) => {
   const normalized = String(value || '')
     .trim()
     .toLowerCase()
@@ -60,10 +60,10 @@ const normalizeQuizTopic = (value) => {
   };
 
   const resolved = aliases[normalized] || normalized;
-  return QUIZ_TOPICS.has(resolved) ? resolved : null;
+  return _QUIZ_TOPICS.has(resolved) ? resolved : null;
 };
 
-const buildProfileResponse = (req, profile) => {
+const _buildProfileResponse = (req, profile) => {
   const fullName = profile?.full_name || req.user?.user_metadata?.full_name || '';
   const subscriptionTier = profile?.subscription_tier || 'free';
   const experienceLevel = profile?.experience_level || 'beginner';
@@ -88,7 +88,7 @@ const buildProfileResponse = (req, profile) => {
     skills: profile?.skills || '',
     education: profile?.education || '',
     qualification: profile?.qualification || profile?.education || '',
-    experience: experienceSummary || (experienceYears != null ? String(experienceYears) : experienceLevel),
+    experience: experienceSummary || (experienceYears !== null ? String(experienceYears) : experienceLevel),
     experienceSummary,
     experienceYears,
     company: profile?.company || '',
@@ -158,9 +158,9 @@ const buildProfileResponse = (req, profile) => {
   };
 };
 
-const hasText = (value) => String(value ?? '').trim().length > 0;
+const _hasText = (value) => String(value ?? '').trim().length > 0;
 
-const isProfileCompleteForReward = (profile) => {
+const _isProfileCompleteForReward = (profile) => {
   const experienceValue =
     profile?.experience_summary ??
     profile?.experience_years ??
@@ -177,20 +177,20 @@ const isProfileCompleteForReward = (profile) => {
     profile?.bio,
     profile?.location,  // New field
     profile?.company   // New field
-  ].every(hasText);
+  ].every(_hasText);
 };
 
-const awardProfileCompletionCoins = async (userId, profile) => {
-  if (!profile || !isProfileCompleteForReward(profile)) {
+const _awardProfileCompletionCoins = async (userId, profile) => {
+  if (!profile || !_isProfileCompleteForReward(profile)) {
     return { coinsAwarded: 0, coinBalance: profile?.coins ?? null, applied: false };
   }
 
   const description = 'Profile completed'.slice(0, 160);
   const referenceKey = `profile_complete:${userId}`;
 
-  const atomicResult = await applyCoinTransaction({
+  const atomicResult = await _applyCoinTransaction({
     userId,
-    amount: PROFILE_COMPLETION_COIN_REWARD,
+    amount: _PROFILE_COMPLETION_COIN_REWARD,
     type: 'earn',
     description,
     referenceKey,
@@ -202,7 +202,7 @@ const awardProfileCompletionCoins = async (userId, profile) => {
     }
 
     return {
-      coinsAwarded: atomicResult.applied ? PROFILE_COMPLETION_COIN_REWARD : 0,
+      coinsAwarded: atomicResult.applied ? _PROFILE_COMPLETION_COIN_REWARD : 0,
       coinBalance: atomicResult.balance,
       applied: atomicResult.applied,
     };
@@ -227,7 +227,7 @@ const awardProfileCompletionCoins = async (userId, profile) => {
   }
 
   const currentCoins = Number(profile?.coins || 0);
-  const newBalance = currentCoins + PROFILE_COMPLETION_COIN_REWARD;
+  const newBalance = currentCoins + _PROFILE_COMPLETION_COIN_REWARD;
 
   const { error: updateError } = await supabaseAdmin
     .from('profiles')
@@ -238,25 +238,25 @@ const awardProfileCompletionCoins = async (userId, profile) => {
 
   await supabaseAdmin.from('coin_transactions').insert({
     user_id: userId,
-    amount: PROFILE_COMPLETION_COIN_REWARD,
+    amount: _PROFILE_COMPLETION_COIN_REWARD,
     type: 'earn',
     description,
   });
 
   return {
-    coinsAwarded: PROFILE_COMPLETION_COIN_REWARD,
+    coinsAwarded: _PROFILE_COMPLETION_COIN_REWARD,
     coinBalance: newBalance,
     applied: true,
   };
 };
 
-const XP_BY_DIFFICULTY = {
+const _XP_BY_DIFFICULTY = {
   easy: 10,
   medium: 25,
   hard: 50,
 };
 
-const LEVELS = [
+const _LEVELS = [
   { name: 'Novice', minXP: 0 },
   { name: 'Apprentice', minXP: 100 },
   { name: 'Intermediate', minXP: 350 },
@@ -267,20 +267,20 @@ const LEVELS = [
   { name: 'Legend', minXP: 15000 },
 ];
 
-const DASHBOARD_PATTERN_CACHE_TTL_MS = 10 * 60 * 1000;
-let dashboardPatternCatalogCache = {
+const _DASHBOARD_PATTERN_CACHE_TTL_MS = 10 * 60 * 1000;
+let _dashboardPatternCatalogCache = {
   fetchedAt: 0,
   patternMap: new Map(),
   problemCountByPatternId: new Map(),
 };
 
-const getDashboardPatternCatalog = async () => {
+const _getDashboardPatternCatalog = async () => {
   const now = Date.now();
   if (
-    dashboardPatternCatalogCache.fetchedAt &&
-    now - dashboardPatternCatalogCache.fetchedAt < DASHBOARD_PATTERN_CACHE_TTL_MS
+    _dashboardPatternCatalogCache.fetchedAt &&
+    now - _dashboardPatternCatalogCache.fetchedAt < _DASHBOARD_PATTERN_CACHE_TTL_MS
   ) {
-    return dashboardPatternCatalogCache;
+    return _dashboardPatternCatalogCache;
   }
 
   const [patternsResult, problemsResult] = await Promise.all([
@@ -306,31 +306,31 @@ const getDashboardPatternCatalog = async () => {
     );
   });
 
-  dashboardPatternCatalogCache = {
+  _dashboardPatternCatalogCache = {
     fetchedAt: now,
     patternMap,
     problemCountByPatternId,
   };
 
-  return dashboardPatternCatalogCache;
+  return _dashboardPatternCatalogCache;
 };
 
-const getLevelInfo = (xp) => {
+const _getLevelInfo = (xp) => {
   const safeXP = Number(xp) || 0;
 
-  for (let index = LEVELS.length - 1; index >= 0; index -= 1) {
-    if (safeXP >= LEVELS[index].minXP) {
-      return { ...LEVELS[index], index };
+  for (let index = _LEVELS.length - 1; index >= 0; index -= 1) {
+    if (safeXP >= _LEVELS[index].minXP) {
+      return { ..._LEVELS[index], index };
     }
   }
 
-  return { ...LEVELS[0], index: 0 };
+  return { ..._LEVELS[0], index: 0 };
 };
 
-const getLevelProgressInfo = (xp) => {
+const _getLevelProgressInfo = (xp) => {
   const totalXP = Number(xp) || 0;
-  const currentLevel = getLevelInfo(totalXP);
-  const nextLevel = LEVELS[currentLevel.index + 1] || null;
+  const currentLevel = _getLevelInfo(totalXP);
+  const nextLevel = _LEVELS[currentLevel.index + 1] || null;
 
   if (!nextLevel) {
     return {
@@ -349,7 +349,7 @@ const getLevelProgressInfo = (xp) => {
   };
 };
 
-const getWeekRange = (offsetWeeks = 0) => {
+const _getWeekRange = (offsetWeeks = 0) => {
   const start = new Date();
   start.setDate(start.getDate() - start.getDay() - (offsetWeeks * 7));
   start.setHours(0, 0, 0, 0);
@@ -360,7 +360,7 @@ const getWeekRange = (offsetWeeks = 0) => {
   return { start, end };
 };
 
-const buildWeeklyStats = (submissions, start, end) => {
+const _buildWeeklyStats = (submissions, start, end) => {
   const accepted = (submissions || []).filter((submission) => {
     const submittedAt = new Date(submission.submitted_at);
     return submission.status === 'accepted' && submittedAt >= start && submittedAt < end;
@@ -372,7 +372,7 @@ const buildWeeklyStats = (submissions, start, end) => {
 
     accumulator.problems += 1;
     accumulator.timeHours += executionTime / 3600;
-    accumulator.xp += XP_BY_DIFFICULTY[difficulty] || XP_BY_DIFFICULTY.easy;
+    accumulator.xp += _XP_BY_DIFFICULTY[difficulty] || _XP_BY_DIFFICULTY.easy;
     return accumulator;
   }, { problems: 0, timeHours: 0, xp: 0 });
 
@@ -383,14 +383,14 @@ const buildWeeklyStats = (submissions, start, end) => {
   };
 };
 
-const buildDateKey = (value) => {
+const _buildDateKey = (value) => {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString().slice(0, 10);
 };
 
-const computeCurrentStreak = (dateKeys = []) => {
+const _computeCurrentStreak = (dateKeys = []) => {
   if (!Array.isArray(dateKeys) || dateKeys.length === 0) return 0;
 
   const uniqueSorted = [...new Set(dateKeys)]
@@ -421,7 +421,7 @@ const computeCurrentStreak = (dateKeys = []) => {
   return streak;
 };
 
-const toDisplayName = (profile) => {
+const _toDisplayName = (profile) => {
   const fullName = String(profile?.full_name || '').trim();
   if (fullName.length > 0) return fullName;
 
@@ -440,12 +440,12 @@ const toDisplayName = (profile) => {
 
 
 
-const getStableDailySeed = () => {
+const _getStableDailySeed = () => {
   const now = new Date();
   return Number(`${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}${String(now.getUTCDate()).padStart(2, '0')}`);
 };
 
-const pickDeterministicItems = (items, count, seed) => {
+const _pickDeterministicItems = (items, count, seed) => {
   if (!Array.isArray(items) || items.length === 0 || count <= 0) return [];
 
   const used = new Set();
@@ -463,7 +463,7 @@ const pickDeterministicItems = (items, count, seed) => {
   return result;
 };
 
-const buildUpcomingItemsFromCalendar = (events = []) => {
+const _buildUpcomingItemsFromCalendar = (events = []) => {
   const now = new Date();
 
   return (events || [])
@@ -507,7 +507,7 @@ const buildUpcomingItemsFromCalendar = (events = []) => {
     });
 };
 
-const fetchSqlProblemRecommendations = async (limit = 250) => {
+const _fetchSqlProblemRecommendations = async (limit = 250) => {
   const candidates = [
     { table: 'sql_problems', select: 'id, title, difficulty' },
     { table: 'sql_challenges', select: 'id, title, difficulty' },

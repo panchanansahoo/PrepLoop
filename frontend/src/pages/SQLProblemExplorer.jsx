@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, ChevronRight, Database, Star, TrendingUp, Clock, CheckCircle } from 'lucide-react';
 import { SQL_PROBLEMS, SQL_CATEGORIES, SQL_COMPANIES } from '../data/sqlProblemsDatabase';

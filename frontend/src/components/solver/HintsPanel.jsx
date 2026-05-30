@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Lightbulb, Shield, Zap, ChevronDown, ChevronRight, Lock, Unlock, AlertTriangle, CheckCircle2, Sparkles, Target, Code2 } from 'lucide-react';
+import {Lightbulb, Shield, Zap, ChevronDown, ChevronRight, Lock, Unlock, CheckCircle2, Sparkles, Target, Code2} from 'lucide-react';
 import { HINT_LEVELS, getHintsForProblem, analyzeCodeQuality, getOptimizationTips, getSeverityColor } from '../../data/hintsEngine';
 import { PATTERN_HINTS, ALGORITHM_TEMPLATES } from '../../data/dsaTemplates';
 

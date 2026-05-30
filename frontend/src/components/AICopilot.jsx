@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Brain, X, ChevronDown, ChevronUp, Target, Sparkles,
     MessageSquare, Zap, Lightbulb, AlertCircle, Loader2, Eye, EyeOff

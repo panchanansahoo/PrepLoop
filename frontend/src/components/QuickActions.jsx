@@ -1,10 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import {
-    Mic, Code2, Database,
-    Building2, Calculator, CalendarDays, Trophy,
-    FileText, GraduationCap, Zap
-} from 'lucide-react';
+import { Mic, Code2, Database, Building2, Calculator, CalendarDays, Trophy, FileText, GraduationCap, Zap } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 const actions = [

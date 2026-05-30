@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -397,7 +397,7 @@ function createMindmapLayout(roots, collapsedNodeIds = new Set(), forceExpand = 
     };
 }
 
-function buildEdgePath(fromNode, toNode) {
+function _buildEdgePath(fromNode, toNode) {
     const startX = fromNode.x + fromNode.width;
     const startY = fromNode.y + fromNode.height / 2;
     const endX = toNode.x;
@@ -586,6 +586,7 @@ function createFlowGraph(layout, query, onToggleNode) {
 }
 
 /* ─── Helper: count total leaf nodes ─── */
+/* eslint-disable-next-line no-unused-vars */
 function countAllLeafNodes(nodes = []) {
     return nodes.reduce((sum, node) => {
         if (!node.children?.length) return sum + 1;
@@ -601,7 +602,7 @@ export default function RoadmapView({
     hierarchy = [],
     patterns = [],
     topics = [],
-    sourceUrl,
+    _sourceUrl,
     mode = 'full',
     trackKey = 'dsa',
     kicker = 'Roadmap',
@@ -635,7 +636,7 @@ export default function RoadmapView({
     );
     const [collapsedNodeIds, setCollapsedNodeIds] = useState(() => new Set(defaultCollapsedNodeIds));
     const [legendOpen, setLegendOpen] = useState(true);
-    const [showStats, setShowStats] = useState(true);
+    const [showStats, _setShowStats] = useState(true);
 
     const patternIndexes = useMemo(() => createPatternIndexes(patterns), [patterns]);
     const topicProgressIndex = useMemo(() => createTopicProgressIndex(topics), [topics]);
@@ -666,8 +667,8 @@ export default function RoadmapView({
         selectedStatuses,
         sortBy,
         isFiltered,
-        filteredGuides,
-        filteredStats,
+        _filteredGuides,
+        _filteredStats,
         setSelectedDifficulties,
         setSelectedStatuses,
         setSortBy,

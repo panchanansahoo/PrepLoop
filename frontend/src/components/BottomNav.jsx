@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Code, Mic, BarChart3, User } from 'lucide-react';
+import {LayoutDashboard, Code, Mic, User} from 'lucide-react';
 import './BottomNav.css';
 
 const tabs = [

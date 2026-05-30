@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, MessageSquare, Code2, FileText, BookOpen, Brain, Cpu, TrendingUp } from 'lucide-react';
+import {ArrowRight, Code2} from 'lucide-react';
 
 const coreFeatures = [
 

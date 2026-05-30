@@ -33,7 +33,7 @@ const sampleQuestions = (pool, count, poolName = 'default') => {
   try {
     const stored = localStorage.getItem(`seen_questions_${poolName}`);
     if (stored) seenIds = JSON.parse(stored);
-  } catch (e) {
+  } catch {
     // Ignore localStorage errors
   }
 
@@ -58,7 +58,7 @@ const sampleQuestions = (pool, count, poolName = 'default') => {
   selected.forEach(q => seenIds.push(q.id));
   try {
     localStorage.setItem(`seen_questions_${poolName}`, JSON.stringify(seenIds));
-  } catch (e) {
+  } catch {
     // Ignore
   }
 

@@ -203,7 +203,7 @@ export async function seedDatabase() {
 }
 
 // Example of creating a profile with new fields
-async function createExampleProfile() {
+async function _createExampleProfile() {
   const { data: newProfile, error } = await supabaseAdmin
     .from("profiles")
     .insert({

@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Grid3X3, List, ChevronRight, CheckCircle2, Circle, BookOpen, Zap, Award } from 'lucide-react';
 import './roadmap-alternative-view.css';
 
-export default function RoadmapAlternativeView({ enrichedRoots, view = 'mindmap', onViewChange, guideProgressById = {} }) {
+export default function RoadmapAlternativeView({ enrichedRoots, view = 'mindmap', _onViewChange, guideProgressById = {} }) {
     const [gridLayout, setGridLayout] = useState('grid'); // grid or list
 
     // Flatten and enrich guides for card view

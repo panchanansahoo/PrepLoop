@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Flame, Trophy, Zap, TrendingUp } from 'lucide-react';
+import { useMemo, useState, useEffect } from 'react';
+import {ChevronLeft, ChevronRight, Flame, Trophy} from 'lucide-react';
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

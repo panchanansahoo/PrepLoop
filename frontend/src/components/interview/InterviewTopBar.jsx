@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Clock, Timer, Sparkles, Phone, PanelRightOpen, PanelRightClose } from 'lucide-react';
 import { getQuestionTimeLimit } from '../../pages/aiInterviewTiming';
 

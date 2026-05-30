@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './PomodoroTimer.css';
 import { Play, Pause, RotateCcw, Coffee, Brain, Timer, Settings, SkipForward, Volume2, VolumeX, BarChart3 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
@@ -95,7 +95,7 @@ function playBeep() {
             gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
             osc2.stop(ctx.currentTime + 0.6);
         }, 300);
-    } catch {}
+    } catch { /* empty */ }
 }
 
 export default function PomodoroTimer({ stats }) {

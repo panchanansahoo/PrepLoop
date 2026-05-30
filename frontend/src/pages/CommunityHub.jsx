@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+
 import axios from 'axios';
 import {
-  Users, MessageCircle, Trophy, Flame, Star, ExternalLink,
-  Github, Linkedin, Twitter, ChevronRight, Calendar, Sparkles,
-  BookOpen, Target, Mic, Code2, Zap, Crown, Medal, Award,
-  Globe, Hash, ArrowRight, Clock, TrendingUp, Heart
+  Users, MessageCircle, Trophy, ExternalLink,
+  ChevronRight, Calendar, Globe, Clock,
+  Github, Twitter, Linkedin,
+  Mic, TrendingUp, Heart
 } from 'lucide-react';
 import { API_URL } from '../config/api.js';
 
@@ -155,7 +155,7 @@ function GradientDivider() {
 // ── Main Component ──
 export default function CommunityHub() {
   const [activeSection, setActiveSection] = useState('overview');
-  const [memberCount, setMemberCount] = useState(5000);
+  const [memberCount, _setMemberCount] = useState(5000);
   const [discussions, setDiscussions] = useState([]);
   const [studyGroups, setStudyGroups] = useState([]);
   const [joinedGroups, setJoinedGroups] = useState(new Set());

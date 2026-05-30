@@ -59,3 +59,7 @@ export function buildVoiceTelemetrySnapshot({
     lastUpdatedAt: new Date().toISOString(),
   };
 }
+
+// Backwards-compatible aliases
+export const _buildVoiceTelemetrySnapshot = buildVoiceTelemetrySnapshot;
+export const _buildInitialVoiceTelemetry = buildInitialVoiceTelemetry;

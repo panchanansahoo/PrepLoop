@@ -1,14 +1,13 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { dirname } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const _filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(_filename);
 
 async function checkTableExists() {
   try {
-    const { data, error } = await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('improvement_plans')
       .select('id')
       .limit(1);
@@ -20,7 +19,7 @@ async function checkTableExists() {
       throw error;
     }
     return true; // Table exists
-  } catch (error) {
+  } catch {
     return false;
   }
 }
@@ -65,7 +64,7 @@ async function deployImprovementPlan() {
       }
     ];
 
-    const analysis = ImprovementPlanService._analyzeWeaknesses(mockSessions);
+    ImprovementPlanService._analyzeWeaknesses(mockSessions);
     console.log('✅ Service is working correctly\n');
 
     // Step 3: Verify routes are registered

@@ -33,7 +33,7 @@ class PerformanceMonitor {
     }
   }
 
-  recordCacheEvent(type, key) {
+  recordCacheEvent(type, _key) {
     if (!this.enabled) return;
     try {
       if (type === 'hit') this.metrics.cache.hits++;

@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import { Component } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 class EnhancedErrorBoundary extends Component {
@@ -70,7 +70,7 @@ class EnhancedErrorBoundary extends Component {
           },
         }),
       });
-    } catch (err) {
+    } catch {
       // Silently fail — error reporting should never crash the app
     }
   };

@@ -1,9 +1,6 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    ArrowLeft, BookOpen, Zap, Sparkles, Target, Check, ChevronRight, Clock,
-    Lightbulb, Eye, EyeOff, RotateCcw, Timer, CheckCircle2, XCircle, ChevronDown
-} from 'lucide-react';
+import { ArrowLeft, BookOpen, Zap, Sparkles, Target, Check, ChevronRight, Clock, Lightbulb, Eye, EyeOff, RotateCcw, Timer, CheckCircle2, XCircle, ChevronDown } from 'lucide-react';
 import { getTopicById } from '../data/learningPathData';
 import {
     getTopicProgress, markTheoryComplete, markMethodLearned,
@@ -182,7 +179,7 @@ function ShortcutsTab({ topic, progress, onLearn }) {
 }
 
 /* ─── Practice Tab ─── */
-function PracticeTab({ topic, progress }) {
+function PracticeTab({ topic, _progress }) {
     const [difficulty, setDifficulty] = useState('all');
     const [currentIdx, setCurrentIdx] = useState(0);
     const [selected, setSelected] = useState(null);

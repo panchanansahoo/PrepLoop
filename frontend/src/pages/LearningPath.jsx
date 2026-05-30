@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Sparkles, Trophy, Zap, Target, Flame, BookOpen, ChevronRight, Clock, GraduationCap, ArrowRight } from 'lucide-react';
 import { LEARNING_TOPICS, getTopicIds } from '../data/learningPathData';

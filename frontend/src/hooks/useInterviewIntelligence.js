@@ -36,7 +36,7 @@ export function detectFillersInText(text = '') {
   return { counts, total };
 }
 
-export default function useInterviewIntelligence({ getAuthHeaders } = {}) {
+export default function useInterviewIntelligence({ _getAuthHeaders } = {}) {
   const [fillerCounts, setFillerCounts] = useState(() => Object.fromEntries(FILLERS.map((f) => [f, 0])));
   const [clarityScore, setClarityScore] = useState(0);
   const [specificityScore, setSpecificityScore] = useState(0);

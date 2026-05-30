@@ -1,7 +1,7 @@
 export function validateCustomUrl(slug) {
   const value = String(slug || '').trim().toLowerCase();
   if (!value) return { valid: false, reason: 'empty' };
-  if (!/^[a-z0-9\-]{3,30}$/.test(value)) return { valid: false, reason: 'format' };
+  if (!/^[a-z0-9-]{3,30}$/.test(value)) return { valid: false, reason: 'format' };
   return { valid: true, value };
 }
 

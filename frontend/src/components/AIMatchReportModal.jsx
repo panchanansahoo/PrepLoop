@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   X, Gauge, CheckCircle, TrendingUp, Lightbulb, Bot, Sparkles, Medal, ArrowRight, ExternalLink
 } from 'lucide-react';

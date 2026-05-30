@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Code2, Target, TrendingUp, ArrowRight, Sparkles, Clock, AlertTriangle } from 'lucide-react';
+import {BookOpen, Code2, Target, TrendingUp, ArrowRight, Sparkles, Clock} from 'lucide-react';
 import { CONCEPT_LEARNING_MAP } from '../data/interviewModesData';
 import './InterviewRemediationPanel.css';
 

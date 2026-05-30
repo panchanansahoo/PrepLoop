@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { CheckCircle, TrendingUp, AlertTriangle, XCircle } from 'lucide-react';
 
 const ICONS = {

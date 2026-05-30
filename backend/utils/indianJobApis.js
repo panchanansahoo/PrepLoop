@@ -1,5 +1,5 @@
 // Free Indian Job APIs - Production-ready with proper error handling and data extraction
-import { CircuitBreaker, CircuitBreakerOpenError } from './circuitBreaker.js';
+import { CircuitBreaker } from './circuitBreaker.js';
 
 // Circuit breaker for job search APIs
 const jobSearchBreaker = new CircuitBreaker('jobSearch', {

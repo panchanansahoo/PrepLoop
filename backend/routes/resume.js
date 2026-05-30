@@ -777,9 +777,9 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/import-linkedin', authenticateToken, async (req, res) => {
+router.post('/import-linkedin', authenticateToken, (req, res) => {
   try {
-    const { linkedinUrl, profileData } = req.body;
+    const { linkedinUrl: _linkedinUrl, profileData } = req.body;
 
     if (!profileData) {
       return res.status(400).json({ error: 'Profile data is required' });

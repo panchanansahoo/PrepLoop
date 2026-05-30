@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Editor from '@monaco-editor/react';
-import { Code2, Zap, AlertTriangle, Send } from 'lucide-react';
+import {Code2, AlertTriangle, Send} from 'lucide-react';
 import { submitCodeReview } from '../../api/aiService';
 import CodeReviewDisplay from './CodeReviewDisplay';
 import './CodeReview.css';

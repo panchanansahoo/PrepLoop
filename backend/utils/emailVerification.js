@@ -33,7 +33,7 @@ export const isTokenExpired = (expiresAt) => {
  * @param {string} email - User email
  * @returns {string} HTML email content
  */
-export const getVerificationEmailHTML = (verificationUrl, email) => {
+export const getVerificationEmailHTML = (verificationUrl, _email) => {
   return `
     <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';">
       <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border-radius: 12px; border: 1px solid #1e293b; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);">

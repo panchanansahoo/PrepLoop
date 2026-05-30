@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BarChart3, LineChart as LineChartIcon, TrendingUp, Target } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { useTheme } from '../context/ThemeContext';
 import { API_URL } from '../config/api.js';
@@ -8,7 +8,7 @@ import { API_URL } from '../config/api.js';
 export default function InterviewAnalytics() {
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedMetric, setSelectedMetric] = useState('overall');
+  const [_selectedMetric,_setSelectedMetricc] = useState('overall');
   const { theme } = useTheme();
   const isLight = theme === 'light';
 

@@ -1,14 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-    LayoutDashboard, MessageSquare, Brain, BookOpen,
-    Grid3X3, FileText, Code, Users,
-    ChevronLeft, ChevronRight, Sparkles,
-    CalendarDays, BarChart3, Clock, Settings, User,
-    PanelLeftClose, PanelLeftOpen, Calculator, Server,
-    Trophy, ListFilter, Play, Database, GraduationCap, Map,
-    Building2, Mic, Terminal, Network, ShieldCheck, Briefcase
-} from 'lucide-react';
+import { LayoutDashboard, MessageSquare, Brain, BookOpen, Grid3X3, FileText, Code, Users, ChevronLeft, ChevronRight, Sparkles, CalendarDays, BarChart3, Clock, Settings, User, PanelLeftClose, PanelLeftOpen, Calculator, Server, Trophy, ListFilter, Play, Database, GraduationCap, Map, Building2, Mic, Terminal, Network, ShieldCheck, Briefcase } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
 import logo from '../assets/logo.svg';
@@ -85,8 +77,8 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
     const { user, isAdmin } = useAuth();
     const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
     const isCollapsed = collapsed && !mobileOpen;
-    const userName = user?.fullName || user?.name || 'Engineer';
-    const userEmail = user?.email || '';
+    const _userName = user?.fullName || user?.name || 'Engineer';
+    const _userEmail = user?.email || '';
 
     // Build nav sections dynamically based on role
     const sections = [...navSections];

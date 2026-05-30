@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import {useNavigate} from 'react-router-dom';
 import {
     Calculator, Brain, BookOpen, ChevronDown, ChevronRight,
     Trophy, Zap, Target, Clock, BarChart3, Sparkles, Building,

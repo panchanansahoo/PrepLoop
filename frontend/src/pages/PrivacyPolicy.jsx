@@ -1,5 +1,4 @@
-import React from 'react';
-import { Shield, Lock, Eye, Database, FileText } from 'lucide-react';
+import {Shield, Lock, Eye, Database} from 'lucide-react';
 
 
 export default function PrivacyPolicy() {

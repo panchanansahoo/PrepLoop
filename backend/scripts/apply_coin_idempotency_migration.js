@@ -40,7 +40,7 @@ if (!ref) {
   process.exit(1);
 }
 
-const host = `db.${ref}.supabase.co`;
+
 const encodedPassword = encodeURIComponent(supabasePassword);
 // Try connecting with IPv6 address directly
 const connectionString = `postgres://postgres:${encodedPassword}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
@@ -120,7 +120,7 @@ async function run() {
   } catch (error) {
     console.error('❌ Error:', error.message);
     if (error.code === 'ENOENT') {
-      console.error('   Migration file not found at:', migrationPath);
+      console.error('   Migration file not found at: db/migration_coin_transaction_idempotency.sql');
     }
     process.exit(1);
   } finally {

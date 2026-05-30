@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import CodeReviewComponent from './CodeReviewComponent';
 import InterviewComponent from './InterviewComponent';
 import PerformanceAnalyticsComponent from './PerformanceAnalyticsComponent';
@@ -7,7 +7,7 @@ import LoadingAnimation from '../LoadingAnimation';
 
 const AIFeaturesHub = ({ userId, onNavigateHome }) => {
   const [activeTab, setActiveTab] = useState('overview');
-  const [selectedProblemId, setSelectedProblemId] = useState(null);
+  const [selectedProblemId, _setSelectedProblemId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Loading...');
 
@@ -129,7 +129,7 @@ const AIFeaturesHub = ({ userId, onNavigateHome }) => {
 };
 
 // Overview Tab Component
-const OverviewTab = ({ tabs, onSelectTab }) => {
+const OverviewTab = ({ _tabs, onSelectTab }) => {
   return (
     <div className="space-y-8">
       {/* Welcome Section */}

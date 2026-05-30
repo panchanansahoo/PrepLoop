@@ -5,7 +5,7 @@
 import { CONCEPT_LEARNING_MAP } from '../data/interviewModesData';
 
 // ─── Code Quality Analysis ──────────────────────────────────────────────────
-export function analyzeCodeQuality(code, language = 'python') {
+export function analyzeCodeQuality(code, _language = 'python') {
   if (!code || code.trim().length === 0) return { score: 0, issues: [], details: {} };
 
   const lines = code.split('\n');
@@ -386,7 +386,7 @@ export function scoreDebuggingAttempt(challenge, userFix, userExplanation) {
 export function scoreCodeReview(scenario, userFoundIssues = []) {
   const totalIssues = scenario.issues.length;
   const criticalTotal = scenario.issues.filter(i => i.severity === 'critical').length;
-  const majorTotal = scenario.issues.filter(i => i.severity === 'major').length;
+  const _majorTotal = scenario.issues.filter(i => i.severity === 'major').length;
 
   const foundCount = userFoundIssues.length;
   const coverageScore = Math.min(100, Math.round((foundCount / Math.max(1, totalIssues)) * 100));

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import ImportStep from '../components/portfolio/ImportStep';

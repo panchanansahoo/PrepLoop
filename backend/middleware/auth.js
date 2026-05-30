@@ -56,7 +56,7 @@ const resolveUserRole = async (userId) => {
     if (profile?.role) {
       role = profile.role;
     }
-  } catch (e) {
+  } catch (_e) {
     // Default to user if profile fetch fails
   }
 
@@ -158,3 +158,9 @@ export const optionalAuth = async (req, res, next) => {
   }
   next();
 };
+
+// Backwards-compatible underscore-prefixed aliases
+export const _authenticateToken = authenticateToken;
+export const _optionalAuth = optionalAuth;
+export const _requireAdmin = requireAdmin;
+export const _requireHR = requireHR;

@@ -11,7 +11,7 @@ function sleep(ms) {
 
 async function requestJson(path, options = {}) {
   const response = await fetch(buildLocalEndpoint(BASE_URL, path), options);
-  let json = null;
+  let json;
 
   try {
     json = await response.json();

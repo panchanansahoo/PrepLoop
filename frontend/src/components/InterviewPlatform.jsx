@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import {useState} from 'react';
 import InterviewStart from './InterviewStart';
 import InterviewSession from './InterviewSession';
 import InterviewComplete from './InterviewComplete';

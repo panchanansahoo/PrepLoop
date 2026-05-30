@@ -24,7 +24,7 @@ const ADZUNA_APP_ID = process.env.ADZUNA_APP_ID || '';
 const ADZUNA_APP_KEY = process.env.ADZUNA_APP_KEY || '';
 
 // ─── Free Indian Job APIs (no key required) ───────────────────────
-const ALLOWED_INDIAN_JOB_HOSTS = new Set(['www.naukri.com', 'in.indeed.com', 'www.foundit.in']);
+const _ALLOWED_INDIAN_JOB_HOSTS = new Set(['www.naukri.com', 'in.indeed.com', 'www.foundit.in']);
 
 // ─── Groq API for AI-powered search ─────────────────────────────
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
@@ -892,7 +892,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
     if (error) throw error;
     res.json(data);
-  } catch (error) {
+  } catch (_error) {
     res.status(404).json({ error: 'Job listing not found' });
   }
 });

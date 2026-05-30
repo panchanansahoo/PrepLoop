@@ -1,6 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import './TodoList.css';
-import { Plus, Trash2, CheckSquare, Square, ListTodo, Flag, Search, Filter, ChevronDown, ChevronRight, GripVertical, CalendarDays, X, CheckCheck } from 'lucide-react';
+import {Plus, Trash2, CheckSquare, Square, ListTodo, Flag, Search, ChevronDown, ChevronRight, GripVertical, CalendarDays, X, CheckCheck} from 'lucide-react';
 import useTodos from '../hooks/useTodos';
 import { useTheme } from '../context/ThemeContext';
 

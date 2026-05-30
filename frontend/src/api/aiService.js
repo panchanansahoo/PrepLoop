@@ -353,7 +353,7 @@ export const improvementPlan = {
   updateProgress: updateImprovementPlanProgress
 };
 
-async function apiRequestAbsolute(endpoint, options = {}) {
+async function _apiRequestAbsolute(endpoint, options = {}) {
   const token = getAuthToken();
 
   if (!token) {

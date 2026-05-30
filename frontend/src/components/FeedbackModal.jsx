@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Send, MessageSquare, Bug, Lightbulb, Star } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 
 export default function FeedbackModal({ isOpen, onClose }) {
-    const { user } = useAuth();
+    const { _user } = useAuth();
     const { refreshBalance } = useCoins();
     const [feedbackType, setFeedbackType] = useState('feedback'); // 'feedback', 'bug', 'idea'
     const [message, setMessage] = useState('');

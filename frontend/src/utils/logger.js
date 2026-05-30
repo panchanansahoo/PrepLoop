@@ -50,7 +50,7 @@ class Logger {
       } else {
         console.log(`[${this.context}]`, message, meta);
       }
-    } catch (err) {
+    } catch {
       // Fallback if console is unavailable
       // (shouldn't happen in modern browsers, but defensive coding)
     }

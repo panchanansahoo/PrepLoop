@@ -21,7 +21,7 @@ const tokenRateLimits = new Map();
 const TOKEN_RATE_WINDOW_MS = 60_000; // 1 minute
 const TOKEN_RATE_MAX = 10;           // max 10 requests per window
 
-function tokenRateLimit(req, res, next) {
+function _tokenRateLimit(req, res, next) {
     const userId = req.user?.id || req.ip || 'anon';
     const now = Date.now();
     const entry = tokenRateLimits.get(userId);
@@ -92,7 +92,7 @@ const upload = multer({
 });
 
 // Multer for raw buffer (stt-chunk — no file extension, raw webm)
-const rawUpload = multer({
+const _rawUpload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB max per chunk
 });
@@ -276,8 +276,8 @@ router.post('/analyze-answer', authenticateToken, async (req, res) => {
         }
 
         // Strip potential control chars from user-provided strings before LLM interpolation
-        const safeQuestion = (question || 'General interview question').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500);
-        const safeAnswer = answer.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 800);
+        const safeQuestion = (question || 'General interview question').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 500); // eslint-disable-line no-control-regex
+        const safeAnswer = answer.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').substring(0, 800); // eslint-disable-line no-control-regex
 
         const analysisPrompt = `You are an expert interview coach analyzing a candidate's answer.
 

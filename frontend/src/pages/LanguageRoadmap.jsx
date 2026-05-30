@@ -1,4 +1,3 @@
-import React from 'react';
 import RoadmapView from '../features/dashboard/components/RoadmapView';
 import { languageCatalogPatterns, languageRoadmapHierarchy, roadmapTrackConfigs } from '../data/roadmapCatalog';
 

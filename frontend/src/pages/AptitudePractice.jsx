@@ -1,11 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-    ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap,
-    BookOpen, Target, Calculator, Hash, Check, X, SkipForward,
-    Bookmark, BookmarkCheck, Grid3X3, Eye, EyeOff, ChevronDown,
-    RotateCcw, Send, Lightbulb, FileText
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap, BookOpen, Target, Calculator, Hash, Check, X, Bookmark, BookmarkCheck, Grid3X3, Send, Lightbulb, FileText } from 'lucide-react';
 import {
     APTITUDE_CATEGORIES, getCategoryQuestions, getSubcategoryQuestions,
     getAllQuestions, filterByDifficulty, getRandomQuestions, FORMULA_SHEETS
@@ -120,12 +115,12 @@ export default function AptitudePractice() {
     const [submitted, setSubmitted] = useState(false);
     const [questionTime, setQuestionTime] = useState(0);
     const [totalTime, setTotalTime] = useState(0);
-    const [negativeMarking, setNegativeMarking] = useState(false);
+    const [negativeMarking, _setNegativeMarking] = useState(false);
     const timerRef = useRef(null);
 
     const currentQ = questions[currentIndex];
     const isAnswered = answers[currentQ?.id] !== undefined;
-    const isCorrect = answers[currentQ?.id] === currentQ?.correctAnswer;
+    const _isCorrect = answers[currentQ?.id] === currentQ?.correctAnswer;
 
     // Timer
     useEffect(() => {

@@ -1,9 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Clock, Star, ChevronRight, ArrowLeft, Briefcase,
-    Code2, Brain, Users, Zap, Filter, Loader2,
-    MessageSquare, BarChart3, Search
-} from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Star, ChevronRight, ArrowLeft, Briefcase, Code2, Brain, Users, Zap, Filter, Loader2, MessageSquare, BarChart3, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
@@ -82,7 +78,7 @@ export default function InterviewHistory() {
         return haystack.includes(normalizeText(searchQuery.trim()));
     });
 
-    const getAuthHeaders = () => {
+    const _getAuthHeaders = () => {
         return buildAuthHeaders(user);
     };
 

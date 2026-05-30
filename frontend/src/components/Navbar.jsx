@@ -197,7 +197,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
     return parts.map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   };
 
-  const scrollToSection = (e, sectionId) => {
+  const _scrollToSection = (e, sectionId) => {
     e.preventDefault();
     if (location.pathname !== '/') {
       navigate('/');

@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import {
-  Play, Send, ChevronDown, Settings, Timer, Maximize2,
-  Code2, FileCode, Braces, Keyboard, Sun, Moon, Palette
-} from 'lucide-react';
-import { LANGUAGES, ALL_TEMPLATES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES } from '../../data/dsaTemplates';
+import { Play, Send, ChevronDown, Settings, Timer, Maximize2, Code2, FileCode, Braces, Palette, Keyboard } from 'lucide-react';
+import {LANGUAGES, ALL_TEMPLATES} from '../../data/dsaTemplates';
 import { EDITOR_THEMES } from '../../data/editorThemes';
 
 export default function DSAToolbar({
@@ -13,7 +10,7 @@ export default function DSAToolbar({
   editorTheme = 'one-dark-pro', onThemeChange,
 }) {
   const [showTemplates, setShowTemplates] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [_showSettings, setShowSettings] = useState(false);
   const [showThemes, setShowThemes] = useState(false);
   const dropdownRef = useRef(null);
   const themeRef = useRef(null);
@@ -32,7 +29,7 @@ export default function DSAToolbar({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const currentLang = LANGUAGES.find(l => l.id === language) || LANGUAGES[0];
+  const _currentLang = LANGUAGES.find(l => l.id === language) || LANGUAGES[0];
 
   return (
     <div style={{

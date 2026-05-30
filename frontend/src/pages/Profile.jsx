@@ -1,18 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
-import { buildAuthHeaders, mergeAuthHeaders } from '../utils/authHeaders';
+import {mergeAuthHeaders} from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
-import {
-  User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut,
-  Github, Sparkles, FileText, Upload, Pencil, Save, X,
-  Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as Bolt,
-  ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star,
-  Phone, Calendar as CalendarIcon, MapPin as LocationIcon, 
-  ExternalLink, Hash, Tag, Camera
-} from 'lucide-react';
+import { User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut, Github, Sparkles, FileText, Upload, Pencil, Save, X, Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as _Bolt, ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star, Phone, Calendar as _CalendarIcon, MapPin as LocationIcon, ExternalLink, Hash, Tag, Camera } from 'lucide-react';
 import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
 
@@ -218,7 +211,7 @@ export default function Profile() {
   const resumeInputRef = useRef(null);
   const [claimEditing, setClaimEditing] = useState(false);
   const [claimValue, setClaimValue] = useState('');
-  const [claimStatus, setClaimStatus] = useState('idle');
+  const [_claimStatus, setClaimStatus] = useState('idle');
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -707,7 +700,7 @@ export default function Profile() {
     ? `https://preploop.com/u/${profile.custom_url}`
     : `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
-  const educationDisplay = profile.education || 'Not set';
+  const _educationDisplay = profile.education || 'Not set';
   const skillChips = splitSkillChips(profile.skills, resumeSnapshot);
   const experiencePoints = splitExperiencePoints(profile.experience, resumeSnapshot);
   const projects = Array.isArray(resumeSnapshot?.projectHighlights)

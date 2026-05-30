@@ -1,11 +1,11 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Target, Trophy, Play, Check } from 'lucide-react';
 import { HR_STAGES, HR_TOPICS, getHRTopicIds, getHRTopicsByStage } from '../data/hrLearningPathData';
 import { getHRTopicProgress, getHROverallProgress } from '../data/hrLearningProgress';
 import './LearningPath.css';
 
-function StoryboardNode({ topic, index, isLast, onClick }) {
+function StoryboardNode({ topic, index, _isLast, onClick }) {
     const progress = getHRTopicProgress(topic.id);
     const isMastered = progress.masteryPercent >= 90;
 

@@ -1,13 +1,5 @@
-import React, { useMemo } from 'react';
-import {
-    TrendingUp,
-    Zap,
-    Target,
-    Clock,
-    CheckCircle2,
-    BookOpen,
-    ArrowUp,
-} from 'lucide-react';
+import { useMemo } from 'react';
+import { TrendingUp, Zap, Target, Clock, CheckCircle2, BookOpen, ArrowUp } from 'lucide-react';
 import './roadmap-quick-stats.css';
 
 export default function RoadmapQuickStats({

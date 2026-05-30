@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Send, Trash2, Sparkles, Bot, User, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
@@ -262,7 +262,7 @@ export default function AIAssistantOrb() {
           : (data?.error || 'Sorry, something went wrong. Please try again.');
         setMessages(prev => [...prev, { role: 'assistant', content: errorText }]);
       }
-    } catch (err) {
+    } catch {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Network error. Please check your connection.' }]);
     } finally {
       setLoading(false);

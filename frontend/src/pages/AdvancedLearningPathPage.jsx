@@ -1,4 +1,3 @@
-import React from 'react';
 import AdvancedLearningPathPage from '../features/advancedLearningPath/AdvancedLearningPathPage.jsx';
 
 export default function AdvancedLearningPathPageWrapper() {

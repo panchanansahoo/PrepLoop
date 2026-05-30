@@ -1,4 +1,4 @@
-import React, { Fragment, useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 
 function flattenText(content) {
   if (typeof content === 'string') return content;

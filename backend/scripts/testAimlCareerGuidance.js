@@ -65,7 +65,7 @@ test('Skill Embeddings: Compute semantic skill match', async () => {
   }
 });
 
-test('Skill Embeddings: Get skill recommendations', async () => {
+test('Skill Embeddings: Get skill recommendations', () => {
   const skills = ['Python', 'JavaScript'];
   const recommendations = skillEmbeddings.getSkillRecommendations(skills);
   
@@ -219,7 +219,7 @@ test('Collaborative Filtering: Record pathway interaction', async () => {
   });
   
   // Result may fail if tables don't exist, but should return success/error object
-  if (!result.hasOwnProperty('success')) {
+  if (!Object.prototype.hasOwnProperty.call(result, 'success')) {
     throw new Error('Missing success property');
   }
 });

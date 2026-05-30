@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Calendar, TrendingUp, Filter, ChevronRight, Clock } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
-export default function InterviewHistory({ userId }) {
+export default function InterviewHistory({ _userId }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('all');

@@ -1,23 +1,23 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { ArrowLeft, Lightbulb, X, GripVertical } from 'lucide-react';
+import {ArrowLeft, Lightbulb, X} from 'lucide-react';
 import DSAToolbar from '../components/editor/DSAToolbar';
 import ProblemDescriptionPanel from '../components/editor/ProblemDescriptionPanel';
 import VisualizationPanel from '../components/editor/VisualizationPanel';
 import TestCasePanel from '../components/editor/TestCasePanel';
 import HintsPanel from '../components/solver/HintsPanel';
-import { LANGUAGES, ALGORITHM_TEMPLATES, DATA_STRUCTURE_TEMPLATES, PATTERN_HINTS } from '../data/dsaTemplates';
+import {LANGUAGES} from '../data/dsaTemplates';
 import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
-import { registerAllThemes, getSavedTheme, saveTheme, EDITOR_THEMES } from '../data/editorThemes';
+import {registerAllThemes, getSavedTheme, saveTheme} from '../data/editorThemes';
 import { markProblemAsAttempted } from '../data/dsaLearningProgress';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 
 import { API_URL } from '../config/api.js';
 
-const getAuthHeaders = () => buildAuthHeaders();
+const _getAuthHeaders = () => buildAuthHeaders();
 
 const getSolutionUnlockKey = (id) => `dsa-solution-unlocked-${String(id ?? '').trim()}`;
 
@@ -100,7 +100,7 @@ export default function DSACodeEditor() {
   const [bottomHeight, setBottomHeight] = useState(220);
   const [timer, setTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(true);
-  const [testResults, setTestResults] = useState(null);
+  const [_testResults, setTestResults] = useState(null);
   const [editorTheme, setEditorTheme] = useState(() => getSavedTheme('dsa-editor-theme'));
   const monacoRef = useRef(null);
 

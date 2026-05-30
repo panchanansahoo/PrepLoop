@@ -180,7 +180,7 @@ const broadcastToRoom = (roomId, message, excludeClientId = null) => {
 export const broadcastToUser = (userId, message) => {
   let sent = 0;
   
-  clients.forEach((client, clientId) => {
+  clients.forEach((client, _clientId) => {
     if (client.userId === userId && client.ws.readyState === 1) {
       client.ws.send(JSON.stringify(message));
       sent++;

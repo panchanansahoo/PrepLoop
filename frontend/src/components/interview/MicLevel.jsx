@@ -29,7 +29,7 @@ export default function MicLevel({ stream }) {
                 cancelAnimationFrame(rafRef.current);
                 audioCtx.close();
             };
-        } catch (e) { /* AudioContext not available */ }
+        } catch { /* AudioContext not available */ }
     }, [stream]);
 
     return (

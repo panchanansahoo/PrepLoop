@@ -27,10 +27,10 @@ export class AppError extends Error {
   }
 }
 
-export const errorHandler = (err, req, res, next) => {
+export const errorHandler = (err, req, res, _next) => {
   const requestId = req.requestId || res.locals.requestId || 'unknown';
   
-  let error = { ...err };
+  const error = { ...err };
   error.message = err.message;
   error.statusCode = err.statusCode || 500;
 

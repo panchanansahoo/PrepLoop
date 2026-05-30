@@ -514,7 +514,7 @@ const generateAIQuestion = async (type, difficulty, previousQuestions = []) => {
 router.post('/start', authenticateToken, async (req, res) => {
   let didCharge = false;
   try {
-    const { type, difficulty, duration } = req.body;
+    const { type, difficulty, duration: _duration } = req.body;
 
     // Validate interview type
     const validTypes = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed'];
@@ -919,7 +919,7 @@ router.get('/analytics/overview', authenticateToken, getInterviewAnalytics);
 router.get('/recommendations', authenticateToken, getInterviewRecommendations);
 
 // Transcribe audio (if audio file is sent)
-router.post('/transcribe', authenticateToken, async (req, res) => {
+router.post('/transcribe', authenticateToken, (req, res) => {
   try {
     const { audioBuffer, language = 'en' } = req.body;
 

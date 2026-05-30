@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 
@@ -47,7 +47,7 @@ export function AuthProvider({ children }) {
     const initializeAuth = async () => {
       try {
         if (supabase) {
-          const { data: { session }, error } = await supabase.auth.getSession();
+          const { data: { session }, _error } = await supabase.auth.getSession();
 
           if (session) {
             const token = session.access_token;

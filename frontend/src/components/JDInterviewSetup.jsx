@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     FileText, Sparkles, Loader2, X, ChevronRight, Target,
     AlertCircle, CheckCircle, Brain, Clipboard, Zap
@@ -8,7 +8,7 @@ import { authFetch } from '../utils/authFetch';
 
 import { API_URL } from '../config/api.js';
 
-export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClose }) {
+export default function JDInterviewSetup({ onStartWithJD, _getAuthHeaders, onClose }) {
     const [jdText, setJdText] = useState('');
     const [loading, setLoading] = useState(false);
     const [parsedData, setParsedData] = useState(null);
@@ -33,7 +33,7 @@ export default function JDInterviewSetup({ onStartWithJD, getAuthHeaders, onClos
             if (data.parsed?.rounds?.length > 0) {
                 setSelectedRound(data.parsed.rounds[0]);
             }
-        } catch (err) {
+        } catch {
             setError('Failed to analyze the job description. Please try again.');
         }
         setLoading(false);

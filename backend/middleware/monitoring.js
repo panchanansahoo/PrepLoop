@@ -4,7 +4,7 @@ import { createLogger } from '../utils/structuredLogger.js';
 const logger = createLogger('Monitoring');
 
 // Metrics store - in production, this would connect to Prometheus or similar
-let requestMetrics = {
+const requestMetrics = {
   totalRequests: 0,
   responseTimes: [],
   errorCount: 0,
@@ -55,7 +55,7 @@ export const requestMetricsMiddleware = (req, res, next) => {
 };
 
 // Monitoring endpoint to expose metrics
-export const metricsEndpoint = async (req, res) => {
+export const metricsEndpoint = (req, res) => {
   try {
     // Calculate metrics
     const uptime = Date.now() - requestMetrics.startTime;

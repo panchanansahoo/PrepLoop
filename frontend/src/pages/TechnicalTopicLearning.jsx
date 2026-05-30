@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Layers, Check, RefreshCw, Lightbulb, Clock } from 'lucide-react';
 import { TECHNICAL_TOPICS } from '../data/technicalLearningPathData';

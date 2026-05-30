@@ -104,7 +104,7 @@ export default function useAIRecommendations(enrichedRoots, guideProgressById = 
             .slice(0, 3);
 
         siblingRecommendations.forEach(({ guide, completedCount }) => {
-            const siblingCount = allGuides.filter((g) => g.parent === guide.parent).length;
+            const _siblingCount = allGuides.filter((g) => g.parent === guide.parent).length;
             recommendations.push({
                 type: 'natural-progression',
                 guide,

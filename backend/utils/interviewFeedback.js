@@ -164,3 +164,7 @@ export function normalizeInterviewFeedback(payload = {}, context = {}) {
     hint: normalizeHint(payload.hint, context),
   };
 }
+
+// Backwards-compatible underscore-prefixed aliases
+export const _buildAnswerFeedbackPrompt = buildAnswerFeedbackPrompt;
+export const _normalizeInterviewFeedback = normalizeInterviewFeedback;

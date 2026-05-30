@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import {useState} from 'react';
 import './Payment.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Shield, Lock, CheckCircle2, ArrowLeft, Zap, Sparkles, Check, Code2, ExternalLink } from 'lucide-react';
+import {Shield, Lock, CheckCircle2, ArrowLeft, Zap, Check, Code2} from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuth } from '../context/AuthContext';
 import { authFetch } from '../utils/authFetch';

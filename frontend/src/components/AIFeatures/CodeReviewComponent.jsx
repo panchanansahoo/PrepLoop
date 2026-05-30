@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { submitCodeReview } from '../../api/aiService';
 import { AlertCircle, CheckCircle, TrendingUp, Code, Loader } from 'lucide-react';
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import {
   Trophy,
   Clock,
@@ -232,7 +232,7 @@ export default function QuizArena() {
   const [answers, setAnswers] = useState({});
   const [elapsed, setElapsed] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [_saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [answerFeedback, setAnswerFeedback] = useState(null);
@@ -296,7 +296,7 @@ export default function QuizArena() {
       const data = await response.json();
       setLeaderboard(Array.isArray(data?.leaderboard) ? data.leaderboard : []);
       setCurrentUserRank(Number.isFinite(data?.currentUserRank) ? data.currentUserRank : null);
-    } catch (error) {
+    } catch {
       setLeaderboard([]);
       setCurrentUserRank(null);
     } finally {
@@ -374,7 +374,7 @@ export default function QuizArena() {
       }
 
       await loadLeaderboard(topic);
-    } catch (error) {
+    } catch {
       setSaveMessage('Could not save quiz score.');
     } finally {
       setSaving(false);

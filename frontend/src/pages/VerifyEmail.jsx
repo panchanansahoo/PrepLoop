@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import {useState} from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Mail, CheckCircle, RefreshCw } from 'lucide-react';
 
@@ -17,7 +17,7 @@ export default function VerifyEmail() {
                 body: JSON.stringify({ email })
             });
             setResent(true);
-        } catch (err) {
+        } catch {
             alert('Failed to resend. Please try again.');
         }
         setResending(false);

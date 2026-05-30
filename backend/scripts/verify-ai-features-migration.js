@@ -123,7 +123,7 @@ async function checkTables(supabase) {
 
   for (const table of EXPECTED_TABLES) {
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from(table)
         .select('*')
         .limit(0);
@@ -167,7 +167,7 @@ async function checkColumns(supabase) {
       } else {
         console.log(`${colors.red}✗ ${table} - Missing columns: ${missing.join(', ')}${colors.reset}`);
       }
-    } catch (err) {
+    } catch {
       // Fallback: try to select * to verify table existence
       try {
         await supabase
@@ -208,7 +208,7 @@ async function checkIndexes(supabase) {
         console.log(`${colors.yellow}⚠ ${expectedIndex} - Not found (optional)${colors.reset}`);
       }
     }
-  } catch (err) {
+  } catch {
     console.log(`${colors.cyan}→ Index verification not available (this is okay)${colors.reset}`);
   }
 }
@@ -249,7 +249,7 @@ async function testConnectivity(supabase) {
   console.log(`\n${colors.blue}Testing Connectivity:${colors.reset}`);
 
   try {
-    const { data, error } = await supabase.auth.getSession();
+    const { error } = await supabase.auth.getSession();
     if (error && !error.message.includes('Not authenticated')) {
       console.log(`${colors.yellow}⚠ Auth check: ${error.message}${colors.reset}`);
     } else {

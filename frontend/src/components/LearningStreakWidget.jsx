@@ -1,5 +1,4 @@
-import React from 'react';
-import { Flame, Star, TrendingUp, Trophy } from 'lucide-react';
+import {Flame, TrendingUp, Trophy} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function LearningStreakWidget({ data }) {

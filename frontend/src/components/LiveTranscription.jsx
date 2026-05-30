@@ -2,7 +2,7 @@
  * LiveTranscription — Real-time transcription overlay
  * Features: Word-by-word animation, speaker identification, interim text
  */
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { User, Sparkles } from 'lucide-react';
 import './LiveTranscription.css';
 

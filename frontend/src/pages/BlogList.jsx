@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, User, ArrowRight, Search, Tag, Share2 } from 'lucide-react';
+import {Calendar, Clock, User, ArrowRight, Search} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { API_URL } from '../config/api.js';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Mail, MessageSquare, MapPin, Send, Linkedin, Github, Twitter, Loader } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { API_URL } from '../config/api.js';

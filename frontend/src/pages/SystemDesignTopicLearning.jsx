@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BookOpen, Brain, Lightbulb, Target, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react';

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { fetchAllContests } from '../utils/contestUtils';
 

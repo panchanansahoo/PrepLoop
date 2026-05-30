@@ -1,10 +1,5 @@
-import React, { useState } from 'react';
-import {
-    BarChart3, CheckCircle, AlertCircle, Target, Brain,
-    ChevronDown, ChevronUp, Star, TrendingUp, Zap,
-    Volume2, Award, Sparkles, ExternalLink, MessageSquare,
-    BookOpen, Calendar, User, Bot, Clock
-} from 'lucide-react';
+import { useState } from 'react';
+import { BarChart3, CheckCircle, AlertCircle, Target, Brain, ChevronDown, ChevronUp, Star, TrendingUp, Zap, Volume2, Award, Sparkles, ExternalLink, MessageSquare, BookOpen, Calendar, User, Bot, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import './DetailedReport.css';
 

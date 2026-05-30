@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTheme } from '../context/ThemeContext';
 import {
     CheckCircle2, Mic, Trophy, Flame, Code2,

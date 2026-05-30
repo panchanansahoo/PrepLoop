@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Award, Calendar, Target, BookOpen, Zap } from 'lucide-react';
+import {TrendingUp, Award, Calendar, Target, Zap} from 'lucide-react';
 
 /**
  * Comprehensive Analytics Dashboard

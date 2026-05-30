@@ -138,7 +138,7 @@ function extractQualifications(text) {
  * Compute semantic similarity between resume and job description
  * Returns score 0-100 with detailed breakdown
  */
-export async function computeResumeSimilarity(resumeText, jobDescriptionText) {
+export function computeResumeSimilarity(resumeText, jobDescriptionText) {
   try {
     const resumeTfidf = calculateTfIdf(resumeText, [resumeText, jobDescriptionText]);
     const jobTfidf = calculateTfIdf(jobDescriptionText, [resumeText, jobDescriptionText]);
@@ -253,7 +253,7 @@ export async function computeResumeSimilarityWithCache(resumeText, jobDescriptio
     return result;
   } catch (err) {
     console.error('Error with cached resume similarity:', err);
-    return await computeResumeSimilarity(resumeText, jobDescription);
+    return computeResumeSimilarity(resumeText, jobDescription);
   }
 }
 

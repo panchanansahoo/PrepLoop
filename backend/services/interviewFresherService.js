@@ -101,7 +101,7 @@ export function isFinalNoAnswer(userAnswer = '') {
     ];
     if (directNoPatterns.some((pattern) => normalized === pattern)) return true;
     if (normalized.startsWith('no ') || normalized.startsWith('nah ') || normalized.startsWith('nope ')) return true;
-    return /\b(no|none|nothing|no questions|no more questions|not really|that(?: is|\'s)? all)\b/.test(normalized);
+    return /\b(no|none|nothing|no questions|no more questions|not really|that(?: is|'s)? all)\b/.test(normalized);
 }
 
 export async function generateFresherHRQuestion(qNum, resumeContext = null, groqInjection = null) {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

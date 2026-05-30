@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, Circle, Lock, Zap, BookOpen, Code, Users, Target, Award } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import {CheckCircle, Circle, Zap, BookOpen, Target, Award} from 'lucide-react';
 
 /**
  * Personalized Learning Path Component
@@ -36,13 +36,13 @@ export default function LearningPath() {
     window.location.href = `/learn/${topicId}`;
   };
 
-  const getProgressColor = (progress) => {
+  const _getProgressColor = (progress) => {
     if (progress >= 80) return 'text-green-600';
     if (progress >= 50) return 'text-blue-600';
     return 'text-gray-600';
   };
 
-  const getProgressBg = (progress) => {
+  const _getProgressBg = (progress) => {
     if (progress >= 80) return 'bg-green-100';
     if (progress >= 50) return 'bg-blue-100';
     return 'bg-gray-100';

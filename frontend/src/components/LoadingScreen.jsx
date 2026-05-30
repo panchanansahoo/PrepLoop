@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './LoadingScreen.css';
 
 const LoadingScreen = ({ onFinished, minimumDuration = 2800 }) => {

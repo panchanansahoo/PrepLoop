@@ -64,7 +64,7 @@ async function applyMigration() {
     console.log('📋 Verifying table creation...');
 
     // Verify the table exists
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('improvement_plans')
       .select('id')
       .limit(1);

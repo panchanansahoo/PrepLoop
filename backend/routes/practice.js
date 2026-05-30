@@ -451,7 +451,7 @@ const extractPythonSyntaxError = (stderr = '') => {
 
 const extractCompilerSyntaxErrors = (stderr = '', fallbackMessage = 'Syntax error') => {
   const output = String(stderr || '')
-    .replace(/\u001b\[[0-9;]*m/g, '')
+    .replace(/\u001b\[[0-9;]*m/g, '') // eslint-disable-line no-control-regex
     .replace(/\r/g, '');
   const lines = output.split('\n');
   const errors = [];
@@ -973,7 +973,7 @@ router.post('/execute', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/lint', optionalAuth, async (req, res) => {
+router.post('/lint', optionalAuth, (req, res) => {
   const { code, language } = req.body;
 
   if (!language || typeof language !== 'string') {
@@ -1269,7 +1269,7 @@ router.post('/snippets', authenticateToken, async (req, res) => {
 });
 
 // Get all 425 problems with optional filters
-router.get('/all-problems', optionalAuth, async (req, res) => {
+router.get('/all-problems', optionalAuth, (req, res) => {
   try {
     const { pattern, difficulty, company, search } = req.query;
 

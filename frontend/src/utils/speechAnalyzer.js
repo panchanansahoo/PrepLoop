@@ -193,7 +193,7 @@ export default class SpeechAnalyzer {
     return { ...base, highlights };
   }
 
-  _generateTips(wpm, totalFillers, fillerCount, confidenceScore, sentenceCount) {
+  _generateTips(wpm, totalFillers, fillerCount, confidenceScore, _sentenceCount) {
     const tips = [];
     if (totalFillers > 3) {
       const topFillers = Object.entries(fillerCount)

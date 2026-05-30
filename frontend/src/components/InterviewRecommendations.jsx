@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Lightbulb, Target, TrendingUp, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { useEffect, useState } from 'react';
+import {Lightbulb, Target, TrendingUp, CheckCircle, ArrowRight} from 'lucide-react';
+
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 

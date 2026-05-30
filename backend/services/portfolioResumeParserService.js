@@ -13,7 +13,7 @@ const getSectionText = (sourceText, sectionKey) => {
   const keys = Object.keys(SECTION_HEADERS);
   const currentPattern = SECTION_HEADERS[sectionKey];
   const currentMatch = sourceText.match(currentPattern);
-  if (!currentMatch || currentMatch.index == null) return '';
+  if (!currentMatch || currentMatch.index === null) return '';
 
   const start = currentMatch.index + currentMatch[0].length;
   let end = sourceText.length;
@@ -22,7 +22,7 @@ const getSectionText = (sourceText, sectionKey) => {
     if (key === sectionKey) continue;
     const pattern = SECTION_HEADERS[key];
     const maybeMatch = sourceText.slice(start).match(pattern);
-    if (maybeMatch && maybeMatch.index != null) {
+    if (maybeMatch && maybeMatch.index !== null) {
       end = Math.min(end, start + maybeMatch.index);
     }
   }

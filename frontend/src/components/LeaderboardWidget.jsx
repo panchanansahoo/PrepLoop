@@ -1,4 +1,3 @@
-import React from 'react';
 import { Trophy, Crown, Medal, TrendingUp, Users } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
@@ -84,7 +83,7 @@ export default function LeaderboardWidget({ data }) {
 
             {/* List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1, overflowY: 'auto', paddingRight: '4px' }}>
-                {leaderboard.map((user, idx) => (
+                {leaderboard.map((user, _idx) => (
                     <div key={user.id} style={{
                         display: 'flex',
                         alignItems: 'center',

@@ -19,7 +19,7 @@ export const SLOW_QUERY_THRESHOLD_MS = 5000; // Log queries slower than 5s
 /**
  * Create timeout wrapper for database operations
  */
-export async function withTimeout(promise, timeoutMs = QUERY_TIMEOUT_MS) {
+export function withTimeout(promise, timeoutMs = QUERY_TIMEOUT_MS) {
   return Promise.race([
     promise,
     new Promise((_, reject) =>

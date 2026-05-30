@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Video, Mic, Square, Play, Pause, RotateCcw, Download, X } from 'lucide-react';
 
 export default function RecordingPanel({ onClose }) {

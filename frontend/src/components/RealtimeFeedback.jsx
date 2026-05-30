@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import {useState} from 'react';
 import { AlertCircle, CheckCircle, TrendingUp, Lightbulb, Volume2 } from 'lucide-react';
 
 /**

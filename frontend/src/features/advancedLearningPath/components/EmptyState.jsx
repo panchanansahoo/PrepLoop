@@ -1,4 +1,3 @@
-import React from 'react';
 import { Lightbulb, Sparkles } from 'lucide-react';
 
 export default function EmptyState() {

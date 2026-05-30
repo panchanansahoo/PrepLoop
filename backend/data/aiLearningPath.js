@@ -22,7 +22,6 @@ const aiLearningPath = {
       description: 'Build deep learning foundation from scratch',
       topics: ['Perceptrons', 'Backpropagation', 'Activation Functions', 'Optimizers', 'Regularization'],
       estimatedTime: '2 weeks',
-      problems: 15,
       unlocked: true,
       
       theory: {
@@ -795,7 +794,6 @@ class MultiClassNN:
       description: 'Master CNNs for computer vision tasks',
       topics: ['Convolutions', 'Pooling', 'Transfer Learning', 'Object Detection', 'Image Segmentation'],
       estimatedTime: '2.5 weeks',
-      problems: 12,
       unlocked: true,
       
       theory: {

@@ -27,7 +27,7 @@ function getCacheKey(req) {
 export function apiCacheMiddleware(options = {}) {
   const ttl = options.ttl ?? DEFAULT_TTL;
 
-  return async (req, res, next) => {
+  return (req, res, next) => {
     try {
       if (req.method !== 'GET') return next();
 
@@ -39,7 +39,7 @@ export function apiCacheMiddleware(options = {}) {
         if (!isStale(timestamp, ttl)) {
           const entry = cache.get(key);
           logger.debug('API cache hit (memory)', { key });
-          try { performanceMonitor.recordCacheEvent('hit', key); } catch (e) { /* noop */ }
+          try { performanceMonitor.recordCacheEvent('hit', key); } catch (_e) { /* noop */ }
           res.setHeader('X-Cache', 'HIT');
           return res.status(entry.status || 200).json(entry.body);
         }
@@ -62,7 +62,7 @@ export function apiCacheMiddleware(options = {}) {
             // Also attempt to store in shared cache manager (best effort)
             try {
               void cacheManager.set(key, body, Math.floor((ttl || DEFAULT_TTL) / 1000));
-              try { performanceMonitor.recordCacheEvent('set', key); } catch (e) { /* noop */ }
+              try { performanceMonitor.recordCacheEvent('set', key); } catch (_e) { /* noop */ }
             } catch (e) {
               logger.debug('Failed to set shared cache (non-fatal)', { key, err: e.message });
             }
@@ -75,7 +75,7 @@ export function apiCacheMiddleware(options = {}) {
         try {
           const duration = Date.now() - start;
           performanceMonitor.recordRequest({ path: req.path || req.url, method: req.method, duration, status: res.statusCode });
-        } catch (e) { /* noop */ }
+        } catch (_e) { /* noop */ }
 
         res.setHeader('X-Cache', 'MISS');
         return originalJson(body);

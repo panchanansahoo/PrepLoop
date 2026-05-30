@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { MessageSquare, Brain, Code2, FileText, Clock, Filter, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import {MessageSquare, Code2, FileText, Clock, Filter, ChevronRight} from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 

@@ -1,5 +1,3 @@
-import React from 'react';
-
 export default function ReviewStep({ profile, setProfile, onBack, onNext, saving, error }) {
   const basics = profile?.basicInfo || {};
 

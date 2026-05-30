@@ -185,3 +185,6 @@ export function evaluateFresherAnswer(userAnswer, stage, codeText = '') {
         improvements,
     };
 }
+
+// Backwards-compatible alias
+export const _evaluateFresherAnswer = evaluateFresherAnswer;

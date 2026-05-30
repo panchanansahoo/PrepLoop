@@ -276,7 +276,7 @@ router.post('/batch-resume-match', async (req, res) => {
  * GET /api/career/resume-insights
  * Get insights about a resume text
  */
-router.post('/resume-insights', async (req, res) => {
+router.post('/resume-insights', (req, res) => {
   try {
     const { resumeText } = req.body;
     if (!resumeText) {

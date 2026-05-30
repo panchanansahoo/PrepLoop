@@ -44,11 +44,11 @@ const systemDesignTopics = [
   }
 ];
 
-router.get('/topics', async (req, res) => {
+router.get('/topics', (req, res) => {
   res.json({ topics: systemDesignTopics });
 });
 
-router.get('/topics/:id', async (req, res) => {
+router.get('/topics/:id', (req, res) => {
   const { id } = req.params;
   const topic = systemDesignTopics.find(t => t.id === parseInt(id));
   

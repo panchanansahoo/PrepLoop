@@ -1,16 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-    BookOpen,
-    ChevronRight,
-    ChevronDown,
-    Play,
-    ExternalLink,
-    CheckCircle2,
-    Code2,
-    Sparkles,
-    Layers,
-} from 'lucide-react';
+import { BookOpen, ChevronRight, ChevronDown, Play, ExternalLink, CheckCircle2, Code2, Sparkles, Layers } from 'lucide-react';
 
 /**
  * SubPatternList — Groups sub-patterns by their parent pattern prefix.
@@ -23,14 +13,14 @@ import {
 export function SubPatternList({
     category,
     allEntries,
-    totalPatternCount,
+    _totalPatternCount,
     expandedSubPatterns,
     setExpandedSubPatterns,
     solvedSet,
     isLight,
     search,
     selectedDifficulties,
-    getExplanationSnippet,
+    _getExplanationSnippet,
     onSolveProblem,
 }) {
     // ── Parse and group entries by prefix ──
@@ -72,7 +62,7 @@ export function SubPatternList({
 
                 // Single-entry group → render directly without group header
                 if (nonEmptyEntries.length === 1) {
-                    const { pattern, leafLabel } = nonEmptyEntries[0];
+                    const { pattern, _leafLabel } = nonEmptyEntries[0];
                     return (
                         <SubPatternRow
                             key={pattern.id}
@@ -587,7 +577,7 @@ function SubPatternRow({
    ═══════════════════════════════════════════════════════════════════════════ */
 const PAGE_SIZE = 20;
 
-function ExpandedProblems({ pattern, filteredProbs, isLight, solvedSet, onSolveProblem, indent = 64 }) {
+function ExpandedProblems({ _pattern, filteredProbs, isLight, solvedSet, onSolveProblem, indent = 64 }) {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
     const displayed = filteredProbs.slice(0, visibleCount);
     const hasMore = visibleCount < filteredProbs.length;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 
 // Temporary compatibility page: redirect legacy /problems/:id to the code editor

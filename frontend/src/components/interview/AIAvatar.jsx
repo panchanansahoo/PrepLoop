@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import {useRef, useEffect} from 'react';
 
 // ─── AI Avatar Canvas Component (Human photo with animated rings) ───
 export default function AIAvatar({ speaking, pose = 'neutral', companyColor, companyLogo, size = 'large' }) {

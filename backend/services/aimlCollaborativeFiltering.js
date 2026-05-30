@@ -5,7 +5,7 @@
  * Uses item-based and user-based collaborative filtering.
  */
 
-import { supabaseAdmin } from '../db/supabaseClient.js';
+import { supabase, supabaseAdmin as _supabaseAdmin } from '../db/supabaseClient.js';
 
 /**
  * Compute cosine similarity between two users based on profile signals

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Mic, Volume2, Clock, SkipForward, CheckCircle, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import {Mic, Clock, SkipForward, CheckCircle} from 'lucide-react';
 import RealtimeFeedback from './RealtimeFeedback';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 
 /**
@@ -87,7 +87,7 @@ export default function ModernInterviewContainer() {
 
       mediaRecorder.onstop = async () => {
         // Process recorded audio
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const _audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         // In real implementation, send to backend for transcription
         setCurrentAnswer('Audio recorded: ' + Math.round(timer) + 's');
       };

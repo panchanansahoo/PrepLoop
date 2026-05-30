@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Briefcase, MapPin, TrendingUp, ExternalLink, Sparkles, RefreshCw, Building2, Wallet, UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 import { useNavigate } from 'react-router-dom';
 import './SkillMatchJobs.css';

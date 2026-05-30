@@ -78,5 +78,21 @@ export default defineConfig({
     setupFiles: './src/test/setup.js',
     css: true,
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'html'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{js,jsx}'],
+      exclude: [
+        'src/**/*.{test,spec}.{js,jsx}',
+        'src/test/**',
+        'src/main.jsx',
+        'src/examples/**',
+        'src/components/AnalyticsDashboard.jsx',
+        'src/components/LoadingAnimationDemo.jsx',
+        'src/utils/lazyLoading.js',
+        'src/utils/lazyLoad.jsx',
+      ],
+    },
   }
 });

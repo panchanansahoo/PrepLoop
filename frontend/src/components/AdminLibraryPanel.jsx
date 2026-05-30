@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Loader, AlertCircle, CheckCircle, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -56,7 +56,7 @@ export default function AdminLibraryPanel() {
             setLoading(true);
             const data = await getBooks({ limit: 100 });
             setAdminBooks(data.books);
-        } catch (err) {
+        } catch {
             setMessage({ type: 'error', text: 'Failed to load books' });
         } finally {
             setLoading(false);

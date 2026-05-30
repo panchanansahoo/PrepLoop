@@ -1,12 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap,
-  BookOpen, Target, Hash, Check, X, Send, Grid3X3,
-  Bookmark, BookmarkCheck, AlertTriangle, Shield, Play,
-  Star, BarChart3, Trophy, RotateCcw, Home, Eye,
-  ChevronDown, Timer, Calculator, Lightbulb, FileText
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Clock, Zap, BookOpen, Target, Hash, Check, X, Send, Grid3X3, Bookmark, BookmarkCheck, AlertTriangle, Shield, Play, Star, BarChart3, Trophy, RotateCcw, Home, Eye, ChevronDown, Timer, Calculator, Lightbulb, FileText } from 'lucide-react';
 import { getExamById, getFullExamQuestions, getExamSectionQuestions } from '../data/examData';
 import { useTheme } from '../context/ThemeContext';
 
@@ -80,7 +74,7 @@ function ExamResults({ exam, sectionResults, totalTime, navigate, isLight }) {
   const totalCorrect = sectionResults.reduce((s, r) => s + r.correct, 0);
   const totalWrong = sectionResults.reduce((s, r) => s + r.wrong, 0);
   const totalSkipped = sectionResults.reduce((s, r) => s + r.skipped, 0);
-  const totalQs = sectionResults.reduce((s, r) => s + r.total, 0);
+  const _totalQs = sectionResults.reduce((s, r) => s + r.total, 0);
   const percentage = maxMarks > 0 ? Math.round((totalMarks / maxMarks) * 100) : 0;
   const passed = percentage >= exam.passingPercent;
 
@@ -227,7 +221,7 @@ export default function ExamPractice() {
   const [submitted, setSubmitted] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showCalc, setShowCalc] = useState(false);
-  const [showSectionNav, setShowSectionNav] = useState(false);
+  const [_showSectionNav,_setShowSectionNavv] = useState(false);
   const [sectionTimers, setSectionTimers] = useState({});    // { sectionIdx: secondsRemaining }
   const [totalElapsed, setTotalElapsed] = useState(0);
   const timerRef = useRef(null);
@@ -470,16 +464,19 @@ export default function ExamPractice() {
   const sectionTimeRemaining = sectionTimers[currentSectionIdx] ?? 0;
   const isTimeWarning = sectionTimeRemaining < 60;
   const isTimeDanger = sectionTimeRemaining < 30;
-  const answeredInSection = currentQuestions.filter(q => answers[q.id] !== undefined).length;
-  const allAnsweredCount = Object.keys(answers).length;
-  const totalQsAll = sections.reduce((s, sec) => s + (sec.questions?.length || 0), 0);
+  const _answeredInSection = currentQuestions.filter(q => answers[q.id] !== undefined).length;
+  const _allAnsweredCount = Object.keys(answers).length;
+  const _totalQsAll = sections.reduce((s, sec) => s + (sec.questions?.length || 0), 0);
 
   // Compute global question index for grid
+  /* eslint-disable no-unused-vars */
   let globalQIdx = 0;
+
   for (let i = 0; i < currentSectionIdx; i++) {
     globalQIdx += sections[i]?.questions?.length || 0;
   }
   globalQIdx += currentQIdx;
+  /* eslint-enable no-unused-vars */
 
   return (
     <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : '#fff' }}>

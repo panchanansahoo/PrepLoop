@@ -87,7 +87,7 @@ const OTHER_TECHNICAL_QUESTIONS = [
 
 const sessions = new Map();
 
-router.post('/start', authenticateToken, async (req, res) => {
+router.post('/start', authenticateToken, (req, res) => {
   try {
     const { interviewerName, role, company, roundName, roundType } = req.body;
 
@@ -127,7 +127,7 @@ router.post('/start', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/answer', authenticateToken, async (req, res) => {
+router.post('/answer', authenticateToken, (req, res) => {
   try {
     const { sessionId, answer } = req.body;
 
@@ -226,8 +226,6 @@ router.post('/answer', authenticateToken, async (req, res) => {
 
     // Phase 3: Technical Round (1 DSA + 2 OOP + 3 random technical)
     if (session.phase === 'technical') {
-      const totalTech = session.techCount.dsa + session.techCount.oop + session.techCount.other;
-      
       // Need 2 OOP questions
       if (session.techCount.oop < 2) {
         const availableOOP = OOP_QUESTIONS.filter(q => !session.askedQuestions.includes(q));
@@ -284,7 +282,7 @@ router.post('/answer', authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/session/:sessionId', authenticateToken, async (req, res) => {
+router.get('/session/:sessionId', authenticateToken, (req, res) => {
   try {
     const { sessionId } = req.params;
 

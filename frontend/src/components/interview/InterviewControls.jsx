@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
     Play, Pause, Captions, CaptionsOff, MessageSquare,

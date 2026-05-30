@@ -1,9 +1,5 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import { 
-  TrendingUp, Target, BarChart3, PieChart, 
-  Clock, CheckCircle2, Activity, Brain, Shield,
-  Award, Zap, ChevronRight, Layers, Flame, Code2
-} from 'lucide-react';
+import { useMemo, useEffect, useState } from 'react';
+import { TrendingUp, Target, BarChart3, PieChart, Clock, CheckCircle2, Activity, Brain, Shield, Award, Zap, ChevronRight, Layers, Flame, Code2 } from 'lucide-react';
 import { TOPICS, PROBLEMS, getDifficultyCounts } from '../data/problemsDatabase';
 import { useTheme } from '../context/ThemeContext';
 import useDashboardData from '../hooks/useDashboardData';

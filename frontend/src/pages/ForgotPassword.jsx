@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { Mail, AlertCircle, ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';

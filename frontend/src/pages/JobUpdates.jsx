@@ -1,13 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  Briefcase, Search, MapPin, Clock, ExternalLink,
-  Building2, Loader2, AlertCircle, Tag,
-  DollarSign, Calendar, Sparkles,
-  Globe, Bookmark, TrendingUp, GraduationCap, Users,
-  Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown
-} from 'lucide-react';
+import { Briefcase, Search, MapPin, Clock, ExternalLink, Building2, Loader2, AlertCircle, Tag, DollarSign, Calendar, Sparkles, Globe, Bookmark, TrendingUp, GraduationCap, Users, Zap, Brain, X, ArrowRight, Wand2, Target, CheckCircle2, ChevronDown } from 'lucide-react';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import '../styles/JobUpdates.css';
@@ -15,7 +9,7 @@ import { API_URL } from '../config/api.js';
 
 
 
-const CATEGORIES = [
+const _CATEGORIES = [
   { id: 'all', label: 'All Jobs', icon: Briefcase },
   { id: 'fresher', label: 'Fresher', icon: GraduationCap },
   { id: 'off-campus', label: 'Off-Campus', icon: Globe },
@@ -59,12 +53,12 @@ export default function JobUpdates() {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, _setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [hasExternalApi, setHasExternalApi] = useState(false);
+  const [_hasExternalApi, setHasExternalApi] = useState(false);
   const [savedJobs, setSavedJobs] = useState(() => {
     try { return JSON.parse(localStorage.getItem('savedJobs') || '[]'); } catch { return []; }
   });
@@ -128,7 +122,7 @@ export default function JobUpdates() {
       params.append('page', page.toString());
       params.append('limit', '50');
 
-      const headers = buildAuthHeaders(user);
+      const _headers = buildAuthHeaders(user);
 
       const response = await authFetch(`${API_URL}/api/jobs?${params}`);
       if (!response.ok) throw new Error('Failed to fetch jobs');
@@ -200,7 +194,7 @@ export default function JobUpdates() {
     handleAiSearch(suggestion);
   };
 
-  const toggleAiMode = () => {
+  const _toggleAiMode = () => {
     const newMode = !isAiMode;
     setIsAiMode(newMode);
     if (newMode) setIsCareerOpsMode(false);
@@ -221,7 +215,7 @@ export default function JobUpdates() {
     }
   };
 
-  const toggleCareerOpsMode = () => {
+  const _toggleCareerOpsMode = () => {
     const newMode = !isCareerOpsMode;
     setIsCareerOpsMode(newMode);
     if (newMode) {
@@ -832,11 +826,11 @@ function CareerOpsResultCard({ result }) {
   );
 }
 
-function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
+function JobCard({ job, _saved,_onToggleSavee, formatDeadline, getTimeAgo }) {
   const navigate = useNavigate();
   const typeBadge = TYPE_BADGES[job.type] || TYPE_BADGES['full-time'];
   const deadline = formatDeadline(job.deadline);
-  const posted = getTimeAgo(job.created_at);
+  const _posted = getTimeAgo(job.created_at);
   const isExpired = deadline === 'Expired';
   const initials = (job.company || 'C').split(/[\s&]+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
 

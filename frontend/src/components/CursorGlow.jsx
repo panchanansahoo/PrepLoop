@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import {useEffect, useRef} from 'react';
 
 /*
  * WebGL Fluid Simulation — Faithful port of proception.ai's production code.
@@ -448,7 +448,7 @@ function getSupportedFormat(gl, internalFormat, format, type) {
 }
 
 // ─── HSV to RGB (exact proception.ai implementation) ────────────────────────
-function HSVtoRGB(h, s, v) {
+function HSVtoRGB(h, _s,_vv) {
   const i = Math.floor(6 * h);
   const f = 6 * h - i;
   const p = 0;              // v * (1 - s) = 0 when s=1

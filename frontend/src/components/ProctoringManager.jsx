@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Shield, AlertTriangle, Eye, EyeOff, Monitor } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import {Shield, AlertTriangle} from 'lucide-react';
 
 /**
  * ProctoringManager — Anti-cheat detection for interview sessions

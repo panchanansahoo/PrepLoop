@@ -1,18 +1,13 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
+
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
-import {
-  Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp,
-  Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2,
-  Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic,
-  Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers,
-  Plus, Minus
-} from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2, Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic, Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers, Plus, Minus } from 'lucide-react';
 
 // ── Animated circular gauge ──
+/* eslint-disable-next-line no-unused-vars */
 function ATSGauge({ score, size = 180 }) {
   const [animatedScore, setAnimatedScore] = useState(0);
   const radius = (size - 20) / 2;
@@ -113,8 +108,8 @@ export default function ResumeAnalyzer() {
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const [history, setHistory] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [_history, setHistory] = useState([]);
+  const [_loadingHistory, setLoadingHistory] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [mode, setMode] = useState('landing'); // 'landing' | 'enhance' | 'create' | 'preview'
@@ -236,7 +231,7 @@ export default function ResumeAnalyzer() {
     setAnalyzing(false);
   };
 
-  const loadAnalysis = async (id) => {
+  const _loadAnalysis = async (id) => {
     try {
       const res = await authFetch(buildResumeApiUrl(`/api/resume/${id}`));
       if (res.ok) {
@@ -320,7 +315,7 @@ export default function ResumeAnalyzer() {
       });
       if (!res.ok) {
         let msg = 'Generation failed';
-        try { const e = await res.json(); msg = e.error || msg; } catch {}
+        try { const e = await res.json(); msg = e.error || msg; } catch { /* empty */ }
         throw new Error(msg);
       }
       const data = await res.json();
@@ -366,7 +361,7 @@ export default function ResumeAnalyzer() {
   };
 
   // Helper: editable field
-  const EditableField = ({ value, onChange, tag: Tag = 'span', style = {}, className = '' }) => (
+  const _EditableField = ({ value, onChange, tag: Tag = 'span', style = {}, className = '' }) => (
     <Tag
       contentEditable
       suppressContentEditableWarning

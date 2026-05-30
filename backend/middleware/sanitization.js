@@ -46,8 +46,8 @@ function sanitizeHTML(input) {
   if (typeof input !== 'string') return input;
   
   // Allow only safe HTML tags
-  const allowedTags = ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'code', 'pre', 'blockquote'];
-  const allowedAttrs = ['href', 'target', 'rel'];
+  const _allowedTags = ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'a', 'code', 'pre', 'blockquote'];
+  const _allowedAttrs = ['href', 'target', 'rel'];
   
   let sanitized = input;
   

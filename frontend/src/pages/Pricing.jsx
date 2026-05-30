@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import {
-  CheckCircle, ChevronDown, ArrowRight, Sparkles, Zap
-} from 'lucide-react';
+import { CheckCircle, ChevronDown, ArrowRight, Sparkles, Zap } from 'lucide-react';
 import './Pricing.css';
 
 /* ───── plan data ───── */

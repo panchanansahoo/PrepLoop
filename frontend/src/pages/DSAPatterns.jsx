@@ -1,5 +1,3 @@
-import React from 'react';
-
 import RoadmapView from '../features/dashboard/components/RoadmapView';
 import { dsaCatalogPatterns, dsaRoadmapHierarchy, roadmapTrackConfigs } from '../data/roadmapCatalog';
 

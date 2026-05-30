@@ -64,7 +64,7 @@ class APIDocGenerator {
   /**
    * Process individual route file
    */
-  async processRouteFile(filePath, fileName) {
+  processRouteFile(filePath, fileName) {
     const routeName = fileName.replace('.js', '');
     const basePath = `/api/${routeName}`;
 
@@ -304,7 +304,7 @@ class APIDocGenerator {
   /**
    * Generate HTML documentation
    */
-  async generateHTML(spec, outputPath) {
+  generateHTML(spec, outputPath) {
     const html = `
 <!DOCTYPE html>
 <html>

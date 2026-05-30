@@ -6,8 +6,8 @@ import { useState, useCallback, useMemo } from 'react';
 export default function useRoadmapFilters(
     enrichedRoots = [],
     guideProgressById = new Map(),
-    totalProblems = 0,
-    solvedProblems = 0,
+    _totalProblems = 0,
+    _solvedProblems = 0,
 ) {
     const [selectedDifficulties, setSelectedDifficulties] = useState([]);
     const [selectedStatuses, setSelectedStatuses] = useState([]);

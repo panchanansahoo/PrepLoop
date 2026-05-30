@@ -1,10 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Calendar, Clock, Plus, Trash2, Users, Briefcase,
-  LogOut, ChevronRight, CheckCircle, X, Building,
-  Video, Star, MapPin, DollarSign, Link as LinkIcon, FileText,
-} from 'lucide-react';
+import { Calendar, Clock, Plus, Trash2, Users, Briefcase, LogOut, ChevronRight, CheckCircle, X, Building, Video, Star, MapPin, DollarSign, Link as _LinkIcon, FileText } from 'lucide-react';
 import { buildApiUrl } from '../utils/safeApiUrl';
 
 import { API_URL } from '../config/api.js';
@@ -20,7 +16,7 @@ export default function HRDashboard() {
   const [slots, setSlots] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   // Slot creation form
   const [showSlotForm, setShowSlotForm] = useState(false);
@@ -94,7 +90,7 @@ export default function HRDashboard() {
         const data = await res.json();
         alert(data.error || 'Failed to create slot');
       }
-    } catch (err) { alert('Failed to create slot'); }
+    } catch { alert('Failed to create slot'); }
   };
 
   const deleteSlot = async (id) => {
@@ -102,7 +98,7 @@ export default function HRDashboard() {
     try {
       await fetch(buildHrApiUrl(`/hr/slots/${id}`), { method: 'DELETE', headers: getHeaders() });
       loadSlots();
-    } catch (err) { alert('Failed to delete'); }
+    } catch { alert('Failed to delete'); }
   };
 
   const completeInterview = async (bookingId) => {
@@ -116,7 +112,7 @@ export default function HRDashboard() {
         body: JSON.stringify({ rating: parseInt(rating), feedback }),
       });
       loadBookings();
-    } catch (err) { alert('Failed to complete'); }
+    } catch { alert('Failed to complete'); }
   };
 
   const createJob = async (e) => {
@@ -135,7 +131,7 @@ export default function HRDashboard() {
         const data = await res.json();
         alert(data.error || 'Failed to post job');
       }
-    } catch (err) { alert('Failed to post job'); }
+    } catch { alert('Failed to post job'); }
   };
 
   const deleteJob = async (id) => {
@@ -143,7 +139,7 @@ export default function HRDashboard() {
     try {
       await fetch(buildHrApiUrl(`/hr/jobs/${id}`), { method: 'DELETE', headers: getHeaders() });
       loadJobs();
-    } catch (err) { alert('Failed to delete'); }
+    } catch { alert('Failed to delete'); }
   };
 
   const handleLogout = () => {

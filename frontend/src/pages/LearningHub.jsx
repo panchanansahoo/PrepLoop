@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { GraduationCap, Map, Server, Users, BookOpen, ArrowRight, Target, Trophy, Zap, Flame, Clock, Sparkles } from 'lucide-react';
+import {GraduationCap, Map, BookOpen, ArrowRight, Target, Trophy, Zap, Flame, Sparkles} from 'lucide-react';
 import { getDSATopicIds } from '../data/dsaLearningPathData';
 import { getDSAOverallProgress } from '../data/dsaLearningProgress';
 import { getTechnicalTopicIds } from '../data/technicalLearningPathData';
@@ -11,7 +11,7 @@ import { getTopicIds } from '../data/learningPathData';
 import { getOverallProgress, getStreakDays } from '../data/learningPathProgress';
 import './LearningPath.css';
 
-function ProgressRing({ percent, size = 52, strokeWidth = 4, color = '#818cf8' }) {
+function _ProgressRing({ percent, size = 52, strokeWidth = 4, color = '#818cf8' }) {
     const r = (size - strokeWidth) / 2;
     const circ = 2 * Math.PI * r;
     const offset = circ - (percent / 100) * circ;

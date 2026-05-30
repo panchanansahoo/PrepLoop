@@ -1147,4 +1147,5 @@ export const _buildInterviewMemoryPrompt = buildInterviewMemoryPrompt;
 export const _buildFocusSignal = buildFocusSignal;
 export const _normalizeInterviewRuntimeMode = normalizeInterviewRuntimeMode;
 export const _buildInterviewRuntime = buildInterviewRuntime;
+export const _FRESHER_INTERVIEW_TOTAL_QUESTIONS = FRESHER_INTERVIEW_TOTAL_QUESTIONS;
 

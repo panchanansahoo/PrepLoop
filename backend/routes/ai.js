@@ -8,7 +8,7 @@ const router = express.Router();
 
 const groq = getGroqClient();
 
-const createGroqCompletion = async (payload) => {
+const createGroqCompletion = (payload) => {
   if (!groq) {
     throw new Error('Groq API is not configured. Please set GROQ_API_KEY environment variable.');
   }
@@ -20,13 +20,6 @@ const createGroqCompletion = async (payload) => {
   });
 };
 
-const slugifyProblemTitle = (value = '') =>
-  value
-    .toString()
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
 
 const resolveProblemId = async (problemIdentifier) => {
   if (!problemIdentifier) return null;

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Loader, Send, Mic, MicOff, Lightbulb } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+
 import { authFetch } from '../utils/authFetch';
 
-export default function InterviewSession({ interview, config, onComplete }) {
+export default function InterviewSession({ _interview, config, onComplete }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState({});
   const [currentAnswer, setCurrentAnswer] = useState('');

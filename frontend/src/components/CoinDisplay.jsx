@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Coins, Gift, History, Loader2, Sparkles } from 'lucide-react';
 import { useCoins } from '../context/CoinContext';
 import { Link } from 'react-router-dom';

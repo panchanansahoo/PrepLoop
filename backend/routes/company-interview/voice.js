@@ -1,23 +1,23 @@
 import express from 'express';
-import Groq from 'groq-sdk';
-import multer from 'multer';
+import _Groq from 'groq-sdk';
+import _multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
-import crypto from 'crypto';
-import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
-import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../../services/companyQuestionService.js';
-import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
-import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
-import { groq, safeDeleteUploadFile, MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, UPLOAD_DIR, upload, COMPANY_CATEGORIES, getCompanyCategory, PERSONA_PROFILES, DEFAULT_ADVANCED_OPTIONS, INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, STATIC_INTERVIEW_QUESTIONS, STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, getFresherHRQuestion, getFresherHRAIPrompt, getFresherHRClosing, INTERVIEWER_NAMES, pickFallbackInterviewerName, getResumeProjectPrompt, getTopSkillPrompt, buildHrResponseSnippet, getFresherScriptedQuestion, getFresherQuestionTopic, getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal } from './helpers.js';
+import _os from 'os';
+import _crypto from 'crypto';
+import { optionalAuth, _authenticateToken } from '../../middleware/auth.js';
+import { _supabaseAdmin } from '../../db/supabaseClient.js';
+import { _aiCallWithRetry } from '../../utils/aiClient.js';
+import { _getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from '../../services/companyQuestionService.js';
+import { _buildInitialVoiceTelemetry, _buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
+import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
+import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { groq, safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, _safeJsonParse, UPLOAD_DIR, upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, _normalizeInterviewRuntimeMode, _buildInterviewRuntime, _STAGE_ALIASES, _resolveInterviewStage, _resolveResumeInterviewModeForExperience, _normalizeAdvancedOptions, _formatResumeContext, _FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, _getStaticInterviewQuestions, _getStaticInterviewQuestion, _getStaticInterviewClosing, _getFresherTechnicalQuestion, _getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, _getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Analyze speech for pace, fillers, clarity ───
-router.post('/speech-feedback', optionalAuth, async (req, res) => {
+router.post('/speech-feedback', optionalAuth, (req, res) => {
   const { transcript, duration } = req.body;
 
   try {

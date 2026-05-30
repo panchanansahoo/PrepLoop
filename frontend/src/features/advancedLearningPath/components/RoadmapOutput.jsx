@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, CheckCircle, Clock, Download, Calendar, BookOpen } from 'lucide-react';
 
 export default function RoadmapOutput({ weeks, aiTaskDone, onToggleTask, onExport, trackLabels }) {

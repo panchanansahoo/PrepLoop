@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Settings, ChevronDown, Layers, Target, Brain, Database, BarChart3 } from 'lucide-react';
 import { COMPANY_PRESETS } from '../utils/roadmapData.js';
 import { todayISO } from '../utils/roadmapDateUtils.js';
@@ -22,7 +22,7 @@ export default function RoadmapForm({
   selectedTracks, setSelectedTracks,
   aiDaysPerWeek, setAiDaysPerWeek,
   aiCompanyMode, setAiCompanyMode,
-  aiDailyBlockMin, setAiDailyBlockMin,
+  aiDailyBlockMin, _setAiDailyBlockMin,
   onGenerate, isGenerating,
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);

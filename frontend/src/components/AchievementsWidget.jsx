@@ -1,4 +1,3 @@
-import React from 'react';
 import { Award, Star, Zap, Code, Shield } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

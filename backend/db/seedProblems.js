@@ -1,14 +1,13 @@
 import { supabaseAdmin } from './supabaseClient.js';
 
 // Pattern name -> pattern_id mapping (will be fetched dynamically)
-let PATTERN_MAP = {};
+const PATTERN_MAP = {};
 
 async function loadPatternMap() {
     const { data } = await supabaseAdmin.from('patterns').select('id, name');
     for (const p of data || []) PATTERN_MAP[p.name] = p.id;
     // Add aliases for fuzzy matching from dsaProblems.js
-    PATTERN_MAP['Two Pointers'] = PATTERN_MAP['Two Pointers'];
-    PATTERN_MAP['Sliding Window'] = PATTERN_MAP['Sliding Window'];
+    // Aliases handled by fuzzy matching in getPatternId
     console.log(`Loaded ${Object.keys(PATTERN_MAP).length} patterns`);
 }
 

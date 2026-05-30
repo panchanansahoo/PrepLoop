@@ -1,12 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Sparkles, Trophy, Zap, Target, Flame, ChevronRight, Clock,
-    GraduationCap, ChevronDown, Map, BarChart3, ArrowRight
-} from 'lucide-react';
+import { Sparkles, Trophy, Zap, Target, Flame, ChevronRight, Clock, GraduationCap, ChevronDown, Map, BarChart3, ArrowRight } from 'lucide-react';
 import { DSA_STAGES, DSA_TOPICS, TIME_TRACKS, getDSATopicIds, getDSATopicsByStage } from '../data/dsaLearningPathData';
 import { getDSATopicProgress, getDSAOverallProgress, getDSASkillRadar } from '../data/dsaLearningProgress';
-import { useTheme } from '../context/ThemeContext';
+
 import './LearningPath.css';
 
 /* ─── Progress Ring ─── */

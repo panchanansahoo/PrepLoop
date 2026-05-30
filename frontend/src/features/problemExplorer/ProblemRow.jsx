@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { ExternalLink, Sparkles, FileText, Code2, CheckCircle2 } from 'lucide-react';
 

@@ -4,9 +4,9 @@ import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
-import dsaLearningPath from '../data/dsaLearningPath.js';
-import { aptitudeLearningPath } from '../data/aptitudeLearningPath.js';
-import lldLearningPath from '../data/lldLearningPath.js';
+import _dsaLearningPath from '../data/dsaLearningPath.js';
+import { aptitudeLearningPath as _aptitudeLearningPath } from '../data/aptitudeLearningPath.js';
+import _lldLearningPath from '../data/lldLearningPath.js';
 import { InterviewAnalyticsService } from '../services/interviewAnalyticsService.js'; // New analytics service
 
 const router = express.Router();
@@ -288,7 +288,7 @@ function analyzeUserPerformance(history, currentResponses) {
 }
 
 // Helper function to get fallback questions based on performance
-function getAdaptiveFallbackQuestions(type, difficulty, performance) {
+function getAdaptiveFallbackQuestions(type, difficulty, _performance) {
   const questionSets = {
     technical: {
       easy: [
@@ -515,7 +515,7 @@ router.get('/recommendations/personalized', authenticateToken, async (req, res) 
 /**
  * Get company-specific interview preparation
  */
-router.get('/prepare/:company', authenticateToken, async (req, res) => {
+router.get('/prepare/:company', authenticateToken, (req, res) => {
   try {
     const { company } = req.params;
     const { type = 'dsa' } = req.query;

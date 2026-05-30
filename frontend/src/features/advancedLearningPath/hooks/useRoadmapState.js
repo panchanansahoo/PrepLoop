@@ -45,7 +45,7 @@ export default function useRoadmapState() {
         streakDays, lastActionISO, aiSelectedTracks, aiLastPlanText,
         aiDaysPerWeek, aiCompanyMode, aiDailyBlockMin, aiLastPlanWeeks, aiTaskDone,
       }));
-    } catch { }
+    } catch { /* empty */ }
   }, [checked, activeTrack, weeklyGoal, weekDone, weekStartISO, streakDays, lastActionISO, aiSelectedTracks, aiLastPlanText, aiDaysPerWeek, aiCompanyMode, aiDailyBlockMin, aiLastPlanWeeks, aiTaskDone]);
 
   useEffect(() => { saveState(); }, [saveState]);
@@ -62,7 +62,7 @@ export default function useRoadmapState() {
     });
   }, []);
 
-  const toggleCheck = useCallback((key, topicId) => {
+  const toggleCheck = useCallback((key, _topicId) => {
     setChecked(prev => {
       const nowChecked = !prev[key];
       const currentMonday = mondayISO();

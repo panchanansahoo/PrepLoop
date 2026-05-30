@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { InterviewPromptService } from '../services/interviewPromptService.js';
 import { InterviewConversationService } from '../services/interviewConversationService.js';
 
-async function run() {
+function run() {
   const prompt = InterviewPromptService.buildFollowUpPrompt({
     problemStatement: 'Design an LRU cache.',
     transcript: [

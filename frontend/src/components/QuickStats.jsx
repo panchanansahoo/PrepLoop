@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Flame, CheckCircle2, Target, Zap, CalendarDays, Trophy } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

@@ -576,7 +576,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   }, [problemId]);
 
   const [problem, setProblem] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
 
   // ─── Fetch problem data if problemId is present ───
   useEffect(() => {
@@ -627,7 +627,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   const voiceFetchAbortRef = useRef(null);
   const attentionAudioContextRef = useRef(null);
   const attentionTimerRef = useRef(null);
-  const lastAttentionSignatureRef = useRef("");
+  const _lastAttentionSignatureRef = useRef("");
 
   // ─── Load saved code or default ───
   useEffect(() => {
@@ -2432,7 +2432,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
                           <ReactMarkdown
                             components={{
                               code({
-                                node,
+                                _node,
                                 inline,
                                 className,
                                 children,

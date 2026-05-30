@@ -1,18 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import {
-  Flame, Crown, User, ArrowRight, X,
-  BookOpen, MessageSquare, Brain, Grid3X3,
-  TrendingUp, Zap, ChevronRight, Clock, Bookmark
-} from 'lucide-react';
+import { Flame, Crown, User, ArrowRight, X, BookOpen, MessageSquare, Brain, Grid3X3, TrendingUp, Zap, ChevronRight, Clock, Bookmark, Code } from 'lucide-react';
 
 export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showBanner, setShowBanner] = useState(true);
+  const [_showBanner,_setShowBannerr] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();

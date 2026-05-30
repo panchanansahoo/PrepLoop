@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Lock, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
@@ -196,7 +196,7 @@ export default function ResetPassword() {
 
     useEffect(() => {
         if (supabase) {
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, _session) => {
                 if (event === 'PASSWORD_RECOVERY') {
                     setReady(true);
                 }
@@ -232,7 +232,7 @@ export default function ResetPassword() {
                 setSuccess(true);
                 setTimeout(() => navigate('/login'), 3000);
             }
-        } catch (err) {
+        } catch {
             setError('Failed to reset password. Please try again.');
         } finally {
             setLoading(false);

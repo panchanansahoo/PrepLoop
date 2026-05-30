@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Crown, Medal, Trophy, Flame, RefreshCw } from 'lucide-react';
 import { authFetch } from '../../utils/authFetch';
 

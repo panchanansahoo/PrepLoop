@@ -67,7 +67,7 @@ export default function ImprovementProgressChart() {
       {/* Chart */}
       <div className="mb-6">
         <div className="flex items-end justify-between gap-2 h-48">
-          {progressData.map((data, idx) => (
+          {progressData.map((data, _idx) => (
             <div key={data.id} className="flex-1 flex flex-col items-center">
               <div className="w-full flex items-end justify-center h-40">
                 <div

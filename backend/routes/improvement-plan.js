@@ -75,7 +75,7 @@ router.get('/latest', authenticateToken, async (req, res) => {
       data: plan
     });
   } catch (error) {
-    logger.error('Fetch latest plan failed', { userId, error: error.message, stack: error.stack });
+    logger.error('Fetch latest plan failed', { userId: req.user.id, error: error.message, stack: error.stack });
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch improvement plan'
@@ -99,7 +99,7 @@ router.get('/:planId', authenticateToken, async (req, res) => {
       data: plan
     });
   } catch (error) {
-    logger.error('Fetch plan by ID failed', { userId, planId, error: error.message, stack: error.stack });
+    logger.error('Fetch plan by ID failed', { userId: req.user.id, planId: req.params.planId, error: error.message, stack: error.stack });
     
     if (error.message.includes('Plan not found')) {
       return res.status(404).json({
@@ -138,7 +138,7 @@ router.get('/history', authenticateToken, async (req, res) => {
       data: plans || []
     });
   } catch (error) {
-    logger.error('Fetch plan history failed', { userId, error: error.message, stack: error.stack });
+    logger.error('Fetch plan history failed', { userId: req.user.id, error: error.message, stack: error.stack });
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch plan history'
@@ -185,7 +185,7 @@ router.post('/:planId/progress', authenticateToken, validateRequestBody({
       data: updatedPlan
     });
   } catch (error) {
-    logger.error('Update plan progress failed', { userId, planId, error: error.message, stack: error.stack });
+    logger.error('Update plan progress failed', { userId: req.user.id, planId: req.params.planId, error: error.message, stack: error.stack });
     
     if (error.message === 'Plan not found or unauthorized') {
       return res.status(404).json({
@@ -217,7 +217,7 @@ router.post('/:planId/complete', authenticateToken, async (req, res) => {
       data: completedPlan
     });
   } catch (error) {
-    logger.error('Mark plan as completed failed', { userId, planId, error: error.message, stack: error.stack });
+    logger.error('Mark plan as completed failed', { userId: req.user.id, planId: req.params.planId, error: error.message, stack: error.stack });
     
     if (error.message.includes('Plan not found')) {
       return res.status(404).json({
@@ -280,7 +280,7 @@ router.get('/:planId/stats', authenticateToken, async (req, res) => {
       data: stats
     });
   } catch (error) {
-    logger.error('Fetch plan stats failed', { userId, planId, error: error.message, stack: error.stack });
+    logger.error('Fetch plan stats failed', { userId: req.user.id, planId: req.params.planId, error: error.message, stack: error.stack });
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch plan statistics'

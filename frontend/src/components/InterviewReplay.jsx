@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Play, Pause, Volume2, Download, Share2, MessageCircle, ThumbsUp, ArrowLeft } from 'lucide-react';
-import { buildAuthHeaders } from '../utils/authHeaders';
+import { useState, useEffect } from 'react';
+import {Play, Pause, Download, Share2, MessageCircle, ThumbsUp, ArrowLeft} from 'lucide-react';
+
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BarChart3, ChevronDown, ChevronUp, Sparkles, Target, Eye, MessageSquare, Award } from 'lucide-react';
+import { useState } from 'react';
+import {BarChart3, ChevronDown, ChevronUp, Sparkles, Target, Eye, Award} from 'lucide-react';
 import './EnhancedScoreCard.css';
 
 export default function EnhancedScoreCard({ data }) {

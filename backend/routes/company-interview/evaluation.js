@@ -1,18 +1,8 @@
 import express from 'express';
-import Groq from 'groq-sdk';
-import multer from 'multer';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import crypto from 'crypto';
 import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { getRandomQuestionSet, getFilteredQuestions, getQuestionCount } from '../../services/companyQuestionService.js';
-import { buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
-import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
-import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
-import { groq, safeDeleteUploadFile, MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, UPLOAD_DIR, upload, COMPANY_CATEGORIES, getCompanyCategory, PERSONA_PROFILES, DEFAULT_ADVANCED_OPTIONS, INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, STATIC_INTERVIEW_QUESTIONS, STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, getFresherHRQuestion, getFresherHRAIPrompt, getFresherHRClosing, INTERVIEWER_NAMES, pickFallbackInterviewerName, getResumeProjectPrompt, getTopSkillPrompt, buildHrResponseSnippet, getFresherScriptedQuestion, getFresherQuestionTopic, getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal } from './helpers.js';
+import { groq, safeJsonParse } from './helpers.js';
 
 const router = express.Router();
 

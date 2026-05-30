@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom';
+import { useState, useEffect, Suspense } from 'react';
+import {BrowserRouter as Router, Routes, Route, Navigate, useLocation, useParams} from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -10,7 +10,7 @@ import LoadingScreen from './components/LoadingScreen';
 import RouteLoadingSkeleton from './components/RouteLoadingSkeleton';
 import AppFooter from './components/AppFooter';
 
-import performanceMonitor from './utils/performanceMonitor';
+
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 
@@ -25,7 +25,7 @@ const Login = lazyWithRecovery(() => import('./pages/Login'));
 const Signup = lazyWithRecovery(() => import('./pages/Signup'));
 const Overview = lazyWithRecovery(() => import('./pages/Overview'));
 const Dashboard = lazyWithRecovery(() => import('./pages/Dashboard'));
-const DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
+const _DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
 const PatternDetail = lazyWithRecovery(() => import('./pages/PatternDetail'));
 const ProblemSolver = lazyWithRecovery(() => import('./pages/ProblemSolver'));
 const LanguageRoadmap = lazyWithRecovery(() => import('./pages/LanguageRoadmap'));
@@ -118,12 +118,12 @@ function ProblemRedirect() {
 // ErrorBoundary imported from GlobalErrorBoundary (premium recovery UI)
 
 function AppContent() {
-  const { user } = useAuth();
+  const { _user } = useAuth();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [_cmdOpen, setCmdOpen] = useState(false);
+  const [_shortcutsOpen, setShortcutsOpen] = useState(false);
   const { toasts, toast, removeToast } = useToast();
 
   // Make toast globally available for legacy code

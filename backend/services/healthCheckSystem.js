@@ -79,7 +79,7 @@ class HealthCheckSystem {
     }, { critical: false, timeout: 3000 });
 
     // Memory check
-    this.registerCheck('memory', async () => {
+    this.registerCheck('memory', () => {
       const usage = process.memoryUsage();
       const heapUsedPercent = (usage.heapUsed / usage.heapTotal) * 100;
       
@@ -123,7 +123,7 @@ class HealthCheckSystem {
             utilization: parts[4],
           },
         };
-      } catch (error) {
+      } catch (_error) {
         return {
           healthy: true,
           message: 'Disk check skipped (not available)',
@@ -261,7 +261,7 @@ class HealthCheckSystem {
     const results = {};
     const promises = [];
 
-    for (const [name, check] of this.checks.entries()) {
+    for (const [name, _check] of this.checks.entries()) {
       promises.push(
         this.runCheck(name)
           .then(result => ({ name, result }))
@@ -287,7 +287,7 @@ class HealthCheckSystem {
   /**
    * Liveness probe - is the application running?
    */
-  async liveness() {
+  liveness() {
     return {
       status: this.isLive ? 'alive' : 'dead',
       uptime: Math.floor((Date.now() - this.startTime) / 1000),

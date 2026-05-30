@@ -1,18 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import './AlgorithmPlayground.css';
-import {
-    Play, Pause, SkipForward, SkipBack, RotateCcw,
-    ChevronRight, ChevronLeft, Zap, Clock, Cpu,
-    FastForward, Rewind, Settings2, Info, Search,
-    ArrowLeft, Filter, Sparkles, Maximize2, ChevronDown,
-    Lightbulb, BookOpen, Keyboard, HardDrive
-} from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, RotateCcw, ChevronRight, ChevronLeft, Zap, Clock, Cpu, FastForward, Rewind, Settings2, Info, Search, ArrowLeft, Filter, Sparkles, Maximize2, ChevronDown, Lightbulb, BookOpen, Keyboard, HardDrive } from 'lucide-react';
 import { ALGORITHMS, generateSteps } from '../data/algorithmVisualizations';
 import { ALGORITHM_CODES } from '../data/algorithmCodes';
 import { ALGORITHM_CODES_MULTI, CODE_LANGUAGES } from '../data/algorithmCodesMulti';
 import ArrayVisualizer from '../components/visualizer/ArrayVisualizer';
 import GraphVisualizer from '../components/visualizer/GraphVisualizer';
-import CodePanel from '../components/visualizer/CodePanel';
+
 
 const SPEED_OPTIONS = [
     { label: '0.5×', value: 1200 },
@@ -219,7 +213,7 @@ function CatalogView({ onSelectAlgorithm }) {
 //  VISUALIZER VIEW — AlgoMaster split-screen
 // ═══════════════════════════════════════════
 function VisualizerView({ algorithm, onBack }) {
-    const [selectedAlgo, setSelectedAlgo] = useState(algorithm);
+    const [selectedAlgo, _setSelectedAlgo] = useState(algorithm);
     const [steps, setSteps] = useState([]);
     const [currentStep, setCurrentStep] = useState(0);
     const [isPlaying, setIsPlaying] = useState(false);

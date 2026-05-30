@@ -220,7 +220,7 @@ router.post('/earn', authenticateToken, async (req, res) => {
 });
 
 // Available redeem options
-router.get('/redeem-options', authenticateToken, async (_req, res) => {
+router.get('/redeem-options', authenticateToken, (_req, res) => {
   res.json({
     options: REDEEM_OPTIONS,
     limits: {

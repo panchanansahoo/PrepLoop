@@ -3,15 +3,7 @@ import './Home.css';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
-import {
-  Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen,
-  CheckCircle, ChevronDown, ArrowRight, Users, Star, Shield,
-  Zap, Clock, Target, Award, Play, Sparkles, Database, Calculator, Map,
-  Building2, Mic, Globe, BarChart3, Bot, Layers, GitBranch,
-  GraduationCap, Trophy, Rocket, ChevronRight, ChevronLeft, Quote, Activity,
-  PenTool, Eye, Gauge, UserCheck, Timer, Flame, Crown, BadgeCheck,
-  Briefcase, MapPin, ExternalLink, Calendar, Mail
-} from 'lucide-react';
+import { Brain, Code2, MessageSquare, FileText, TrendingUp, BookOpen, CheckCircle, ChevronDown, ArrowRight, Users, Star, Shield, Zap, Clock, Target, Award, Play, Sparkles, Database, Calculator, Map, Building2, Mic, Globe, BarChart3, Bot, GraduationCap, Trophy, Rocket, ChevronRight, ChevronLeft, Quote, Activity, PenTool, Eye, Gauge, Briefcase, MapPin, ExternalLink, Calendar, Mail, UserCheck, Flame, Layers } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { lazyWithRecovery } from '../utils/lazyWithRecovery';
@@ -257,7 +249,7 @@ const faqs = [
 /*               SUB-COMPONENTS                    */
 /* ═══════════════════════════════════════════════ */
 
-function FloatingCard({ children, style, className = '' }) {
+function _FloatingCard({ children, style, className = '' }) {
   return (
     <div className={`hero-float-card ${className}`} style={{
       background: 'var(--bg-card)',

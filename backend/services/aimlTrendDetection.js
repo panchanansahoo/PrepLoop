@@ -5,7 +5,7 @@
  * Uses frequency analysis to identify skills trending up or down QoQ.
  */
 
-import { supabaseAdmin } from '../db/supabaseClient.js';
+import { supabase, supabaseAdmin as _supabaseAdmin } from '../db/supabaseClient.js';
 
 /**
  * Common skill keywords for extraction
@@ -31,7 +31,7 @@ export function extractSkillsFromText(text) {
   const extractedSkills = new Set();
   
   // Search for each skill keyword
-  for (const [category, skills] of Object.entries(SKILL_KEYWORDS)) {
+  for (const [_category, skills] of Object.entries(SKILL_KEYWORDS)) {
     for (const skill of skills) {
       // Match whole words or hyphenated terms
       const patterns = [
@@ -124,7 +124,7 @@ function extractKeywords(text, limit = 20) {
 /**
  * Track skill mention frequency
  */
-export async function trackSkillFrequency(jobs = []) {
+export function trackSkillFrequency(jobs = []) {
   const skillFrequency = {};
   const skillAppearances = {};
   

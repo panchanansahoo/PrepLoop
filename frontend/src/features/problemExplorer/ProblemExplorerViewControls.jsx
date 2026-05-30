@@ -1,5 +1,4 @@
-import React from 'react';
-import { BookOpen, CheckCircle2, Eye, EyeOff, List, Sparkles, Layout } from 'lucide-react';
+import {CheckCircle2, Eye, EyeOff, List, Sparkles, Layout} from 'lucide-react';
 
 export function ProblemExplorerViewControls({
   isLight,

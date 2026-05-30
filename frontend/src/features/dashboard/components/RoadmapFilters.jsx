@@ -1,17 +1,17 @@
-import React, { useState, useCallback } from 'react';
+import {useState} from 'react';
 import {
     ChevronDown,
     X,
     Filter,
     CheckCircle2,
     Circle,
-    AlertCircle,
+    _AlertCircle,
     BarChart3,
 } from 'lucide-react';
 import './roadmap-filters.css';
 
 export default function RoadmapFilters({
-    difficulties = [],
+    _difficulties = [],
     selectedDifficulties = [],
     onDifficultyChange = () => {},
     completionStatuses = ['completed', 'in-progress', 'not-started'],

@@ -1,10 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  ArrowLeft, BadgeCheck, Briefcase, Github, Globe, Loader2, Mail,
-  MapPin, Star, ExternalLink, Code, Sparkles, GitFork, Calendar,
-  GraduationCap, Award, Phone, Twitter, Linkedin,
-} from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Briefcase, Github, Globe, Loader2, Mail, MapPin, Star, ExternalLink, Code, Sparkles, GitFork, Calendar, GraduationCap, Award, Phone, Twitter, Linkedin } from 'lucide-react';
 import './PublicPortfolioPage.css';
 
 function normalizePortfolioData(data) {

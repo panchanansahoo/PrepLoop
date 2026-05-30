@@ -1,14 +1,6 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import './CompanyInterview.css';
-import {
-    Mic, MicOff, Video, VideoOff, MessageSquare, Phone,
-    Send, Clock, Users, Sparkles, ChevronRight, ChevronLeft,
-    Star, TrendingUp, CheckCircle, AlertCircle, BarChart3,
-    RefreshCw, ArrowLeft, Volume2, X, Monitor, MoreVertical,
-    Hand, SmilePlus, Settings, Copy, Maximize2, Minimize2,
-    Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield,
-    Bookmark
-} from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, Send, Clock, Users, Sparkles, ChevronRight, ChevronLeft, Star, TrendingUp, CheckCircle, AlertCircle, BarChart3, RefreshCw, ArrowLeft, Volume2, X, Monitor, MoreVertical, Hand, SmilePlus, Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield, Bookmark, Settings } from 'lucide-react';
 import { Upload, FileText } from 'lucide-react';
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
@@ -21,7 +13,7 @@ import AICopilot from '../components/AICopilot';
 import CodeEditorPanel from '../components/CodeEditorPanel';
 import ProctoringManager from '../components/ProctoringManager';
 import DetailedReport from '../components/interview/DetailedReport';
-import AIAvatar from '../components/interview/AIAvatar';
+
 import MicLevel from '../components/interview/MicLevel';
 import {
     AUTO_SUBMIT_DELAY_MS,
@@ -33,7 +25,7 @@ import {
 import {
     INTERVIEW_LABELS,
     INTERVIEW_PRESETS,
-    clampInterviewScore,
+    _clampInterviewScore,
     buildInterviewSummaryFallback,
     normalizeFeedbackList,
 } from './companyInterviewConfig';
@@ -113,7 +105,7 @@ export default function CompanyInterview() {
         return `${names[idx]} ${lastNames[lIdx]}`;
     }, [config.company, config.role, config.interviewerGender]);
 
-    const interviewerRole = useMemo(() => {
+    const _interviewerRole = useMemo(() => {
         const stageLabel = String(config.stage || 'technical').replace(/[-_]/g, ' ');
         return `${stageLabel} interviewer`;
     }, [config.stage]);
@@ -123,7 +115,7 @@ export default function CompanyInterview() {
     const [micOn, setMicOn] = useState(true);
     const [stream, setStream] = useState(null);
     const [chatOpen, setChatOpen] = useState(true);
-    const [fullscreen, setFullscreen] = useState(false);
+    const [_fullscreen,_setFullscreenn] = useState(false);
 
     // Voice
     const [isListening, setIsListening] = useState(false);
@@ -167,11 +159,11 @@ export default function CompanyInterview() {
     const [emotionEnabled, setEmotionEnabled] = useState(false);
     const [emotionMetrics, setEmotionMetrics] = useState(null);
     const [copilotOpen, setCopilotOpen] = useState(false);
-    const [speechHistory, setSpeechHistory] = useState([]); // per-answer speech data
+    const [speechHistory, _setSpeechHistory] = useState([]); // per-answer speech data
 
     // Adaptive difficulty
     const [difficultyLevel, setDifficultyLevel] = useState('medium');
-    const [adaptiveNote, setAdaptiveNote] = useState(null);
+    const [_adaptiveNote, setAdaptiveNote] = useState(null);
     const [codeFeedback, setCodeFeedback] = useState(null);
 
     // Code editor (for DSA/OA stages)
@@ -180,14 +172,14 @@ export default function CompanyInterview() {
     const [editorLanguage, setEditorLanguage] = useState('python');
 
     // Proctoring
-    const [proctoringEnabled, setProctoringEnabled] = useState(true);
+    const [proctoringEnabled, _setProctoringEnabled] = useState(true);
     const [proctoringViolations, setProctoringViolations] = useState([]);
 
     // Company-specific questions
     const [useRealQuestions, setUseRealQuestions] = useState(false);
     const [questionBankIds, setQuestionBankIds] = useState([]);
     const [currentQuestionMeta, setCurrentQuestionMeta] = useState(null);
-    const [questionSource, setQuestionSource] = useState('ai');
+    const [_questionSource, setQuestionSource] = useState('ai');
 
     // ── Helpers ──
     const companyObj = COMPANIES.find(c => c.id === config.company) || COMPANIES[0];
@@ -471,7 +463,7 @@ export default function CompanyInterview() {
         }
     };
 
-    const getQuestionSourceBadge = (source) => {
+    const _getQuestionSourceBadge = (source) => {
         if (source === 'database') return { label: 'Real company', className: 'database' };
         if (source === 'resume') return { label: 'From CV', className: 'resume' };
         if (source === 'ai-scripted') return { label: 'AI HR + Tech', className: 'ai' };
@@ -594,7 +586,7 @@ export default function CompanyInterview() {
     }, []);
 
     // ── TTS — pick the most natural voice available ──
-    const getBestVoice = () => {
+    const _getBestVoice = () => {
         const voices = window.speechSynthesis.getVoices();
         if (!voices.length) return null;
 
@@ -655,7 +647,7 @@ export default function CompanyInterview() {
             .trim();
     };
 
-    const getVoicePersona = () => {
+    const _getVoicePersona = () => {
         if (config.interviewerPersona && config.interviewerPersona !== 'auto') {
             return config.interviewerPersona;
         }
@@ -1008,7 +1000,7 @@ export default function CompanyInterview() {
 
             // Stop outstanding MediaRecorder if user mutes or aborts
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                try { mediaRecorderRef.current.stop(); } catch (e) { }
+                try { mediaRecorderRef.current.stop(); } catch (_e) { /* empty */ }
             }
 
             // Send speech feedback with accumulated transcript
@@ -1062,7 +1054,7 @@ export default function CompanyInterview() {
                     if (hasLiveAudio) {
                         // Clean up any lingering recorder
                         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                            try { mediaRecorderRef.current.stop(); } catch (e) { }
+                            try { mediaRecorderRef.current.stop(); } catch (_e) { /* empty */ }
                         }
 
                         audioChunksRef.current = [];
@@ -1630,7 +1622,7 @@ export default function CompanyInterview() {
                     completedAt: new Date().toISOString()
                 })
             }).catch(e => console.warn('Session save failed (non-critical):', e.message));
-        } catch { } // silently fail — session save is best-effort
+        } catch { /* empty */ } // silently fail — session save is best-effort
     };
 
     const resetInterview = () => {
@@ -1664,7 +1656,7 @@ export default function CompanyInterview() {
         stopMedia();
     };
 
-    const avgScore = sessionScores.length > 0
+    const _avgScore = sessionScores.length > 0
         ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length)
         : null;
 

@@ -19,7 +19,7 @@ const THRESHOLDS = {
 };
 
 // IP reputation tracking
-const trackIPActivity = (ip, action, severity = 'low') => {
+const trackIPActivity = (ip, action, _severity = 'low') => {
   if (!suspiciousIPs.has(ip)) {
     suspiciousIPs.set(ip, {
       requests: 0,

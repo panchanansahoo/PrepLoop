@@ -1,11 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Sparkles, Trophy, Zap, Target, Flame, ChevronRight, Clock,
-    GraduationCap, ChevronDown, Map, BarChart3, Database
-} from 'lucide-react';
-import { SQL_STAGES, SQL_TOPICS, getSQLTopicIds, getSQLTopicsByStage } from '../data/sqlLearningPathData';
-import { getSQLTopicProgress, getSQLOverallProgress, getSQLSkillRadar } from '../data/sqlLearningProgress';
+import { Sparkles, Trophy, Zap, GraduationCap, ChevronDown, Map, BarChart3, Database, Target, ChevronRight } from 'lucide-react';
+import {SQL_STAGES, getSQLTopicIds, getSQLTopicsByStage} from '../data/sqlLearningPathData';
+import {getSQLTopicProgress, getSQLOverallProgress} from '../data/sqlLearningProgress';
 import { useTheme } from '../context/ThemeContext';
 
 /* ─── Progress Ring ─── */
@@ -113,7 +110,7 @@ export default function SQLLearningPath() {
                     <span style={{ fontSize: 12, color: c.mutedDarker, marginLeft: 8 }}>{topicIds.length} topics · {SQL_STAGES.length} stages</span>
                 </div>
 
-                {SQL_STAGES.map((stage, si) => {
+                {SQL_STAGES.map((stage, _si) => {
                     const stageTopics = getSQLTopicsByStage(stage.id);
                     const isExpanded = expandedStages[stage.id];
 
@@ -147,7 +144,7 @@ export default function SQLLearningPath() {
                             {/* Topics List */}
                             {isExpanded && (
                                 <div style={{ padding: '12px 16px' }}>
-                                    {stageTopics.map((topic, ti) => {
+                                    {stageTopics.map((topic, _ti) => {
                                         const progress = getSQLTopicProgress(topic.id);
                                         return (
                                             <div key={topic.id}

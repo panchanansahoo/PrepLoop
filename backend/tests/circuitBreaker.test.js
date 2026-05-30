@@ -5,7 +5,7 @@
  * Or: npx node backend/tests/circuitBreaker.test.js
  */
 
-import { CircuitBreaker, CircuitBreakerOpenError, breakers } from '../utils/circuitBreaker.js';
+import { CircuitBreaker, breakers } from '../utils/circuitBreaker.js';
 
 const STATES = { CLOSED: 'CLOSED', OPEN: 'OPEN', HALF_OPEN: 'HALF_OPEN' };
 
@@ -45,7 +45,7 @@ let passed = 0;
 let failed = 0;
 
 // Test 1: Circuit breaker initializes in CLOSED state
-if (await test('Should initialize in CLOSED state', async () => {
+if (await test('Should initialize in CLOSED state', () => {
   const breaker = new CircuitBreaker('test-1');
   assert(breaker.state === STATES.CLOSED, `Expected CLOSED, got ${breaker.state}`);
 })) passed++; else failed++;
@@ -202,7 +202,7 @@ if (await test('Should reset circuit manually', async () => {
 })) passed++; else failed++;
 
 // Test 10: Pre-configured breakers exist
-if (await test('Should have pre-configured breakers', async () => {
+if (await test('Should have pre-configured breakers', () => {
   assert(breakers.gemini !== undefined, 'gemini breaker not found');
   assert(breakers.groq !== undefined, 'groq breaker not found');
   assert(breakers.elevenLabs !== undefined, 'elevenLabs breaker not found');

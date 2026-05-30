@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Sparkles, Target, CheckCircle, Flame, TrendingUp } from 'lucide-react';
 import useRoadmapState from './hooks/useRoadmapState.js';
 import { TRACK_LABELS } from './utils/roadmapData.js';
@@ -64,7 +64,7 @@ export default function AdvancedLearningPathPage() {
           return;
         }
 
-        const { weeks, revisionWeeks, totalWeeks } = result;
+        const { weeks, _revisionWeeks,_totalWeekss } = result;
 
         setLocalWeeks(weeks);
         setLocalSelectedTracks(opts.selectedTracks);

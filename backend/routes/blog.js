@@ -328,7 +328,7 @@ router.get('/:slug', async (req, res) => {
     // Atomic view increment via RPC; ignore errors
     await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id }).catch(() => {});
     res.json(data);
-  } catch (error) {
+  } catch (_error) {
     res.status(404).json({ error: 'Blog not found' });
   }
 });

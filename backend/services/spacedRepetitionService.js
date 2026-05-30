@@ -24,12 +24,11 @@ class SpacedRepetitionSystem {
       interval = 0,
     } = card;
 
-    let newEasiness = easinessFactor;
-    let newRepetitions = repetitions;
-    let newInterval = interval;
+    let newRepetitions;
+    let newInterval;
 
     // Update easiness factor
-    newEasiness = Math.max(
+    const newEasiness = Math.max(
       this.MIN_EASINESS,
       easinessFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
     );
@@ -149,7 +148,7 @@ class SpacedRepetitionSystem {
    * @returns {Object} Comprehensive learning stats
    */
   getStatistics(cards) {
-    const now = new Date();
+    const _now = new Date();
     const dueToday = this.getDueProblems(cards).length;
     const retention = this.calculateRetention(cards);
 

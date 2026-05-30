@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import './Dashboard.css';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Sparkles, SlidersHorizontal, X, Star, Eye, EyeOff, GripVertical, Loader2 } from 'lucide-react';
+import {ArrowRight, Sparkles, SlidersHorizontal, X, Loader2} from 'lucide-react';
 import useDashboardData from '../hooks/useDashboardData';
 import QuickStats from '../components/QuickStats';
 import { StreakHeatmap } from '../components/QuickStats';
@@ -92,7 +92,7 @@ function getInitialVisibility() {
             // Merge: use saved values but add defaults for any new widgets
             return { ...defaults, ...parsed };
         }
-    } catch { }
+    } catch { /* empty */ }
     return defaults;
 }
 

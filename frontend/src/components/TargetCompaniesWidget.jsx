@@ -1,4 +1,3 @@
-import React from 'react';
 import { Briefcase, Building2, ChevronRight, Target } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 

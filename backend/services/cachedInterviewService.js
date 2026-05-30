@@ -15,7 +15,7 @@ export class CachedInterviewService {
   static async getInterviewSession(sessionId, userId) {
     // Try to get from cache first
     const cacheKey = `interview_session_${sessionId}`;
-    let cachedSession = interviewCache.get(cacheKey);
+    const cachedSession = interviewCache.get(cacheKey);
     
     if (cachedSession && cachedSession.user_id === userId) {
       return cachedSession;
@@ -97,7 +97,7 @@ export class CachedInterviewService {
       interviewCache.set(cacheKey, sessionMetadata);
       
       return result;
-    } catch (error) {
+    } catch (_error) {
       // Return graceful fallback response
       return {
         interviewerMessage: "I'm having trouble processing your response. Could you rephrase?",

@@ -18,7 +18,7 @@ const getSystemPrompt = (mode) => {
   return prompts[mode] || prompts.general;
 };
 
-const getMockResponse = (message, mode) => {
+const getMockResponse = (message, _mode) => {
   const lowerMessage = message.toLowerCase();
   
   if (lowerMessage.includes('dynamic programming') || lowerMessage.includes('dp')) {

@@ -9,7 +9,6 @@
  *   voiceState string    — 'idle' | 'listening' | 'speaking' | 'processing'
  *   className string     — extra class names
  */
-import React from 'react';
 import './VoiceWaveform.css';
 
 const IDLE_PATTERN = [0.15, 0.25, 0.35, 0.25, 0.15, 0.25, 0.35, 0.25];

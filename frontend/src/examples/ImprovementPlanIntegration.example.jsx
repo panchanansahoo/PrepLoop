@@ -9,7 +9,7 @@
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import ImprovementPlanPage from './pages/ImprovementPlanPage';
 
-function App() {
+function _App() {
   return (
     <BrowserRouter>
       <Routes>
@@ -48,7 +48,7 @@ function Dashboard() {
 
 import ImprovementPlanNotification from '../components/ImprovementPlanNotification';
 
-function Layout({ children }) {
+function _Layout({ children }) {
   return (
     <div>
       <Header />
@@ -67,6 +67,7 @@ function Layout({ children }) {
 
 import { improvementPlan } from '../api/aiService';
 
+/* eslint-disable no-unused-vars */
 function InterviewResults({ sessionId }) {
   const navigate = useNavigate();
 

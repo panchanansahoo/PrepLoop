@@ -1,7 +1,7 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import { ArrowLeft, Play, Send, Clock, Lightbulb, Database, ChevronDown, X, Maximize2, Minimize2 } from 'lucide-react';
+import {ArrowLeft, Play, Send, Clock, Lightbulb, Database, X, Maximize2, Minimize2} from 'lucide-react';
 import { getSQLProblemById, SQL_CATEGORIES } from '../data/sqlProblemsDatabase';
 import { getSchemaById } from '../data/sqlSchemas';
 import SchemaViewer from '../components/sql/SchemaViewer';

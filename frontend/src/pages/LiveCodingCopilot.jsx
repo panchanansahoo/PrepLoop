@@ -1,11 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
-import {
-  ArrowLeft, Play, Timer, Sparkles, Target, Brain, Bug, FlaskConical,
-  ChevronRight, RotateCcw, Award, TrendingUp, Pause, X, Zap,
-  Code2, CheckCircle, AlertTriangle, Clock, Info
-} from 'lucide-react';
+import { ArrowLeft, Play, Timer, Sparkles, Target, Brain, Bug, FlaskConical, ChevronRight, RotateCcw, Award, Zap, Code2, CheckCircle, AlertTriangle, Clock, Info, TrendingUp } from 'lucide-react';
 import { PROBLEMS } from '../data/problemsDatabase';
 import { SCORING_RUBRICS } from '../data/interviewModesData';
 import {

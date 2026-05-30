@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
 const SILENCE_THRESHOLD_MS = 3000; // Auto-submit after 3 seconds of silence
-const CHUNK_INTERVAL_MS = 1000;
+const _CHUNK_INTERVAL_MS = 1000;
 const MIN_CONFIDENCE = 0.3; // Drop interim results below this confidence
 const MAX_RESTART_ATTEMPTS = 5;
 const FILLER_WORDS = ['um', 'uh', 'like', 'you know', 'basically', 'sort of', 'literally', 'right', 'actually'];
@@ -34,9 +34,9 @@ function detectFillerWords(text) {
 export function useWebSpeech({
     onAnswer,
     onTranscriptUpdate,
-    interviewType = 'technical',
+    _interviewType = 'technical',
     personaGender = 'female',
-    question = '',
+    _question = '',
     enableInterrupt = true,
 } = {}) {
     const [state, setState] = useState('idle'); // idle | listening | processing | error

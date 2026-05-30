@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, FileText, Link2, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { uploadResumeForPortfolio, parseLinkedinExport } from '../../api/portfolioService';
 

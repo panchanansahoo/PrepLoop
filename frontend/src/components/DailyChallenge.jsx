@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
@@ -42,7 +42,7 @@ const DailyChallenge = ({ challengeData = null }) => {
         return null;
     }
 
-    const Icon = challenge.icon || Code2;
+    const _Icon = challenge.icon || Code2;
     const dsaQuestions = Array.isArray(challenge.dsa) ? challenge.dsa : [];
     const sqlQuestions = Array.isArray(challenge.sql) ? challenge.sql : [];
 

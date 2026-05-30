@@ -1,16 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import {
-  ChevronDown, ChevronRight, Tag, Building2, Target,
-  BarChart3, Lightbulb, BookOpen, ExternalLink, Link2,
-  FileText, Clock, CheckCircle2, Eye, EyeOff,
-  ChevronUp, AlertCircle, Code2, History, ArrowRight
-} from 'lucide-react';
+import { ChevronDown, ChevronRight, Tag, Building2, Target, BarChart3, Lightbulb, BookOpen, ExternalLink, Link2, FileText, Clock, CheckCircle2, Eye, EyeOff, ChevronUp, AlertCircle, Code2, History, ArrowRight } from 'lucide-react';
 import { buildAuthHeaders } from '../../utils/authHeaders';
 import { authFetch } from '../../utils/authFetch';
 
 import { API_URL } from '../../config/api.js';
 
-const getAuthHeaders = () => buildAuthHeaders();
+const _getAuthHeaders = () => buildAuthHeaders();
 
 const LANGUAGE_ALIASES = {
   python: ['python', 'py'],
@@ -53,8 +48,8 @@ export default function ProblemDescriptionPanel({
 }) {
   const [activeTopTab, setActiveTopTab] = useState('problem');
   const [activeSubTab, setActiveSubTab] = useState('description');
-  const [showConstraints, setShowConstraints] = useState(true);
-  const [showExamples, setShowExamples] = useState(true);
+  const [_showConstraints,_setShowConstraintss] = useState(true);
+  const [_showExamples,_setShowExampless] = useState(true);
   const [revealedHints, setRevealedHints] = useState(0);
   const [showAllTopics, setShowAllTopics] = useState(false);
 
