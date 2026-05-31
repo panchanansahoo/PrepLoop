@@ -61,7 +61,7 @@
   "devDependencies": {
     "@types/react": "~19.2.10",
     "sharp": "^0.34.5",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   },
   "dependencies": {
     "expo": "^55.0.24"
