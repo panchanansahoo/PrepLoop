@@ -196,20 +196,7 @@ export default function AIInterviewPage() {
                             <Wifi size={18} className="ai-connect-wifi-icon" />
                             Connecting to your interviewer
                         </div>
-                        <div className="ai-connect-steps">
-                            <div className="ai-connect-step ai-connect-step--active">
-                                <div className="ai-connect-step-icon"><Sparkles size={14} /></div>
-                                <div className="ai-connect-step-label">Generating first question</div>
-                            </div>
-                            <div className="ai-connect-step ai-connect-step--active">
-                                <div className="ai-connect-step-icon"><Volume2 size={14} /></div>
-                                <div className="ai-connect-step-label">Pre-generating audio</div>
-                            </div>
-                            <div className="ai-connect-step ai-connect-step--pending">
-                                <div className="ai-connect-step-icon"><Mic size={14} /></div>
-                                <div className="ai-connect-step-label">Preparing microphone</div>
-                            </div>
-                        </div>
+
                         <div className="ai-connect-matchup">
                             <div className="ai-connect-card ai-connect-card--candidate">
                                 <div className="ai-connect-avatar">

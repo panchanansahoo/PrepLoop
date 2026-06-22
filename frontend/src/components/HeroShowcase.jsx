@@ -76,7 +76,7 @@ export default function HeroShowcase() {
             <Play size={16} />
             Try Free Demo
           </Link>
-          <Link to="/dsa-path" className="hs-cta-secondary">
+          <Link to="/dashboard" className="hs-cta-secondary">
             See How It Works
             <ArrowRight size={14} />
           </Link>

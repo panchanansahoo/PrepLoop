@@ -71,6 +71,21 @@ const buildProfileResponse = (req, profile) => {
   const experienceSummary = profile?.experience_summary || '';
   const experienceYears = profile?.experience_years ?? null;
 
+  let parsedSocialLinks = {};
+  if (typeof profile?.social_links === 'string') {
+    try { parsedSocialLinks = JSON.parse(profile.social_links); } catch(e) {}
+  } else if (typeof profile?.social_links === 'object' && profile.social_links !== null) {
+    parsedSocialLinks = profile.social_links;
+  }
+
+  const socialLinks = {
+    twitter: profile?.twitter || parsedSocialLinks.twitter || '',
+    linkedin: profile?.linkedin || parsedSocialLinks.linkedin || '',
+    portfolio: profile?.portfolio || parsedSocialLinks.portfolio || '',
+    dribbble: profile?.dribbble || parsedSocialLinks.dribbble || '',
+    ...parsedSocialLinks
+  };
+
   const flatProfile = {
     id: profile?.id || req.user?.id,
     email: req.user?.email || profile?.email || '',
@@ -106,12 +121,9 @@ const buildProfileResponse = (req, profile) => {
     website: profile?.website || '',
     yearsOfExperience: profile?.years_of_experience || '',
     specialization: profile?.specialization || '',
-    socialLinks: profile?.social_links || {
-      twitter: profile?.twitter || '',
-      linkedin: profile?.linkedin || '',
-      portfolio: profile?.portfolio || '',
-      dribbble: profile?.dribbble || ''
-    }
+    projects: profile?.projects || [],
+    certifications: profile?.certifications || [],
+    socialLinks
   };
 
   return {
@@ -146,6 +158,8 @@ const buildProfileResponse = (req, profile) => {
       website: flatProfile.website,
       years_of_experience: flatProfile.yearsOfExperience,
       specialization: flatProfile.specialization,
+      projects: flatProfile.projects,
+      certifications: flatProfile.certifications,
       social_links: flatProfile.socialLinks,
       twitter: flatProfile.socialLinks?.twitter,
       linkedin: flatProfile.socialLinks?.linkedin,
@@ -702,11 +716,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
           company: '',
           years_of_experience: '',
           specialization: '',
-          social_links: '{}',
-          twitter: '',
-          linkedin: '',
-          portfolio: '',
-          dribbble: ''
+          social_links: {}
         })
         .select()
         .single();
@@ -729,11 +739,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
             company: '',
             years_of_experience: '',
             specialization: '',
-            social_links: '{}',
-            twitter: '',
-            linkedin: '',
-            portfolio: '',
-            dribbble: ''
+            social_links: {}
           }),
           degraded: true,
         });
@@ -762,11 +768,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
           company: '',
           years_of_experience: '',
           specialization: '',
-          social_links: '{}',
-          twitter: '',
-          linkedin: '',
-          portfolio: '',
-          dribbble: ''
+          social_links: {}
         }),
         degraded: true,
       });

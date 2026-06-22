@@ -76,3 +76,8 @@
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(124, 58, 237, 0.6);
 }
+
+.nav-link.active {
+  color: var(--accent, #6366f1) !important;
+  font-weight: 600;
+}

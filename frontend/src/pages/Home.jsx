@@ -1288,7 +1288,7 @@ export default function Home() {
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</div>
                 </div>
               </div>
-              <a href="https://discord.gg/preploop" target="_blank" rel="noopener noreferrer" style={{
+              <a href="https://discord.gg/2gd3RPv2zr" target="_blank" rel="noopener noreferrer" style={{
                 display: 'block',
                 width: '100%',
                 padding: '12px 24px',

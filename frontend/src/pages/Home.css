@@ -41,7 +41,7 @@
   /* Layout */
   --sidebar-width: 260px;
   --sidebar-collapsed: 72px;
-  --topbar-height: 72px;
+  --topbar-height: 60px;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -1616,6 +1616,7 @@ h3 {
   backdrop-filter: blur(24px) saturate(1.4);
   -webkit-backdrop-filter: blur(24px) saturate(1.4);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 0 !important;
   position: sticky;
   top: 0;
   z-index: 100;

@@ -410,7 +410,7 @@ export default function CommunityHub() {
           </div>
         </div>
         <a
-          href="https://discord.gg/preploop"
+          href="https://discord.gg/2gd3RPv2zr"
           target="_blank"
           rel="noopener noreferrer"
           style={{
@@ -459,7 +459,7 @@ export default function CommunityHub() {
           {/* Social Links */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12 }}>
             {[
-              { label: 'Discord', desc: 'Join 5,000+ members', icon: DiscordIcon, color: '#5865F2', href: 'https://discord.gg/preploop' },
+              { label: 'Discord', desc: 'Join 5,000+ members', icon: DiscordIcon, color: '#5865F2', href: 'https://discord.gg/2gd3RPv2zr' },
               { label: 'GitHub', desc: 'Open-source resources', icon: Github, color: 'var(--text-primary)', href: 'https://github.com/preploop' },
               { label: 'Twitter / X', desc: 'Tips & announcements', icon: Twitter, color: '#1DA1F2', href: 'https://twitter.com/preploop' },
               { label: 'LinkedIn', desc: 'Career connections', icon: Linkedin, color: '#0A66C2', href: 'https://linkedin.com/company/preploop' },
@@ -686,7 +686,7 @@ export default function CommunityHub() {
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 10px' }}>
               Want to host an event or workshop? We'd love to feature you!
             </p>
-            <a href="https://discord.gg/preploop" target="_blank" rel="noopener noreferrer" style={{
+            <a href="https://discord.gg/2gd3RPv2zr" target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '8px 20px', borderRadius: 10, textDecoration: 'none',
               background: 'var(--bg-tertiary)', color: 'var(--accent-primary)',

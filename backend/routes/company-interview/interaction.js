@@ -587,7 +587,7 @@ Respond as JSON:
           response_format: { type: 'json_object' },
           temperature: 0.75
         }),
-      timeoutMs: 12000,
+      timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });
@@ -705,7 +705,7 @@ Respond as JSON:
           response_format: { type: 'json_object' },
           temperature: 0.7
         }),
-      timeoutMs: 12000,
+      timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });
@@ -795,7 +795,7 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
           temperature: 0.7,
           max_tokens: 60
         }),
-      timeoutMs: 12000,
+      timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });

@@ -28,6 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_blog_posts_created_at ON public.blog_posts(create
 ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Only admins can insert/update/delete their own posts
+DROP POLICY IF EXISTS blog_posts_admin_write ON public.blog_posts;
 CREATE POLICY blog_posts_admin_write ON public.blog_posts
   FOR ALL
   USING (
@@ -39,11 +40,13 @@ CREATE POLICY blog_posts_admin_write ON public.blog_posts
   );
 
 -- RLS Policy: Anyone can read published posts
+DROP POLICY IF EXISTS blog_posts_public_read ON public.blog_posts;
 CREATE POLICY blog_posts_public_read ON public.blog_posts
   FOR SELECT
   USING (status = 'published');
 
 -- RLS Policy: Admins can read all posts (drafts, published, archived)
+DROP POLICY IF EXISTS blog_posts_admin_read ON public.blog_posts;
 CREATE POLICY blog_posts_admin_read ON public.blog_posts
   FOR SELECT
   USING (

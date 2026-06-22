@@ -106,6 +106,8 @@ const _buildProfileResponse = (req, profile) => {
     website: profile?.website || '',
     yearsOfExperience: profile?.years_of_experience || '',
     specialization: profile?.specialization || '',
+    projects: profile?.projects || [],
+    certifications: profile?.certifications || [],
     socialLinks: profile?.social_links || {
       twitter: profile?.twitter || '',
       linkedin: profile?.linkedin || '',
@@ -146,6 +148,8 @@ const _buildProfileResponse = (req, profile) => {
       website: flatProfile.website,
       years_of_experience: flatProfile.yearsOfExperience,
       specialization: flatProfile.specialization,
+      projects: flatProfile.projects,
+      certifications: flatProfile.certifications,
       social_links: flatProfile.socialLinks,
       twitter: flatProfile.socialLinks?.twitter,
       linkedin: flatProfile.socialLinks?.linkedin,

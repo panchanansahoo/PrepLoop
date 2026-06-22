@@ -700,7 +700,29 @@ router.get('/latest', authenticateToken, async (req, res) => {
     }
 
     const keywordMatch = data.keyword_match || {};
-    const resumeText = data.resume_text || '';
+    let resumeText = data.resume_text || '';
+    
+    // Check if resumeText is a raw JSON string from before Fix #15
+    try {
+      if (typeof resumeText === 'string' && resumeText.trim().startsWith('{')) {
+        const parsed = JSON.parse(resumeText);
+        
+        // Reconstruct a text representation that extractHeadline/Summary can parse
+        let reconstructed = [];
+        if (parsed.fullName) reconstructed.push(`Generated resume for ${parsed.fullName}`);
+        if (parsed.currentRole || parsed.title) reconstructed.push(parsed.currentRole || parsed.title);
+        if (parsed.summary || parsed.bio) reconstructed.push(parsed.summary || parsed.bio);
+        if (Array.isArray(parsed.experience)) {
+          parsed.experience.forEach(e => {
+            if (e.title) reconstructed.push(e.title);
+          });
+        }
+        
+        resumeText = reconstructed.join('\n') || `Generated resume for ${parsed.fullName || 'User'}`;
+      }
+    } catch (e) {
+      // Ignore parse errors, treat as regular text
+    }
     
     const coreSkills = [
       ...(Array.isArray(keywordMatch.technical) ? keywordMatch.technical : []),

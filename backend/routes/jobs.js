@@ -103,6 +103,8 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     return cached;
   }
 
+  let aggregatedJobs = [];
+
   // ── Priority 1: Free Indian Job APIs (Indeed, Naukri, Foundit, LinkedIn) ──
   try {
     logger.info(`Fetching Indian jobs for query: ${indianQuery}`);
@@ -113,16 +115,16 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     
     if (indianJobs && indianJobs.length > 0) {
       logger.info(`Fetched ${indianJobs.length} jobs from Indian job portals`);
-      setCachedJobs(cacheKey, indianJobs);
-      return indianJobs;
+      aggregatedJobs.push(...indianJobs);
+    } else {
+      logger.info('No jobs from Indian portals, trying fallbacks...');
     }
-    logger.info('No jobs from Indian portals, trying fallbacks...');
   } catch (error) {
     logger.error('Indian job APIs error', { error: error.message });
   }
 
   // ── Try JSearch (RapidAPI) - Filter for India only ──
-  if (RAPIDAPI_KEY) {
+  if (RAPIDAPI_KEY && aggregatedJobs.length < 50) {
     try {
       const url = `https://${JSEARCH_HOST}/search?query=${encodeURIComponent(indianQuery)}&page=${page}&num_pages=1&date_posted=month`;
       const safeUrl = ensureAllowedExternalJobUrl(url);
@@ -166,8 +168,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
 
         if (jobs.length > 0) {
           logger.info(`Fetched ${jobs.length} Indian jobs from JSearch`);
-          setCachedJobs(cacheKey, jobs);
-          return jobs;
+          aggregatedJobs.push(...jobs);
         }
       }
     } catch (error) {
@@ -176,7 +177,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   }
 
   // ── Fallback 1: Adzuna API (India-focused, free tier) ──
-  if (ADZUNA_APP_ID && ADZUNA_APP_KEY) {
+  if (ADZUNA_APP_ID && ADZUNA_APP_KEY && aggregatedJobs.length < 50) {
     try {
       // Adzuna's URL already scopes to India (/in/), so strip "India" and "fresher" from keywords
       const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').replace(/\bfresher\b/gi, '').trim() || 'software developer';
@@ -210,8 +211,7 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
 
         if (jobs.length > 0) {
           logger.info(`Fetched ${jobs.length} Indian jobs from Adzuna`);
-          setCachedJobs(cacheKey, jobs);
-          return jobs;
+          aggregatedJobs.push(...jobs);
         }
       }
     } catch (error) {
@@ -219,56 +219,27 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
     }
   }
 
-  // ── Fallback 2: Indeed India (free, no key needed) ──
-  try {
-    const cleanQuery = indianQuery.replace(/\bIndia\b/gi, '').trim() || 'software developer';
-    const indeedUrl = `https://in.indeed.com/jobs?q=${encodeURIComponent(cleanQuery)}&l=India&sort=date&fromage=30&format=json&limit=50`;
-    const response = await fetch(indeedUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PrepLoop/1.0)' }
-    });
-
-    if (response.ok) {
-      const html = await response.text();
-      const jobMatches = html.match(/data-jk="([^"]+)"/g) || [];
-      if (jobMatches.length > 0) {
-        const jobs = jobMatches.slice(0, 50).map((match, idx) => {
-          const jobId = match.match(/data-jk="([^"]+)"/)?.[1];
-          return {
-            id: `indeed_${jobId || idx}`,
-            title: 'Software Developer',
-            company: 'Various Companies',
-            category: 'fresher',
-            type: 'full-time',
-            location: 'India',
-            salary_range: null,
-            description: 'View full details on Indeed India',
-            requirements: [],
-            apply_link: `https://in.indeed.com/viewjob?jk=${jobId}`,
-            deadline: null,
-            is_active: true,
-            tags: ['Indeed', 'India'],
-            source: 'indeed',
-            created_at: new Date().toISOString(),
-            logo_url: null,
-          };
-        });
-        if (jobs.length > 0) {
-          logger.info(`Fetched ${jobs.length} Indian jobs from Indeed`);
-          return jobs;
-        }
-      }
-    }
-  } catch (error) {
-    logger.error('Indeed India error', { error: error.message });
-  }
-
   // ── Skip Remotive API (not India-focused) ──
   // Remotive is primarily for remote jobs outside India
 
-  // ── Final fallback: curated Indian jobs ──
-  logger.info('Using curated Indian fallback jobs');
-  setCachedJobs(cacheKey, CURATED_JOBS);
-  return CURATED_JOBS;
+  if (aggregatedJobs.length === 0) {
+    // ── Final fallback: curated Indian jobs ──
+    logger.info('Using curated Indian fallback jobs');
+    aggregatedJobs = CURATED_JOBS;
+  }
+
+  // Deduplicate jobs by title and company to avoid exact matches showing up multiple times
+  const uniqueJobsMap = new Map();
+  for (const job of aggregatedJobs) {
+    const dedupKey = `${job.title?.toLowerCase()}-${job.company?.toLowerCase()}`;
+    if (!uniqueJobsMap.has(dedupKey)) {
+      uniqueJobsMap.set(dedupKey, job);
+    }
+  }
+  
+  const finalJobs = Array.from(uniqueJobsMap.values());
+  setCachedJobs(cacheKey, finalJobs);
+  return finalJobs;
 }
 
 function detectCategory(job) {
@@ -883,11 +854,16 @@ router.get('/career-ops/history', authenticateToken, async (req, res) => {
 router.get('/:id', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+    
+    // Prevent parseInt(NaN) errors for external job string IDs
+    if (isNaN(parseInt(id, 10))) {
+      return res.status(404).json({ error: 'Job listing not found or is external' });
+    }
 
     const { data, error } = await supabaseAdmin
       .from('job_listings')
       .select('*')
-      .eq('id', parseInt(id))
+      .eq('id', parseInt(id, 10))
       .single();
 
     if (error) throw error;

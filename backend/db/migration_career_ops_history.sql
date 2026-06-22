@@ -25,10 +25,12 @@ CREATE INDEX IF NOT EXISTS idx_career_ops_evaluations_created_at ON career_ops_e
 
 ALTER TABLE career_ops_evaluations ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own career ops evaluations" ON career_ops_evaluations;
 CREATE POLICY "Users can view own career ops evaluations"
   ON career_ops_evaluations FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert own career ops evaluations" ON career_ops_evaluations;
 CREATE POLICY "Users can insert own career ops evaluations"
   ON career_ops_evaluations FOR INSERT
   WITH CHECK (auth.uid() = user_id);

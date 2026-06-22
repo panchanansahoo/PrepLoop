@@ -244,7 +244,7 @@ Respond as JSON:
           response_format: { type: 'json_object' },
           temperature: 0.8,
         }),
-      timeoutMs: 12000,
+      timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });

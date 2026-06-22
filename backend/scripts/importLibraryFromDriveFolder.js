@@ -45,27 +45,7 @@ function extractFolderId(folderUrl) {
   return match[1];
 }
 
-function decodeEscapes(text) {
-  const xDoubleDecoded = text.replace(/\\\\x([0-9a-fA-F]{2})/g, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16))
-  );
 
-  const xDecoded = xDoubleDecoded.replace(/\\x([0-9a-fA-F]{2})/g, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16))
-  );
-
-  const uDoubleDecoded = xDecoded.replace(/\\\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16))
-  );
-
-  const uDecoded = uDoubleDecoded.replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) =>
-    String.fromCharCode(parseInt(hex, 16))
-  );
-
-  return uDecoded
-    .replace(/\//g, '/')
-    .replace(/\\"/g, '"');
-}
 
 const DRIVE_FOLDER_MIME = 'application/vnd.google-apps.folder';
 const PDF_MIME = 'application/pdf';
@@ -279,87 +259,34 @@ function deriveBookFields(fileName, fileUrl) {
   };
 }
 
-function _parsePdfEntriesFromHtml(html, folderId) {
-  const decoded = decodeEscapes(html);
+const DRIVE_API_BASE_URL = 'https://www.googleapis.com/drive/v3/files';
 
-  const pattern = /\["([a-zA-Z0-9_-]{10,})",\["([a-zA-Z0-9_-]{10,})"\],"((?:[^"\\]|\\.)*)","([^"]+)",/g;
-
-  const seen = new Set();
-  const items = [];
-
-  let match;
-  while ((match = pattern.exec(decoded)) !== null) {
-    const [, id, parentId, rawName, mime] = match;
-
-    if (parentId !== folderId) {
-      continue;
-    }
-
-    if (mime !== 'application/pdf') {
-      continue;
-    }
-
-    if (seen.has(id)) {
-      continue;
-    }
-
-    seen.add(id);
-
-    const fileName = normalizeWhitespace(rawName.replace(/\\"/g, '"'));
-    const fileUrl = `https://drive.google.com/file/d/${id}/view?usp=sharing`;
-
-    items.push({ id, fileName, fileUrl });
+async function fetchDriveFolderApi(folderId) {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_DRIVE_API_KEY environment variable is missing.');
   }
 
-  return items;
-}
+  const query = `'${folderId}' in parents and (mimeType='application/pdf' or mimeType='application/vnd.google-apps.folder') and trashed=false`;
+  const fields = 'files(id, name, mimeType)';
+  const url = `${DRIVE_API_BASE_URL}?q=${encodeURIComponent(query)}&key=${apiKey}&fields=${encodeURIComponent(fields)}&pageSize=1000`;
 
-function parseDriveEntriesFromHtml(html, folderId) {
-  const decoded = decodeEscapes(html);
-  const pattern = /\["([a-zA-Z0-9_-]{10,})",\["([a-zA-Z0-9_-]{10,})"\],"((?:[^"\\]|\\.)*)","([^"]+)",/g;
-
-  const entries = [];
-  const seen = new Set();
-
-  let match;
-  while ((match = pattern.exec(decoded)) !== null) {
-    const [, id, parentId, rawName, mime] = match;
-    if (parentId !== folderId) continue;
-    if (seen.has(id)) continue;
-
-    seen.add(id);
-    entries.push({
-      id,
-      parentId,
-      fileName: normalizeWhitespace(rawName.replace(/\\"/g, '"')),
-      mime
-    });
-  }
-
-  return entries;
-}
-
-async function fetchDriveFolderHtml(folderUrl) {
-  const safeFolderUrl = ensureSafeDriveFolderUrl(folderUrl);
-  const response = await fetch(safeFolderUrl, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0'
-    }
-  });
-
+  const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Failed to fetch folder URL (${response.status} ${response.statusText})`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Google Drive API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
   }
 
-  return response.text();
-}
-
-function fetchDriveFolderHtmlById(folderId) {
-  const folderUrl = `https://drive.google.com/drive/folders/${folderId}?usp=sharing`;
-  return fetchDriveFolderHtml(folderUrl);
+  const data = await response.json();
+  return data.files || [];
 }
 
 async function collectPdfEntriesRecursively(rootFolderId) {
+  const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
+  if (!apiKey) {
+    throw new Error('GOOGLE_DRIVE_API_KEY environment variable is required to use the Google Drive API. Please set it in your .env file.');
+  }
+
   const visitedFolders = new Set();
   const queuedFolders = [rootFolderId];
   const pdfsById = new Map();
@@ -370,25 +297,24 @@ async function collectPdfEntriesRecursively(rootFolderId) {
 
     visitedFolders.add(currentFolderId);
 
-    const html = await fetchDriveFolderHtmlById(currentFolderId);
-    const entries = parseDriveEntriesFromHtml(html, currentFolderId);
+    const entries = await fetchDriveFolderApi(currentFolderId);
 
     for (const entry of entries) {
-      if (entry.mime === DRIVE_FOLDER_MIME) {
+      if (entry.mimeType === DRIVE_FOLDER_MIME) {
         if (!visitedFolders.has(entry.id)) {
           queuedFolders.push(entry.id);
         }
         continue;
       }
 
-      if (entry.mime !== PDF_MIME) {
+      if (entry.mimeType !== PDF_MIME) {
         continue;
       }
 
       if (!pdfsById.has(entry.id)) {
         pdfsById.set(entry.id, {
           id: entry.id,
-          fileName: entry.fileName,
+          fileName: entry.name,
           fileUrl: `https://drive.google.com/file/d/${entry.id}/view?usp=sharing`
         });
       }

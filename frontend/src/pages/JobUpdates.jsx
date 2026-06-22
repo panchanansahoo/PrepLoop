@@ -121,6 +121,7 @@ export default function JobUpdates() {
       if (debouncedSearch) params.append('search', debouncedSearch);
       params.append('page', page.toString());
       params.append('limit', '50');
+      params.append('_t', Date.now().toString());
 
       const _headers = buildAuthHeaders(user);
 
@@ -828,6 +829,7 @@ function CareerOpsResultCard({ result }) {
 
 function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
   const navigate = useNavigate();
+  const [showDetails, setShowDetails] = useState(false);
   const typeBadge = TYPE_BADGES[job.type] || TYPE_BADGES['full-time'];
   const deadline = formatDeadline(job.deadline);
   const _posted = getTimeAgo(job.created_at);
@@ -876,8 +878,20 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
       </div>
 
       <p className="job-desc-exact">
-        About the Company {cleanDesc.length > 150 ? cleanDesc.substring(0, 150) + '...' : cleanDesc}
+        About the Company {cleanDesc.length > 150 && !showDetails ? cleanDesc.substring(0, 150) + '...' : cleanDesc}
       </p>
+      
+      {showDetails && job.requirements && job.requirements.length > 0 && (
+        <div className="job-requirements-exact" style={{ marginTop: '10px', fontSize: '13px', color: '#94a3b8' }}>
+          <strong style={{ color: '#f8fafc' }}>Requirements:</strong>
+          <ul style={{ paddingLeft: '20px', marginTop: '4px' }}>
+            {Array.isArray(job.requirements) 
+              ? job.requirements.map((req, i) => <li key={i}>{req}</li>)
+              : String(job.requirements).split(',').map((req, i) => <li key={i}>{req.trim()}</li>)
+            }
+          </ul>
+        </div>
+      )}
 
       <div className="job-compensation-exact">
         <span className="comp-label">COMPENSATION</span>
@@ -889,7 +903,9 @@ function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
           <Zap size={15} /> Check Match Score
         </button>
         <div className="job-actions-row-exact">
-          <button className="btn-view-details-exact">View Details</button>
+          <button className="btn-view-details-exact" onClick={() => setShowDetails(!showDetails)}>
+            {showDetails ? 'Hide Details' : 'View Details'}
+          </button>
           {job.apply_link ? (
             <a href={job.apply_link} target="_blank" rel="noopener noreferrer" className="btn-apply-now-exact">
               Apply Now

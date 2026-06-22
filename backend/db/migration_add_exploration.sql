@@ -16,6 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_problems_explore_questions ON problems USING GIN 
 CREATE INDEX IF NOT EXISTS idx_problems_enhanced ON problems(exploration_metadata);
 
 -- Create a view for easy querying of fully enhanced problems
+DROP VIEW IF EXISTS enhanced_problems;
 CREATE OR REPLACE VIEW enhanced_problems AS
 SELECT 
   p.*,

@@ -82,6 +82,13 @@ function getBreadcrumbItems(pathname) {
     ];
   }
 
+  if (pathname === '/job-updates') {
+    return [
+      { label: 'Home', to: '/', icon: 'home' },
+      { label: 'Job Updates', to: '/job-updates' },
+    ];
+  }
+
   return null;
 }
 
@@ -287,7 +294,10 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
   // Define public paths that should show the public navbar
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
-  const isPublicPage = publicPaths.includes(location.pathname);
+  let isPublicPage = publicPaths.includes(location.pathname);
+  if (location.pathname === '/job-updates' && user) {
+    isPublicPage = false;
+  }
 
   // Render Public Navbar if on a public page (no sidebar), OR if not logged in and NOT on an app page with sidebar
   if ((!user && !hasSidebar) || isPublicPage) {
@@ -303,12 +313,12 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
 
           {/* Desktop Nav */}
           <div className="nav-links desktop-only">
-            <Link to="/dashboard" className="nav-link">Dashboard</Link>
-            <Link to="/problems" className="nav-link">Problem Explorer</Link>
-            <Link to="/company-interview" className="nav-link">AI Mock</Link>
-            <Link to="/library" className="nav-link">Library</Link>
-            <Link to="/job-updates" className="nav-link" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
-            <Link to="/blog" className="nav-link">Blog</Link>
+            <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>Dashboard</Link>
+            <Link to="/problems" className={`nav-link ${location.pathname === '/problems' ? 'active' : ''}`}>Problem Explorer</Link>
+            <Link to="/company-interview" className={`nav-link ${location.pathname === '/company-interview' ? 'active' : ''}`}>AI Mock</Link>
+            <Link to="/library" className={`nav-link ${location.pathname === '/library' ? 'active' : ''}`}>Library</Link>
+            <Link to="/job-updates" className={`nav-link ${location.pathname === '/job-updates' ? 'active' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Briefcase size={14} /> Jobs</Link>
+            <Link to="/blog" className={`nav-link ${location.pathname.startsWith('/blog') ? 'active' : ''}`}>Blog</Link>
           </div>
 
           <div className="nav-actions desktop-only">

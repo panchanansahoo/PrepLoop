@@ -58,6 +58,7 @@ const navSections = [
     {
         category: 'Career',
         items: [
+            { path: '/job-updates', label: 'Job Updates', subtitle: 'Latest tech opportunities', icon: Briefcase },
             { path: '/community', label: 'Community Hub', subtitle: 'Connect & discuss', icon: MessageSquare },
         ]
     },

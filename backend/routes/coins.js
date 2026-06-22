@@ -445,11 +445,17 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     if (queryError) throw queryError;
 
+    // Fetch all transactions for accurate summary computation across all pages
+    const { data: allRows } = await supabaseAdmin
+      .from('coin_transactions')
+      .select('amount, type, description')
+      .eq('user_id', req.user.id);
+
     const items = (filteredRows || []).map((item) => ({
       ...item,
       displayType: normalizeTxnType(item),
     }));
-    const summary = summarizeTransactions(filteredRows || []);
+    const summary = summarizeTransactions(allRows || []);
 
     if (!detailed) {
       return res.json(items);
@@ -499,7 +505,14 @@ router.get('/spend-history', authenticateToken, async (req, res) => {
       displayType: 'spend',
     }));
 
-    const summary = summarizeTransactions(spendRows);
+    // Fetch all spend transactions for accurate summary computation
+    const { data: allSpendRows } = await supabaseAdmin
+      .from('coin_transactions')
+      .select('amount, type, description')
+      .eq('user_id', req.user.id)
+      .eq('type', 'spend');
+
+    const summary = summarizeTransactions(allSpendRows || []);
 
     if (!detailed) {
       return res.json(spendRows);

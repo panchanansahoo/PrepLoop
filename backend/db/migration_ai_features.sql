@@ -179,23 +179,23 @@ CREATE TABLE IF NOT EXISTS ai_service_logs (
 
 -- ============ INDEXES ============
 
-CREATE INDEX idx_code_review_user_id ON code_review_sessions(user_id);
-CREATE INDEX idx_code_review_problem_id ON code_review_sessions(problem_id);
-CREATE INDEX idx_code_review_created_at ON code_review_sessions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_code_review_user_id ON code_review_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_code_review_problem_id ON code_review_sessions(problem_id);
+CREATE INDEX IF NOT EXISTS idx_code_review_created_at ON code_review_sessions(created_at DESC);
 
-CREATE INDEX idx_interview_user_id ON interview_sessions(user_id);
-CREATE INDEX idx_interview_type ON interview_sessions(interview_type);
-CREATE INDEX idx_interview_status ON interview_sessions(status);
-CREATE INDEX idx_interview_created_at ON interview_sessions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_interview_user_id ON interview_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_interview_type ON interview_sessions(interview_type);
+CREATE INDEX IF NOT EXISTS idx_interview_status ON interview_sessions(status);
+CREATE INDEX IF NOT EXISTS idx_interview_created_at ON interview_sessions(created_at DESC);
 
-CREATE INDEX idx_interview_feedback_session_id ON interview_feedback_history(interview_session_id);
+CREATE INDEX IF NOT EXISTS idx_interview_feedback_session_id ON interview_feedback_history(interview_session_id);
 
-CREATE INDEX idx_interview_trends_user_id ON interview_performance_trends(user_id);
-CREATE INDEX idx_interview_trends_type ON interview_performance_trends(interview_type);
+CREATE INDEX IF NOT EXISTS idx_interview_trends_user_id ON interview_performance_trends(user_id);
+CREATE INDEX IF NOT EXISTS idx_interview_trends_type ON interview_performance_trends(interview_type);
 
-CREATE INDEX idx_ai_logs_user_id ON ai_service_logs(user_id);
-CREATE INDEX idx_ai_logs_feature_type ON ai_service_logs(feature_type);
-CREATE INDEX idx_ai_logs_created_at ON ai_service_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_user_id ON ai_service_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_feature_type ON ai_service_logs(feature_type);
+CREATE INDEX IF NOT EXISTS idx_ai_logs_created_at ON ai_service_logs(created_at DESC);
 
 -- ============ RLS POLICIES (Row Level Security) ============
 
@@ -207,28 +207,34 @@ ALTER TABLE interview_performance_trends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_service_logs ENABLE ROW LEVEL SECURITY;
 
 -- Code Review: Users can only see their own reviews
+DROP POLICY IF EXISTS "Users can view their own code reviews" ON code_review_sessions;
 CREATE POLICY "Users can view their own code reviews"
   ON code_review_sessions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own code reviews" ON code_review_sessions;
 CREATE POLICY "Users can insert their own code reviews"
   ON code_review_sessions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
 -- Interview Sessions: Users can only see their own
+DROP POLICY IF EXISTS "Users can view their own interview sessions" ON interview_sessions;
 CREATE POLICY "Users can view their own interview sessions"
   ON interview_sessions FOR SELECT
   USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own interview sessions" ON interview_sessions;
 CREATE POLICY "Users can insert their own interview sessions"
   ON interview_sessions FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own interview sessions" ON interview_sessions;
 CREATE POLICY "Users can update their own interview sessions"
   ON interview_sessions FOR UPDATE
   USING (auth.uid() = user_id);
 
 -- Interview Feedback: Only accessible through parent session
+DROP POLICY IF EXISTS "Users can view feedback from their sessions" ON interview_feedback_history;
 CREATE POLICY "Users can view feedback from their sessions"
   ON interview_feedback_history FOR SELECT
   USING (
@@ -237,16 +243,19 @@ CREATE POLICY "Users can view feedback from their sessions"
     )
   );
 
+DROP POLICY IF EXISTS "Only system can insert feedback" ON interview_feedback_history;
 CREATE POLICY "Only system can insert feedback"
   ON interview_feedback_history FOR INSERT
   WITH CHECK (false);
 
 -- Performance Trends: Users can only see their own
+DROP POLICY IF EXISTS "Users can view their own performance trends" ON interview_performance_trends;
 CREATE POLICY "Users can view their own performance trends"
   ON interview_performance_trends FOR SELECT
   USING (auth.uid() = user_id);
 
 -- AI Logs: Users can only see their own (for transparency)
+DROP POLICY IF EXISTS "Users can view their own AI service logs" ON ai_service_logs;
 CREATE POLICY "Users can view their own AI service logs"
   ON ai_service_logs FOR SELECT
   USING (auth.uid() = user_id);

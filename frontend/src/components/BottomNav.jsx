@@ -19,7 +19,7 @@ export default function BottomNav() {
         if (['/problems', '/code-editor', '/visualizer', '/sql-problems', '/aptitude', '/dsa-path', '/learning-path', '/advanced-learning-path']
             .some(p => path.startsWith(p))) return '/problems';
         // Interview section
-        if (['/company-prep', '/company-interview']
+        if (['/company-prep', '/company-interview', '/job-updates']
             .some(p => path.startsWith(p))) return '/company-interview';
         // Account / Progress section
         if (['/dashboard/analytics', '/history', '/profile', '/dashboard/settings']

@@ -199,7 +199,11 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  const isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
+  let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
+  // If the user is logged in and on the Job Updates page, treat it as an internal dashboard page
+  if (location.pathname === '/job-updates' && _user) {
+    isPublicPage = false;
+  }
 
   // Routes that should NOT have any padding/margins (full viewport)
   const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute;

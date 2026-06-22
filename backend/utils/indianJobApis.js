@@ -44,9 +44,12 @@ export async function fetchIndeedIndiaJobs(query = 'software developer', locatio
       
       for (let i = 0; i < maxJobs; i++) {
         const jobId = jobIdMatches[i]?.match(/data-jk="([^"]+)"/)?.[1];
-        const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Software Developer';
-        const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Various Companies';
+        let title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Software Developer';
+        let company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Various Companies';
         const jobLocation = locationMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || location;
+        
+        title = decodeHTMLEntities(title);
+        company = decodeHTMLEntities(company);
         
         if (jobId) {
           jobs.push({
@@ -109,8 +112,11 @@ export async function fetchNaukriJobs(query = 'software developer') {
       
       for (let i = 0; i < maxJobs; i++) {
         const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
-        const title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || query;
-        const company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Top Company';
+        let title = titleMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || query;
+        let company = companyMatches[i]?.match(/>([^<]+)</)?.[1]?.trim() || 'Top Company';
+        
+        title = decodeHTMLEntities(title);
+        company = decodeHTMLEntities(company);
         
         if (jobId) {
           jobs.push({
@@ -172,14 +178,20 @@ export async function fetchFounditJobs(query = 'software developer') {
       for (let i = 0; i < maxJobs; i++) {
         const jobId = jobMatches[i]?.match(/data-job-id="([^"]+)"/)?.[1];
         
+        let title = `${query} Position`;
+        let company = 'Leading Company';
+        
+        title = decodeHTMLEntities(title);
+        company = decodeHTMLEntities(company);
+        
         if (jobId) {
           jobs.push({
             id: `foundit_${jobId}`,
-            title: `${query} Position`,
-            company: 'Leading Company',
+            title,
+            company,
             location: 'India',
             salary_range: null,
-            description: `${query} opportunity in India. View details on Foundit.`,
+            description: `${title} opportunity in India. View details on Foundit.`,
             apply_link: `https://www.foundit.in/job/${jobId}`,
             source: 'foundit',
             created_at: new Date().toISOString(),
@@ -197,6 +209,18 @@ export async function fetchFounditJobs(query = 'software developer') {
     }
     return [];
   }
+}
+
+function decodeHTMLEntities(text) {
+  if (!text) return '';
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec))
+    .replace(/&#x([0-9a-f]+);/gi, (match, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
 export async function fetchLinkedInIndiaJobs(query = 'software developer') {
@@ -222,23 +246,30 @@ export async function fetchLinkedInIndiaJobs(query = 'software developer') {
 
     const html = await response.text();
     
-    // Extract job IDs from LinkedIn HTML
+    // Extract job IDs, titles, and companies from LinkedIn HTML
     const jobMatches = html.match(/data-entity-urn="urn:li:jobPosting:(\d+)"/g) || [];
+    const titleMatches = html.match(/<h3 class="base-search-card__title">([\s\S]*?)<\/h3>/g) || [];
+    const companyMatches = html.match(/<h4 class="base-search-card__subtitle">([\s\S]*?)<\/h4>/g) || [];
     
     const jobs = [];
-    const maxJobs = Math.min(10, jobMatches.length);
+    const maxJobs = Math.min(15, jobMatches.length);
     
     for (let i = 0; i < maxJobs; i++) {
       const jobId = jobMatches[i]?.match(/data-entity-urn="urn:li:jobPosting:(\d+)"/)?.[1];
+      let title = titleMatches[i]?.replace(/<[^>]+>/g, '').trim() || `${query} Role`;
+      let company = companyMatches[i]?.replace(/<[^>]+>/g, '').trim() || 'Top Employer';
+      
+      title = decodeHTMLEntities(title);
+      company = decodeHTMLEntities(company);
       
       if (jobId) {
         jobs.push({
           id: `linkedin_${jobId}`,
-          title: `${query} Role`,
-          company: 'Top Employer',
+          title: title,
+          company: company,
           location: 'India',
           salary_range: null,
-          description: `${query} position in India. View full details on LinkedIn.`,
+          description: `${title} position in India. View full details on LinkedIn.`,
           apply_link: `https://www.linkedin.com/jobs/view/${jobId}`,
           source: 'linkedin_india',
           created_at: new Date().toISOString(),

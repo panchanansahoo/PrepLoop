@@ -450,7 +450,7 @@ Return valid JSON with this shape:
           response_format: { type: 'json_object' },
           temperature: 0.3
         }),
-      timeoutMs: 12000,
+      timeoutMs: 45000,
       maxRetries: 2,
       baseDelayMs: 250,
     });

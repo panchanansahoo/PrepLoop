@@ -308,33 +308,12 @@ export function useVoiceAI({
   };
 
   const playBackchannel = useCallback(() => {
-    const clips = backchannelRef.current;
-    if (!clips) return;
-    const now = Date.now();
-    if (now - lastBackchannelRef.current < BACKCHANNEL_GAP_MS) return;
-    if (now - listenStartRef.current < BACKCHANNEL_MIN_MS) return;
-
-    const keys = Object.keys(clips);
-    const clip = clips[keys[Math.floor(Math.random() * keys.length)]];
-    if (clip) {
-      clip.currentTime = 0;
-      clip.play().catch(() => {});
-      lastBackchannelRef.current = now;
-    }
+    // Disabled filler backchanneling
   }, []);
 
   const startBackchannelSchedule = useCallback(() => {
-    clearBackchannelTimer();
-    const check = () => {
-      if (!activeRef.current || stateRef.current !== "listening") return;
-      playBackchannel();
-      backchannelTimerRef.current = setTimeout(
-        check,
-        BACKCHANNEL_GAP_MS + Math.random() * 4000,
-      );
-    };
-    backchannelTimerRef.current = setTimeout(check, BACKCHANNEL_MIN_MS);
-  }, [playBackchannel]);
+    // Disabled filler backchanneling
+  }, []);
 
   const submitAnswer = useCallback(async () => {
     const answer = finalTextRef.current.trim();

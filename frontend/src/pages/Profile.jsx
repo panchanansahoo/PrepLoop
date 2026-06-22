@@ -5,7 +5,7 @@ import { useCoins } from '../context/CoinContext';
 import useDashboardData from '../hooks/useDashboardData';
 import {mergeAuthHeaders} from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
-import { User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut, Github, Sparkles, FileText, Upload, Pencil, Save, X, Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as _Bolt, ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star, Phone, Calendar as _CalendarIcon, MapPin as LocationIcon, ExternalLink, Hash, Tag, Camera } from 'lucide-react';
+import { User, Mail, Briefcase, Award, GraduationCap, Shield, LogOut, Github, Sparkles, FileText, Upload, Pencil, Save, X, Zap, Copy, Check, Link2, Palette, Globe, PenSquare, LayoutGrid, Layout, Zap as _Bolt, ChevronRight, Building, MapPin, Calendar, Code, Coffee, Users, Star, Phone, Calendar as _CalendarIcon, MapPin as LocationIcon, ExternalLink, Hash, Tag, Camera, Info } from 'lucide-react';
 import AIMatchReportModal from '../components/AIMatchReportModal';
 import './Profile.css';
 
@@ -127,6 +127,27 @@ function splitSkillChips(skillsValue = '', resumeProfile = null) {
   return deduped.slice(0, 14);
 }
 
+function calculateProfileCompletion(profile, resumeSnapshot) {
+  const fields = [
+    profile.fullName,
+    profile.bio,
+    profile.currentRole,
+    profile.skills,
+    profile.education,
+    profile.phone,
+    profile.location,
+    profile.website,
+    profile.company,
+    profile.yearsOfExperience,
+    profile.specialization,
+    profile.experience,
+    profile.githubUsername,
+    profile.socialLinks?.linkedin,
+  ];
+  const filled = fields.filter(f => String(f || '').trim().length > 0).length;
+  return Math.round((filled / fields.length) * 100);
+}
+
 function splitExperiencePoints(profileExperience = '', resumeProfile = null) {
   const normalized = String(profileExperience || '').trim();
 
@@ -212,6 +233,7 @@ export default function Profile() {
   const [claimEditing, setClaimEditing] = useState(false);
   const [claimValue, setClaimValue] = useState('');
   const [_claimStatus, setClaimStatus] = useState('idle');
+  const [toastExiting, setToastExiting] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -349,7 +371,13 @@ export default function Profile() {
 
   useEffect(() => {
     if (status !== 'saved' && status !== 'error') return undefined;
-    const timer = window.setTimeout(() => setStatus('idle'), 3000);
+    const timer = window.setTimeout(() => {
+      setToastExiting(true);
+      window.setTimeout(() => {
+        setStatus('idle');
+        setToastExiting(false);
+      }, 300);
+    }, 3000);
     return () => window.clearTimeout(timer);
   }, [status]);
 
@@ -712,6 +740,18 @@ export default function Profile() {
   const companyDisplay = profile.company || 'Company not set';
   const yearsExpDisplay = profile.yearsOfExperience || 'N/A';
   const specializationDisplay = profile.specialization || 'None specified';
+  const profileCompletion = calculateProfileCompletion(profile, resumeSnapshot);
+  const completionLabel = profileCompletion >= 100 ? 'Complete!' : `${profileCompletion}%`;
+  const RING_CIRCUMFERENCE = 2 * Math.PI * 20;
+  const ringDashoffset = RING_CIRCUMFERENCE - (profileCompletion / 100) * RING_CIRCUMFERENCE;
+
+  const dismissToast = () => {
+    setToastExiting(true);
+    window.setTimeout(() => {
+      setStatus('idle');
+      setToastExiting(false);
+    }, 300);
+  };
 
   return (
     <div className="du-profile">
@@ -775,6 +815,28 @@ export default function Profile() {
                 <Sparkles size={12} />
                 Explorer (Free)
               </span>
+
+              {/* Profile Completion Ring */}
+              {profileCompletion < 100 && (
+                <div className="du-completion-ring-wrap">
+                  <div className="du-completion-ring">
+                    <svg viewBox="0 0 44 44">
+                      <circle className="du-completion-ring-bg" cx="22" cy="22" r="20" />
+                      <circle
+                        className="du-completion-ring-fill"
+                        cx="22" cy="22" r="20"
+                        strokeDasharray={RING_CIRCUMFERENCE}
+                        strokeDashoffset={ringDashoffset}
+                      />
+                    </svg>
+                    <span className="du-completion-ring-text">{completionLabel}</span>
+                  </div>
+                  <div className="du-completion-info">
+                    <p className="du-completion-title">Profile {completionLabel} complete</p>
+                    <p className="du-completion-subtitle">Fill in all fields to earn 20 bonus coins</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -930,12 +992,11 @@ export default function Profile() {
               <span>Complete your profile to unlock <strong>20 bonus coins</strong> and get personalized interview prep.</span>
             </div>
 
-            <div className="du-import-actions" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+            <div className="du-import-actions">
               <button 
-                className="du-import-btn" 
+                className="du-import-resume-btn" 
                 onClick={handleResumeImport}
                 disabled={resumeImporting}
-                style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#6366f1', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
               >
                 <Upload size={14} /> {resumeImporting ? 'Importing...' : 'Import from Resume'}
               </button>
@@ -950,15 +1011,14 @@ export default function Profile() {
                     autoFocus
                     style={{ flex: 1 }}
                   />
-                  <button onClick={handleLinkedInSubmit} style={{ padding: '10px 14px', background: '#0a66c2', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Go</button>
-                  <button onClick={() => { setLinkedinInputVisible(false); setLinkedinInputValue(''); }} style={{ padding: '10px 14px', background: 'transparent', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', cursor: 'pointer' }}>✕</button>
+                  <button className="du-linkedin-go-btn" onClick={handleLinkedInSubmit}>Go</button>
+                  <button className="du-linkedin-dismiss-btn" onClick={() => { setLinkedinInputVisible(false); setLinkedinInputValue(''); }}>✕</button>
                 </div>
               ) : (
                 <button
-                  className="du-import-btn"
+                  className="du-import-linkedin-btn"
                   onClick={handleLinkedInImport}
                   disabled={linkedinImporting}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '10px', background: '#0a66c2', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 500, cursor: 'pointer' }}
                 >
                   <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import from LinkedIn'}
                 </button>
@@ -992,7 +1052,7 @@ export default function Profile() {
                 </div>
               )}
               {activeTab === 'basic' && (
-                <div className="du-showcase-basic-info">
+                <div className="du-tab-content du-showcase-basic-info">
                   <div className="du-showcase-contact-grid">
                     <div className="du-showcase-contact-item">
                       <Mail size={16} className="du-contact-icon" />
@@ -1037,7 +1097,7 @@ export default function Profile() {
               )}
               
               {activeTab === 'professional' && (
-                <div className="du-showcase-professional-info">
+                <div className="du-tab-content du-showcase-professional-info">
                   <div className="du-showcase-top-grid">
                     <div className="du-showcase-mini-card">
                       <div className="du-showcase-mini-label">Current Role</div>
@@ -1114,11 +1174,11 @@ export default function Profile() {
               )}
 
               {activeTab === 'social' && (
-                <div className="du-showcase-social-links">
+                <div className="du-tab-content du-showcase-social-links">
                   <div className="du-social-link-item">
                     <div className="du-social-platform">LinkedIn</div>
                     <div className="du-social-url">
-                      {profile.socialLinks.linkedin ? (
+                      {profile.socialLinks?.linkedin ? (
                         <a href={`https://linkedin.com/in/${profile.socialLinks.linkedin}`} 
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.linkedin}
@@ -1129,7 +1189,7 @@ export default function Profile() {
                   <div className="du-social-link-item">
                     <div className="du-social-platform">Twitter</div>
                     <div className="du-social-url">
-                      {profile.socialLinks.twitter ? (
+                      {profile.socialLinks?.twitter ? (
                         <a href={`https://twitter.com/${profile.socialLinks.twitter}`} 
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.twitter}
@@ -1140,7 +1200,7 @@ export default function Profile() {
                   <div className="du-social-link-item">
                     <div className="du-social-platform">Portfolio</div>
                     <div className="du-social-url">
-                      {profile.socialLinks.portfolio ? (
+                      {profile.socialLinks?.portfolio ? (
                         <a href={profile.socialLinks.portfolio.startsWith('http') ? profile.socialLinks.portfolio : `https://${profile.socialLinks.portfolio}`} 
                            target="_blank" rel="noopener noreferrer">
                           {profile.socialLinks.portfolio}
@@ -1152,7 +1212,7 @@ export default function Profile() {
               )}
 
               {activeTab === 'portfolio' && (
-                <div className="du-portfolio-showcase">
+                <div className="du-tab-content du-portfolio-showcase">
                   {/* CTA Banner */}
                   <div className="du-portfolio-cta-banner">
                     <div className="du-portfolio-cta-left">
@@ -1496,6 +1556,13 @@ export default function Profile() {
               </div>
             </div>}
 
+            {editing && activeTab === 'portfolio' && (
+              <div className="du-portfolio-edit-info">
+                <Info size={16} />
+                <span>Portfolio content is generated from your <strong>Basic</strong> and <strong>Professional</strong> info. Update those tabs, then visit the <strong>Portfolio Creator</strong> for full customization.</span>
+              </div>
+            )}
+
             {editing && (
               <div className="du-form-actions">
                 <button className="du-save-btn" onClick={handleSave} disabled={saving}>
@@ -1710,15 +1777,21 @@ export default function Profile() {
 
       {/* ═══ Toast Notifications ═══ */}
       {status === 'saved' && (
-        <div className="du-toast success" role="status" aria-live="polite">
+        <div className={`du-toast success${toastExiting ? ' exiting' : ''}`} role="status" aria-live="polite">
           <Check size={16} />
           Profile saved successfully.{rewardMessage ? ` ${rewardMessage}` : ''}
+          <button className="du-toast-close" onClick={dismissToast} type="button" aria-label="Dismiss">
+            <X size={12} />
+          </button>
         </div>
       )}
       {status === 'error' && (
-        <div className="du-toast error" role="alert">
+        <div className={`du-toast error${toastExiting ? ' exiting' : ''}`} role="alert">
           <X size={16} />
           Could not save profile. Please try again.
+          <button className="du-toast-close" onClick={dismissToast} type="button" aria-label="Dismiss">
+            <X size={12} />
+          </button>
         </div>
       )}
 

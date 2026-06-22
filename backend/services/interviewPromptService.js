@@ -66,12 +66,7 @@ function deterministicHash(str) {
 }
 
 function maybeAddNaturalPrefix(message) {
-  const msgHash = deterministicHash(message);
-  // 30% injection rate via hash modulus (deterministic per message text)
-  if (msgHash % 100 >= 30) return message;
-  const prefix = NATURAL_PREFIXES[msgHash % NATURAL_PREFIXES.length];
-  if (/^(okay|right|interesting|got it|mm|sure|alright|fair|makes)/i.test(message)) return message;
-  return prefix + message.charAt(0).toLowerCase() + message.slice(1);
+  return message;
 }
 
 // ── Conversation summary builder ────────────────────────────────────
