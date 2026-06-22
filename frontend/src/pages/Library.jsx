@@ -481,8 +481,7 @@ export default function Library() {
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
-                                            overflow: 'visible', // allow pop-out effect
-                                            paddingTop: '20px'
+                                            overflow: 'visible' // allow pop-out effect
                                         }}>
                                             {/* Blurred Ambient Glow */}
                                             <div style={{
@@ -526,31 +525,33 @@ export default function Library() {
                                                     color: 'white',
                                                     overflow: 'hidden'
                                                 }}>
-                                                    <div style={{
-                                                        fontSize: '14px',
-                                                        fontWeight: 'bold',
-                                                        lineHeight: '1.3',
-                                                        marginBottom: '12px',
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 4,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        overflow: 'hidden',
-                                                        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                                                        zIndex: 5
-                                                    }}>
-                                                        {book.title}
-                                                    </div>
-                                                    <div style={{
-                                                        fontSize: '11px',
-                                                        opacity: 0.9,
-                                                        display: '-webkit-box',
-                                                        WebkitLineClamp: 2,
-                                                        WebkitBoxOrient: 'vertical',
-                                                        overflow: 'hidden',
-                                                        textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                                                        zIndex: 5
-                                                    }}>
-                                                        {book.author}
+                                                    <div style={{ width: '100%', display: 'block' }}>
+                                                        <div style={{
+                                                            fontSize: '14px',
+                                                            fontWeight: 'bold',
+                                                            lineHeight: '1.3',
+                                                            marginBottom: '12px',
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 4,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden',
+                                                            textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                                                            zIndex: 5
+                                                        }}>
+                                                            {book.title}
+                                                        </div>
+                                                        <div style={{
+                                                            fontSize: '11px',
+                                                            opacity: 0.9,
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical',
+                                                            overflow: 'hidden',
+                                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                                                            zIndex: 5
+                                                        }}>
+                                                            {book.author}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
@@ -591,20 +592,22 @@ export default function Library() {
                                                 )}
                                             </div>
 
-                                            <h3 style={{
-                                                fontSize: '18px',
-                                                fontWeight: '700',
-                                                marginBottom: '6px',
-                                                lineHeight: '1.4',
-                                                color: 'var(--color-text-primary)',
-                                                minHeight: '50px',
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 2,
-                                                WebkitBoxOrient: 'vertical',
-                                                overflow: 'hidden'
-                                            }}>
-                                                {book.title}
-                                            </h3>
+                                            <div style={{ width: '100%', display: 'block' }}>
+                                                <h3 style={{
+                                                    fontSize: '18px',
+                                                    fontWeight: '700',
+                                                    marginBottom: '6px',
+                                                    lineHeight: '1.4',
+                                                    color: 'var(--color-text-primary)',
+                                                    minHeight: '50px',
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical',
+                                                    overflow: 'hidden'
+                                                }}>
+                                                    {book.title}
+                                                </h3>
+                                            </div>
                                             <p style={{ 
                                                 color: 'var(--color-text-secondary)', 
                                                 fontSize: '14px', 
