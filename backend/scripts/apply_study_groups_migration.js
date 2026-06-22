@@ -40,7 +40,7 @@ if (!ref) {
   process.exit(1);
 }
 
-const host = `db.${ref}.supabase.co`;
+const _host = `db.${ref}.supabase.co`;
 const encodedPassword = encodeURIComponent(supabasePassword);
 const connectionString = `postgres://postgres:${encodedPassword}@[2406:da1a:6b0:f617:81f2:4ae0:9be2:581d]:5432/postgres?sslmode=require`;
 
@@ -81,7 +81,7 @@ async function run() {
     const verification = result.rows?.[0] || {};
 
     const hasTable = verification.study_groups_table_exists === true;
-    const indexCount = Number(verification.study_groups_index_count || 0);
+    const _indexCount = Number(verification.study_groups_index_count || 0);
 
     if (!hasTable) {
       console.error('Verification failed: study_groups table was not found.');

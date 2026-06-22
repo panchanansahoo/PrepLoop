@@ -708,7 +708,7 @@ router.get('/latest', authenticateToken, async (req, res) => {
         const parsed = JSON.parse(resumeText);
         
         // Reconstruct a text representation that extractHeadline/Summary can parse
-        let reconstructed = [];
+        const reconstructed = [];
         if (parsed.fullName) reconstructed.push(`Generated resume for ${parsed.fullName}`);
         if (parsed.currentRole || parsed.title) reconstructed.push(parsed.currentRole || parsed.title);
         if (parsed.summary || parsed.bio) reconstructed.push(parsed.summary || parsed.bio);
@@ -720,7 +720,7 @@ router.get('/latest', authenticateToken, async (req, res) => {
         
         resumeText = reconstructed.join('\n') || `Generated resume for ${parsed.fullName || 'User'}`;
       }
-    } catch (e) {
+    } catch (_e) {
       // Ignore parse errors, treat as regular text
     }
     

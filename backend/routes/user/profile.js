@@ -73,7 +73,7 @@ const buildProfileResponse = (req, profile) => {
 
   let parsedSocialLinks = {};
   if (typeof profile?.social_links === 'string') {
-    try { parsedSocialLinks = JSON.parse(profile.social_links); } catch(e) {}
+    try { parsedSocialLinks = JSON.parse(profile.social_links); } catch(_e) {}
   } else if (typeof profile?.social_links === 'object' && profile.social_links !== null) {
     parsedSocialLinks = profile.social_links;
   }

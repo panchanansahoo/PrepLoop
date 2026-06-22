@@ -2,7 +2,7 @@ import { supabaseAdmin } from './db/supabaseClient.js';
 
 async function seed() {
   console.log('Fetching a user profile to use as creator...');
-  const { data: profiles, error: profileError } = await supabaseAdmin
+  const { data: profiles, error: _profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .limit(1);

@@ -4,7 +4,7 @@ async function seedStudyGroups() {
   console.log('Seeding study groups...');
 
   // Get a valid profile id
-  let { data: profiles, error: profileError } = await supabaseAdmin
+  const { data: profiles, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('id')
     .limit(1);
@@ -16,7 +16,7 @@ async function seedStudyGroups() {
     const dummyEmail = 'dummy@preploop.com';
     
     // Check if user exists in auth
-    let { data: { users }, error: listAuthError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: { users }, error: _listAuthError } = await supabaseAdmin.auth.admin.listUsers();
     let authUser = users?.find(u => u.email === dummyEmail);
     
     if (!authUser) {
@@ -36,7 +36,7 @@ async function seedStudyGroups() {
     const dummyId = authUser.id;
     
     // The profile might have been auto-created by the trigger
-    let { data: existingDummy } = await supabaseAdmin
+    const { data: existingDummy } = await supabaseAdmin
       .from('profiles')
       .select('id')
       .eq('id', dummyId)

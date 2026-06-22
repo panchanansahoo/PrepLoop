@@ -50,12 +50,12 @@ function getCompanyPersona(companyFocus) {
 }
 
 // ── Natural speech prefixes (30% injection rate) ────────────────────
-const NATURAL_PREFIXES = [
+const _NATURAL_PREFIXES = [
   'Okay, ', 'Right, ', 'Interesting — ', 'Got it. ', 'Mm-hmm. ',
   'Sure. ', 'Alright, ', 'Fair enough. ', 'Makes sense. ',
 ];
 
-function deterministicHash(str) {
+function _deterministicHash(str) {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);

@@ -3,7 +3,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 
 const DEFAULT_FOLDER_URL = 'https://drive.google.com/drive/folders/1bmwnYFNkRo2R0Xgb8hYG-6tFBn7TDTkH?usp=sharing';
 
-function ensureSafeDriveFolderUrl(folderUrl) {
+function _ensureSafeDriveFolderUrl(folderUrl) {
   const parsed = new URL(String(folderUrl || DEFAULT_FOLDER_URL));
   const safeHosts = new Set(['drive.google.com', 'docs.google.com']);
   const isSafePath = parsed.pathname.includes('/folders/');
