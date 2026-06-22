@@ -13,20 +13,26 @@ let companiesList = null;
  * Returns null if source files are unavailable in this runtime.
  */
 async function resolveQuestionModule() {
-    const candidates = [
-        '../../frontend/src/data/companyPrepData.js',
-        '../data/companyPrepData.js',
+    const candidatesMeta = [
+        '../../frontend/src/data/companyPrepMeta.js',
+        '../data/companyPrepMeta.js',
+    ];
+    const candidatesQs = [
+        '../../frontend/src/data/companyQuestions.js',
+        '../data/companyQuestions.js',
     ];
 
-    for (const candidate of candidates) {
-        try {
-            const mod = await import(candidate);
-            return mod;
-        } catch (_) {
-            // Try next candidate path.
-        }
+    let metaMod = null;
+    let qsMod = null;
+
+    for (const candidate of candidatesMeta) {
+        try { metaMod = await import(candidate); break; } catch (_) {}
+    }
+    for (const candidate of candidatesQs) {
+        try { qsMod = await import(candidate); break; } catch (_) {}
     }
 
+    if (metaMod || qsMod) return { metaMod, qsMod };
     return null;
 }
 
@@ -37,8 +43,8 @@ async function resolveQuestionModule() {
 async function loadQuestionData() {
     if (questionCache) return;
 
-    const dataModule = await resolveQuestionModule();
-    if (!dataModule) {
+    const dataModules = await resolveQuestionModule();
+    if (!dataModules || (!dataModules.metaMod && !dataModules.qsMod)) {
         console.warn('⚠️ Company question dataset not found in this runtime. Using empty fallback set.');
         questionCache = [];
         companiesList = [];
@@ -46,8 +52,20 @@ async function loadQuestionData() {
     }
 
     try {
-        questionCache = Array.isArray(dataModule.COMPANY_QUESTIONS) ? dataModule.COMPANY_QUESTIONS : [];
-        companiesList = Array.isArray(dataModule.COMPANIES) ? dataModule.COMPANIES : [];
+        const rawQs = dataModules.qsMod?.companyQuestions || {};
+        const flatQuestions = [];
+        for (const [companyId, companyData] of Object.entries(rawQs)) {
+            if (companyData && Array.isArray(companyData.questions)) {
+                for (const q of companyData.questions) {
+                    flatQuestions.push({
+                        company: companyId,
+                        ...q
+                    });
+                }
+            }
+        }
+        questionCache = flatQuestions;
+        companiesList = Array.isArray(dataModules.metaMod?.COMPANIES) ? dataModules.metaMod.COMPANIES : [];
         console.log(`✅ Company Question Bank loaded: ${questionCache.length} questions, ${companiesList.length} companies`);
     } catch (error) {
         console.error('Failed to parse company question data:', error.message);
