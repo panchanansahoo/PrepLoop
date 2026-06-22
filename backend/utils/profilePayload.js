@@ -18,7 +18,8 @@ const normalizeProfileUpdatePayload = (body = {}) => {
     if (trimmed !== '') updates.experience_level = trimmed;
   }
   if (currentRoleRaw !== undefined) {
-    updates.designation = String(currentRoleRaw || '').trim();
+    const trimmed = String(currentRoleRaw || '').trim();
+    if (trimmed !== '') updates.designation = trimmed;
   }
   if (bioRaw !== undefined) {
     updates.bio = typeof bioRaw === 'string' ? bioRaw.trim() : bioRaw;
