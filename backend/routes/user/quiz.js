@@ -667,7 +667,8 @@ router.get('/problem-leaderboard', optionalAuth, async (req, res) => {
       .order('created_at', { ascending: false })
       .limit(candidatesToEvaluate);
 
-    if (isProfilesAccessBlocked(profilesError)) {
+    if (profilesError && (isProfilesAccessBlocked(profilesError) || isMissingRelationError(profilesError) || profilesError.code === '42703')) {
+      console.warn('Leaderboard profiles degraded:', profilesError);
       return res.json({ leaderboard: [], currentUserRank: null, degraded: true });
     }
 
@@ -686,7 +687,12 @@ router.get('/problem-leaderboard', optionalAuth, async (req, res) => {
       .in('user_id', userIds)
       .eq('status', 'solved');
 
-    if (progressError) throw progressError;
+    if (progressError && (isMissingRelationError(progressError) || progressError.code === '42703')) {
+      console.warn('Leaderboard user_progress degraded:', progressError);
+      // We can continue with empty progressRows
+    } else if (progressError) {
+      throw progressError;
+    }
 
     const solvedByUser = new Map();
     const solvedDatesByUser = new Map();
@@ -896,7 +902,9 @@ router.get('/quiz-leaderboard', optionalAuth, async (req, res) => {
       .select('id, full_name, avatar_url')
       .in('id', userIds);
 
-    if (profilesError && !isProfilesAccessBlocked(profilesError)) {
+    if (profilesError && (isProfilesAccessBlocked(profilesError) || isMissingRelationError(profilesError) || profilesError.code === '42703')) {
+      console.warn('Quiz leaderboard profiles degraded:', profilesError);
+    } else if (profilesError) {
       throw profilesError;
     }
 

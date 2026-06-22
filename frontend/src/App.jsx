@@ -189,7 +189,7 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot']);
+  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/dsa-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';

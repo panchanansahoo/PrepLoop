@@ -826,13 +826,16 @@ function CareerOpsResultCard({ result }) {
   );
 }
 
-function JobCard({ job, _saved,_onToggleSavee, formatDeadline, getTimeAgo }) {
+function JobCard({ job, saved, onToggleSave, formatDeadline, getTimeAgo }) {
   const navigate = useNavigate();
   const typeBadge = TYPE_BADGES[job.type] || TYPE_BADGES['full-time'];
   const deadline = formatDeadline(job.deadline);
   const _posted = getTimeAgo(job.created_at);
   const isExpired = deadline === 'Expired';
-  const initials = (job.company || 'C').split(/[\s&]+/).map(w => w[0]).join('').substring(0, 2).toUpperCase();
+  
+  const companyName = job.company || job.company_name || 'Unknown Company';
+  const roleName = job.title || job.role || 'Unknown Role';
+  const initials = companyName.split(/[\s&]+/).map(w => w?.[0] || '').join('').substring(0, 2).toUpperCase() || 'C';
 
   // Clean description — strip job requisition IDs and boilerplate
   const cleanDesc = (job.description || '')
@@ -846,7 +849,7 @@ function JobCard({ job, _saved,_onToggleSavee, formatDeadline, getTimeAgo }) {
       <div className="job-card-top-exact">
         <div className="company-logo-wrapper-exact">
           {job.logo_url ? (
-            <img src={job.logo_url} alt={job.company} className="company-logo-exact" />
+            <img src={job.logo_url} alt={companyName} className="company-logo-exact" />
           ) : (
             <div className="company-logo-placeholder-exact">
               <span style={{ color: '#ef4444' }}>{initials.charAt(0)}</span>
@@ -856,12 +859,12 @@ function JobCard({ job, _saved,_onToggleSavee, formatDeadline, getTimeAgo }) {
           <div className="online-indicator-exact"></div>
         </div>
         <div className="company-info-exact">
-          <span className="job-company-exact">{job.company?.toUpperCase()}</span>
+          <span className="job-company-exact">{companyName.toUpperCase()}</span>
           <span className="job-type-badge-exact">{typeBadge.label}</span>
         </div>
       </div>
 
-      <h3 className="job-title-exact">{job.title}</h3>
+      <h3 className="job-title-exact">{roleName}</h3>
 
       <div className="job-meta-exact">
         <span className="meta-item-exact">
