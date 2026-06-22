@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme — dark, no action bar -->
+    <style name="Theme.PrepLoop" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#FF070709</item>
+        <item name="android:navigationBarColor">#FF0A0A0E</item>
+        <item name="android:windowBackground">#FF070709</item>
+    </style>
+
+    <!-- Splash screen theme -->
+    <style name="Theme.PrepLoop.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#FF070709</item>
+        <item name="postSplashScreenTheme">@style/Theme.PrepLoop</item>
+    </style>
+</resources>

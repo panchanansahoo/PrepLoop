@@ -1,0 +1,172 @@
+name: Deploy Frontend to Vercel
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  validate-frontend:
+    name: Validate Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Frontend tests
+        run: npm run test --prefix frontend
+
+      - name: Frontend build
+        run: npm run build --prefix frontend
+
+  deploy-staging:
+    name: Deploy Frontend Staging
+    runs-on: ubuntu-latest
+    needs: validate-frontend
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve staging backend health URL
+        shell: bash
+        env:
+          STAGING_HEALTH: ${{ secrets.STAGING_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+        run: |
+          HEALTH_URL="${STAGING_HEALTH:-$FALLBACK_HEALTH}"
+          if [ -z "$HEALTH_URL" ]; then
+            echo "Missing staging backend health URL secret"
+            echo "Set STAGING_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
+            exit 1
+          fi
+          echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify backend is healthy (staging)
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "$BACKEND_HEALTH_URL" > /dev/null; then
+              echo "Staging backend is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Staging backend health check failed"
+          exit 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Reset Vercel link
+        working-directory: frontend
+        run: rm -rf .vercel
+
+      - name: Pull Vercel project settings (preview)
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build frontend artifacts (preview)
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel preview
+        run: vercel deploy --prebuilt --yes --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  deploy-production:
+    name: Deploy Frontend Production
+    runs-on: ubuntu-latest
+    needs: validate-frontend
+    if: github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve production backend health URL
+        shell: bash
+        env:
+          PROD_HEALTH: ${{ secrets.PRODUCTION_BACKEND_HEALTHCHECK_URL }}
+          FALLBACK_HEALTH: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+        run: |
+          HEALTH_URL="${PROD_HEALTH:-$FALLBACK_HEALTH}"
+          if [ -z "$HEALTH_URL" ]; then
+            echo "Missing production backend health URL secret"
+            echo "Set PRODUCTION_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
+            exit 1
+          fi
+          echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Verify backend is healthy (production)
+        shell: bash
+        run: |
+          for i in {1..20}; do
+            if curl -fsS "$BACKEND_HEALTH_URL" > /dev/null; then
+              echo "Production backend is healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Production backend health check failed"
+          exit 1
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Reset Vercel link
+        working-directory: frontend
+        run: rm -rf .vercel
+
+      - name: Pull Vercel project settings (production)
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Build frontend artifacts (production)
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Deploy to Vercel production
+        run: vercel deploy --prebuilt --yes --prod --token=${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

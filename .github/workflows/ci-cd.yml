@@ -1,0 +1,21 @@
+name: Legacy CI/CD (Manual Placeholder)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  info:
+    name: Legacy Pipeline Notice
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show migration notice
+        run: |
+          echo "This legacy workflow is disabled for automatic runs."
+          echo "Use active workflows:"
+          echo "- .github/workflows/ci.yml"
+          echo "- .github/workflows/deploy-orchestrator-vercel-azure.yml"
+          echo "- .github/workflows/deploy-backend-azure.yml"
+          echo "- .github/workflows/deploy-frontend-vercel.yml"

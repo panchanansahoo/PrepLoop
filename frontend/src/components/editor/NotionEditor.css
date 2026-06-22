@@ -1,0 +1,31 @@
+/* Custom styles for NotionEditor to match app theme */
+
+.notion-editor-wrapper {
+    background: transparent;
+    min-height: 500px;
+    border-radius: 8px;
+    /* border: 1px solid var(--zinc-800); */
+    /* Optional border */
+}
+
+/* Override Mantine/BlockNote defaults for darker theme integration */
+.bn-editor {
+    background: transparent !important;
+}
+
+.bn-block-content {
+    color: var(--zinc-300);
+}
+
+/* Ensure menus have correct z-index and colors */
+.bn-menu,
+.bn-toolbar,
+.bn-side-menu {
+    z-index: 100 !important;
+}
+
+/* Placeholder color */
+.bn-editor [data-placeholder]::before {
+    color: #52525b !important;
+    /* zinc-600 */
+}

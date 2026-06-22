@@ -1,0 +1,6 @@
+{
+  "average": [
+    {"id": "avg_1", "question": "Calculate the average of all numbers between 6 and 50 that are divisible by 6.", "difficulty": "easy", "xp": 10, "options": [{"label": "A", "value": "24"}, {"label": "B", "value": "27"}, {"label": "C", "value": "30"}, {"label": "D", "value": "33"}], "correctAnswer": "A", "category": "Finding Average of Numbers"},
+    {"id": "avg_2", "question": "A set of 13 numbers has an average of 40. If the average of the first seven numbers is 35 and the average of the last seven numbers is 46, what is the seventh number?", "difficulty": "medium", "xp": 15, "options": [{"label": "A", "value": "42"}, {"label": "B", "value": "47"}, {"label": "C", "value": "52"}, {"label": "D", "value": "57"}], "correctAnswer": "C", "category": "Finding Average of Numbers"}
+  ]
+}

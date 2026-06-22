@@ -1,0 +1,22 @@
+# =============================================================================
+# DEPRECATED — Superseded by deploy-orchestrator-vercel-azure.yml
+#   which calls deploy-frontend-vercel.yml (uses Vercel CLI prebuilt strategy)
+#
+# This stub used the wrong input name (vercel-arg → vercel-args) and was
+# missing --yes for non-interactive CI. Kept as manual-only for reference.
+# =============================================================================
+
+name: "[Deprecated] Deploy to Vercel"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  notice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deprecation notice
+        run: |
+          echo "This workflow is deprecated."
+          echo "Use 'Deploy Orchestrator (Azure Backend -> Vercel Frontend)' instead."
+          exit 0

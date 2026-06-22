@@ -1,0 +1,36 @@
+question,position,jobTitle,company,year,Subject,Model Answer,Hint Suggestion,Approach Suggestion
+Can you discuss a time when you had to design a system?,Software Engineer,Software Developer,Cloudflare; Google; OpenAI,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you discuss a time when you had to design a system?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Discuss system design for consistent hashing.,Software Engineer,Member Of Technical Staff,OpenAI,2024,DSA,"It is a data structure/algorithm used to organize and process data efficiently to reduce time complexity and improve performance.
+Common operations include insert, delete, search and traversal.",Identify the main concept in: 'Discuss system design for consistent hashing.'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you provide an overview of your experience with system design?,Software Engineer,Member Of Technical Staff,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you provide an overview of your experience with system design?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you discuss a coding problem you have worked on in the past?,Software Engineer,Member Of Technical Staff,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you discuss a coding problem you have worked on in the past?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you explain LRU and web scraping?,Software Engineer,Software Engineer,OpenAI,2020,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you explain LRU and web scraping?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you walk us through a presentation of your past work?,Software Engineer,Software Engineer,OpenAI,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you walk us through a presentation of your past work?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you discuss your experience with low-level geospatial indexing?,Software Engineer,Engineering Manager,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you discuss your experience with low-level geospatial indexing?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Design an app that allows users to search for places nearby,Backend Developer,Senior Backend Engineer,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Design an app that allows users to search for places nearby'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Explain the principles of Object-Oriented Design.,Software Engineer,Software Engineer,OpenAI,2024,Computer Networks,"This is a networking concept enabling communication between computers over a network using standardized protocols.
+It ensures reliable data transmission and addressing between devices.",Identify the main concept in: 'Explain the principles of Object-Oriented Design.'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+How do you make tradeoffs in decision-making?,Software Engineer,Engineering Manager,OpenAI,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'How do you make tradeoffs in decision-making?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+How do you query or order by in an in-memory database?,Software Engineer,Software Engineer,OpenAI,2024,DBMS,"A DBMS is software that manages databases and allows storing, retrieving, updating and securing data efficiently.
+It ensures data integrity, security and concurrency control.
+Examples: MySQL, PostgreSQL, Oracle.",Identify the main concept in: 'How do you query or order by in an in-memory database?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you write a function that changes the directory given the current directory and a new location?,Software Engineer,Software Engineer,OpenAI,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you write a function that changes the directory given the current directory and a new location?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Have you worked with single thread to multi-threads in your previous projects?,Software Engineer,Software Engineer,OpenAI,2020,Operating System,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Have you worked with single thread to multi-threads in your previous projects?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you write a web crawler with an emphasis on multithreading and multiprocessing?,Software Engineer,Staff Software Engineer,OpenAI,2024,Operating System,"This is a networking concept enabling communication between computers over a network using standardized protocols.
+It ensures reliable data transmission and addressing between devices.",Identify the main concept in: 'Can you write a web crawler with an emphasis on multithreading and multiprocessing?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you explain a difficult dynamic programming problem you have worked on?,Software Engineer,Software Engineer(Internship),Flipkart; OpenAI,2022,DSA,"It is a data structure/algorithm used to organize and process data efficiently to reduce time complexity and improve performance.
+Common operations include insert, delete, search and traversal.",Identify the main concept in: 'Can you explain a difficult dynamic programming problem you have worked on?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Explain LRU caching.,Software Engineer,Member Of Technical Staff,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Explain LRU caching.'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Have you studied systems and built consumer applications before?,Software Engineer,Member Of Technical Staff,OpenAI,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Have you studied systems and built consumer applications before?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."

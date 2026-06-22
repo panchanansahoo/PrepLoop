@@ -1,0 +1,312 @@
+/* ═══════════════════════════════════════════════
+   Roadmap Filters - Interactive Filtering UI
+   ═══════════════════════════════════════════════ */
+
+.roadmap-filters-container {
+    position: relative;
+}
+
+.roadmap-filters-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-surface-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.roadmap-filters-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(88, 166, 255, 0.15), transparent 80%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 400ms ease-out;
+}
+
+.roadmap-filters-button:hover {
+    background: var(--color-surface-tertiary);
+    border-color: var(--color-border-strong);
+    color: var(--color-text-primary);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.roadmap-filters-button.is-open {
+    background: var(--color-surface-tertiary);
+    border-color: var(--color-primary);
+    color: var(--color-text-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-background);
+}
+
+.roadmap-filters-button.has-active {
+    border-color: var(--color-primary);
+    background: linear-gradient(135deg, var(--color-surface-secondary) 0%, var(--color-primary-background) 100%);
+}
+
+.roadmap-filters-chevron {
+    transition: transform 200ms ease-out;
+}
+
+.roadmap-filters-button.is-open .roadmap-filters-chevron {
+    transform: rotate(-180deg);
+}
+
+.roadmap-filters-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: var(--color-primary);
+    color: white;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+/* ─── Dropdown Menu ─── */
+.roadmap-filters-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 100;
+    width: 280px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    animation: slideInDown 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+    backdrop-filter: blur(8px);
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-12px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Dark mode shadow */
+:root[data-theme='dark'] .roadmap-filters-dropdown {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+.roadmap-filter-section {
+    padding: 12px 16px;
+}
+
+.roadmap-filter-header {
+    margin-bottom: 10px;
+}
+
+.roadmap-filter-title {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--color-text-tertiary);
+}
+
+/* ─── Filter Options (Checkboxes) ─── */
+.roadmap-filter-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.roadmap-filter-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 150ms ease-out;
+}
+
+.roadmap-filter-option:hover {
+    background-color: var(--color-surface-secondary);
+}
+
+.roadmap-filter-option input {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    flex-shrink: 0;
+}
+
+.roadmap-filter-option input:hover {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-background);
+}
+
+.roadmap-filter-option input:checked {
+    background-color: var(--color-primary);
+    border-color: var(--color-primary);
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 11.94l6.72-6.72a.75.75 0 011.06 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 12px;
+}
+
+.roadmap-filter-option-label {
+    font-size: 13px;
+    color: var(--color-text-primary);
+    user-select: none;
+}
+
+.roadmap-filter-option-icon {
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+}
+
+/* ─── Sort Select ─── */
+.roadmap-filter-select {
+    width: 100%;
+    padding: 8px 10px;
+    background-color: var(--color-surface-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: border-color 150ms ease-out;
+}
+
+.roadmap-filter-select:hover {
+    border-color: var(--color-primary);
+}
+
+.roadmap-filter-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px var(--color-primary-background);
+}
+
+.roadmap-filter-select option {
+    background-color: var(--color-surface);
+    color: var(--color-text-primary);
+    padding: 8px;
+}
+
+/* ─── Dividers ─── */
+.roadmap-filter-divider {
+    height: 1px;
+    background: var(--color-border);
+}
+
+/* ─── Action Buttons ─── */
+.roadmap-filter-actions {
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+}
+
+.roadmap-filter-action-btn {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 150ms ease-out;
+}
+
+.roadmap-filter-action-reset {
+    background-color: var(--color-surface-secondary);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+}
+
+.roadmap-filter-action-reset:hover {
+    background-color: var(--color-surface-tertiary);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-strong);
+}
+
+.roadmap-filter-action-apply {
+    background-color: var(--color-primary);
+    color: white;
+}
+
+.roadmap-filter-action-apply:hover {
+    background-color: var(--color-primary-hover);
+}
+
+/* ─── Color Scheme Variables ─── */
+:root {
+    --color-surface: #ffffff;
+    --color-surface-secondary: #f8f9fa;
+    --color-surface-tertiary: #f0f1f3;
+    --color-border: #e1e4e8;
+    --color-border-strong: #d0d7de;
+    --color-text-primary: #24292f;
+    --color-text-secondary: #57606a;
+    --color-text-tertiary: #7d8590;
+    --color-primary: #0969da;
+    --color-primary-hover: #0860ca;
+    --color-primary-background: rgba(9, 105, 218, 0.1);
+}
+
+:root[data-theme='dark'] {
+    --color-surface: #0d1117;
+    --color-surface-secondary: #161b22;
+    --color-surface-tertiary: #21262d;
+    --color-border: #30363d;
+    --color-border-strong: #444c56;
+    --color-text-primary: #c9d1d9;
+    --color-text-secondary: #8b949e;
+    --color-text-tertiary: #6e7681;
+    --color-primary: #58a6ff;
+    --color-primary-hover: #79c0ff;
+    --color-primary-background: rgba(88, 166, 255, 0.1);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+    .roadmap-filters-dropdown {
+        width: calc(100vw - 32px);
+        right: auto;
+        left: 16px;
+    }
+}

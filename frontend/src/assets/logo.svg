@@ -1,0 +1,78 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="cyan-blue" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00FFFF" />
+      <stop offset="100%" stop-color="#0022FF" />
+    </linearGradient>
+    <linearGradient id="magenta-red" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF00AA" />
+      <stop offset="100%" stop-color="#FF0033" />
+    </linearGradient>
+    <linearGradient id="purple-fade" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7700FF" />
+      <stop offset="100%" stop-color="#D500F9" />
+    </linearGradient>
+
+    <!-- Subtle Drop shadows for inner parts -->
+    <linearGradient id="shadow-down" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="shadow-up" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#000" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0" />
+    </linearGradient>
+
+    <clipPath id="cyan-clip">
+      <path d="M 240,100 C 150,100  120,150  120,240 L 120,400 C 120,450  200,450  200,400 L 200,240 C 200,190  210,180  240,180 Z" />
+    </clipPath>
+    
+    <clipPath id="purple-clip">
+      <path d="M 200,320 L 200,390 C 200,470  280,470  320,470 L 430,470 C 470,470  470,390  430,390 L 320,390 C 290,390  280,370  280,350 L 280,320 Z" />
+    </clipPath>
+
+    <filter id="main-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-opacity="0.3" flood-color="#000" />
+    </filter>
+  </defs>
+
+  <g filter="url(#main-shadow)">
+    <!-- 1. Purple Tail (backmost) -->
+    <path d="M 200,320
+             L 200,390
+             C 200,470  280,470  320,470
+             L 430,470
+             C 470,470  470,390  430,390
+             L 320,390
+             C 290,390  280,370  280,350
+             L 280,320
+             Z" fill="url(#purple-fade)" />
+
+    <!-- 2. Cyan Pillar (middle) -->
+    <path d="M 240,100
+             C 150,100  120,150  120,240
+             L 120,400
+             C 120,450  200,450  200,400
+             L 200,240
+             C 200,190  210,180  240,180
+             Z" fill="url(#cyan-blue)" />
+
+    <!-- 3. Inner shadows onto Cyan/Purple -->
+    <g clip-path="url(#cyan-clip)">
+      <rect x="0" y="320" width="300" height="40" fill="url(#shadow-down)" />
+      <rect x="0" y="200" width="300" height="40" fill="url(#shadow-up)" />
+    </g>
+    <g clip-path="url(#purple-clip)">
+      <rect x="200" y="320" width="100" height="40" fill="url(#shadow-down)" />
+    </g>
+
+    <!-- 4. Magenta Loop (frontmost crossover) -->
+    <path d="M 240,100
+             C 380,100  430,140  430,210
+             C 430,280  360,320  120,320
+             L 120,240
+             C 310,240  350,230  350,210
+             C 350,180  300,180  240,180
+             Z" fill="url(#magenta-red)" />
+  </g>
+</svg>

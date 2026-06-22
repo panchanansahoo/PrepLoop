@@ -1,0 +1,84 @@
+# =============================================================================
+# Docker Compose — LOCAL DEVELOPMENT ONLY
+# =============================================================================
+# Production runs on:
+#   Frontend: Vercel (free)
+#   Backend:  Koyeb (free)
+#   Cache:    Upstash Redis (free, cloud-hosted)
+#   Database: Supabase PostgreSQL (free)
+#
+# This file is for running the backend locally with docker-compose.
+# Redis is included for local dev; production uses Upstash (no self-hosted Redis).
+# =============================================================================
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: preploop-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=development
+      - PORT=5000
+      - FRONTEND_URL=${FRONTEND_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      # Local dev: use Docker Redis. Production: use UPSTASH_REDIS_REST_URL instead.
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./backend/voices:/app/backend/voices:ro
+    networks:
+      - preploop-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    container_name: preploop-redis-dev
+    restart: unless-stopped
+    # Local dev only — no auth needed for dev Redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - preploop-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+networks:
+  preploop-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

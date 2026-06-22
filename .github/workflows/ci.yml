@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Detect DSA Editor Changes
+    runs-on: ubuntu-latest
+    outputs:
+      dsa_editor: ${{ steps.filter.outputs.dsa_editor }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Filter changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            dsa_editor:
+              - 'backend/routes/dsa.js'
+              - 'backend/routes/practice.js'
+              - 'backend/utils/executeCode.js'
+              - 'backend/scripts/smokeDsaCodeEditor.js'
+              - 'backend/package.json'
+              - 'backend/package-lock.json'
+              - '.github/workflows/ci.yml'
+
+  validate:
+    name: Validate Backend + Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Backend lint
+        run: npm run lint --prefix backend
+
+      - name: Backend tests
+        run: npm run test --prefix backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preploop_test
+          NODE_ENV: test
+          PORT: 5000
+          FRONTEND_URL: http://localhost:5173
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          JWT_SECRET: test-jwt-secret-key-with-32-characters
+
+      - name: Frontend build
+        run: npm run build --prefix frontend
+
+  dsa-editor-smoke:
+    name: DSA Editor Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - validate
+      - changes
+    if: ${{ needs.changes.outputs.dsa_editor == 'true' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Start backend
+        shell: bash
+        run: |
+          nohup npm run start --prefix backend > backend.log 2>&1 &
+          echo $! > backend.pid
+        env:
+          NODE_ENV: test
+          PORT: 5000
+          FRONTEND_URL: http://localhost:5173
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_ANON_KEY: test-anon-key
+          SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+          JWT_SECRET: test-jwt-secret-key-with-32-characters
+
+      - name: Wait for backend health
+        shell: bash
+        run: |
+          for i in {1..30}; do
+            if curl -fsS http://localhost:5000/health > /dev/null; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to become healthy"
+          tail -n 200 backend.log || true
+          exit 1
+
+      - name: Run DSA editor smoke test
+        run: npm run smoke:dsa-editor --prefix backend
+        env:
+          SUPABASE_URL: https://example.supabase.co
+
+      - name: Backend log on failure
+        if: failure()
+        shell: bash
+        run: tail -n 200 backend.log || true
+
+      - name: Stop backend
+        if: always()
+        shell: bash
+        run: |
+          if [ -f backend.pid ]; then
+            kill "$(cat backend.pid)" || true
+          fi
+

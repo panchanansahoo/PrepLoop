@@ -1,0 +1,477 @@
+[
+  {
+    "id": "I",
+    "title": "Two Pointer Patterns",
+    "patterns": [
+      {
+        "index": "1/93",
+        "title": "Two Pointers - Converging (Sorted Array Target Sum)",
+        "problems": [
+          {
+            "title": "Container With Most Water",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "3Sum",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "3Sum Closest",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "4Sum",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Two Sum II - Input Array Is Sorted",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Intersection of Two Arrays",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Boats to Save People",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Squares of a Sorted Array",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "3Sum Smaller",
+            "difficulty": "Medium"
+          }
+        ]
+      },
+      {
+        "index": "2/93",
+        "title": "Two Pointers - Fast & Slow (Cycle Detection)",
+        "problems": []
+      },
+      {
+        "index": "3/93",
+        "title": "Two Pointers - Fixed Separation (Nth Node from End)",
+        "problems": []
+      },
+      {
+        "index": "4/93",
+        "title": "Two Pointers - In-place Array Modification",
+        "problems": []
+      },
+      {
+        "index": "5/93",
+        "title": "Two Pointers - String Comparison with Backspaces",
+        "problems": []
+      },
+      {
+        "index": "6/93",
+        "title": "Two Pointers - Expanding From Center (Palindromes)",
+        "problems": []
+      },
+      {
+        "index": "7/93",
+        "title": "Two Pointers - String Reversal",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "II",
+    "title": "Sliding Window Patterns",
+    "patterns": [
+      {
+        "index": "8/93",
+        "title": "Sliding Window - Fixed Size (Subarray Calculation)",
+        "problems": []
+      },
+      {
+        "index": "9/93",
+        "title": "Sliding Window - Variable Size (Condition-Based)",
+        "problems": []
+      },
+      {
+        "index": "10/93",
+        "title": "Sliding Window - Monotonic Queue for Max/Min",
+        "problems": []
+      },
+      {
+        "index": "11/93",
+        "title": "Sliding Window - Character Frequency Matching",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "III",
+    "title": "Tree Traversal Patterns (DFS & BFS)",
+    "patterns": [
+      {
+        "index": "12/93",
+        "title": "Tree BFS - Level Order Traversal",
+        "problems": []
+      },
+      {
+        "index": "13/93",
+        "title": "Tree DFS - Recursive Preorder Traversal",
+        "problems": []
+      },
+      {
+        "index": "14/93",
+        "title": "Tree DFS - Recursive Inorder Traversal",
+        "problems": []
+      },
+      {
+        "index": "15/93",
+        "title": "Tree DFS - Recursive Postorder Traversal",
+        "problems": []
+      },
+      {
+        "index": "16/93",
+        "title": "Tree - Lowest Common Ancestor (LCA) Finding",
+        "problems": [
+          {
+            "title": "Lowest Common Ancestor of a Binary Search Tree",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Lowest Common Ancestor of a Binary Tree",
+            "difficulty": "Medium"
+          }
+        ]
+      },
+      {
+        "index": "17/93",
+        "title": "Tree - Serialization and Deserialization",
+        "problems": [
+          {
+            "title": "Serialize and Deserialize Binary Tree",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Subtree of Another Tree",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Find Duplicate Subtrees",
+            "difficulty": "Medium"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "IV",
+    "title": "Graph Traversal Patterns (DFS & BFS)",
+    "patterns": []
+  },
+  {
+    "id": "V",
+    "title": "Dynamic Programming (DP) Patterns",
+    "patterns": []
+  },
+  {
+    "id": "VI",
+    "title": "Heap (Priority Queue) Patterns",
+    "patterns": []
+  },
+  {
+    "id": "VII",
+    "title": "Backtracking Patterns",
+    "patterns": []
+  },
+  {
+    "id": "VIII",
+    "title": "Greedy Patterns",
+    "patterns": []
+  },
+  {
+    "id": "IX",
+    "title": "Binary Search Patterns",
+    "patterns": []
+  },
+  {
+    "id": "X",
+    "title": "Stack Patterns",
+    "patterns": []
+  },
+  {
+    "id": "XI",
+    "title": "Bit Manipulation Patterns",
+    "patterns": []
+  },
+  {
+    "id": "XII",
+    "title": "Linked List Manipulation Patterns",
+    "patterns": []
+  },
+  {
+    "id": "XIII",
+    "title": "Array/Matrix Manipulation Patterns",
+    "patterns": [
+      {
+        "index": "79/93",
+        "title": "Array/Matrix - In-place Rotation",
+        "problems": []
+      },
+      {
+        "index": "80/93",
+        "title": "Array/Matrix - Spiral Traversal",
+        "problems": []
+      },
+      {
+        "index": "81/93",
+        "title": "Array/Matrix - Set Matrix Zeroes (In-place Marking)",
+        "problems": []
+      },
+      {
+        "index": "82/93",
+        "title": "Array - Product Except Self (Prefix/Suffix Products)",
+        "problems": []
+      },
+      {
+        "index": "83/93",
+        "title": "Array - Plus One (Handling Carry)",
+        "problems": []
+      },
+      {
+        "index": "84/93",
+        "title": "Array - Merge Sorted Array (In-place from End)",
+        "problems": []
+      },
+      {
+        "index": "85/93",
+        "title": "Array - Cyclic Sort",
+        "problems": []
+      }
+    ]
+  },
+  {
+    "id": "XIV",
+    "title": "String Manipulation Patterns",
+    "patterns": [
+      {
+        "index": "86/93",
+        "title": "String - Palindrome Check (Two Pointers / Reverse)",
+        "problems": []
+      },
+      {
+        "index": "87/93",
+        "title": "String - Anagram Check (Frequency Count/Sort)",
+        "problems": []
+      },
+      {
+        "index": "88/93",
+        "title": "String - Roman to Integer Conversion/ String to Integer (atoi)",
+        "problems": []
+      },
+      {
+        "index": "89/93",
+        "title": "String - Multiply Strings/Add Strings (Manual Simulation)",
+        "problems": []
+      },
+      {
+        "index": "90/93",
+        "title": "String Matching - Naive / KMP / Rabin-Karp",
+        "problems": []
+      },
+      {
+        "index": "91/93",
+        "title": "String - Repeated Substring Pattern Detection",
+        "problems": [
+          {
+            "title": "Repeated Substring Pattern",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Find the Index of the First Occurrence in a String",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Repeated String Match",
+            "difficulty": "Medium"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "XV",
+    "title": "Design Patterns",
+    "patterns": [
+      {
+        "index": "92/93",
+        "title": "Design (General/Specific)",
+        "problems": [
+          {
+            "title": "LRU Cache",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Min Stack",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Implement Stack using Queues",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Implement Queue using Stacks",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Flatten 2D Vector",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Encode and Decode Strings",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Find Median from Data Stream",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Flatten Nested List Iterator",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Moving Average from Data Stream",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Design Snake Game",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Logger Rate Limiter",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Design Hit Counter",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design Phone Directory",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Insert Delete GetRandom O(1)",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "All O`one Data Structure",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "LFU Cache",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Design Compressed String Iterator",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Design Circular Queue",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design Circular Deque",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design Search Autocomplete System",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Design HashMap",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Range Module",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "RLE Iterator",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Time Based Key-Value Store",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Snapshot Array",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Tweet Counts Per Frequency",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Product of the Last K Numbers",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design a Stack With Increment Operation",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design Most Recently Used Queue",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Detect Squares",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Stock Price Fluctuation",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design a Text Editor",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Smallest Number in Infinite Set",
+            "difficulty": "Medium"
+          }
+        ]
+      },
+      {
+        "index": "93/93",
+        "title": "Tries",
+        "problems": [
+          {
+            "title": "Implement Trie (Prefix Tree)",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Design Add and Search Words Data Structure",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Longest Word in Dictionary",
+            "difficulty": "Easy"
+          },
+          {
+            "title": "Replace Words",
+            "difficulty": "Medium"
+          },
+          {
+            "title": "Word Squares",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Design Search Autocomplete System",
+            "difficulty": "Hard"
+          },
+          {
+            "title": "Prefix and Suffix Search",
+            "difficulty": "Hard"
+          }
+        ]
+      }
+    ]
+  }
+]

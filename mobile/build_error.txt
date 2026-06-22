@@ -1,0 +1,26 @@
+﻿## Build History
+
+### ✅ FIXED — May 2025
+
+Previous error:
+  Plugin [id: 'expo-module-gradle-plugin'] was not found in any of the following sources
+
+Root causes fixed:
+  1. Stale android/ folder — regenerated with `expo prebuild --platform android --clean`
+  2. expo-system-ui was missing from dependencies (required for dark mode on Android)
+     → Added expo-system-ui@~3.0.7 (SDK 51 compatible)
+  3. eslint devDependency conflict: eslint@9 is incompatible with eslint-plugin-react-native@4.1.0
+     → Downgraded eslint to ^8.57.1 and eslint-plugin-react-hooks to ^4.6.0
+  4. app.json had placeholder EAS projectId "preploop-mobile" (not a real UUID)
+     → Cleared to empty object; run `eas build:configure` to assign a real project ID
+  5. No .env file — API calls fell back to emulator loopback (10.0.2.2) on physical devices
+     → Created .env with EXPO_PUBLIC_API_URL=https://preploop.azurewebsites.net
+
+Build result after fixes:
+  BUILD SUCCESSFUL in 51s
+  APK: android/app/build/outputs/apk/debug/app-debug.apk (162 MB)
+
+### To build again
+  npm run android:apk        # debug APK
+  npm run android:apk:release  # release APK
+  npm start                  # Expo Go dev server (fastest for testing)

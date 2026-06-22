@@ -1,0 +1,381 @@
+.portfolio-creator-page {
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.2), transparent 30%),
+    radial-gradient(circle at 85% 5%, rgba(16, 185, 129, 0.16), transparent 28%),
+    linear-gradient(180deg, #eef6ff 0%, #eaf4f1 48%, #f7fbff 100%);
+}
+
+.portfolio-creator-shell {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.portfolio-creator-header {
+  margin-bottom: 18px;
+}
+
+.portfolio-creator-header h1 {
+  margin: 10px 0 4px;
+  color: #0f172a;
+}
+
+.portfolio-creator-header p {
+  margin: 0;
+  color: #475569;
+}
+
+.portfolio-back-link {
+  color: #0c4a6e;
+  text-decoration: none;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 600;
+}
+
+.portfolio-progress-wrapper {
+  margin-bottom: 18px;
+}
+
+.portfolio-progress-track {
+  background: #cbd5e1;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.portfolio-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0c4a6e 0%, #0284c7 100%);
+}
+
+.portfolio-step-indicator-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.portfolio-step-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+  background: #e2e8f0;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.portfolio-step-indicator.active {
+  background: #0c4a6e;
+  color: #ffffff;
+}
+
+.portfolio-step-card {
+  background: #ffffff;
+  border: 1px solid #dbe5f2;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 14px 28px rgba(2, 6, 23, 0.06);
+}
+
+.portfolio-step-subtitle {
+  margin-top: 0;
+  color: #64748b;
+}
+
+.portfolio-label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 4px;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.portfolio-input,
+.portfolio-textarea,
+.portfolio-color-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #f8fafc;
+}
+
+.portfolio-color-input {
+  padding: 4px;
+  height: 42px;
+}
+
+.portfolio-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.portfolio-actions {
+  margin-top: 18px;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.portfolio-primary-btn,
+.portfolio-secondary-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.portfolio-primary-btn {
+  background: #0c4a6e;
+  color: #ffffff;
+}
+
+.portfolio-primary-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.portfolio-secondary-btn {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.portfolio-error {
+  margin-top: 12px;
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.portfolio-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.portfolio-list li {
+  display: grid;
+  gap: 4px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.portfolio-list li span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.portfolio-template-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.portfolio-template-card {
+  text-align: left;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.portfolio-template-card.active {
+  border-color: #0c4a6e;
+  background: #e6f2fb;
+}
+
+.portfolio-template-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.portfolio-result-card {
+  margin-top: 12px;
+  border: 1px solid #bae6fd;
+  background: #eff9ff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.portfolio-result-card p {
+  margin: 6px 0;
+  word-break: break-all;
+}
+
+@media (max-width: 768px) {
+  .portfolio-creator-page {
+    padding: 14px;
+  }
+
+  .portfolio-row,
+  .portfolio-template-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .portfolio-actions {
+    justify-content: stretch;
+  }
+
+  .portfolio-primary-btn,
+  .portfolio-secondary-btn {
+    flex: 1;
+  }
+}
+
+/* ImportStep */
+.pi-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px dashed #94a3b8;
+  border-radius: 14px;
+  padding: 28px 20px;
+  cursor: pointer;
+  text-align: center;
+  color: #475569;
+  background: #f8fafc;
+  transition: border-color 0.18s, background 0.18s;
+  margin-top: 6px;
+}
+
+.pi-dropzone:hover,
+.pi-dropzone-over {
+  border-color: #0284c7;
+  background: #eff9ff;
+}
+
+.pi-dropzone-ok {
+  border-color: #16a34a;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+.pi-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.pi-error-inline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.pi-ok-icon {
+  color: #16a34a;
+}
+
+.pi-spin {
+  animation: pi-spin 0.8s linear infinite;
+}
+
+@keyframes pi-spin {
+  to { transform: rotate(360deg); }
+}
+
+.pi-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #15803d;
+}
+
+.pi-clear-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.pi-details {
+  margin-top: 10px;
+}
+
+.pi-details-summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: #0284c7;
+  font-weight: 600;
+  user-select: none;
+}
+
+.pi-help-btn {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #0284c7;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.pi-help-box {
+  margin-top: 8px;
+  padding: 12px 14px;
+  background: #eff9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #0c4a6e;
+  line-height: 1.7;
+}
+
+.pi-help-box ol {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.pi-help-box code {
+  background: #dbeafe;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.pi-status-ok {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #16a34a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pi-status-err {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}

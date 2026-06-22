@@ -1,0 +1,534 @@
+.jd-setup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.92);
+    backdrop-filter: blur(20px);
+    animation: fadeIn 0.3s ease;
+}
+
+.jd-setup-modal {
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: #0a0a0c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    animation: zoomIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes zoomIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* ─── Header ─── */
+.jd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.jd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.jd-header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(251, 146, 60, 0.15), rgba(251, 191, 36, 0.1));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fb923c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.jd-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+}
+
+.jd-header p {
+    font-size: 0.82rem;
+    color: #888;
+    margin: 0;
+}
+
+.jd-close-btn {
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+
+.jd-close-btn:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Content ─── */
+.jd-content {
+    padding: 2rem;
+}
+
+.jd-paste-step,
+.jd-results-step {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* ─── Textarea ─── */
+.jd-textarea-wrap {
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+}
+
+.jd-textarea-wrap:focus-within {
+    border-color: rgba(251, 146, 60, 0.4);
+    box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.08);
+}
+
+.jd-textarea {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    color: white;
+    border: none;
+    padding: 1.25rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 200px;
+    outline: none;
+    line-height: 1.6;
+}
+
+.jd-textarea::placeholder {
+    color: #555;
+}
+
+.jd-textarea-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.jd-char-count {
+    font-size: 0.75rem;
+    color: #666;
+}
+
+.jd-min-warning {
+    color: #f87171;
+}
+
+.jd-paste-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
+    color: #ccc;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.jd-paste-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+}
+
+/* ─── Buttons ─── */
+.jd-analyze-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 14px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: white;
+    background: linear-gradient(135deg, #fb923c, #f59e0b);
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(251, 146, 60, 0.25);
+}
+
+.jd-analyze-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 25px rgba(251, 146, 60, 0.35);
+}
+
+.jd-analyze-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ─── Tips ─── */
+.jd-tips {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jd-tip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+    color: #777;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.jd-tip svg {
+    color: #fb923c;
+    flex-shrink: 0;
+}
+
+/* ─── Error ─── */
+.jd-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    font-size: 0.85rem;
+}
+
+/* ─── Parsed Summary ─── */
+.jd-parsed-summary {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 1.25rem;
+}
+
+.jd-parsed-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.jd-success-icon {
+    color: #4ade80;
+}
+
+.jd-parsed-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 1rem;
+}
+
+.jd-parsed-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.jd-parsed-label {
+    font-size: 0.72rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.jd-parsed-value {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: white;
+}
+
+.jd-skills-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jd-skills-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.jd-skill-chip {
+    display: inline-flex;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+/* ─── Round Selector ─── */
+.jd-round-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jd-round-chips {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.jd-round-chip {
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #aaa;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.jd-round-chip:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+}
+
+.jd-round-chip.active {
+    color: #fb923c;
+    background: rgba(251, 146, 60, 0.12);
+    border-color: rgba(251, 146, 60, 0.3);
+    box-shadow: 0 0 10px rgba(251, 146, 60, 0.1);
+}
+
+/* ─── Questions Preview ─── */
+.jd-questions-preview h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 12px 0;
+}
+
+.jd-questions-preview h4 svg {
+    color: #fbbf24;
+}
+
+.jd-questions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.jd-question-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: background 0.2s;
+}
+
+.jd-question-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.jd-q-number {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: rgba(251, 146, 60, 0.12);
+    color: #fb923c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.jd-q-content {
+    flex: 1;
+}
+
+.jd-q-text {
+    font-size: 0.86rem;
+    color: #e0e0e0;
+    margin: 0 0 8px 0;
+    line-height: 1.4;
+}
+
+.jd-q-meta {
+    display: flex;
+    gap: 6px;
+}
+
+.jd-q-difficulty,
+.jd-q-topic,
+.jd-q-round {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+}
+
+.jd-q-difficulty.easy {
+    color: #4ade80;
+    background: rgba(74, 222, 128, 0.1);
+}
+
+.jd-q-difficulty.medium {
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.1);
+}
+
+.jd-q-difficulty.hard {
+    color: #f87171;
+    background: rgba(248, 113, 113, 0.1);
+}
+
+.jd-q-topic {
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.1);
+}
+
+.jd-q-round {
+    color: #a78bfa;
+    background: rgba(167, 139, 250, 0.1);
+}
+
+/* ─── Actions ─── */
+.jd-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.jd-back-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    color: #999;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.jd-back-btn:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.jd-start-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 28px;
+    border-radius: 12px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #fb923c, #f59e0b);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(251, 146, 60, 0.25);
+}
+
+.jd-start-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 25px rgba(251, 146, 60, 0.35);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 640px) {
+    .jd-setup-modal {
+        max-height: 95vh;
+        border-radius: 18px;
+    }
+
+    .jd-content {
+        padding: 1.25rem;
+    }
+
+    .jd-parsed-grid {
+        grid-template-columns: 1fr;
+    }
+}

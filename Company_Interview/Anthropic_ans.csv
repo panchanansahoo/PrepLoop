@@ -1,0 +1,41 @@
+question,position,jobTitle,company,year,Subject,Model Answer,Hint Suggestion,Approach Suggestion
+Can you build the core business logic for a toy banking application?,Software Engineer,Software Engineer,Anthropic,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you build the core business logic for a toy banking application?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you design a banking app step by step?,Software Engineer,Software Engineer,Anthropic,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you design a banking app step by step?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+"Design a file store system with features like set, get, filter, backup, and restore.",Software Engineer,Software Engineer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case","Identify the main concept in: 'Design a file store system with features like set, get, filter, backup, and restore.'. What problem does it solve?","Answer in 3 parts: definition, working, and example."
+Design a factory worker timesheet management system.,Software Engineer,Software Engineer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Design a factory worker timesheet management system.'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+"Can you build an object-oriented programming system for managing courses, grades, and students?",Software Engineer,Software Engineer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case","Identify the main concept in: 'Can you build an object-oriented programming system for managing courses, grades, and students?'. What problem does it solve?","Answer in 3 parts: definition, working, and example."
+Can you describe the software development assignment you have worked on?,Software Engineer,Member Of Technical Staff,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you describe the software development assignment you have worked on?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Have you encountered leetcode-style problems in your previous projects?,Software Engineer,Member Of Technical Staff,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Have you encountered leetcode-style problems in your previous projects?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you design an application for an in-memory database system tailored for factory workers?,ML & Data,Machine Learning Engineer,Anthropic,2024,DBMS,"A DBMS is software that manages databases and allows storing, retrieving, updating and securing data efficiently.
+It ensures data integrity, security and concurrency control.
+Examples: MySQL, PostgreSQL, Oracle.",Identify the main concept in: 'Can you design an application for an in-memory database system tailored for factory workers?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+How would you incorporate tracking employee time in and time out in the database system?,ML & Data,Machine Learning Engineer,Anthropic,2024,DBMS,"A DBMS is software that manages databases and allows storing, retrieving, updating and securing data efficiently.
+It ensures data integrity, security and concurrency control.
+Examples: MySQL, PostgreSQL, Oracle.",Identify the main concept in: 'How would you incorporate tracking employee time in and time out in the database system?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+What is the architecture of your previous projects like?,Software Engineer,Software Engineer,Anthropic,2024,General CS,"The architecture of your previous projects like is a fundamental concept in computer science explaining how a component or system works.
+Include definition, working and example for full marks.",Identify the main concept in: 'What is the architecture of your previous projects like?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you describe your past experience relevant to this role?,Product Manager,Technical Product Manager,Anthropic; IBM ,2022,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you describe your past experience relevant to this role?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you describe your experience with solving Leetcode style questions?,Software Engineer,Software Engineer,Anthropic,2023,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you describe your experience with solving Leetcode style questions?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you provide an example of a data mutation you have worked on?,Software Engineer,Software Engineer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you provide an example of a data mutation you have worked on?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+How do you approach sorting algorithms?,Software Engineer,Software Engineer,Anthropic,2024,DSA,"It is a data structure/algorithm used to organize and process data efficiently to reduce time complexity and improve performance.
+Common operations include insert, delete, search and traversal.",Identify the main concept in: 'How do you approach sorting algorithms?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+What specific skills do you possess that are applicable to this role?,Product Manager,Technical Product Manager,Anthropic,2022,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'What specific skills do you possess that are applicable to this role?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Is being a competitive programmer necessary to succeed in this interview?,Software Engineer,Software Engineer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Is being a competitive programmer necessary to succeed in this interview?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Can you explain how you would implement an in-memory distributed file system?,Backend Developer,Backend Developer,Anthropic,2024,General CS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Can you explain how you would implement an in-memory distributed file system?'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Code a banking system with several parts based on different criteria using object-oriented principles.,Software Engineer,Software Engineer,Anthropic,2023,Computer Networks,"This is a networking concept enabling communication between computers over a network using standardized protocols.
+It ensures reliable data transmission and addressing between devices.",Identify the main concept in: 'Code a banking system with several parts based on different criteria using object-oriented principles.'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."
+Provide an algorithm for ranking n accounts with the most total transactions (deposits and withdrawals).,Software Engineer,Software Engineer,Anthropic,2023,DBMS,"Write a structured answer:
+Definition → Working → Example → Use-case",Identify the main concept in: 'Provide an algorithm for ranking n accounts with the most total transactions (deposits and withdrawals).'. What problem does it solve?,"Answer in 3 parts: definition, working, and example."

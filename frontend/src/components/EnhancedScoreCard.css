@@ -1,0 +1,240 @@
+/* ─── Enhanced Score Card ─── */
+.esc-card {
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+    margin: 4px 0;
+    transition: all 0.3s ease;
+}
+
+.esc-card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ─── Compact View ─── */
+.esc-compact {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.esc-compact:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.esc-score-badge {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid;
+    min-width: 52px;
+    flex-shrink: 0;
+}
+
+.esc-score-number {
+    font-size: 1.1rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.esc-score-label {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-top: 2px;
+}
+
+/* ─── Mini Bars ─── */
+.esc-mini-bars {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.esc-mini-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.esc-mini-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.62rem;
+    color: #999;
+    font-weight: 600;
+}
+
+.esc-mini-header svg {
+    opacity: 0.5;
+}
+
+.esc-mini-value {
+    margin-left: auto;
+    font-weight: 700;
+    font-size: 0.62rem;
+    color: #ccc;
+}
+
+.esc-mini-track {
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    overflow: hidden;
+}
+
+.esc-mini-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.esc-expand-btn {
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+}
+
+.esc-expand-btn:hover {
+    color: white;
+}
+
+/* ─── Expanded View ─── */
+.esc-expanded {
+    padding: 0 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: escFadeIn 0.3s ease;
+}
+
+@keyframes escFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ─── Model Answer ─── */
+.esc-model-answer {
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(74, 222, 128, 0.04);
+    border: 1px solid rgba(74, 222, 128, 0.1);
+}
+
+.esc-model-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #4ade80;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.esc-model-answer p {
+    font-size: 0.82rem;
+    color: #b0b0b0;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* ─── Tips ─── */
+.esc-tips {
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(251, 191, 36, 0.04);
+    border: 1px solid rgba(251, 191, 36, 0.08);
+}
+
+.esc-tips-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fbbf24;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.esc-tips ul {
+    margin: 0;
+    padding-left: 16px;
+}
+
+.esc-tips li {
+    font-size: 0.78rem;
+    color: #b0b0b0;
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+
+/* ─── Feedback Grid ─── */
+.esc-feedback-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.esc-feedback-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.esc-strengths {
+    background: rgba(74, 222, 128, 0.04);
+}
+
+.esc-improvements {
+    background: rgba(251, 146, 60, 0.04);
+}
+
+.esc-feedback-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.esc-strengths .esc-feedback-label {
+    color: #4ade80;
+}
+
+.esc-improvements .esc-feedback-label {
+    color: #fb923c;
+}
+
+.esc-feedback-item {
+    font-size: 0.74rem;
+    color: #999;
+    line-height: 1.4;
+}

@@ -1,0 +1,493 @@
+/* AI Recommendations Component Styling */
+
+:root {
+    --rec-continue: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    --rec-progression: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --rec-step-up: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --rec-weak-area: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --rec-diversify: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+    --rec-quick-win: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+}
+
+.roadmap-recommendations-container {
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 16px 0;
+    animation: slideInDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.recommendations-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    background: var(--surface-primary);
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.recommendations-header:hover {
+    background: var(--surface-hover);
+}
+
+.recommendations-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.recommendations-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.header-icon {
+    width: 20px;
+    height: 20px;
+    color: #fbbf24;
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.progress-badge {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--surface-secondary);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.expand-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.expand-btn:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+}
+
+.expand-btn.expanded svg {
+    transform: rotate(90deg);
+}
+
+.expand-btn svg {
+    transition: transform 0.3s ease;
+}
+
+.recommendations-content {
+    padding: 16px;
+    animation: slideInDown 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Insights Section */
+.insights-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.insight-card {
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+    animation: slideInUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.insight-card p {
+    margin: 0;
+}
+
+.insight-encouragement {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
+    border-left: 3px solid #22c55e;
+    color: var(--text-primary);
+}
+
+.insight-momentum {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.05));
+    border-left: 3px solid #3b82f6;
+    color: var(--text-primary);
+}
+
+.insight-difficulty-advice {
+    background: linear-gradient(135deg, rgba(249, 158, 11, 0.1), rgba(249, 158, 11, 0.05));
+    border-left: 3px solid #f59e0b;
+    color: var(--text-primary);
+}
+
+.insight-focus-advice {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
+    border-left: 3px solid #ef4444;
+    color: var(--text-primary);
+}
+
+.insight-celebration {
+    background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(236, 72, 153, 0.05));
+    border-left: 3px solid #ec4899;
+    color: var(--text-primary);
+}
+
+/* Recommendations List */
+.recommendations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.recommendation-card {
+    padding: 12px;
+    border-radius: 8px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border-color);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: slideInUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.recommendation-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    border-color: var(--text-secondary);
+}
+
+.recommendation-header {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.recommendation-icon-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.recommendation-card.recommendation-continue .recommendation-icon-wrapper {
+    background: var(--rec-continue);
+}
+
+.recommendation-card.recommendation-natural-progression .recommendation-icon-wrapper {
+    background: var(--rec-progression);
+}
+
+.recommendation-card.recommendation-difficulty-step-up .recommendation-icon-wrapper {
+    background: var(--rec-step-up);
+}
+
+.recommendation-card.recommendation-weak-area .recommendation-icon-wrapper {
+    background: var(--rec-weak-area);
+}
+
+.recommendation-card.recommendation-diversify .recommendation-icon-wrapper {
+    background: var(--rec-diversify);
+}
+
+.recommendation-card.recommendation-quick-win .recommendation-icon-wrapper {
+    background: var(--rec-quick-win);
+}
+
+.recommendation-icon {
+    width: 20px;
+    height: 20px;
+    color: white;
+}
+
+.recommendation-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.recommendation-meta h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.recommendation-type-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    width: fit-content;
+}
+
+.continue-badge {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+}
+
+.progression-badge {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.step-up-badge {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.weak-area-badge {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.diversify-badge {
+    background: rgba(168, 85, 247, 0.2);
+    color: #a855f7;
+}
+
+.quick-win-badge {
+    background: rgba(236, 72, 153, 0.2);
+    color: #ec4899;
+}
+
+.default-badge {
+    background: rgba(107, 114, 128, 0.2);
+    color: #6b7280;
+}
+
+.recommendation-reason {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text-secondary);
+    margin: 8px 0;
+}
+
+.guide-meta {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 8px 0;
+    flex-wrap: wrap;
+}
+
+.difficulty-indicator {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.difficulty-easy {
+    background: rgba(34, 197, 94, 0.2);
+    color: #16a34a;
+}
+
+.difficulty-medium {
+    background: rgba(249, 158, 11, 0.2);
+    color: #d97706;
+}
+
+.difficulty-hard {
+    background: rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+}
+
+.problem-count {
+    font-size: 12px;
+    color: var(--text-secondary);
+    background: var(--surface-primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.select-guide-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    margin-top: 8px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.select-guide-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+}
+
+.select-guide-btn:active {
+    transform: translateY(0);
+}
+
+/* Stats Summary */
+.stats-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color);
+}
+
+.stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: var(--surface-primary);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 4px;
+}
+
+/* Animations */
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* Dark Mode */
+:root[data-theme='dark'] {
+    --surface-primary: #1f2937;
+    --surface-secondary: #111827;
+    --text-primary: #f3f4f6;
+    --text-secondary: #9ca3af;
+    --border-color: #374151;
+    --surface-hover: #111827;
+}
+
+:root[data-theme='light'] {
+    --surface-primary: #ffffff;
+    --surface-secondary: #f9fafb;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
+    --surface-hover: #f3f4f6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .recommendations-header-left {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .recommendation-header {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .recommendation-icon-wrapper {
+        width: 36px;
+        height: 36px;
+    }
+
+    .stats-summary {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .recommendations-content {
+        padding: 12px;
+    }
+
+    .recommendation-card {
+        padding: 10px;
+    }
+
+    .recommendation-meta h4 {
+        font-size: 13px;
+    }
+
+    .recommendation-reason {
+        font-size: 12px;
+    }
+
+    .select-guide-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+
+    .stat-value {
+        font-size: 16px;
+    }
+
+    .recommendation-header-left h3 {
+        font-size: 14px;
+    }
+
+    .progress-badge {
+        font-size: 11px;
+    }
+}

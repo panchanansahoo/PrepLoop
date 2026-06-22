@@ -1,0 +1,94 @@
+/* ── EmotionDetector Overlay ── */
+.ed-overlay {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 15;
+    animation: fadeSlideIn 0.3s ease;
+}
+
+.ed-badge-row {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    max-width: 260px;
+}
+
+.ed-metric {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 16px;
+    font-size: 10.5px;
+    font-weight: 700;
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+}
+
+.ed-metric-icon {
+    font-size: 12px;
+}
+
+.ed-good {
+    background: rgba(34, 197, 94, 0.14);
+    color: #4ade80;
+    border-color: rgba(34, 197, 94, 0.22);
+}
+
+.ed-ok {
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.22);
+}
+
+.ed-warn {
+    background: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.22);
+}
+
+/* Loading + Error states */
+.ed-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: 16px;
+    font-size: 10px;
+    font-weight: 600;
+    backdrop-filter: blur(12px);
+}
+
+.ed-loading {
+    background: rgba(99, 102, 241, 0.12);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.ed-error {
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+}
+
+.ed-badge-icon {
+    font-size: 12px;
+}
+
+@keyframes fadeSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

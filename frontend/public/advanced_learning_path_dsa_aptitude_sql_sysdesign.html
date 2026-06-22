@@ -1,0 +1,2304 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@400;500;600&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --dsa: #1D9E75; --dsa-l: #E1F5EE; --dsa-d: #085041;
+    --apt: #BA7517; --apt-l: #FAEEDA; --apt-d: #633806;
+    --sql: #185FA5; --sql-l: #E6F1FB; --sql-d: #042C53;
+    --sys: #533AB7; --sys-l: #EEEDFE; --sys-d: #26215C;
+    --spark: #E84F2E;
+    --bg: var(--color-bg-primary, var(--color-background-primary, #FFFFFF));
+    --bg2: var(--color-bg-secondary, var(--color-background-secondary, #F7F8FA));
+    --text: var(--color-text-primary, #0F172A);
+    --muted: var(--color-text-secondary, #64748B);
+    --border: var(--color-border-tertiary, var(--color-bg-tertiary, #DDE3EA));
+    --surface-soft: color-mix(in srgb, var(--bg2) 78%, transparent);
+    --glow: 0 12px 36px rgba(0, 0, 0, 0.07);
+  }
+
+  /* Dark Theme Overrides */
+  :root[data-theme="dark"] {
+    --bg: #050507; /* Or matching the main app dark background */
+    --bg2: #13141b;
+    --text: #F1F5F9;
+    --muted: #94A3B8;
+    --border: #2C3545;
+    --dsa-l: #064032; --dsa-d: #34D399;
+    --apt-l: #4D2C04; --apt-d: #FCD34D;
+    --sql-l: #03203C; --sql-d: #60A5FA;
+    --sys-l: #1E1A4D; --sys-d: #A78BFA;
+    --surface-soft: color-mix(in srgb, var(--bg2) 78%, transparent);
+    --glow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  }
+
+  body {
+    font-family: 'Sora', sans-serif;
+    color: var(--text);
+    margin: 0;
+    background:
+      radial-gradient(1200px 450px at 10% -20%, color-mix(in srgb, var(--dsa) 16%, transparent), transparent 58%),
+      radial-gradient(900px 360px at 90% -25%, color-mix(in srgb, var(--sql) 16%, transparent), transparent 56%),
+      transparent;
+  }
+
+  .lp-root {
+    padding: 0.5rem 0 2rem;
+    position: relative;
+  }
+
+  .lp-root::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(to right, color-mix(in srgb, var(--border) 24%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--border) 24%, transparent) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: .18;
+    pointer-events: none;
+    mask-image: linear-gradient(to bottom, #000 0, #000 70%, transparent 100%);
+  }
+
+  .lp-intro {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1.3fr 1fr;
+    gap: 10px;
+    margin: 0 0 1rem;
+    align-items: stretch;
+  }
+
+  .intro-main,
+  .intro-side {
+    border: 0.5px solid var(--border);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    box-shadow: var(--glow);
+    backdrop-filter: blur(3px);
+    padding: 14px;
+  }
+
+  .intro-kicker {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .intro-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px;
+    line-height: 1.3;
+    margin-bottom: 8px;
+  }
+
+  .intro-sub {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .intro-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .stat-chip {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--surface-soft);
+  }
+
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .goal-card {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    padding: 10px;
+  }
+
+  .goal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .goal-title {
+    font-size: 11px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .streak-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--spark) 15%, transparent);
+    color: color-mix(in srgb, var(--spark) 85%, var(--text));
+    border: 0.5px solid color-mix(in srgb, var(--spark) 40%, var(--border));
+  }
+
+  .goal-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  .goal-bar {
+    height: 6px;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--bg2) 80%, transparent);
+    overflow: hidden;
+  }
+
+  .goal-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--dsa), var(--sql), var(--sys));
+    width: 0%;
+    transition: width .3s;
+  }
+
+  .goal-actions {
+    margin-top: 8px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .goal-btn {
+    font-size: 11px;
+    font-family: inherit;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .goal-btn:hover { border-color: var(--spark); }
+
+  .track-confidence {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .tc-row {
+    display: grid;
+    grid-template-columns: 78px 1fr 42px;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .tc-label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-weight: 600;
+  }
+
+  .tc-bar {
+    height: 5px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--bg2) 82%, transparent);
+  }
+
+  .tc-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 99px;
+    transition: width .25s;
+  }
+
+  .tc-val {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+  }
+
+  .ai-plan {
+    border: 0.5px solid var(--border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    padding: 12px;
+    box-shadow: var(--glow);
+    margin-bottom: 1.2rem;
+  }
+
+  .ai-plan-intro {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 1rem;
+  }
+
+  .ai-intro-card {
+    border: 0.5px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface-soft);
+    padding: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .ai-intro-icon {
+    font-size: 24px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .ai-intro-content h3 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    color: var(--text);
+  }
+
+  .ai-intro-content p {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .ai-plan-grid {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .ai-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .ai-field label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .ai-field.advanced { display: none; }
+  .ai-plan.show-advanced .ai-field.advanced { display: flex; }
+
+  .ai-help-text {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    display: block;
+    font-style: italic;
+  }
+
+  .ai-input,
+  .ai-select {
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    border-radius: 7px;
+    padding: 7px 8px;
+    font-size: 12px;
+    font-family: inherit;
+  }
+
+  .ai-track-picks {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .ai-track-selection {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 0.5px solid var(--border);
+  }
+
+  .ai-section-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--muted);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .track-chip {
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 11px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 120px;
+    text-align: left;
+  }
+
+  .track-chip:hover {
+    border-color: var(--spark);
+    transform: translateY(-1px);
+  }
+
+  .track-chip.active { 
+    box-shadow: 0 0 0 1px var(--spark) inset; 
+    border-color: var(--spark);
+    background: color-mix(in srgb, var(--spark) 10%, var(--bg2));
+  }
+
+  .chip-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .chip-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .chip-desc {
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.3;
+  }
+
+  .ai-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .ai-btn {
+    border: 0.5px solid var(--border);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 12px;
+    border-radius: 7px;
+    padding: 8px 14px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ai-btn:hover {
+    border-color: var(--spark);
+    transform: translateY(-1px);
+  }
+
+  .ai-btn.primary {
+    background: linear-gradient(135deg, var(--spark), color-mix(in srgb, var(--spark) 80%, #ff6b4a));
+    color: #fff;
+    border-color: transparent;
+    font-weight: 600;
+  }
+
+  .ai-btn.primary:hover {
+    box-shadow: 0 4px 12px rgba(232, 79, 46, 0.3);
+  }
+
+  .btn-icon {
+    font-size: 14px;
+  }
+
+  .ai-output {
+    margin-top: 12px;
+    display: grid;
+    gap: 8px;
+    max-height: 340px;
+    overflow: auto;
+    padding-right: 4px;
+  }
+
+  .ai-empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    background: var(--surface-soft);
+    border: 0.5px dashed var(--border);
+    border-radius: 12px;
+  }
+
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.6;
+  }
+
+  .ai-empty-state h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 8px 0;
+  }
+
+  .ai-empty-state p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 0 0 20px 0;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .empty-tips {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .empty-tips li {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  .empty-tips li:last-child {
+    border-bottom: none;
+  }
+
+  .ai-week {
+    border: 0.5px solid var(--border);
+    border-left: 4px solid var(--spark);
+    border-radius: 8px;
+    padding: 8px;
+    background: var(--surface-soft);
+  }
+
+  .ai-week-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+  }
+
+  .ai-week-title { font-size: 12px; font-weight: 600; }
+  .ai-week-date { font-size: 11px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .ai-week-body { font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+  .ai-confidence {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 0.5px solid var(--border);
+    border-radius: 99px;
+    padding: 2px 7px;
+    background: var(--bg2);
+    color: var(--text);
+  }
+
+  .ai-days {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+  }
+
+  .ai-day {
+    border: 0.5px solid var(--border);
+    border-radius: 7px;
+    padding: 6px;
+    background: color-mix(in srgb, var(--bg2) 82%, transparent);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ai-day-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ai-day-date {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .ai-day-task {
+    font-size: 11px;
+    color: var(--text);
+    text-align: right;
+  }
+
+  .ai-day-task.done {
+    text-decoration: line-through;
+    opacity: .65;
+  }
+
+  /* ── Tab nav ── */
+  .tabs { display: flex; gap: 6px; padding: 0 0 1.2rem; flex-wrap: wrap; }
+  .tab {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    border: 0.5px solid var(--border); background: var(--bg2);
+    color: var(--muted); cursor: pointer; transition: all .18s;
+    position: relative;
+    z-index: 1;
+  }
+  .tab .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .tab.active { color: var(--text); background: var(--bg); border-color: var(--active-color,var(--border)); box-shadow: 0 0 0 1px var(--active-color,transparent); }
+  .tab:hover:not(.active) { background: var(--bg); }
+  .tab:focus-visible,
+  .pill-tab:focus-visible,
+  .action-btn:focus-visible,
+  .dc-check:focus-visible,
+  .goal-btn:focus-visible,
+  .topic-row:focus-visible {
+    outline: 2px solid var(--spark);
+    outline-offset: 2px;
+  }
+
+  /* ── Overview hero ── */
+  .hero { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 1.4rem; }
+  .hero-card {
+    padding: 1rem 1.1rem; border-radius: 12px; border: 0.5px solid;
+    position: relative; overflow: hidden; cursor: pointer; transition: transform .15s, box-shadow .18s;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .06);
+  }
+  .hero-card:hover { transform: translateY(-2px); box-shadow: 0 16px 28px rgba(0, 0, 0, .1); }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    right: -28px;
+    top: -28px;
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: color-mix(in srgb, #fff 45%, transparent);
+    pointer-events: none;
+  }
+  .hero-card .hc-label { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; opacity: .75; margin-bottom: 6px; }
+  .hero-card .hc-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .hero-card .hc-sub { font-size: 12px; opacity: .7; line-height: 1.5; }
+  .hero-card .hc-prog { margin-top: 12px; }
+  .hc-bar { height: 3px; border-radius: 99px; background: rgba(0,0,0,.1); overflow: hidden; }
+  .hc-fill { height: 100%; border-radius: 99px; transition: width .5s; }
+  .hc-pct { font-size: 11px; margin-top: 4px; font-weight: 600; }
+
+  /* ── Section header ── */
+  .sec-hdr { display: flex; align-items: center; gap: 10px; margin: 1.4rem 0 0.9rem; }
+  .sec-hdr .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .sec-hdr h2 { font-size: 15px; font-weight: 600; }
+  .sec-hdr .badge { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; margin-left: auto; }
+
+  /* ── Topic grid ── */
+  .topic-grid { display: flex; flex-direction: column; gap: 8px; }
+  .topic-row {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: 10px; border: 0.5px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 93%, transparent);
+    cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s;
+    position: relative;
+  }
+  .topic-row:hover {
+    border-color: var(--track-color,var(--border));
+    box-shadow: 0 0 0 1px var(--track-color,transparent) inset;
+    transform: translateY(-1px);
+  }
+  .topic-row.expanded { border-color: var(--track-color,var(--border)); }
+
+  .tr-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .tr-body { flex: 1; min-width: 0; }
+  .tr-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .tr-meta { font-size: 11px; color: var(--muted); }
+  .tr-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+  .diff-badge { font-size: 10px; padding: 2px 8px; border-radius: 99px; font-weight: 600; }
+  .prog-mini { display: flex; gap: 3px; }
+  .prog-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .prog-dot.done { background: var(--track-color,var(--text)); }
+
+  /* ── Expanded detail ── */
+  .topic-detail {
+    margin-top: 10px; padding-top: 10px;
+    border-top: 0.5px solid var(--border);
+    display: none;
+  }
+  .topic-row.expanded .topic-detail { display: block; }
+
+  .detail-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 500px) { .detail-cols { grid-template-columns: 1fr; } }
+
+  .dc-label { font-size: 10px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .dc-item { font-size: 12px; padding: 4px 0; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 6px; }
+  .dc-item:last-child { border: none; }
+  .dc-check { width: 14px; height: 14px; border-radius: 3px; border: 0.5px solid; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; cursor: pointer; transition: background .15s; }
+  .dc-check.checked { background: var(--track-color); border-color: var(--track-color); color: #fff; }
+
+  .action-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .action-btn {
+    font-size: 12px; padding: 6px 14px; border-radius: 7px;
+    border: 0.5px solid var(--border); background: var(--bg2);
+    color: var(--text); cursor: pointer; font-family: inherit; transition: background .15s;
+  }
+  .action-btn:hover { background: var(--bg); border-color: var(--track-color,var(--border)); }
+  .action-btn.primary { background: var(--track-color); color: #fff; border-color: transparent; }
+  .action-btn.primary:hover { opacity: .88; }
+
+  /* ── Timeline ── */
+  .timeline { display: flex; flex-direction: column; gap: 0; }
+  .tl-item { display: flex; gap: 14px; }
+  .tl-line-col { display: flex; flex-direction: column; align-items: center; width: 24px; flex-shrink: 0; }
+  .tl-circle { width: 22px; height: 22px; border-radius: 50%; border: 2px solid; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0; z-index: 1; }
+  .tl-vline { flex: 1; width: 1.5px; background: var(--border); margin: 2px 0; min-height: 20px; }
+  .tl-content { padding: 0 0 20px; flex: 1; }
+  .tl-week { font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  .tl-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .tl-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tl-tag { font-size: 10px; padding: 2px 7px; border-radius: 5px; font-weight: 500; }
+
+  /* ── Practice panel ── */
+  .practice-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 1.2rem; }
+  .prac-card {
+    padding: 14px; border-radius: 10px; border: 0.5px solid var(--border); background: var(--bg);
+    cursor: pointer; transition: transform .15s, box-shadow .15s; text-align: center;
+  }
+  .prac-card:hover { transform: translateY(-2px); border-color: var(--track-color,var(--border)); box-shadow: var(--glow); }
+  .prac-icon { font-size: 24px; margin-bottom: 8px; }
+  .prac-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .prac-sub { font-size: 11px; color: var(--muted); }
+
+  /* ── Pill tabs inside track ── */
+  .pill-tabs { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .pill-tab { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 0.5px solid var(--border); background: var(--bg2); color: var(--muted); cursor: pointer; transition: all .15s; }
+  .pill-tab.active { background: var(--track-color); color: #fff; border-color: transparent; }
+
+  /* hide inactive tracks */
+  .track-panel { display: none; }
+  .track-panel.active { display: block; }
+
+  @media (max-width: 760px) {
+    .lp-intro { grid-template-columns: 1fr; }
+    .intro-title { font-size: 17px; }
+    .tabs { gap: 5px; }
+    .tab { padding: 7px 11px; font-size: 12px; }
+    .ai-plan-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 768px) {
+    .ai-plan-intro {
+      grid-template-columns: 1fr;
+    }
+    
+    .ai-plan-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .track-chip {
+      min-width: 100%;
+    }
+    
+    .ai-actions {
+      flex-direction: column;
+    }
+    
+    .ai-btn {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  @media print {
+    .tabs,
+    .goal-actions,
+    .ai-plan-grid,
+    #ai-track-picks,
+    .ai-actions,
+    .practice-grid,
+    .pill-tabs,
+    .action-row {
+      display: none !important;
+    }
+
+    .track-panel {
+      display: none !important;
+    }
+
+    #panel-overview {
+      display: block !important;
+    }
+
+    #panel-overview .hero,
+    #panel-overview .practice-grid,
+    #panel-overview .sec-hdr.practice-only {
+      display: none !important;
+    }
+
+    #ai-roadmap-heading,
+    #ai-plan-wrap,
+    #ai-output {
+      display: block !important;
+    }
+
+    #ai-output .ai-week {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .lp-root {
+      padding: 0;
+    }
+
+    .lp-root::before {
+      display: none;
+    }
+
+    .ai-output {
+      max-height: none;
+      overflow: visible;
+    }
+  }
+</style>
+
+<div class="lp-root">
+
+  <!-- Tabs -->
+  <div class="tabs" id="main-tabs">
+    <div class="tab active" data-tab="overview" style="--active-color: var(--text)">
+      <span class="dot" style="background: var(--text)"></span> Overview
+    </div>
+    <div class="tab" data-tab="dsa" style="--active-color: var(--dsa)">
+      <span class="dot" style="background: var(--dsa)"></span> DSA
+    </div>
+    <div class="tab" data-tab="apt" style="--active-color: var(--apt)">
+      <span class="dot" style="background: var(--apt)"></span> Aptitude
+    </div>
+    <div class="tab" data-tab="sql" style="--active-color: var(--sql)">
+      <span class="dot" style="background: var(--sql)"></span> SQL
+    </div>
+    <div class="tab" data-tab="sys" style="--active-color: var(--sys)">
+      <span class="dot" style="background: var(--sys)"></span> System Design
+    </div>
+    <div class="tab" data-tab="timeline" style="--active-color: var(--muted)">
+      <span class="dot" style="background: var(--muted)"></span> Roadmap
+    </div>
+  </div>
+
+  <div class="lp-intro">
+    <div class="intro-main">
+      <div class="intro-kicker">Advanced Learning Command Center</div>
+      <div class="intro-title">Build interview depth across DSA, Aptitude, SQL, and System Design.</div>
+      <div class="intro-sub">Use this as a weekly execution dashboard. Expand any topic, mark completed concepts, and launch study prompts from each card.</div>
+    </div>
+    <div class="intro-side">
+      <div class="intro-stats">
+        <div class="stat-chip">
+          <div class="stat-label">Total Items</div>
+          <div class="stat-value" id="stat-total">0</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-label">Completed</div>
+          <div class="stat-value" id="stat-done">0</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-label">Overall</div>
+          <div class="stat-value" id="stat-overall">0%</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-label">Focus</div>
+          <div class="stat-value" id="stat-focus">DSA</div>
+        </div>
+      </div>
+      <div class="goal-card">
+        <div class="goal-head">
+          <div class="goal-title">Weekly Goal</div>
+          <div class="streak-pill" id="stat-streak">0d streak</div>
+        </div>
+        <div class="goal-meta">
+          <span id="goal-progress">0 / 12 done</span>
+          <span id="goal-week-label">week</span>
+        </div>
+        <div class="goal-bar"><div class="goal-fill" id="goal-fill"></div></div>
+        <div class="goal-actions">
+          <button class="goal-btn" id="btn-goal-minus" type="button">- goal</button>
+          <button class="goal-btn" id="btn-goal-plus" type="button">+ goal</button>
+          <button class="goal-btn" id="btn-week-reset" type="button">reset week</button>
+        </div>
+        <div class="track-confidence" id="track-confidence"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ OVERVIEW ═══════════ -->
+  <div class="track-panel active" id="panel-overview">
+    <div class="hero">
+      <div class="hero-card" id="hc-dsa" style="background: var(--dsa-l); border-color: var(--dsa); color: var(--dsa-d)" onclick="switchTab('dsa')">
+        <div class="hc-label">Track 1</div>
+        <div class="hc-title">DSA</div>
+        <div class="hc-sub">Arrays → Graphs → DP → Advanced Trees</div>
+        <div class="hc-prog">
+          <div class="hc-bar"><div class="hc-fill" id="prog-dsa" style="width:0%; background: var(--dsa)"></div></div>
+          <div class="hc-pct" id="pct-dsa">0% complete</div>
+        </div>
+      </div>
+      <div class="hero-card" id="hc-apt" style="background: var(--apt-l); border-color: var(--apt); color: var(--apt-d)" onclick="switchTab('apt')">
+        <div class="hc-label">Track 2</div>
+        <div class="hc-title">Aptitude</div>
+        <div class="hc-sub">Quant · Logical · Verbal Reasoning</div>
+        <div class="hc-prog">
+          <div class="hc-bar"><div class="hc-fill" id="prog-apt" style="width:0%; background: var(--apt)"></div></div>
+          <div class="hc-pct" id="pct-apt">0% complete</div>
+        </div>
+      </div>
+      <div class="hero-card" id="hc-sql" style="background: var(--sql-l); border-color: var(--sql); color: var(--sql-d)" onclick="switchTab('sql')">
+        <div class="hc-label">Track 3</div>
+        <div class="hc-title">SQL</div>
+        <div class="hc-sub">Queries → Joins → Indexing → Optimization</div>
+        <div class="hc-prog">
+          <div class="hc-bar"><div class="hc-fill" id="prog-sql" style="width:0%; background: var(--sql)"></div></div>
+          <div class="hc-pct" id="pct-sql">0% complete</div>
+        </div>
+      </div>
+      <div class="hero-card" id="hc-sys" style="background: var(--sys-l); border-color: var(--sys); color: var(--sys-d)" onclick="switchTab('sys')">
+        <div class="hc-label">Track 4</div>
+        <div class="hc-title">System Design</div>
+        <div class="hc-sub">Scalability · CAP · Distributed Systems</div>
+        <div class="hc-prog">
+          <div class="hc-bar"><div class="hc-fill" id="prog-sys" style="width:0%; background: var(--sys)"></div></div>
+          <div class="hc-pct" id="pct-sys">0% complete</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-hdr" id="ai-roadmap-heading">
+      <div class="dot" style="background: var(--spark)"></div>
+      <h2>Your Personalized AI Learning Roadmap</h2>
+      <span class="badge" style="background: color-mix(in srgb, var(--spark) 16%, transparent); color: var(--spark); margin-left: auto;">Smart Planner</span>
+      <label style="font-size: 11px; display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--muted); font-weight: 600;">
+        <input type="checkbox" id="ai-advanced-toggle" style="accent-color: var(--spark);" />
+        Advanced Options
+      </label>
+    </div>
+    
+    <div class="ai-plan-intro">
+      <div class="ai-intro-card">
+        <div class="ai-intro-icon">🎯</div>
+        <div class="ai-intro-content">
+          <h3>Why This Matters</h3>
+          <p>This roadmap creates a personalized study plan based on your target companies, timeline, and available time. It balances theory, practice, and revision to maximize your interview success.</p>
+        </div>
+      </div>
+      <div class="ai-intro-card">
+        <div class="ai-intro-icon">💡</div>
+        <div class="ai-intro-content">
+          <h3>How to Use</h3>
+          <p>Set your preparation duration, choose tracks (DSA, Aptitude, SQL, System Design), and let AI generate a week-by-week plan with daily tasks. Track progress and export to your calendar.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="ai-plan" id="ai-plan-wrap">
+      <div class="intro-sub">Configure your learning journey below. The AI will create a structured path tailored to your goals.</div>
+      <div class="ai-plan-grid">
+        <div class="ai-field">
+          <label for="ai-months">Preparation Duration</label>
+          <input class="ai-input" id="ai-months" type="number" min="1" max="24" value="4" />
+          <small class="ai-help-text">Recommended: 3-6 months for comprehensive prep</small>
+        </div>
+        <div class="ai-field advanced">
+          <label for="ai-start-date">Start Date</label>
+          <input class="ai-input" id="ai-start-date" type="date" />
+          <small class="ai-help-text">Leave blank to start today</small>
+        </div>
+        <div class="ai-field">
+          <label for="ai-intensity">Weekly Intensity</label>
+          <select class="ai-select" id="ai-intensity">
+            <option value="light">Light (2 topics/week) - Part-time</option>
+            <option value="standard" selected>Standard (3 topics/week) - Balanced</option>
+            <option value="intense">Intense (4 topics/week) - Full-time</option>
+          </select>
+          <small class="ai-help-text">Choose based on your daily availability</small>
+        </div>
+        <div class="ai-field advanced">
+          <label for="ai-buffer">Revision Buffer</label>
+          <select class="ai-select" id="ai-buffer">
+            <option value="10" selected>10% - Minimal buffer</option>
+            <option value="15">15% - Recommended</option>
+            <option value="20">20% - Conservative</option>
+            <option value="25">25% - Maximum buffer</option>
+          </select>
+          <small class="ai-help-text">Extra weeks reserved for revision & mock interviews</small>
+        </div>
+        <div class="ai-field">
+          <label for="ai-days">Study Days Per Week</label>
+          <select class="ai-select" id="ai-days">
+            <option value="4">4 days - Light schedule</option>
+            <option value="5" selected>5 days - Standard</option>
+            <option value="6">6 days - Dedicated</option>
+            <option value="7">7 days - Intensive</option>
+          </select>
+          <small class="ai-help-text">Be realistic about your weekly commitment</small>
+        </div>
+        <div class="ai-field advanced">
+          <label for="ai-deadline">Target Interview Date (Optional)</label>
+          <input class="ai-input" id="ai-deadline" type="date" />
+          <small class="ai-help-text">Roadmap adjusts to meet this deadline</small>
+        </div>
+        <div class="ai-field advanced">
+          <label for="ai-company">Company Focus Mode</label>
+          <select class="ai-select" id="ai-company">
+            <option value="balanced" selected>Balanced - All-round preparation</option>
+            <option value="faang">FAANG - DSA + System Design heavy</option>
+            <option value="data">Data Roles - SQL + Aptitude focus</option>
+            <option value="product">Product Companies - DSA + SQL + System Design</option>
+          </select>
+          <small class="ai-help-text">Different companies emphasize different skills</small>
+        </div>
+        <div class="ai-field advanced">
+          <label for="ai-block-min">Daily Study Block (Minutes)</label>
+          <select class="ai-select" id="ai-block-min">
+            <option value="60">60 min - Quick sessions</option>
+            <option value="90" selected>90 min - Optimal focus</option>
+            <option value="120">120 min - Deep work</option>
+            <option value="150">150 min - Extended practice</option>
+          </select>
+          <small class="ai-help-text">Quality over quantity - stay focused during blocks</small>
+        </div>
+      </div>
+
+      <div class="ai-track-selection">
+        <label class="ai-section-label">Select Learning Tracks:</label>
+        <div class="ai-track-picks" id="ai-track-picks">
+          <button class="track-chip active" data-track="dsa" type="button">
+            <span class="chip-icon">🧠</span>
+            <span class="chip-label">DSA</span>
+            <span class="chip-desc">Core coding interviews</span>
+          </button>
+          <button class="track-chip active" data-track="apt" type="button">
+            <span class="chip-icon">⚡</span>
+            <span class="chip-label">Aptitude</span>
+            <span class="chip-desc">Quantitative & logical</span>
+          </button>
+          <button class="track-chip active" data-track="sql" type="button">
+            <span class="chip-icon">🗄️</span>
+            <span class="chip-label">SQL</span>
+            <span class="chip-desc">Database queries</span>
+          </button>
+          <button class="track-chip active" data-track="sys" type="button">
+            <span class="chip-icon">🏗️</span>
+            <span class="chip-label">System Design</span>
+            <span class="chip-desc">Architecture & scaling</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="ai-actions">
+        <button class="ai-btn primary" id="btn-ai-generate" type="button">
+          <span class="btn-icon">✨</span>
+          Generate My Roadmap
+        </button>
+        <button class="ai-btn" id="btn-ai-send" type="button">Send to AI Mentor</button>
+        <button class="ai-btn" id="btn-ai-reschedule" type="button">Auto-reschedule Missed Tasks</button>
+        <button class="ai-btn" id="btn-ai-export-ics" type="button">Export to Calendar (.ics)</button>
+        <button class="ai-btn" id="btn-ai-export-gcsv" type="button">Export Google CSV</button>
+        <button class="ai-btn" id="btn-ai-export-json" type="button">Export Plan (JSON)</button>
+        <button class="ai-btn" id="btn-ai-print" type="button">Print Roadmap</button>
+      </div>
+
+      <div class="ai-output" id="ai-output"></div>
+    </div>
+
+    <!-- Practice shortcuts -->
+    <div class="sec-hdr practice-only">
+      <div class="dot" style="background: var(--muted)"></div>
+      <h2>Practice Modes</h2>
+    </div>
+    <div class="practice-grid">
+      <div class="prac-card" onclick="sendPrompt('Give me a hard DSA problem to solve — arrays or graphs')">
+        <div class="prac-icon">🧩</div>
+        <div class="prac-title">Daily Challenge</div>
+        <div class="prac-sub">Random advanced problem from any track</div>
+      </div>
+      <div class="prac-card" onclick="sendPrompt('Quiz me on SQL: write 3 medium-hard SQL questions with answers')">
+        <div class="prac-icon">⚡</div>
+        <div class="prac-title">Flash Quiz</div>
+        <div class="prac-sub">Rapid-fire questions for any topic</div>
+      </div>
+      <div class="prac-card" onclick="sendPrompt('Give me a mock system design interview for a URL shortener with 100M users')">
+        <div class="prac-icon">🎯</div>
+        <div class="prac-title">Mock Interview</div>
+        <div class="prac-sub">Full simulated interview session</div>
+      </div>
+      <div class="prac-card" onclick="sendPrompt('Give me a timed aptitude test: 5 questions across quant, logical, verbal — 30 sec each')">
+        <div class="prac-icon">⏱</div>
+        <div class="prac-title">Timed Test</div>
+        <div class="prac-sub">Speed drills for aptitude mastery</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ DSA ═══════════ -->
+  <div class="track-panel" id="panel-dsa" style="--track-color: var(--dsa)">
+    <div class="pill-tabs" id="dsa-pills">
+      <div class="pill-tab active" data-sub="fundamentals">Fundamentals</div>
+      <div class="pill-tab" data-sub="advanced">Advanced</div>
+      <div class="pill-tab" data-sub="competitive">Competitive</div>
+    </div>
+    <div id="dsa-content"></div>
+  </div>
+
+  <!-- ═══════════ APTITUDE ═══════════ -->
+  <div class="track-panel" id="panel-apt" style="--track-color: var(--apt)">
+    <div class="pill-tabs" id="apt-pills">
+      <div class="pill-tab active" data-sub="quant">Quantitative</div>
+      <div class="pill-tab" data-sub="logical">Logical</div>
+      <div class="pill-tab" data-sub="verbal">Verbal</div>
+    </div>
+    <div id="apt-content"></div>
+  </div>
+
+  <!-- ═══════════ SQL ═══════════ -->
+  <div class="track-panel" id="panel-sql" style="--track-color: var(--sql)">
+    <div class="pill-tabs" id="sql-pills">
+      <div class="pill-tab active" data-sub="core">Core SQL</div>
+      <div class="pill-tab" data-sub="advanced">Advanced</div>
+      <div class="pill-tab" data-sub="performance">Performance</div>
+    </div>
+    <div id="sql-content"></div>
+  </div>
+
+  <!-- ═══════════ SYSTEM DESIGN ═══════════ -->
+  <div class="track-panel" id="panel-sys" style="--track-color: var(--sys)">
+    <div class="pill-tabs" id="sys-pills">
+      <div class="pill-tab active" data-sub="concepts">Concepts</div>
+      <div class="pill-tab" data-sub="patterns">Patterns</div>
+      <div class="pill-tab" data-sub="case">Case Studies</div>
+    </div>
+    <div id="sys-content"></div>
+  </div>
+
+  <!-- ═══════════ TIMELINE ═══════════ -->
+  <div class="track-panel" id="panel-timeline">
+    <div class="sec-hdr">
+      <div class="dot" style="background: var(--muted)"></div>
+      <h2>16-Week Mastery Roadmap</h2>
+      <span class="badge" style="background: var(--bg2); color: var(--muted)">Advanced Path</span>
+    </div>
+    <div class="timeline" id="timeline-content"></div>
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY = 'preploop_advanced_learning_path_v1';
+const STATE = {
+  checked: {},
+  activeTrack: 'dsa',
+  weeklyGoal: 12,
+  weekDone: 0,
+  weekStartISO: '',
+  streakDays: 0,
+  lastActionISO: '',
+  aiSelectedTracks: ['dsa','apt','sql','sys'],
+  aiLastPlanText: '',
+  aiDaysPerWeek: 5,
+  aiCompanyMode: 'balanced',
+  aiDailyBlockMin: 90,
+  aiLastPlanWeeks: [],
+  aiTaskDone: {}
+};
+
+const TRACK_LABELS = {
+  dsa: 'DSA',
+  apt: 'Aptitude',
+  sql: 'SQL',
+  sys: 'System Design'
+};
+
+const TRACK_ACCENTS = {
+  dsa: 'var(--dsa)',
+  apt: 'var(--apt)',
+  sql: 'var(--sql)',
+  sys: 'var(--sys)'
+};
+
+function todayISO() {
+  const d = new Date();
+  return d.toISOString().slice(0, 10);
+}
+
+function mondayISO(dateObj = new Date()) {
+  const date = new Date(dateObj);
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1 - day);
+  date.setDate(date.getDate() + diff);
+  return date.toISOString().slice(0, 10);
+}
+
+function daysBetweenISO(aISO, bISO) {
+  const a = new Date(aISO + 'T00:00:00Z');
+  const b = new Date(bISO + 'T00:00:00Z');
+  return Math.round((b - a) / 86400000);
+}
+
+function ensureWeekWindow() {
+  const currentMonday = mondayISO();
+  if (!STATE.weekStartISO) {
+    STATE.weekStartISO = currentMonday;
+    STATE.weekDone = 0;
+    return;
+  }
+  if (STATE.weekStartISO !== currentMonday) {
+    STATE.weekStartISO = currentMonday;
+    STATE.weekDone = 0;
+  }
+}
+
+function registerDailyAction() {
+  const today = todayISO();
+  if (!STATE.lastActionISO) {
+    STATE.streakDays = 1;
+  } else {
+    const gap = daysBetweenISO(STATE.lastActionISO, today);
+    if (gap === 0) {
+      // already counted for today
+    } else if (gap === 1) {
+      STATE.streakDays += 1;
+    } else {
+      STATE.streakDays = 1;
+    }
+  }
+  STATE.lastActionISO = today;
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      STATE.checked = parsed.checked || {};
+      STATE.activeTrack = parsed.activeTrack || 'dsa';
+      STATE.weeklyGoal = parsed.weeklyGoal || 12;
+      STATE.weekDone = parsed.weekDone || 0;
+      STATE.weekStartISO = parsed.weekStartISO || '';
+      STATE.streakDays = parsed.streakDays || 0;
+      STATE.lastActionISO = parsed.lastActionISO || '';
+      STATE.aiSelectedTracks = parsed.aiSelectedTracks || ['dsa','apt','sql','sys'];
+      STATE.aiLastPlanText = parsed.aiLastPlanText || '';
+      STATE.aiDaysPerWeek = parsed.aiDaysPerWeek || 5;
+      STATE.aiCompanyMode = parsed.aiCompanyMode || 'balanced';
+      STATE.aiDailyBlockMin = parsed.aiDailyBlockMin || 90;
+      STATE.aiLastPlanWeeks = parsed.aiLastPlanWeeks || [];
+      STATE.aiTaskDone = parsed.aiTaskDone || {};
+    }
+  } catch (_) {
+    // ignore malformed local storage payloads
+  }
+}
+
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      checked: STATE.checked,
+      activeTrack: STATE.activeTrack,
+      weeklyGoal: STATE.weeklyGoal,
+      weekDone: STATE.weekDone,
+      weekStartISO: STATE.weekStartISO,
+      streakDays: STATE.streakDays,
+      lastActionISO: STATE.lastActionISO,
+      aiSelectedTracks: STATE.aiSelectedTracks,
+      aiLastPlanText: STATE.aiLastPlanText,
+      aiDaysPerWeek: STATE.aiDaysPerWeek,
+      aiCompanyMode: STATE.aiCompanyMode,
+      aiDailyBlockMin: STATE.aiDailyBlockMin,
+      aiLastPlanWeeks: STATE.aiLastPlanWeeks,
+      aiTaskDone: STATE.aiTaskDone
+    }));
+  } catch (_) {
+    // ignore quota/permission issues
+  }
+}
+
+// ── DATA ──────────────────────────────────────────────
+const TRACKS = {
+  dsa: {
+    color: 'var(--dsa)', light: 'var(--dsa-l)', dark: 'var(--dsa-d)',
+    subs: {
+      fundamentals: [
+        { id:'dsa-1', icon:'📦', title:'Arrays & Strings', diff:'Medium', subtopics:['Two-pointer technique','Sliding window','Prefix sum','Kadane\'s algorithm','Matrix traversal'], problems:['Longest substring without repeat','Trapping rain water','Spiral matrix','Subarray sum equals k'] },
+        { id:'dsa-2', icon:'🔗', title:'Linked Lists', diff:'Medium', subtopics:['Floyd\'s cycle detection','Merge sorted lists','Reverse in groups','LRU Cache impl.','Skip list concept'], problems:['Copy list with random pointer','Merge k sorted lists','Flatten multi-level list'] },
+        { id:'dsa-3', icon:'📚', title:'Stacks & Queues', diff:'Medium', subtopics:['Monotonic stack','Next greater element','Evaluate expressions','Sliding window maximum','Priority queues'], problems:['Largest rectangle in histogram','Basic calculator II','Task scheduler'] },
+        { id:'dsa-4', icon:'🌳', title:'Trees & BST', diff:'Hard', subtopics:['AVL / Red-Black tree','Segment tree','Fenwick tree','Trie','LCA algorithms'], problems:['Serialize/deserialize tree','Vertical order traversal','Count of smaller after self'] },
+      ],
+      advanced: [
+        { id:'dsa-5', icon:'🕸', title:'Graph Algorithms', diff:'Hard', subtopics:['Dijkstra / Bellman-Ford','Floyd-Warshall','Tarjan SCC','Euler path/circuit','Network flow max-flow'], problems:['Critical connections','Alien dictionary','Word ladder II'] },
+        { id:'dsa-6', icon:'💡', title:'Dynamic Programming', diff:'Hard', subtopics:['Bitmask DP','Interval DP','DP on trees','Digit DP','Probability DP'], problems:['Burst balloons','Strange printer','Largest divisible subset'] },
+        { id:'dsa-7', icon:'🔄', title:'Divide & Conquer', diff:'Hard', subtopics:['Merge sort variants','Closest pair points','Matrix exponentiation','FFT basics','Karatsuba mult.'], problems:['Count inversions','Median of medians','K-th largest element'] },
+      ],
+      competitive: [
+        { id:'dsa-8', icon:'🏆', title:'Advanced Data Structures', diff:'Expert', subtopics:['Sparse table','Persistent segment tree','Suffix array','Heavy-light decomp.','Link-cut tree'], problems:['Range minimum query','Suffix automaton','K-th smallest in BST'] },
+        { id:'dsa-9', icon:'🎲', title:'Randomized Algorithms', diff:'Expert', subtopics:['Reservoir sampling','Bloom filters','Skip lists','Treap / Splay tree','Monte Carlo methods'], problems:['Random pick with weight','Shuffle array','Online stock span'] },
+        { id:'dsa-10', icon:'🔢', title:'Number Theory & Math', diff:'Expert', subtopics:['Sieve of Eratosthenes','Modular arithmetic','Chinese remainder theorem','Fast power','Combinatorics mod p'], problems:['Count primes','Ugly number III','Nth digit in sequence'] },
+      ]
+    }
+  },
+  apt: {
+    color: 'var(--apt)', light: 'var(--apt-l)', dark: 'var(--apt-d)',
+    subs: {
+      quant: [
+        { id:'apt-1', icon:'🔢', title:'Number Systems & HCF/LCM', diff:'Medium', subtopics:['Divisibility rules','HCF & LCM tricks','Remainders','Cyclicity of powers','Digit problems'], problems:['Find last 2 digits of large powers','LCM of first N naturals','Remainder theorems'] },
+        { id:'apt-2', icon:'📐', title:'Algebra & Equations', diff:'Hard', subtopics:['Quadratic / polynomial','Ratio-proportion','Mixtures & alligation','Variation types','Inequality chains'], problems:['Profit-loss chains','Age-based word problems','Work & time with fractions'] },
+        { id:'apt-3', icon:'📊', title:'Permutation & Probability', diff:'Hard', subtopics:['Circular arrangements','Derangements','Conditional probability','Bayes theorem','Expected value'], problems:['Card draw problems','Dice combinatorics','Urn models'] },
+        { id:'apt-4', icon:'📏', title:'Geometry & Mensuration', diff:'Medium', subtopics:['Coordinate geometry','Circles & tangents','Solid geometry','Trigonometry ratios','Clock / Calendar'], problems:['Area of polygon from coords','Angle in circle','3D surface area'] },
+      ],
+      logical: [
+        { id:'apt-5', icon:'🧠', title:'Logical Deductions', diff:'Hard', subtopics:['Syllogisms (Venn)','Statement-conclusion','Blood relations','Coding-decoding','Direction sense'], problems:['3-step syllogisms','Family tree puzzles','Complex direction problems'] },
+        { id:'apt-6', icon:'🔣', title:'Series & Patterns', diff:'Medium', subtopics:['Number series logic','Letter series','Matrix patterns','Analogy types','Odd one out'], problems:['Missing number in series','Figure matrix','Verbal analogies'] },
+        { id:'apt-7', icon:'🧩', title:'Puzzles & Data Sufficiency', diff:'Hard', subtopics:['Scheduling puzzles','Data sufficiency rules','Input-output machines','Seating arrangements','Grid puzzles'], problems:['Circular seating 8 people','Input machine 5 steps','Linear arrangement constraints'] },
+      ],
+      verbal: [
+        { id:'apt-8', icon:'📝', title:'Reading Comprehension', diff:'Hard', subtopics:['Inference questions','Tone & attitude','Critical reasoning','Para-jumbles','Sentence correction'], problems:['Strengthen / weaken argument','Bold-faced CR questions','RC with 5 questions'] },
+        { id:'apt-9', icon:'🔤', title:'Vocabulary & Grammar', diff:'Medium', subtopics:['Root words & etymology','Idioms & phrases','Fill in blanks','Error spotting','Antonyms/Synonyms'], problems:['GRE-level vocabulary','One-word substitution','Double blank sentences'] },
+      ]
+    }
+  },
+  sql: {
+    color: 'var(--sql)', light: 'var(--sql-l)', dark: 'var(--sql-d)',
+    subs: {
+      core: [
+        { id:'sql-1', icon:'🗄', title:'SELECT Mastery', diff:'Medium', subtopics:['DISTINCT & filtering','Aggregate functions','GROUP BY + HAVING','CASE expressions','String functions'], problems:['Second highest salary','Department top earners','Consecutive seats'] },
+        { id:'sql-2', icon:'🔀', title:'Joins & Subqueries', diff:'Hard', subtopics:['LEFT / RIGHT / FULL outer','SELF JOIN patterns','Correlated subqueries','EXISTS vs IN','LATERAL join'], problems:['Employees not in any project','Overlapping date ranges','Bill of materials recursive'] },
+        { id:'sql-3', icon:'🪟', title:'Window Functions', diff:'Hard', subtopics:['ROW_NUMBER / RANK / DENSE_RANK','LEAD & LAG','NTILE & PERCENT_RANK','Running totals','Frame specifications'], problems:['Moving average 7-day','Previous row comparison','Top-3 per category'] },
+      ],
+      advanced: [
+        { id:'sql-4', icon:'🔄', title:'CTEs & Recursive Queries', diff:'Hard', subtopics:['WITH clause chaining','Recursive CTE','Hierarchical data','Cycle detection','Performance of CTEs'], problems:['Employee org hierarchy','Graph traversal in SQL','Bill of materials'] },
+        { id:'sql-5', icon:'🕹', title:'Stored Procedures & Functions', diff:'Hard', subtopics:['Procedures vs functions','Cursor basics','Exception handling','Dynamic SQL','Triggers & events'], problems:['Audit trail trigger','Dynamic pivot table','Error-safe batch insert'] },
+        { id:'sql-6', icon:'🔐', title:'Transactions & Concurrency', diff:'Expert', subtopics:['ACID properties','Isolation levels','Deadlock handling','MVCC','Savepoints'], problems:['Transfer money safely','Lock ordering deadlock','Phantom reads demo'] },
+      ],
+      performance: [
+        { id:'sql-7', icon:'⚡', title:'Indexing Strategy', diff:'Expert', subtopics:['B-tree vs hash index','Composite index order','Covering index','Partial index','Index-only scans'], problems:['Optimise slow LIKE query','Composite vs single index test','Analyse index usage with EXPLAIN'] },
+        { id:'sql-8', icon:'📈', title:'Query Optimization', diff:'Expert', subtopics:['EXPLAIN / EXPLAIN ANALYZE','Query planner hints','Partition pruning','Materialized views','Statistics & VACUUM'], problems:['Rewrite N+1 as JOIN','Force index hint','Compare nested loop vs hash join'] },
+      ]
+    }
+  },
+  sys: {
+    color: 'var(--sys)', light: 'var(--sys-l)', dark: 'var(--sys-d)',
+    subs: {
+      concepts: [
+        { id:'sys-1', icon:'⚖', title:'Scalability Fundamentals', diff:'Hard', subtopics:['Horizontal vs vertical scaling','Load balancers (L4/L7)','Consistent hashing','Sharding strategies','Replication lag'], problems:['Scale to 10M users','Choose sharding key for Twitter','Handle hotspot partitions'] },
+        { id:'sys-2', icon:'💾', title:'Storage Systems', diff:'Hard', subtopics:['SQL vs NoSQL trade-offs','LSM tree vs B-tree','Column stores','Blob / object storage','Time-series DBs'], problems:['Store 1B events/day','Choose DB for social graph','S3-like storage design'] },
+        { id:'sys-3', icon:'🌐', title:'Networking & CDN', diff:'Medium', subtopics:['DNS resolution flow','CDN edge caching','HTTP/2 & QUIC','WebSockets & SSE','gRPC vs REST'], problems:['Reduce latency 50ms → 10ms','Design global CDN','Long-polling vs WebSocket chat'] },
+      ],
+      patterns: [
+        { id:'sys-4', icon:'📨', title:'Messaging & Event Streaming', diff:'Hard', subtopics:['Kafka internals','At-least/exactly-once delivery','CQRS pattern','Event sourcing','Backpressure handling'], problems:['Design order processing pipeline','Idempotent consumer','Fan-out notification system'] },
+        { id:'sys-5', icon:'🔒', title:'Reliability & Fault Tolerance', diff:'Expert', subtopics:['Circuit breaker pattern','Retry & exponential backoff','Bulkhead pattern','Chaos engineering','SLA / SLO / SLI'], problems:['Design for 99.99% uptime','Multi-region failover','Graceful degradation'] },
+        { id:'sys-6', icon:'🧩', title:'Microservices & API Gateway', diff:'Hard', subtopics:['Service mesh (Istio)','API gateway patterns','Saga pattern','Two-phase commit','Service discovery'], problems:['Decompose monolith','Design checkout saga','Rate limit API gateway'] },
+      ],
+      case: [
+        { id:'sys-7', icon:'🐦', title:'Design Twitter / X', diff:'Expert', subtopics:['Tweet fanout strategies','Timeline generation','Trending topics','Search indexing','CDN for media'], problems:['Design the tweet write path','Fanout on write vs read','Handle celebrity tweets'] },
+        { id:'sys-8', icon:'📺', title:'Design YouTube / Netflix', diff:'Expert', subtopics:['Video transcoding pipeline','Adaptive bitrate streaming','CDN cache strategy','Recommendation engine','View count at scale'], problems:['Upload & processing flow','Design watch history','Top-K trending videos'] },
+        { id:'sys-9', icon:'🛒', title:'Design Amazon / Flipkart', diff:'Expert', subtopics:['Inventory management','Payment gateway','Flash sale architecture','Search & ranking','Logistics tracking'], problems:['Flash sale 10M concurrent','Distributed cart','Order state machine'] },
+      ]
+    }
+  }
+};
+
+const TIMELINE = [
+  { week:'Weeks 1–2', title:'DSA Foundations', tags:['Arrays','Linked Lists','Stacks'], colors:['var(--dsa)','var(--dsa-l)'] },
+  { week:'Week 3', title:'Aptitude: Numbers & Algebra', tags:['Number Systems','Ratios','Work-Time'], colors:['var(--apt)','var(--apt-l)'] },
+  { week:'Weeks 4–5', title:'Trees, Heaps & Graphs', tags:['BST','Dijkstra','BFS/DFS'], colors:['var(--dsa)','var(--dsa-l)'] },
+  { week:'Week 6', title:'SQL Core — SELECT to Joins', tags:['Aggregates','JOINs','Subqueries'], colors:['var(--sql)','var(--sql-l)'] },
+  { week:'Weeks 7–8', title:'Advanced DP & Greedy', tags:['Bitmask DP','Interval DP','Knapsack'], colors:['var(--dsa)','var(--dsa-l)'] },
+  { week:'Week 9', title:'Aptitude: Logical Reasoning', tags:['Syllogisms','Series','Puzzles'], colors:['var(--apt)','var(--apt-l)'] },
+  { week:'Weeks 10–11', title:'SQL Advanced — CTEs, Windows, Perf', tags:['Window Fns','CTEs','Indexing'], colors:['var(--sql)','var(--sql-l)'] },
+  { week:'Week 12', title:'System Design Concepts', tags:['Scaling','Load Balancing','Caching'], colors:['var(--sys)','var(--sys-l)'] },
+  { week:'Weeks 13–14', title:'System Design Deep Dive', tags:['Kafka','Microservices','Reliability'], colors:['var(--sys)','var(--sys-l)'] },
+  { week:'Week 15', title:'Aptitude: Verbal & RC', tags:['Reading Comp','Vocabulary','CR'], colors:['var(--apt)','var(--apt-l)'] },
+  { week:'Week 16', title:'Mock Interviews & Revision', tags:['Full DSA','SQL Perf','System Design Cases'], colors:['var(--text)','var(--bg2)'] },
+];
+
+// ── RENDER ────────────────────────────────────────────
+function diffColor(d) {
+  if(d==='Medium') return { bg:'var(--apt-l)', color:'var(--apt-d)' };
+  if(d==='Hard')   return { bg:'var(--sql-l)', color:'var(--sql-d)' };
+  if(d==='Expert') return { bg:'var(--sys-l)', color:'var(--sys-d)' };
+  return { bg:'var(--dsa-l)', color:'var(--dsa-d)' };
+}
+
+function renderTopics(topics, trackColor) {
+  return topics.map(t => {
+    const dc = diffColor(t.diff);
+    const total = t.subtopics.length + t.problems.length;
+    const done = t.subtopics.filter((_,i)=>STATE.checked[t.id+'-s'+i]).length +
+                 t.problems.filter((_,i)=>STATE.checked[t.id+'-p'+i]).length;
+    const dots = Array.from({length:Math.min(total,5)},(_,i)=>
+      `<div class="prog-dot ${STATE.checked[t.id+'-s'+i]||STATE.checked[t.id+'-p'+i]?'done':''}"></div>`
+    ).join('');
+
+    const subtopicItems = t.subtopics.map((s,i)=>`
+      <div class="dc-item">
+        <div class="dc-check ${STATE.checked[t.id+'-s'+i]?'checked':''}" 
+          onclick="event.stopPropagation();toggleCheck('${t.id}-s${i}','${t.id}');return false">
+          ${STATE.checked[t.id+'-s'+i]?'✓':''}
+        </div>
+        <span>${s}</span>
+      </div>`).join('');
+
+    const problemItems = t.problems.map((p,i)=>`
+      <div class="dc-item">
+        <div class="dc-check ${STATE.checked[t.id+'-p'+i]?'checked':''}" 
+          onclick="event.stopPropagation();toggleCheck('${t.id}-p${i}','${t.id}');return false">
+          ${STATE.checked[t.id+'-p'+i]?'✓':''}
+        </div>
+        <span>${p}</span>
+      </div>`).join('');
+
+    return `
+    <div class="topic-row" id="row-${t.id}" tabindex="0" role="button" aria-expanded="false" onclick="toggleRow('${t.id}')" onkeydown="onRowKey(event,'${t.id}')">
+      <div class="tr-icon" style="background:var(--bg2)">${t.icon}</div>
+      <div class="tr-body">
+        <div class="tr-title">${t.title}</div>
+        <div class="tr-meta">${t.subtopics.length} subtopics · ${t.problems.length} problems · ${done}/${total} done</div>
+        <div class="topic-detail" id="detail-${t.id}">
+          <div class="detail-cols">
+            <div>
+              <div class="dc-label">Subtopics</div>
+              ${subtopicItems}
+            </div>
+            <div>
+              <div class="dc-label">Practice Problems</div>
+              ${problemItems}
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="action-btn primary" onclick="event.stopPropagation();sendPrompt('Teach me ${t.title} with examples and common interview patterns')">Study →</button>
+            <button class="action-btn" onclick="event.stopPropagation();sendPrompt('Give me 3 hard ${t.title} problems with hints')">Problems</button>
+            <button class="action-btn" onclick="event.stopPropagation();sendPrompt('Quiz me on ${t.title}: ask 5 questions')">Quiz me</button>
+          </div>
+        </div>
+      </div>
+      <div class="tr-right">
+        <div class="diff-badge" style="background:${dc.bg};color:${dc.color}">${t.diff}</div>
+        <div class="prog-mini">${dots}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderPillContent(trackKey, subKey) {
+  const track = TRACKS[trackKey];
+  const topics = track.subs[subKey] || [];
+  const el = document.getElementById(trackKey+'-content');
+  if(el) el.innerHTML = `<div class="topic-grid">${renderTopics(topics, track.color)}</div>`;
+}
+
+function renderTimeline() {
+  const el = document.getElementById('timeline-content');
+  if(!el) return;
+  el.innerHTML = TIMELINE.map((item,i)=>`
+    <div class="tl-item">
+      <div class="tl-line-col">
+        <div class="tl-circle" style="border-color:${item.colors[0]};color:${item.colors[0]};background:${item.colors[1]}">${i+1}</div>
+        ${i<TIMELINE.length-1?'<div class="tl-vline"></div>':''}
+      </div>
+      <div class="tl-content">
+        <div class="tl-week">${item.week}</div>
+        <div class="tl-title">${item.title}</div>
+        <div class="tl-tags">
+          ${item.tags.map(t=>`<span class="tl-tag" style="background:${item.colors[1]};color:${item.colors[0]}">${t}</span>`).join('')}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ── INTERACTIVITY ─────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===tab));
+  document.querySelectorAll('.track-panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+tab));
+  if (tab !== 'overview' && tab !== 'timeline') {
+    STATE.activeTrack = tab;
+    saveState();
+  }
+}
+
+function toggleRow(id) {
+  const row = document.getElementById('row-'+id);
+  const expanded = row.classList.toggle('expanded');
+  row.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+}
+
+function onRowKey(event, id) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    toggleRow(id);
+  }
+}
+
+function toggleCheck(key, topicId) {
+  const nowChecked = !STATE.checked[key];
+  STATE.checked[key] = nowChecked;
+  ensureWeekWindow();
+  if (nowChecked) {
+    STATE.weekDone += 1;
+    registerDailyAction();
+  } else if (STATE.weekDone > 0) {
+    STATE.weekDone -= 1;
+  }
+  saveState();
+  updateProgress();
+  // re-render current sub
+  // find which track owns this topic
+  for(const [trackKey, track] of Object.entries(TRACKS)) {
+    for(const [subKey, topics] of Object.entries(track.subs)) {
+      if(topics.find(t=>t.id===topicId)) {
+        renderPillContent(trackKey, subKey);
+        // re-expand the row
+        setTimeout(()=>{
+          const row = document.getElementById('row-'+topicId);
+          if(row) row.classList.add('expanded');
+        }, 10);
+        return;
+      }
+    }
+  }
+}
+
+function updateProgress() {
+  let globalTotal = 0;
+  let globalDone = 0;
+
+  for(const [trackKey, track] of Object.entries(TRACKS)) {
+    let total=0, done=0;
+    for(const topics of Object.values(track.subs)) {
+      for(const t of topics) {
+        t.subtopics.forEach((_,i)=>{ total++; if(STATE.checked[t.id+'-s'+i]) done++; });
+        t.problems.forEach((_,i)=>{ total++; if(STATE.checked[t.id+'-p'+i]) done++; });
+      }
+    }
+
+    globalTotal += total;
+    globalDone += done;
+
+    const pct = total ? Math.round(done/total*100) : 0;
+    const fill = document.getElementById('prog-'+trackKey);
+    const lbl  = document.getElementById('pct-'+trackKey);
+    if(fill) fill.style.width = pct+'%';
+    if(lbl)  lbl.textContent = pct+'% complete';
+  }
+
+  const overallPct = globalTotal ? Math.round(globalDone / globalTotal * 100) : 0;
+  const statTotal = document.getElementById('stat-total');
+  const statDone = document.getElementById('stat-done');
+  const statOverall = document.getElementById('stat-overall');
+  const statFocus = document.getElementById('stat-focus');
+  if (statTotal) statTotal.textContent = String(globalTotal);
+  if (statDone) statDone.textContent = String(globalDone);
+  if (statOverall) statOverall.textContent = overallPct + '%';
+  if (statFocus) {
+    const map = { dsa: 'DSA', apt: 'Aptitude', sql: 'SQL', sys: 'System Design' };
+    statFocus.textContent = map[STATE.activeTrack] || 'DSA';
+  }
+
+  ensureWeekWindow();
+  const safeGoal = Math.max(1, STATE.weeklyGoal);
+  const goalPct = Math.min(100, Math.round((STATE.weekDone / safeGoal) * 100));
+  const goalProgress = document.getElementById('goal-progress');
+  const goalWeekLabel = document.getElementById('goal-week-label');
+  const goalFill = document.getElementById('goal-fill');
+  const streak = document.getElementById('stat-streak');
+  if (goalProgress) goalProgress.textContent = STATE.weekDone + ' / ' + safeGoal + ' done';
+  if (goalWeekLabel) goalWeekLabel.textContent = 'from ' + STATE.weekStartISO;
+  if (goalFill) goalFill.style.width = goalPct + '%';
+  if (streak) streak.textContent = STATE.streakDays + 'd streak';
+
+  const confidenceEl = document.getElementById('track-confidence');
+  if (confidenceEl) {
+    const trackOrder = ['dsa','apt','sql','sys'];
+    const rows = trackOrder.map(trackKey => {
+      const track = TRACKS[trackKey];
+      let total = 0;
+      let done = 0;
+      let remDiff = 0;
+      let remCount = 0;
+      for (const topics of Object.values(track.subs)) {
+        for (const t of topics) {
+          const keys = [
+            ...t.subtopics.map((_, i) => ({ key: `${t.id}-s${i}`, diff: t.diff })),
+            ...t.problems.map((_, i) => ({ key: `${t.id}-p${i}`, diff: t.diff }))
+          ];
+          keys.forEach(item => {
+            total += 1;
+            if (STATE.checked[item.key]) {
+              done += 1;
+            } else {
+              remCount += 1;
+              remDiff += difficultyWeight(item.diff);
+            }
+          });
+        }
+      }
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      const avgRemaining = remCount ? remDiff / remCount : 1;
+      const confidence = Math.round(Math.max(30, Math.min(96, 38 + pct * 0.62 - ((avgRemaining - 1) * 12))));
+      return { trackKey, confidence };
+    });
+
+    confidenceEl.innerHTML = rows.map(r => `
+      <div class="tc-row">
+        <div class="tc-label">${TRACK_LABELS[r.trackKey]}</div>
+        <div class="tc-bar"><div class="tc-fill" style="width:${r.confidence}%;background:${TRACK_ACCENTS[r.trackKey]}"></div></div>
+        <div class="tc-val">${r.confidence}%</div>
+      </div>
+    `).join('');
+  }
+}
+
+function sendPrompt(message) {
+  const candidates = [
+    window.sendPromptToChat,
+    window.parent && window.parent.sendPromptToChat,
+    window.dispatchPrompt,
+    window.parent && window.parent.dispatchPrompt
+  ];
+
+  for (const fn of candidates) {
+    if (typeof fn === 'function') {
+      try {
+        fn(message);
+        return;
+      } catch (_) {
+        // try next adapter
+      }
+    }
+  }
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    navigator.clipboard.writeText(message).then(() => {
+      alert('Prompt copied. Paste it into chat: ' + message);
+    }).catch(() => {
+      alert('Prompt: ' + message);
+    });
+  } else {
+    alert('Prompt: ' + message);
+  }
+}
+
+function formatDateISO(dateObj) {
+  return dateObj.toISOString().slice(0, 10);
+}
+
+function buildTrackTopicQueue(trackKey) {
+  const track = TRACKS[trackKey];
+  const out = [];
+  for (const [subKey, topics] of Object.entries(track.subs)) {
+    for (const t of topics) {
+      out.push({
+        topicId: t.id,
+        track: trackKey,
+        title: t.title,
+        diff: t.diff,
+        subBucket: subKey
+      });
+    }
+  }
+  return out;
+}
+
+function getItemsPerWeek(intensity) {
+  if (intensity === 'light') return 2;
+  if (intensity === 'intense') return 4;
+  return 3;
+}
+
+function datesBetween(startDate, daysCount) {
+  const out = [];
+  for (let i = 0; i < daysCount; i++) {
+    const d = new Date(startDate);
+    d.setDate(startDate.getDate() + i);
+    out.push(d);
+  }
+  return out;
+}
+
+function nextDateISO(dateISO) {
+  const d = new Date(dateISO + 'T00:00:00');
+  d.setDate(d.getDate() + 1);
+  return formatDateISO(d);
+}
+
+function compactDate(iso) {
+  return iso.replace(/-/g, '');
+}
+
+function getWeightedTracks(selectedTracks, mode) {
+  const presets = {
+    balanced: { dsa: 1, apt: 1, sql: 1, sys: 1 },
+    faang: { dsa: 3, apt: 1, sql: 1, sys: 2 },
+    data: { dsa: 1, apt: 2, sql: 3, sys: 1 },
+    product: { dsa: 2, apt: 1, sql: 2, sys: 2 }
+  };
+  const w = presets[mode] || presets.balanced;
+  const bag = [];
+  selectedTracks.forEach(t => {
+    const count = Math.max(1, w[t] || 1);
+    for (let i = 0; i < count; i++) bag.push(t);
+  });
+  return bag.length ? bag : selectedTracks;
+}
+
+function downloadTextFile(fileName, content, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportPlanICS() {
+  if (!STATE.aiLastPlanWeeks || !STATE.aiLastPlanWeeks.length) {
+    alert('Generate a roadmap first, then export calendar.');
+    return;
+  }
+  const stamp = compactDate(todayISO()) + 'T000000Z';
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//PrepLoop//AI Roadmap//EN',
+    'CALSCALE:GREGORIAN'
+  ];
+
+  STATE.aiLastPlanWeeks.forEach((w, wi) => {
+    w.dayPlan.forEach((d, di) => {
+      const uid = `preploop-${wi + 1}-${di + 1}-${compactDate(d.dateISO)}@preploop.local`;
+      lines.push('BEGIN:VEVENT');
+      lines.push(`UID:${uid}`);
+      lines.push(`DTSTAMP:${stamp}`);
+      lines.push(`DTSTART;VALUE=DATE:${compactDate(d.dateISO)}`);
+      lines.push(`DTEND;VALUE=DATE:${compactDate(nextDateISO(d.dateISO))}`);
+      lines.push(`SUMMARY:PrepLoop ${TRACK_LABELS[w.track]} - ${d.task}`);
+      lines.push(`DESCRIPTION:Week ${w.week} (${w.startISO} to ${w.endISO})`);
+      lines.push('END:VEVENT');
+    });
+  });
+  lines.push('END:VCALENDAR');
+  downloadTextFile('preploop-roadmap.ics', lines.join('\r\n'), 'text/calendar;charset=utf-8');
+}
+
+function exportPlanJSON() {
+  if (!STATE.aiLastPlanWeeks || !STATE.aiLastPlanWeeks.length) {
+    alert('Generate a roadmap first, then export JSON.');
+    return;
+  }
+  const payload = {
+    generatedOn: todayISO(),
+    companyMode: STATE.aiCompanyMode,
+    dailyBlockMinutes: STATE.aiDailyBlockMin,
+    weeks: STATE.aiLastPlanWeeks
+  };
+  downloadTextFile('preploop-roadmap.json', JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+}
+
+function csvEscape(value) {
+  const str = String(value ?? '');
+  if (/[",\n]/.test(str)) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+function toGoogleDate(isoDate) {
+  const d = new Date(isoDate + 'T00:00:00');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
+function exportPlanGoogleCSV() {
+  if (!STATE.aiLastPlanWeeks || !STATE.aiLastPlanWeeks.length) {
+    alert('Generate a roadmap first, then export Google CSV.');
+    return;
+  }
+  const header = ['Subject','Start Date','End Date','All Day Event','Description'];
+  const rows = [header.join(',')];
+  STATE.aiLastPlanWeeks.forEach(w => {
+    w.dayPlan.forEach(d => {
+      rows.push([
+        csvEscape(`PrepLoop ${TRACK_LABELS[w.track]}: ${d.task}`),
+        csvEscape(toGoogleDate(d.dateISO)),
+        csvEscape(toGoogleDate(d.dateISO)),
+        csvEscape('True'),
+        csvEscape(`Week ${w.week} (${w.startISO} to ${w.endISO})`)
+      ].join(','));
+    });
+  });
+  downloadTextFile('preploop-roadmap-google-calendar.csv', rows.join('\n'), 'text/csv;charset=utf-8');
+}
+
+function difficultyWeight(diff) {
+  if (diff === 'Expert') return 3;
+  if (diff === 'Hard') return 2;
+  return 1;
+}
+
+function weekConfidence(weekChunk, daysPerWeek, itemsPerWeek) {
+  if (!weekChunk.length) return 50;
+  const avgDifficulty = weekChunk.reduce((acc, t) => acc + difficultyWeight(t.diff), 0) / weekChunk.length;
+  const difficultyPenalty = ((avgDifficulty - 1) / 2) * 55;
+  const loadPenalty = Math.max(0, (itemsPerWeek - Math.max(2, daysPerWeek - 1)) * 6);
+  const score = Math.round(Math.max(35, Math.min(95, 92 - difficultyPenalty - loadPenalty)));
+  return score;
+}
+
+function taskKey(dateISO, task) {
+  return `${dateISO}::${task}`;
+}
+
+function isFillerTask(task) {
+  const t = String(task || '').toLowerCase();
+  return t.includes('revision') || t.includes('timed mock') || t.includes('weak-area');
+}
+
+function rebuildPlanTextFromWeeks(weeks, months, baseDate, deadlineInput, revisionWeeks, daysPerWeek, companyMode, dailyBlockMin) {
+  const lines = [];
+  lines.push(`AI Generated Prep Plan (${months} months)`);
+  lines.push(`Start Date: ${formatDateISO(baseDate)}`);
+  if (deadlineInput) {
+    lines.push(`Interview Date: ${deadlineInput}`);
+  }
+  lines.push(`Execution Weeks: ${weeks.length}, Revision Weeks: ${revisionWeeks}`);
+  lines.push(`Study Days/Week: ${daysPerWeek}`);
+  lines.push(`Company Mode: ${companyMode}`);
+  lines.push(`Daily Block: ${dailyBlockMin} minutes`);
+  lines.push('');
+
+  weeks.forEach(w => {
+    const topics = w.chunk.map(c => `${c.title} (${c.diff})`).join(' | ');
+    lines.push(`Week ${w.week} [${w.startISO} to ${w.endISO}] - ${TRACK_LABELS[w.track]}: ${topics}`);
+    lines.push(`  Confidence: ${w.confidence}%`);
+    w.dayPlan.forEach((d, idx) => {
+      lines.push(`  Day ${idx + 1} ${d.dateISO}: ${d.task}`);
+    });
+  });
+
+  lines.push('');
+  lines.push(`Reserve ${revisionWeeks} week(s) for revision and mock interviews.`);
+  return lines.join('\n');
+}
+
+function renderAIOutput(weeks) {
+  const output = document.getElementById('ai-output');
+  if (!output) return;
+
+  if (!weeks || weeks.length === 0) {
+    output.innerHTML = `
+      <div class="ai-empty-state">
+        <div class="empty-icon">📋</div>
+        <h3>Your Personalized Roadmap</h3>
+        <p>Configure your preferences above and click "Generate My Roadmap" to create a customized learning plan.</p>
+        <ul class="empty-tips">
+          <li>✓ Choose preparation duration (3-6 months recommended)</li>
+          <li>✓ Select relevant tracks for your target roles</li>
+          <li>✓ Set realistic weekly intensity</li>
+          <li>✓ Enable Advanced Mode for more control</li>
+        </ul>
+      </div>
+    `;
+    return;
+  }
+
+  output.innerHTML = weeks.map(w => {
+    const topics = w.chunk.map(c => `${c.title} (${c.diff})`).join(' | ');
+    const daysHtml = w.dayPlan.map(d => {
+      const key = taskKey(d.dateISO, d.task);
+      const done = !!STATE.aiTaskDone[key];
+      return `
+      <div class="ai-day">
+        <div class="ai-day-left">
+          <div class="dc-check ${done ? 'checked' : ''}" onclick="event.stopPropagation();toggleAIDayTask('${encodeURIComponent(key)}')">${done ? '✓' : ''}</div>
+          <div class="ai-day-date">${formatDisplayDate(d.dateISO)}</div>
+        </div>
+        <div class="ai-day-task ${done ? 'done' : ''}">${d.task}</div>
+      </div>
+    `;
+    }).join('');
+
+    const trackEmojis = {
+      dsa: '🧠',
+      apt: '⚡',
+      sql: '🗄️',
+      sys: '🏗️'
+    };
+
+    return `
+      <div class="ai-week" style="border-left-color:${TRACK_ACCENTS[w.track]}">
+        <div class="ai-week-head">
+          <div class="ai-week-title">${trackEmojis[w.track] || '📚'} Week ${w.week} · ${TRACK_LABELS[w.track]}</div>
+          <div class="ai-week-date">${w.startISO} → ${w.endISO}</div>
+        </div>
+        <div class="ai-week-head">
+          <div class="ai-week-body"><strong>Topics:</strong> ${topics}</div>
+          <div class="ai-confidence" title="Estimated mastery level after completing this week">Confidence: ${w.confidence}%</div>
+        </div>
+        <div class="ai-days">${daysHtml}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatDisplayDate(isoDate) {
+  const date = new Date(isoDate + 'T00:00:00');
+  const options = { month: 'short', day: 'numeric' };
+  return date.toLocaleDateString('en-US', options);
+}
+
+function toggleAIDayTask(encodedKey) {
+  const key = decodeURIComponent(encodedKey);
+  STATE.aiTaskDone[key] = !STATE.aiTaskDone[key];
+  saveState();
+  renderAIOutput(STATE.aiLastPlanWeeks || []);
+}
+
+window.toggleAIDayTask = toggleAIDayTask;
+
+function autoRescheduleMissedTasks() {
+  const weeks = STATE.aiLastPlanWeeks || [];
+  if (!weeks.length) {
+    alert('Generate a roadmap first, then reschedule missed tasks.');
+    return;
+  }
+
+  const today = todayISO();
+  const missed = [];
+  const futureFiller = [];
+
+  weeks.forEach(w => {
+    w.dayPlan.forEach(d => {
+      const key = taskKey(d.dateISO, d.task);
+      const done = !!STATE.aiTaskDone[key];
+      if (d.dateISO < today && !done && !isFillerTask(d.task)) {
+        missed.push({ day: d, oldKey: key });
+      }
+      if (d.dateISO >= today && !done && isFillerTask(d.task)) {
+        futureFiller.push({ day: d });
+      }
+    });
+  });
+
+  const swaps = Math.min(missed.length, futureFiller.length);
+  if (!swaps) {
+    alert('No missed tasks can be auto-rescheduled right now.');
+    return;
+  }
+
+  for (let i = 0; i < swaps; i++) {
+    const m = missed[i];
+    const f = futureFiller[i];
+    const movedTask = `${m.day.task} [rescheduled]`;
+    f.day.task = movedTask;
+    m.day.task = 'Recovery moved to future slot';
+    delete STATE.aiTaskDone[m.oldKey];
+    STATE.aiTaskDone[taskKey(f.day.dateISO, movedTask)] = false;
+  }
+
+  STATE.aiLastPlanWeeks = weeks;
+  saveState();
+  renderAIOutput(weeks);
+  alert(`Rescheduled ${swaps} missed task(s).`);
+}
+
+function generateAIRoadmap() {
+  const monthsInput = document.getElementById('ai-months');
+  const startInput = document.getElementById('ai-start-date');
+  const intensity = document.getElementById('ai-intensity').value;
+  const bufferPct = Number(document.getElementById('ai-buffer').value);
+  const daysPerWeekInput = Number(document.getElementById('ai-days').value || STATE.aiDaysPerWeek || 5);
+  const deadlineInput = document.getElementById('ai-deadline').value;
+  const companyMode = document.getElementById('ai-company').value;
+  const dailyBlockMin = Number(document.getElementById('ai-block-min').value || STATE.aiDailyBlockMin || 90);
+  const output = document.getElementById('ai-output');
+
+  // Validation and guidance
+  const months = Math.max(1, Math.min(24, Number(monthsInput.value || 4)));
+  if (months < 2) {
+    alert('⚠️ Tip: For best results, prepare for at least 2-3 months. Shorter timelines require very intensive study.');
+  } else if (months > 12) {
+    alert('💡 Tip: Consider breaking long preparation into phases with milestones every 2-3 months.');
+  }
+
+  const selectedTracks = STATE.aiSelectedTracks.length ? STATE.aiSelectedTracks : ['dsa','apt','sql','sys'];
+  
+  if (selectedTracks.length === 0) {
+    alert('Please select at least one learning track to generate your roadmap.');
+    return;
+  }
+
+  const weightedBag = getWeightedTracks(selectedTracks, companyMode);
+
+  const baseDate = startInput.value ? new Date(startInput.value + 'T00:00:00') : new Date();
+  const rawWeeksFromMonths = Math.max(4, Math.round(months * 4.35));
+  let totalWeeks = rawWeeksFromMonths;
+  if (deadlineInput) {
+    const deadlineDate = new Date(deadlineInput + 'T00:00:00');
+    const diffDays = Math.ceil((deadlineDate - baseDate) / 86400000);
+    if (diffDays > 0) {
+      totalWeeks = Math.max(1, Math.ceil(diffDays / 7));
+    } else {
+      alert('⚠️ Warning: Your interview date is in the past or too soon. Please check the date.');
+      return;
+    }
+  }
+
+  const effectiveWeeks = Math.max(2, Math.round(totalWeeks * (1 - bufferPct / 100)));
+  const itemsPerWeek = getItemsPerWeek(intensity);
+  const daysPerWeek = Math.max(1, Math.min(7, daysPerWeekInput));
+
+  STATE.aiDaysPerWeek = daysPerWeek;
+  STATE.aiCompanyMode = companyMode;
+  STATE.aiDailyBlockMin = dailyBlockMin;
+
+  // Build topic queues for each track
+  const queues = {};
+  selectedTracks.forEach(t => { queues[t] = buildTrackTopicQueue(t); });
+  const pointers = Object.fromEntries(selectedTracks.map(t => [t, 0]));
+
+  // Generate weekly plan
+  const weeks = [];
+  let rr = 0;
+  for (let week = 1; week <= effectiveWeeks; week++) {
+    let pickedTrack = weightedBag[rr % weightedBag.length];
+    let guard = 0;
+    while (pointers[pickedTrack] >= queues[pickedTrack].length && guard < selectedTracks.length + 2) {
+      rr += 1;
+      pickedTrack = weightedBag[rr % weightedBag.length];
+      guard += 1;
+    }
+
+    const chunk = [];
+    for (let i = 0; i < itemsPerWeek; i++) {
+      if (pointers[pickedTrack] < queues[pickedTrack].length) {
+        chunk.push(queues[pickedTrack][pointers[pickedTrack]]);
+        pointers[pickedTrack] += 1;
+      }
+    }
+
+    if (!chunk.length) break;
+
+    const start = new Date(baseDate);
+    start.setDate(baseDate.getDate() + (week - 1) * 7);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+
+    const studyDates = datesBetween(start, daysPerWeek);
+    const dayPlan = studyDates.map((d, index) => {
+      if (index < chunk.length) {
+        const topic = chunk[index];
+        return {
+          dateISO: formatDateISO(d),
+          task: `${topic.title} (${topic.diff}) - ${dailyBlockMin} min`,
+          topicId: topic.topicId,
+          track: topic.track
+        };
+      }
+
+      const fillers = [
+        'Review previous topics + summary notes',
+        'Timed mock test + detailed analysis',
+        'Focus on weak areas + update error log'
+      ];
+      return {
+        dateISO: formatDateISO(d),
+        task: `${fillers[index % fillers.length]} - ${dailyBlockMin} min`
+      };
+    });
+
+    const confidence = weekConfidence(chunk, daysPerWeek, itemsPerWeek);
+
+    weeks.push({
+      week,
+      track: pickedTrack,
+      startISO: formatDateISO(start),
+      endISO: formatDateISO(end),
+      chunk,
+      dayPlan,
+      confidence
+    });
+
+    rr += 1;
+  }
+
+  const revisionWeeks = Math.max(1, totalWeeks - weeks.length);
+  
+  // Render the generated plan
+  renderAIOutput(weeks);
+  
+  // Save plan text for export
+  STATE.aiLastPlanText = rebuildPlanTextFromWeeks(weeks, months, baseDate, deadlineInput, revisionWeeks, daysPerWeek, companyMode, dailyBlockMin);
+  STATE.aiLastPlanWeeks = weeks;
+  saveState();
+
+  // Show success message with tips
+  const trackNames = selectedTracks.map(t => TRACK_LABELS[t]).join(', ');
+  alert(`✅ Roadmap Generated!\n\n📅 Duration: ${weeks.length} weeks + ${revisionWeeks} revision weeks\n🎯 Tracks: ${trackNames}\n⏱️ Daily: ${dailyBlockMin} minutes × ${daysPerWeek} days/week\n\n💡 Tips:\n• Check off tasks as you complete them\n• Use "Auto-reschedule" if you miss days\n• Export to calendar for reminders\n• Stay consistent - small daily progress wins!`);
+}
+
+function initAIPlanner() {
+  const startInput = document.getElementById('ai-start-date');
+  const daysSelect = document.getElementById('ai-days');
+  const companySelect = document.getElementById('ai-company');
+  const blockSelect = document.getElementById('ai-block-min');
+  if (startInput && !startInput.value) {
+    startInput.value = todayISO();
+  }
+  if (daysSelect) {
+    daysSelect.value = String(STATE.aiDaysPerWeek || 5);
+    daysSelect.addEventListener('change', () => {
+      STATE.aiDaysPerWeek = Number(daysSelect.value || 5);
+      saveState();
+    });
+  }
+  if (companySelect) {
+    companySelect.value = STATE.aiCompanyMode || 'balanced';
+    companySelect.addEventListener('change', () => {
+      STATE.aiCompanyMode = companySelect.value;
+      saveState();
+    });
+  }
+  if (blockSelect) {
+    blockSelect.value = String(STATE.aiDailyBlockMin || 90);
+    blockSelect.addEventListener('change', () => {
+      STATE.aiDailyBlockMin = Number(blockSelect.value || 90);
+      saveState();
+    });
+  }
+
+  const advancedToggle = document.getElementById('ai-advanced-toggle');
+  const planWrap = document.getElementById('ai-plan-wrap');
+  if (advancedToggle && planWrap) {
+    advancedToggle.addEventListener('change', (e) => {
+      if (e.target.checked) {
+        planWrap.classList.add('show-advanced');
+      } else {
+        planWrap.classList.remove('show-advanced');
+      }
+    });
+  }
+
+  document.querySelectorAll('#ai-track-picks .track-chip').forEach(chip => {
+    const track = chip.dataset.track;
+    chip.classList.toggle('active', STATE.aiSelectedTracks.includes(track));
+    chip.addEventListener('click', () => {
+      if (STATE.aiSelectedTracks.includes(track)) {
+        STATE.aiSelectedTracks = STATE.aiSelectedTracks.filter(t => t !== track);
+      } else {
+        STATE.aiSelectedTracks.push(track);
+      }
+      if (!STATE.aiSelectedTracks.length) {
+        STATE.aiSelectedTracks = ['dsa'];
+      }
+      document.querySelectorAll('#ai-track-picks .track-chip').forEach(c => {
+        c.classList.toggle('active', STATE.aiSelectedTracks.includes(c.dataset.track));
+      });
+      saveState();
+    });
+  });
+
+  const generateBtn = document.getElementById('btn-ai-generate');
+  const sendBtn = document.getElementById('btn-ai-send');
+  const exportIcsBtn = document.getElementById('btn-ai-export-ics');
+  const exportGcsvBtn = document.getElementById('btn-ai-export-gcsv');
+  const exportJsonBtn = document.getElementById('btn-ai-export-json');
+  const printBtn = document.getElementById('btn-ai-print');
+  const rescheduleBtn = document.getElementById('btn-ai-reschedule');
+  if (generateBtn) {
+    generateBtn.addEventListener('click', generateAIRoadmap);
+  }
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+      if (!STATE.aiLastPlanText) {
+        generateAIRoadmap();
+      }
+      const mentorPrompt = `Refine this interview prep roadmap with risk analysis and day-wise execution tips:\n\n${STATE.aiLastPlanText}`;
+      sendPrompt(mentorPrompt);
+    });
+  }
+  if (rescheduleBtn) {
+    rescheduleBtn.addEventListener('click', autoRescheduleMissedTasks);
+  }
+  if (exportIcsBtn) {
+    exportIcsBtn.addEventListener('click', exportPlanICS);
+  }
+  if (exportGcsvBtn) {
+    exportGcsvBtn.addEventListener('click', exportPlanGoogleCSV);
+  }
+  if (exportJsonBtn) {
+    exportJsonBtn.addEventListener('click', exportPlanJSON);
+  }
+  if (printBtn) {
+    printBtn.addEventListener('click', () => {
+      if (!STATE.aiLastPlanWeeks || !STATE.aiLastPlanWeeks.length) {
+        alert('Generate a roadmap first, then print.');
+        return;
+      }
+      window.print();
+    });
+  }
+
+  if (STATE.aiLastPlanText) {
+    if (STATE.aiLastPlanWeeks && STATE.aiLastPlanWeeks.length) {
+      renderAIOutput(STATE.aiLastPlanWeeks);
+    } else {
+      const out = document.getElementById('ai-output');
+      if (out) {
+        out.innerHTML = '<div class="ai-week"><div class="ai-week-body">Previous plan available. Click <strong>Generate AI Roadmap</strong> to refresh with current inputs.</div></div>';
+      }
+    }
+  }
+}
+
+// ── PILL TABS ─────────────────────────────────────────
+function initPillTabs(trackKey) {
+  const pills = document.getElementById(trackKey+'-pills');
+  if(!pills) return;
+  pills.querySelectorAll('.pill-tab').forEach(pill => {
+    pill.addEventListener('click', ()=>{
+      pills.querySelectorAll('.pill-tab').forEach(p=>p.classList.remove('active'));
+      pill.classList.add('active');
+      renderPillContent(trackKey, pill.dataset.sub);
+    });
+  });
+}
+
+function initGoalControls() {
+  const minus = document.getElementById('btn-goal-minus');
+  const plus = document.getElementById('btn-goal-plus');
+  const reset = document.getElementById('btn-week-reset');
+  if (minus) {
+    minus.addEventListener('click', () => {
+      STATE.weeklyGoal = Math.max(1, STATE.weeklyGoal - 1);
+      saveState();
+      updateProgress();
+    });
+  }
+  if (plus) {
+    plus.addEventListener('click', () => {
+      STATE.weeklyGoal = Math.min(200, STATE.weeklyGoal + 1);
+      saveState();
+      updateProgress();
+    });
+  }
+  if (reset) {
+    reset.addEventListener('click', () => {
+      STATE.weekDone = 0;
+      STATE.weekStartISO = mondayISO();
+      saveState();
+      updateProgress();
+    });
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    const key = tab.dataset.tab;
+    switchTab(key);
+    if(key==='timeline') renderTimeline();
+  });
+});
+
+loadState();
+ensureWeekWindow();
+
+['dsa','apt','sql','sys'].forEach(k=>{
+  initPillTabs(k);
+  const firstSub = Object.keys(TRACKS[k].subs)[0];
+  renderPillContent(k, firstSub);
+});
+
+initGoalControls();
+initAIPlanner();
+
+switchTab('overview');
+if (TRACKS[STATE.activeTrack]) {
+  switchTab(STATE.activeTrack);
+}
+
+updateProgress();
+
+// --- Theme Syncing ---
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  // Optional: tweak the radial gradient background based on theme for better visibility
+  if (theme === 'dark') {
+    document.body.style.background = `radial-gradient(1200px 450px at 10% -20%, color-mix(in srgb, var(--dsa) 20%, transparent), transparent 60%),
+      radial-gradient(900px 360px at 90% -25%, color-mix(in srgb, var(--sql) 20%, transparent), transparent 60%),
+      var(--bg)`;
+  } else {
+    document.body.style.background = `radial-gradient(1200px 450px at 10% -20%, color-mix(in srgb, var(--dsa) 16%, transparent), transparent 58%),
+      radial-gradient(900px 360px at 90% -25%, color-mix(in srgb, var(--sql) 16%, transparent), transparent 56%),
+      var(--bg)`;
+  }
+}
+
+const params = new URLSearchParams(window.location.search);
+const initialTheme = params.get('theme') || localStorage.getItem('theme') || 'light';
+applyTheme(initialTheme);
+
+window.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'THEME_CHANGE' && e.data.theme) {
+    applyTheme(e.data.theme);
+  }
+});
+</script>

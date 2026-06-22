@@ -1,0 +1,1078 @@
+/* ══════════════════════════════════════════════════════════════
+   Advanced Learning Path — Premium Dark Glassmorphism Theme
+   ══════════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ─── Page Container ─── */
+.alp-page {
+  min-height: 100vh;
+  padding: 0 0 100px;
+  color: #e2e8f0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  position: relative;
+  overflow-x: hidden;
+}
+
+.alp-page::before {
+  content: '';
+  position: fixed;
+  top: -200px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.alp-page::after {
+  content: '';
+  position: fixed;
+  bottom: -300px;
+  left: -200px;
+  width: 700px;
+  height: 700px;
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Hero Section ─── */
+.alp-hero {
+  position: relative;
+  padding: 56px 24px 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+  z-index: 1;
+}
+
+.alp-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 18px;
+  border-radius: 99px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  font-size: 13px;
+  font-weight: 600;
+  color: #a5b4fc;
+  margin-bottom: 24px;
+  animation: alp-fadeInDown 0.5s ease;
+}
+
+.alp-hero h1 {
+  font-size: clamp(30px, 4.5vw, 52px);
+  font-weight: 900;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  margin: 0 0 14px;
+  animation: alp-fadeInDown 0.6s ease;
+}
+
+.alp-hero h1 .alp-gradient {
+  background: linear-gradient(135deg, #818cf8 0%, #c084fc 40%, #f472b6 80%, #fb923c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.alp-hero-sub {
+  font-size: 16px;
+  color: #71717a;
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.65;
+  animation: alp-fadeInDown 0.7s ease;
+}
+
+/* ─── Summary Dashboard ─── */
+.alp-dashboard {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  max-width: 1200px;
+  margin: 0 auto 36px;
+  padding: 0 24px;
+  z-index: 1;
+  position: relative;
+  animation: alp-fadeInUp 0.6s ease 0.1s backwards;
+}
+
+.alp-stat-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.alp-stat-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--card-glow) 0%, transparent 60%);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.alp-stat-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.alp-stat-card:hover::before {
+  opacity: 1;
+}
+
+.alp-stat-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.alp-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 4px;
+}
+
+.alp-stat-label {
+  font-size: 11px;
+  color: #71717a;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ─── Configuration Panel ─── */
+.alp-config {
+  max-width: 1200px;
+  margin: 0 auto 36px;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.alp-config-inner {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+  padding: 28px;
+  backdrop-filter: blur(12px);
+}
+
+.alp-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.alp-config-header h2 {
+  font-size: 20px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.alp-config-header h2 svg {
+  color: #818cf8;
+}
+
+.alp-config-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #71717a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.alp-config-toggle.open {
+  transform: rotate(180deg);
+  color: #a5b4fc;
+}
+
+/* ─── Configuration Grid ─── */
+.alp-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.alp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.alp-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.alp-field input,
+.alp-field select {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #e2e8f0;
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.25s ease;
+  outline: none;
+}
+
+.alp-field input:focus,
+.alp-field select:focus {
+  border-color: rgba(129, 140, 248, 0.5);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.alp-field select option {
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+/* ─── Track Cards ─── */
+.alp-tracks-section {
+  margin-bottom: 24px;
+}
+
+.alp-tracks-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.alp-tracks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+}
+
+.alp-track-card {
+  position: relative;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.alp-track-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.alp-track-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.alp-track-card.active {
+  border-color: var(--track-color);
+}
+
+.alp-track-card.active::before {
+  background: linear-gradient(135deg, var(--track-color-alpha) 0%, transparent 60%);
+  opacity: 1;
+}
+
+.alp-track-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.alp-track-name {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.alp-track-count {
+  font-size: 11px;
+  color: #71717a;
+}
+
+.alp-track-check {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+}
+
+.alp-track-card.active .alp-track-check {
+  background: var(--track-color);
+  border-color: var(--track-color);
+  color: #fff;
+}
+
+/* ─── Company Presets ─── */
+.alp-presets-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.alp-preset {
+  padding: 9px 18px;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+}
+
+.alp-preset:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+}
+
+.alp-preset.active {
+  background: rgba(129, 140, 248, 0.15);
+  border-color: rgba(129, 140, 248, 0.4);
+  color: #a5b4fc;
+}
+
+/* ─── Action Bar ─── */
+.alp-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.alp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  font-family: inherit;
+}
+
+.alp-btn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.alp-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.alp-btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.25);
+}
+
+.alp-btn-primary:hover:not(:disabled) {
+  box-shadow: 0 8px 32px rgba(99, 102, 241, 0.4);
+  transform: translateY(-2px);
+}
+
+/* ─── Summary Bar ─── */
+.alp-summary-bar {
+  max-width: 1200px;
+  margin: 0 auto 28px;
+  padding: 0 24px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  animation: alp-fadeInUp 0.4s ease;
+}
+
+.alp-summary-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.alp-summary-pill svg {
+  flex-shrink: 0;
+}
+
+/* ─── Timeline Roadmap ─── */
+.alp-timeline {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.alp-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.alp-timeline-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.alp-timeline-line {
+  position: relative;
+}
+
+.alp-timeline-line::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(129, 140, 248, 0.3) 0%, rgba(236, 72, 153, 0.1) 100%);
+  border-radius: 2px;
+}
+
+/* ─── Week Card ─── */
+.alp-week-card {
+  position: relative;
+  margin-bottom: 20px;
+  padding-left: 56px;
+  animation: alp-fadeInUp 0.5s ease backwards;
+}
+
+.alp-week-dot {
+  position: absolute;
+  left: 12px;
+  top: 24px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 3px solid;
+  background: #0a0a0f;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alp-week-dot-inner {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.alp-week-body {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  overflow: hidden;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.alp-week-body:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.alp-week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.25s ease;
+}
+
+.alp-week-header:hover {
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.alp-week-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.alp-week-num {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #71717a;
+}
+
+.alp-week-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.alp-week-dates {
+  font-size: 12px;
+  color: #52525b;
+  margin-top: 3px;
+}
+
+.alp-week-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.alp-week-topics-preview {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.alp-topic-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.alp-confidence-gauge {
+  position: relative;
+  width: 48px;
+  height: 48px;
+}
+
+.alp-confidence-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.alp-week-chevron {
+  color: #52525b;
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.alp-week-chevron.open {
+  transform: rotate(180deg);
+  color: #a5b4fc;
+}
+
+/* ─── Day Plan ─── */
+.alp-day-grid {
+  padding: 0 22px 18px;
+  display: grid;
+  gap: 8px;
+  animation: alp-fadeIn 0.3s ease;
+}
+
+.alp-day-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: all 0.25s ease;
+}
+
+.alp-day-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.alp-day-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.alp-day-task {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cbd5e1;
+}
+
+.alp-day-time {
+  font-size: 11px;
+  color: #52525b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ─── Empty State ─── */
+.alp-empty-state {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.alp-empty-inner {
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  padding: 64px 32px;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.alp-empty-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: rgba(99, 102, 241, 0.08);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.alp-empty-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.alp-empty-desc {
+  font-size: 14px;
+  color: #52525b;
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ─── Animations ─── */
+@keyframes alp-fadeInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alp-fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alp-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes alp-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .alp-dashboard {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alp-tracks-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .alp-week-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .alp-week-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 600px) {
+  .alp-hero {
+    padding: 36px 16px 24px;
+  }
+
+  .alp-dashboard {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .alp-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .alp-tracks-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .alp-config-inner {
+    padding: 18px;
+  }
+
+  .alp-timeline-line::before {
+    left: 15px;
+  }
+
+  .alp-week-card {
+    padding-left: 44px;
+  }
+
+  .alp-week-dot {
+    left: 6px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .alp-day-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .alp-day-badge {
+    justify-self: start;
+  }
+
+  .alp-presets-row {
+    gap: 6px;
+  }
+
+  .alp-action-bar {
+    gap: 6px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+.alp-page.alp-light {
+  color: #1e293b;
+}
+
+.alp-page.alp-light::before {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+}
+
+.alp-page.alp-light::after {
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.04) 0%, transparent 70%);
+}
+
+/* Hero */
+.alp-light .alp-hero-badge {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.18);
+  color: #6366f1;
+}
+
+.alp-light .alp-hero-sub {
+  color: #64748b;
+}
+
+/* Dashboard Stats */
+.alp-light .alp-stat-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.alp-light .alp-stat-card:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.alp-light .alp-stat-label {
+  color: #64748b;
+}
+
+/* Config Panel */
+.alp-light .alp-config-inner {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.alp-light .alp-config-header h2 {
+  color: #1e293b;
+}
+
+.alp-light .alp-config-toggle {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.03);
+  color: #94a3b8;
+}
+
+.alp-light .alp-field-label {
+  color: #64748b;
+}
+
+.alp-light .alp-field input,
+.alp-light .alp-field select {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.alp-light .alp-field input:focus,
+.alp-light .alp-field select:focus {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+}
+
+.alp-light .alp-field select option {
+  background: #fff;
+  color: #1e293b;
+}
+
+/* Track cards */
+.alp-light .alp-track-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.alp-light .alp-track-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.alp-light .alp-track-name {
+  color: #1e293b;
+}
+
+.alp-light .alp-track-count {
+  color: #64748b;
+}
+
+.alp-light .alp-track-check {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+/* Company presets */
+.alp-light .alp-preset {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  color: #64748b;
+}
+
+.alp-light .alp-preset:hover {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: #1e293b;
+}
+
+.alp-light .alp-preset.active {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #6366f1;
+}
+
+/* Action buttons */
+.alp-light .alp-btn {
+  border-color: rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.8);
+  color: #475569;
+}
+
+.alp-light .alp-btn:hover:not(:disabled) {
+  border-color: rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* Summary pills */
+.alp-light .alp-summary-pill {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+/* Timeline */
+.alp-light .alp-timeline-line::before {
+  background: linear-gradient(180deg, rgba(99, 102, 241, 0.2) 0%, rgba(236, 72, 153, 0.08) 100%);
+}
+
+.alp-light .alp-week-dot {
+  background: #f8fafc;
+}
+
+.alp-light .alp-week-body {
+  background: rgba(255, 255, 255, 0.7);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.alp-light .alp-week-body:hover {
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.alp-light .alp-week-header:hover {
+  background: rgba(0, 0, 0, 0.015);
+}
+
+.alp-light .alp-week-num {
+  color: #94a3b8;
+}
+
+.alp-light .alp-week-title {
+  color: #1e293b;
+}
+
+.alp-light .alp-week-dates {
+  color: #94a3b8;
+}
+
+.alp-light .alp-week-chevron {
+  color: #94a3b8;
+}
+
+/* Day rows */
+.alp-light .alp-day-row {
+  background: rgba(0, 0, 0, 0.015);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.alp-light .alp-day-row:hover {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+
+.alp-light .alp-day-task {
+  color: #334155;
+}
+
+.alp-light .alp-day-time {
+  color: #94a3b8;
+}
+
+/* Empty state */
+.alp-light .alp-empty-inner {
+  border-color: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.alp-light .alp-empty-icon {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.alp-light .alp-empty-title {
+  color: #1e293b;
+}
+
+.alp-light .alp-empty-desc {
+  color: #64748b;
+}
+
+/* Confidence ring light mode — SVG tracks handled via inline styles */
+
+/* ─── Print ─── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .alp-page {
+    color: #0f172a;
+    padding: 0;
+  }
+
+  .alp-page::before,
+  .alp-page::after {
+    display: none;
+  }
+
+  .alp-week-body {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border-color: #d1d5db;
+    background: #fff;
+  }
+
+  .alp-timeline-line::before {
+    background: #cbd5e1;
+  }
+
+  .alp-week-header,
+  .alp-day-row {
+    color: #1e293b;
+  }
+
+  .alp-day-task {
+    color: #334155;
+  }
+}

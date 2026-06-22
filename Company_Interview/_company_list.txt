@@ -1,0 +1,80 @@
+   1  Abbott
+  16  Accenture
+   2  Acronis
+   9  Adobe
+   5  ADP
+   2  Adyen
+   2  Affirm
+   4  Agoda
+   1  AIG
+   3  Airbnb
+   1  Airbus
+   6  Airtel
+   4  Akamai Technologies
+   1  Alarm.com
+   2  Amadeus
+  34  Amazon
+   5  Amazon Web Services (AWS)
+   2  AMD (ADVANCED MICRO DEVICES)
+   5  Amdocs
+   1  American Express
+   1  Ant Group
+   1  Antra
+   3  AppFolio
+  12  Apple
+   1  Arm
+   1  ASML
+   3  AT&T
+   1  Atlassian
+   2  Atos
+   1  Audible
+   1  Autodesk
+   1  Avanade
+   1  Bank of America
+   1  BlackRock
+   1  Block
+  12  Bloomberg LP
+   1  BNP Paribas
+   1  BNY Mellon
+   2  Boeing
+   1  Broadcom Inc.
+   1  BT Group
+   1  ByteDance
+   8  Capgemini
+   2  Capital One
+   1  Carelon Global Solutions
+   3  Cerner Corporation
+   1  Chegg
+   1  Chewy
+   6  Cisco
+   3  Citadel
+   1  Citadel Securities
+   2  Citrix
+   1  Cloudera
+   1  Cloudflare
+   1  CME Group
+   5  Cognizant
+   1  Coinbase
+   1  Dassault Systèmes
+   1  Databricks
+   2  Dell Technologies
+   1  Deloitte
+   1  Docusign
+   1  DoorDash
+   2  DXC Technology
+   3  EPAM Systems
+   1  Epic
+   2  Expedia Group
+   1  F5
+   1  FactSet
+   3  Flipkart
+   1  Fractal
+   1  Freshworks
+   1  Garena
+   1  General Motors
+   1  Globallogic
+   1  Globant
+   4  Goldman Sachs
+2406  Google
+
+Total: 78 companies, 2629 rows

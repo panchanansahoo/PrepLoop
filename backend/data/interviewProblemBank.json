@@ -1,0 +1,132 @@
+{
+  "dsa": {
+    "easy": [
+      { "id": "dsa-e-1", "statement": "Given an array of integers, find the maximum product of any two elements.", "requirements": "Time: O(n), Space: O(1). Handle negative numbers.", "tags": ["arrays", "math"], "companies": ["Google", "Amazon"] },
+      { "id": "dsa-e-2", "statement": "Given a string, determine if it is a valid palindrome considering only alphanumeric characters.", "requirements": "Time: O(n), Space: O(1). Ignore case differences.", "tags": ["strings", "two-pointers"], "companies": ["Meta", "Microsoft"] },
+      { "id": "dsa-e-3", "statement": "Given two sorted arrays, merge them into one sorted array without extra space proportional to their combined length.", "requirements": "Time: O(n+m), Space: O(1) extra. Handle empty arrays.", "tags": ["arrays", "sorting"], "companies": ["Amazon", "Apple"] },
+      { "id": "dsa-e-4", "statement": "Implement a function to check if two strings are anagrams of each other.", "requirements": "Time: O(n), Space: O(1) with fixed alphabet. Handle unicode and case sensitivity.", "tags": ["strings", "hash-map"], "companies": ["Google", "Flipkart"] },
+      { "id": "dsa-e-5", "statement": "Find the first non-repeating character in a string and return its index.", "requirements": "Time: O(n), Space: O(1). Return -1 if no unique character exists.", "tags": ["strings", "hash-map"], "companies": ["Amazon", "TCS"] },
+      { "id": "dsa-e-6", "statement": "Given a sorted array, remove duplicates in-place and return the new length.", "requirements": "Time: O(n), Space: O(1). Modify array in-place.", "tags": ["arrays", "two-pointers"], "companies": ["Microsoft", "Infosys"] },
+      { "id": "dsa-e-7", "statement": "Implement a stack that supports push, pop, top, and retrieving the minimum element in constant time.", "requirements": "All operations must be O(1). Handle empty stack edge case.", "tags": ["stack", "design"], "companies": ["Amazon", "Google"] },
+      { "id": "dsa-e-8", "statement": "Given a linked list, determine if it has a cycle.", "requirements": "Time: O(n), Space: O(1). Use Floyd's cycle detection.", "tags": ["linked-list", "two-pointers"], "companies": ["Meta", "Apple"] },
+      { "id": "dsa-e-9", "statement": "Given an integer array, find the contiguous subarray with the largest sum.", "requirements": "Time: O(n), Space: O(1). Handle all-negative arrays.", "tags": ["arrays", "dynamic-programming", "greedy"], "companies": ["Amazon", "Microsoft"] },
+      { "id": "dsa-e-10", "statement": "Implement binary search on a sorted array. Return the index of the target or -1.", "requirements": "Time: O(log n), Space: O(1). Handle empty array and single element.", "tags": ["binary-search"], "companies": ["Google", "Wipro"] }
+    ],
+    "medium": [
+      { "id": "dsa-m-1", "statement": "Design an LRU (Least Recently Used) Cache with get() and put() operations.", "requirements": "Both operations should be O(1). Support custom capacity.", "tags": ["design", "hash-map", "linked-list"], "companies": ["Google", "Amazon", "Meta"] },
+      { "id": "dsa-m-2", "statement": "Given a binary tree, return the level order traversal of its nodes values grouped by level.", "requirements": "Time: O(n). Handle empty trees and single-node trees.", "tags": ["trees", "bfs"], "companies": ["Microsoft", "Apple"] },
+      { "id": "dsa-m-3", "statement": "Find the length of the longest substring without repeating characters in a given string.", "requirements": "Time: O(n), Space: O(min(n, alphabet)). Handle empty strings.", "tags": ["strings", "sliding-window", "hash-map"], "companies": ["Amazon", "Meta"] },
+      { "id": "dsa-m-4", "statement": "Given an array of integers and a target, return indices of two numbers that add up to the target.", "requirements": "Time: O(n), Space: O(n). Each input has exactly one solution.", "tags": ["arrays", "hash-map"], "companies": ["Google", "Apple", "Amazon"] },
+      { "id": "dsa-m-5", "statement": "Implement a function to serialize and deserialize a binary tree.", "requirements": "Time: O(n) for both operations. Handle null nodes.", "tags": ["trees", "design", "bfs"], "companies": ["Meta", "Google"] },
+      { "id": "dsa-m-6", "statement": "Given an m×n grid of 0s and 1s, count the number of distinct islands.", "requirements": "Time: O(m*n). Handle single-cell islands and diagonal adjacency.", "tags": ["graphs", "dfs", "bfs"], "companies": ["Amazon", "Netflix"] },
+      { "id": "dsa-m-7", "statement": "Find the kth largest element in an unsorted array without fully sorting it.", "requirements": "Average Time: O(n). Handle duplicates and single-element arrays.", "tags": ["arrays", "heap", "quickselect"], "companies": ["Meta", "Flipkart"] },
+      { "id": "dsa-m-8", "statement": "Given a list of intervals, merge all overlapping intervals.", "requirements": "Time: O(n log n). Handle edge cases: single interval, no overlap, full overlap.", "tags": ["arrays", "sorting", "intervals"], "companies": ["Google", "Uber"] },
+      { "id": "dsa-m-9", "statement": "Implement a trie (prefix tree) with insert, search, and startsWith methods.", "requirements": "Insert and search in O(word length). Space efficient for shared prefixes.", "tags": ["trie", "design"], "companies": ["Google", "Microsoft"] },
+      { "id": "dsa-m-10", "statement": "Given a matrix, find the longest increasing path. You can move up, down, left, or right.", "requirements": "Time: O(m*n). Use memoization. Handle single-cell matrix.", "tags": ["graphs", "dfs", "dynamic-programming"], "companies": ["Google", "Amazon"] },
+      { "id": "dsa-m-11", "statement": "Design a data structure that supports insert, delete, and getRandom in O(1) average time.", "requirements": "All three operations O(1) average. Handle duplicates.", "tags": ["design", "hash-map", "arrays"], "companies": ["Meta", "Uber"] },
+      { "id": "dsa-m-12", "statement": "Given a string containing just the characters '(' and ')', find the length of the longest valid parentheses substring.", "requirements": "Time: O(n), Space: O(n). Handle nested and sequential valid pairs.", "tags": ["strings", "stack", "dynamic-programming"], "companies": ["Amazon", "Microsoft"] }
+    ],
+    "hard": [
+      { "id": "dsa-h-1", "statement": "Implement a data structure for Median Finder that supports addNum() and findMedian() operations.", "requirements": "addNum() in O(log n), findMedian() in O(1). Support continuous stream.", "tags": ["heap", "design"], "companies": ["Google", "Amazon"] },
+      { "id": "dsa-h-2", "statement": "Given a matrix of 0s and 1s, find the largest rectangle containing only 1s and return its area.", "requirements": "Time: O(rows * cols), Space: O(cols). Handle edge cases.", "tags": ["stack", "dynamic-programming", "arrays"], "companies": ["Meta", "Google"] },
+      { "id": "dsa-h-3", "statement": "Implement a trie-based autocomplete system that returns the top 3 suggestions for each character typed.", "requirements": "Insert in O(word length), search in O(prefix length + k). Rank by frequency.", "tags": ["trie", "design", "heap"], "companies": ["Google", "Amazon", "Apple"] },
+      { "id": "dsa-h-4", "statement": "Given n buildings on a skyline, compute the outline of the combined silhouette.", "requirements": "Time: O(n log n). Handle overlapping and adjacent buildings.", "tags": ["heap", "divide-and-conquer", "sorting"], "companies": ["Google", "Microsoft"] },
+      { "id": "dsa-h-5", "statement": "Implement a solution to the word ladder problem: find the shortest transformation sequence from beginWord to endWord.", "requirements": "Time: O(M² × N) where M=word length, N=list size. Return 0 if no path.", "tags": ["bfs", "graphs", "strings"], "companies": ["Amazon", "Meta"] },
+      { "id": "dsa-h-6", "statement": "Design a data structure that supports adding words and searching with wildcards (. matches any letter).", "requirements": "Add in O(word length). Search in O(26^dots × word length) worst case.", "tags": ["trie", "design", "dfs"], "companies": ["Meta", "Google"] },
+      { "id": "dsa-h-7", "statement": "Given a stream of integers, find the sliding window median for each window of size k.", "requirements": "Time: O(n log k) per element. Handle even and odd window sizes.", "tags": ["heap", "sliding-window", "sorting"], "companies": ["Google", "Uber"] },
+      { "id": "dsa-h-8", "statement": "Solve the N-Queens problem: place N queens on an N×N board so no two queens threaten each other.", "requirements": "Return all distinct solutions. Time: O(N!). Handle N=1 to N=9.", "tags": ["backtracking", "recursion"], "companies": ["Amazon", "Apple"] },
+      { "id": "dsa-h-9", "statement": "Given an alien language with a sorted dictionary of words, derive the order of characters in the alien alphabet.", "requirements": "Time: O(C) where C=total chars. Handle invalid inputs.", "tags": ["graphs", "topological-sort", "bfs"], "companies": ["Google", "Meta", "Airbnb"] },
+      { "id": "dsa-h-10", "statement": "Find the minimum window substring in S that contains all characters of T.", "requirements": "Time: O(n), Space: O(k) where k=unique chars in T. Handle duplicates in T.", "tags": ["strings", "sliding-window", "hash-map"], "companies": ["Meta", "Amazon", "Google"] }
+    ]
+  },
+  "system_design": {
+    "easy": [
+      { "id": "sd-e-1", "statement": "Design a URL shortening service like bit.ly.", "requirements": "Handle 100M URLs, support custom aliases, track click analytics.", "tags": ["web", "database"], "companies": ["Google", "Amazon"] },
+      { "id": "sd-e-2", "statement": "Design a paste bin service that allows users to share text snippets via unique links.", "requirements": "Support expiry, access control (public/private), and 10K concurrent users.", "tags": ["web", "storage"], "companies": ["Microsoft", "Flipkart"] },
+      { "id": "sd-e-3", "statement": "Design a task queue system that processes background jobs reliably.", "requirements": "Support retries, priority, and dead-letter queues. At-least-once delivery.", "tags": ["distributed", "messaging"], "companies": ["Amazon", "Uber"] },
+      { "id": "sd-e-4", "statement": "Design a rate limiter for an API gateway.", "requirements": "Support per-user and per-endpoint limits. Handle distributed deployment.", "tags": ["web", "distributed"], "companies": ["Stripe", "Razorpay"] },
+      { "id": "sd-e-5", "statement": "Design a file storage service like Google Drive for personal use.", "requirements": "Support upload, download, versioning, and sharing. 50GB per user.", "tags": ["storage", "web"], "companies": ["Google", "Microsoft"] },
+      { "id": "sd-e-6", "statement": "Design a logging and monitoring system for a microservices architecture.", "requirements": "Centralized log aggregation, alerting, and dashboard. Handle 1M logs/min.", "tags": ["observability", "distributed"], "companies": ["Netflix", "Amazon"] },
+      { "id": "sd-e-7", "statement": "Design an online bookstore with search, recommendations, and checkout.", "requirements": "Support 100K products, full-text search, and payment integration.", "tags": ["e-commerce", "web"], "companies": ["Amazon", "Flipkart"] },
+      { "id": "sd-e-8", "statement": "Design a simple content delivery network (CDN) for static assets.", "requirements": "Cache invalidation, edge nodes in 3 regions, 99.9% uptime.", "tags": ["distributed", "caching"], "companies": ["Netflix", "Spotify"] }
+    ],
+    "medium": [
+      { "id": "sd-m-1", "statement": "Design a real-time chat application supporting 1-on-1 and group messaging.", "requirements": "Support 1M concurrent users, message delivery guarantees, and read receipts.", "tags": ["real-time", "messaging"], "companies": ["Meta", "Slack"] },
+      { "id": "sd-m-2", "statement": "Design a notification system that delivers push, email, and SMS notifications.", "requirements": "Support rate limiting, user preferences, and 10M notifications/day.", "tags": ["messaging", "distributed"], "companies": ["Amazon", "Uber"] },
+      { "id": "sd-m-3", "statement": "Design a ride-sharing service like Uber for matching drivers and riders.", "requirements": "Geo-proximity matching, surge pricing, and ETA calculation.", "tags": ["real-time", "geo"], "companies": ["Uber", "Swiggy"] },
+      { "id": "sd-m-4", "statement": "Design a web crawler that can index 1 billion pages.", "requirements": "Handle politeness policies, deduplication, and distributed crawling.", "tags": ["distributed", "web"], "companies": ["Google", "Microsoft"] },
+      { "id": "sd-m-5", "statement": "Design an e-commerce platform's order management system.", "requirements": "Handle inventory, payments, fulfillment, returns. 100K orders/day.", "tags": ["e-commerce", "distributed"], "companies": ["Amazon", "Flipkart"] },
+      { "id": "sd-m-6", "statement": "Design a location-based restaurant recommendation service.", "requirements": "Support geo-search, ratings, reviews, and 10M active users.", "tags": ["geo", "search"], "companies": ["Zomato", "Swiggy"] },
+      { "id": "sd-m-7", "statement": "Design a collaborative document editor like Google Docs.", "requirements": "Real-time sync, conflict resolution (OT/CRDT), and offline support.", "tags": ["real-time", "distributed"], "companies": ["Google", "Microsoft"] },
+      { "id": "sd-m-8", "statement": "Design a payment processing system that handles card transactions.", "requirements": "PCI compliance, idempotency, retry logic, and 50K TPS.", "tags": ["fintech", "distributed"], "companies": ["Stripe", "Razorpay", "PayPal"] }
+    ],
+    "hard": [
+      { "id": "sd-h-1", "statement": "Design a distributed video streaming platform similar to YouTube.", "requirements": "Adaptive bitrate, CDN distribution, 100M DAU, and live streaming.", "tags": ["streaming", "distributed"], "companies": ["YouTube", "Netflix"] },
+      { "id": "sd-h-2", "statement": "Design a global-scale social media news feed with real-time updates.", "requirements": "Fan-out, ranking, 500M users, and sub-second latency.", "tags": ["social", "distributed"], "companies": ["Meta", "Twitter / X"] },
+      { "id": "sd-h-3", "statement": "Design a distributed search engine that indexes and queries billions of web pages.", "requirements": "Relevance ranking, real-time indexing, and horizontal scaling.", "tags": ["search", "distributed"], "companies": ["Google", "Microsoft"] },
+      { "id": "sd-h-4", "statement": "Design a stock trading platform with real-time market data and order matching.", "requirements": "Sub-millisecond matching, ACID transactions, and regulatory compliance.", "tags": ["fintech", "real-time"], "companies": ["Zerodha", "Goldman Sachs"] },
+      { "id": "sd-h-5", "statement": "Design a multi-region database with strong consistency guarantees.", "requirements": "Cross-region replication, leader election, and linearizable reads.", "tags": ["database", "distributed"], "companies": ["Google", "Amazon"] },
+      { "id": "sd-h-6", "statement": "Design a real-time multiplayer game backend supporting 1M concurrent players.", "requirements": "State sync, lag compensation, matchmaking, and anti-cheat.", "tags": ["real-time", "distributed"], "companies": ["Dream11", "Riot Games"] }
+    ]
+  },
+  "behavioral": {
+    "easy": [
+      { "id": "bh-e-1", "statement": "Tell me about a time when you had to learn a new technology quickly to meet a project deadline.", "requirements": "Focus on learning approach, time management, and outcome.", "tags": ["learning", "adaptability"] },
+      { "id": "bh-e-2", "statement": "Describe a situation where you received constructive criticism. How did you respond?", "requirements": "Focus on self-awareness, growth mindset, and concrete changes.", "tags": ["feedback", "growth"] },
+      { "id": "bh-e-3", "statement": "Tell me about a time you helped a teammate who was struggling.", "requirements": "Focus on empathy, communication, and team impact.", "tags": ["teamwork", "empathy"] },
+      { "id": "bh-e-4", "statement": "Describe a time when you had to explain a complex technical concept to a non-technical person.", "requirements": "Focus on clarity, patience, and outcome.", "tags": ["communication", "leadership"] },
+      { "id": "bh-e-5", "statement": "Tell me about a project you worked on that you are particularly proud of.", "requirements": "Focus on contribution, impact, and lessons learned.", "tags": ["ownership", "impact"] },
+      { "id": "bh-e-6", "statement": "Describe a time when you had to meet a tight deadline. How did you prioritize?", "requirements": "Focus on prioritization, time management, and delivery.", "tags": ["time-management", "delivery"] },
+      { "id": "bh-e-7", "statement": "Tell me about a time you made a mistake at work and how you handled it.", "requirements": "Focus on accountability, learning, and prevention.", "tags": ["accountability", "growth"] },
+      { "id": "bh-e-8", "statement": "Describe a situation where you went above and beyond your normal responsibilities.", "requirements": "Focus on initiative, impact, and motivation.", "tags": ["initiative", "ownership"] }
+    ],
+    "medium": [
+      { "id": "bh-m-1", "statement": "Tell me about a time you had to make a difficult technical decision with incomplete information.", "requirements": "Focus on decision-making framework, risk assessment, and outcome.", "tags": ["decision-making", "ambiguity"] },
+      { "id": "bh-m-2", "statement": "Describe a situation where you disagreed with your manager about a technical approach.", "requirements": "Focus on professional conflict resolution and evidence-based arguments.", "tags": ["conflict", "influence"] },
+      { "id": "bh-m-3", "statement": "Tell me about a project that failed. What was your role and what did you learn?", "requirements": "Focus on accountability, root cause analysis, and applied lessons.", "tags": ["failure", "growth"] },
+      { "id": "bh-m-4", "statement": "Describe a time when you had to work with a difficult colleague. How did you handle it?", "requirements": "Focus on empathy, communication strategy, and resolution.", "tags": ["conflict", "teamwork"] },
+      { "id": "bh-m-5", "statement": "Tell me about a time you had to push back on a product requirement you thought was wrong.", "requirements": "Focus on data-driven arguments, stakeholder management, and outcome.", "tags": ["influence", "product-sense"] },
+      { "id": "bh-m-6", "statement": "Describe a situation where you had to onboard quickly into an unfamiliar codebase.", "requirements": "Focus on systematic approach, asking for help, and ramp-up speed.", "tags": ["learning", "adaptability"] },
+      { "id": "bh-m-7", "statement": "Tell me about a time you identified a process inefficiency and improved it.", "requirements": "Focus on observation, initiative, and measurable improvement.", "tags": ["initiative", "impact"] },
+      { "id": "bh-m-8", "statement": "Describe when you mentored a junior developer. What approach did you take?", "requirements": "Focus on teaching style, patience, and the mentee's growth.", "tags": ["leadership", "mentoring"] }
+    ],
+    "hard": [
+      { "id": "bh-h-1", "statement": "Describe a time when you led a cross-functional initiative under tight deadlines and shifting priorities.", "requirements": "Focus on stakeholder management, prioritization, and measurable impact.", "tags": ["leadership", "cross-functional"] },
+      { "id": "bh-h-2", "statement": "Tell me about a time you drove a significant technical improvement that required buy-in from multiple teams.", "requirements": "Focus on influence without authority, vision, and quantified results.", "tags": ["influence", "technical-leadership"] },
+      { "id": "bh-h-3", "statement": "Describe a high-pressure production incident you managed. Walk me through your decision-making.", "requirements": "Focus on incident leadership, communication under pressure, and post-mortem.", "tags": ["incident-response", "leadership"] },
+      { "id": "bh-h-4", "statement": "Tell me about a time you had to make a trade-off between speed and quality. How did you decide?", "requirements": "Focus on risk analysis, stakeholder communication, and long-term thinking.", "tags": ["decision-making", "trade-offs"] },
+      { "id": "bh-h-5", "statement": "Describe a situation where you had to deliver bad news to leadership. How did you approach it?", "requirements": "Focus on transparency, framing, proposed solutions, and outcome.", "tags": ["communication", "leadership"] },
+      { "id": "bh-h-6", "statement": "Tell me about a time you had to rebuild trust after a team or project setback.", "requirements": "Focus on accountability, concrete recovery actions, and relationship repair.", "tags": ["trust", "resilience"] }
+    ]
+  },
+  "hr": {
+    "easy": [
+      { "id": "hr-e-1", "statement": "Tell me about yourself and what excites you about this career direction.", "requirements": "Focus on career narrative, motivation, and role alignment.", "tags": ["introduction", "motivation"] },
+      { "id": "hr-e-2", "statement": "What are your greatest strengths, and how have they helped you in your work or studies?", "requirements": "Focus on self-awareness, concrete examples, and relevance.", "tags": ["self-awareness", "strengths"] },
+      { "id": "hr-e-3", "statement": "Where do you see yourself in 3-5 years?", "requirements": "Focus on growth mindset, realistic ambition, and alignment.", "tags": ["career-goals", "ambition"] },
+      { "id": "hr-e-4", "statement": "Why are you interested in this particular role and company?", "requirements": "Focus on research, specific alignment, and genuine enthusiasm.", "tags": ["motivation", "research"] },
+      { "id": "hr-e-5", "statement": "How do you stay updated with the latest technology trends?", "requirements": "Focus on learning habits, curiosity, and practical application.", "tags": ["learning", "curiosity"] },
+      { "id": "hr-e-6", "statement": "What do you enjoy most about software engineering?", "requirements": "Focus on genuine passion, specific examples, and depth.", "tags": ["passion", "motivation"] },
+      { "id": "hr-e-7", "statement": "Tell me about a hobby or side project that you are passionate about.", "requirements": "Focus on creativity, persistence, and transferable skills.", "tags": ["passion", "creativity"] },
+      { "id": "hr-e-8", "statement": "How do you handle feedback from code reviews?", "requirements": "Focus on openness, learning attitude, and examples of improvement.", "tags": ["feedback", "growth"] }
+    ],
+    "medium": [
+      { "id": "hr-m-1", "statement": "What kind of work environment brings out the best in you?", "requirements": "Focus on self-knowledge, collaboration style, and cultural fit.", "tags": ["culture-fit", "self-awareness"] },
+      { "id": "hr-m-2", "statement": "How do you handle work-life balance during high-pressure periods?", "requirements": "Focus on sustainability, boundary-setting, and maturity.", "tags": ["work-life", "maturity"] },
+      { "id": "hr-m-3", "statement": "What is a professional challenge you are currently working on improving?", "requirements": "Focus on honest self-assessment and active improvement.", "tags": ["self-awareness", "growth"] },
+      { "id": "hr-m-4", "statement": "How do you approach working with people who have different working styles?", "requirements": "Focus on adaptability, empathy, and communication.", "tags": ["teamwork", "adaptability"] },
+      { "id": "hr-m-5", "statement": "What motivates you to do your best work?", "requirements": "Focus on intrinsic motivation, specific drivers, and examples.", "tags": ["motivation", "self-awareness"] },
+      { "id": "hr-m-6", "statement": "How do you handle ambiguity in your work?", "requirements": "Focus on comfort with uncertainty, proactive clarification, and examples.", "tags": ["ambiguity", "adaptability"] },
+      { "id": "hr-m-7", "statement": "Describe your ideal manager. What qualities matter most to you?", "requirements": "Focus on self-knowledge, growth orientation, and collaboration.", "tags": ["culture-fit", "management"] },
+      { "id": "hr-m-8", "statement": "What would your previous manager or professor say is your biggest area for growth?", "requirements": "Focus on external perspective, honest reflection, and action taken.", "tags": ["self-awareness", "growth"] }
+    ],
+    "hard": [
+      { "id": "hr-h-1", "statement": "Describe a time when your values conflicted with a company decision. How did you navigate it?", "requirements": "Focus on ethical reasoning, professional judgment, and resolution.", "tags": ["ethics", "values"] },
+      { "id": "hr-h-2", "statement": "If you had to choose between delivering on time with tech debt or delaying for quality, how would you decide?", "requirements": "Focus on trade-off reasoning, stakeholder awareness, and communication.", "tags": ["trade-offs", "decision-making"] },
+      { "id": "hr-h-3", "statement": "What would you do in your first 90 days if you joined our team?", "requirements": "Focus on learning orientation, relationship building, and early contribution.", "tags": ["onboarding", "strategy"] },
+      { "id": "hr-h-4", "statement": "How would you handle a situation where you strongly disagree with a company-wide technical direction?", "requirements": "Focus on constructive dissent, evidence-based advocacy, and commitment.", "tags": ["influence", "values"] },
+      { "id": "hr-h-5", "statement": "What is the most significant professional risk you have taken, and what happened?", "requirements": "Focus on calculated risk-taking, learning, and growth.", "tags": ["risk-taking", "growth"] },
+      { "id": "hr-h-6", "statement": "If you could redesign the hiring process for engineering roles, what would you change and why?", "requirements": "Focus on empathy, process thinking, and industry awareness.", "tags": ["process", "empathy"] }
+    ]
+  }
+}
