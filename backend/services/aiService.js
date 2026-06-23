@@ -63,7 +63,8 @@ let geminiAi = null;
 if (process.env.GEMINI_API_KEY) {
   try {
     // Try a few common package exports; prefer the official package if installed.
-    const mod = await import('@google/generative-ai').catch(() => null) ||
+    const mod = await import('@google/genai').catch(() => null) ||
+                await import('@google/generative-ai').catch(() => null) ||
                 await import('google-gen-ai').catch(() => null) ||
                 null;
 
