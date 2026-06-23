@@ -2995,7 +2995,8 @@ h3 {
 
 .hiw-desc {
   font-size: 15px;
-  color: #a1a1aa; /* var(--zinc-400) fallback */
+  color: #a1a1aa;
+  /* var(--zinc-400) fallback */
   line-height: 1.6;
   max-width: 280px;
 }
@@ -3047,7 +3048,8 @@ h3 {
 }
 
 .hiw-connector-arrow {
-  color: #4b5563; /* var(--zinc-600) fallback */
+  color: #4b5563;
+  /* var(--zinc-600) fallback */
   z-index: 2;
   background: var(--bg-primary, #09090b);
   padding: 2px;
@@ -3058,12 +3060,15 @@ h3 {
     left: 0%;
     opacity: 0;
   }
+
   10% {
     opacity: 1;
   }
+
   90% {
     opacity: 1;
   }
+
   100% {
     left: 100%;
     opacity: 0;
@@ -3075,6 +3080,7 @@ h3 {
     flex-direction: column;
     gap: 40px;
   }
+
   .hiw-connector {
     display: none;
   }
@@ -3116,6 +3122,7 @@ h3 {
   0% {
     transform: translateX(0);
   }
+
   100% {
     transform: translateX(calc(-100% / 3));
   }
