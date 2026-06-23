@@ -18,3 +18,7 @@ AUTH CHECK: GET /api/dsa/progress - Token present: false
 AUTH FAIL: No token
 AUTH CHECK: GET /api/notes/bookmarks?type=dsa - Token present: false
 AUTH FAIL: No token
+AUTH CHECK: GET /api/dsa/progress - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/notes/bookmarks?type=dsa - Token present: false
+AUTH FAIL: No token

@@ -339,7 +339,7 @@ router.get('/progress', authenticateToken, async (req, res) => {
       const yesterday = yesterdayDate.toISOString().slice(0, 10);
 
       if (uniqueSortedDates[0] === today || uniqueSortedDates[0] === yesterday) {
-        let cursorDate = new Date(uniqueSortedDates[0] === yesterday ? yesterdayDate : new Date());
+        const cursorDate = new Date(uniqueSortedDates[0] === yesterday ? yesterdayDate : new Date());
         for (let i = 0; i < uniqueSortedDates.length; i++) {
           const expectedStr = cursorDate.toISOString().slice(0, 10);
           if (uniqueSortedDates[i] === expectedStr) {
