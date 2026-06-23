@@ -26,6 +26,7 @@ Return ONLY a raw JSON array of objects. Each object must have:
 - "input": an array of arguments to pass to the function.
 - "output": the expected return value.
 
+CRITICAL: "input" MUST be a list of arguments. If the function takes exactly ONE argument which is an array, you MUST wrap it in another array. For example, if the function takes one array [1,2,3], the input should be [[1,2,3]]. If it takes two arguments (array and int), it should be [[1,2], 5].
 Ensure the input arguments exactly match the function signature in the starter code. No markdown formatting, just raw JSON.`;
 
   try {

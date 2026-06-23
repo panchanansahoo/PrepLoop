@@ -164,7 +164,15 @@ export function getExamplesForProblem(slug) {
   const cases = getTestCasesForProblem(slug);
   if (!cases || cases.length === 0) return [];
   return cases.map(tc => ({
-    input: tc.input.map(arg => JSON.stringify(arg)).join(', '),
+    input: tc.input.map((arg, i) => {
+      // For single arg, we don't necessarily need 'arg0 =', but having it ensures parsing works
+      // Actually, if it's 1 arg, we can just omit 'arg0 =' so it looks cleaner.
+      // If > 1 arg, we use 'arg0 = ..., arg1 = ...'
+      if (tc.input.length === 1) {
+        return JSON.stringify(arg);
+      }
+      return `arg${i} = ${JSON.stringify(arg)}`;
+    }).join(', '),
     output: JSON.stringify(tc.output),
     name: tc.name,
   }));

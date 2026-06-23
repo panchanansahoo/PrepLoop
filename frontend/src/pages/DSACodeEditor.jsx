@@ -232,15 +232,8 @@ export default function DSACodeEditor() {
     };
 
     const buildDefaultExamples = () => {
-      const topicSet = new Set((problem.topics || []).map((t) => String(t).toLowerCase()));
-
-      if (topicSet.has('linked list')) return [{ input: 'head = [1,2,3,4]', output: '[1,2,3,4]' }, { input: 'head = [5,1,8]', output: '[5,1,8]' }];
-      if (topicSet.has('trees') || topicSet.has('tree')) return [{ input: 'root = [1,2,3,null,4]', output: 'true' }, { input: 'root = [3,9,20,null,null,15,7]', output: '3' }];
-      if (topicSet.has('strings') || topicSet.has('string')) return [{ input: 's = "abcabcbb"', output: '3' }, { input: 's = "bbbbb"', output: '1' }];
-      if (topicSet.has('graphs') || topicSet.has('graph')) return [{ input: 'n = 4, edges = [[0,1],[1,2],[2,3]]', output: 'true' }, { input: 'n = 4, edges = [[0,1],[2,3]]', output: 'false' }];
-      if (topicSet.has('matrix')) return [{ input: 'matrix = [[1,2],[3,4]]', output: '[[1,3],[2,4]]' }, { input: 'matrix = [[1,0],[0,1]]', output: '2' }];
-
-      return [{ input: 'nums = [2,7,11,15], target = 9', output: '[0,1]' }, { input: 'nums = [3,2,4], target = 6', output: '[1,2]' }];
+      // Return generic placeholders so the backend filters them out and triggers AI test generation
+      return [{ input: 'example_input', output: 'example_output' }];
     };
 
     const stringifyValue = (value) => {
@@ -520,7 +513,8 @@ export default function DSACodeEditor() {
           status: data.submission.status,
           runtime: `${data.submission.test_cases_passed}/${data.submission.total_test_cases} passed`,
         } : undefined,
-        message: data.message || (accepted ? 'Accepted!' : 'Wrong Answer'),
+        message: data.error || data.message || (accepted ? 'Accepted!' : 'Wrong Answer'),
+        fallbackMode: data.fallbackMode,
       });
 
       if (accepted) {
