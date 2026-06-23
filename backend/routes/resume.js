@@ -777,6 +777,44 @@ function extractSummary(text) {
   return summaryLine || lines.slice(0, 3).join(' ').slice(0, 200);
 }
 
+function normalizeLinkedinImportProfile(profileData = {}) {
+  return {
+    fullName: profileData.name || profileData.fullName || profileData.full_name || '',
+    currentRole: profileData.headline || profileData.title || profileData.currentRole || profileData.current_role || '',
+    bio: profileData.summary || profileData.about || profileData.bio || '',
+    skills: Array.isArray(profileData.skills)
+      ? profileData.skills.filter(Boolean).join(', ')
+      : (profileData.skills || ''),
+    experience: Array.isArray(profileData.experience)
+      ? profileData.experience
+          .map(exp => [
+            exp.title || exp.role || '',
+            exp.company ? `at ${exp.company}` : '',
+            exp.duration ? `(${exp.duration})` : ''
+          ].filter(Boolean).join(' '))
+          .filter(Boolean)
+          .join('; ')
+      : (profileData.experience || ''),
+    education: Array.isArray(profileData.education)
+      ? profileData.education
+          .map(edu => [
+            edu.degree || '',
+            edu.school || edu.institute ? `from ${edu.school || edu.institute}` : ''
+          ].filter(Boolean).join(' '))
+          .filter(Boolean)
+          .join('; ')
+      : (profileData.education || ''),
+    location: profileData.location || '',
+    website: profileData.website || '',
+    phone: profileData.phone || '',
+    linkedin: profileData.linkedin || profileData.linkedinUrl || profileData.url || ''
+  };
+}
+
+function hasImportableProfileData(profileData = {}) {
+  return Object.values(profileData).some(value => String(value || '').trim().length > 0);
+}
+
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -799,38 +837,55 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/import-linkedin', authenticateToken, (req, res) => {
+router.post('/import-linkedin', authenticateToken, resumeUploader.single('file'), async (req, res) => {
   try {
-    const { linkedinUrl: _linkedinUrl, profileData } = req.body;
+    let text = '';
 
-    if (!profileData) {
-      return res.status(400).json({ error: 'Profile data is required' });
+    // 1. Handle PDF upload
+    if (req.file) {
+      if (req.file.mimetype === 'application/pdf') {
+        const data = await pdf(req.file.buffer);
+        text = data.text;
+      } else {
+        text = req.file.buffer.toString('utf-8');
+      }
+    }
+    // 2. Handle username input (not supported without scraping API)
+    else if (req.body.linkedinUsername) {
+      return res.status(400).json({
+        error: 'Direct username import is unavailable. Please leave the input blank and click "Go" to upload your LinkedIn Profile PDF.'
+      });
+    }
+    // 3. Fallback if profileData is provided by some other client
+    else if (req.body.profileData) {
+      const extractedData = normalizeLinkedinImportProfile(req.body.profileData);
+      if (!hasImportableProfileData(extractedData)) {
+        return res.status(400).json({ error: 'No importable LinkedIn profile fields were provided.' });
+      }
+      return res.json({ success: true, profileData: extractedData, message: 'LinkedIn data extracted successfully' });
+    } else {
+      return res.status(400).json({ error: 'Please upload a LinkedIn profile PDF or provide profileData.' });
     }
 
-    const extractedData = {
-      fullName: profileData.name || profileData.fullName || '',
-      currentRole: profileData.headline || profileData.title || '',
-      bio: profileData.summary || profileData.about || '',
-      skills: Array.isArray(profileData.skills) 
-        ? profileData.skills.join(', ') 
-        : (profileData.skills || ''),
-      experience: Array.isArray(profileData.experience)
-        ? profileData.experience.map(exp => 
-            `${exp.title || ''} at ${exp.company || ''} (${exp.duration || ''})`
-          ).join('; ')
-        : (profileData.experience || ''),
-      education: Array.isArray(profileData.education)
-        ? profileData.education.map(edu => 
-            `${edu.degree || ''} from ${edu.school || ''}`
-          ).join('; ')
-        : (profileData.education || '')
-    };
+    // Process the extracted text using the existing portfolio parser logic, or a simple heuristic
+    if (text) {
+      // Dynamic import to avoid circular dependency or missing module issues if placed at top
+      const { parseLinkedinExportText } = await import('../services/portfolioLinkedinService.js');
+      const parsed = parseLinkedinExportText(text.slice(0, 15000));
+      const extractedData = normalizeLinkedinImportProfile(parsed || {});
 
-    res.json({
-      success: true,
-      profileData: extractedData,
-      message: 'LinkedIn data extracted successfully'
-    });
+      if (!hasImportableProfileData(extractedData)) {
+        return res.status(400).json({ error: 'Could not extract profile fields from the provided LinkedIn PDF.' });
+      }
+
+      return res.json({
+        success: true,
+        profileData: extractedData,
+        message: 'LinkedIn PDF parsed successfully'
+      });
+    }
+
+    return res.status(400).json({ error: 'No valid data found to process.' });
   } catch (error) {
     console.error('LinkedIn import error:', error);
     res.status(500).json({ error: 'Failed to import LinkedIn data' });

@@ -1,0 +1,4 @@
+AUTH CHECK: POST /api/resume/import-linkedin - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: POST /api/resume/import-linkedin - Token present: true
+AUTH FAIL: Validation failed: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments

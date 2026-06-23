@@ -859,32 +859,30 @@ router.get('/portfolio/public/:slug', async (req, res) => {
 });
 
 router.put("/profile", authenticateToken, async (req, res) => {
-  import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'REQUEST: ' + JSON.stringify(req.body) + '\\n'));
   try {
     if (!req.user?.id) {
-      import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'FAIL: User not authenticated\\n'));
       return res.status(401).json({ error: "User not authenticated" });
     }
 
     const updates = normalizeProfileUpdatePayload(req.body);
 
     if (Object.keys(updates).length === 0) {
-      import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'FAIL: No fields to update\\n'));
       return res.status(400).json({ error: "No fields to update" });
     }
 
     updates.updated_at = new Date().toISOString();
 
-    const { data, error } = await supabaseAdmin
+    const updateResult = await supabaseAdmin
       .from("profiles")
       .update(updates)
       .eq("id", req.user.id)
       .select()
       .maybeSingle();
+    let data = updateResult.data;
+    const { error } = updateResult;
 
     if (error) {
       console.error('Profile update error:', error);
-      import('fs').then(fs => fs.appendFileSync('error.log', JSON.stringify(error) + '\\n'));
       if (isProfilesAccessBlocked(error)) {
         return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
       }
@@ -892,7 +890,33 @@ router.put("/profile", authenticateToken, async (req, res) => {
     }
 
     if (!data) {
-      return res.status(404).json({ error: "Profile not found" });
+      const createResult = await supabaseAdmin
+        .from("profiles")
+        .insert({
+          id: req.user.id,
+          email: req.user.email,
+          full_name: updates.full_name || req.user.user_metadata?.full_name || '',
+          subscription_tier: updates.subscription_tier || 'free',
+          experience_level: updates.experience_level || 'beginner',
+          role: updates.role || req.user.role || 'user',
+          ...updates,
+        })
+        .select()
+        .maybeSingle();
+
+      if (createResult.error) {
+        console.error('Profile creation during update error:', createResult.error);
+        if (isProfilesAccessBlocked(createResult.error)) {
+          return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
+        }
+        throw createResult.error;
+      }
+
+      data = createResult.data;
+    }
+
+    if (!data) {
+      return res.status(500).json({ error: "Failed to save profile" });
     }
 
     let rewardResult = { coinsAwarded: 0, coinBalance: data?.coins ?? 0, applied: false };
@@ -912,10 +936,8 @@ router.put("/profile", authenticateToken, async (req, res) => {
       profileCompletionRewardApplied: rewardResult.applied,
       profileCompletionRewardDegraded: rewardDegraded,
     };
-    import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'SUCCESS: ' + JSON.stringify(responsePayload) + '\n'));
     res.json(responsePayload);
   } catch (error) {
-    import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'CATCH ERROR: ' + (error?.message || error) + '\n'));
     console.error("Error updating profile:", error);
     if (isProfilesAccessBlocked(error)) {
       return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });

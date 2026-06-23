@@ -195,6 +195,11 @@ function filterHighConfidenceExperienceAreas(items = []) {
     .filter((item) => !knownFallbacks.includes(item.toLowerCase()));
 }
 
+async function readApiErrorMessage(response, fallbackMessage) {
+  const data = await response.json().catch(() => ({}));
+  return data?.error || data?.message || fallbackMessage;
+}
+
 const AUTOFILL_FIELD_LABELS = {
   currentRole: 'Current Role',
   skills: 'Skills',
@@ -212,10 +217,10 @@ export default function Profile() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('idle');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
   const [rewardMessage, setRewardMessage] = useState('');
   const [isPublic, setIsPublic] = useState(false);
-  const [linkedinInputVisible, setLinkedinInputVisible] = useState(false);
-  const [linkedinInputValue, setLinkedinInputValue] = useState('');
   const [linkCopied, setLinkCopied] = useState(false);
   const [githubUsername, setGithubUsername] = useState('');
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -390,6 +395,8 @@ export default function Profile() {
   const handleSave = async () => {
     setSaving(true);
     setStatus('idle');
+    setSuccessMessage('');
+    setErrorMessage('');
     try {
       const payload = buildProfilePayload(profile);
       const res = await authFetch('/api/user/profile', {
@@ -408,10 +415,12 @@ export default function Profile() {
       refreshBalance();
       refreshDashboard();
       setEditing(false);
+      setSuccessMessage('Profile saved successfully.');
       setStatus('saved');
       setAutofillSuggestions({});
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || 'Could not save profile. Please try again.');
       setStatus('error');
     }
     setSaving(false);
@@ -525,59 +534,41 @@ export default function Profile() {
   };
 
   const handleLinkedInImport = () => {
-    setLinkedinInputVisible(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    linkedinInputRef.current?.click();
   };
 
-  const handleLinkedInSubmit = async () => {
-    const input = linkedinInputValue.trim();
-    if (!input) {
-      linkedinInputRef.current?.click();
-      setLinkedinInputVisible(false);
-      return;
-    }
-    setLinkedinInputVisible(false);
-    setLinkedinInputValue('');
-    setLinkedinImporting(true);
-    setStatus('idle');
-    try {
-      const res = await fetch('/api/resume/import-linkedin', {
-        method: 'POST',
-        headers: mergeAuthHeaders({ 'Content-Type': 'application/json' }, user),
-        body: JSON.stringify({ linkedinUsername: input })
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Import failed');
-      }
-      const data = await res.json();
-      if (data.profileData) {
-        setProfile(prev => ({
-          ...prev,
-          fullName: data.profileData.fullName || prev.fullName,
-          currentRole: data.profileData.currentRole || prev.currentRole,
-          bio: data.profileData.bio || prev.bio,
-          skills: data.profileData.skills || prev.skills,
-          experience: data.profileData.experience || prev.experience,
-          education: data.profileData.education || prev.education,
-          location: data.profileData.location || prev.location,
-          company: data.profileData.company || prev.company,
-          website: data.profileData.website || prev.website,
-          phone: data.profileData.phone || prev.phone
-        }));
-        setStatus('saved');
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus('error');
-    }
-    setLinkedinImporting(false);
-  };
+  const applyImportedProfileData = useCallback((profileData = {}) => {
+    setProfile(prev => ({
+      ...prev,
+      fullName: profileData.fullName || prev.fullName,
+      full_name: profileData.fullName || prev.full_name,
+      currentRole: profileData.currentRole || prev.currentRole,
+      designation: profileData.currentRole || prev.designation,
+      bio: profileData.bio || prev.bio,
+      skills: profileData.skills || prev.skills,
+      experience: profileData.experience || prev.experience,
+      experienceLevel: profileData.experience || prev.experienceLevel,
+      experience_level: profileData.experience || prev.experience_level,
+      education: profileData.education || prev.education,
+      location: profileData.location || prev.location,
+      company: profileData.company || prev.company,
+      website: profileData.website || prev.website,
+      phone: profileData.phone || prev.phone,
+      socialLinks: profileData.linkedin
+        ? { ...(prev.socialLinks || {}), linkedin: profileData.linkedin }
+        : prev.socialLinks
+    }));
+  }, []);
 
   const handleLinkedInFileChange = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
     setLinkedinImporting(true);
     setStatus('idle');
+    setSuccessMessage('');
+    setErrorMessage('');
     try {
       const form = new FormData();
       form.append('file', file);
@@ -588,27 +579,20 @@ export default function Profile() {
         body: form
       });
 
-      if (!res.ok) throw new Error('Import failed');
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'LinkedIn import failed'));
+      }
       const data = await res.json();
 
       if (data.profileData) {
-        setProfile(prev => ({
-          ...prev,
-          fullName: data.profileData.fullName || prev.fullName,
-          currentRole: data.profileData.currentRole || prev.currentRole,
-          bio: data.profileData.bio || prev.bio,
-          skills: data.profileData.skills || prev.skills,
-          experience: data.profileData.experience || prev.experience,
-          education: data.profileData.education || prev.education,
-          location: data.profileData.location || prev.location,
-          company: data.profileData.company || prev.company,
-          website: data.profileData.website || prev.website,
-          phone: data.profileData.phone || prev.phone
-        }));
+        applyImportedProfileData(data.profileData);
+        setEditing(true);
+        setSuccessMessage('LinkedIn data imported. Review and save to keep these changes.');
         setStatus('saved');
       }
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || 'LinkedIn import failed. Please try again.');
       setStatus('error');
     }
     setLinkedinImporting(false);
@@ -624,6 +608,8 @@ export default function Profile() {
     if (!file) return;
     setResumeImporting(true);
     setStatus('idle');
+    setSuccessMessage('');
+    setErrorMessage('');
     try {
       const form = new FormData();
       form.append('resume', file);
@@ -634,7 +620,9 @@ export default function Profile() {
         body: form
       });
 
-      if (!res.ok) throw new Error('Import failed');
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Resume import failed'));
+      }
       const data = await res.json();
 
       if (data.resumeProfile) {
@@ -670,11 +658,15 @@ export default function Profile() {
           experience_level: inferredExperience.length ? inferredExperience.join('; ') : prev.experience_level,
           bio: safeSummary || prev.bio
         }));
+        setResumeSnapshot(data.resumeProfile);
+        setEditing(true);
+        setSuccessMessage('Resume data imported. Review and save to keep these changes.');
         
         setStatus('saved');
       }
     } catch (err) {
       console.error(err);
+      setErrorMessage(err.message || 'Resume import failed. Please try again.');
       setStatus('error');
     }
     setResumeImporting(false);
@@ -1000,29 +992,13 @@ export default function Profile() {
               >
                 <Upload size={14} /> {resumeImporting ? 'Importing...' : 'Import from Resume'}
               </button>
-              {linkedinInputVisible ? (
-                <div style={{ flex: 1, display: 'flex', gap: '6px' }}>
-                  <input
-                    className="du-form-input"
-                    placeholder="LinkedIn username or leave blank to upload PDF"
-                    value={linkedinInputValue}
-                    onChange={(e) => setLinkedinInputValue(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleLinkedInSubmit()}
-                    autoFocus
-                    style={{ flex: 1 }}
-                  />
-                  <button className="du-linkedin-go-btn" onClick={handleLinkedInSubmit}>Go</button>
-                  <button className="du-linkedin-dismiss-btn" onClick={() => { setLinkedinInputVisible(false); setLinkedinInputValue(''); }}>✕</button>
-                </div>
-              ) : (
-                <button
-                  className="du-import-linkedin-btn"
-                  onClick={handleLinkedInImport}
-                  disabled={linkedinImporting}
-                >
-                  <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import from LinkedIn'}
-                </button>
-              )}
+              <button
+                className="du-import-linkedin-btn"
+                onClick={handleLinkedInImport}
+                disabled={linkedinImporting}
+              >
+                <Link2 size={14} /> {linkedinImporting ? 'Importing...' : 'Import LinkedIn PDF'}
+              </button>
               <input type="file" ref={linkedinInputRef} accept=".pdf" style={{ display: 'none' }} onChange={handleLinkedInFileChange} />
               <input type="file" ref={resumeInputRef} accept=".pdf,.doc,.docx" style={{ display: 'none' }} onChange={handleResumeFileChange} />
             </div>
@@ -1779,7 +1755,7 @@ export default function Profile() {
       {status === 'saved' && (
         <div className={`du-toast success${toastExiting ? ' exiting' : ''}`} role="status" aria-live="polite">
           <Check size={16} />
-          Profile saved successfully.{rewardMessage ? ` ${rewardMessage}` : ''}
+          {successMessage || 'Profile saved successfully.'}{rewardMessage ? ` ${rewardMessage}` : ''}
           <button className="du-toast-close" onClick={dismissToast} type="button" aria-label="Dismiss">
             <X size={12} />
           </button>
@@ -1788,7 +1764,7 @@ export default function Profile() {
       {status === 'error' && (
         <div className={`du-toast error${toastExiting ? ' exiting' : ''}`} role="alert">
           <X size={16} />
-          Could not save profile. Please try again.
+          {errorMessage || 'Could not save profile. Please try again.'}
           <button className="du-toast-close" onClick={dismissToast} type="button" aria-label="Dismiss">
             <X size={12} />
           </button>
