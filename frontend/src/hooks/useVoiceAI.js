@@ -328,27 +328,34 @@ export function useVoiceAI({
       return;
     }
 
+    // Save the answer text BEFORE clearing any refs/state
+    // This prevents the race condition where onAnswer() receives an empty string
+    const savedAnswer = answer;
+
     setState("processing");
-    setFinalTranscript(answer);
+    setFinalTranscript(savedAnswer);
+
+    // Clear refs BEFORE calling onAnswer so the hook state is clean
+    // but the saved answer is already captured above
+    finalTextRef.current = "";
+    interimRef.current = "";
 
     authFetch(ANALYZE_ENDPOINT, {
       method: "POST",
       headers: resolveAuthHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         question: questionRef.current,
-        answer,
+        answer: savedAnswer,
         interviewType,
       }),
     }).catch(() => {});
 
     try {
-      onAnswer?.(answer, {});
+      onAnswer?.(savedAnswer, {});
     } catch {
       /* no-op */
     }
 
-    finalTextRef.current = "";
-    interimRef.current = "";
     setTranscript("");
     setInterimText("");
   }, [onAnswer, interviewType, resolveAuthHeaders]);

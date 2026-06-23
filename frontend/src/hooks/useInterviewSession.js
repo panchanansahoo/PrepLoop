@@ -443,20 +443,32 @@ export function useInterviewSession() {
       });
       const data = await res.json();
       if (data && !data.fallback && data.overallScore) {
-        const score = data.overallScore;
+        const score10 = Math.round((data.overallScore / 10) * 10) / 10;
+        const cats = data.categoryScores ? [
+          { name: "Technical Skills", score: Math.round((data.categoryScores.technicalSkills || 0) / 10 * 10) / 10 },
+          { name: "Communication", score: Math.round((data.categoryScores.communication || 0) / 10 * 10) / 10 },
+          { name: "Problem Solving", score: Math.round((data.categoryScores.problemSolving || 0) / 10 * 10) / 10 },
+          { name: "Culture Fit", score: Math.round((data.categoryScores.cultureFit || 0) / 10 * 10) / 10 }
+        ] : (data.categories || []);
+
         setAnalysisResult({
           ...data,
-          categories: (data.categories || []).map((cat) => ({
+          overallScore: score10,
+          perQuestionBreakdown: (data.questionBreakdown || []).map(q => ({
+            ...q,
+            scoreEstimate: Math.round((q.score || 0) / 10 * 10) / 10
+          })),
+          categories: cats.map((cat) => ({
             ...cat,
             icon: cat.name,
             color: CATEGORY_ICONS[cat.name]?.color || "#818cf8",
           })),
           performanceColor:
-            score >= 7
+            score10 >= 7
               ? "#22c55e"
-              : score >= 5
+              : score10 >= 5
                 ? "#f59e0b"
-                : score >= 3
+                : score10 >= 3
                   ? "#f97316"
                   : "#ef4444",
           stats: statsObj,
@@ -908,18 +920,20 @@ export function useInterviewSession() {
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       setAiSpeaking(false);
 
+      const currentTranscript = stateRefs.current.transcript.trim();
+      const currentUserInput = stateRefs.current.userInput.trim();
+      const providedAnswer = answerOverride?.trim() || currentUserInput || currentTranscript;
+      
       const answer =
-        isAutoSkip === true
+        isAutoSkip === true && !providedAnswer
           ? "I do not have a response to this question."
-          : answerOverride?.trim() ||
-            stateRefs.current.userInput.trim() ||
-            stateRefs.current.transcript.trim();
+          : providedAnswer || "I do not have a response to this question.";
 
-      if (isAutoSkip === true)
+      if (isAutoSkip === true && !providedAnswer)
         setConsecutiveSilentQuestions((prev) => prev + 1);
-      else if (answer && answer.length > 10) setConsecutiveSilentQuestions(0);
+      else if (answer && answer.length > 10 && answer !== "I do not have a response to this question.") setConsecutiveSilentQuestions(0);
 
-      if (answer && answer.length > 10)
+      if (answer && answer.length > 10 && answer !== "I do not have a response to this question.")
         intelligence.analyzeAnswer(answer, currentQuestion).catch(() => {});
       if (!answer && !stateRefs.current.code.trim() && isAutoSkip !== true) {
         isSendingRef.current = false;

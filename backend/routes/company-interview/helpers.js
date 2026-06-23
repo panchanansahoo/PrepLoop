@@ -581,18 +581,18 @@ export function buildHrResponseSnippet(candidateQuestion = '', company = '') {
 export function getFresherScriptedQuestion(questionNumber, company, resumeContext, userAnswer = '') {
   if (questionNumber === 2) return getResumeProjectPrompt(resumeContext);
   if (questionNumber === 3) return getTopSkillPrompt(resumeContext);
-  if (questionNumber === 4) return 'Can you explain the four main OOP principles with one real example from your projects?';
-  if (questionNumber === 5) return 'How would you compare an interface and an abstract class, and when would you pick one over the other?';
-  if (questionNumber === 6) return 'In SQL, how do a primary key and a foreign key differ in practice?';
-  if (questionNumber === 7) return 'Why is database normalization useful, and what problem does it solve in table design?';
-  if (questionNumber === 8) return 'Which programming language do you prefer for problem solving, and what makes it strong for you?';
-  if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you use each one?';
-  if (questionNumber === 10) return 'Can you explain process vs thread with a practical example from what you have learned?';
-  if (questionNumber === 11) return 'Can you explain one fundamental data structure you are comfortable with and when you would use it?';
-  if (questionNumber === 12) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 4) return 'So tell me — when you think about OOP, what are the key concepts that come to mind? And have you actually used any of these in something you\'ve built?';
+  if (questionNumber === 5) return 'I\'m curious how you\'d compare an interface and an abstract class. When would you typically pick one over the other?';
+  if (questionNumber === 6) return 'When you\'re working with SQL, how do primary keys and foreign keys actually differ in practice?';
+  if (questionNumber === 7) return 'Can you walk me through why database normalization is useful? What exact problem does it solve when you\'re designing tables?';
+  if (questionNumber === 8) return 'I\'m curious, which programming language do you usually prefer for problem solving? What makes it strong for you personally?';
+  if (questionNumber === 9) return 'How would you explain the difference between GET and POST in HTTP? When would you use each one?';
+  if (questionNumber === 10) return 'Can you explain the difference between a process and a thread using a practical example you\'ve come across?';
+  if (questionNumber === 11) return 'Tell me about one fundamental data structure you feel really comfortable with. When would you typically use it?';
+  if (questionNumber === 12) return 'So before we wrap up — do you have any questions for me about the role, the team, or what it\'s like working here?';
   if (questionNumber === 13) {
     const snippet = buildHrResponseSnippet(userAnswer, company);
-    return `${snippet} Are there any other questions you have before we wrap up?`;
+    return `${snippet} Are there any other questions you have before we finish up today?`;
   }
   return '';
 }
@@ -613,19 +613,19 @@ export function getFresherQuestionTopic(questionNumber) {
 
 export function getFresherFallbackQuestion(questionNumber, company, resumeContext, userAnswer = '') {
   if (questionNumber === 2) return getResumeProjectPrompt(resumeContext);
-  if (questionNumber === 3) return 'Which technical skill from your resume are you most comfortable talking about, and how have you used it in practice?';
-  if (questionNumber === 4) return 'Can you explain OOP principles using one of your own projects as an example?';
-  if (questionNumber === 5) return 'How would you distinguish an interface from an abstract class in a real codebase?';
-  if (questionNumber === 6) return 'How do primary keys and foreign keys work together in SQL when you design tables?';
-  if (questionNumber === 7) return 'Why do developers normalize databases, and what problem does it help solve?';
-  if (questionNumber === 8) return 'What programming language do you prefer, and why does it help you solve problems well?';
-  if (questionNumber === 9) return 'How do GET and POST differ in HTTP, and when would you choose one over the other?';
-  if (questionNumber === 10) return 'Can you explain process vs thread with a simple practical example from what you know?';
-  if (questionNumber === 11) return 'Can you explain one data structure you are comfortable with and when you would use it?';
-  if (questionNumber === 12) return 'Do you have any questions for me about the role, team, or company?';
+  if (questionNumber === 3) return 'Which technical skill from your resume are you most comfortable talking about? How have you actually used it in practice?';
+  if (questionNumber === 4) return 'I\'d love to hear how you think about OOP principles. Can you explain them using one of your own projects as an example?';
+  if (questionNumber === 5) return 'If you were looking at a real codebase, how would you distinguish an interface from an abstract class?';
+  if (questionNumber === 6) return 'When you\'re designing tables in SQL, how do primary keys and foreign keys actually work together?';
+  if (questionNumber === 7) return 'Why do developers usually normalize databases? What specific issue does it help us avoid?';
+  if (questionNumber === 8) return 'What programming language do you usually reach for, and why do you find it helps you solve problems well?';
+  if (questionNumber === 9) return 'I\'m curious how you distinguish between GET and POST in HTTP. When would you definitely choose one over the other?';
+  if (questionNumber === 10) return 'Could you explain process versus thread with a simple, practical example from your own understanding?';
+  if (questionNumber === 11) return 'Can you walk me through one data structure you\'re fairly comfortable with? When is it most useful?';
+  if (questionNumber === 12) return 'So before we wrap up, do you have any questions for me about the role or the team?';
   if (questionNumber === 13) {
     const snippet = buildHrResponseSnippet(userAnswer, company);
-    return `${snippet} Are there any other questions you have before we wrap up?`;
+    return `${snippet} Do you have any final questions before we wrap up?`;
   }
 
   return '';

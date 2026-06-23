@@ -859,14 +859,17 @@ router.get('/portfolio/public/:slug', async (req, res) => {
 });
 
 router.put("/profile", authenticateToken, async (req, res) => {
+  import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'REQUEST: ' + JSON.stringify(req.body) + '\\n'));
   try {
     if (!req.user?.id) {
+      import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'FAIL: User not authenticated\\n'));
       return res.status(401).json({ error: "User not authenticated" });
     }
 
     const updates = normalizeProfileUpdatePayload(req.body);
 
     if (Object.keys(updates).length === 0) {
+      import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'FAIL: No fields to update\\n'));
       return res.status(400).json({ error: "No fields to update" });
     }
 
@@ -881,6 +884,7 @@ router.put("/profile", authenticateToken, async (req, res) => {
 
     if (error) {
       console.error('Profile update error:', error);
+      import('fs').then(fs => fs.appendFileSync('error.log', JSON.stringify(error) + '\\n'));
       if (isProfilesAccessBlocked(error)) {
         return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });
       }
@@ -901,14 +905,17 @@ router.put("/profile", authenticateToken, async (req, res) => {
       console.error('Profile completion reward error:', rewardError);
     }
 
-    res.json({
+    const responsePayload = {
       ...buildProfileResponse(req, data),
       coinsAwarded: rewardResult.coinsAwarded,
       coinBalance: rewardResult.coinBalance,
       profileCompletionRewardApplied: rewardResult.applied,
       profileCompletionRewardDegraded: rewardDegraded,
-    });
+    };
+    import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'SUCCESS: ' + JSON.stringify(responsePayload) + '\n'));
+    res.json(responsePayload);
   } catch (error) {
+    import('fs').then(fs => fs.appendFileSync('profile_put_log.txt', 'CATCH ERROR: ' + (error?.message || error) + '\n'));
     console.error("Error updating profile:", error);
     if (isProfilesAccessBlocked(error)) {
       return res.status(503).json({ error: "Profile update is temporarily unavailable", degraded: true });

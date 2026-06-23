@@ -292,85 +292,85 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   try {
     if (!groq) {
       const reactions = [
-        "That's a solid approach! I like how you structured that.",
-        "Interesting perspective. Let me dig a bit deeper.",
-        "Good thinking! I can see you've worked through problems like this before.",
-        "I appreciate the detail there. Let's explore a different angle.",
-        "Nice! You covered the key points well.",
-        "Great answer! I can tell you have hands-on experience with this.",
-        "I like your thought process. Let me push you a bit further."
+        "Makes sense, I like how you broke that down.",
+        "That's interesting. I see where you're going with that.",
+        "Got it, that's a very practical way to look at it.",
+        "Right, that aligns with how we'd think about it here.",
+        "Nice, I appreciate the detail you went into there.",
+        "Good insight. Let's explore a slightly different angle on that.",
+        "Ah, I see. That's a clever way to handle it."
       ];
       // Diverse follow-ups per stage — rotates based on questionNumber
       const stageQuestions = {
         'Technical': [
-          'Can you explain the difference between an abstract class and an interface? When would you pick one over the other?',
-          'How does garbage collection work in your preferred language? What are the different algorithms?',
-          'What is the difference between concurrency and parallelism? Can you give a real-world example?',
-          'Explain how a hash map works internally. What happens during a collision?',
-          'What are SOLID principles? Can you walk me through each one with a quick example?',
-          'How would you debug a production issue where the application is running slow but CPU usage is normal?',
-          'What is the CAP theorem? How does it apply to database selection?',
-          'Explain the event loop in Node.js. How does it handle asynchronous operations?',
+          'So tell me — when you think about abstract classes versus interfaces, how do you usually decide which one to use?',
+          'I\'m curious how garbage collection works in the language you use most. Can you walk me through it?',
+          'Concurrency and parallelism often get mixed up. How would you explain the difference using a real-world example?',
+          'If you had to explain how a hash map works internally, including handling collisions, how would you describe it?',
+          'Have you come across the SOLID principles? If so, could you pick one and give me a quick example of how you\'d apply it?',
+          'Imagine a scenario where your app is running really slow in production, but CPU usage looks completely normal. How would you start debugging that?',
+          'I\'d love to hear your thoughts on the CAP theorem. How does it actually influence the way you pick a database?',
+          'Can you walk me through the event loop in Node.js? I\'m curious how you think about its async behavior.',
         ],
         'DSA / Coding': [
-          'Given a linked list, how would you detect if it has a cycle? Walk me through your approach.',
-          'How would you find the kth largest element in an unsorted array? What data structure helps here?',
-          'Explain how you would serialize and deserialize a binary tree. What traversal order would you use?',
-          'Given a string of parentheses, how would you check if they are balanced? What about multiple types?',
-          'How would you merge two sorted arrays in-place? Think about doing it without extra space.',
-          'Describe how you would implement an LRU cache. What data structures would you combine?',
-          'How would you find the longest increasing subsequence in an array? Discuss both approaches.',
-          'Given a matrix of 0s and 1s, how would you count the number of islands?',
+          'Alright, let\'s talk about linked lists. If you needed to detect a cycle in one, how would you approach it?',
+          'If you had an unsorted array and needed to find the kth largest element, what data structure would you lean towards?',
+          'How would you go about serializing and deserializing a binary tree? What traversal makes the most sense to you?',
+          'Suppose you have a string of parentheses. How would you check if they\'re balanced, especially if there are multiple types?',
+          'If you had to merge two sorted arrays entirely in-place, without extra space, how would you do that?',
+          'I\'m curious how you\'d implement an LRU cache from scratch. What data structures would you bring together for that?',
+          'How would you tackle finding the longest increasing subsequence in an array? Just walk me through your initial thoughts.',
+          'Given a matrix of 0s and 1s, what would be your strategy to count the number of islands?',
         ],
         'System Design': [
-          'How would you design a real-time chat application like WhatsApp? Think about message delivery guarantees.',
-          'Walk me through designing a news feed system like Instagram. How would you handle ranking?',
-          'How would you design a rate limiter for an API? What algorithms could you use?',
-          'Design a notification system that handles millions of users. How do you handle delivery at scale?',
-          'How would you design a key-value store like Redis? What about persistence and replication?',
-          'Walk me through designing a search autocomplete system. How would you optimize for latency?',
-          'How would you design a video streaming platform? Think about CDN and adaptive bitrate.',
-          'Design a parking lot system. Start with the object model, then think about scaling.',
+          'So, if you had to design a real-time chat app like WhatsApp from scratch, what would your architecture look like, especially for message delivery guarantees?',
+          'Walk me through how you\'d design a news feed system similar to Instagram. I\'m particularly interested in how you\'d handle the ranking.',
+          'If we needed an API rate limiter, how would you design that? What specific algorithms come to mind?',
+          'Imagine designing a notification system that scales to millions of users. How would you ensure messages actually get delivered?',
+          'How would you approach designing a key-value store similar to Redis? I\'m curious about your thoughts on replication.',
+          'If you were tasked with building a search autocomplete system, what would your strategy be to keep the latency as low as possible?',
+          'Let\'s say we\'re building a video streaming platform. How would you handle CDN and adaptive bitrate streaming?',
+          'Walk me through designing a system for a parking lot. How would you set up the initial object model before we talk about scaling?',
         ],
         'Behavioral': [
-          'Tell me about a time you worked on a challenging group project in college. How did you handle disagreements?',
-          'Describe a hackathon, competition, or event you participated in. What was your role?',
-          'Can you share an example where you had to learn something completely new under a tight deadline?',
-          'Tell me about a project that didn\'t go as planned. What did you learn from it?',
-          'Describe a time when you had to balance multiple assignments or deadlines. How did you prioritize?',
-          'Share an experience where you helped a classmate or junior understand something difficult.',
-          'Tell me about a time you took initiative on something — maybe a club, project, or side hustle.',
-          'Describe how you handled a situation where you were unsure how to approach a problem or assignment.',
+          'Tell me about a time you worked on a challenging group project. How did you navigate any disagreements within the team?',
+          'I\'d love to hear about a hackathon or competition you joined. What was your specific role and what did you build?',
+          'Can you share a time when you had to pick up a completely new skill or technology under a really tight deadline?',
+          'We\'ve all had projects that didn\'t go quite as planned. Can you tell me about one of yours and what your main takeaway was?',
+          'Tell me about a period where you had to juggle multiple deadlines. How did you figure out what to prioritize?',
+          'I\'m curious — can you share an experience where you helped a classmate or a junior team member understand something tricky?',
+          'Tell me about a time you just decided to take the initiative on something, maybe a club, a side hustle, or a new project.',
+          'Describe a situation where you honestly weren\'t sure how to approach a problem. How did you get yourself unblocked?',
         ],
         'HR': [
-          'What motivates you to pursue a career in tech? What gets you excited about building things?',
-          'Where do you see yourself in 3 to 5 years? How does this role fit into that vision?',
-          'What made you choose your branch or field of study? Do you enjoy it?',
-          'What kind of work environment do you think you\'d thrive in? Do you prefer working solo or in teams?',
-          'Tell me about a value or principle that guides how you work and learn.',
-          'What are you most proud of from your time in college — could be academic or extracurricular!',
-          'How would your friends or classmates describe you in three words?',
-          'What questions do you have for me about the team, the role, or what it\'s like to work at this company?',
+          'So, what actually motivates you to pursue a career in tech? What gets you excited to sit down and build things?',
+          'I know it\'s a bit of a cliché, but where do you honestly see yourself in a few years, and how does this role fit into that?',
+          'What really made you choose your specific branch of study? Has it turned out to be what you expected?',
+          'What kind of day-to-day work environment do you feel you do your best work in? Are you more of a solo worker or highly collaborative?',
+          'Can you tell me about a specific value or principle that really guides the way you approach your work?',
+          'Looking back at your college experience so far, what\'s something you\'re genuinely really proud of?',
+          'If I were to ask your close friends or classmates to describe you in a few words, what do you think they\'d say?',
+          'So, before we wrap up — what questions do you have for me about what it\'s actually like working here?',
         ],
         'Managerial': [
-          'Have you ever had to coordinate or lead a team? Maybe a college project, club, or event?',
-          'Tell me about a time you had to convince your team to go with your idea. How did you handle it?',
-          'How do you keep yourself and your team motivated during a stressful period, like exams or a project deadline?',
-          'If you had to organize a technical event or workshop, how would you plan it?',
-          'How would you handle a situation where a team member isn\'t contributing fairly in a group project?',
-          'What is your approach to managing your time when you have multiple deadlines?',
-          'Do you enjoy mentoring juniors? Tell me about a time you helped someone learn something.',
-          'Tell me about a tough decision you made — maybe about choosing between two projects, events, or even career options.',
+          'Have you ever had to step up and coordinate a team, maybe for a college event or a major project? How did that go?',
+          'Tell me about a time you really had to convince your team to go with your approach. How did you handle the pushback?',
+          'When things get really stressful, like during finals or a tight project deadline, how do you keep yourself and everyone else motivated?',
+          'If you were suddenly put in charge of organizing a technical workshop, what would your first few steps look like?',
+          'How have you handled a situation where someone on your team just wasn\'t pulling their weight on a project?',
+          'When everything feels like a priority and you have multiple deadlines, what\'s your actual system for managing your time?',
+          'Do you enjoy the mentorship side of things? Tell me about a time you actively helped someone learn a new concept.',
+          'Tell me about a genuinely tough decision you had to make recently, whether it was about a project, a job, or your studies.',
         ],
         'OA': [
-          'Given an array of integers, find the contiguous subarray with the maximum sum. Explain your approach.',
-          'How would you determine if a string is a valid palindrome, considering only alphanumeric characters?',
-          'Write an algorithm to find all permutations of a given string. What is the time complexity?',
-          'Given two sorted arrays, find the median of the combined array in O(log n) time.',
-          'How would you implement a stack that supports getMin() in O(1) time?',
-          'Given a 2D grid, find the shortest path from top-left to bottom-right. What algorithm would you use?',
-          'Design an algorithm to rotate a matrix 90 degrees clockwise in-place.',
-          'How would you detect a duplicate in an array of n+1 integers where each integer is between 1 and n?',
+          'Alright, so given an array of integers, how would you find the contiguous subarray that gives the maximum sum? Just talk me through your thought process.',
+          'If you needed to check if a string is a valid palindrome, ignoring all non-alphanumeric characters, how would you approach it?',
+          'Walk me through the algorithm you\'d use to find all permutations of a string. How does the time complexity look?',
+          'If you have two sorted arrays and need to find the overall median in O(log n) time, how would you tackle that?',
+          'I\'m curious how you\'d implement a stack that can return the minimum element in O(1) time. What\'s the trick there?',
+          'Given a 2D grid, what algorithm would you reach for first to find the shortest path from the top-left to the bottom-right?',
+          'How would you design an algorithm to rotate a matrix 90 degrees clockwise directly in-place?',
+          'If you have an array of n+1 integers, where each integer is between 1 and n, how would you reliably detect a duplicate?',
         ],
       };
       const questions = stageQuestions[stage] || stageQuestions['Technical'];
@@ -543,13 +543,15 @@ The candidate just answered a question. You must:
 5. Include a subtle hint for the next question
 6. Suggest think time in seconds
 
-IMPORTANT: The "followUpQuestion" and "closingRemark" must sound like a real human speaking on a Zoom call. No robotic transitions. Keep it under 3 sentences.
-NATURAL SPEECH CONSTRAINTS:
-- No generic filler like "Great question" or "Moving to the next question".
+IMPORTANT: The "followUpQuestion" and "closingRemark" must sound exactly like a real human speaking casually on a Zoom call. No robotic transitions. Keep it under 3 sentences.
+NATURAL SPEECH CONSTRAINTS (STRICT):
+- Start with a natural reaction like "Makes sense," "Got it," "That's interesting," or "I see where you're going with that."
+- Then smoothly transition into the question using conversational phrasing: "So tell me...", "I'm curious...", "Walk me through...", "What's your take on..."
+- NEVER use generic robotic fillers like "Good response," "Great question," "Moving to the next question," or "Let us continue."
 - Do not mention being AI.
-- Keep tone professional but conversational.
-- Use one focused question, not a list.
-- Avoid repeating the candidate's full answer back.
+- Keep the tone professional but warm and conversational.
+- Ask ONE clear, focused question at a time. No multi-part questions.
+- Do NOT repeat the candidate's full answer back to them.
 - Avoid meta prompts such as "walk me through your approach step by step" unless the stage is explicitly DSA/Coding or System Design.
 - Do not repeat the exact same follow-up wording twice in a row.
 - For fresher Technical interviews, vary the angle across project, coursework, internship, fundamentals, and trade-offs instead of asking for the same concrete example repeatedly.
@@ -634,17 +636,17 @@ Respond as JSON:
       return technicalFallbackQuestions[index];
     };
     const fallbackFollowUps = {
-      'HR': 'That\'s interesting! Can you tell me about your career goals? Where do you see yourself in a few years after starting your career?',
-      'Behavioral': 'Good insight. Can you give me another example where you showed leadership or took initiative — maybe in a college project or extracurricular?',
-      'DSA / Coding': 'Nice approach. Now, can you think of a way to optimize that solution? What would the time and space complexity be?',
-      'System Design': 'Good thinking. How would your design handle 10x the current traffic? What would you scale first?',
+      'HR': 'That makes sense. Can you tell me a bit more about your career goals? Where do you honestly see yourself in a few years?',
+      'Behavioral': 'Got it. Can you give me another example where you really had to take the initiative — maybe on a college project or in a club?',
+      'DSA / Coding': 'I see your approach. How might you optimize that solution further? I\'m curious about the time and space complexity there.',
+      'System Design': 'Good thinking. If we suddenly got 10x the traffic, how would your design handle it? What\'s the first thing you\'d scale?',
       'Technical': pickTechnicalFallbackQuestion(questionNumber),
-      'OA': 'Good. Here\'s a follow-up: what if the input size was 10 million? How would you optimize?',
-      'Managerial': 'Great example. How did you handle any disagreements within the team during that project?',
+      'OA': 'Right. Here\'s a quick follow-up: what if the input size was 10 million? How would you change your approach?',
+      'Managerial': 'That\'s a good example. How did you handle it if someone on the team disagreed with the approach you took?',
     };
     const defaultFallbackByExperience = experienceLevel === 'fresher'
       ? pickTechnicalFallbackQuestion(questionNumber)
-      : 'Good answer. Can you compare one alternative approach and explain the trade-off?';
+      : 'That makes sense. Could you compare that to an alternative approach and just walk me through the trade-offs?';
     const fallbackFeedback = normalizeInterviewFeedback({
       feedback: 'That answer is a good start, but it needs one concrete example and a clearer takeaway.',
       strengths: [],

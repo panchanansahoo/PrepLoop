@@ -80,7 +80,10 @@ export const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
+  import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH CHECK: ${req.method} ${req.originalUrl} - Token present: ${!!token}\n`));
+
   if (!token) {
+    import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH FAIL: No token\n`));
     return res.status(401).json({ error: 'Access token required' });
   }
 
@@ -92,6 +95,7 @@ export const authenticateToken = async (req, res, next) => {
       const errorMsg = error?.message || '';
       if (isTokenExpired(errorMsg)) {
         console.warn(`[auth] JWT token expired, instructing client to refresh`);
+        import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH FAIL: Token expired\n`));
         return res.status(401).json({ 
           error: 'Token expired', 
           code: 'TOKEN_EXPIRED',
@@ -100,6 +104,7 @@ export const authenticateToken = async (req, res, next) => {
       }
 
       console.warn(`[auth] JWT validation failed for token (403):`, error || 'User not found in token');
+      import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH FAIL: Validation failed: ${errorMsg}\n`));
       return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
     }
 
@@ -111,9 +116,11 @@ export const authenticateToken = async (req, res, next) => {
       role,
       user_metadata: user.user_metadata || {}
     };
+    import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH SUCCESS: User ${user.id}\n`));
     next();
   } catch (error) {
     console.error('Auth error:', error);
+    import('fs').then(fs => fs.appendFileSync('auth_debug.txt', `AUTH CATCH ERROR: ${error?.message}\n`));
     return res.status(403).json({ error: 'Invalid or expired token' });
   }
 };
