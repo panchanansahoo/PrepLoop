@@ -1,6 +1,6 @@
 name: "[Legacy] PrepLoop CI/CD Pipeline"
 
-# Superseded by ci.yml + deploy-orchestrator-vercel-azure.yml
+# Superseded by ci.yml + deploy-frontend-vercel.yml
 # Kept as manual-only for reference / emergency use.
 on:
   workflow_dispatch:
@@ -284,13 +284,6 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Deploy to Azure (Backend)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets.STAGING_AZURE_WEBAPP_NAME || secrets.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.STAGING_AZURE_WEBAPP_PUBLISH_PROFILE || secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./backend
-
       - name: Run post-deployment tests
         run: |
           sleep 30
@@ -342,13 +335,6 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy to Azure (Backend)
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ secrets.PRODUCTION_AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.PRODUCTION_AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: ./backend
 
       - name: Run smoke tests
         run: |

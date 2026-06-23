@@ -16,6 +16,4 @@ jobs:
           echo "This legacy workflow is disabled for automatic runs."
           echo "Use active workflows:"
           echo "- .github/workflows/ci.yml"
-          echo "- .github/workflows/deploy-orchestrator-vercel-azure.yml"
-          echo "- .github/workflows/deploy-backend-azure.yml"
           echo "- .github/workflows/deploy-frontend-vercel.yml"

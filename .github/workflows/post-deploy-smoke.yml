@@ -3,7 +3,7 @@ name: Post Deploy Smoke Checks
 on:
   workflow_run:
     workflows:
-      - Deploy Orchestrator (Azure Backend -> Vercel Frontend)
+      - Deploy Orchestrator (Render Backend -> Vercel Frontend)
     types:
       - completed
   workflow_dispatch:

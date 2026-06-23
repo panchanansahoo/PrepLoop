@@ -58,7 +58,9 @@ jobs:
             echo "Set STAGING_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
             exit 1
           fi
+          API_ORIGIN="$(python3 -c 'from urllib.parse import urlsplit; import sys; u=sys.argv[1].strip(); p=urlsplit(u); print(f"{p.scheme}://{p.netloc}")' "$HEALTH_URL")"
           echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+          echo "VITE_API_URL=$API_ORIGIN" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -126,7 +128,9 @@ jobs:
             echo "Set PRODUCTION_BACKEND_HEALTHCHECK_URL (preferred) or BACKEND_HEALTHCHECK_URL"
             exit 1
           fi
+          API_ORIGIN="$(python3 -c 'from urllib.parse import urlsplit; import sys; u=sys.argv[1].strip(); p=urlsplit(u); print(f"{p.scheme}://{p.netloc}")' "$HEALTH_URL")"
           echo "BACKEND_HEALTH_URL=$HEALTH_URL" >> "$GITHUB_ENV"
+          echo "VITE_API_URL=$API_ORIGIN" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

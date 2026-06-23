@@ -23,13 +23,13 @@ export function validateFrontendRuntimeConfig() {
   const errors = [];
   const apiUrl = import.meta.env.VITE_API_URL;
 
-  // In production, VITE_API_URL is recommended but not required
-  // (Vercel rewrites in vercel.json can proxy /api/* to the backend)
+  // In production, VITE_API_URL is recommended but not required.
+  // If it is unset, the hosting layer needs to route /api/* to the backend origin.
   if (IS_PRODUCTION) {
     if (!apiUrl) {
       console.warn(
         '⚠️  VITE_API_URL is not configured in production. ' +
-        'API requests will use relative paths (handled by Vercel rewrites).'
+        'API requests will use relative paths and depend on the hosting layer to route /api/*.'
       );
     }
 
