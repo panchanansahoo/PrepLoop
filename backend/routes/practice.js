@@ -15,6 +15,7 @@ import {
 } from '../data/allProblems.js';
 import { executeCode, buildTestWrapper, parseTestResults } from '../utils/executeCode.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import { generateMissingTestCases } from '../services/aiService.js';
 
 const router = express.Router();
 const PROBLEM_SOLVE_COIN_REWARD = 5;
@@ -645,8 +646,26 @@ router.post('/submit', authenticateToken, async (req, res) => {
 
     const canonicalProblemId = problem.id;
 
-    const testCases = problem.test_cases || [];
+    let testCases = problem.test_cases || [];
+    // Filter out generic placeholder test cases
+    testCases = testCases.filter(tc => {
+      const isPlaceholderInput = Array.isArray(tc.input) ? tc.input[0] === 'example_input' : tc.input === 'example_input';
+      const isPlaceholderOutput = tc.output === 'example_output';
+      return !(isPlaceholderInput || isPlaceholderOutput);
+    });
     const hasTestCases = Array.isArray(testCases) && testCases.length > 0;
+    
+    // Trigger AI generation if no test cases are found
+    if (!hasTestCases && problem) {
+      generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '').then(newTestCases => {
+        if (newTestCases && Array.isArray(newTestCases) && newTestCases.length > 0) {
+          supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', canonicalProblemId).then(() => {
+            console.log(`Generated and saved test cases for ${problem.title}`);
+          });
+        }
+      }).catch(err => console.error('Failed to generate test cases via background job', err));
+    }
+
     let testsPassed = 0;
     let testResults = [];
 
@@ -808,6 +827,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       testResults,
       testsPassed,
       totalTests,
+      fallbackMode: !hasTestCases,
       message:
         status === 'accepted'
           ? 'All test cases passed!'
@@ -884,11 +904,31 @@ router.post('/run', authenticateToken, async (req, res) => {
     if (problemId) {
       const problem = await resolveProblemRecord(problemId);
       
-      const testCases = (Array.isArray(customTestCases) && customTestCases.length > 0)
+      let testCases = (Array.isArray(customTestCases) && customTestCases.length > 0)
         ? customTestCases
         : (problem && Array.isArray(problem.test_cases) ? problem.test_cases : []);
 
-      if (testCases.length > 0) {
+      // Filter out generic placeholder test cases
+      testCases = testCases.filter(tc => {
+        const isPlaceholderInput = Array.isArray(tc.input) ? tc.input[0] === 'example_input' : tc.input === 'example_input';
+        const isPlaceholderOutput = tc.output === 'example_output';
+        return !(isPlaceholderInput || isPlaceholderOutput);
+      });
+
+      const hasTestCases = testCases.length > 0;
+
+      // Trigger AI generation if no test cases are found
+      if (!hasTestCases && problem && (!customTestCases || customTestCases.length === 0)) {
+        generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '').then(newTestCases => {
+          if (newTestCases && Array.isArray(newTestCases) && newTestCases.length > 0) {
+            supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', problem.id).then(() => {
+              console.log(`Generated and saved test cases for ${problem.title}`);
+            });
+          }
+        }).catch(err => console.error('Failed to generate test cases via background job', err));
+      }
+
+      if (hasTestCases) {
         const starterCode = problem?.starter_code || {};
         const starterForLang = starterCode[language] || starterCode.python || '';
         const problemTitle = problem?.title || problemId;
@@ -953,7 +993,10 @@ router.post('/run', authenticateToken, async (req, res) => {
 
     // Fallback: just execute the code directly
     const result = await executeCode(code, language);
-    res.json(result);
+    res.json({
+      ...result,
+      fallbackMode: true
+    });
   } catch (error) {
     console.error('Code execution error:', error);
     res.status(500).json({ error: 'Failed to execute code' });
@@ -1392,6 +1435,23 @@ router.post('/timed-session', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Timed session error:', error);
     res.status(500).json({ error: 'Failed to create timed session' });
+  }
+});
+
+router.post('/execute-batch', optionalAuth, async (req, res) => {
+  const { code, language, inputs } = req.body;
+  if (!code || !language || !Array.isArray(inputs)) {
+    return res.status(400).json({ error: 'Missing required fields or inputs is not an array' });
+  }
+
+  try {
+    const results = await Promise.all(
+      inputs.map(input => executeCode(code, language, input))
+    );
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Batch execute error:', error);
+    res.status(500).json({ error: 'Failed to execute batch' });
   }
 });
 

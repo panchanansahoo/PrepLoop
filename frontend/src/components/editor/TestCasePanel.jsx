@@ -305,36 +305,48 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const runStress = async () => {
     setRunning(true);
     const tests = generateStressTests(problemType, 5, stressSize);
-    const results = [];
+    const startTime = Date.now();
 
-    for (const t of tests) {
-      const startTime = Date.now();
-      try {
-        const res = await authFetch(`${API_URL}/api/practice/execute`, {
-          method: 'POST',
-          body: JSON.stringify({ code, language, input: t.input }),
-        });
-        const data = await res.json();
-        const elapsed = data.executionTime || (Date.now() - startTime);
-        results.push({
+    try {
+      const inputs = tests.map(t => t.input);
+      const res = await authFetch(`${API_URL}/api/practice/execute-batch`, {
+        method: 'POST',
+        body: JSON.stringify({ code, language, inputs }),
+      });
+      const data = await res.json();
+      const elapsed = Date.now() - startTime;
+
+      const batchResults = tests.map((t, i) => {
+        const dataRes = data.results ? data.results[i] : null;
+        if (!dataRes) {
+          return {
+            ...t,
+            status: 'error',
+            runtime: '0ms',
+            memory: '—',
+            actualOutput: 'Failed to get result from batch',
+          };
+        }
+        return {
           ...t,
-          status: data.success ? 'passed' : 'failed',
-          runtime: `${Math.round(elapsed)}ms`,
-          memory: data.success ? `${(14 + Math.random() * 10).toFixed(1)}MB` : '—',
-          actualOutput: data.success ? (data.output || '').substring(0, 100) : (data.error || 'Error'),
-        });
-      } catch (err) {
-        results.push({
-          ...t,
-          status: 'error',
-          runtime: `${Date.now() - startTime}ms`,
-          memory: '—',
-          actualOutput: `Error: ${err.message}`,
-        });
-      }
+          status: dataRes.success ? 'passed' : 'failed',
+          runtime: dataRes.executionTime ? `${Math.round(dataRes.executionTime)}ms` : `${Math.round(elapsed / tests.length)}ms`,
+          memory: dataRes.success ? `${(14 + Math.random() * 10).toFixed(1)}MB` : '—',
+          actualOutput: dataRes.success ? (dataRes.output || '').substring(0, 100) : (dataRes.error || 'Error'),
+        };
+      });
+
+      setStressTests(batchResults);
+    } catch (err) {
+      setStressTests(tests.map(t => ({
+        ...t,
+        status: 'error',
+        runtime: `${Date.now() - startTime}ms`,
+        memory: '—',
+        actualOutput: `Error: ${err.message}`,
+      })));
     }
 
-    setStressTests(results);
     setRunning(false);
   };
 

@@ -459,12 +459,15 @@ export default function DSACodeEditor() {
         // Fallback: raw execution result (not judged against test cases)
         const actualOutput = (data.output || '').trim();
         const errorMsg = (data.error || '').trim();
+        
+        const isSuccess = data.success !== undefined ? data.success : !errorMsg;
+        
         setOutput({
-          success: false,
-          output: actualOutput || errorMsg || '',
+          success: isSuccess,
+          output: actualOutput || errorMsg || (isSuccess ? 'Execution completed with no output.' : 'Execution failed.'),
           message: errorMsg
             ? `Error: ${errorMsg}`
-            : 'Execution completed but no judged test results were returned.',
+            : 'Execution successful (no test cases configured)',
           executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
         });
       }
