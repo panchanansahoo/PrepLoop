@@ -5,7 +5,6 @@ import {
     Filter,
     CheckCircle2,
     Circle,
-    _AlertCircle,
     BarChart3,
 } from 'lucide-react';
 import './roadmap-filters.css';

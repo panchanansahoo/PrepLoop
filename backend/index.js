@@ -25,7 +25,6 @@ import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import cacheManager from './utils/cacheManager.js';
 
-let app;
 let routesInitialized = false;
 const voiceHttpLogger = createLogger('voice-http');
 
@@ -38,7 +37,7 @@ if (process.env.NODE_ENV === 'production') {
 validateEnvironment();
 validateStartupEnv();
 
-app = express();
+const app = express();
 app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
 // Keep a tiny endpoint available while heavier route initialization completes.
