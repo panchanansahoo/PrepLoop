@@ -172,7 +172,7 @@ export function executeCode(code, language, input = '') {
                     `--allow-fs-read=${workspaceDir}`,
                     tmpFile
                 ], {
-                    stdio: 'pipe', timeout: 10000, shell: false,
+                    stdio: 'pipe', timeout: 3000, shell: false,
                     input: input || '',
                     cwd: workspaceDir,
                     env: SANDBOX_ENV,           // SECURITY: sanitized env
@@ -264,7 +264,7 @@ export function executeCode(code, language, input = '') {
 
                 try {
                     execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
-                        stdio: 'pipe', timeout: 15000, shell: false, cwd: tmpDir,
+                        stdio: 'pipe', timeout: 5000, shell: false, cwd: tmpDir,
                         env: SANDBOX_ENV,           // SECURITY: sanitized env
                         maxBuffer: SANDBOX_MAX_BUFFER,
                     });
@@ -290,7 +290,7 @@ export function executeCode(code, language, input = '') {
         const runStart = Date.now();
         try {
             const result = execSync(runCmd, {
-                stdio: 'pipe', timeout: 10000, shell: false, input: input || '', cwd: tmpDir,
+                stdio: 'pipe', timeout: 3000, shell: false, input: input || '', cwd: tmpDir,
                 env: SANDBOX_ENV,           // SECURITY: sanitized env
                 maxBuffer: SANDBOX_MAX_BUFFER,
             });

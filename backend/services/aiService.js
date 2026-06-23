@@ -2328,6 +2328,42 @@ export class InterviewSimulatorService {
   }
 }
 
+export async function generateMissingTestCases(title, starterCode = '') {
+  if (!geminiAi) return null;
+  
+  const prompt = `You are an expert competitive programming judge.
+Generate exactly 3 JSON test cases for the problem: "${title}".
+The starter code is:
+${starterCode}
+
+Return a raw JSON array of objects. Each object must have:
+- "input": an array of arguments to pass to the function.
+- "output": the expected return value.
+
+Ensure the input arguments exactly match the function signature in the starter code.
+Return ONLY the JSON array.`;
+
+  try {
+    const response = await geminiAi.models.generateContent({
+      model: 'gemini-2.5-pro',
+      contents: prompt,
+      config: {
+        temperature: 0.2,
+        responseMimeType: "application/json"
+      }
+    });
+
+    const parsed = JSON.parse(response.text || '[]');
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].input !== undefined) {
+      return parsed;
+    }
+    return null;
+  } catch (error) {
+    logger.error('Failed to generate test cases', { error: error.message, title });
+    return null;
+  }
+}
+
 export default {
   CodeReviewService,
   InterviewSimulatorService,
