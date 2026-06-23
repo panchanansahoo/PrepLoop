@@ -26,6 +26,7 @@ import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import cacheManager from './utils/cacheManager.js';
 
 let app;
+let routesInitialized = false;
 const voiceHttpLogger = createLogger('voice-http');
 
 // Disable console.log in production
@@ -37,8 +38,18 @@ if (process.env.NODE_ENV === 'production') {
 validateEnvironment();
 validateStartupEnv();
 
-// Initialize cache manager
-await cacheManager.connect();
+app = express();
+app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
+
+// Keep a tiny endpoint available while heavier route initialization completes.
+// This lets Render detect the bound port instead of timing out during cold start.
+app.get('/health/live', (_req, res) => {
+  res.status(200).json({
+    alive: true,
+    initializing: !routesInitialized,
+    timestamp: new Date().toISOString(),
+  });
+});
 
 async function initializeServer() {
   try {
@@ -93,9 +104,6 @@ async function initializeServer() {
       await import('./middleware/healthCheck.js');
 
     console.log('✅ Routes loaded successfully');
-
-    app = express();
-    app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
     // Configure rate limiting
     const limiter = rateLimit({
@@ -363,9 +371,8 @@ process.on('uncaughtException', (error) => {
 
 // Graceful shutdown will be registered after server starts
 
-// Initialize server and start listening
-initializeServer()
-  .then(() => startServer(DEFAULT_PORT))
+// Start listening before heavier route imports so platform port scans pass.
+startServer(DEFAULT_PORT)
   .then((server) => {
     // Initialize collaboration service (must happen before shutdown setup)
     collaborationService.initialize(server);
@@ -380,6 +387,19 @@ initializeServer()
     console.log('✅ Graceful shutdown handlers registered');
 
     // ── Eager model preload (fire-and-forget, non-blocking) ──
+    cacheManager.connect().catch((err) => {
+      console.warn('[startup] Cache manager initialization failed (non-fatal):', err.message);
+    });
+
+    initializeServer()
+      .then(() => {
+        routesInitialized = true;
+      })
+      .catch((error) => {
+        console.error('Failed to initialize server routes:', error.message);
+        process.exit(1);
+      });
+
     import('./services/voiceService.js')
       .then((mod) => mod.default.preloadKokoroTTS())
       .catch((err) =>
