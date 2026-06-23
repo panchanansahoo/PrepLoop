@@ -20,7 +20,7 @@ describe('Login page', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/ATS-optimized resume analysis/i)).toBeInTheDocument();
+    expect(screen.getByText(/ATS-optimized scoring/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Welcome back/i })).toBeInTheDocument();
   });
 });
