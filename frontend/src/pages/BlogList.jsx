@@ -24,7 +24,10 @@ export default function BlogList() {
             const response = await fetch(`${API_URL}/api/blog`);
             if (response.ok) {
                 const data = await response.json();
+                console.log('Blog API response:', data);
                 setBlogs(data);
+            } else {
+                console.error('Blog API error status:', response.status);
             }
         } catch (error) {
             console.error('Error fetching blogs:', error);

@@ -42,6 +42,15 @@ app.set('trust proxy', process.env.TRUST_PROXY === 'false' ? false : 1);
 
 // Keep a tiny endpoint available while heavier route initialization completes.
 // This lets Render detect the bound port instead of timing out during cold start.
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    service: 'Preploop backend',
+    status: 'running',
+    health: '/health',
+    live: '/health/live',
+  });
+});
+
 app.get('/health/live', (_req, res) => {
   res.status(200).json({
     alive: true,
