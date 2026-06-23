@@ -115,7 +115,7 @@ function maxSubArrayOfSizeK(k, arr) {
         ];
 
         console.log('Inserting blogs...');
-        const { data, error } = await supabaseAdmin.from('blogs').insert(blogsToInsert).select();
+        const { error } = await supabaseAdmin.from('blogs').insert(blogsToInsert).select();
         
         if (error) {
             console.error('Insert error:', error);
