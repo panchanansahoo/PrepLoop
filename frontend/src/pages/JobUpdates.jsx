@@ -120,7 +120,7 @@ export default function JobUpdates() {
       if (activeCategory !== 'all') params.append('category', activeCategory);
       if (debouncedSearch) params.append('search', debouncedSearch);
       params.append('page', page.toString());
-      params.append('limit', '50');
+      params.append('limit', '100');
       params.append('_t', Date.now().toString());
 
       const _headers = buildAuthHeaders(user);

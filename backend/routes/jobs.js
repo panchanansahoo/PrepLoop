@@ -41,13 +41,14 @@ function ensureAllowedExternalJobUrl(candidateUrl) {
 
 // ─── Curated fallback jobs (always available) ────────────────────
 const CURATED_JOBS = [
+  // ── Fresher roles ──
   {
     id: 'curated_1', title: 'Software Engineer – Fresher', company: 'TCS',
     category: 'fresher', type: 'full-time', location: 'Mumbai, India',
     salary_range: '₹3.5 – 7 LPA', description: 'TCS is hiring fresh graduates for full-stack development roles across multiple locations. Strong fundamentals in Java, Python, or JavaScript required.',
     requirements: ['B.Tech / B.E. in CS / IT', 'Knowledge of Java or Python', 'Good problem-solving skills'],
     apply_link: 'https://www.tcs.com/careers', deadline: null, is_active: true,
-    tags: ['TCS', 'Full-time'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+    tags: ['TCS', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
   {
     id: 'curated_2', title: 'Associate Software Engineer', company: 'Infosys',
@@ -55,8 +56,58 @@ const CURATED_JOBS = [
     salary_range: '₹3.6 – 6 LPA', description: 'Infosys recruits freshers via InfyTQ platform. Roles span web development, cloud computing, and data engineering.',
     requirements: ['B.E. / B.Tech', '60% aggregate', 'No active backlogs'],
     apply_link: 'https://www.infosys.com/careers', deadline: null, is_active: true,
-    tags: ['Infosys', 'Full-time'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+    tags: ['Infosys', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
+  {
+    id: 'curated_6', title: 'SDE-1 (New Grad)', company: 'Google',
+    category: 'fresher', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹15 – 25 LPA', description: 'Google new graduate SDE-1 role. Work on large-scale distributed systems, search infrastructure, or Android platform.',
+    requirements: ['B.Tech / MS in CS', 'Strong DSA & algorithms', 'Experience with C++, Java, or Python'],
+    apply_link: 'https://careers.google.com', deadline: null, is_active: true,
+    tags: ['Google', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_7', title: 'Software Engineer – New Grad', company: 'Microsoft',
+    category: 'fresher', type: 'full-time', location: 'Hyderabad, India',
+    salary_range: '₹18 – 30 LPA', description: 'Microsoft is hiring new graduates for SWE roles across Azure, Office 365, and Windows teams. Build products used by billions worldwide.',
+    requirements: ['B.Tech / M.Tech in CS', 'Strong CS fundamentals', 'Proficiency in C++, C#, or Java'],
+    apply_link: 'https://careers.microsoft.com', deadline: null, is_active: true,
+    tags: ['Microsoft', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_8', title: 'SDE-1 (Campus Hire)', company: 'Flipkart',
+    category: 'fresher', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹14 – 22 LPA', description: 'Join Flipkart as an SDE-1 and work on India\'s largest e-commerce platform. Build scalable microservices handling millions of transactions daily.',
+    requirements: ['B.Tech CS / IT', 'Strong DSA & system design basics', 'Java or Go experience preferred'],
+    apply_link: 'https://www.flipkartcareers.com', deadline: null, is_active: true,
+    tags: ['Flipkart', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_9', title: 'Backend Engineer – Entry Level', company: 'Razorpay',
+    category: 'fresher', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹12 – 20 LPA', description: 'Razorpay is looking for entry-level backend engineers to build next-gen payment infrastructure powering millions of businesses.',
+    requirements: ['B.Tech in CS / IT', 'Go, Python, or Ruby experience', 'Understanding of databases and APIs'],
+    apply_link: 'https://razorpay.com/jobs', deadline: null, is_active: true,
+    tags: ['Razorpay', 'Full-time', 'Fintech'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_10', title: 'Associate Engineer', company: 'Tech Mahindra',
+    category: 'fresher', type: 'full-time', location: 'Pune, India',
+    salary_range: '₹3.25 – 5 LPA', description: 'Tech Mahindra fresher hiring for engineering roles in digital transformation, cloud services, and network engineering.',
+    requirements: ['B.E. / B.Tech in CS / IT / ECE', '60% aggregate', 'Strong logical reasoning'],
+    apply_link: 'https://careers.techmahindra.com', deadline: null, is_active: true,
+    tags: ['Tech Mahindra', 'Full-time', 'Fresher'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_11', title: 'Frontend Engineer – React', company: 'Swiggy',
+    category: 'fresher', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹12 – 18 LPA', description: 'Swiggy is hiring frontend engineers to build delightful user experiences for food ordering, Instamart, and Dineout platforms.',
+    requirements: ['B.Tech CS / IT', 'React.js proficiency', 'HTML/CSS/JavaScript mastery'],
+    apply_link: 'https://careers.swiggy.com', deadline: null, is_active: true,
+    tags: ['Swiggy', 'Full-time', 'Frontend'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+
+  // ── Internship roles ──
   {
     id: 'curated_3', title: 'SDE Intern – 6 months', company: 'Amazon',
     category: 'internship', type: 'internship', location: 'Hyderabad, India',
@@ -66,6 +117,48 @@ const CURATED_JOBS = [
     tags: ['Amazon', 'Internship'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
   {
+    id: 'curated_12', title: 'Software Engineering Intern', company: 'Google',
+    category: 'internship', type: 'internship', location: 'Bengaluru, India',
+    salary_range: '₹1,00,000 /month', description: 'Google STEP / SWE internship for penultimate-year students. Work alongside world-class engineers on products that impact billions.',
+    requirements: ['Pre-final year B.Tech / B.E.', 'Strong algorithms & data structures', 'Experience in Python, C++, or Java'],
+    apply_link: 'https://careers.google.com/students', deadline: null, is_active: true,
+    tags: ['Google', 'Internship', 'STEP'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_13', title: 'Data Science Intern', company: 'Flipkart',
+    category: 'internship', type: 'internship', location: 'Bengaluru, India',
+    salary_range: '₹60,000 /month', description: 'Flipkart data science internship focused on recommendation systems, demand forecasting, and pricing algorithms for India\'s biggest e-commerce platform.',
+    requirements: ['Pre-final year B.Tech / M.Tech', 'Python, SQL, pandas proficiency', 'Basic ML knowledge'],
+    apply_link: 'https://www.flipkartcareers.com', deadline: null, is_active: true,
+    tags: ['Flipkart', 'Internship', 'Data Science'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_14', title: 'Product Engineering Intern', company: 'Zerodha',
+    category: 'internship', type: 'internship', location: 'Bengaluru, India (Remote-friendly)',
+    salary_range: '₹50,000 /month', description: 'Zerodha intern role building trading platforms and fintech tools used by 10M+ investors. Work with Go, Python, and modern frontend frameworks.',
+    requirements: ['Pre-final year student', 'Go or Python experience', 'Interest in financial markets'],
+    apply_link: 'https://zerodha.com/careers', deadline: null, is_active: true,
+    tags: ['Zerodha', 'Internship', 'Fintech'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_15', title: 'Backend Engineering Intern', company: 'PhonePe',
+    category: 'internship', type: 'internship', location: 'Bengaluru, India',
+    salary_range: '₹70,000 /month', description: 'PhonePe is offering backend engineering internships for students passionate about building India\'s digital payments infrastructure serving 400M+ users.',
+    requirements: ['B.Tech CS / IT (pre-final year)', 'Java or Kotlin experience', 'Distributed systems interest'],
+    apply_link: 'https://www.phonepe.com/careers', deadline: null, is_active: true,
+    tags: ['PhonePe', 'Internship', 'Payments'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_16', title: 'ML Engineering Intern', company: 'Zomato',
+    category: 'internship', type: 'internship', location: 'Gurugram, India',
+    salary_range: '₹55,000 /month', description: 'Zomato ML internship working on personalized food recommendations, delivery time estimation, and restaurant ranking algorithms.',
+    requirements: ['Pre-final year B.Tech / M.Tech', 'Python & ML frameworks', 'Statistics fundamentals'],
+    apply_link: 'https://www.zomato.com/careers', deadline: null, is_active: true,
+    tags: ['Zomato', 'Internship', 'Machine Learning'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+
+  // ── Off-campus roles ──
+  {
     id: 'curated_4', title: 'Junior Developer – Off Campus', company: 'Wipro',
     category: 'off-campus', type: 'full-time', location: 'Pune, India',
     salary_range: '₹3.5 – 5 LPA', description: 'Wipro off-campus hiring for 2024/2025 batch. Roles in WILP programme across SAP, Java, and cloud tracks.',
@@ -73,6 +166,64 @@ const CURATED_JOBS = [
     apply_link: 'https://careers.wipro.com', deadline: null, is_active: true,
     tags: ['Wipro', 'Off-Campus'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
+  {
+    id: 'curated_17', title: 'Full Stack Developer', company: 'Zoho Corporation',
+    category: 'off-campus', type: 'full-time', location: 'Chennai, India',
+    salary_range: '₹6 – 12 LPA', description: 'Zoho is hiring full-stack developers to build enterprise SaaS applications. Work on Zoho CRM, Zoho One, and other products used by 80M+ users globally.',
+    requirements: ['B.E. / B.Tech / MCA', 'Java, Python, or JavaScript', 'SQL and REST API experience'],
+    apply_link: 'https://www.zoho.com/careers', deadline: null, is_active: true,
+    tags: ['Zoho', 'Full-time', 'SaaS'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_18', title: 'DevOps Engineer', company: 'Freshworks',
+    category: 'off-campus', type: 'full-time', location: 'Chennai, India',
+    salary_range: '₹10 – 18 LPA', description: 'Freshworks is hiring DevOps engineers to manage cloud infrastructure on AWS. Build CI/CD pipelines, Kubernetes clusters, and monitoring systems.',
+    requirements: ['B.Tech + 1-2 years experience', 'AWS / GCP experience', 'Docker, Kubernetes, Terraform'],
+    apply_link: 'https://www.freshworks.com/company/careers', deadline: null, is_active: true,
+    tags: ['Freshworks', 'Full-time', 'DevOps'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_19', title: 'React Native Developer', company: 'CRED',
+    category: 'off-campus', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹15 – 28 LPA', description: 'CRED is looking for React Native developers to build premium mobile experiences for credit card management and financial rewards.',
+    requirements: ['B.Tech CS / IT', 'React Native proficiency', 'iOS/Android development knowledge'],
+    apply_link: 'https://careers.cred.club', deadline: null, is_active: true,
+    tags: ['CRED', 'Full-time', 'Mobile'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_20', title: 'Platform Engineer', company: 'Groww',
+    category: 'off-campus', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹14 – 24 LPA', description: 'Groww is hiring platform engineers to scale India\'s fastest-growing investment platform. Build resilient systems handling millions of trades.',
+    requirements: ['B.Tech + strong CS fundamentals', 'Java or Go', 'System design knowledge'],
+    apply_link: 'https://groww.in/careers', deadline: null, is_active: true,
+    tags: ['Groww', 'Full-time', 'Fintech'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_21', title: 'Backend Developer – Python', company: 'Meesho',
+    category: 'off-campus', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹12 – 20 LPA', description: 'Meesho is hiring Python backend developers to power social commerce for 150M+ users. Build scalable APIs, ML pipelines, and data platforms.',
+    requirements: ['B.Tech CS / IT', 'Python, Django/FastAPI', 'PostgreSQL & Redis experience'],
+    apply_link: 'https://meesho.io/careers', deadline: null, is_active: true,
+    tags: ['Meesho', 'Full-time', 'E-commerce'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_22', title: 'Cloud Engineer – AWS', company: 'Ola',
+    category: 'off-campus', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹10 – 18 LPA', description: 'Ola is hiring cloud engineers to manage infrastructure for ride-hailing, electric vehicles, and Ola Financial Services.',
+    requirements: ['B.Tech + 1-3 years', 'AWS services expertise', 'Terraform, Docker, CI/CD'],
+    apply_link: 'https://www.olacabs.com/careers', deadline: null, is_active: true,
+    tags: ['Ola', 'Full-time', 'Cloud'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_23', title: 'Data Engineer', company: 'Paytm',
+    category: 'off-campus', type: 'full-time', location: 'Noida, India',
+    salary_range: '₹10 – 16 LPA', description: 'Paytm is hiring data engineers to build ETL pipelines, real-time analytics, and data warehousing solutions for India\'s leading digital payments ecosystem.',
+    requirements: ['B.Tech CS / IT', 'Spark, Hadoop, or Kafka', 'Python and SQL proficiency'],
+    apply_link: 'https://paytm.com/careers', deadline: null, is_active: true,
+    tags: ['Paytm', 'Full-time', 'Data Engineering'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+
+  // ── Campus drive roles ──
   {
     id: 'curated_5', title: 'Graduate Engineer Trainee', company: 'HCLTech',
     category: 'campus', type: 'full-time', location: 'Noida, India',
@@ -82,12 +233,62 @@ const CURATED_JOBS = [
     tags: ['HCLTech', 'Campus'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
   {
-    id: 'curated_6', title: 'SDE-1 (New Grad)', company: 'Google',
-    category: 'fresher', type: 'full-time', location: 'Bengaluru, India',
-    salary_range: '₹15 – 25 LPA', description: 'Google new graduate SDE-1 role. Work on large-scale distributed systems, search infrastructure, or Android platform.',
-    requirements: ['B.Tech / MS in CS', 'Strong DSA & algorithms', 'Experience with C++, Java, or Python'],
-    apply_link: 'https://careers.google.com', deadline: null, is_active: true,
-    tags: ['Google', 'Full-time'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+    id: 'curated_24', title: 'Analyst – Campus 2025', company: 'Goldman Sachs',
+    category: 'campus', type: 'full-time', location: 'Bengaluru, India',
+    salary_range: '₹18 – 30 LPA', description: 'Goldman Sachs engineering campus hiring for 2025 batch. Build trading platforms, risk engines, and internal tools used across global financial markets.',
+    requirements: ['B.Tech / M.Tech CS / Math', 'Strong DSA & problem-solving', 'Java, Python, or C++ experience'],
+    apply_link: 'https://www.goldmansachs.com/careers', deadline: null, is_active: true,
+    tags: ['Goldman Sachs', 'Campus', 'Finance'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_25', title: 'Technology Analyst – Campus', company: 'Morgan Stanley',
+    category: 'campus', type: 'full-time', location: 'Mumbai, India',
+    salary_range: '₹16 – 25 LPA', description: 'Morgan Stanley campus drive for technology analyst roles. Work on electronic trading systems, risk management, and data analytics platforms.',
+    requirements: ['B.Tech / M.Tech from premier institute', 'Strong programming skills', 'Financial domain interest'],
+    apply_link: 'https://www.morganstanley.com/careers', deadline: null, is_active: true,
+    tags: ['Morgan Stanley', 'Campus', 'Finance'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_26', title: 'Systems Engineer – Campus', company: 'Cognizant',
+    category: 'campus', type: 'full-time', location: 'Chennai, India',
+    salary_range: '₹4 – 6 LPA', description: 'Cognizant campus hiring for Systems Engineer role. Work on cloud migration, application development, and digital transformation projects for global clients.',
+    requirements: ['B.E. / B.Tech / MCA 2025 batch', '65% aggregate', 'No active backlogs'],
+    apply_link: 'https://careers.cognizant.com', deadline: null, is_active: true,
+    tags: ['Cognizant', 'Campus', 'IT Services'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+
+  // ── Hiring announcements ──
+  {
+    id: 'curated_27', title: 'Massive Hiring – 10,000+ Roles', company: 'TCS',
+    category: 'hiring-announcement', type: 'full-time', location: 'Pan India',
+    salary_range: '₹3.5 – 12 LPA', description: 'TCS announces massive hiring drive for FY2026. Recruiting 10,000+ freshers and experienced professionals across Java, Python, Cloud, and AI/ML domains.',
+    requirements: ['B.Tech / B.E. / MCA', '60% aggregate', 'Open to all branches for select roles'],
+    apply_link: 'https://www.tcs.com/careers', deadline: null, is_active: true,
+    tags: ['TCS', 'Mass Hiring', 'Announcement'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_28', title: 'Engineering Hiring Wave – 500+ SDE Roles', company: 'Amazon India',
+    category: 'hiring-announcement', type: 'full-time', location: 'Hyderabad / Bengaluru, India',
+    salary_range: '₹15 – 45 LPA', description: 'Amazon India announces a large-scale engineering hiring wave across SDE, data engineering, and ML roles. Multiple openings for SDE-1, SDE-2, and senior positions.',
+    requirements: ['B.Tech / M.Tech CS', 'Strong DSA & system design', '0-8 years experience'],
+    apply_link: 'https://www.amazon.jobs/en/locations/india', deadline: null, is_active: true,
+    tags: ['Amazon', 'Hiring Wave', 'Announcement'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_29', title: 'Fresher Hiring – NexTGen Programme', company: 'Infosys',
+    category: 'hiring-announcement', type: 'full-time', location: 'Pan India',
+    salary_range: '₹3.6 – 9 LPA', description: 'Infosys launches NexTGen hiring programme for 2025-26 graduates. Roles in cloud engineering, full-stack development, and AI/ML with structured training.',
+    requirements: ['2025/2026 batch graduates', 'B.E. / B.Tech / M.Tech / MCA', 'Minimum 65% aggregate'],
+    apply_link: 'https://www.infosys.com/careers', deadline: null, is_active: true,
+    tags: ['Infosys', 'NexTGen', 'Announcement'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
+  },
+  {
+    id: 'curated_30', title: 'Engineering Expansion – 200+ Roles', company: 'PhonePe',
+    category: 'hiring-announcement', type: 'full-time', location: 'Bengaluru / Pune, India',
+    salary_range: '₹12 – 35 LPA', description: 'PhonePe announces engineering expansion with 200+ openings across backend, frontend, mobile, and infrastructure teams as UPI transactions cross 12B monthly.',
+    requirements: ['B.Tech CS / IT', '0-5 years experience', 'Java, Go, or React expertise'],
+    apply_link: 'https://www.phonepe.com/careers', deadline: null, is_active: true,
+    tags: ['PhonePe', 'Expansion', 'Announcement'], source: 'curated', created_at: new Date().toISOString(), logo_url: null,
   },
 ];
 
@@ -222,10 +423,12 @@ async function fetchExternalJobs(query = 'fresher software developer India', pag
   // ── Skip Remotive API (not India-focused) ──
   // Remotive is primarily for remote jobs outside India
 
+  // ── Always merge curated jobs so there's always solid content ──
+  aggregatedJobs.push(...CURATED_JOBS);
+
   if (aggregatedJobs.length === 0) {
-    // ── Final fallback: curated Indian jobs ──
-    logger.info('Using curated Indian fallback jobs');
-    aggregatedJobs = CURATED_JOBS;
+    logger.info('No jobs from any source — using curated fallback only');
+    aggregatedJobs = [...CURATED_JOBS];
   }
 
   // Deduplicate jobs by title and company to avoid exact matches showing up multiple times
@@ -733,7 +936,7 @@ router.get('/', optionalAuth, async (req, res) => {
         : [...adminJobs, ...externalJobs];
 
     // Respect the limit parameter for the combined results
-    const requestedLimit = Math.min(50, parseInt(limit, 10));
+    const requestedLimit = Math.min(100, parseInt(limit, 10));
     const combinedJobs = allJobs.slice(0, requestedLimit);
 
     res.json({
