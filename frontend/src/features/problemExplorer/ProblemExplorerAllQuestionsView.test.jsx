@@ -71,7 +71,7 @@ describe('ProblemExplorerAllQuestionsView', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Solve' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try' }));
     expect(onSolveProblem).toHaveBeenCalledWith(42);
   });
 

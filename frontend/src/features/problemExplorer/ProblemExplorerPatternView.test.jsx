@@ -86,7 +86,7 @@ describe('ProblemExplorerPatternView', () => {
 
     renderView({ onSolveProblem });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Solve' }));
+    fireEvent.click(screen.getByRole('button', { name: /solve/i }));
 
     expect(onSolveProblem).toHaveBeenCalledWith(101);
   });
