@@ -302,7 +302,7 @@ export default function Library() {
 
                 {/* Sticky Glass Header for Search & Filters */}
                 <div className="glass-header">
-                    <div className="container" style={{
+                    <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',

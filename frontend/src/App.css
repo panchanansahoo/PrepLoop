@@ -3962,3 +3962,41 @@ html[data-theme="light"] {
   }
 }
 
+/* ── Global Shared Utilities ──
+ * These classes are used across multiple pages (Library, Navbar, etc.)
+ * and MUST live here (always-loaded) rather than in page-specific CSS
+ * like Home.css to prevent UI mismatch after page refresh.
+ */
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 40px;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 20px;
+  }
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, #c4b5fd 40%, #a78bfa 70%, #8b5cf6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  background-size: 200% 200%;
+  animation: gradientShift 6s ease-in-out infinite;
+}
+
+@keyframes gradientShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
