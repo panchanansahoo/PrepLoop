@@ -657,13 +657,17 @@ router.post('/submit', authenticateToken, async (req, res) => {
     
     // Trigger AI generation if no test cases are found
     if (!hasTestCases && problem) {
-      generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '').then(newTestCases => {
+      try {
+        const newTestCases = await generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '');
         if (newTestCases && Array.isArray(newTestCases) && newTestCases.length > 0) {
-          supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', canonicalProblemId).then(() => {
-            console.log(`Generated and saved test cases for ${problem.title}`);
-          });
+          await supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', canonicalProblemId);
+          console.log(`Generated and saved test cases for ${problem.title}`);
+          testCases = newTestCases;
+          hasTestCases = true;
         }
-      }).catch(err => console.error('Failed to generate test cases via background job', err));
+      } catch (err) {
+        console.error('Failed to generate test cases via background job', err);
+      }
     }
 
     let testsPassed = 0;
@@ -744,7 +748,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       .select('*')
       .eq('user_id', req.user.id)
       .eq('problem_id', canonicalProblemId)
-      .single();
+      .maybeSingle();
 
     let progress;
     let coinsAwarded = 0;
@@ -838,13 +842,14 @@ router.post('/submit', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Submission error:', error);
+    fs.writeFileSync(path.join(process.cwd(), 'submission_error.log'), error.stack || error.message || String(error));
     if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
       return res.status(503).json({
         error: 'Coins/submission feature is temporarily unavailable.',
         degraded: true,
       });
     }
-    res.status(500).json({ error: 'Failed to submit solution' });
+    res.status(500).json({ error: 'Failed to submit solution: ' + error.message });
   }
 });
 
@@ -919,13 +924,17 @@ router.post('/run', authenticateToken, async (req, res) => {
 
       // Trigger AI generation if no test cases are found
       if (!hasTestCases && problem && (!customTestCases || customTestCases.length === 0)) {
-        generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '').then(newTestCases => {
+        try {
+          const newTestCases = await generateMissingTestCases(problem.title, problem.starter_code?.javascript || problem.starter_code?.python || '');
           if (newTestCases && Array.isArray(newTestCases) && newTestCases.length > 0) {
-            supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', problem.id).then(() => {
-              console.log(`Generated and saved test cases for ${problem.title}`);
-            });
+            await supabaseAdmin.from('problems').update({ test_cases: newTestCases }).eq('id', problem.id);
+            console.log(`Generated and saved test cases for ${problem.title}`);
+            testCases = newTestCases;
+            hasTestCases = true;
           }
-        }).catch(err => console.error('Failed to generate test cases via background job', err));
+        } catch (err) {
+          console.error('Failed to generate test cases via background job', err);
+        }
       }
 
       if (hasTestCases) {

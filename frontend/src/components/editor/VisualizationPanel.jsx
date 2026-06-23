@@ -253,10 +253,10 @@ export default function VisualizationPanel({
                                 <div style={{
                                     display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
                                     fontSize: 13, fontWeight: 700,
-                                    color: output.fallbackMode ? '#fbbf24' : (output.success ? '#4ade80' : '#f87171'),
+                                    color: (output.fallbackMode && output.success) ? '#fbbf24' : (output.success ? '#4ade80' : '#f87171'),
                                 }}>
-                                    {output.fallbackMode ? '⚠ ' : (output.success ? '✓ ' : '✗ ')}
-                                    {output.fallbackMode
+                                    {(output.fallbackMode && output.success) ? '⚠ ' : (output.success ? '✓ ' : '✗ ')}
+                                    {(output.fallbackMode && output.success)
                                         ? 'Code Executed Successfully (No strict test cases available for grading)'
                                         : (output.submission
                                             ? (output.submission.status === 'accepted' ? 'Accepted' : 'Wrong Answer')
