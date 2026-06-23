@@ -117,15 +117,26 @@ export function ProblemExplorerAllQuestionsView({
                             {problem.acceptance || '—'}
                         </span>
                         <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <button onClick={() => onSolveProblem(problem.id)} style={{
-                                padding: '4px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
-                                background: 'linear-gradient(135deg, rgba(59,130,246,0.8), rgba(99,102,241,0.8))',
-                                border: 'none', color: '#fff', cursor: 'pointer',
-                                boxShadow: '0 2px 8px rgba(59,130,246,0.2)',
-                            }}
-                                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.35)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(59,130,246,0.2)'; }}
-                            >Solve</button>
+                            {isSolved ? (
+                                <button onClick={() => onSolveProblem(problem.id)} style={{
+                                    display: 'flex', alignItems: 'center', gap: 4,
+                                    padding: '4px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                                    background: 'rgba(110,231,183,0.15)',
+                                    border: '1px solid rgba(110,231,183,0.3)', color: '#10b981', cursor: 'pointer',
+                                }}>
+                                    <CheckCircle2 size={12} /> Solved
+                                </button>
+                            ) : (
+                                <button onClick={() => onSolveProblem(problem.id)} style={{
+                                    padding: '4px 14px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                                    background: 'linear-gradient(135deg, rgba(59,130,246,0.8), rgba(99,102,241,0.8))',
+                                    border: 'none', color: '#fff', cursor: 'pointer',
+                                    boxShadow: '0 2px 8px rgba(59,130,246,0.2)',
+                                }}
+                                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(59,130,246,0.35)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(59,130,246,0.2)'; }}
+                                >Try</button>
+                            )}
                         </div>
                     </div>
                 );
