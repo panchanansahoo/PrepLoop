@@ -653,7 +653,7 @@ router.post('/submit', authenticateToken, async (req, res) => {
       const isPlaceholderOutput = tc.output === 'example_output';
       return !(isPlaceholderInput || isPlaceholderOutput);
     });
-    const hasTestCases = Array.isArray(testCases) && testCases.length > 0;
+    let hasTestCases = Array.isArray(testCases) && testCases.length > 0;
     
     // Trigger AI generation if no test cases are found
     if (!hasTestCases && problem) {
@@ -920,7 +920,7 @@ router.post('/run', authenticateToken, async (req, res) => {
         return !(isPlaceholderInput || isPlaceholderOutput);
       });
 
-      const hasTestCases = testCases.length > 0;
+      let hasTestCases = testCases.length > 0;
 
       // Trigger AI generation if no test cases are found
       if (!hasTestCases && problem && (!customTestCases || customTestCases.length === 0)) {
