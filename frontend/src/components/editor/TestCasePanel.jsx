@@ -187,10 +187,32 @@ const TestCasePanel = forwardRef(function TestCasePanel({
   const handleRun = async () => {
     setRunning(true);
     try {
+      // Parse custom test cases for the backend wrapper
+      const formattedTestCases = testCases.map(tc => {
+        let parsedInput;
+        try {
+           parsedInput = tc.params ? tc.params.map(p => {
+             // Handle raw strings that aren't valid JSON (e.g. "abc" instead of '"abc"')
+             try { return JSON.parse(p.value); } catch { return p.value; }
+           }) : [tc.input];
+        } catch (e) {
+           parsedInput = [tc.input];
+        }
+        
+        let parsedOutput;
+        try {
+           parsedOutput = JSON.parse(tc.expectedOutput || tc.expected || 'null');
+        } catch (e) {
+           parsedOutput = tc.expectedOutput || tc.expected;
+        }
+
+        return { input: parsedInput, output: parsedOutput };
+      });
+
       // Use the structured /run endpoint with problemId for proper per-test-case execution
       const res = await authFetch(`${API_URL}/api/practice/run`, {
         method: 'POST',
-        body: JSON.stringify({ code, language, problemId }),
+        body: JSON.stringify({ code, language, problemId, testCases: formattedTestCases }),
       });
       const data = await res.json();
 

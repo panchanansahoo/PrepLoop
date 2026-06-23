@@ -596,7 +596,37 @@ const resolveProblemRecord = async (problemIdentifier) => {
     .ilike('title', searchTitle)
     .limit(5);
 
-  return Array.isArray(candidates) && candidates.length > 0 ? candidates[0] : null;
+  if (Array.isArray(candidates) && candidates.length > 0) {
+    return candidates[0];
+  }
+
+  // Auto-seeding for submissions: if we have a static match but no DB record, insert it on the fly
+  if (staticMatch) {
+    try {
+      const { data: newProblem, error } = await supabaseAdmin.from('problems').insert({
+        title: staticMatch.title,
+        description: `Solve the ${staticMatch.title} problem.`,
+        difficulty: staticMatch.difficulty || 'Medium',
+        pattern_id: null, // We can skip pattern_id mapping for on-the-fly seeds
+        constraints: 'N/A',
+        examples: [],
+        hints: [],
+        solution_approach: 'N/A',
+        starter_code: {},
+        test_cases: [],
+        companies: staticMatch.companies || [],
+        tags: staticMatch.pattern ? [staticMatch.pattern.toLowerCase().replace(/\\s+/g, '-')] : []
+      }).select('id, title, test_cases, starter_code, examples').single();
+
+      if (!error && newProblem) {
+        return newProblem;
+      }
+    } catch (e) {
+      console.error('Failed to auto-seed problem:', e);
+    }
+  }
+
+  return null;
 };
 
 router.post('/submit', authenticateToken, async (req, res) => {
@@ -835,7 +865,7 @@ router.get('/submissions', authenticateToken, async (req, res) => {
 });
 
 router.post('/run', authenticateToken, async (req, res) => {
-  const { code, language, problemId } = req.body;
+  const { code, language, problemId, testCases: customTestCases } = req.body;
 
   if (!language || typeof language !== 'string') {
     return res.status(400).json({ success: false, error: 'Language is required' });
@@ -853,20 +883,17 @@ router.post('/run', authenticateToken, async (req, res) => {
     // If problemId provided, fetch test cases and run against them
     if (problemId) {
       const problem = await resolveProblemRecord(problemId);
+      
+      const testCases = (Array.isArray(customTestCases) && customTestCases.length > 0)
+        ? customTestCases
+        : (problem && Array.isArray(problem.test_cases) ? problem.test_cases : []);
 
-      if (!problem) {
-        return res.status(404).json({
-          success: false,
-          error: 'Problem not found for test execution',
-        });
-      }
-
-      if (problem && Array.isArray(problem.test_cases) && problem.test_cases.length > 0) {
-        const testCases = problem.test_cases;
-        const starterCode = problem.starter_code || {};
+      if (testCases.length > 0) {
+        const starterCode = problem?.starter_code || {};
         const starterForLang = starterCode[language] || starterCode.python || '';
+        const problemTitle = problem?.title || problemId;
         const fnName = detectFunctionName(starterForLang, code, language);
-        const judgeProfile = getJudgeProfile(problem.title, fnName);
+        const judgeProfile = getJudgeProfile(problemTitle, fnName);
 
         if (language === 'python' || language === 'javascript') {
           const wrappedCode = buildTestWrapper(code, language, testCases, fnName, starterForLang);
@@ -922,11 +949,6 @@ router.post('/run', authenticateToken, async (req, res) => {
               : `${evaluated.testsPassed}/${testCases.length} test cases passed`,
         });
       }
-
-      return res.status(422).json({
-        success: false,
-        error: 'No test cases configured for this problem',
-      });
     }
 
     // Fallback: just execute the code directly

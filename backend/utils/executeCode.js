@@ -167,7 +167,11 @@ export function executeCode(code, language, input = '') {
         try {
             fs.writeFileSync(tmpFile, code, 'utf-8');
             try {
-                const result = execFileSync('node', [tmpFile], {
+                const result = execFileSync('node', [
+                    '--permission',
+                    `--allow-fs-read=${workspaceDir}`,
+                    tmpFile
+                ], {
                     stdio: 'pipe', timeout: 10000, shell: false,
                     input: input || '',
                     cwd: workspaceDir,
