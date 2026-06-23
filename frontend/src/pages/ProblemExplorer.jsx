@@ -1,13 +1,16 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Building2, Tag, BarChart3, ArrowUpDown, CheckCircle2, Circle, AlertCircle, ExternalLink, SlidersHorizontal, Bookmark, Shuffle, Zap, Star, Sparkles, ChevronRight, Trophy, ChevronLeft, ListFilter, BookOpen, TrendingUp, Lock, MessageSquare, Play, Code2, List, Target, BarChart2, History } from 'lucide-react';
+import { Clock, Building2, Tag, BarChart3, ArrowUpDown, CheckCircle2, Circle, AlertCircle, ExternalLink, SlidersHorizontal, Bookmark, Shuffle, Zap, Star, Sparkles, ChevronRight, Trophy, ChevronLeft, ListFilter, BookOpen, TrendingUp, Lock, MessageSquare, Play, Code2, List, Target, BarChart2, History, Layout } from 'lucide-react';
 import { PROBLEMS, COMPANIES, TOPICS, PATTERNS, getDifficultyCounts } from '../data/problemsDatabase';
+import { STUDY_PLANS } from '../data/studyPlans';
 import { useTheme } from '../context/ThemeContext';
+import { authFetch } from '../utils/authFetch';
 import { filterAndSortProblems } from '../features/problemExplorer/filtering';
 import { ProblemExplorerFiltersPanel } from '../features/problemExplorer/ProblemExplorerFiltersPanel';
 import { ProblemExplorerAllQuestionsView } from '../features/problemExplorer/ProblemExplorerAllQuestionsView';
 import { ProblemExplorerViewControls } from '../features/problemExplorer/ProblemExplorerViewControls';
 import { ProblemExplorerPatternView } from '../features/problemExplorer/ProblemExplorerPatternView';
+import { ProblemExplorerStudyPlansView } from '../features/problemExplorer/ProblemExplorerStudyPlansView';
 import { ProblemExplorerNotesModal } from '../features/problemExplorer/ProblemExplorerNotesModal';
 import { ProblemExplorerSearchToolbar } from '../features/problemExplorer/ProblemExplorerSearchToolbar';
 import { ProblemExplorerInsightsPanels } from '../features/problemExplorer/ProblemExplorerInsightsPanels';
@@ -34,53 +37,6 @@ function getDailyChallenge() {
 // Top companies for quick prep
 const QUICK_PREP_COMPANIES = ['google', 'amazon', 'meta', 'microsoft', 'apple'];
 const _ITEMS_PER_PAGE = 30;
-
-// Study plan presets
-const STUDY_PLANS = [
-    { id: 'top-interview-150', label: '🏆 Interview Top 150', desc: 'LeetCode Top Interview 150', filter: p => p.studyPlans && p.studyPlans.includes('top-interview-150') },
-    { id: 'beginner', label: '🌱 Beginner 50', desc: 'Easy problems to build confidence', filter: p => p.difficulty === 'Easy', limit: 50 },
-    { id: 'top-medium', label: '🔥 Top Medium', desc: 'Most asked medium problems', filter: p => p.difficulty === 'Medium' && p.frequency === 'high', limit: 50 },
-    { id: 'hard-grind', label: '💪 Hard Grind', desc: 'Challenge yourself', filter: p => p.difficulty === 'Hard', limit: 30 },
-    { id: 'arrays-strings', label: '📚 Arrays & Strings', desc: 'Foundation topics', filter: p => p.topics.includes('Arrays') || p.topics.includes('Strings'), limit: 50 },
-    { id: 'trees-graphs', label: '🌳 Trees & Graphs', desc: 'Tree and graph mastery', filter: p => p.topics.includes('Trees') || p.topics.includes('Graphs'), limit: 40 },
-    { id: 'dp-master', label: '🧠 DP Master', desc: 'Dynamic programming focus', filter: p => p.topics.includes('Dynamic Programming'), limit: 45 },
-];
-
-
-
-// Calculate streak from solved dates
-function calcStreak() {
-    try {
-        const dates = JSON.parse(localStorage.getItem('cl_solve_dates') || '[]');
-        if (!dates.length) return 0;
-        const unique = [...new Set(dates)].sort().reverse();
-        const today = new Date().toISOString().slice(0, 10);
-        let streak = 0;
-        for (let i = 0; i < unique.length; i++) {
-            const expected = new Date();
-            expected.setDate(expected.getDate() - i);
-            const exp = expected.toISOString().slice(0, 10);
-            if (unique[i] === exp || (i === 0 && unique[0] === new Date(Date.now() - 86400000).toISOString().slice(0, 10))) {
-                streak++;
-            } else if (i === 0 && unique[0] !== today) {
-                // check if yesterday
-                const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-                if (unique[0] === yesterday) { streak = 1; continue; }
-                break;
-            } else break;
-        }
-        return streak;
-    } catch { return 0; }
-}
-
-function getWeekSolved() {
-    try {
-        const dates = JSON.parse(localStorage.getItem('cl_solve_dates') || '[]');
-        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekStr = weekAgo.toISOString().slice(0, 10);
-        return dates.filter(d => d >= weekStr).length;
-    } catch { return 0; }
-}
 
 function useProblemExplorerState() {
     const [search, setSearch] = useState('');
@@ -111,18 +67,52 @@ function useProblemExplorerState() {
     const [expandedPatterns, setExpandedPatterns] = useState({});
     const [expandedCategories, setExpandedCategories] = useState({});
     const [expandedSubPatterns, setExpandedSubPatterns] = useState({});
-    const [solvedSet, setSolvedSet] = useState(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('cl_solved') || '[]')); } catch { return new Set(); }
-    });
-    const [bookmarks, setBookmarks] = useState(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('cl_bookmarks') || '[]')); } catch { return new Set(); }
-    });
-    const [notes, setNotes] = useState(() => {
-        try { return JSON.parse(localStorage.getItem('cl_notes') || '{}'); } catch { return {}; }
-    });
+    const [solvedSet, setSolvedSet] = useState(new Set());
+    const [bookmarks, setBookmarks] = useState(new Set());
+    const [notes, setNotes] = useState({});
     const [recentlyViewed] = useState(() => {
         try { return JSON.parse(localStorage.getItem('cl_recent') || '[]'); } catch { return []; }
     });
+
+    const [streak, setStreak] = useState(0);
+    const [weekSolved, setWeekSolved] = useState(0);
+
+    useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                // Fetch progress
+                const progressRes = await authFetch('/api/dsa/progress');
+                if (progressRes?.solvedProblemIds) {
+                    setSolvedSet(new Set(progressRes.solvedProblemIds.map(String)));
+                }
+                if (progressRes?.stats) {
+                    setStreak(progressRes.stats.streak || 0);
+                    setWeekSolved(progressRes.stats.week_solved || 0);
+                }
+
+                // Fetch bookmarks & notes
+                const bookmarksRes = await authFetch('/api/notes/bookmarks?type=dsa');
+                if (bookmarksRes?.bookmarks) {
+                    const bms = new Set();
+                    const nts = {};
+                    bookmarksRes.bookmarks.forEach(b => {
+                        if (b.question_id) {
+                            const qid = String(b.question_id);
+                            bms.add(qid);
+                            if (b.note) {
+                                nts[qid] = b.note;
+                            }
+                        }
+                    });
+                    setBookmarks(bms);
+                    setNotes(nts);
+                }
+            } catch (error) {
+                console.error("Failed to fetch user data for explorer", error);
+            }
+        };
+        fetchUserData();
+    }, []);
 
     return {
         search,
@@ -184,6 +174,8 @@ function useProblemExplorerState() {
         notes,
         setNotes,
         recentlyViewed,
+        streak,
+        weekSolved,
     };
 }
 
@@ -251,11 +243,11 @@ export default function ProblemExplorer() {
         notes,
         setNotes,
         recentlyViewed,
+        streak,
+        weekSolved,
     } = useProblemExplorerState();
 
     const dailyChallenge = useMemo(() => getDailyChallenge(), []);
-    const streak = useMemo(() => calcStreak(), []);
-    const weekSolved = useMemo(() => getWeekSolved(), []);
 
     const dsaPatterns = useDsaPatterns(solvedSet);
 
@@ -752,7 +744,6 @@ export default function ProblemExplorer() {
 
                 <ProblemExplorerViewControls
                     isLight={isLight}
-                    studyPlans={STUDY_PLANS}
                     activePlan={activePlan}
                     setActivePlan={setActivePlan}
                     setViewMode={setViewMode}
@@ -762,6 +753,23 @@ export default function ProblemExplorer() {
                     solvedInFiltered={solvedInFiltered}
                     hideSolved={hideSolved}
                     setHideSolved={setHideSolved}
+                />
+
+                <ProblemExplorerStudyPlansView
+                    viewMode={viewMode}
+                    isLight={isLight}
+                    studyPlans={STUDY_PLANS}
+                    activePlan={activePlan}
+                    setActivePlan={setActivePlan}
+                    solvedSet={solvedSet}
+                    problems={PROBLEMS}
+                    filteredProblems={filteredProblems}
+                    sortBy={sortBy}
+                    sortDir={sortDir}
+                    setSortBy={setSortBy}
+                    setSortDir={setSortDir}
+                    onSolveProblem={(problemId) => navigate(`/dsa-editor/${problemId}`)}
+                    getExplanationSnippet={getExplanationSnippet}
                 />
 
                 <ProblemExplorerPatternView

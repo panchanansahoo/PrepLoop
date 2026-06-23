@@ -1,5 +1,6 @@
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
-import { Play, Plus, Trash2, CheckCircle2, XCircle, Clock, Cpu, Zap, FlaskConical, X } from 'lucide-react';
+import { Play, Plus, Trash2, CheckCircle2, XCircle, Clock, Cpu, Zap, FlaskConical, X, Bot } from 'lucide-react';
+import { diffChars } from 'diff';
 import {
   EDGE_CASE_TEMPLATES, createTestCase, runTestCases,
   generateStressTests, detectProblemType
@@ -147,9 +148,50 @@ const S = {
   },
 };
 
+function DiffViewer({ expected, actual }) {
+  if (expected === undefined || actual === undefined) return <span>{actual}</span>;
+  const expectedStr = typeof expected === 'string' ? expected : JSON.stringify(expected);
+  const actualStr = typeof actual === 'string' ? actual : JSON.stringify(actual);
+  
+  let differences = [];
+  try {
+    differences = diffChars(expectedStr, actualStr);
+  } catch (e) {
+    // Fallback if diff fails
+    return <span>{actualStr}</span>;
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+       <div>
+         <div style={S.resultLabel}>Output</div>
+         <div style={S.resultValue}>
+           {differences.map((part, index) => {
+             if (part.removed) return null;
+             const color = part.added ? '#f87171' : '#e2e8f0';
+             const bg = part.added ? 'rgba(239,68,68,0.2)' : 'transparent';
+             return <span key={index} style={{ color, backgroundColor: bg, borderRadius: 2 }}>{part.value}</span>;
+           })}
+         </div>
+       </div>
+       <div>
+         <div style={S.resultLabel}>Expected</div>
+         <div style={S.resultValue}>
+           {differences.map((part, index) => {
+             if (part.added) return null;
+             const color = part.removed ? '#4ade80' : '#e2e8f0';
+             const bg = part.removed ? 'rgba(34,197,94,0.2)' : 'transparent';
+             return <span key={index} style={{ color, backgroundColor: bg, borderRadius: 2 }}>{part.value}</span>;
+           })}
+         </div>
+       </div>
+    </div>
+  );
+}
+
 const TestCasePanel = forwardRef(function TestCasePanel({
   code = '', language = 'python', problemId = '', problemDescription = '',
-  problemExamples = [], onTestResults
+  problemExamples = [], onTestResults, onAiDebug
 }, ref) {
   const [mode, setMode] = useState('testcase'); // 'testcase' | 'result' | 'stress'
   const [activeCase, setActiveCase] = useState(0);
@@ -234,7 +276,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
         setTestCases(results);
         setMode('result');
         const passed = results.filter(t => t.status === 'passed').length;
-        onTestResults?.({ passed, total: results.length, results });
+        onTestResults?.({ passed, total: results.length, results, data });
       } else {
         // Fallback: raw execution result (unverified against expected output)
         const actualOutput = (data.output || data.error || 'No output').trim();
@@ -248,7 +290,7 @@ const TestCasePanel = forwardRef(function TestCasePanel({
         }));
         setTestCases(results);
         setMode('result');
-        onTestResults?.({ passed: 0, total: results.length, results });
+        onTestResults?.({ passed: 0, total: results.length, results, data });
       }
     } catch (err) {
       const results = testCases.map(tc => ({
@@ -434,18 +476,41 @@ const TestCasePanel = forwardRef(function TestCasePanel({
                 <div style={S.resultLabel}>Input</div>
                 <div style={S.resultValue}>{current.input}</div>
 
-                {/* Output */}
-                <div style={S.resultLabel}>Output</div>
-                <div style={{
-                  ...S.resultValue,
-                  color: current.status === 'passed' ? '#4ade80' : '#f87171',
-                }}>{current.actualOutput}</div>
+                {/* Diff Viewer for Failed Cases, Normal Output for Passed */}
+                {current.status === 'passed' ? (
+                  <>
+                    <div style={S.resultLabel}>Output</div>
+                    <div style={{
+                      ...S.resultValue,
+                      color: '#4ade80',
+                    }}>{current.actualOutput}</div>
+                    <div style={S.resultLabel}>Expected</div>
+                    <div style={S.resultValue}>
+                      {current.expectedOutput || current.expected || '—'}
+                    </div>
+                  </>
+                ) : (
+                  <DiffViewer 
+                    expected={current.expectedOutput || current.expected || '—'} 
+                    actual={current.actualOutput || 'No output'} 
+                  />
+                )}
 
-                {/* Expected */}
-                <div style={S.resultLabel}>Expected</div>
-                <div style={S.resultValue}>
-                  {current.expectedOutput || current.expected || '—'}
-                </div>
+                {/* AI Debugger Button */}
+                {current.status !== 'passed' && (
+                  <button onClick={() => onAiDebug?.({ code, language, problemId, testCase: current })} style={{
+                    padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                    background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.25)',
+                    color: '#c084fc', fontSize: 12, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    marginTop: 16, width: 'fit-content', transition: 'all 0.2s ease',
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.2)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(139,92,246,0.1)'}
+                  >
+                    <Bot size={15} /> Debug with AI Assistant
+                  </button>
+                )}
               </>
             )}
 

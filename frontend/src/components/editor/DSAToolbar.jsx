@@ -7,7 +7,7 @@ export default function DSAToolbar({
   language, onLanguageChange,
   onRun, onSubmit, onInsertTemplate,
   running = false, timer = null, onToggleFocus, focusMode = false,
-  editorTheme = 'one-dark-pro', onThemeChange,
+  editorTheme = 'one-dark-pro', onThemeChange, onFormatCode,
 }) {
   const [showTemplates, setShowTemplates] = useState(false);
   const [_showSettings, setShowSettings] = useState(false);
@@ -211,6 +211,22 @@ export default function DSAToolbar({
           }}>
             <Timer size={12} /> {timer}
           </div>
+        )}
+
+        {/* Format Code */}
+        {onFormatCode && (
+          <button onClick={onFormatCode} title="Format Code" style={{
+            padding: '6px 12px', borderRadius: 8, cursor: 'pointer',
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+            color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 5,
+            transition: 'background 0.15s'
+          }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.04)'}
+          >
+            <FileCode size={12} /> Format
+          </button>
         )}
 
         {/* Focus mode */}

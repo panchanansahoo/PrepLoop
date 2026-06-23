@@ -327,13 +327,43 @@ router.get('/progress', authenticateToken, async (req, res) => {
 
     const items = progressData || [];
     const solved = items.filter(i => i.status === 'solved');
+    const attempted = items.filter(i => i.status === 'attempted');
+
+    const solveDates = solved.map(i => i.solved_at ? new Date(i.solved_at).toISOString().slice(0, 10) : null).filter(Boolean);
+    const uniqueSortedDates = [...new Set(solveDates)].sort().reverse();
+    let currentStreak = 0;
+    if (uniqueSortedDates.length > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = yesterdayDate.toISOString().slice(0, 10);
+
+      if (uniqueSortedDates[0] === today || uniqueSortedDates[0] === yesterday) {
+        let cursorDate = new Date(uniqueSortedDates[0] === yesterday ? yesterdayDate : new Date());
+        for (let i = 0; i < uniqueSortedDates.length; i++) {
+          const expectedStr = cursorDate.toISOString().slice(0, 10);
+          if (uniqueSortedDates[i] === expectedStr) {
+            currentStreak++;
+            cursorDate.setDate(cursorDate.getDate() - 1);
+          } else {
+            break;
+          }
+        }
+      }
+    }
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekSolvedCount = solved.filter(i => i.solved_at && new Date(i.solved_at) >= weekAgo).length;
 
     const stats = {
       total_solved: solved.length,
       problems_solved: solved.length,
       easy_solved: solved.filter(i => i.problems?.difficulty === 'Easy').length,
       medium_solved: solved.filter(i => i.problems?.difficulty === 'Medium').length,
-      hard_solved: solved.filter(i => i.problems?.difficulty === 'Hard').length
+      hard_solved: solved.filter(i => i.problems?.difficulty === 'Hard').length,
+      streak: currentStreak,
+      week_solved: weekSolvedCount
     };
 
     // Recent activity (last 10)
@@ -344,10 +374,16 @@ router.get('/progress', authenticateToken, async (req, res) => {
         title: i.problems?.title,
         difficulty: i.problems?.difficulty,
         status: i.status,
-        last_attempt: i.last_attempt
+        last_attempt: i.last_attempt,
+        problem_id: i.problem_id
       }));
 
-    res.json({ stats, recentActivity });
+    res.json({ 
+      stats, 
+      recentActivity,
+      solvedProblemIds: solved.map(i => i.problem_id),
+      attemptedProblemIds: attempted.map(i => i.problem_id)
+    });
   } catch (error) {
     console.error('Error fetching progress:', error);
     res.status(500).json({ error: 'Failed to fetch progress' });

@@ -2,3 +2,19 @@ AUTH CHECK: POST /api/resume/import-linkedin - Token present: false
 AUTH FAIL: No token
 AUTH CHECK: POST /api/resume/import-linkedin - Token present: true
 AUTH FAIL: Validation failed: invalid JWT: unable to parse or verify signature, token is malformed: token contains an invalid number of segments
+AUTH CHECK: POST /api/practice/run - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: POST /api/practice/submit - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: POST /api/practice/run - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/jobs/skill-match - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/dsa/progress - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/notes/bookmarks?type=dsa - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/dsa/progress - Token present: false
+AUTH FAIL: No token
+AUTH CHECK: GET /api/notes/bookmarks?type=dsa - Token present: false
+AUTH FAIL: No token

@@ -7,6 +7,7 @@ import ProblemDescriptionPanel from '../components/editor/ProblemDescriptionPane
 import VisualizationPanel from '../components/editor/VisualizationPanel';
 import TestCasePanel from '../components/editor/TestCasePanel';
 import HintsPanel from '../components/solver/HintsPanel';
+import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from 'react-resizable-panels';
 import {LANGUAGES} from '../data/dsaTemplates';
 import { getExamplesForProblem } from '../data/testCaseEngine';
 import { PROBLEMS } from '../data/problemsDatabase';
@@ -95,49 +96,11 @@ export default function DSACodeEditor() {
   // UI state
   const [showHints, setShowHints] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
-  const [leftWidth, setLeftWidth] = useState(28);
-  const [rightWidth, setRightWidth] = useState(30);
-  const [bottomHeight, setBottomHeight] = useState(220);
   const [timer, setTimer] = useState(0);
   const [timerActive, setTimerActive] = useState(true);
   const [_testResults, setTestResults] = useState(null);
   const [editorTheme, setEditorTheme] = useState(() => getSavedTheme('dsa-editor-theme'));
   const monacoRef = useRef(null);
-
-  // ─── Resizing ───
-  const draggingRef = useRef(null);
-
-  const handleMouseDown = (panel) => (e) => {
-    e.preventDefault();
-    draggingRef.current = { panel, startX: e.clientX, startY: e.clientY, leftWidth, rightWidth, bottomHeight };
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  const handleMouseMove = useCallback((e) => {
-    const d = draggingRef.current;
-    if (!d) return;
-    const totalWidth = window.innerWidth;
-
-    if (d.panel === 'left') {
-      const dx = e.clientX - d.startX;
-      const pct = (dx / totalWidth) * 100;
-      setLeftWidth(Math.max(15, Math.min(45, d.leftWidth + pct)));
-    } else if (d.panel === 'right') {
-      const dx = d.startX - e.clientX;
-      const pct = (dx / totalWidth) * 100;
-      setRightWidth(Math.max(15, Math.min(45, d.rightWidth + pct)));
-    } else if (d.panel === 'bottom') {
-      const dy = d.startY - e.clientY;
-      setBottomHeight(Math.max(100, Math.min(500, d.bottomHeight + dy)));
-    }
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    draggingRef.current = null;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
 
   // ─── Timer ───
   useEffect(() => {
@@ -411,6 +374,10 @@ export default function DSACodeEditor() {
     }
   };
 
+  const handleAiDebug = useCallback(() => {
+    setShowHints(true);
+  }, []);
+
   // ─── Run code ───
   const handleRun = useCallback(async () => {
     setRunning(true);
@@ -418,54 +385,9 @@ export default function DSACodeEditor() {
     setFeedback(null);
 
     try {
-      const resolvedProblemId = problem?.id || problemId;
-      // Use /run endpoint with problemId for structured test case execution
-      const res = await authFetch(`${API_URL}/api/practice/run`, {
-        method: 'POST',
-        body: JSON.stringify({ code, language, problemId: resolvedProblemId }),
-      });
-
-      if (res.status === 401 || res.status === 403) {
-        setOutput({
-          success: false,
-          output: '',
-          message: 'Please sign in with a registered account to run code.',
-        });
-        return;
+      if (testCaseRef.current?.runTests) {
+        await testCaseRef.current.runTests();
       }
-
-      const data = await res.json();
-
-      if (data.testResults && Array.isArray(data.testResults)) {
-        // Structured test results from backend
-        const passed = data.passed || data.testResults.filter(r => r.passed).length;
-        const total = data.total || data.testResults.length;
-        setOutput({
-          success: passed === total,
-          output: data.testResults.map((r, i) =>
-            `Test ${i + 1}: ${r.passed ? '✅ PASS' : '❌ FAIL'}${!r.passed ? `\n  Expected: ${JSON.stringify(r.expected)}\n  Got: ${JSON.stringify(r.actual)}` : ''}`
-          ).join('\n'),
-          message: passed === total ? `All ${total} test cases passed!` : `${passed}/${total} test cases passed`,
-          executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
-        });
-      } else {
-        // Fallback: raw execution result (not judged against test cases)
-        const actualOutput = (data.output || '').trim();
-        const errorMsg = (data.error || '').trim();
-        
-        const isSuccess = data.success !== undefined ? data.success : !errorMsg;
-        
-        setOutput({
-          success: isSuccess,
-          output: actualOutput || errorMsg || (isSuccess ? 'Execution completed with no output.' : 'Execution failed.'),
-          message: errorMsg
-            ? `Error: ${errorMsg}`
-            : 'Execution successful (no test cases configured)',
-          executionTime: data.executionTime ? `${Math.round(data.executionTime)}ms` : undefined,
-        });
-      }
-      // Also trigger test case panel execution
-      testCaseRef.current?.runTests?.();
     } catch (err) {
       setOutput({
         success: false,
@@ -475,7 +397,7 @@ export default function DSACodeEditor() {
     } finally {
       setRunning(false);
     }
-  }, [code, language, problem, problemId]);
+  }, []);
 
   // ─── Submit code ───
   const handleSubmit = useCallback(async () => {
@@ -596,6 +518,12 @@ export default function DSACodeEditor() {
     };
   }, [editorTheme]);
 
+  const handleFormatCode = () => {
+    if (editorRef.current) {
+      editorRef.current.getAction('editor.action.formatDocument').run();
+    }
+  };
+
   const langInfo = LANGUAGES.find(l => l.id === language) || LANGUAGES[0];
 
   if (loading) {
@@ -653,160 +581,183 @@ export default function DSACodeEditor() {
             focusMode={focusMode}
             editorTheme={editorTheme}
             onThemeChange={handleThemeChange}
+            onFormatCode={handleFormatCode}
           />
         </div>
       </div>
 
       {/* Main 3-panel layout */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
-        {/* Left: Problem Description */}
-        {!focusMode && (
-          <>
-            <div style={{
-              width: `${leftWidth}%`, minWidth: 200, overflow: 'hidden',
-              borderRight: '1px solid rgba(255,255,255,0.06)',
-              position: 'relative',
-            }}>
-              <ProblemDescriptionPanel
-                problem={problem}
-                problemId={problemId}
-                onShowHints={() => setShowHints(s => !s)}
-                showHints={showHints}
-                allProblems={PROBLEMS}
-                navigate={navigate}
-                language={language}
-                hasSubmitted={solutionUnlocked}
-              />
-            </div>
+        <PanelGroup orientation="horizontal" style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          {/* Left: Problem Description */}
+          {!focusMode && (
+            <>
+              <Panel id="left-panel" order={1} defaultSize="28%" minSize="15%" maxSize="45%" style={{
+                minWidth: 200, overflow: 'hidden',
+                borderRight: '1px solid rgba(255,255,255,0.06)',
+                position: 'relative',
+              }}>
+                <ProblemDescriptionPanel
+                  problem={problem}
+                  problemId={problemId}
+                  onShowHints={() => setShowHints(s => !s)}
+                  showHints={showHints}
+                  allProblems={PROBLEMS}
+                  navigate={navigate}
+                  language={language}
+                  hasSubmitted={solutionUnlocked}
+                />
+              </Panel>
 
-            {/* Left resize handle */}
-            <div
-              onMouseDown={handleMouseDown('left')}
-              style={{
-                width: 5, cursor: 'col-resize', zIndex: 10,
+              {/* Left resize handle */}
+              <PanelResizeHandle style={{
+                width: 6, cursor: 'col-resize', zIndex: 10,
                 background: 'transparent', flexShrink: 0,
                 position: 'relative',
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 3, height: 30, borderRadius: 2,
-                background: 'rgba(255,255,255,0.06)',
-                transition: 'background 0.2s',
-              }} />
-            </div>
-          </>
-        )}
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <div style={{
+                  width: 3, height: 30, borderRadius: 2,
+                  background: 'rgba(255,255,255,0.1)',
+                  transition: 'background 0.2s',
+                }} />
+              </PanelResizeHandle>
+            </>
+          )}
 
-        {/* Center: Code Editor + Test Cases */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          overflow: 'hidden', minWidth: 300,
-        }}>
-          {/* Editor */}
-          <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-            <Editor
-              height="100%"
-              language={langInfo.monacoId}
-              value={code}
-              onChange={val => setCode(val || '')}
-              beforeMount={handleBeforeMount}
-              onMount={handleEditorMount}
-              theme={editorTheme}
-              options={{
-                fontSize: 14,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                fontLigatures: true,
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                smoothScrolling: true,
-                cursorBlinking: 'smooth',
-                cursorSmoothCaretAnimation: 'on',
-                padding: { top: 16 },
-                lineNumbers: 'on',
-                renderLineHighlight: 'all',
-                bracketPairColorization: { enabled: true },
-                guides: { bracketPairs: true, indentation: true },
-                autoClosingBrackets: 'always',
-                autoClosingQuotes: 'always',
-                folding: true,
-                wordWrap: 'on',
-                suggestOnTriggerCharacters: true,
-                tabSize: 4,
-                detectIndentation: true,
-              }}
-            />
+          {/* Center: Code Editor + Test Cases */}
+          <Panel id="center-panel" order={2} minSize="30%" style={{
+            flex: 1, display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', minWidth: 300,
+          }}>
+            <PanelGroup orientation="vertical">
+              {/* Editor */}
+              <Panel id="editor-panel" order={1} minSize="30%" style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+                <Editor
+                  height="100%"
+                  language={langInfo.monacoId}
+                  value={code}
+                  onChange={val => setCode(val || '')}
+                  beforeMount={handleBeforeMount}
+                  onMount={handleEditorMount}
+                  theme={editorTheme}
+                  options={{
+                    fontSize: 14,
+                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                    fontLigatures: true,
+                    minimap: { enabled: false },
+                    scrollBeyondLastLine: false,
+                    smoothScrolling: true,
+                    cursorBlinking: 'smooth',
+                    cursorSmoothCaretAnimation: 'on',
+                    padding: { top: 16 },
+                    lineNumbers: 'on',
+                    renderLineHighlight: 'all',
+                    bracketPairColorization: { enabled: true },
+                    guides: { bracketPairs: true, indentation: true },
+                    autoClosingBrackets: 'always',
+                    autoClosingQuotes: 'always',
+                    folding: true,
+                    wordWrap: 'on',
+                    suggestOnTriggerCharacters: true,
+                    tabSize: 4,
+                    detectIndentation: true,
+                    formatOnPaste: true,
+                    formatOnType: true,
+                  }}
+                />
+              </Panel>
 
-
-          </div>
-
-          {/* Bottom: Test Cases */}
-          <div
-            style={{
-              height: bottomHeight, flexShrink: 0,
-              borderTop: '1px solid rgba(255,255,255,0.06)',
-              position: 'relative',
-            }}
-          >
-            {/* Bottom resize handle */}
-            <div
-              onMouseDown={handleMouseDown('bottom')}
-              style={{
-                position: 'absolute', top: -3, left: 0, right: 0,
+              {/* Bottom resize handle */}
+              <PanelResizeHandle style={{
                 height: 6, cursor: 'row-resize', zIndex: 10,
-              }}
-            >
-              <div style={{
-                position: 'absolute', top: 2, left: '50%',
-                transform: 'translateX(-50%)',
-                width: 30, height: 3, borderRadius: 2,
-                background: 'rgba(255,255,255,0.06)',
-              }} />
-            </div>
-            <TestCasePanel
-              ref={testCaseRef}
-              code={code}
-              language={language}
-              problemId={problem?.id || problemId}
-              problemDescription={problem?.description}
-              problemExamples={problem?.examples}
-              onTestResults={setTestResults}
-            />
-          </div>
-        </div>
+                background: 'transparent', position: 'relative',
+                display: 'flex', alignItems: 'center', justifyContent: 'center'
+              }}>
+                <div style={{
+                  width: 30, height: 3, borderRadius: 2,
+                  background: 'rgba(255,255,255,0.1)',
+                }} />
+              </PanelResizeHandle>
 
-        {/* Right resize handle */}
-        {!focusMode && (
-          <div
-            onMouseDown={handleMouseDown('right')}
-            style={{
-              width: 5, cursor: 'col-resize', zIndex: 10,
+              {/* Bottom: Test Cases */}
+              <Panel id="bottom-panel" order={2} defaultSize="220px" minSize="100px" maxSize="500px" style={{
+                borderTop: '1px solid rgba(255,255,255,0.06)',
+                position: 'relative',
+              }}>
+                <TestCasePanel
+                  ref={testCaseRef}
+                  code={code}
+                  language={language}
+                  problemId={problem?.id || problemId}
+                  problemDescription={problem?.description}
+                  problemExamples={problem?.examples}
+                  onTestResults={(res) => {
+                    if (res.data?.status === 401 || res.data?.status === 403) {
+                      setOutput({
+                        success: false,
+                        output: '',
+                        message: 'Please sign in with a registered account to run code.',
+                      });
+                      return;
+                    }
+
+                    if (res.results && res.results.length > 0) {
+                      setOutput({
+                        success: res.passed === res.total,
+                        output: res.results.map((r, i) =>
+                          `Test ${i + 1}: ${r.status === 'passed' ? '✅ PASS' : '❌ FAIL'}${r.status !== 'passed' ? `\n  Expected: ${r.expectedOutput}\n  Got: ${r.actualOutput}` : ''}`
+                        ).join('\n'),
+                        message: res.passed === res.total ? `All ${res.total} test cases passed!` : `${res.passed}/${res.total} test cases passed`,
+                        executionTime: res.data?.executionTime ? `${Math.round(res.data.executionTime)}ms` : undefined,
+                      });
+                    } else if (res.data) {
+                      const actualOutput = (res.data.output || '').trim();
+                      const errorMsg = (res.data.error || '').trim();
+                      const isSuccess = res.data.success !== undefined ? res.data.success : !errorMsg;
+                      
+                      setOutput({
+                        success: isSuccess,
+                        output: actualOutput || errorMsg || (isSuccess ? 'Execution completed with no output.' : 'Execution failed.'),
+                        message: errorMsg ? `Error: ${errorMsg}` : 'Execution successful (no test cases configured)',
+                        executionTime: res.data.executionTime ? `${Math.round(res.data.executionTime)}ms` : undefined,
+                      });
+                    }
+                  }}
+                  onAiDebug={handleAiDebug}
+                />
+              </Panel>
+            </PanelGroup>
+          </Panel>
+
+          {/* Right resize handle */}
+          {!focusMode && (
+            <PanelResizeHandle style={{
+              width: 6, cursor: 'col-resize', zIndex: 10,
               background: 'transparent', flexShrink: 0,
               position: 'relative',
-            }}
-          >
-            <div style={{
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 3, height: 30, borderRadius: 2,
-              background: 'rgba(255,255,255,0.06)',
-            }} />
-          </div>
-        )}
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              <div style={{
+                width: 3, height: 30, borderRadius: 2,
+                background: 'rgba(255,255,255,0.1)',
+              }} />
+            </PanelResizeHandle>
+          )}
 
-        {/* Right: Visualization / Output Panel */}
-        {!focusMode && (
-          <div style={{
-            width: `${rightWidth}%`, minWidth: 200, overflow: 'hidden',
-            borderLeft: '1px solid rgba(255,255,255,0.06)',
-          }}>
-            <VisualizationPanel
-              output={output}
-              feedback={feedback}
-            />
-          </div>
-        )}
+          {/* Right: Visualization / Output Panel */}
+          {!focusMode && (
+            <Panel id="right-panel" order={3} defaultSize="30%" minSize="20%" maxSize="45%" style={{
+              minWidth: 200, overflow: 'hidden',
+              borderLeft: '1px solid rgba(255,255,255,0.06)',
+            }}>
+              <VisualizationPanel
+                output={output}
+                feedback={feedback}
+              />
+            </Panel>
+          )}
+        </PanelGroup>
 
         {/* AI Hints Overlay */}
         {showHints && (
