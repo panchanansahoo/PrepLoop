@@ -118,7 +118,7 @@ function ProblemRedirect() {
 // ErrorBoundary imported from GlobalErrorBoundary (premium recovery UI)
 
 function AppContent() {
-  const { _user } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -200,8 +200,8 @@ function AppContent() {
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
   let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
-  // If the user is logged in and on the Job Updates page, treat it as an internal dashboard page
-  if (location.pathname === '/job-updates' && _user) {
+  // If the user is logged in and on the Job Updates or Library page, treat it as an internal dashboard page
+  if ((location.pathname === '/job-updates' || location.pathname === '/library') && user) {
     isPublicPage = false;
   }
 

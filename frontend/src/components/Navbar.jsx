@@ -295,7 +295,7 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   // Define public paths that should show the public navbar
   const publicPaths = ['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/dsa-patterns', '/library', '/copilot', '/job-updates'];
   let isPublicPage = publicPaths.includes(location.pathname);
-  if (location.pathname === '/job-updates' && user) {
+  if ((location.pathname === '/job-updates' || location.pathname === '/library') && user) {
     isPublicPage = false;
   }
 
