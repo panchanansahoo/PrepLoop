@@ -932,7 +932,13 @@ export function useInterviewSession() {
 
       const currentTranscript = stateRefs.current.transcript.trim();
       const currentUserInput = stateRefs.current.userInput.trim();
-      const providedAnswer = answerOverride?.trim() || currentUserInput || currentTranscript;
+      // Include any pending interim text that hasn't been finalized by browser STT yet.
+      // This prevents the last few words from being silently dropped.
+      const interimText = (voiceAI.interimText || "").trim();
+      const fullTranscript = interimText
+        ? (currentTranscript + " " + interimText).trim()
+        : currentTranscript;
+      const providedAnswer = answerOverride?.trim() || currentUserInput || fullTranscript;
       
       const answer =
         isAutoSkip === true && !providedAnswer

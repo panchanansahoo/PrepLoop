@@ -25,37 +25,48 @@ function LiveCaptions({
         const liveTranscript = isListening && transcript ? transcript : '';
         const isUserSpeaking = isListening && (liveInterim || liveTranscript);
 
+        // When user is speaking, show their live transcript
+        if (isUserSpeaking) {
+            const currentSpeech = (liveTranscript + (liveInterim ? ' ' + liveInterim : '')).trim();
+            const displayText = currentSpeech && currentSpeech.length > 200
+                ? '...' + currentSpeech.slice(-200)
+                : currentSpeech || '';
+            const words = displayText.split(/\s+/).filter(Boolean);
+            return { isUserSpeaking: true, liveInterim, speakerName: 'You', displayText, words };
+        }
+
+        // When AI is actually speaking (audio playing), show the interviewer's text
+        if (aiSpeaking) {
+            const aiMsg = conversation.filter(m => m.role === 'interviewer' || m.role === 'feedback').slice(-1)[0];
+            const currentSpeech = aiMsg?.content || '';
+            const displayText = currentSpeech.length > 200
+                ? '...' + currentSpeech.slice(-200)
+                : currentSpeech;
+            const words = displayText.split(/\s+/).filter(Boolean);
+            return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText, words };
+        }
+
+        // When neither speaking — show the last message as static caption (already spoken)
         const lastMsg = [...conversation].reverse().find(
             m => m.role === 'interviewer' || m.role === 'candidate' || m.role === 'feedback'
         );
+        if (!lastMsg) return null;
 
-        const currentSpeech = isUserSpeaking
-            ? (liveTranscript + (liveInterim ? ' ' + liveInterim : '')).trim()
-            : aiSpeaking
-                ? (conversation.filter(m => m.role === 'interviewer' || m.role === 'feedback').slice(-1)[0]?.content || 'Thinking...')
-                : lastMsg?.content;
-
-        const speakerName = isUserSpeaking
-            ? 'You'
-            : aiSpeaking
-                ? interviewerName
-                : lastMsg?.role === 'interviewer'
-                    ? interviewerName
-                    : lastMsg?.role === 'feedback'
-                        ? `${interviewerName} (Feedback)`
-                        : lastMsg?.role === 'candidate'
-                            ? 'You'
-                            : null;
-
+        const speakerName = lastMsg.role === 'interviewer'
+            ? interviewerName
+            : lastMsg.role === 'feedback'
+                ? `${interviewerName} (Feedback)`
+                : lastMsg.role === 'candidate'
+                    ? 'You'
+                    : null;
         if (!speakerName) return null;
 
-        // Word-by-word animation
-        const displayText = currentSpeech && currentSpeech.length > 200
-            ? '...' + currentSpeech.slice(-200)
-            : currentSpeech || '';
+        const displayText = lastMsg.content && lastMsg.content.length > 200
+            ? '...' + lastMsg.content.slice(-200)
+            : lastMsg.content || '';
         const words = displayText.split(/\s+/).filter(Boolean);
 
-        return { isUserSpeaking, liveInterim, speakerName, displayText, words };
+        return { isUserSpeaking: false, liveInterim: '', speakerName, displayText, words };
     }, [captionsOn, isListening, aiSpeaking, interimText, transcript, conversation, interviewerName]);
 
     if (!captionData) return null;
