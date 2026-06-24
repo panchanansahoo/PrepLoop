@@ -153,7 +153,7 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
     
     // Use evaluateFresherAnswer if inlineScore and sessionScore are missing
     let fallbackScore = 0;
-    if (qa.inlineScore == null && sessionScores[index] == null) {
+    if ((qa.inlineScore === null || qa.inlineScore === undefined) && (sessionScores[index] === null || sessionScores[index] === undefined)) {
       fallbackScore = evaluateFresherAnswer(answer, category === 'coding' || category === 'system-design' ? 'Technical' : 'HR').score;
     }
 
@@ -165,14 +165,14 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
     const strengths = qa.strengths?.length
       ? qa.strengths
       : [
-        answerLength > 160 ? 'Provided enough detail to communicate the main idea' : 'Answered directly without going off track',
+        answer.length > 160 ? 'Provided enough detail to communicate the main idea' : 'Answered directly without going off track',
         category === 'behavioral' ? 'Showed self-awareness in the example' : 'Kept the explanation understandable'
-      ].slice(0, answerLength > 80 ? 2 : 1);
+      ].slice(0, answer.length > 80 ? 2 : 1);
 
     const improvements = qa.improvements?.length
       ? qa.improvements
       : [
-        answerLength < 120 ? 'Add more depth and concrete supporting detail' : 'Tighten the answer so the main point lands faster',
+        answer.length < 120 ? 'Add more depth and concrete supporting detail' : 'Tighten the answer so the main point lands faster',
         category === 'coding' ? 'Call out complexity and edge cases explicitly' : 'Use one concrete example or measurable outcome'
       ].slice(0, 2);
 
