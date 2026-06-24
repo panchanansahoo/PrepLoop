@@ -3,6 +3,7 @@ import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { groq, safeJsonParse } from './helpers.js';
+import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 
 const router = express.Router();
 
@@ -149,9 +150,15 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
   const questionBreakdown = qaPairs.map((qa, index) => {
     const answer = String(qa.answer || '').trim();
     const category = detectQuestionCategory(qa.questionMeta, stage, qa.question);
-    const answerLength = answer.length;
+    
+    // Use evaluateFresherAnswer if inlineScore and sessionScore are missing
+    let fallbackScore = 0;
+    if (qa.inlineScore == null && sessionScores[index] == null) {
+      fallbackScore = evaluateFresherAnswer(answer, category === 'coding' || category === 'system-design' ? 'Technical' : 'HR').score;
+    }
+
     const heuristicsScore = clampScore(
-      qa.inlineScore ?? sessionScores[index] ?? (answerLength === 0 ? 25 : 45 + Math.min(35, Math.round(answerLength / 18))),
+      qa.inlineScore ?? sessionScores[index] ?? fallbackScore,
       60
     );
 

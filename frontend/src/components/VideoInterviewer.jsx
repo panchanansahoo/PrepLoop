@@ -7,7 +7,7 @@ import { Volume2, Mic, Brain, Sparkles } from 'lucide-react';
 import './VideoInterviewer.css';
 
 const VideoInterviewer = ({
-  name = 'Hannah Chen',
+  name = 'Interviewer',
   role = 'Senior Software Engineer',
   company = 'Google',
   gender = 'female',

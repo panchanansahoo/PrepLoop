@@ -388,7 +388,7 @@ export const HR_CLOSING_MESSAGE = 'Thank you for your time today. It was a pleas
 
 export const STATIC_INTERVIEW_QUESTIONS = {
   HR: [
-    'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+    'Hey, welcome! Thanks for taking the time to chat with us today. So this is going to be a pretty relaxed conversation \u2014 I just want to learn a bit about you, your interests, and what gets you excited. Let\'s start simple \u2014 tell me a bit about yourself and your journey so far.',
     'What attracted you to this role and to our company in particular?',
     'Can you tell me about a project or achievement that you\'re most proud of, and why?',
     'Describe a time when you faced a difficult problem or challenge. How did you handle it?',
@@ -436,7 +436,6 @@ import { aiCallWithRetry } from '../utils/aiClient.js';
 // ─── Interviewer Name Generation ───
 
 export const INTERVIEWER_NAMES = [
-  'Abhishek Sen',
   'Riya Sharma',
   'Ananya Rao',
   'Neha Kapoor',
@@ -446,6 +445,10 @@ export const INTERVIEWER_NAMES = [
   'Arjun Mehta',
   'Sanya Gupta',
   'Vikram Iyer',
+  'James Mitchell',
+  'Sarah Chen',
+  'David Park',
+  'Emily Torres',
 ];
 
 export function pickFallbackInterviewerName() {

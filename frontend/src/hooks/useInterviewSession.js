@@ -156,14 +156,21 @@ export function useInterviewSession() {
   const speakInterviewerText = useCallback(
     async (text) => {
       if (!text || speakerMuted) return;
-      setAiSpeaking(true);
+      // Show a subtle thinking indicator while TTS audio is being fetched,
+      // but do NOT start lip-sync/speaking video yet — that waits for actual audio playback.
+      setInterviewerStatus("Preparing response...");
       try {
         await voiceAI.speak(text, {
-          onStart: () => setAiSpeaking(true),
+          onStart: () => {
+            // Audio is actually playing now — start lip-sync + speaking video
+            setInterviewerStatus("");
+            setAiSpeaking(true);
+          },
           onEnd: () => {},
         });
       } finally {
         setAiSpeaking(false);
+        setInterviewerStatus("");
       }
     },
     [voiceAI, speakerMuted],
@@ -174,13 +181,16 @@ export function useInterviewSession() {
     async (segments, { pauseMs = 150 } = {}) => {
       if (!segments || segments.length === 0 || speakerMuted) return;
       speakSequenceCancelledRef.current = false;
-      setAiSpeaking(true);
+      // Don't set aiSpeaking here — let voiceAI.speak's onStart fire it when audio plays
       try {
         for (let i = 0; i < segments.length; i++) {
           if (speakSequenceCancelledRef.current) break;
           const text = segments[i];
           if (!text || !text.trim()) continue;
-          await voiceAI.speak(text, { onStart: () => {}, onEnd: () => {} });
+          await voiceAI.speak(text, {
+            onStart: () => setAiSpeaking(true),
+            onEnd: () => {},
+          });
           if (i < segments.length - 1 && pauseMs > 0) {
             if (speakSequenceCancelledRef.current) break;
             await new Promise((r) => setTimeout(r, pauseMs));
@@ -769,8 +779,8 @@ export function useInterviewSession() {
     const minDelay = new Promise((resolve) => setTimeout(resolve, 1200));
     const technicalOpeningFallback =
       experienceLevel === "fresher"
-        ? `Good afternoon, I will be conducting your technical discussion today. We'll cover fundamentals in databases, OOP, and web concepts. To begin with, could you introduce yourself and walk me through your background, including your technical interests?`
-        : `Welcome! Let's start with a technical warm-up. Can you walk me through one project you built recently, your design choices, and the key trade-offs you made?`;
+        ? `Hey, welcome! So today we're going to have a technical chat — we'll cover things like databases, OOP, web concepts, that kind of stuff. But first, tell me a bit about yourself and what technologies you've been most interested in lately.`
+        : `Hey, thanks for joining! So let's jump right in — can you walk me through one project you built recently? I'm curious about your design choices and the key trade-offs you made.`;
 
     try {
       const _headers = getAuthHeaders ? getAuthHeaders() : {};
@@ -817,7 +827,7 @@ export function useInterviewSession() {
             interactionFormat: "text",
             advancedOptions: advancedOpts,
             resumeContext: resumeCtx,
-            interviewerName: "Interviewer",
+            interviewerName: undefined,
             generateAllQuestions: true,
           }),
         }),
@@ -836,11 +846,11 @@ export function useInterviewSession() {
 
       const data = await res.json();
       const stageFallbacks = {
-        "DSA / Coding": `Welcome! Let's start with a coding challenge. Given an array of integers and a target sum, find two numbers that add up to the target. Walk me through your approach.`,
-        "System Design": `Welcome! Let's dive into system design. How would you design a URL shortening service like bit.ly? Think about the key components.`,
-        Behavioral: `Welcome! I'd love to get to know you better. Can you tell me about a challenging project you worked on and how you handled it?`,
+        "DSA / Coding": `Alright, let's kick things off with a coding problem. So, given an array of integers and a target sum, how would you find two numbers that add up to the target? Walk me through how you'd think about it.`,
+        "System Design": `Cool, so let's talk system design. How would you go about designing something like a URL shortener — think bit.ly? What are the key pieces you'd need?`,
+        Behavioral: `Hey, I'd love to get to know you a bit. Can you tell me about a challenging project you worked on? What made it tough, and how did you handle it?`,
         Technical: technicalOpeningFallback,
-        HR: `Welcome! I'm excited to chat with you. Tell me a bit about yourself`,
+        HR: `Hey, welcome! Thanks for being here. Let's keep this relaxed — tell me a bit about yourself and your journey so far.`,
       };
       const questionText =
         data.question ||
@@ -875,11 +885,11 @@ export function useInterviewSession() {
         );
       await minDelay;
       const catchFallbacks = {
-        "DSA / Coding": `Welcome! Let's start with a coding problem. Given a linked list, how would you detect if it contains a cycle? Walk me through your thinking.`,
-        "System Design": `Welcome! How would you design a simple chat application? Think about the key components and data flow.`,
-        Behavioral: `Welcome! Tell me about a time you worked on a team project. How did you contribute and what challenges did you face?`,
+        "DSA / Coding": `Alright, let's start with a fun one. Given a linked list, how would you figure out if it has a cycle in it? Talk me through your thinking.`,
+        "System Design": `So, let's say you need to design a simple chat app. How would you approach that? Think about the main components and how data flows.`,
+        Behavioral: `Hey, tell me about a time you worked on a team project. What was your role, and what challenges came up?`,
         Technical: technicalOpeningFallback,
-        HR: `Welcome! What motivates you to work in tech? What kind of role are you looking for?`,
+        HR: `Hey, thanks for being here! So what got you into tech in the first place? And what kind of role are you looking for right now?`,
       };
       const fallbackQ =
         catchFallbacks[resolvedStage] ||
@@ -1194,13 +1204,13 @@ export function useInterviewSession() {
     stopSilenceHandling();
     if (phase !== "interview") return;
 
-    // Stage 1: Show encouragement after 8s of silence (was 5s — too aggressive)
+    // Stage 1: Show encouragement after 12s of silence (was 8s)
     silenceStageTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
       setInterviewerStatus(getSilencePrompt(interviewType, 0));
 
-      // Stage 2: Offer to rephrase after another 8s
+      // Stage 2: Offer to rephrase after another 15s (27s total silence)
       silenceStageTimerRef.current = setTimeout(() => {
         if (!isListeningRef.current || hasRecentSpeech()) return;
         setSilenceStage(2);
@@ -1213,16 +1223,16 @@ export function useInterviewSession() {
         if (isListeningRef.current) stopVoiceRecording();
         speakInterviewerText(rephraseText).then(() => {
           if (!isPaused && phase === "interview") startVoiceRecording();
-          // Stage 3: Auto-skip after another 8s of silence
+          // Stage 3: Auto-skip after another 15s of silence (42s total)
           silenceStageTimerRef.current = setTimeout(() => {
             if (hasRecentSpeech()) return;
             setSilenceStage(3);
             setInterviewerStatus("");
             if (sendAnswerRef.current) sendAnswerRef.current(true);
-          }, 8000);
+          }, 15000);
         });
-      }, 8000);
-    }, 8000);
+      }, 15000);
+    }, 12000);
   }, [
     phase,
     speakInterviewerText,

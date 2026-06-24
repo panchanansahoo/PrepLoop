@@ -127,26 +127,31 @@ export function isAudioContentType(contentType = "") {
 
 function playBrowserSpeechFallback(
   text,
-  { voice, gender, controller, guardMs },
+  { voice, gender, controller, guardMs, onStartCb },
 ) {
   if (!("speechSynthesis" in window)) return Promise.resolve();
+
+  // Split text into sentences for more natural pacing with micro-pauses
+  const sentences = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (sentences.length === 0) return Promise.resolve();
+
   return new Promise((resolve) => {
     let guardTimer = null;
     let settled = false;
+    let currentIdx = 0;
+    let startFired = false;
+
     const settle = () => {
       if (settled) return;
       settled = true;
       if (guardTimer) clearTimeout(guardTimer);
       resolve();
     };
-    const utter = new SpeechSynthesisUtterance(text);
-    if (voice) utter.voice = voice;
-    // Slightly slower rate sounds more natural and professional
-    utter.rate = 0.95;
-    utter.pitch = gender === "male" ? 0.95 : 1.0;
-    utter.volume = 1.0;
-    utter.onend = settle;
-    utter.onerror = settle;
+
     if (controller?.signal) {
       controller.signal.addEventListener(
         "abort",
@@ -157,11 +162,98 @@ function playBrowserSpeechFallback(
         { once: true },
       );
     }
+
     guardTimer = setTimeout(() => {
       window.speechSynthesis.cancel();
       settle();
     }, guardMs || 30000);
-    window.speechSynthesis.speak(utter);
+
+    // --- Prosody variation for realistic, friendly voice ---
+    // Base rates and pitches (warm and conversational)
+    const baseRate = gender === "male" ? 0.93 : 0.94;
+    const basePitch = gender === "male" ? 0.92 : 1.08;
+
+    // Get per-sentence prosody variation — avoids monotone robotic cadence
+    const getSentenceProsody = (sentence, idx) => {
+      // Questions get slightly higher pitch, slower rate
+      const isQuestion = sentence.trim().endsWith("?");
+      // Exclamations get slightly more energy
+      const isExclamation = sentence.trim().endsWith("!");
+      // First sentence slightly slower (warm opening)
+      const isFirst = idx === 0;
+
+      // Rate variation: ±0.04 around base, questions slower
+      let rate = baseRate + (Math.random() * 0.08 - 0.04);
+      if (isQuestion) rate -= 0.03;
+      if (isFirst) rate -= 0.02;
+      rate = Math.max(0.82, Math.min(1.0, rate));
+
+      // Pitch variation: ±0.04 around base, questions rise
+      let pitch = basePitch + (Math.random() * 0.08 - 0.04);
+      if (isQuestion) pitch += 0.06;
+      if (isExclamation) pitch += 0.03;
+      pitch = Math.max(0.75, Math.min(1.2, pitch));
+
+      return { rate, pitch };
+    };
+
+    // Get pause duration based on sentence-ending punctuation
+    const getInterSentencePause = (sentence) => {
+      const trimmed = sentence.trim();
+      if (trimmed.endsWith("?")) return 280 + Math.floor(Math.random() * 150);
+      if (trimmed.endsWith("!")) return 200 + Math.floor(Math.random() * 120);
+      if (trimmed.endsWith("...")) return 350 + Math.floor(Math.random() * 200);
+      // Period — standard pause
+      return 200 + Math.floor(Math.random() * 180);
+    };
+
+    const speakNext = () => {
+      if (settled || currentIdx >= sentences.length) {
+        settle();
+        return;
+      }
+
+      const sentence = sentences[currentIdx];
+      const utter = new SpeechSynthesisUtterance(sentence);
+      if (voice) utter.voice = voice;
+
+      // Apply per-sentence prosody variation for natural cadence
+      const prosody = getSentenceProsody(sentence, currentIdx);
+      utter.rate = prosody.rate;
+      utter.pitch = prosody.pitch;
+      utter.volume = 1.0;
+
+      // Fire onStartCb when the first utterance actually starts playing
+      utter.onstart = () => {
+        if (!startFired) {
+          startFired = true;
+          onStartCb?.();
+        }
+      };
+
+      utter.onend = () => {
+        currentIdx++;
+        if (currentIdx < sentences.length) {
+          // Punctuation-aware inter-sentence pauses
+          const pauseMs = getInterSentencePause(sentence);
+          setTimeout(speakNext, pauseMs);
+        } else {
+          settle();
+        }
+      };
+      utter.onerror = () => {
+        currentIdx++;
+        if (currentIdx < sentences.length) {
+          speakNext();
+        } else {
+          settle();
+        }
+      };
+
+      window.speechSynthesis.speak(utter);
+    };
+
+    speakNext();
   });
 }
 
@@ -646,11 +738,20 @@ export function useVoiceAI({
       }
 
       // Priority 2: Microsoft neural voices (Edge, Windows 11)
+      // Match the full voice name including "Online (Natural)" suffix
       const msPremium = g === "male"
         ? ["Microsoft Guy Online (Natural)", "Microsoft Ryan Online (Natural)", "Microsoft Mark Online (Natural)"]
         : ["Microsoft Jenny Online (Natural)", "Microsoft Aria Online (Natural)", "Microsoft Sara Online (Natural)"];
       for (const name of msPremium) {
-        const v = voices.find((v) => v.name.includes(name.replace(" Online (Natural)", "")));
+        const v = voices.find((v) => v.name === name);
+        if (v) return v;
+      }
+      // Fallback: match partial name if exact match not found
+      const msPartial = g === "male"
+        ? ["Guy", "Ryan", "Mark"]
+        : ["Jenny", "Aria", "Sara"];
+      for (const name of msPartial) {
+        const v = voices.find((v) => v.name.includes(name) && v.name.includes("Natural"));
         if (v) return v;
       }
 
@@ -688,8 +789,10 @@ export function useVoiceAI({
 
       const controller = new AbortController();
       ttsAbortRef.current = controller;
-      setState("speaking");
-      onStart?.();
+      // Don't set "speaking" yet — wait until audio actually starts playing.
+      // This prevents lip-sync from firing before any sound is heard.
+      setState("loading");
+      // onStart is deferred to when audio playback actually begins (see below).
 
       const spokenText = addTransition ? `${pickTransition()} ${text}` : text;
 
@@ -701,7 +804,9 @@ export function useVoiceAI({
         const cacheKey = text.trim().slice(0, 200);
 
         if (ttsCacheRef.current.has(cacheKey)) {
+          console.log("[useVoiceAI] ✓ Using prefetched TTS audio");
           const cached = await ttsCacheRef.current.get(cacheKey);
+          ttsCacheRef.current.delete(cacheKey);
           if (cached) {
             blob = cached.blob;
             cachedContentType = cached.contentType || blob?.type || "";
@@ -711,13 +816,16 @@ export function useVoiceAI({
                 blobSize: blob?.size,
               })
             ) {
-              isFallback = true;
+              console.warn("[useVoiceAI] Prefetched audio invalid, fetching fresh");
+              blob = undefined;
             }
-          } else {
-            isFallback = true;
           }
-          ttsCacheRef.current.delete(cacheKey);
-        } else {
+          // If cached resolved to null (prefetch failed), blob stays undefined
+          // and we proceed to the fresh TTS fetch below
+        }
+
+        // Fresh TTS fetch — only if we don't already have a valid blob from cache
+        if (!blob && !isFallback) {
           const ttsRequest = withVoiceRequestId(
             resolveAuthHeaders({ "Content-Type": "application/json" }),
             "voice-tts",
@@ -851,6 +959,11 @@ export function useVoiceAI({
             gender: personaGender,
             controller,
             guardMs: TTS_PLAYBACK_GUARD_MS,
+            onStartCb: () => {
+              // Browser speech actually started — now activate speaking state
+              setState("speaking");
+              onStart?.();
+            },
           });
         } else {
           const effectiveType = cachedContentType || blob.type || "audio/wav";
@@ -872,6 +985,9 @@ export function useVoiceAI({
             console.log("[useVoiceAI] Starting audio playback...");
             await audioRef.current.play();
             console.log("[useVoiceAI] ✓ Audio playback started");
+            // Audio is actually playing now — activate speaking state + lip-sync
+            setState("speaking");
+            onStart?.();
           } catch (playError) {
             console.error("[useVoiceAI] Audio playback failed:", playError);
             URL.revokeObjectURL(url);
@@ -885,6 +1001,10 @@ export function useVoiceAI({
                 gender: personaGender,
                 controller,
                 guardMs: TTS_PLAYBACK_GUARD_MS,
+                onStartCb: () => {
+                  setState("speaking");
+                  onStart?.();
+                },
               });
               setOutputAudioEl(null);
             } else {
