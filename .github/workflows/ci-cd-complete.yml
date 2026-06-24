@@ -157,9 +157,9 @@ jobs:
       - name: Build frontend
         run: npm run build --prefix frontend
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_API_URL: ${{ fromJson(toJson(secrets)).VITE_API_URL }}
+          VITE_SUPABASE_URL: ${{ fromJson(toJson(secrets)).VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ fromJson(toJson(secrets)).VITE_SUPABASE_ANON_KEY }}
 
       - name: Analyze bundle size
         run: |
