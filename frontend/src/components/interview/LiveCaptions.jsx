@@ -11,6 +11,7 @@ function LiveCaptions({
     captionsOn,
     isListening,
     aiSpeaking,
+    aiThinking,
     interimText,
     transcript,
     conversation,
@@ -46,6 +47,11 @@ function LiveCaptions({
             return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText, words };
         }
 
+        // When AI is thinking / preparing to speak
+        if (aiThinking) {
+            return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText: 'Thinking...', words: ['Thinking...'] };
+        }
+
         // When neither speaking — show the last message as static caption (already spoken)
         const lastMsg = [...conversation].reverse().find(
             m => m.role === 'interviewer' || m.role === 'candidate' || m.role === 'feedback'
@@ -67,7 +73,7 @@ function LiveCaptions({
         const words = displayText.split(/\s+/).filter(Boolean);
 
         return { isUserSpeaking: false, liveInterim: '', speakerName, displayText, words };
-    }, [captionsOn, isListening, aiSpeaking, interimText, transcript, conversation, interviewerName]);
+    }, [captionsOn, isListening, aiSpeaking, aiThinking, interimText, transcript, conversation, interviewerName]);
 
     if (!captionData) return null;
 

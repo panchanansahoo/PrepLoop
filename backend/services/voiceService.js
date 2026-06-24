@@ -474,10 +474,9 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
     }
     
     // Multi-sentence: apply per-sentence prosody variation for natural cadence
-    const buffers = [];
-    for (let i = 0; i < sentences.length; i++) {
-        const sentence = sentences[i];
-        if (!sentence.trim()) continue;
+    // Fetch all sentences concurrently to reduce latency
+    const synthesisPromises = sentences.map(async (sentence, i) => {
+        if (!sentence.trim()) return null;
         
         const isQuestion = sentence.trim().endsWith('?');
         const isExclamation = sentence.trim().endsWith('!');
@@ -509,8 +508,11 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
         await tts.ttsPromise(sentence, tempFilePath);
         const buf = await fs.promises.readFile(tempFilePath);
         fs.promises.unlink(tempFilePath).catch(() => {});
-        if (buf.length > 100) buffers.push(buf);
-    }
+        return buf.length > 100 ? buf : null;
+    });
+
+    const results = await Promise.all(synthesisPromises);
+    const buffers = results.filter(Boolean);
     
     if (buffers.length === 0) throw new Error('Edge TTS returned empty audio');
     
@@ -527,18 +529,27 @@ async function groqOrpheusTTS(text, persona, gender = 'female') {
     const chunks      = chunkText(text, chunkLimit);
 
     const GROQ_TTS_TIMEOUT_MS = 10_000; // 10s max per chunk
-    const buffers = [];
-    for (const chunk of chunks) {
-        if (!chunk.trim()) continue;
-        const response = await groq.audio.speech.create({
-            model:           'canopylabs/orpheus-v1-english',
-            input:           direction + chunk,
-            voice,
-            response_format: 'wav',
-        }, { timeout: GROQ_TTS_TIMEOUT_MS });
-        const buf = Buffer.from(await response.arrayBuffer());
-        if (buf.length > 100) buffers.push(buf);
-    }
+    
+    // Fetch chunks concurrently
+    const chunkPromises = chunks.map(async (chunk) => {
+        if (!chunk.trim()) return null;
+        try {
+            const response = await groq.audio.speech.create({
+                model:           'canopylabs/orpheus-v1-english',
+                input:           direction + chunk,
+                voice,
+                response_format: 'wav',
+            }, { timeout: GROQ_TTS_TIMEOUT_MS });
+            const buf = Buffer.from(await response.arrayBuffer());
+            return buf.length > 100 ? buf : null;
+        } catch (err) {
+            console.warn('[Orpheus] Chunk error:', err.message);
+            return null;
+        }
+    });
+
+    const results = await Promise.all(chunkPromises);
+    const buffers = results.filter(Boolean);
 
     if (buffers.length === 0) throw new Error('Orpheus returned empty audio');
     return { audio: combineWavContent(buffers), contentType: 'audio/wav', provider: 'groq-orpheus', voice };

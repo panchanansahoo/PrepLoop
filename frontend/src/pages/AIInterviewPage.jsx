@@ -369,6 +369,7 @@ export default function AIInterviewPage() {
 
                     <LiveCaptions
                         captionsOn={captionsOn} isListening={isListening} aiSpeaking={aiSpeaking}
+                        aiThinking={loading || voiceAI.state === 'loading' || voiceAI.state === 'processing'}
                         interimText={voiceAI.interimText} transcript={transcript}
                         conversation={conversation} interviewerName={INTERVIEWER.name}
                         silenceCountdown={voiceAI.silenceCountdown}
