@@ -238,7 +238,8 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
             updateStats(name, false);
             console.warn(`[TTS] ✗ ${name} returned null`);
         } catch (err) {
-            console.warn(`[TTS] ✗ ${name} failed:`, err.message?.substring(0, 150));
+            const errMsg = (err && err.message) ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
+            console.warn(`[TTS] ✗ ${name} failed:`, errMsg?.substring(0, 150));
             updateStats(name, false);
         }
         return null;
@@ -543,8 +544,9 @@ async function groqOrpheusTTS(text, persona, gender = 'female') {
             const buf = Buffer.from(await response.arrayBuffer());
             return buf.length > 100 ? buf : null;
         } catch (err) {
-            console.warn('[Orpheus] Chunk error:', err.message);
-            return null;
+            const errMsg = err && err.message ? err.message : String(err);
+            console.warn('[Orpheus] Chunk error:', errMsg);
+            throw err;
         }
     });
 
