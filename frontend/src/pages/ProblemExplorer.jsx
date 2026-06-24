@@ -11,6 +11,7 @@ import { ProblemExplorerAllQuestionsView } from '../features/problemExplorer/Pro
 import { ProblemExplorerViewControls } from '../features/problemExplorer/ProblemExplorerViewControls';
 import { ProblemExplorerPatternView } from '../features/problemExplorer/ProblemExplorerPatternView';
 import { ProblemExplorerStudyPlansView } from '../features/problemExplorer/ProblemExplorerStudyPlansView';
+import { ProblemExplorerWeeklyRoadmap } from '../features/problemExplorer/ProblemExplorerWeeklyRoadmap';
 import { ProblemExplorerNotesModal } from '../features/problemExplorer/ProblemExplorerNotesModal';
 import { ProblemExplorerSearchToolbar } from '../features/problemExplorer/ProblemExplorerSearchToolbar';
 import { ProblemExplorerInsightsPanels } from '../features/problemExplorer/ProblemExplorerInsightsPanels';
@@ -771,6 +772,15 @@ export default function ProblemExplorer() {
                     onSolveProblem={(problemId) => navigate(`/dsa-editor/${problemId}`)}
                     getExplanationSnippet={getExplanationSnippet}
                 />
+
+                {/* ══════════ 8-WEEK ROADMAP VIEW ══════════ */}
+                {viewMode === 'roadmap' && (
+                    <ProblemExplorerWeeklyRoadmap
+                        isLight={isLight}
+                        solvedSet={solvedSet}
+                        onSolve={(problemId) => navigate(`/dsa-editor/${problemId}`)}
+                    />
+                )}
 
                 <ProblemExplorerPatternView
                     viewMode={viewMode}

@@ -1,6 +1,48 @@
 // src/data/studyPlans.js
 
+// PrepLoop Top — curated problems across 10 core pattern categories
+const PREPLOOP_TOP_TITLES = new Set([
+    // Arrays & Strings
+    'Two Sum', 'Product of Array Except Self', 'Maximum Subarray',
+    'Longest Substring Without Repeating Characters', 'Subarray Sum Equals K',
+    // Sorting & Searching
+    'Binary Search', 'Search in Rotated Sorted Array', 'Count Inversions',
+    'Sort Colors', 'Kth Largest Element in an Array',
+    // Linked Lists
+    'Reverse Linked List', 'Linked List Cycle', 'Merge Two Sorted Lists',
+    'Remove Nth Node From End of List',
+    // Stacks & Queues
+    'Valid Parentheses', 'Next Greater Element I', 'LRU Cache',
+    // Trees & Tries
+    'Maximum Depth of Binary Tree', 'Minimum Depth of Binary Tree',
+    'Binary Tree Level Order Traversal', 'Lowest Common Ancestor of Binary Tree',
+    'Implement Trie (Prefix Tree)',
+    // Heaps & Priority Queues
+    'Merge K Sorted Lists', 'Sliding Window Maximum',
+    // Graphs
+    'Number of Islands', 'Course Schedule', 'Course Schedule II', 'Network Delay Time',
+    // Dynamic Programming
+    'Partition Equal Subset Sum', 'Longest Increasing Subsequence', 'Coin Change',
+    'Matrix Chain Multiplication',
+    // Hashing & Sets
+    'Group Anagrams', 'Longest Consecutive Sequence', 'Count Subarrays with Given XOR',
+    // Classic Hard
+    'Trapping Rain Water', 'Container With Most Water',
+    'Largest Rectangle in Histogram', 'Merge Intervals',
+]);
+
 export const STUDY_PLANS = [
+    {
+        id: 'preploop-top',
+        label: 'PrepLoop Top',
+        desc: 'The definitive PrepLoop collection — 39 must-solve problems across 10 core DSA patterns. Master these and you\'re interview-ready.',
+        icon: '🚀',
+        gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(59, 130, 246, 0.2))',
+        border: 'rgba(139, 92, 246, 0.4)',
+        textLight: '#5b21b6',
+        textDark: '#ddd6fe',
+        filter: p => PREPLOOP_TOP_TITLES.has(p.title) || (p.studyPlans && p.studyPlans.includes('preploop-top'))
+    },
     { 
         id: 'top-interview-150', 
         label: 'Interview Top 150', 

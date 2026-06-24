@@ -159,7 +159,7 @@ const findBracketErrors = (source = "") => {
             message: `Unexpected '${ch}'`,
             severity: "error",
           });
-          return;
+          continue;
         }
         stack.pop();
       }
@@ -530,6 +530,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   );
   const [sidebarTab, setSidebarTab] = useState("errors");
   const [liveErrors, setLiveErrors] = useState([]);
+  const [serverErrors, setServerErrors] = useState([]);
   const [liveLintPending, setLiveLintPending] = useState(false);
   const [editorReady, setEditorReady] = useState(false);
   const [voiceErrorsEnabled, setVoiceErrorsEnabled] = useState(
@@ -674,6 +675,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     setLanguage(lang);
     localStorage.setItem("playground-lang", lang);
     setShowLangMenu(false);
+    setServerErrors([]);
 
     if (problem) {
       const currentCodeTrimmed = code.trim();
@@ -1070,9 +1072,10 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     if (!model) return;
 
     const nextLocalErrors = getRealtimeErrors(code, language);
-    setLiveErrors(nextLocalErrors);
+    const merged = mergeAndDedupeErrors(nextLocalErrors, serverErrors);
+    setLiveErrors(merged);
 
-    const markers = nextLocalErrors.map((error) => ({
+    const markers = merged.map((error) => ({
       startLineNumber: error.line,
       startColumn: error.col,
       endLineNumber: error.line,
@@ -1085,7 +1088,7 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     }));
 
     monaco.editor.setModelMarkers(model, "playground-live", markers);
-  }, [code, language, editorReady]);
+  }, [code, language, editorReady, serverErrors]);
 
   // ─── Server lint diagnostics (debounced) ───
   useEffect(() => {
@@ -1141,11 +1144,12 @@ export default function CodingPlayground({ sidebarCollapsed }) {
             requestSeq !== lintRequestSeqRef.current
           )
             return;
-          const serverErrors = Array.isArray(data?.errors) ? data.errors : [];
+          const newServerErrors = Array.isArray(data?.errors) ? data.errors : [];
+          setServerErrors(newServerErrors);
           const latestLocalErrors = getRealtimeErrors(code, language);
           const mergedErrors = mergeAndDedupeErrors(
             latestLocalErrors,
-            serverErrors,
+            newServerErrors,
           );
           setLiveErrors(mergedErrors);
 
@@ -1205,7 +1209,9 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   useEffect(() => {
     const supported =
       typeof window !== "undefined" &&
-      ("AudioContext" in window || "webkitAudioContext" in window);
+      ("speechSynthesis" in window ||
+        "AudioContext" in window ||
+        "webkitAudioContext" in window);
     setVoiceSupported(supported);
   }, []);
 
@@ -1256,7 +1262,6 @@ export default function CodingPlayground({ sidebarCollapsed }) {
           text: String(text).trim().slice(0, 550),
           persona: "friendly",
           language: language || "en",
-          provider: "groq-orpheus",
         }),
         signal: controller.signal,
       });
@@ -1304,14 +1309,38 @@ export default function CodingPlayground({ sidebarCollapsed }) {
     }
   }, []);
 
+  const speakViaBrowser = useCallback((text) => {
+    try {
+      if (
+        typeof window === "undefined" ||
+        !("speechSynthesis" in window)
+      )
+        return false;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      utterance.lang = "en-US";
+      window.speechSynthesis.speak(utterance);
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
   const playVoiceAnnouncement = useCallback(
     async (announcement, language) => {
       const text = String(announcement || "").trim();
       if (!text) return false;
 
-      return await speakViaCloud(text, language);
+      const cloudOk = await speakViaCloud(text, language);
+      if (cloudOk) return true;
+
+      // Cloud TTS failed — fall back to browser speechSynthesis
+      return speakViaBrowser(text);
     },
-    [speakViaCloud],
+    [speakViaCloud, speakViaBrowser],
   );
 
   const toSpokenErrorMessage = useCallback((message, language) => {

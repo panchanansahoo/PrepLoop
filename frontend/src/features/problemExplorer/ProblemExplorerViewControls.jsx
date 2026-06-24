@@ -1,4 +1,4 @@
-import {CheckCircle2, Eye, EyeOff, List, Sparkles, Layout} from 'lucide-react';
+import {CheckCircle2, Eye, EyeOff, List, Sparkles, Layout, Map} from 'lucide-react';
 
 export function ProblemExplorerViewControls({
   isLight,
@@ -137,6 +137,39 @@ export function ProblemExplorerViewControls({
           >
             <Sparkles size={14} />
             Study Plans
+          </button>
+          <button
+            onClick={() => setViewMode('roadmap')}
+            style={{
+              padding: '9px 22px',
+              borderRadius: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              background:
+                viewMode === 'roadmap'
+                  ? 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(251,191,36,0.15))'
+                  : 'transparent',
+              border:
+                viewMode === 'roadmap'
+                  ? '1px solid rgba(245,158,11,0.3)'
+                  : '1px solid transparent',
+              color:
+                viewMode === 'roadmap'
+                  ? '#fbbf24'
+                  : isLight
+                    ? 'rgba(0,0,0,0.45)'
+                    : 'rgba(255,255,255,0.4)',
+              transition: 'all 0.25s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 7,
+              boxShadow: viewMode === 'roadmap' ? '0 2px 10px rgba(245,158,11,0.12)' : 'none',
+              letterSpacing: '-0.01em',
+            }}
+          >
+            <Map size={14} />
+            Roadmap
           </button>
         </div>
 

@@ -22,7 +22,7 @@ export default defineConfig({
       '/kontests-api': {
         target: 'https://kontests.net',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\\/kontests-api/, '/api/v1'),
+        rewrite: (path) => path.replace(/^\/kontests-api/, '/api/v1'),
         secure: false,
       }
     }
