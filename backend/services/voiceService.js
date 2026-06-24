@@ -448,24 +448,75 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
     
     const voice = (edgeVoices[gender] || edgeVoices.female)[persona] || (edgeVoices[gender] || edgeVoices.female).default;
     
-    const tts = new EdgeTTS({
-        voice: voice,
-        lang: 'en-US',
-        // Doubled bitrate: 96kbps produces richer, fuller audio than 48kbps
-        outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
-    });
+    // --- Prosody variation for natural, human-like speech ---
+    // Base prosody values (warm and conversational, not robotic)
+    const baseRate = gender === 'male' ? '-3%' : '-2%';
+    const basePitch = gender === 'male' ? '-2Hz' : '+2Hz';
     
-    // Use crypto.randomBytes() instead of Math.random() per project rules
-    const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.mp3`);
+    // For short text (single sentence), use simple prosody
+    const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
     
-    await tts.ttsPromise(text, tempFilePath);
+    if (sentences.length <= 1) {
+        // Short text — single synthesis with warm prosody
+        const tts = new EdgeTTS({
+            voice,
+            lang: 'en-US',
+            rate: baseRate,
+            pitch: basePitch,
+            outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
+        });
+        
+        const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(8).toString('hex')}.mp3`);
+        await tts.ttsPromise(text, tempFilePath);
+        const buffer = await fs.promises.readFile(tempFilePath);
+        fs.promises.unlink(tempFilePath).catch(() => {});
+        return { audio: buffer, contentType: 'audio/mpeg', provider: 'edge', voice };
+    }
     
-    const buffer = await fs.promises.readFile(tempFilePath);
+    // Multi-sentence: apply per-sentence prosody variation for natural cadence
+    const buffers = [];
+    for (let i = 0; i < sentences.length; i++) {
+        const sentence = sentences[i];
+        if (!sentence.trim()) continue;
+        
+        const isQuestion = sentence.trim().endsWith('?');
+        const isExclamation = sentence.trim().endsWith('!');
+        const isFirst = i === 0;
+        
+        // Rate variation: questions slightly slower, first sentence warm/slow
+        let ratePercent = gender === 'male' ? -3 : -2;
+        ratePercent += Math.floor(Math.random() * 6) - 3; // ±3% jitter
+        if (isQuestion) ratePercent -= 3;
+        if (isFirst) ratePercent -= 2;
+        ratePercent = Math.max(-15, Math.min(5, ratePercent));
+        
+        // Pitch variation: questions rise, exclamations slightly up
+        let pitchHz = gender === 'male' ? -2 : 2;
+        pitchHz += Math.floor(Math.random() * 6) - 3; // ±3Hz jitter
+        if (isQuestion) pitchHz += 4;
+        if (isExclamation) pitchHz += 2;
+        pitchHz = Math.max(-10, Math.min(10, pitchHz));
+        
+        const tts = new EdgeTTS({
+            voice,
+            lang: 'en-US',
+            rate: `${ratePercent >= 0 ? '+' : ''}${ratePercent}%`,
+            pitch: `${pitchHz >= 0 ? '+' : ''}${pitchHz}Hz`,
+            outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
+        });
+        
+        const tempFilePath = path.join(TMP_AUDIO_ROOT, `edge-tts-${Date.now()}-${crypto.randomBytes(4).toString('hex')}-${i}.mp3`);
+        await tts.ttsPromise(sentence, tempFilePath);
+        const buf = await fs.promises.readFile(tempFilePath);
+        fs.promises.unlink(tempFilePath).catch(() => {});
+        if (buf.length > 100) buffers.push(buf);
+    }
     
-    // Cleanup fire-and-forget
-    fs.promises.unlink(tempFilePath).catch(() => {});
+    if (buffers.length === 0) throw new Error('Edge TTS returned empty audio');
     
-    return { audio: buffer, contentType: 'audio/mpeg', provider: 'edge', voice };
+    // Combine MP3 segments (MP3 frames are self-contained, safe to concatenate)
+    const combined = Buffer.concat(buffers);
+    return { audio: combined, contentType: 'audio/mpeg', provider: 'edge', voice };
 }
 
 async function groqOrpheusTTS(text, persona, gender = 'female') {

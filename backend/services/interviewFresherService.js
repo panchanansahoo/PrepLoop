@@ -2,7 +2,7 @@ import { aiCallWithRetry } from '../utils/aiClient.js';
 import crypto from 'crypto';
 
 export const FRESHER_HR_FIXED = {
-    Q1: 'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+    Q1: 'Hey, welcome! Thanks for joining me today. So this will be a pretty relaxed conversation \u2014 I want to get to know you, your interests, and what motivates you. Let\'s kick things off \u2014 tell me a bit about yourself and your journey so far.',
     Q12: 'Do you have any questions for me about the role, the team, or our company?',
 };
 
@@ -25,7 +25,7 @@ export const FRESHER_HR_CLOSINGS = {
 };
 
 export const FRESHER_TECHNICAL_FIXED = {
-    Q1: 'Good afternoon, my name is Abhishek Sen, I work as a technical lead with Preploop, and I\'ll be conducting your technical discussion today. We\'ll cover fundamentals in databases, OOP, and web concepts. To begin with, could you introduce yourself and walk me through your background, including your technical interests?',
+    Q1: 'Hey, welcome! So today we\'re going to have a technical chat \u2014 we\'ll cover things like databases, OOP, web concepts, that kind of stuff. But first, I\'d love to hear a bit about you. Tell me about yourself and what technologies you\'ve been most interested in lately.',
     Q12: 'Do you have any questions for me about the role, the team, or our company?',
     Q13_YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
     Q13_NO: 'Thank you so much for your time today! You\'ve given some really thoughtful technical answers. We\'ll review our discussion and be in touch soon. Best of luck!',

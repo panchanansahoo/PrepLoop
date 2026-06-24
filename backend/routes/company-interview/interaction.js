@@ -158,7 +158,8 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
       'Nice! You covered the key points clearly.',
       'Excellent! You have a practical understanding.'
     ];
-    const feedbackMessage = deterministicPick(feedbackOptions, qNum);
+    const fillerOptions = ['Hmm. ', 'Right. ', 'Okay, ', 'Got it. ', 'Make sense. '];
+    const feedbackMessage = deterministicPick(fillerOptions, qNum * 3) + deterministicPick(feedbackOptions, qNum);
 
     let followUpQuestion = '';
     let closingRemark = undefined;

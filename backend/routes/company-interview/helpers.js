@@ -310,7 +310,7 @@ export const HR_CLOSING_MESSAGE = 'Thank you for your time today. It was a pleas
 
 export const STATIC_INTERVIEW_QUESTIONS = {
   HR: [
-    'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I’ll be conducting your HR discussion today. We’ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+    'Hey, welcome! Thanks for taking the time to chat with us today. So this is going to be a pretty relaxed conversation — I just want to learn a bit about you, your interests, and what gets you excited. Let\'s start simple — tell me a bit about yourself and your journey so far.',
     'What attracted you to this role and to our company in particular?',
     'Can you tell me about a project or achievement that you’re most proud of, and why?',
     'Describe a time when you faced a difficult problem or challenge. How did you handle it?',
@@ -347,7 +347,7 @@ export const STATIC_INTERVIEW_CLOSINGS = {
 // Q13: Fixed conclusion (YES/NO branching)
 
 export const FRESHER_HR_FIXED = {
-  Q1: 'Good afternoon, my name is Abhishek Sen, I work as an HR executive with Wipro, and I\'ll be conducting your HR discussion today. We\'ll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?',
+  Q1: 'Hey, welcome! Thanks for joining me today. So this will be a pretty relaxed conversation — I want to get to know you, your interests, and what motivates you. Let\'s kick things off — tell me a bit about yourself and your journey so far.',
   Q12: 'Do you have any questions for me about the role, the team, or our company?',
 };
 
@@ -370,7 +370,7 @@ export const FRESHER_HR_CLOSINGS = {
 };
 
 export const FRESHER_TECHNICAL_FIXED = {
-  Q1: 'Good afternoon, my name is Abhishek Sen, I work as a technical lead with Preploop, and I\'ll be conducting your technical discussion today. We\'ll cover fundamentals in databases, OOP, and web concepts. To begin with, could you introduce yourself and walk me through your background, including your technical interests?',
+  Q1: 'Hey, welcome! So today we\'re going to have a technical chat — we\'ll cover things like databases, OOP, web concepts, that kind of stuff. But first, I\'d love to hear a bit about you. Tell me about yourself and what technologies you\'ve been most interested in lately.',
   Q12: 'Do you have any questions for me about the role, the team, or our company?',
   Q13_YES: 'Thank you for your thoughtful questions! We really appreciate your interest. We\'ll review our discussion and get back to you soon with next steps.',
   Q13_NO: 'Thank you so much for your time today! You\'ve given some really thoughtful technical answers. We\'ll review our discussion and be in touch soon. Best of luck!',
@@ -502,7 +502,6 @@ export async function generateFresherTechnicalQuestion(qNum, _resumeContext = nu
 }
 
 export const INTERVIEWER_NAMES = [
-  'Abhishek Sen',
   'Riya Sharma',
   'Ananya Rao',
   'Neha Kapoor',
@@ -512,6 +511,10 @@ export const INTERVIEWER_NAMES = [
   'Arjun Mehta',
   'Sanya Gupta',
   'Vikram Iyer',
+  'James Mitchell',
+  'Sarah Chen',
+  'David Park',
+  'Emily Torres',
 ];
 
 export function pickFallbackInterviewerName() {
@@ -529,7 +532,7 @@ export async function generateInterviewerName(company = '') {
           messages: [
             {
               role: 'system',
-              content: `Generate one realistic professional Indian HR name for a ${company || 'tech'} interview. Return ONLY JSON as {"name":"First Last"}. No titles, no extra text.`,
+              content: `Generate one realistic professional name for an interviewer at ${company || 'a tech company'}. The name should be diverse and realistic — could be any ethnicity. Return ONLY JSON as {"name":"First Last"}. No titles, no extra text.`,
             },
           ],
           response_format: { type: 'json_object' },
@@ -861,7 +864,7 @@ ${resumePrompt}
 - **BE EXTREMELY CONVERSATIONAL AND HUMAN.** Speak like a friendly senior on a video call, not a corporate robot.
 - **LIMIT RESPONSES TO 1-3 SENTENCES MAX.** Brevity is critical. Do not give long monologues.
 - **SOUND INTELLIGENT AND INSIGHTFUL.** Your questions should demonstrate deep domain expertise. Reference real-world engineering practices, industry trends, and practical scenarios from companies like ${company}.
-- **ASK SMART FOLLOW-UPS.** Don't accept surface-level answers. Probe with incisive questions: "What would happen if the load doubled?", "How would you handle the failure case?", "What's the trade-off between these two approaches?"
+- **ASK SMART CONTEXTUAL FOLLOW-UPS.** You MUST explicitly reference specific words, tools, or approaches the candidate just mentioned. Do not just ask a generic follow-up. For example: "You mentioned using Redis for caching — what specific eviction policy did you choose?" or "I see you used React context for state — why didn't you use Redux or Zustand?"
 - **SHOW INTELLECTUAL CURIOSITY.** React with genuine interest: "Oh interesting, so you're saying...", "That's a clever approach — have you considered...", "I like that thinking. What about..."
 - Be SUPPORTIVE and ENCOURAGING — treat this like a mentorship conversation, not an interrogation.
 - If real interviewer mode is enabled, keep encouragement short and professional; do not provide unsolicited coaching or model answers.

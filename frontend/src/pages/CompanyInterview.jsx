@@ -1169,11 +1169,11 @@ export default function CompanyInterview() {
                 setRuntimeStrategy(data.runtime.strategy);
             }
 
-            // Warm greeting with interviewer name
+            // Warm, natural greeting — no name announcement
             const greetings = [
-                `Hi there! I'm ${interviewerName} from the ${config.stage} team at ${companyName}. Thanks for joining us today. `,
-                `Hello! My name is ${interviewerName}, and I'll be conducting your ${config.stage} interview for ${companyName} today. `,
-                `Welcome! I'm ${interviewerName}. I'll be your interviewer today for the ${config.stage} round at ${companyName}. `
+                `Hey, thanks for joining! So this is the ${config.stage} round for ${companyName}. Let's keep it relaxed. `,
+                `Hey, welcome! I'll be chatting with you today for your ${config.stage} interview at ${companyName}. `,
+                `Hi there! Great to have you. So this is the ${config.stage} round at ${companyName} — let's get into it. `
             ];
             const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
@@ -1196,7 +1196,7 @@ export default function CompanyInterview() {
             setConversation([msg]);
             speakText(fullFirstMsg, () => toggleListening(true));
         } catch {
-            const fallback = `Hi! I'm ${interviewerName} from ${companyName}. Welcome to your ${config.stage} interview. I'm looking forward to our conversation today. Let's dive in — tell me about a challenging project you worked on recently and what made it interesting.`;
+            const fallback = `Hey, welcome to your ${config.stage} interview at ${companyName}! I'm looking forward to our chat today. Let's dive in — tell me about a challenging project you worked on recently and what made it interesting.`;
             setInterviewerReaction('thinking');
             await waitInterviewerBeat(550, 350);
             setCurrentQuestion(fallback);
@@ -1468,7 +1468,7 @@ export default function CompanyInterview() {
             } else {
                 stopTypingSounds();
                 // All questions done — closing compliment with interviewer name and auto-end
-                const closingMsg = data.closingRemark || `Thank you so much for your time today! It was a pleasure speaking with you. You gave some really thoughtful answers. I'm ${interviewerName}, and I'll be sharing my notes with the team. Best of luck!`;
+                const closingMsg = data.closingRemark || `Thank you so much for your time today! You gave some really thoughtful answers. I'll be sharing my notes with the team. Best of luck!`;
                 setConversation(prev => [...prev, {
                     role: 'interviewer', content: closingMsg, tips: [],
                     reaction: 'positive',
