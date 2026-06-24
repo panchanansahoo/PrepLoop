@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './LoadingScreen.css';
 
-const LoadingScreen = ({ onFinished, minimumDuration = 2800 }) => {
+const LoadingScreen = ({ onFinished, minimumDuration = 400 }) => {
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState('entering'); // entering, loading, exiting, done
   const [tipIndex, setTipIndex] = useState(0);
