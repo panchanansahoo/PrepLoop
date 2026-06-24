@@ -408,12 +408,27 @@ export function useVoiceAI({
   }, []);
 
   const submitAnswer = useCallback(async () => {
-    const answer = finalTextRef.current.trim();
     clearSilenceTimer();
     clearMaxWait();
     clearBackchannelTimer();
     clearTotalSilenceTimer();
     clearAfterSpeechSilence();
+
+    // Rescue any remaining interim text that the browser STT hasn't finalized yet.
+    // This prevents words from being silently dropped during auto-submit.
+    if (interimRef.current && interimRef.current.trim()) {
+      const rescued = (finalTextRef.current + " " + interimRef.current).trim();
+      finalTextRef.current =
+        rescued.length > MAX_TRANSCRIPT_LENGTH
+          ? rescued.slice(-MAX_TRANSCRIPT_LENGTH)
+          : rescued;
+      interimRef.current = "";
+      setTranscript(finalTextRef.current);
+      setInterimText("");
+      console.log("[useVoiceAI] Rescued interim text before submit:", finalTextRef.current.slice(-60));
+    }
+
+    const answer = finalTextRef.current.trim();
 
     if (!answer || answer.length < MIN_ANSWER_LENGTH) {
       if (activeRef.current) setState("listening");
@@ -543,6 +558,7 @@ export function useVoiceAI({
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = "en-US";
+        recognition.maxAlternatives = 1;
 
         recognition.onresult = (event) => {
           if (!activeRef.current) return;
@@ -592,6 +608,20 @@ export function useVoiceAI({
 
         recognition.onend = () => {
           if (activeRef.current && stateRef.current === "listening") {
+            // Rescue any pending interim text as final before restarting.
+            // When recognition restarts, the previous session's pending
+            // interim results are lost — this saves them.
+            if (interimRef.current && interimRef.current.trim()) {
+              const rescued = (finalTextRef.current + " " + interimRef.current).trim();
+              finalTextRef.current =
+                rescued.length > MAX_TRANSCRIPT_LENGTH
+                  ? rescued.slice(-MAX_TRANSCRIPT_LENGTH)
+                  : rescued;
+              interimRef.current = "";
+              setTranscript(finalTextRef.current);
+              setInterimText("");
+              console.log("[useVoiceAI] Rescued interim text on recognition restart");
+            }
             try {
               recognition.start();
             } catch {
