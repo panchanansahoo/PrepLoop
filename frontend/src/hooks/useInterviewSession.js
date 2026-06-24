@@ -863,8 +863,8 @@ export function useInterviewSession() {
       ]);
 
       console.log("[Interview] Pre-generating audio for first question...");
-      voiceAI.prefetch(questionText);
-      await minDelay;
+      const prefetchPromise = voiceAI.prefetch(questionText);
+      await Promise.all([prefetchPromise, minDelay]);
 
       setPhase("interview");
       setLoading(false);
@@ -899,7 +899,8 @@ export function useInterviewSession() {
       setConversation([
         { role: "interviewer", content: fallbackQ, timestamp: Date.now() },
       ]);
-      voiceAI.prefetch(fallbackQ);
+      const prefetchPromise = voiceAI.prefetch(fallbackQ);
+      await prefetchPromise;
       setLoading(false);
       setPhase("interview");
       await speakInterviewerText(fallbackQ);
@@ -1074,7 +1075,7 @@ export function useInterviewSession() {
             "[Interview] Pre-fetching next question audio:",
             continueQ.substring(0, 50) + "...",
           );
-          voiceAI.prefetch(continueQ);
+          await voiceAI.prefetch(continueQ);
         }
 
         const speakAndHandoff = async (questionSegment, isEnding = false) => {
@@ -1093,6 +1094,7 @@ export function useInterviewSession() {
             data.closingRemark ||
             closingRemark ||
             "Great job today! Thank you for your time. We'll be in touch soon.";
+          await voiceAI.prefetch(closingText);
           setConversation((prev) => [
             ...prev,
             {
@@ -1160,6 +1162,7 @@ export function useInterviewSession() {
         if (isInterviewOverFallback) {
           const closingFallback =
             "Great job today! Thank you for your time. We'll be in touch soon.";
+          await voiceAI.prefetch(closingFallback);
           setConversation((prev) => [
             ...prev,
             {
@@ -1178,6 +1181,7 @@ export function useInterviewSession() {
           ]);
           setCurrentQuestion(fallbackQ);
           setQuestionIndex((prev) => prev + 1);
+          await voiceAI.prefetch(fallbackQ);
           setLoading(false);
           await speakInterviewerText(fallbackQ);
           handoffToCandidate();

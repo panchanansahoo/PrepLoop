@@ -1106,9 +1106,9 @@ export function useVoiceAI({
 
   const prefetch = useCallback(
     (text) => {
-      if (!text || !text.trim()) return;
+      if (!text || !text.trim()) return null;
       const cacheKey = text.trim().slice(0, 200);
-      if (ttsCacheRef.current.has(cacheKey)) return;
+      if (ttsCacheRef.current.has(cacheKey)) return ttsCacheRef.current.get(cacheKey);
 
       const prefetchRequest = withVoiceRequestId(
         resolveAuthHeaders({ "Content-Type": "application/json" }),
@@ -1158,6 +1158,7 @@ export function useVoiceAI({
 
       ttsCacheRef.current.set(cacheKey, promise);
       setTimeout(() => ttsCacheRef.current.delete(cacheKey), 60_000);
+      return promise;
     },
     [personaGender, resolveAuthHeaders],
   );
