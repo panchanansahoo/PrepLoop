@@ -46,7 +46,7 @@
         "dompurify": "^3.4.0",
         "lucide-react": "^0.323.0",
         "prettier": "^3.8.1",
-        "react": "^18.2.0",
+        "react": "^19.2.7",
         "react-dom": "^18.2.0",
         "react-markdown": "^10.1.0",
         "react-resizable-panels": "^4.11.1",
