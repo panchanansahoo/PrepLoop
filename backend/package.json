@@ -57,7 +57,7 @@
     "dependencies": {
         "@google/genai": "^1.50.1",
         "@supabase/supabase-js": "^2.95.3",
-        "@upstash/redis": "^1.37.0",
+        "@upstash/redis": "^1.38.0",
         "ajv": "^8.12.0",
         "ajv-formats": "^2.1.1",
         "bcryptjs": "^3.0.3",
