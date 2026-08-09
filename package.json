@@ -62,7 +62,7 @@
     "build:analyze": "cd frontend && npm run build && npx vite-bundle-visualizer dist/stats.html"
   },
   "devDependencies": {
-    "@types/react": "~19.2.10",
+    "@types/react": "~19.2.18",
     "sharp": "^0.34.5",
     "typescript": "~5.9.2"
   },
