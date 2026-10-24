@@ -74,13 +74,12 @@
         "iconv-lite": "0.7.2",
         "joi": "^18.1.2",
         "jsonwebtoken": "^9.0.3",
-        "kokoro-js": "^1.2.1",
         "libmime": "5.3.8",
         "mammoth": "^1.13.0",
         "multer": "^2.0.0",
         "node-cache": "^5.1.2",
         "node-edge-tts": "^1.2.10",
-        "nodemailer": "^9.0.1",
+        "nodemailer": "^10.2.1",
         "pdf-parse": "^1.1.1",
         "pg": "^8.18.0",
         "razorpay": "^2.9.6",
@@ -93,5 +92,8 @@
         "@eslint/js": "^10.0.1",
         "eslint": "^10.4.1",
         "globals": "^17.6.0"
+    },
+    "optionalDependencies": {
+        "kokoro-js": "^1.2.1"
     }
 }

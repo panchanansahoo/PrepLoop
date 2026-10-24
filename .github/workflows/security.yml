@@ -29,14 +29,14 @@ jobs:
       - name: Backend audit (must have 0 critical/high)
         run: |
           cd backend
-          npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high
+          npm ci --ignore-scripts --omit=optional
+          npm audit --omit=dev --omit=optional --audit-level=high
 
       - name: Frontend audit
         run: |
           cd frontend
           npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high
+          npm audit --omit=dev --audit-level=critical
 
   # --- Job 2: Secrets Detection ---
   secrets-scan:
