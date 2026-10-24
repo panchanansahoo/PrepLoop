@@ -730,13 +730,22 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
 
     if (!emailSent) {
       console.error('Password reset email was not sent:', mailErrorMessage || 'SMTP credentials are not configured');
-      return res.status(503).json({
-        error: 'Password reset email is temporarily unavailable. Please try again later.',
-      });
+      if (process.env.NODE_ENV === 'production') {
+        return res.status(503).json({
+          error: 'Password reset email is temporarily unavailable. Please try again later.',
+          code: 'EMAIL_SERVICE_UNAVAILABLE',
+        });
+      }
     }
 
     return res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
+      ...(process.env.NODE_ENV !== 'production' && {
+        resetLink,
+        devResetLink: resetLink,
+        emailSent,
+        mailError: mailErrorMessage,
+      }),
     });
   } catch (error) {
     console.error('Forgot password error:', error);
