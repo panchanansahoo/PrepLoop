@@ -205,16 +205,18 @@ export default function ForgotPassword() {
     setError('');
     setLoading(true);
     try {
-      const res = await apiClient.post('/api/auth/forgot-password', { email });
-      if (res.data?.devResetLink) {
-        setDevResetLink(res.data.devResetLink);
+      const res = await apiClient.post('/api/auth/forgot-password', { email: email.trim().toLowerCase() });
+      const payload = res?.data || res;
+      const link = payload?.resetLink || payload?.devResetLink;
+      if (link) {
+        setDevResetLink(link);
       }
-      if (res.data?.emailSent !== undefined) {
-        setEmailSent(res.data.emailSent);
+      if (payload?.emailSent !== undefined) {
+        setEmailSent(payload.emailSent);
       }
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to send reset email. Please try again.');
+      setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -252,9 +254,13 @@ export default function ForgotPassword() {
               <div style={styles.successBox}>
                 <CheckCircle size={20} style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
-                  <strong style={{ color: '#bbf7d0', fontSize: '15px' }}>Check your inbox!</strong><br />
+                  <strong style={{ color: '#bbf7d0', fontSize: '15px' }}>
+                    {emailSent ? 'Check your inbox!' : 'Password reset link ready!'}
+                  </strong><br />
                   <div style={{ marginTop: '6px' }}>
-                    We've sent a password reset link to <strong>{email}</strong>. The link expires in 1 hour.
+                    {emailSent
+                      ? `We've sent a password reset link to ${email}. The link expires in 1 hour.`
+                      : `A password reset link was generated for ${email}.`}
                   </div>
                 </div>
               </div>
@@ -263,29 +269,33 @@ export default function ForgotPassword() {
                 <div style={{
                   marginTop: '16px',
                   marginBottom: '20px',
-                  padding: '14px 16px',
+                  padding: '16px',
                   borderRadius: '14px',
-                  background: 'rgba(168, 85, 247, 0.08)',
-                  border: '1px solid rgba(168, 85, 247, 0.25)',
-                  fontSize: '13px',
-                  lineHeight: 1.5,
+                  background: 'rgba(168, 85, 247, 0.12)',
+                  border: '1px solid rgba(168, 85, 247, 0.3)',
+                  textAlign: 'center',
                 }}>
-                  <div style={{ fontWeight: 700, color: '#e879f9', marginBottom: '6px' }}>
-                    🛠️ Development Reset Link
-                  </div>
-                  <div style={{ color: 'rgba(203,213,225,0.8)', marginBottom: '8px' }}>
-                    {!emailSent ? 'Email service did not send (SMTP in dev mode). You can use this direct link to test:' : 'You can use this direct link to reset your password immediately:'}
-                  </div>
+                  <p style={{ color: '#f3e8ff', fontSize: '14px', marginBottom: '12px', fontWeight: 600 }}>
+                    Click below to set your new password:
+                  </p>
                   <a
                     href={devResetLink}
                     style={{
-                      color: '#c084fc',
-                      textDecoration: 'underline',
-                      fontWeight: 600,
-                      wordBreak: 'break-all'
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      padding: '12px 24px',
+                      borderRadius: '10px',
+                      background: 'linear-gradient(135deg, #a855f7 0%, #c026d3 100%)',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      fontWeight: 700,
+                      fontSize: '15px',
+                      boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
                     }}
                   >
-                    Open Password Reset Link &rarr;
+                    Set New Password Now <ArrowRight size={16} />
                   </a>
                 </div>
               )}

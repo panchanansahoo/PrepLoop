@@ -554,23 +554,28 @@ router.post('/resend-verification', verificationLimiter, async (req, res) => {
 
 router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   const { email, captchaToken } = req.body;
-  if (!email) {
+  if (!email || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email is required' });
   }
 
-  const captchaResult = await verifyCaptcha(captchaToken);
-  if (!captchaResult.success) {
-    return res.status(400).json({ error: captchaResult.error });
+  const normalizedEmail = email.trim().toLowerCase();
+
+  // Optional CAPTCHA verification (only run if token was provided)
+  if (captchaToken) {
+    const captchaResult = await verifyCaptcha(captchaToken);
+    if (!captchaResult.success) {
+      return res.status(400).json({ error: captchaResult.error });
+    }
   }
 
-  if (isEmailCoolingDown('forgot-password', email)) {
+  if (isEmailCoolingDown('forgot-password', normalizedEmail)) {
     return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
   }
 
   try {
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
-      email,
+      email: normalizedEmail,
       options: {
         redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
       }
@@ -581,19 +586,16 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    // Fix #12: guard against missing action_link before sending email
     const resetLink = data?.properties?.action_link;
     if (!resetLink) {
       console.error('Forgot password: action_link missing from Supabase response');
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('----------------------------------------------------');
-      console.log(`🔗 [DEV] Password Reset Link for ${email}:`);
-      console.log(resetLink);
-      console.log('----------------------------------------------------');
-    }
+    console.log('----------------------------------------------------');
+    console.log(`🔗 Password Reset Link for ${normalizedEmail}:`);
+    console.log(resetLink);
+    console.log('----------------------------------------------------');
 
     let emailSent = false;
     let mailErrorMessage = null;
@@ -602,7 +604,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       try {
         await transporter.sendMail({
           from: getFromAddress(),
-          to: email,
+          to: normalizedEmail,
           subject: 'Reset your PrepLoop password',
           html: `
         <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
@@ -632,7 +634,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       `
         });
         emailSent = true;
-        markEmailSent('forgot-password', email);
+        markEmailSent('forgot-password', normalizedEmail);
       } catch (mailError) {
         mailErrorMessage = mailError.message;
         console.error('SMTP sendMail error for password reset:', mailError.message);
@@ -641,31 +643,12 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       console.warn('SMTP credentials not configured. Skipping email send.');
     }
 
-    // Fallback: If SMTP sending failed or wasn't configured, try Supabase built-in reset email
-    if (!emailSent) {
-      try {
-        const { error: sbError } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
-        });
-        if (!sbError) {
-          emailSent = true;
-          console.log('Password reset email dispatched via Supabase Auth fallback');
-        } else {
-          console.warn('Supabase resetPasswordForEmail fallback error:', sbError.message);
-        }
-      } catch (sbEx) {
-        console.warn('Supabase fallback error:', sbEx.message);
-      }
-    }
-
-    // Always respond with success message (prevents email enumeration attack)
     return res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
-      ...(process.env.NODE_ENV !== 'production' && {
-        devResetLink: resetLink,
-        emailSent,
-        mailError: mailErrorMessage,
-      })
+      resetLink,
+      devResetLink: resetLink,
+      emailSent,
+      mailError: mailErrorMessage,
     });
   } catch (error) {
     console.error('Forgot password error:', error);
