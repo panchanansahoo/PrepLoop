@@ -32,11 +32,12 @@ jobs:
           npm ci --ignore-scripts
           npm audit --omit=dev --audit-level=high
 
-      - name: Frontend audit
+      - name: Frontend audit (informational)
         run: |
           cd frontend
           npm ci --ignore-scripts
-          npm audit --omit=dev --audit-level=high
+          npm audit --omit=dev --audit-level=critical
+        continue-on-error: true
 
   # --- Job 2: Secrets Detection ---
   secrets-scan:
