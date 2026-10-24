@@ -16,17 +16,20 @@ const REQUIRED_VARS = [
 /**
  * Required environment variables for production only
  */
-const PRODUCTION_REQUIRED_VARS = [];
+const PRODUCTION_REQUIRED_VARS = [
+  'FRONTEND_URL',
+  'SMTP_HOST',
+  'SMTP_PORT',
+  'SMTP_USER',
+  'SMTP_PASS',
+];
 
 /**
  * Optional but recommended environment variables
  */
 const RECOMMENDED_VARS = [
-  'FRONTEND_URL',
   'GROQ_API_KEY',
   'GEMINI_API_KEY',
-  'SMTP_USER',
-  'SMTP_PASS',
   'UPSTASH_REDIS_REST_URL',
   'UPSTASH_REDIS_REST_TOKEN',
 ];

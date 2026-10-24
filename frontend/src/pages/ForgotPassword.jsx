@@ -1,9 +1,9 @@
 
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
 import { Mail, AlertCircle, ArrowLeft, CheckCircle, ArrowRight } from 'lucide-react';
 import logo from '../assets/logo.svg';
+import apiClient from '../utils/apiClient';
 
 const styles = {
   wrapper: {
@@ -203,7 +203,7 @@ export default function ForgotPassword() {
     setError('');
     setLoading(true);
     try {
-      await axios.post('/api/auth/forgot-password', { email });
+      await apiClient.post('/api/auth/forgot-password', { email });
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send reset email. Please try again.');

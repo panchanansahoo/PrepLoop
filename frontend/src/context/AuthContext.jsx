@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { authFetch } from '../utils/authFetch';
+import apiClient from '../utils/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -58,7 +59,7 @@ export function AuthProvider({ children }) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
-              const response = await axios.get('/api/user/profile');
+              const response = await apiClient.get('/api/user/profile');
               const profileData = response.data.user;
               const fullUser = {
                 id: session.user.id,
@@ -121,7 +122,7 @@ export function AuthProvider({ children }) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
           try {
-            const response = await axios.get('/api/user/profile');
+            const response = await apiClient.get('/api/user/profile');
             const profileData = response.data.user;
             const fullUser = {
               ...profileData,
@@ -164,7 +165,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const response = await axios.post('/api/auth/login', { email, password });
+    const response = await apiClient.post('/api/auth/login', { email, password });
     const { token, user } = response.data;
 
     localStorage.setItem('token', token);
@@ -204,7 +205,7 @@ export function AuthProvider({ children }) {
 
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
-    const response = await axios.post('/api/auth/signup', { email, password, fullName });
+    const response = await apiClient.post('/api/auth/signup', { email, password, fullName });
     const { token, user } = response.data;
 
     if (token) {
@@ -251,7 +252,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const response = await axios.post('/api/auth/refresh');
+      const response = await apiClient.post('/api/auth/refresh');
       const { token } = response.data;
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;

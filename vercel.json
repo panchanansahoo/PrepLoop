@@ -6,7 +6,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://preploop-api-staging.azurewebsites.net/api/:path*"
+      "destination": "https://preploop-v35a.onrender.com/api/:path*"
     },
     {
       "source": "/((?!api|assets|favicon\\.svg|robots\\.txt).*)",
