@@ -11,6 +11,7 @@
         "start": "node index.js",
         "dev": "node --watch-path=./routes --watch-path=./services --watch-path=./utils --watch-path=./middleware --watch-path=./config --watch-path=./index.js index.js",
         "setup": "node setup.js",
+        "auth:reset-password": "node scripts/reset_password.js",
         "lint": "node --check index.js && node --check setup.js && eslint .",
         "lint:fix": "echo 'Run prettier to format code'",
         "format": "prettier --write \"**/*.js\"",
