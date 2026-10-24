@@ -195,18 +195,53 @@ export default function ResetPassword() {
     const navigate = useNavigate();
 
     useEffect(() => {
+        const hash = window.location.hash || '';
+        const search = window.location.search || '';
+        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+        const searchParams = new URLSearchParams(search);
+
+        const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+        if (errorDesc) {
+            setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
+        }
+
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const code = searchParams.get('code');
+
         if (supabase) {
-            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, _session) => {
-                if (event === 'PASSWORD_RECOVERY') {
+            const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+                if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
                     setReady(true);
                 }
             });
 
-            supabase.auth.getSession().then(({ data: { session } }) => {
-                if (session) setReady(true);
-            });
+            if (accessToken) {
+                supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken || '',
+                }).then(({ data, error: sessionErr }) => {
+                    if (!sessionErr && data?.session) {
+                        setReady(true);
+                    } else if (sessionErr) {
+                        setError(sessionErr.message);
+                    }
+                }).catch(() => {});
+            } else if (code) {
+                supabase.auth.exchangeCodeForSession(code).then(({ data, error: codeErr }) => {
+                    if (!codeErr && data?.session) {
+                        setReady(true);
+                    } else if (codeErr) {
+                        setError(codeErr.message);
+                    }
+                }).catch(() => {});
+            } else {
+                supabase.auth.getSession().then(({ data: { session } }) => {
+                    if (session) setReady(true);
+                });
+            }
 
-            return () => subscription.unsubscribe();
+            return () => subscription?.unsubscribe?.();
         }
     }, []);
 
@@ -218,22 +253,22 @@ export default function ResetPassword() {
             setError('Passwords do not match');
             return;
         }
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
+        if (password.length < 8) {
+            setError('Password must be at least 8 characters');
             return;
         }
 
         setLoading(true);
         try {
-            const { error } = await supabase.auth.updateUser({ password });
-            if (error) {
-                setError(error.message);
+            const { error: updateError } = await supabase.auth.updateUser({ password });
+            if (updateError) {
+                setError(updateError.message);
             } else {
                 setSuccess(true);
                 setTimeout(() => navigate('/login'), 3000);
             }
-        } catch {
-            setError('Failed to reset password. Please try again.');
+        } catch (err) {
+            setError(err?.message || 'Failed to reset password. Please try again.');
         } finally {
             setLoading(false);
         }

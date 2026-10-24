@@ -197,13 +197,21 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [devResetLink, setDevResetLink] = useState(null);
+  const [emailSent, setEmailSent] = useState(true);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      await apiClient.post('/api/auth/forgot-password', { email });
+      const res = await apiClient.post('/api/auth/forgot-password', { email });
+      if (res.data?.devResetLink) {
+        setDevResetLink(res.data.devResetLink);
+      }
+      if (res.data?.emailSent !== undefined) {
+        setEmailSent(res.data.emailSent);
+      }
       setSuccess(true);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to send reset email. Please try again.');
@@ -250,6 +258,38 @@ export default function ForgotPassword() {
                   </div>
                 </div>
               </div>
+
+              {devResetLink && (
+                <div style={{
+                  marginTop: '16px',
+                  marginBottom: '20px',
+                  padding: '14px 16px',
+                  borderRadius: '14px',
+                  background: 'rgba(168, 85, 247, 0.08)',
+                  border: '1px solid rgba(168, 85, 247, 0.25)',
+                  fontSize: '13px',
+                  lineHeight: 1.5,
+                }}>
+                  <div style={{ fontWeight: 700, color: '#e879f9', marginBottom: '6px' }}>
+                    🛠️ Development Reset Link
+                  </div>
+                  <div style={{ color: 'rgba(203,213,225,0.8)', marginBottom: '8px' }}>
+                    {!emailSent ? 'Email service did not send (SMTP in dev mode). You can use this direct link to test:' : 'You can use this direct link to reset your password immediately:'}
+                  </div>
+                  <a
+                    href={devResetLink}
+                    style={{
+                      color: '#c084fc',
+                      textDecoration: 'underline',
+                      fontWeight: 600,
+                      wordBreak: 'break-all'
+                    }}
+                  >
+                    Open Password Reset Link &rarr;
+                  </a>
+                </div>
+              )}
+
               <Link to="/login" style={styles.backLink} className="auth-link">
                 <ArrowLeft size={16} /> Back to Sign In
               </Link>

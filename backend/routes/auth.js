@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabaseAdmin } from '../db/supabaseClient.js';
+import { supabase, supabaseAdmin } from '../db/supabaseClient.js';
 import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
 import nodemailer from 'nodemailer';
@@ -78,14 +78,22 @@ function validatePasswordStrength(password) {
 }
 
 // Reuse a single transporter instance (connection pooling — fix #17)
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-  port: Number(process.env.SMTP_PORT) || 587,
+  port: smtpPort,
+  secure: smtpPort === 465,
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
 });
+
+const getFromAddress = () => {
+  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
+  if (process.env.SMTP_USER) return `"PrepLoop" <${process.env.SMTP_USER}>`;
+  return '"PrepLoop" <support@preploop.me>';
+};
 
 const isMissingEmailVerificationSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -166,7 +174,7 @@ router.post('/signup', async (req, res) => {
       try {
         const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
         await transporter.sendMail({
-          from: `"PrepLoop" <support@preploop.me>`,
+          from: getFromAddress(),
           to: email,
           subject: 'Confirm Your Email - PrepLoop',
           html: getVerificationEmailHTML(verificationUrl, email)
@@ -462,7 +470,7 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
     try {
       const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
       await transporter.sendMail({
-        from: `"PrepLoop" <support@preploop.me>`,
+        from: getFromAddress(),
         to: email,
         subject: 'Confirm Your Email - PrepLoop',
         html: getVerificationEmailHTML(verificationUrl, email)
@@ -580,12 +588,23 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    // Fix #17: reuse shared transporter
-    await transporter.sendMail({
-      from: `"PrepLoop" <support@preploop.me>`,
-      to: email,
-      subject: 'Reset your PrepLoop password',
-      html: `
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('----------------------------------------------------');
+      console.log(`🔗 [DEV] Password Reset Link for ${email}:`);
+      console.log(resetLink);
+      console.log('----------------------------------------------------');
+    }
+
+    let emailSent = false;
+    let mailErrorMessage = null;
+
+    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+      try {
+        await transporter.sendMail({
+          from: getFromAddress(),
+          to: email,
+          subject: 'Reset your PrepLoop password',
+          html: `
         <div style="background-color: #020617; margin: 0; padding: 40px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
           <div style="max-width: 520px; margin: 0 auto; background-color: #0f172a; border-radius: 12px; border: 1px solid #1e293b; overflow: hidden;">
             <div style="padding: 32px 32px 0 32px; text-align: center;">
@@ -611,10 +630,43 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
           </div>
         </div>
       `
-    });
+        });
+        emailSent = true;
+        markEmailSent('forgot-password', email);
+      } catch (mailError) {
+        mailErrorMessage = mailError.message;
+        console.error('SMTP sendMail error for password reset:', mailError.message);
+      }
+    } else {
+      console.warn('SMTP credentials not configured. Skipping email send.');
+    }
 
-    markEmailSent('forgot-password', email);
-    res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    // Fallback: If SMTP sending failed or wasn't configured, try Supabase built-in reset email
+    if (!emailSent) {
+      try {
+        const { error: sbError } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
+        });
+        if (!sbError) {
+          emailSent = true;
+          console.log('Password reset email dispatched via Supabase Auth fallback');
+        } else {
+          console.warn('Supabase resetPasswordForEmail fallback error:', sbError.message);
+        }
+      } catch (sbEx) {
+        console.warn('Supabase fallback error:', sbEx.message);
+      }
+    }
+
+    // Always respond with success message (prevents email enumeration attack)
+    return res.json({
+      message: 'If an account with that email exists, a password reset link has been sent.',
+      ...(process.env.NODE_ENV !== 'production' && {
+        devResetLink: resetLink,
+        emailSent,
+        mailError: mailErrorMessage,
+      })
+    });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ error: 'Failed to process password reset request' });

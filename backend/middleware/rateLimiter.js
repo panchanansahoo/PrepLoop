@@ -47,10 +47,10 @@ cleanupTimer.unref();
 
 // --- Rate limiters ---
 
-/** Forgot password: 3 requests per 15 min per IP */
+/** Forgot password: 5 requests per 15 min per IP (50 in development) */
 export const forgotPasswordLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 3,
+    max: process.env.NODE_ENV === 'development' ? 50 : 5,
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many password reset requests. Please try again in 15 minutes.' },
