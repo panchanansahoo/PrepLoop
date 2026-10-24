@@ -18,6 +18,7 @@ export default function VerifyEmailPage() {
   const [email, setEmail] = useState('');
   const [canResend, setCanResend] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
+  const [activateLoading, setActivateLoading] = useState(false);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -93,6 +94,30 @@ export default function VerifyEmailPage() {
     }
   };
 
+  const handleInstantActivate = async () => {
+    if (!email || activateLoading) return;
+    setActivateLoading(true);
+    try {
+      const res = await fetch('/api/auth/activate-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus('success');
+        setMessage('Your account has been successfully activated!');
+        setTimeout(() => navigate('/login'), 2000);
+      } else {
+        setMessage(data.error || 'Failed to activate account');
+      }
+    } catch {
+      setMessage('Failed to activate account. Please try again.');
+    } finally {
+      setActivateLoading(false);
+    }
+  };
+
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-[#030303] overflow-hidden p-4">
       {/* Decorative Background Elements */}
@@ -153,11 +178,31 @@ export default function VerifyEmailPage() {
               <p className="text-zinc-400 text-lg mb-8">{message}</p>
 
               <div className="w-full space-y-4">
+                {email && (
+                  <button
+                    onClick={handleInstantActivate}
+                    disabled={activateLoading}
+                    className="group relative flex w-full justify-center items-center px-4 py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold rounded-xl transition-all shadow-lg shadow-purple-500/25 focus:outline-none focus:ring-2 focus:ring-purple-500/50 active:scale-95"
+                  >
+                    {activateLoading ? (
+                      <>
+                        <Loader2 className="mr-2 w-5 h-5 animate-spin" />
+                        Activating Account...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="mr-2 w-5 h-5" />
+                        Instant Activate Account & Log In
+                      </>
+                    )}
+                  </button>
+                )}
+
                 {canResend && email && (
                   <button
                     onClick={handleResendEmail}
                     disabled={resendLoading}
-                    className="group relative flex w-full justify-center items-center px-4 py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
+                    className="group relative flex w-full justify-center items-center px-4 py-3.5 bg-indigo-600/80 hover:bg-indigo-600 text-white font-semibold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-indigo-500/50 active:scale-95"
                   >
                     {resendLoading ? (
                       <>

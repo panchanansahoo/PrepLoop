@@ -121,11 +121,14 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: passwordError });
   }
 
+  // Determine whether email verification is strictly required (defaults to false in dev or unless explicit)
+  const shouldRequireVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
+
   try {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: !shouldRequireVerification,
       user_metadata: { full_name: fullName }
     });
 
@@ -137,21 +140,21 @@ router.post('/signup', async (req, res) => {
       return res.status(400).json({ error: error.message });
     }
 
-    const verificationToken = generateVerificationToken();
-    const tokenExpiresAt = getTokenExpirationTime();
+    const verificationToken = shouldRequireVerification ? generateVerificationToken() : null;
+    const tokenExpiresAt = shouldRequireVerification ? getTokenExpirationTime() : null;
 
-    let legacyMode = false;
+    let legacyMode = !shouldRequireVerification;
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .update({
         verification_token: verificationToken,
-        token_expires_at: tokenExpiresAt.toISOString(),
-        verification_sent_at: new Date().toISOString(),
-        email_verified: false
+        token_expires_at: tokenExpiresAt ? tokenExpiresAt.toISOString() : null,
+        verification_sent_at: shouldRequireVerification ? new Date().toISOString() : null,
+        email_verified: !shouldRequireVerification
       })
       .eq('id', data.user.id);
 
-    if (profileError) {
+    if (profileError && shouldRequireVerification) {
       if (isMissingEmailVerificationSchema(profileError)) {
         legacyMode = true;
         console.warn('Email verification columns missing; continuing signup in legacy mode.');
@@ -163,13 +166,13 @@ router.post('/signup', async (req, res) => {
       }
     }
 
-    if (profileError && !legacyMode) {
+    if (profileError && !legacyMode && shouldRequireVerification) {
       console.error('Error storing verification token:', profileError);
       await supabaseAdmin.auth.admin.deleteUser(data.user.id);
       return res.status(500).json({ error: 'Failed to process signup' });
     }
 
-    if (!legacyMode) {
+    if (shouldRequireVerification && !legacyMode) {
       const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
       
       if (process.env.NODE_ENV !== 'production') {
@@ -193,17 +196,19 @@ router.post('/signup', async (req, res) => {
     }
 
     res.status(201).json({
-      message: legacyMode
+      message: (!shouldRequireVerification || legacyMode)
         ? 'User created successfully.'
         : 'User created successfully. Please check your email to verify your account.',
       user: {
         id: data.user.id,
         email: data.user.email,
         fullName: fullName,
-        emailVerified: legacyMode
+        emailVerified: !shouldRequireVerification || legacyMode
       },
       ...(process.env.NODE_ENV !== 'production' && {
-        devVerificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`
+        devVerificationUrl: shouldRequireVerification && verificationToken
+          ? `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`
+          : null
       })
     });
 
@@ -294,23 +299,44 @@ router.post('/login', authLoginLimiter, async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabaseAdmin.auth.signInWithPassword({
+    let authResult = await supabaseAdmin.auth.signInWithPassword({
       email,
       password
     });
+    let data = authResult.data;
+    let error = authResult.error;
 
     if (error) {
-      // Record the failed attempt
-      recordFailedLogin(email, req.ip);
-
       if (error.message === 'Email not confirmed') {
-        return res.status(403).json({
-          error: 'Please verify your email before logging in',
-          code: 'EMAIL_NOT_VERIFIED',
-          email: email
-        });
+        const shouldRequireVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
+        if (!shouldRequireVerification) {
+          const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          const user = usersData?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+          if (user) {
+            await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true }).catch(() => {});
+            await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', user.id).catch(() => {});
+            const retry = await supabaseAdmin.auth.signInWithPassword({ email, password });
+            if (!retry.error) {
+              data = retry.data;
+              error = null;
+            }
+          }
+        }
       }
-      return res.status(401).json({ error: 'Invalid credentials' });
+
+      if (error) {
+        // Record the failed attempt
+        recordFailedLogin(email, req.ip);
+
+        if (error.message === 'Email not confirmed') {
+          return res.status(403).json({
+            error: 'Please verify your email before logging in',
+            code: 'EMAIL_NOT_VERIFIED',
+            email: email
+          });
+        }
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
     }
 
     // Clear failed attempts on successful login
@@ -328,8 +354,9 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     }
 
     const shouldBypassVerification = isMissingEmailVerificationSchema(profileError);
+    const shouldRequireVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 
-    if (!shouldBypassVerification && !profile?.email_verified) {
+    if (shouldRequireVerification && !shouldBypassVerification && !profile?.email_verified) {
       // Fix #3: return a distinct 403 code so the frontend interceptor can skip retry
       return res.status(403).json({
         error: 'Please verify your email before logging in',
@@ -337,6 +364,11 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         userId: data.user.id,
         email: data.user.email
       });
+    }
+
+    if (!shouldRequireVerification && !profile?.email_verified) {
+      await supabaseAdmin.auth.admin.updateUserById(data.user.id, { email_confirm: true }).catch(() => {});
+      await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', data.user.id).catch(() => {});
     }
 
     supabaseAdmin
@@ -362,12 +394,33 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         subscriptionTier: profile?.subscription_tier || 'free',
         experienceLevel: profile?.experience_level || 'beginner',
         role: profile?.role || 'user',
-        emailVerified: shouldBypassVerification ? true : (profile?.email_verified || false)
+        emailVerified: shouldBypassVerification ? true : (profile?.email_verified || true)
       }
     });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+router.post('/activate-account', async (req, res) => {
+  const { email } = req.body;
+  if (!email || typeof email !== 'string') {
+    return res.status(400).json({ error: 'Email is required' });
+  }
+  const normalizedEmail = email.trim().toLowerCase();
+  try {
+    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const user = usersData?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
+    if (!user) {
+      return res.status(404).json({ error: 'Account not found with this email' });
+    }
+    await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true });
+    await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', user.id);
+    return res.json({ message: 'Account activated successfully! You can now log in.' });
+  } catch (err) {
+    console.error('Activate account error:', err);
+    return res.status(500).json({ error: 'Failed to activate account' });
   }
 });
 
@@ -435,7 +488,7 @@ router.post('/verify-email', verificationLimiter, async (req, res) => {
   }
 });
 
-router.post('/resend-verification-email', verificationLimiter, async (req, res) => {
+router.post(['/resend-verification-email', '/resend-verification'], verificationLimiter, async (req, res) => {
   const { email } = req.body;
 
   if (!email) {
@@ -447,15 +500,21 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
   }
 
   try {
+    const normalizedEmail = email.trim().toLowerCase();
+    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const user = usersData?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
+
+    if (!user) {
+      return res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
+    }
+
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
-      .eq('email', email)
-      .eq('email_verified', false)
+      .select('id, email_verified')
+      .eq('id', user.id)
       .single();
 
-    if (profileError || !profile) {
-      // Fix #11: grammar fix "we have sent"
+    if (profileError || !profile || profile.email_verified) {
       return res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
     }
 
@@ -477,6 +536,14 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
     }
 
     const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('----------------------------------------------------');
+      console.log(`🔗 [DEV] Resent Email Verification Link for ${email}:`);
+      console.log(verificationUrl);
+      console.log('----------------------------------------------------');
+    }
+
     transporter.sendMail({
       from: getFromAddress(),
       to: email,
@@ -488,7 +555,10 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       console.error('Error sending verification email in background:', emailError?.message);
     });
 
-    res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
+    res.json({
+      message: 'If an account with that email exists and is unverified, we have sent a verification email.',
+      ...(process.env.NODE_ENV !== 'production' && { devVerificationUrl: verificationUrl })
+    });
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ error: 'Failed to process request' });

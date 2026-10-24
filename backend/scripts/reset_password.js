@@ -20,7 +20,7 @@ Usage:
 async function run() {
   try {
     // 1. Find user by email
-    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
     if (listError) {
       console.error('❌ Failed to list users:', listError.message);
       process.exit(1);
@@ -35,6 +35,15 @@ async function run() {
     }
 
     console.log(`Found user: ${user.email} (ID: ${user.id})`);
+
+    // If --verify flag passed, verify user immediately
+    if (newPassword === '--verify' || process.argv.includes('--verify')) {
+      await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true });
+      await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', user.id);
+      console.log(`✅ SUCCESS! User ${user.email} is now fully verified.`);
+      console.log('They can log in immediately at http://localhost:5173/login');
+      return;
+    }
 
     // If newPassword is provided, update password directly
     if (newPassword) {
