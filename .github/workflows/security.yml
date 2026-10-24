@@ -54,8 +54,7 @@ jobs:
 
       - name: Run project secrets scanner
         run: |
-          cd backend && npm ci --ignore-scripts
-          node ../scripts/scan-secrets.mjs
+          node scripts/scan-secrets.mjs
 
       - name: Check for hardcoded secret patterns in tracked files
         run: |

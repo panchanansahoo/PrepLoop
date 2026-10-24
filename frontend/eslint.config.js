@@ -6,7 +6,22 @@ import reactPlugin from 'eslint-plugin-react';
 
 export default [
   {
-    ignores: ['dist', 'dist/**', '**/dist/**', 'coverage', 'coverage/**', '**/coverage/**'],
+    ignores: [
+      'dist/**',
+      '**/dist/**',
+      'coverage/**',
+      '**/coverage/**',
+      'playwright-report/**',
+      '**/playwright-report/**',
+      'test-results/**',
+      '**/test-results/**',
+      'node_modules/**',
+      '**/node_modules/**',
+      '.vite/**',
+      '**/.vite/**',
+    ],
+  },
+  {
     linterOptions: {
       reportUnusedDisableDirectives: false,
     },
@@ -46,6 +61,33 @@ export default [
       'react/jsx-uses-vars': 'warn',
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+    },
+  },
+  {
+    files: [
+      '*.config.js',
+      '*.config.*.js',
+      'playwright.config.js',
+      'vite.config.js',
+      'vite.config.optimized.js',
+      'tailwind.config.js',
+      'postcss.config.js',
+      'scripts/**/*.{js,mjs}',
+      'tests/**/*.{js,jsx}',
+      'test_*.js',
+    ],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
+  {
+    files: ['public/service-worker*.js', '**/service-worker*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker,
+      },
     },
   },
   {

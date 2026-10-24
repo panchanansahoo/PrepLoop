@@ -38,9 +38,7 @@ export default {
         'accent-gradient': 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
         'surface-gradient': 'linear-gradient(180deg, rgba(30, 30, 35, 0.6) 0%, rgba(20, 20, 25, 0.6) 100%)',
       },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-      },
+
        keyframes: {
          fadeIn: {
            '0%': { opacity: '0' },

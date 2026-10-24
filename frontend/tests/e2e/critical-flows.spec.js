@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import process from 'node:process';
 
 const publicRoutes = ['/', '/login', '/signup', '/pricing', '/community'];
 const authenticatedEmail = process.env.E2E_EMAIL;

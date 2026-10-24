@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import process from 'node:process';
 
 const e2eEnvFile = resolve(process.cwd(), '.env.e2e.local');
 if (existsSync(e2eEnvFile) && typeof process.loadEnvFile === 'function') {
