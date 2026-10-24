@@ -1,6 +1,6 @@
 import express from "express";
 import { supabaseAdmin } from "../../db/supabaseClient.js";
-import { authenticateToken, optionalAuth as _optionalAuth } from "../../middleware/auth.js";
+import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
 import multer from 'multer';
 import { validateCustomUrl as _validateCustomUrl, buildAvatarPath, claimCustomUrl } from "../../utils/profileUtils.js";
 import _dsaLearningPath, {
@@ -777,46 +777,63 @@ router.get("/profile", authenticateToken, async (req, res) => {
   }
 });
 
-router.get('/portfolio/public/:slug', async (req, res) => {
+router.get('/portfolio/public/:slug', optionalAuth, async (req, res) => {
   try {
-    const slug = String(req.params.slug || '').trim();
-    if (!slug) return res.status(400).json({ error: 'slug required' });
+    const rawSlug = String(req.params.slug || '').trim().toLowerCase();
+    if (!rawSlug) return res.status(400).json({ error: 'slug required' });
 
-    // Try by custom_url first
-    const { data: profileQuery, error } = await supabaseAdmin
+    // 1. Try by custom_url first
+    const { data: initialProfile, error } = await supabaseAdmin
       .from('profiles')
       .select('*')
-      .eq('custom_url', slug)
+      .eq('custom_url', rawSlug)
       .maybeSingle();
 
-    let profile = profileQuery;
+    let profile = initialProfile;
 
     if (error) {
       console.error('Error fetching public profile by custom_url:', error);
-      return res.status(500).json({ error: 'Failed to fetch profile' });
     }
 
-    if (!profile) {
-      // Fallback: try by id
-      const byId = await supabaseAdmin.from('profiles').select('*').eq('id', slug).maybeSingle();
-      if (byId.error) {
-        console.error('Error fetching public profile by id:', byId.error);
-        return res.status(500).json({ error: 'Failed to fetch profile' });
+    // 2. Fallback: try by id (only if rawSlug is a valid UUID to prevent Postgres 22P02 error)
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawSlug);
+    if (!profile && isUUID) {
+      const byId = await supabaseAdmin.from('profiles').select('*').eq('id', rawSlug).maybeSingle();
+      if (!byId.error && byId.data) {
+        profile = byId.data;
       }
-      profile = byId.data || null;
+    }
+
+    // 3. Fallback: try by slugified full_name (e.g. "panchanan-sahoo" -> "Panchanan Sahoo")
+    if (!profile) {
+      const nameFromSlug = rawSlug.replace(/[-_]+/g, ' ').trim();
+      const byName = await supabaseAdmin.from('profiles').select('*').ilike('full_name', nameFromSlug).maybeSingle();
+      if (!byName.error && byName.data) {
+        profile = byName.data;
+      }
     }
 
     if (!profile) {
-      return res.status(404).json({ error: 'Not found' });
+      return res.status(404).json({ error: 'Profile not found' });
     }
 
-    if (!profile.is_public) {
+    const isOwner = Boolean(req.user?.id && profile.id === req.user.id);
+
+    if (!profile.is_public && !isOwner) {
       return res.status(403).json({ error: 'This profile is private' });
+    }
+
+    // Parse social links
+    let parsedSocialLinks = {};
+    if (typeof profile.social_links === 'string') {
+      try { parsedSocialLinks = JSON.parse(profile.social_links); } catch (_e) {}
+    } else if (typeof profile.social_links === 'object' && profile.social_links !== null) {
+      parsedSocialLinks = profile.social_links;
     }
 
     // Build a lightweight portfolio object expected by frontend
     const basics = {
-      name: profile.full_name || profile.fullName || '',
+      name: profile.full_name || profile.fullName || 'PrepLoop Member',
       title: profile.designation || profile.current_role || profile.currentRole || '',
       photo: profile.avatar_url || profile.avatarUrl || '',
       location: profile.location || '',
@@ -827,28 +844,58 @@ router.get('/portfolio/public/:slug', async (req, res) => {
 
     const socials = {
       github: profile.github_username || profile.githubUsername || '',
-      linkedin: profile.linkedin || (profile.social_links && profile.social_links.linkedin) || '',
-      twitter: profile.twitter || (profile.social_links && profile.social_links.twitter) || '',
-      portfolio: profile.portfolio || (profile.social_links && profile.social_links.portfolio) || ''
+      linkedin: profile.linkedin || parsedSocialLinks.linkedin || '',
+      twitter: profile.twitter || parsedSocialLinks.twitter || '',
+      portfolio: profile.portfolio || parsedSocialLinks.portfolio || ''
     };
 
-    const skills = {
-      list: (String(profile.skills || '')).split(',').map(s => s.trim()).filter(Boolean)
-    };
+    const skillsList = (String(profile.skills || '')).split(',').map(s => s.trim()).filter(Boolean);
 
-    const experience = (String(profile.experience || profile.experience_summary || '')).split(/\n|\.|;/).map(s => s.trim()).filter(Boolean);
-    const education = profile.education ? [profile.education] : [];
+    let experience = [];
+    if (Array.isArray(profile.experience)) {
+      experience = profile.experience;
+    } else if (typeof profile.experience === 'string' && profile.experience.trim()) {
+      experience = profile.experience.split(/\n|\.|;/).map(s => s.trim()).filter(Boolean);
+    } else if (profile.experience_summary) {
+      experience = profile.experience_summary.split(/\n|\.|;/).map(s => s.trim()).filter(Boolean);
+    }
+
+    let education = [];
+    if (Array.isArray(profile.education)) {
+      education = profile.education;
+    } else if (profile.education) {
+      education = [profile.education];
+    }
+
+    let projects = [];
+    if (Array.isArray(profile.projects)) {
+      projects = profile.projects;
+    } else if (typeof profile.projects === 'string') {
+      try { projects = JSON.parse(profile.projects); } catch (_e) {}
+    }
+
+    let achievements = [];
+    if (Array.isArray(profile.certifications)) {
+      achievements = profile.certifications;
+    } else if (typeof profile.certifications === 'string') {
+      try { achievements = JSON.parse(profile.certifications); } catch (_e) {}
+    }
 
     const portfolio = {
       basics,
       socials,
-      skills: { languages: skills.list, frameworks: [], tools: [], domains: [] },
+      skills: { languages: skillsList, frameworks: [], tools: [], domains: [] },
       experience,
       education,
-      projects: [],
-      achievements: [],
+      projects: Array.isArray(projects) ? projects : [],
+      achievements: Array.isArray(achievements) ? achievements : [],
       openSource: { totalStars: 0, totalRepos: 0 },
-      portfolioMeta: { template: 'minimal-professional', sectionVisibility: {} }
+      portfolioMeta: {
+        template: 'minimal-professional',
+        slug: profile.custom_url || rawSlug,
+        visibility: profile.is_public ? 'public' : 'private',
+        isOwner
+      }
     };
 
     res.json({ portfolio });
@@ -1006,18 +1053,20 @@ router.post('/profile/claim-url', authenticateToken, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: 'User not authenticated' });
 
-    const requested = String(req.body?.custom_url || '').trim().toLowerCase();
+    let requested = String(req.body?.custom_url || '').trim().toLowerCase();
+    requested = requested.replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
     if (!requested) return res.status(400).json({ error: 'custom_url is required' });
 
-    // Validate: 3-30 chars, lowercase letters, numbers, and dashes
-    if (!/^[a-z0-9-]{3,30}$/.test(requested)) {
-      return res.status(400).json({ error: 'Invalid custom_url format. Use 3-30 chars: a-z, 0-9, -' });
+    if (requested.length < 3 || requested.length > 30) {
+      return res.status(400).json({ error: 'Custom URL must be between 3 and 30 characters' });
     }
 
     try {
       const result = await claimCustomUrl(supabaseAdmin, req.user.id, requested);
       if (!result.success) {
-        if (result.error === 'taken') return res.status(409).json({ error: 'custom_url already taken' });
+        if (result.error === 'taken') return res.status(409).json({ error: 'This custom URL is already taken' });
+        if (result.error === 'reserved') return res.status(400).json({ error: 'This custom URL is reserved' });
+        if (result.error === 'format') return res.status(400).json({ error: 'Invalid custom_url format. Use 3-30 chars: a-z, 0-9, -' });
         return res.status(400).json({ error: 'Invalid custom_url' });
       }
 

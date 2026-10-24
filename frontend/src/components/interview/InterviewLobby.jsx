@@ -120,6 +120,10 @@ function InterviewLobby({
     onResumeDragLeave,
     onResumeDrop,
     onResumeFileChange,
+    questionSetCode,
+    customQuestionSet,
+    questionSetLoading,
+    questionSetError,
 }) {
     const navigate = useNavigate();
 
@@ -143,6 +147,125 @@ function InterviewLobby({
         e.currentTarget.style.color = 'rgba(255,255,255,0.5)';
         e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
     }, []);
+
+    // ─── Custom Admin Question Set View ───
+    if (questionSetCode) {
+        if (questionSetLoading) {
+            return (
+                <div className="ai-interview-page">
+                    <div className="ai-setup-backdrop">
+                        <div className="ai-setup-modal" style={{ textAlign: 'center', padding: '48px 24px', maxWidth: '500px' }}>
+                            <RefreshCw size={36} className="spin" style={{ color: '#818cf8', margin: '0 auto 16px', display: 'block' }} />
+                            <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', margin: '0 0 8px' }}>Loading Custom Interview...</h2>
+                            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', margin: 0 }}>Preparing your assigned questions and environment.</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (questionSetError) {
+            return (
+                <div className="ai-interview-page">
+                    <div className="ai-setup-backdrop">
+                        <div className="ai-setup-modal" style={{ textAlign: 'center', padding: '40px 24px', maxWidth: '500px' }}>
+                            <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                <X size={28} style={{ color: '#ef4444' }} />
+                            </div>
+                            <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>Interview Unavailable</h2>
+                            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '24px' }}>{questionSetError}</p>
+                            <button className="ai-setup-nav-btn ai-setup-nav-btn--next" onClick={() => navigate('/interview-suite')} style={{ margin: '0 auto' }}>
+                                Go to Interview Suite
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        if (customQuestionSet) {
+            return (
+                <div className="ai-interview-page">
+                    <div className="ai-setup-backdrop">
+                        <div className="ai-setup-glow ai-setup-glow--purple" />
+                        <div className="ai-setup-glow ai-setup-glow--blue" />
+
+                        <div className="ai-setup-modal" style={{ maxWidth: '640px', padding: '36px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '6px 12px', borderRadius: '20px', color: '#a5b4fc', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                    <Sparkles size={14} /> Assigned Interview
+                                </div>
+                                <button className="ai-setup-close" onClick={() => navigate('/interview-suite')} title="Close">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: '800', margin: '0 0 8px', letterSpacing: '-0.3px' }}>
+                                {customQuestionSet.title}
+                            </h1>
+                            {customQuestionSet.description && (
+                                <p style={{ color: 'rgba(255, 255, 255, 0.65)', fontSize: '14px', lineHeight: '1.6', margin: '0 0 24px' }}>
+                                    {customQuestionSet.description}
+                                </p>
+                            )}
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' }}>
+                                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Company</div>
+                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.settings?.companyName || 'Assigned'}</div>
+                                </div>
+                                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Target Role</div>
+                                    <div style={{ color: '#fff', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.settings?.roleName || 'Software Engineer'}</div>
+                                </div>
+                                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Questions</div>
+                                    <div style={{ color: '#818cf8', fontWeight: '700', fontSize: '14px' }}>{customQuestionSet.questionCount} Fixed Qs</div>
+                                </div>
+                                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
+                                    <div style={{ fontSize: '11px', color: 'rgba(255, 255, 255, 0.45)', textTransform: 'uppercase', fontWeight: '600', marginBottom: '4px' }}>Difficulty</div>
+                                    <div style={{ color: '#34d399', fontWeight: '700', fontSize: '14px', textTransform: 'capitalize' }}>{customQuestionSet.difficulty || 'Medium'}</div>
+                                </div>
+                            </div>
+
+                            {customQuestionSet.settings?.customInstructions && (
+                                <div style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.2)', borderRadius: '12px', padding: '14px 16px', marginBottom: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#a5b4fc', fontSize: '13px', fontWeight: '700', marginBottom: '4px' }}>
+                                        <Sparkles size={15} /> Instructions from Interviewer
+                                    </div>
+                                    <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>
+                                        {customQuestionSet.settings.customInstructions}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '32px' }}>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CheckCircle size={13} style={{ color: '#22c55e' }} /> AI Voice & Video Interviewer
+                                </span>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CheckCircle size={13} style={{ color: '#22c55e' }} /> Real-time Speech & Analysis
+                                </span>
+                                <span style={{ fontSize: '12px', color: 'rgba(255, 255, 255, 0.55)', background: 'rgba(255, 255, 255, 0.04)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <CheckCircle size={13} style={{ color: '#22c55e' }} /> Detailed Score Breakdown
+                                </span>
+                            </div>
+
+                            <button
+                                className="ai-setup-nav-btn ai-setup-nav-btn--next"
+                                onClick={onStartInterview}
+                                disabled={loading}
+                                style={{ width: '100%', justifyContent: 'center', padding: '16px 24px', fontSize: '16px', fontWeight: '700', borderRadius: '12px' }}
+                            >
+                                {loading ? 'Starting Interview...' : 'Begin Interview'}
+                                <ArrowRight size={18} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+    }
 
     return (
         <div className="ai-interview-page">

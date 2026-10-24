@@ -32,10 +32,14 @@ router.post('/start', optionalAuth, async (req, res) => {
     useRealQuestions = false,
     advancedOptions,
     resumeContext,
-  } = req.body;
+    questionSetCode,
+  } = req.body || {};
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
+  let normalizedAdvanced = null;
+  let interviewTotalQuestions = 8;
+  let personalizedQuestionSource = 'ai';
   const buildCanonicalStartPayload = (payload = {}) => {
     const turn = Number(payload?.questionMeta?.sequence);
     return {
@@ -54,7 +58,70 @@ router.post('/start', optionalAuth, async (req, res) => {
     interviewRuntimeMode: resolvedRuntimeMode,
     runtime,
   });
-  const normalizedAdvanced = resolveResumeInterviewModeForExperience(
+
+  try {
+
+  // Admin Custom Question Set Mode
+  if (questionSetCode) {
+    const { data: questionSet, error: qsError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('*')
+      .eq('share_code', questionSetCode)
+      .eq('is_active', true)
+      .single();
+
+    if (qsError || !questionSet) {
+      return res.status(404).json({ error: 'Question set not found or inactive' });
+    }
+
+    if (questionSet.requires_login && !req.user) {
+      return res.status(401).json({ error: 'Login required for this interview' });
+    }
+
+    const questions = Array.isArray(questionSet.questions) ? questionSet.questions : [];
+    if (questions.length === 0) {
+      return res.status(400).json({ error: 'Question set has no questions configured' });
+    }
+
+    const firstQ = questions[0];
+    const firstQText = typeof firstQ === 'string' ? firstQ : (firstQ?.question || 'Tell me about yourself.');
+    const firstQContext = typeof firstQ === 'object' ? firstQ?.context : null;
+    const firstQTopics = typeof firstQ === 'object' && Array.isArray(firstQ?.expectedTopics) ? firstQ.expectedTopics : [];
+    const firstQTimeLimit = typeof firstQ === 'object' ? firstQ?.timeLimit : null;
+
+    const interviewerName = questionSet.settings?.interviewerName || (await generateInterviewerName(questionSet.settings?.companyName || company || 'PrepLoop'));
+
+    return res.json(withRuntime({
+      question: firstQText,
+      allQuestions: questions,
+      questionSetId: questionSet.id,
+      questionSetCode: questionSet.share_code,
+      context: {
+        company: questionSet.settings?.companyName || company || 'Company',
+        role: questionSet.settings?.roleName || role || 'Candidate',
+        stage: questionSet.interview_type || 'Technical',
+        difficulty: questionSet.difficulty || 'medium',
+        totalQuestions: questions.length,
+        questionSetTitle: questionSet.title,
+        customInstructions: questionSet.settings?.customInstructions || '',
+      },
+      tips: firstQTopics.length > 0
+        ? [`Key topics: ${firstQTopics.join(', ')}`]
+        : ['Answer clearly and directly.', 'Use specific examples where possible.'],
+      interviewerReaction: 'greeting',
+      thinkTime: firstQTimeLimit || 30,
+      questionSource: 'admin-custom',
+      questionMeta: {
+        id: 'admin-q-1',
+        track: 'admin-custom',
+        sequence: 1,
+        interviewerName,
+        context: firstQContext,
+        expectedTopics: firstQTopics,
+      },
+    }));
+  }
+  normalizedAdvanced = resolveResumeInterviewModeForExperience(
     normalizeAdvancedOptions(advancedOptions),
     experienceLevel,
     resumeContext
@@ -64,8 +131,8 @@ router.post('/start', optionalAuth, async (req, res) => {
   const resolvedTotalQuestions = Number.isFinite(requestedCount) && requestedCount >= 4 && requestedCount <= 12
     ? Math.round(requestedCount)
     : normalizedAdvanced.questionCount;
-  const interviewTotalQuestions = fresherScriptMode ? FRESHER_INTERVIEW_TOTAL_QUESTIONS : resolvedTotalQuestions;
-  const personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
+  interviewTotalQuestions = fresherScriptMode ? FRESHER_INTERVIEW_TOTAL_QUESTIONS : resolvedTotalQuestions;
+  personalizedQuestionSource = resumeContext ? 'resume' : 'ai';
   const staticQuestions = getStaticInterviewQuestions(stage);
   const isFresherTechnical = fresherScriptMode && stage === 'Technical';
   const isFresherHR = fresherScriptMode && stage === 'HR';
@@ -149,8 +216,7 @@ router.post('/start', optionalAuth, async (req, res) => {
     }
   }
 
-  try {
-    if (fresherScriptMode) {
+  if (fresherScriptMode) {
       const interviewerName = await generateInterviewerName(company);
       return res.json(withRuntime({
         question: `Good afternoon, my name is ${interviewerName}, I work as an HR executive with ${company}, and I'll be conducting your HR discussion today. We'll mainly talk about your background, your interests, and see how you fit with our organisation. To begin with, could you introduce yourself and walk me through your background?`,
@@ -270,12 +336,12 @@ Respond as JSON:
   } catch (error) {
     console.error('Interview start error:', error.message?.substring(0, 200));
     return res.json(withRuntime({
-      question: `Hi! Welcome to your ${stage} interview at ${company}. Tell me about yourself and your background.`,
+      question: `Hi! Welcome to your ${stage || 'interview'} at ${company || 'PrepLoop'}. Tell me about yourself and your background.`,
       context: {
-        company,
-        role,
-        stage,
-        difficulty,
+        company: company || 'Company',
+        role: role || 'Candidate',
+        stage: stage || 'Technical',
+        difficulty: difficulty || 'medium',
         totalQuestions: interviewTotalQuestions,
         advancedOptions: normalizedAdvanced,
         interviewRuntimeMode: resolvedRuntimeMode,
@@ -298,8 +364,9 @@ router.post('/save-session', authenticateToken, async (req, res) => {
     type = 'single', company, role, stage, difficulty,
     conversation, scores, overallScore, summaryData,
     speechMetrics, emotionData, proctoringViolations,
-    rounds, completedAt
-  } = req.body;
+    rounds, completedAt,
+    questionSetId, userName, userEmail, duration
+  } = req.body || {};
 
   try {
     const { data, error } = await supabaseAdmin
@@ -325,9 +392,29 @@ router.post('/save-session', authenticateToken, async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    if (questionSetId) {
+      try {
+        await supabaseAdmin.from('admin_interview_submissions').insert({
+          question_set_id: questionSetId,
+          user_id: userId || null,
+          user_name: userName || req.user?.user_metadata?.full_name || req.user?.email || null,
+          user_email: userEmail || req.user?.email || null,
+          responses: conversation || [],
+          scores: scores || {},
+          overall_score: overallScore || 0,
+          duration: duration || 0,
+          completed_at: completedAt || new Date().toISOString()
+        });
+      } catch (subErr) {
+        console.error('Failed to record admin interview submission:', subErr);
+      }
+    }
+
     res.json({ success: true, sessionId: data.id });
   } catch (error) {
     console.error('Save session error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to save session' });
   }
 });
@@ -354,6 +441,7 @@ router.get('/sessions', authenticateToken, async (req, res) => {
     res.json(data || []);
   } catch (error) {
     console.error('List sessions error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to fetch sessions' });
   }
 });
@@ -376,6 +464,7 @@ router.get('/sessions/:id', authenticateToken, async (req, res) => {
     res.json(data);
   } catch (error) {
     console.error('Get session error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to fetch session' });
   }
 });

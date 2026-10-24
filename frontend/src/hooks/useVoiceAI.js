@@ -500,6 +500,10 @@ export function useVoiceAI({
   );
 
   const browserRecognitionRef = useRef(null);
+  // Epoch counter to prevent stale recognition instances from ghost-restarting.
+  // Each call to start() increments this; onend handlers only restart if their
+  // captured epoch matches the current one.
+  const recognitionEpochRef = useRef(0);
 
   const start = useCallback(async () => {
     if (activeRef.current) return;
@@ -522,8 +526,28 @@ export function useVoiceAI({
       audioRef.current.pause();
       audioRef.current.src = "";
     }
+    // Cancel any lingering browser speechSynthesis — on some browsers,
+    // SpeechRecognition can't capture audio while speechSynthesis is still active
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    // Stop any previous recognition instance to prevent conflicts
+    if (browserRecognitionRef.current) {
+      // Detach handlers BEFORE stopping to prevent ghost-restarts
+      browserRecognitionRef.current.onresult = null;
+      browserRecognitionRef.current.onerror = null;
+      browserRecognitionRef.current.onend = null;
+      try {
+        browserRecognitionRef.current.stop();
+      } catch { /* no-op */ }
+      browserRecognitionRef.current = null;
+    }
 
-    console.log("[useVoiceAI] Starting voice recording...");
+    // Increment epoch so any lingering old instance's onend handler
+    // knows it's stale and won't restart itself
+    const epoch = ++recognitionEpochRef.current;
+
+    console.log("[useVoiceAI] Starting voice recording... (epoch", epoch, ")");
 
     try {
       let stream = streamRef.current;
@@ -607,6 +631,13 @@ export function useVoiceAI({
         };
 
         recognition.onend = () => {
+          // CRITICAL: Check epoch to prevent ghost-restarts.
+          // If epoch has changed, a newer recognition instance exists —
+          // this old instance must NOT restart itself.
+          if (recognitionEpochRef.current !== epoch) {
+            console.log("[useVoiceAI] Stale recognition onend (epoch", epoch, "vs current", recognitionEpochRef.current, ") — not restarting");
+            return;
+          }
           if (activeRef.current && stateRef.current === "listening") {
             // Rescue any pending interim text as final before restarting.
             // When recognition restarts, the previous session's pending
@@ -622,21 +653,34 @@ export function useVoiceAI({
               setInterimText("");
               console.log("[useVoiceAI] Rescued interim text on recognition restart");
             }
-            try {
-              recognition.start();
-            } catch {
-              /* already started */
-            }
+            
+            // Add a small delay to avoid tight loop on persistent audio-capture errors
+            setTimeout(() => {
+              if (activeRef.current && recognitionEpochRef.current === epoch) {
+                try {
+                  recognition.start();
+                } catch {
+                  /* already started */
+                }
+              }
+            }, 300);
           }
         };
 
-        try {
-          recognition.start();
-          browserRecognitionRef.current = recognition;
-          console.log("[useVoiceAI] ✓ Browser SpeechRecognition started");
-        } catch (e) {
-          console.warn("[useVoiceAI] Browser STT start failed:", e);
-        }
+        const attemptStart = (retries = 3, delayMs = 300) => {
+          if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
+          try {
+            recognition.start();
+            browserRecognitionRef.current = recognition;
+            console.log("[useVoiceAI] ✓ Browser SpeechRecognition started");
+          } catch (e) {
+            console.warn(`[useVoiceAI] Browser STT start failed (retries left: ${retries}):`, e);
+            if (retries > 0) {
+              setTimeout(() => attemptStart(retries - 1, delayMs), delayMs);
+            }
+          }
+        };
+        attemptStart();
       } else {
         console.warn(
           "[useVoiceAI] No STT available (no browser SpeechRecognition)",
@@ -681,6 +725,11 @@ export function useVoiceAI({
     setInputStreamState(null);
 
     if (browserRecognitionRef.current) {
+      // Detach ALL event handlers BEFORE stopping to prevent
+      // the onend handler from ghost-restarting this instance
+      browserRecognitionRef.current.onresult = null;
+      browserRecognitionRef.current.onerror = null;
+      browserRecognitionRef.current.onend = null;
       try {
         browserRecognitionRef.current.stop();
       } catch {

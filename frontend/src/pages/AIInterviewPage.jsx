@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -28,10 +28,12 @@ import './AIInterviewPage.css';
 export default function AIInterviewPage() {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const questionSetCode = searchParams.get('set');
     const {
         state, refs, actions,
         voiceAI, intelligence, isListening,
-    } = useInterviewSession();
+    } = useInterviewSession({ questionSetCode });
 
     const {
         phase, interviewType, realtimeMode, interviewerGender, activeTab,
@@ -46,6 +48,7 @@ export default function AIInterviewPage() {
         companyTab, resumeFile, _activeResumeContext,_resultTabb, analysisResult,
         _expandedMoment, captionsOn, workspacePanelOpen, workspaceDropdownOpen,
         cameraError, showEndConfirm, awaitingAnswer,
+        customQuestionSet, questionSetLoading, questionSetError,
     } = state;
 
     const {
@@ -154,8 +157,8 @@ export default function AIInterviewPage() {
         setShowEndConfirm(false);
     }, [setShowEndConfirm]);
 
-    const userName = user?.user_metadata?.full_name || 'Panchanan Sahoo';
-    const userInitial = userName[0]?.toUpperCase() || 'P';
+    const userName = user?.fullName || user?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Candidate';
+    const userInitial = userName[0]?.toUpperCase() || 'C';
 
     if (phase === 'lobby') {
         return (
@@ -181,6 +184,10 @@ export default function AIInterviewPage() {
                 onResumeDragLeave={handleResumeDragLeave}
                 onResumeDrop={handleResumeDrop}
                 onResumeFileChange={handleResumeFileChange}
+                questionSetCode={questionSetCode}
+                customQuestionSet={customQuestionSet}
+                questionSetLoading={questionSetLoading}
+                questionSetError={questionSetError}
             />
         );
     }

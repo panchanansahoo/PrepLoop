@@ -1,4 +1,5 @@
 import express from 'express';
+import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 
@@ -287,6 +288,295 @@ router.delete('/content/:type/:id', async (req, res) => {
   } catch (error) {
     console.error('Delete content error:', error);
     res.status(500).json({ error: 'Failed to delete content' });
+  }
+});
+
+// ─── Admin Interview Question Sets ──────────────────────────────
+
+const generateShareCode = () => crypto.randomBytes(6).toString('base64url').slice(0, 10);
+
+const VALID_INTERVIEW_TYPES = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed', 'hr'];
+const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'];
+
+// ─── Create Question Set ─────────────────────────────────────────
+router.post('/question-sets', async (req, res) => {
+  try {
+    const {
+      title, description, interviewType = 'technical',
+      difficulty = 'medium', requiresLogin = true,
+      questions = [], settings = {}
+    } = req.body;
+
+    if (!title || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'At least one question is required' });
+    }
+
+    if (questions.length > 50) {
+      return res.status(400).json({ error: 'Maximum 50 questions per set' });
+    }
+
+    if (!VALID_INTERVIEW_TYPES.includes(interviewType)) {
+      return res.status(400).json({ error: 'Invalid interview type', validTypes: VALID_INTERVIEW_TYPES });
+    }
+
+    if (!VALID_DIFFICULTIES.includes(difficulty)) {
+      return res.status(400).json({ error: 'Invalid difficulty', validDifficulties: VALID_DIFFICULTIES });
+    }
+
+    // Validate each question has at least a question text
+    const validatedQuestions = questions.map((q, i) => {
+      if (!q.question || !q.question.trim()) {
+        throw new Error(`Question ${i + 1} is missing question text`);
+      }
+      return {
+        question: q.question.trim(),
+        context: q.context?.trim() || '',
+        expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics : [],
+        timeLimit: Number(q.timeLimit) || 120,
+      };
+    });
+
+    const shareCode = generateShareCode();
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .insert({
+        admin_id: req.user.id,
+        title: title.trim(),
+        description: description?.trim() || null,
+        share_code: shareCode,
+        interview_type: interviewType,
+        difficulty,
+        requires_login: requiresLogin,
+        questions: validatedQuestions,
+        settings: settings || {},
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(201).json({ questionSet: data, shareCode: data.share_code });
+  } catch (error) {
+    console.error('Create question set error:', error);
+    const message = error.message?.startsWith('Question') ? error.message : 'Failed to create question set';
+    res.status(400).json({ error: message });
+  }
+});
+
+// ─── List Question Sets ──────────────────────────────────────────
+router.get('/question-sets', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    const { data, count, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, created_at, updated_at', { count: 'exact' })
+      .eq('admin_id', req.user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + parseInt(limit, 10) - 1);
+
+    if (error) throw error;
+
+    // Also get submission counts for each set
+    const setIds = (data || []).map(s => s.id);
+    const submissionCounts = {};
+    if (setIds.length > 0) {
+      const { data: countData } = await supabaseAdmin
+        .from('admin_interview_submissions')
+        .select('question_set_id')
+        .in('question_set_id', setIds);
+
+      (countData || []).forEach(s => {
+        submissionCounts[s.question_set_id] = (submissionCounts[s.question_set_id] || 0) + 1;
+      });
+    }
+
+    const setsWithCounts = (data || []).map(s => ({
+      ...s,
+      questionCount: Array.isArray(s.questions) ? s.questions.length : 0,
+      submissionCount: submissionCounts[s.id] || 0,
+    }));
+
+    res.json({
+      questionSets: setsWithCounts,
+      total: count || 0,
+      page: parseInt(page, 10),
+      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+    });
+  } catch (error) {
+    console.error('List question sets error:', error);
+    res.status(500).json({ error: 'Failed to fetch question sets' });
+  }
+});
+
+// ─── Get Question Set Detail ─────────────────────────────────────
+router.get('/question-sets/:id', async (req, res) => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('*')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    res.json({ questionSet: data });
+  } catch (error) {
+    console.error('Get question set error:', error);
+    res.status(500).json({ error: 'Failed to fetch question set' });
+  }
+});
+
+// ─── Update Question Set ─────────────────────────────────────────
+router.put('/question-sets/:id', async (req, res) => {
+  try {
+    const {
+      title, description, interviewType, difficulty,
+      requiresLogin, isActive, questions, settings
+    } = req.body;
+
+    // Verify ownership
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const updates = { updated_at: new Date().toISOString() };
+    if (title !== undefined) updates.title = title.trim();
+    if (description !== undefined) updates.description = description?.trim() || null;
+    if (interviewType !== undefined) {
+      if (!VALID_INTERVIEW_TYPES.includes(interviewType)) {
+        return res.status(400).json({ error: 'Invalid interview type' });
+      }
+      updates.interview_type = interviewType;
+    }
+    if (difficulty !== undefined) {
+      if (!VALID_DIFFICULTIES.includes(difficulty)) {
+        return res.status(400).json({ error: 'Invalid difficulty' });
+      }
+      updates.difficulty = difficulty;
+    }
+    if (requiresLogin !== undefined) updates.requires_login = requiresLogin;
+    if (isActive !== undefined) updates.is_active = isActive;
+    if (settings !== undefined) updates.settings = settings;
+    if (questions !== undefined) {
+      if (!Array.isArray(questions) || questions.length === 0) {
+        return res.status(400).json({ error: 'At least one question is required' });
+      }
+      if (questions.length > 50) {
+        return res.status(400).json({ error: 'Maximum 50 questions per set' });
+      }
+      updates.questions = questions.map((q, i) => {
+        if (!q.question || !q.question.trim()) {
+          throw new Error(`Question ${i + 1} is missing question text`);
+        }
+        return {
+          question: q.question.trim(),
+          context: q.context?.trim() || '',
+          expectedTopics: Array.isArray(q.expectedTopics) ? q.expectedTopics : [],
+          timeLimit: Number(q.timeLimit) || 120,
+        };
+      });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .update(updates)
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ questionSet: data });
+  } catch (error) {
+    console.error('Update question set error:', error);
+    const message = error.message?.startsWith('Question') ? error.message : 'Failed to update question set';
+    res.status(400).json({ error: message });
+  }
+});
+
+// ─── Delete Question Set ─────────────────────────────────────────
+router.delete('/question-sets/:id', async (req, res) => {
+  try {
+    // Verify ownership
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const { error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) throw error;
+
+    res.json({ message: 'Question set deleted successfully' });
+  } catch (error) {
+    console.error('Delete question set error:', error);
+    res.status(500).json({ error: 'Failed to delete question set' });
+  }
+});
+
+// ─── Get Submissions for a Question Set ──────────────────────────
+router.get('/question-sets/:id/submissions', async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+
+    // Verify ownership
+    const { data: existing, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title')
+      .eq('id', req.params.id)
+      .eq('admin_id', req.user.id)
+      .single();
+
+    if (fetchError || !existing) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    const { data: submissions, count, error } = await supabaseAdmin
+      .from('admin_interview_submissions')
+      .select('id, user_id, user_name, user_email, scores, overall_score, duration, completed_at, created_at', { count: 'exact' })
+      .eq('question_set_id', req.params.id)
+      .order('completed_at', { ascending: false })
+      .range(offset, offset + parseInt(limit, 10) - 1);
+
+    if (error) throw error;
+
+    res.json({
+      questionSetTitle: existing.title,
+      submissions: submissions || [],
+      total: count || 0,
+      page: parseInt(page, 10),
+      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+    });
+  } catch (error) {
+    console.error('Get submissions error:', error);
+    res.status(500).json({ error: 'Failed to fetch submissions' });
   }
 });
 

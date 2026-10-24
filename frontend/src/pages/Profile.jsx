@@ -237,7 +237,7 @@ export default function Profile() {
   const resumeInputRef = useRef(null);
   const [claimEditing, setClaimEditing] = useState(false);
   const [claimValue, setClaimValue] = useState('');
-  const [_claimStatus, setClaimStatus] = useState('idle');
+  const [claimStatus, setClaimStatus] = useState('idle');
   const [toastExiting, setToastExiting] = useState(false);
 
   const fetchProfile = useCallback(async () => {
@@ -474,13 +474,27 @@ export default function Profile() {
         method: 'PUT',
         body: JSON.stringify({ is_public: next })
       });
+      setProfile(prev => ({ ...prev, is_public: next }));
     } catch (err) {
       console.error(err);
       setIsPublic(!next);
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
+    if (!isPublic) {
+      setIsPublic(true);
+      try {
+        await authFetch('/api/user/profile', {
+          method: 'PUT',
+          body: JSON.stringify({ is_public: true })
+        });
+        setProfile(prev => ({ ...prev, is_public: true }));
+      } catch (e) {
+        console.error('Failed to make profile public:', e);
+      }
+    }
+
     navigator.clipboard.writeText(profileLink).catch(() => {
       const ta = document.createElement('textarea');
       ta.value = profileLink;
@@ -491,6 +505,53 @@ export default function Profile() {
     });
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 2000);
+  };
+
+  const handleClaimUrl = async () => {
+    const slug = String(claimValue || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9-]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '');
+
+    if (!slug) {
+      alert('Please enter a custom URL slug');
+      return;
+    }
+    if (slug.length < 3 || slug.length > 30) {
+      alert('Custom URL must be between 3 and 30 characters');
+      return;
+    }
+
+    setClaimStatus('busy');
+    try {
+      const res = await authFetch('/api/user/profile/claim-url', {
+        method: 'POST',
+        body: JSON.stringify({ custom_url: slug })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to claim custom URL');
+      }
+      const data = await res.json();
+      const normalized = normalizeProfileData(data);
+      setProfile((prev) => ({
+        ...prev,
+        ...normalized,
+        custom_url: slug,
+        is_public: true
+      }));
+      setIsPublic(true);
+      setClaimEditing(false);
+      setClaimStatus('saved');
+      setSuccessMessage(`Custom URL claimed! Your public profile is live at preploop.com/u/${slug}`);
+      setStatus('saved');
+    } catch (err) {
+      console.error('Claim error', err);
+      setClaimStatus('error');
+      alert(err.message || 'Failed to claim custom URL');
+    }
   };
 
   const handleChange = (key, value) => {
@@ -716,9 +777,9 @@ export default function Profile() {
   const interviewsDone = dashboardData?.stats?.mockInterviews || 0;
   const aiMatches = dashboardData?.stats?.problemsSolved || 0;
   const coverLetters = dashboardData?.stats?.resumesAnalyzed || 0;
-  const profileLink = profile.custom_url && profile.custom_url.length > 0
-    ? `https://preploop.com/u/${profile.custom_url}`
-    : `https://preploop.com/u/${displayName.toLowerCase().replace(/\s+/g, '-')}`;
+  const activeSlug = profile.custom_url || displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'user';
+  const profileLink = `https://preploop.com/u/${activeSlug}`;
+  const localProfilePath = `/u/${activeSlug}`;
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
   const _educationDisplay = profile.education || 'Not set';
   const skillChips = splitSkillChips(profile.skills, resumeSnapshot);
@@ -860,56 +921,68 @@ export default function Profile() {
                 <Link2 size={16} />
                 <div>
                   <p className="du-meta-title">Public Profile Link</p>
-                  <p className="du-meta-subtitle du-profile-url">{profileLink}</p>
+                  <a
+                    href={localProfilePath}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="du-meta-subtitle du-profile-url"
+                    title="Open public profile in new tab"
+                  >
+                    {profileLink}
+                    <ExternalLink size={12} style={{ display: 'inline', marginLeft: 4 }} />
+                  </a>
                 </div>
               </div>
               {!claimEditing ? (
-                <button
-                  className="du-claim-btn"
-                  type="button"
-                  onClick={() => { setClaimEditing(true); setClaimValue(profile.custom_url || ''); }}
-                >
-                  {profile.custom_url ? 'Edit Custom URL' : 'Claim Custom URL'}
-                </button>
-              ) : (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    className="du-claim-btn"
+                    type="button"
+                    onClick={() => {
+                      setClaimEditing(true);
+                      setClaimValue(profile.custom_url || activeSlug);
+                    }}
+                  >
+                    {profile.custom_url ? 'Edit Custom URL' : 'Claim Custom URL'}
+                  </button>
+                  <a
+                    href={localProfilePath}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="du-copy-btn"
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <ExternalLink size={13} />
+                    View
+                  </a>
+                </div>
+              ) : (
+                <div className="du-claim-input-group" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>preploop.com/u/</span>
                   <input
                     className="du-form-input"
+                    style={{ width: 'auto', minWidth: 150 }}
                     placeholder="your-custom-slug"
                     value={claimValue}
-                    onChange={(e) => setClaimValue(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+                      setClaimValue(val);
+                    }}
+                    autoFocus
                   />
                   <button
                     className="du-claim-btn"
                     type="button"
-                    onClick={async () => {
-                      const slug = String(claimValue || '').trim().toLowerCase();
-                      if (!slug) return;
-                      setClaimStatus('busy');
-                      try {
-                        const res = await authFetch('/api/user/profile/claim-url', {
-                          method: 'POST',
-                          body: JSON.stringify({ custom_url: slug })
-                        });
-                        if (!res.ok) {
-                          const err = await res.json().catch(() => ({}));
-                          throw new Error(err?.error || 'Failed to claim');
-                        }
-                        const data = await res.json();
-                        const normalized = normalizeProfileData(data);
-                        setProfile((prev) => ({ ...prev, ...normalized }));
-                        setClaimEditing(false);
-                        setClaimStatus('saved');
-                      } catch (err) {
-                        console.error('Claim error', err);
-                        setClaimStatus('error');
-                        alert(err.message || 'Failed to claim custom URL');
-                      }
-                    }}
+                    disabled={claimStatus === 'busy'}
+                    onClick={handleClaimUrl}
                   >
-                    {profile.custom_url ? 'Update' : 'Claim'}
+                    {claimStatus === 'busy' ? 'Saving...' : (profile.custom_url ? 'Update' : 'Claim')}
                   </button>
-                  <button className="du-cancel-btn" onClick={() => { setClaimEditing(false); setClaimStatus('idle'); }}>
+                  <button
+                    className="du-cancel-btn"
+                    type="button"
+                    onClick={() => { setClaimEditing(false); setClaimStatus('idle'); }}
+                  >
                     Cancel
                   </button>
                 </div>

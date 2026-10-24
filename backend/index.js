@@ -262,6 +262,7 @@ async function initializeServer() {
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
+    app.use('/api/interview', interviewRoutes);
     app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
     app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
     app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);

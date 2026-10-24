@@ -1215,7 +1215,10 @@ export default function CompanyInterview() {
             accumulatedTranscript: accumulatedTranscriptRef.current,
             interimText: latestInterimTextRef.current || interimText,
         });
-        if (!answerSnapshot && !isAutoSkip && !isInterrupted) return;
+
+        const isRecording = mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
+        
+        if (!answerSnapshot && !isRecording && !isAutoSkip && !isInterrupted) return;
 
         // Stop voice recognition if active
         if (isListeningRef.current) {

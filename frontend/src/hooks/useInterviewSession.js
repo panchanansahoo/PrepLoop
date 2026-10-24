@@ -45,8 +45,8 @@ const SKILL_MAP = {
   "ai-llm": ["LLM Applications", "Prompt Engineering", "Evaluation"],
 };
 
-export function useInterviewSession() {
-  const { _user, getAuthHeaders } = useAuth();
+export function useInterviewSession(options = {}) {
+  const { user: _user, getAuthHeaders } = useAuth();
 
   const [phase, setPhase] = useState("lobby");
   const [interviewType, setInterviewType] = useState("technical");
@@ -54,6 +54,70 @@ export function useInterviewSession() {
   const [interviewerGender, setInterviewerGender] = useState(
     readStoredInterviewerGender,
   );
+
+  // ─── Custom Admin Question Set State ───
+  const initialQuestionSetCode =
+    options?.questionSetCode ||
+    (typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("set")
+      : null);
+  const [questionSetCode, setQuestionSetCode] = useState(initialQuestionSetCode);
+  const [customQuestionSet, setCustomQuestionSet] = useState(null);
+  const [questionSetLoading, setQuestionSetLoading] = useState(false);
+  const [questionSetError, setQuestionSetError] = useState(null);
+  const allAdminQuestionsRef = useRef([]);
+  const customQuestionSetRef = useRef(null);
+  const submissionSentRef = useRef(false);
+
+  useEffect(() => {
+    if (!questionSetCode) return;
+    let isCancelled = false;
+
+    async function loadQuestionSet() {
+      setQuestionSetLoading(true);
+      setQuestionSetError(null);
+      try {
+        const res = await fetch(`/api/interview/question-set/${questionSetCode}`);
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to load question set");
+        }
+        const data = await res.json();
+        if (!isCancelled && data?.questionSet) {
+          const qs = data.questionSet;
+          setCustomQuestionSet(qs);
+          customQuestionSetRef.current = qs;
+          allAdminQuestionsRef.current = qs.questions || [];
+          if (qs.interviewType) {
+            setInterviewType(qs.interviewType);
+          }
+          if (qs.questionCount) {
+            setTotalQuestions(qs.questionCount);
+          }
+          if (qs.settings?.companyName) {
+            setTargetCompany(qs.settings.companyName);
+          }
+          if (qs.settings?.roleName) {
+            setTargetRole(qs.settings.roleName);
+          }
+        }
+      } catch (err) {
+        if (!isCancelled) {
+          console.error("[useInterviewSession] Question set load error:", err);
+          setQuestionSetError(err.message);
+        }
+      } finally {
+        if (!isCancelled) {
+          setQuestionSetLoading(false);
+        }
+      }
+    }
+
+    loadQuestionSet();
+    return () => {
+      isCancelled = true;
+    };
+  }, [questionSetCode]);
 
   useEffect(() => {
     try {
@@ -209,9 +273,21 @@ export function useInterviewSession() {
   const handoffToCandidate = useCallback(() => {
     setAwaitingAnswer(false);
     if (!isPaused && phase === "interview" && !isListeningRef.current) {
+      // Give the browser time to settle after TTS playback ends.
+      // SpeechRecognition can fail to capture audio if started too quickly
+      // after TTS/audio playback due to echo cancellation conflicts.
       setTimeout(() => {
-        if (!isListeningRef.current) startVoiceRecording();
-      }, 150);
+        if (!isListeningRef.current && !isSendingRef.current) {
+          startVoiceRecording();
+          // Safety retry: if SpeechRecognition didn't start, try again
+          setTimeout(() => {
+            if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
+              console.log("[handoffToCandidate] Retry starting voice recording");
+              startVoiceRecording();
+            }
+          }, 800);
+        }
+      }, 500);
     }
   }, [isPaused, phase, startVoiceRecording]);
 
@@ -607,6 +683,44 @@ export function useInterviewSession() {
     totalPauseTime,
   ]);
 
+  // Auto-submit custom interview submission when analysis completes
+  useEffect(() => {
+    if (
+      phase === "summary" &&
+      analysisResult &&
+      (customQuestionSetRef.current || questionSetCode) &&
+      !submissionSentRef.current
+    ) {
+      submissionSentRef.current = true;
+      const code =
+        questionSetCode ||
+        customQuestionSetRef.current?.share_code ||
+        customQuestionSetRef.current?.shareCode;
+      if (!code) return;
+
+      const candidateName =
+        _user?.user_metadata?.full_name || _user?.fullName || _user?.email || "Candidate";
+      const candidateEmail = _user?.email || null;
+      const candidateId = _user?.id || null;
+
+      fetch(`/api/interview/question-set/${code}/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          responses: conversation || [],
+          scores: analysisResult?.categories || {},
+          overallScore: Math.round((analysisResult?.overallScore || 0) * 10),
+          duration: elapsed || 0,
+          userName: candidateName,
+          userEmail: candidateEmail,
+          userId: candidateId,
+        }),
+      }).catch((err) =>
+        console.error("Failed to submit admin interview response:", err)
+      );
+    }
+  }, [phase, analysisResult, questionSetCode, conversation, elapsed, _user]);
+
   useEffect(() => {
     if (phase === "interview" && !isPaused) {
       timerRef.current = setInterval(
@@ -814,22 +928,28 @@ export function useInterviewSession() {
 
       setActiveResumeContext(resumeCtx);
 
+      const startPayload = {
+        company: resolvedCompany,
+        role: resolvedRole,
+        stage: resolvedStage,
+        difficulty: experienceLevel === "fresher" ? "easy" : "medium",
+        experienceLevel,
+        totalQuestions,
+        interactionFormat: "text",
+        advancedOptions: advancedOpts,
+        resumeContext: resumeCtx,
+        interviewerName: undefined,
+        generateAllQuestions: true,
+      };
+
+      if (questionSetCode) {
+        startPayload.questionSetCode = questionSetCode;
+      }
+
       const [res] = await Promise.all([
         authFetch("/api/company-interview/start", {
           method: "POST",
-          body: JSON.stringify({
-            company: resolvedCompany,
-            role: resolvedRole,
-            stage: resolvedStage,
-            difficulty: experienceLevel === "fresher" ? "easy" : "medium",
-            experienceLevel,
-            totalQuestions,
-            interactionFormat: "text",
-            advancedOptions: advancedOpts,
-            resumeContext: resumeCtx,
-            interviewerName: undefined,
-            generateAllQuestions: true,
-          }),
+          body: JSON.stringify(startPayload),
         }),
         minDelay,
       ]);
@@ -845,6 +965,18 @@ export function useInterviewSession() {
       }
 
       const data = await res.json();
+      if (data.allQuestions) {
+        allAdminQuestionsRef.current = data.allQuestions;
+      }
+      if (data.questionSetId) {
+        customQuestionSetRef.current = {
+          ...(customQuestionSetRef.current || {}),
+          id: data.questionSetId,
+        };
+      }
+      if (data.context?.totalQuestions) {
+        setTotalQuestions(data.context.totalQuestions);
+      }
       const stageFallbacks = {
         "DSA / Coding": `Alright, let's kick things off with a coding problem. So, given an array of integers and a target sum, how would you find two numbers that add up to the target? Walk me through how you'd think about it.`,
         "System Design": `Cool, so let's talk system design. How would you go about designing something like a URL shortener — think bit.ly? What are the key pieces you'd need?`,
@@ -1010,26 +1142,34 @@ export function useInterviewSession() {
           questionCount: totalQuestions,
         };
 
+        const followUpPayload = {
+          previousQuestion: currentQuestion,
+          userAnswer: fullAnswer,
+          questionNumber: questionIndexRef.current + 1,
+          totalQuestions,
+          company: resolvedCompany,
+          role: resolvedRole,
+          stage: resolvedStage,
+          difficulty: experienceLevel === "fresher" ? "easy" : "medium",
+          experienceLevel,
+          conversationHistory: conversation
+            .slice(-12)
+            .map((m) => ({ role: m.role, content: m.content })),
+          code: code.trim() || undefined,
+          codeLanguage: language,
+          advancedOptions: followUpAdvancedOpts,
+          resumeContext: activeResumeContext,
+        };
+
+        if (allAdminQuestionsRef.current?.length > 0 || questionSetCode) {
+          followUpPayload.questionSource = 'admin-custom';
+          followUpPayload.allQuestions = allAdminQuestionsRef.current;
+          followUpPayload.questionSetCode = questionSetCode;
+        }
+
         const res = await authFetch("/api/company-interview/follow-up", {
           method: "POST",
-          body: JSON.stringify({
-            previousQuestion: currentQuestion,
-            userAnswer: fullAnswer,
-            questionNumber: questionIndexRef.current + 1,
-            totalQuestions,
-            company: resolvedCompany,
-            role: resolvedRole,
-            stage: resolvedStage,
-            difficulty: experienceLevel === "fresher" ? "easy" : "medium",
-            experienceLevel,
-            conversationHistory: conversation
-              .slice(-12)
-              .map((m) => ({ role: m.role, content: m.content })),
-            code: code.trim() || undefined,
-            codeLanguage: language,
-            advancedOptions: followUpAdvancedOpts,
-            resumeContext: activeResumeContext,
-          }),
+          body: JSON.stringify(followUpPayload),
         });
 
         if (!res.ok) {
@@ -1332,9 +1472,21 @@ export function useInterviewSession() {
   }, [elapsed, phase, isPaused, interviewType, totalQuestions]);
 
   const toggleMic = useCallback(() => {
-    if (isListening) stopVoiceRecording();
-    else startVoiceRecording();
-  }, [isListening, stopVoiceRecording, startVoiceRecording]);
+    if (isListening) {
+      // If user has spoken something, submit it instead of discarding
+      const currentTranscript = stateRefs.current.transcript.trim();
+      const interimText = (voiceAI.interimText || "").trim();
+      const hasVoiceContent = currentTranscript.length > 0 || interimText.length > 0;
+      if (hasVoiceContent) {
+        // Submit the voice answer
+        if (sendAnswerRef.current) sendAnswerRef.current(false);
+      } else {
+        stopVoiceRecording();
+      }
+    } else {
+      startVoiceRecording();
+    }
+  }, [isListening, stopVoiceRecording, startVoiceRecording, voiceAI]);
 
   const toggleCamera = useCallback(() => {
     if (cameraOn && streamRef.current) {
@@ -1346,8 +1498,19 @@ export function useInterviewSession() {
   }, [cameraOn, streamRef, videoRef]);
 
   const handleVoiceInput = () => {
-    if (isListening) stopVoiceRecording();
-    else startVoiceRecording();
+    if (isListening) {
+      // If user has spoken something, submit it instead of discarding
+      const currentTranscript = stateRefs.current.transcript.trim();
+      const interimText = (voiceAI.interimText || "").trim();
+      const hasVoiceContent = currentTranscript.length > 0 || interimText.length > 0;
+      if (hasVoiceContent) {
+        if (sendAnswerRef.current) sendAnswerRef.current(false);
+      } else {
+        stopVoiceRecording();
+      }
+    } else {
+      startVoiceRecording();
+    }
   };
 
   const handleAskQuestion = useCallback(
@@ -1453,6 +1616,10 @@ export function useInterviewSession() {
       captionsOn,
       workspacePanelOpen,
       workspaceDropdownOpen,
+      questionSetCode,
+      customQuestionSet,
+      questionSetLoading,
+      questionSetError,
     },
     refs: {
       voiceHookRef,

@@ -259,6 +259,20 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a.du-profile-url {
+  color: #60a5fa;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+
+a.du-profile-url:hover {
+  color: #93c5fd;
+  text-decoration: underline;
 }
 
 .du-toggle {
@@ -321,13 +335,34 @@
 }
 
 .du-claim-btn {
-  background: #0a0b0e;
+  background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
   color: #ffffff;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
 }
 
 .du-claim-btn:hover {
-  background: #121318;
+  background: linear-gradient(135deg, #4338ca 0%, #2563eb 100%);
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
   transform: translateY(-1px);
+}
+
+.du-cancel-btn {
+  padding: 9px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.du-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
 }
 
 /* Tabs */

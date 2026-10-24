@@ -150,7 +150,15 @@ export default function PublicPortfolioPage() {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/portfolio/public/${encodeURIComponent(slug)}`);
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+        const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+        // 1. Try user portfolio public endpoint first
+        let res = await fetch(`/api/user/portfolio/public/${encodeURIComponent(slug)}`, { headers });
+        if (res.status === 404) {
+          // 2. Fallback to portfolio service public endpoint
+          res = await fetch(`/api/portfolio/public/${encodeURIComponent(slug)}`, { headers });
+        }
         if (res.status === 404) { if (!cancelled) setError('not-found'); return; }
         if (res.status === 403) { if (!cancelled) setError('private'); return; }
         if (!res.ok) throw new Error('Failed to load');
@@ -253,6 +261,40 @@ export default function PublicPortfolioPage() {
           </Link>
           <span className="pp-nav-badge"><Sparkles size={12} /> Portfolio</span>
         </nav>
+
+        {portfolio?.portfolioMeta?.isOwner && portfolio?.portfolioMeta?.visibility === 'private' && (
+          <div className="pp-owner-preview-banner" style={{
+            background: 'rgba(234, 179, 8, 0.12)',
+            border: '1px solid rgba(234, 179, 8, 0.3)',
+            borderRadius: 12,
+            padding: '12px 16px',
+            marginBottom: 20,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+            color: '#fef08a'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 18 }}>👁️</span>
+              <span style={{ fontSize: 13 }}>
+                <strong>Preview Mode:</strong> Your profile is currently set to Private. Visitors won&apos;t be able to see it until you toggle Profile Visibility to Public in your settings.
+              </span>
+            </div>
+            <Link to="/profile" style={{
+              background: '#eab308',
+              color: '#000',
+              fontWeight: 600,
+              fontSize: 12,
+              padding: '6px 12px',
+              borderRadius: 6,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap'
+            }}>
+              Make Public
+            </Link>
+          </div>
+        )}
 
         {/* ── Hero ── */}
         <header className="pp-hero">

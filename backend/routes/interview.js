@@ -988,4 +988,110 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
   }
 });
 
+// ─── Get Question Set by Share Code (Public — no auth required) ───
+router.get('/question-set/:code', async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    if (!code || code.length < 5) {
+      return res.status(400).json({ error: 'Invalid share code' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active')
+      .eq('share_code', code)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    if (!data.is_active) {
+      return res.status(410).json({ error: 'This interview is no longer available' });
+    }
+
+    // Return user-safe fields only
+    res.json({
+      questionSet: {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        interviewType: data.interview_type,
+        difficulty: data.difficulty,
+        requiresLogin: data.requires_login,
+        questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
+        questions: data.questions || [],
+        settings: data.settings || {},
+      }
+    });
+  } catch (error) {
+    console.error('Get question set by code error:', error);
+    res.status(500).json({ error: 'Failed to fetch question set' });
+  }
+});
+
+// ─── Save Admin Interview Submission (Public — supports guest users) ───
+router.post('/question-set/:code/submit', async (req, res) => {
+  try {
+    const { code } = req.params;
+    const {
+      responses, scores, overallScore, duration,
+      userName, userEmail, userId
+    } = req.body;
+
+    // Find the question set
+    const { data: questionSet, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, is_active')
+      .eq('share_code', code)
+      .single();
+
+    if (fetchError || !questionSet) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    // Sanitize userId: only pass if valid UUID; guest users or non-UUID ids must be null
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const sanitizedUserId = (userId && typeof userId === 'string' && UUID_REGEX.test(userId)) ? userId : null;
+
+    const submissionPayload = {
+      question_set_id: questionSet.id,
+      user_id: sanitizedUserId,
+      user_name: userName || null,
+      user_email: userEmail || null,
+      responses: responses || [],
+      scores: scores || {},
+      overall_score: Number(overallScore) || 0,
+      duration: Number(duration) || 0,
+      completed_at: new Date().toISOString(),
+    };
+
+    let { data, error } = await supabaseAdmin
+      .from('admin_interview_submissions')
+      .insert(submissionPayload)
+      .select('id')
+      .single();
+
+    // If failed due to FK violation on user_id, retry without user_id so submission is preserved
+    if (error && error.code === '23503' && submissionPayload.user_id) {
+      console.warn('[Interview Submit] FK violation on user_id, retrying as guest submission');
+      const retryResult = await supabaseAdmin
+        .from('admin_interview_submissions')
+        .insert({ ...submissionPayload, user_id: null })
+        .select('id')
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
+
+    if (error) throw error;
+
+    res.status(201).json({ success: true, submissionId: data?.id });
+  } catch (error) {
+    console.error('Save submission error:', error);
+    res.status(500).json({ error: 'Failed to save submission' });
+  }
+});
+
 export default router;

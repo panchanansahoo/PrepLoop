@@ -275,10 +275,24 @@ router.post('/parse-pdf', upload.single('pdf'), async (req, res) => {
 router.post('/parse-eml', upload.single('eml'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No EML file uploaded' });
-    const { simpleParser } = await import('mailparser');
-    const parsed = await simpleParser(req.file.buffer);
-    const content = parsed.html || parsed.textAsHtml || parsed.text;
-    res.json({ title: parsed.subject, content });
+    let title = '';
+    let content = '';
+
+    try {
+      const { simpleParser } = await import('mailparser');
+      const parsed = await simpleParser(req.file.buffer);
+      title = parsed.subject || '';
+      content = parsed.html || parsed.textAsHtml || parsed.text || '';
+    } catch (_importErr) {
+      // Graceful fallback parser when mailparser is not installed
+      const raw = req.file.buffer.toString('utf8');
+      const subjectMatch = raw.match(/^Subject:\s*(.+)$/im);
+      title = subjectMatch ? subjectMatch[1].trim() : 'Imported Email';
+      const parts = raw.split(/\r?\n\r?\n/);
+      content = parts.slice(1).join('\n\n').trim();
+    }
+
+    res.json({ title, content });
   } catch (error) {
     console.error('EML Parse Error:', error);
     res.status(500).json({ error: 'Failed to parse EML' });

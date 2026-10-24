@@ -19,7 +19,7 @@ const router = express.Router();
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', optionalAuth, async (req, res) => {
   const requestStartTime = Date.now();
-  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher' } = req.body;
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions, questionSetCode: _questionSetCode } = req.body || {};
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
@@ -58,6 +58,69 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     interviewRuntimeMode: resolvedRuntimeMode,
     runtime,
   });
+
+  try {
+    // ─── Admin Custom Question Set Flow ───
+    if (questionSource === 'admin-custom' && Array.isArray(allQuestions) && allQuestions.length > 0) {
+      const qIndex = safeQuestionNumber - 1;
+      const isComplete = qIndex >= allQuestions.length;
+      const evaluated = evaluateFresherAnswer(userAnswer, stage, code);
+
+      const feedbackOptions = [
+        'Good answer, thank you for sharing that.',
+        'That is clear and well-explained.',
+        'Thank you for your response. Let us proceed.',
+        'Great points! I appreciate the detail you provided.',
+        'Understood, thank you for walking me through your thoughts.'
+      ];
+      const feedbackMessage = deterministicPick(feedbackOptions, safeQuestionNumber);
+
+      if (isComplete) {
+        return res.json(withRuntime({
+          feedback: 'Thank you! You have answered all the questions for this interview.',
+          followUpQuestion: '',
+          closingRemark: 'That concludes our interview session today. Thank you for your time!',
+          complete: true,
+          score: evaluated.score,
+          strengths: evaluated.strengths,
+          improvements: evaluated.improvements,
+          interviewerReaction: 'encouraging',
+          thinkTime: 0,
+          questionSource: 'admin-custom',
+          questionMeta: {
+            id: null,
+            track: 'admin-custom',
+            sequence: null,
+          },
+        }));
+      }
+
+      const nextQItem = allQuestions[qIndex];
+      const nextQText = typeof nextQItem === 'string' ? nextQItem : (nextQItem?.question || 'Next question');
+      const nextQContext = typeof nextQItem === 'object' ? nextQItem?.context : null;
+      const nextQTopics = typeof nextQItem === 'object' && Array.isArray(nextQItem?.expectedTopics) ? nextQItem.expectedTopics : [];
+      const nextQTimeLimit = typeof nextQItem === 'object' ? nextQItem?.timeLimit : null;
+
+      return res.json(withRuntime({
+        feedback: feedbackMessage,
+        followUpQuestion: nextQText,
+        complete: false,
+        score: evaluated.score,
+        strengths: evaluated.strengths,
+        improvements: evaluated.improvements,
+        interviewerReaction: 'probing',
+        thinkTime: nextQTimeLimit || 30,
+        tips: nextQTopics.length > 0 ? [`Focus on: ${nextQTopics.join(', ')}`] : ['Keep your response structured and clear.'],
+        questionSource: 'admin-custom',
+        questionMeta: {
+          id: `admin-q-${safeQuestionNumber}`,
+          track: 'admin-custom',
+          sequence: safeQuestionNumber,
+          context: nextQContext,
+          expectedTopics: nextQTopics,
+        },
+      }));
+    }
   const normalizedAdvanced = resolveResumeInterviewModeForExperience(
     normalizeAdvancedOptions(advancedOptions),
     experienceLevel,
@@ -274,7 +337,7 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   if (useRealQuestions && questionBankIds && questionBankIds.length > 0) {
     const nextIdx = safeQuestionNumber - 1; // questionNumber is 1-indexed, and we want the next one
     if (nextIdx < questionBankIds.length) {
-      const { getQuestionById } = await import('../services/companyQuestionService.js');
+      const { getQuestionById } = await import('../../services/companyQuestionService.js');
       nextRealQuestion = await getQuestionById(questionBankIds[nextIdx]);
       if (nextRealQuestion) {
         realQuestionMeta = { id: nextRealQuestion.id, tags: nextRealQuestion.tags, difficulty: nextRealQuestion.difficulty, frequencyScore: nextRealQuestion.frequencyScore };
@@ -285,13 +348,12 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   // Get reference answer for current question if available
   let referenceAnswer = null;
   if (useRealQuestions && currentQuestionId) {
-    const { getQuestionById: getQ } = await import('../services/companyQuestionService.js');
+    const { getQuestionById: getQ } = await import('../../services/companyQuestionService.js');
     const currentQ = await getQ(currentQuestionId);
     if (currentQ?.answer) referenceAnswer = currentQ.answer;
   }
 
-  try {
-    if (!groq) {
+  if (!groq) {
       const reactions = [
         "Makes sense, I like how you broke that down.",
         "That's interesting. I see where you're going with that.",
@@ -620,6 +682,7 @@ Respond as JSON:
     }));
   } catch (error) {
     console.error('Follow-up error:', error.message?.substring(0, 200));
+    if (res.headersSent) return;
     // Graceful fallback — contextual follow-up
     const technicalFallbackQuestions = experienceLevel === 'fresher'
       ? [
@@ -671,7 +734,7 @@ Respond as JSON:
 
 // ─── Get a hint for current question ───
 router.post('/hint', optionalAuth, async (req, res) => {
-  const { company, role, stage, currentQuestion, conversationHistory } = req.body;
+  const { company, role, stage, currentQuestion, conversationHistory } = req.body || {};
 
   try {
     if (!groq) {
@@ -718,6 +781,7 @@ Respond as JSON:
     res.json(result);
   } catch (error) {
     console.error('Hint error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to generate hint' });
   }
 });
@@ -725,7 +789,7 @@ Respond as JSON:
 
 // ─── Rephrase Interview Question ───
 router.post('/rephrase', optionalAuth, async (req, res) => {
-  const { question, company, stage } = req.body;
+  const { question, company, stage } = req.body || {};
 
   try {
     if (!groq || !question) {
@@ -765,6 +829,7 @@ Output ONLY a JSON object with this shape:
     res.json(result);
   } catch (error) {
     console.error('Rephrase error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to rephrase question' });
   }
 });
@@ -772,7 +837,7 @@ Output ONLY a JSON object with this shape:
 
 // ─── Real-time nudge for AICopilot NudgeBar ───
 router.post('/nudge', optionalAuth, async (req, res) => {
-  const { currentQuestion, partialAnswer, stage, company, role: _role } = req.body;
+  const { currentQuestion, partialAnswer, stage, company, role: _role } = req.body || {};
 
   try {
     if (!groq || !partialAnswer || partialAnswer.length < 20) {
@@ -808,6 +873,7 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
     res.json(result);
   } catch (error) {
     console.error('Nudge error:', error.message?.substring(0, 100));
+    if (res.headersSent) return;
     res.json({ nudge: null });
   }
 });
@@ -815,7 +881,7 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
 
 // ─── AI Copilot suggestions ───
 router.post('/copilot-suggest', optionalAuth, async (req, res) => {
-  const { company, role, stage, currentQuestion, partialAnswer, jobDescription } = req.body;
+  const { company, role, stage, currentQuestion, partialAnswer, jobDescription } = req.body || {};
 
   try {
     if (!groq) {
@@ -872,6 +938,7 @@ Respond strictly in this JSON format:
     res.json(result);
   } catch (error) {
     console.error('Copilot suggest error:', error.message);
+    if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to generate copilot suggestions' });
   }
 });

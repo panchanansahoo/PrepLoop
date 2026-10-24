@@ -96,6 +96,7 @@ const AIInterviewPage = lazyWithRecovery(() => import('./pages/AIInterviewPage')
 const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest'));
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
 const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
+const PublicPortfolioPage = lazyWithRecovery(() => import('./pages/PublicPortfolioPage'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
@@ -190,6 +191,7 @@ function AppContent() {
 
   // Public pages that don't show sidebar
   const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
+  const isPublicPortfolioRoute = location.pathname.startsWith('/u/');
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/dsa-editor');
   const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
   const isVisualizerRoute = location.pathname === '/visualizer';
@@ -199,20 +201,20 @@ function AppContent() {
 
   const isPaymentRoute = location.pathname.startsWith('/payment');
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/signup' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
-  let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/');
+  let isPublicPage = PUBLIC_PATHS.has(location.pathname) || location.pathname.startsWith('/blog/') || isPublicPortfolioRoute;
   // If the user is logged in and on the Job Updates or Library page, treat it as an internal dashboard page
   if ((location.pathname === '/job-updates' || location.pathname === '/library') && user) {
     isPublicPage = false;
   }
 
   // Routes that should NOT have any padding/margins (full viewport)
-  const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute;
+  const isFullBleedRoute = isCodeEditorRoute || isPlaygroundRoute || isVisualizerRoute || isSimulatorRoute || isAIInterviewRoute || isPaymentRoute || isPublicPortfolioRoute;
 
   // Routes that should show the global sidebar
   const showSidebar = !isPublicPage && !isAuthRoute && !isAIInterviewRoute;
 
   // Routes that should hide the top navbar
-  const hideNavbar = isPaymentRoute || isAuthRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute;
+  const hideNavbar = isPaymentRoute || isAuthRoute || isPlaygroundRoute || isAIInterviewRoute || isCodeEditorRoute || isPublicPortfolioRoute;
 
   // For backward compatibility with existing class logic
   const isFullScreenRoute = isAIInterviewRoute || isPaymentRoute;
@@ -346,6 +348,7 @@ function AppContent() {
                 <Route path="/hr/dashboard" element={<PrivateRoute><HRDashboard /></PrivateRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
+                <Route path="/u/:slug" element={<PublicPortfolioPage />} />
                 <Route path="*" element={<NotFound />} />
 
               </Routes>
@@ -353,7 +356,7 @@ function AppContent() {
           </RouteErrorBoundary>
         </div>
 
-        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && <AppFooter />}
+        {!showSidebar && !isCodeEditorRoute && !isPaymentRoute && !isAuthRoute && !isPublicPortfolioRoute && <AppFooter />}
       </div>
     </div>
   );

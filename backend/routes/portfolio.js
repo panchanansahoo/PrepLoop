@@ -312,9 +312,71 @@ router.get('/public/:slug', async (req, res) => {
       .from('portfolio_sites')
       .select('id, profile_id, slug, published, visibility')
       .eq('slug', slug)
-      .single();
+      .maybeSingle();
 
     if (siteError || !site) {
+      // Fallback: check profiles table by custom_url, id, or slugified full_name
+      let { data: userProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('custom_url', slug)
+        .maybeSingle();
+
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(slug);
+      if (!userProfile && isUUID) {
+        const byId = await supabaseAdmin.from('profiles').select('*').eq('id', slug).maybeSingle();
+        if (byId.data) userProfile = byId.data;
+      }
+
+      if (!userProfile) {
+        const byName = await supabaseAdmin.from('profiles').select('*').ilike('full_name', slug.replace(/[-_]+/g, ' ').trim()).maybeSingle();
+        if (byName.data) userProfile = byName.data;
+      }
+
+      if (userProfile) {
+        if (!userProfile.is_public) {
+          return res.status(403).json({ error: 'This portfolio is private' });
+        }
+
+        let parsedSocialLinks = {};
+        if (typeof userProfile.social_links === 'string') {
+          try { parsedSocialLinks = JSON.parse(userProfile.social_links); } catch (_e) {}
+        } else if (typeof userProfile.social_links === 'object' && userProfile.social_links !== null) {
+          parsedSocialLinks = userProfile.social_links;
+        }
+
+        const skillsList = (String(userProfile.skills || '')).split(',').map(s => s.trim()).filter(Boolean);
+
+        return res.json({
+          portfolio: {
+            basics: {
+              name: userProfile.full_name || 'PrepLoop Member',
+              title: userProfile.designation || userProfile.current_role || '',
+              photo: userProfile.avatar_url || '',
+              location: userProfile.location || '',
+              email: userProfile.email || '',
+              website: userProfile.website || '',
+              summary: userProfile.bio || '',
+            },
+            socials: {
+              github: userProfile.github_username || '',
+              linkedin: userProfile.linkedin || parsedSocialLinks.linkedin || '',
+              twitter: userProfile.twitter || parsedSocialLinks.twitter || '',
+              portfolio: userProfile.portfolio || parsedSocialLinks.portfolio || '',
+            },
+            skills: { languages: skillsList, frameworks: [], tools: [], domains: [] },
+            experience: (String(userProfile.experience || userProfile.experience_summary || '')).split(/\n|\.|;/).map(s => s.trim()).filter(Boolean),
+            education: userProfile.education ? [userProfile.education] : [],
+            projects: Array.isArray(userProfile.projects) ? userProfile.projects : [],
+            achievements: Array.isArray(userProfile.certifications) ? userProfile.certifications : [],
+            portfolioMeta: {
+              slug: userProfile.custom_url || slug,
+              visibility: 'public',
+            },
+          },
+        });
+      }
+
       return res.status(404).json({ error: 'Portfolio not found' });
     }
 

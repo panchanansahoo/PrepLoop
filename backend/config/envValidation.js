@@ -7,8 +7,6 @@ const logger = createLogger('env-validation');
  */
 const REQUIRED_VARS = [
   'NODE_ENV',
-  'PORT',
-  'FRONTEND_URL',
   'SUPABASE_URL',
   'SUPABASE_ANON_KEY',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -18,16 +16,15 @@ const REQUIRED_VARS = [
 /**
  * Required environment variables for production only
  */
-const PRODUCTION_REQUIRED_VARS = [
-  'JWT_REFRESH_SECRET',
-  'PRODUCTION_FRONTEND_URL',
-];
+const PRODUCTION_REQUIRED_VARS = [];
 
 /**
  * Optional but recommended environment variables
  */
 const RECOMMENDED_VARS = [
+  'FRONTEND_URL',
   'GROQ_API_KEY',
+  'GEMINI_API_KEY',
   'SMTP_USER',
   'SMTP_PASS',
   'UPSTASH_REDIS_REST_URL',
@@ -84,6 +81,14 @@ export function validateEnvironment() {
   const errors = [];
   const warnings = [];
   const isProduction = process.env.NODE_ENV === 'production';
+
+  // Safely default PORT if not explicitly provided
+  process.env.PORT = process.env.PORT || '5000';
+
+  // Bridge PRODUCTION_FRONTEND_URL to FRONTEND_URL if needed
+  if (!process.env.FRONTEND_URL && process.env.PRODUCTION_FRONTEND_URL) {
+    process.env.FRONTEND_URL = process.env.PRODUCTION_FRONTEND_URL;
+  }
 
   // Check required variables
   const requiredVars = isProduction 
