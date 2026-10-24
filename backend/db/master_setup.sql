@@ -82,6 +82,7 @@ CREATE TABLE profiles (
   skills TEXT,
   education TEXT,
   qualification TEXT,
+  profile_theme TEXT NOT NULL DEFAULT 'aurora' CHECK (profile_theme IN ('aurora', 'midnight', 'sunrise')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_login TIMESTAMP WITH TIME ZONE
 );
@@ -3051,4 +3052,3 @@ DROP TRIGGER IF EXISTS trigger_update_member_count ON study_group_members;
 DROP TRIGGER IF EXISTS trigger_update_member_count ON study_group_members;
 CREATE TRIGGER trigger_update_member_count AFTER INSERT OR DELETE ON study_group_members
   FOR EACH ROW EXECUTE FUNCTION update_group_member_count();
-

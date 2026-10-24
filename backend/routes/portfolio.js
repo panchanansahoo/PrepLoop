@@ -13,6 +13,7 @@ import { createShortLink, reservePortfolioSlug, resolveShortLink } from '../serv
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
 
 const router = express.Router();
 const DEFAULT_PUBLIC_DOMAIN = process.env.PORTFOLIO_PUBLIC_DOMAIN || 'https://preploop.com/u';
@@ -52,7 +53,7 @@ router.post('/profiles/parse-linkedin', authenticateToken, (req, res) => {
   }
 });
 
-// POST /api/portfolio/profiles/import-resume (PDF upload)
+// POST /api/portfolio/profiles/import-resume (PDF or DOCX upload)
 router.post('/profiles/import-resume', authenticateToken, upload.single('resume'), async (req, res) => {
   try {
     if (!req.file) {
@@ -61,10 +62,22 @@ router.post('/profiles/import-resume', authenticateToken, upload.single('resume'
 
     let resumeText = '';
     try {
-      const parsed = await pdfParse(req.file.buffer);
-      resumeText = parsed.text || '';
-    } catch {
-      return res.status(422).json({ error: 'Could not parse PDF. Please ensure it is a valid, text-based PDF.' });
+      const extension = String(req.file.originalname || '').toLowerCase().split('.').pop();
+      if (req.file.mimetype === 'application/pdf' || extension === 'pdf') {
+        const parsed = await pdfParse(req.file.buffer);
+        resumeText = parsed.text || '';
+      } else if (
+        req.file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        || extension === 'docx'
+      ) {
+        const parsed = await mammoth.extractRawText({ buffer: req.file.buffer });
+        resumeText = parsed.value || '';
+      } else {
+        return res.status(415).json({ error: 'Unsupported resume format. Upload a PDF or DOCX file.' });
+      }
+    } catch (parseError) {
+      console.error('Resume document parsing error:', parseError.message);
+      return res.status(422).json({ error: 'Could not extract text from this resume. Please upload a text-based PDF or DOCX file.' });
     }
 
     const resume = parseResumeToProfile({

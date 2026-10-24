@@ -238,6 +238,9 @@ export default function PublicPortfolioPage() {
   if (!portfolio) return null;
 
   const { basics, socials, skills, experience, education, projects, achievements } = portfolio;
+  const profileTheme = ['aurora', 'midnight', 'sunrise'].includes(portfolio?.portfolioMeta?.theme)
+    ? portfolio.portfolioMeta.theme
+    : 'aurora';
   const initials = (basics.name || 'U').slice(0, 2).toUpperCase();
   const allSkills = [
     ...skills.languages.map((s) => ({ label: s, cat: 'lang' })),
@@ -250,7 +253,7 @@ export default function PublicPortfolioPage() {
     : projects.slice(0, 6);
 
   return (
-    <div className="pp-page">
+    <div className={`pp-page pp-theme-${profileTheme}`}>
       <div className="pp-aurora" />
       <div className="pp-aurora pp-aurora-2" />
 

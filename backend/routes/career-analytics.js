@@ -11,6 +11,7 @@
 
 import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { expensiveFeatureLimiter } from '../middleware/apiRateLimiter.js';
 import skillEmbeddings from '../services/aimlSkillEmbeddings.js';
 import demandForecasting from '../services/aimlDemandForecasting.js';
 import collaborativeFiltering from '../services/aimlCollaborativeFiltering.js';
@@ -102,16 +103,23 @@ router.get('/insights', authenticateToken, async (req, res) => {
  * GET /api/career/skill-semantic-matches
  * Get semantically similar skills using embeddings
  */
-router.get('/skill-semantic-matches', async (req, res) => {
+router.get('/skill-semantic-matches', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { skill, candidates } = req.query;
     if (!skill || !candidates) {
       return res.status(400).json({ error: 'Missing skill or candidates parameter' });
     }
+    if (String(skill).length > 200) {
+      return res.status(400).json({ error: 'Skill is too long' });
+    }
 
     const candidateList = typeof candidates === 'string' 
       ? candidates.split(',') 
       : candidates;
+    if (!Array.isArray(candidateList) || candidateList.length > 100 ||
+        candidateList.some((candidate) => String(candidate).length > 200)) {
+      return res.status(400).json({ error: 'Too many or oversized candidate skills' });
+    }
 
     const matches = await skillEmbeddings.findSimilarSkills(skill, candidateList, 0.5);
 
@@ -133,11 +141,14 @@ router.get('/skill-semantic-matches', async (req, res) => {
  * GET /api/career/demand-forecast
  * Get demand forecasting for a specific role
  */
-router.get('/demand-forecast', async (req, res) => {
+router.get('/demand-forecast', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { role, location } = req.query;
     if (!role) {
       return res.status(400).json({ error: 'Role parameter required' });
+    }
+    if (String(role).length > 200 || (location && String(location).length > 200)) {
+      return res.status(400).json({ error: 'Role or location is too long' });
     }
 
     const forecast = await demandForecasting.forecastRoleDemand(role, 4);
@@ -160,7 +171,7 @@ router.get('/demand-forecast', async (req, res) => {
  * GET /api/career/skill-trends
  * Get emerging and declining skill trends
  */
-router.get('/skill-trends', async (req, res) => {
+router.get('/skill-trends', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { threshold } = req.query;
     const emergingSkills = await demandForecasting.detectEmergingSkills(
@@ -230,11 +241,15 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
  * POST /api/career/resume-match
  * Match resume against job description
  */
-router.post('/resume-match', async (req, res) => {
+router.post('/resume-match', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { resumeText, jobDescription } = req.body;
     if (!resumeText || !jobDescription) {
       return res.status(400).json({ error: 'Missing resumeText or jobDescription' });
+    }
+    if (typeof resumeText !== 'string' || typeof jobDescription !== 'string' ||
+        resumeText.length > 100000 || jobDescription.length > 100000) {
+      return res.status(400).json({ error: 'Resume or job description is too long' });
     }
 
     const similarity = await resumeMatcher.computeResumeSimilarity(resumeText, jobDescription);
@@ -253,11 +268,15 @@ router.post('/resume-match', async (req, res) => {
  * POST /api/career/batch-resume-match
  * Match resume against multiple job descriptions
  */
-router.post('/batch-resume-match', async (req, res) => {
+router.post('/batch-resume-match', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { resumeText, jobs } = req.body;
     if (!resumeText || !jobs || !Array.isArray(jobs)) {
       return res.status(400).json({ error: 'Missing or invalid resumeText or jobs' });
+    }
+    if (typeof resumeText !== 'string' || resumeText.length > 100000 ||
+        jobs.length === 0 || jobs.length > 20) {
+      return res.status(400).json({ error: 'Resume or jobs payload is too large' });
     }
 
     const ranked = await resumeMatcher.rankJobsByResumeMatch(resumeText, jobs, 20);
@@ -276,11 +295,14 @@ router.post('/batch-resume-match', async (req, res) => {
  * GET /api/career/resume-insights
  * Get insights about a resume text
  */
-router.post('/resume-insights', (req, res) => {
+router.post('/resume-insights', expensiveFeatureLimiter, authenticateToken, (req, res) => {
   try {
     const { resumeText } = req.body;
     if (!resumeText) {
       return res.status(400).json({ error: 'Missing resumeText' });
+    }
+    if (typeof resumeText !== 'string' || resumeText.length > 100000) {
+      return res.status(400).json({ error: 'Resume text is too long' });
     }
 
     const insights = resumeMatcher.getResumeInsights(resumeText);
@@ -299,7 +321,7 @@ router.post('/resume-insights', (req, res) => {
  * GET /api/career/trending-skills
  * Get trending skills from job market analysis
  */
-router.get('/trending-skills', async (req, res) => {
+router.get('/trending-skills', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
     const { data: jobs } = await supabase
       .from('jobs')

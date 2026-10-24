@@ -20,8 +20,7 @@ const isStale = (timestamp, ttl) => (Date.now() - timestamp) > ttl;
 
 function getCacheKey(req) {
   const url = req.originalUrl || req.url;
-  const userId = req.user?.id || req.headers['x-user-id'] || 'anon';
-  return `${req.method}:${userId}:${url}`;
+  return `${req.method}:anon:${url}`;
 }
 
 export function apiCacheMiddleware(options = {}) {
@@ -30,6 +29,9 @@ export function apiCacheMiddleware(options = {}) {
   return (req, res, next) => {
     try {
       if (req.method !== 'GET') return next();
+      // This middleware runs before route authentication. Never cache requests
+      // carrying credentials because the cache cannot safely identify the user.
+      if (req.headers.authorization || req.headers.cookie) return next();
 
       const key = getCacheKey(req);
 

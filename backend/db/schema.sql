@@ -26,6 +26,7 @@ CREATE TABLE profiles (
   skills TEXT,
   education TEXT,
   qualification TEXT,
+  profile_theme TEXT NOT NULL DEFAULT 'aurora' CHECK (profile_theme IN ('aurora', 'midnight', 'sunrise')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   last_login TIMESTAMP WITH TIME ZONE
 );

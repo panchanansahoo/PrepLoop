@@ -2,9 +2,11 @@ import express from 'express';
 import crypto from 'crypto';
 import { getGroqClient } from '../utils/groqClient.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import { customInterviewLimiter, customInterviewSubmissionLimiter } from '../middleware/apiRateLimiter.js';
+import { evaluateFresherAnswer } from '../services/interviewAnswerEvaluator.js';
 
 const router = express.Router();
 const groq = getGroqClient();
@@ -989,7 +991,7 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
 });
 
 // ─── Get Question Set by Share Code (Public — no auth required) ───
-router.get('/question-set/:code', async (req, res) => {
+router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (req, res) => {
   try {
     const { code } = req.params;
 
@@ -1021,7 +1023,7 @@ router.get('/question-set/:code', async (req, res) => {
         difficulty: data.difficulty,
         requiresLogin: data.requires_login,
         questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
-        questions: data.questions || [],
+        questions: [],
         settings: data.settings || {},
       }
     });
@@ -1032,60 +1034,118 @@ router.get('/question-set/:code', async (req, res) => {
 });
 
 // ─── Save Admin Interview Submission (Public — supports guest users) ───
-router.post('/question-set/:code/submit', async (req, res) => {
+router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, optionalAuth, async (req, res) => {
   try {
     const { code } = req.params;
     const {
-      responses, scores, overallScore, duration,
-      userName, userEmail, userId
+      attemptId, duration,
+      userName, userEmail
     } = req.body;
 
     // Find the question set
     const { data: questionSet, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, is_active')
+      .select('id, is_active, requires_login')
       .eq('share_code', code)
       .single();
 
     if (fetchError || !questionSet) {
       return res.status(404).json({ error: 'Question set not found' });
     }
-
-    // Sanitize userId: only pass if valid UUID; guest users or non-UUID ids must be null
+    if (!questionSet.is_active) {
+      return res.status(410).json({ error: 'This interview is no longer available' });
+    }
+    if (questionSet.requires_login && !req.user) {
+      return res.status(401).json({ error: 'Login required for this interview' });
+    }
+    const { data: attempt, error: attemptError } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at')
+      .eq('id', attemptId || '')
+      .eq('question_set_id', questionSet.id)
+      .single();
+    if (attemptError || !attempt) {
+      return res.status(404).json({ error: 'Interview attempt not found' });
+    }
+    if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+      return res.status(410).json({ error: 'This interview attempt has expired' });
+    }
+    if (!attempt.completed_at) {
+      return res.status(409).json({ error: 'Interview must be completed before submission' });
+    }
+    if (attempt.submitted_at) {
+      return res.status(409).json({ error: 'This interview has already been submitted' });
+    }
+    if (attempt.user_id && attempt.user_id !== req.user?.id) {
+      return res.status(403).json({ error: 'Interview attempt belongs to another user' });
+    }
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const sanitizedUserId = (userId && typeof userId === 'string' && UUID_REGEX.test(userId)) ? userId : null;
+    if (!attemptId || !UUID_REGEX.test(attemptId)) {
+      return res.status(400).json({ error: 'A valid interview attempt is required' });
+    }
+    const serverResponses = Array.isArray(attempt.responses) ? attempt.responses : [];
+    if (serverResponses.length > 100 || JSON.stringify(serverResponses).length > 200000) {
+      return res.status(400).json({ error: 'Interview responses are too large' });
+    }
+    if (typeof userName === 'string' && userName.length > 255) {
+      return res.status(400).json({ error: 'Name is too long' });
+    }
+    if (typeof userEmail === 'string' && userEmail.length > 255) {
+      return res.status(400).json({ error: 'Email is too long' });
+    }
+
+    const parsedDuration = Number(duration);
+    const sanitizedDuration = Number.isFinite(parsedDuration)
+      ? Math.min(86400, Math.max(0, Math.round(parsedDuration)))
+      : 0;
+    const candidateAnswers = serverResponses
+      .filter((response) => response && response.role === 'candidate')
+      .map((response) => response.content || response.text || '')
+      .filter((answer) => typeof answer === 'string' && answer.trim());
+    const serverScores = candidateAnswers.map((answer) =>
+      evaluateFresherAnswer(answer, attempt.stage || 'Technical').score
+    );
+    const serverOverallScore = serverScores.length > 0
+      ? Math.round(serverScores.reduce((sum, score) => sum + score, 0) / serverScores.length)
+      : 0;
+    // Never trust a client-provided user id when a verified session exists.
+    const sanitizedUserId = req.user?.id || null;
 
     const submissionPayload = {
       question_set_id: questionSet.id,
+      attempt_id: attemptId,
       user_id: sanitizedUserId,
-      user_name: userName || null,
-      user_email: userEmail || null,
-      responses: responses || [],
-      scores: scores || {},
-      overall_score: Number(overallScore) || 0,
-      duration: Number(duration) || 0,
+      user_name: req.user?.user_metadata?.full_name || req.user?.email || userName || null,
+      user_email: req.user?.email || userEmail || null,
+      responses: serverResponses,
+      scores: {
+        serverOverallScore,
+        answerCount: candidateAnswers.length,
+      },
+      overall_score: serverOverallScore,
+      duration: sanitizedDuration,
       completed_at: new Date().toISOString(),
     };
 
-    let { data, error } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from('admin_interview_submissions')
       .insert(submissionPayload)
       .select('id')
       .single();
 
-    // If failed due to FK violation on user_id, retry without user_id so submission is preserved
-    if (error && error.code === '23503' && submissionPayload.user_id) {
-      console.warn('[Interview Submit] FK violation on user_id, retrying as guest submission');
-      const retryResult = await supabaseAdmin
-        .from('admin_interview_submissions')
-        .insert({ ...submissionPayload, user_id: null })
-        .select('id')
-        .single();
-      data = retryResult.data;
-      error = retryResult.error;
+    if (error?.code === '23505') {
+      return res.status(409).json({ error: 'This interview has already been submitted' });
     }
 
     if (error) throw error;
+    const { error: markSubmittedError } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .update({ submitted_at: new Date().toISOString() })
+      .eq('id', attempt.id)
+      .is('submitted_at', null);
+    if (markSubmittedError) {
+      console.error('Failed to finalize custom interview attempt:', markSubmittedError.code || markSubmittedError.message);
+    }
 
     res.status(201).json({ success: true, submissionId: data?.id });
   } catch (error) {

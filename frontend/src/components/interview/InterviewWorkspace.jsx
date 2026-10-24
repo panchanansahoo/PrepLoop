@@ -43,7 +43,7 @@ function InterviewWorkspace({
     code, setCode,
     onReset,
     notes, setNotes,
-    isListening, transcript,
+    isListening, transcript, interimText,
     silenceCountdown,
     onVoiceInput,
     userInput, setUserInput, setTranscript,
@@ -162,10 +162,12 @@ function InterviewWorkspace({
             </div>
 
             {/* Voice transcript indicator */}
-            {isListening && transcript && (
+            {isListening && (transcript || interimText) && (
                 <div className="ai-ws-transcript-indicator">
                     <span className="ai-ws-transcript-dot" />
-                    <span className="ai-ws-transcript-text">🎙️ "{transcript}"</span>
+                    <span className="ai-ws-transcript-text">
+                        <strong>Live transcript</strong> {transcript}{interimText ? ` ${interimText}` : ''}
+                    </span>
                 </div>
             )}
 

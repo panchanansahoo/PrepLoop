@@ -30,10 +30,11 @@ export default function AIInterviewPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const questionSetCode = searchParams.get('set');
+    const focusArea = searchParams.get('focus') || '';
     const {
         state, refs, actions,
         voiceAI, intelligence, isListening,
-    } = useInterviewSession({ questionSetCode });
+    } = useInterviewSession({ questionSetCode, focusArea });
 
     const {
         phase, interviewType, realtimeMode, interviewerGender, activeTab,
@@ -48,7 +49,7 @@ export default function AIInterviewPage() {
         companyTab, resumeFile, _activeResumeContext,_resultTabb, analysisResult,
         _expandedMoment, captionsOn, workspacePanelOpen, workspaceDropdownOpen,
         cameraError, showEndConfirm, awaitingAnswer,
-        customQuestionSet, questionSetLoading, questionSetError,
+        customQuestionSet, questionSetLoading, questionSetError, submissionStatus, resumeParseError,
     } = state;
 
     const {
@@ -70,6 +71,7 @@ export default function AIInterviewPage() {
         _setResultTab, setAnalysisResult,_setExpandedMomentt,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
         _setSavedSession,_setMicOnn, setElapsed,
+        retryCustomSubmission,
         clearSavedSession, restoreSession, setTranscript,
         handleLanguageChange, handleReset, startInterview, sendAnswer,
         endInterview, togglePause, toggleMic, toggleCamera,
@@ -188,6 +190,7 @@ export default function AIInterviewPage() {
                 customQuestionSet={customQuestionSet}
                 questionSetLoading={questionSetLoading}
                 questionSetError={questionSetError}
+                resumeParseError={resumeParseError}
             />
         );
     }
@@ -247,6 +250,8 @@ export default function AIInterviewPage() {
                 interviewer={INTERVIEWER}
                 interviewType={interviewType}
                 conversation={conversation}
+                submissionStatus={submissionStatus}
+                onRetrySubmission={retryCustomSubmission}
                 onStartNew={() => {
                     setPhase('lobby');
                     setSetupStep(0);
@@ -279,7 +284,7 @@ export default function AIInterviewPage() {
                 connectionHealth={voiceAI.connectionHealth}
                 workspacePanelOpen={workspacePanelOpen}
                 setWorkspacePanelOpen={setWorkspacePanelOpen}
-                endInterview={endInterview}
+                endInterview={handleEndClick}
                 onNavigateBack={() => navigate('/interview-suite')}
             />
 
@@ -405,7 +410,7 @@ export default function AIInterviewPage() {
                         language={language} onLanguageChange={handleLanguageChange}
                         code={code} setCode={setCode} onReset={handleReset}
                         notes={notes} setNotes={setNotes}
-                        isListening={isListening} transcript={transcript}
+                        isListening={isListening} transcript={transcript} interimText={voiceAI.interimText}
                         silenceCountdown={silenceCountdown}
                         onVoiceInput={handleVoiceInput}
                         userInput={userInput} setUserInput={setUserInput} setTranscript={setTranscript}

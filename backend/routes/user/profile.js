@@ -121,6 +121,7 @@ const buildProfileResponse = (req, profile) => {
     website: profile?.website || '',
     yearsOfExperience: profile?.years_of_experience || '',
     specialization: profile?.specialization || '',
+    profileTheme: profile?.profile_theme || 'aurora',
     projects: profile?.projects || [],
     certifications: profile?.certifications || [],
     socialLinks
@@ -158,6 +159,7 @@ const buildProfileResponse = (req, profile) => {
       website: flatProfile.website,
       years_of_experience: flatProfile.yearsOfExperience,
       specialization: flatProfile.specialization,
+      profile_theme: flatProfile.profileTheme,
       projects: flatProfile.projects,
       certifications: flatProfile.certifications,
       social_links: flatProfile.socialLinks,
@@ -892,6 +894,7 @@ router.get('/portfolio/public/:slug', optionalAuth, async (req, res) => {
       openSource: { totalStars: 0, totalRepos: 0 },
       portfolioMeta: {
         template: 'minimal-professional',
+        theme: profile.profile_theme || 'aurora',
         slug: profile.custom_url || rawSlug,
         visibility: profile.is_public ? 'public' : 'private',
         isOwner

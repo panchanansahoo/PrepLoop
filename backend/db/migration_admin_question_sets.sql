@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS admin_question_sets (
 -- Admin Interview Submissions: tracks who took which custom interview and their scores
 CREATE TABLE IF NOT EXISTS admin_interview_submissions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  attempt_id UUID,
   question_set_id UUID NOT NULL REFERENCES admin_question_sets(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
   user_name VARCHAR(255),
@@ -45,6 +46,17 @@ CREATE TABLE IF NOT EXISTS admin_interview_submissions (
   completed_at TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Keep this migration safe for databases created from the earlier version.
+ALTER TABLE admin_interview_submissions
+  ADD COLUMN IF NOT EXISTS attempt_id UUID;
+
+UPDATE admin_interview_submissions
+SET attempt_id = gen_random_uuid()
+WHERE attempt_id IS NULL;
+
+ALTER TABLE admin_interview_submissions
+  ALTER COLUMN attempt_id SET NOT NULL;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 2. INDEXES
@@ -69,6 +81,44 @@ CREATE INDEX IF NOT EXISTS idx_admin_submissions_user
 -- Sorting submissions by completion time (admin dashboard)
 CREATE INDEX IF NOT EXISTS idx_admin_submissions_completed
   ON admin_interview_submissions(question_set_id, completed_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_admin_submissions_attempt_id
+  ON admin_interview_submissions(attempt_id);
+
+-- Server-owned state for an in-progress custom interview.
+CREATE TABLE IF NOT EXISTS admin_interview_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  question_set_id UUID NOT NULL REFERENCES admin_question_sets(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  stage VARCHAR(100) NOT NULL DEFAULT 'Technical',
+  current_question_index INTEGER NOT NULL DEFAULT 0 CHECK (current_question_index >= 0),
+  responses JSONB NOT NULL DEFAULT '[]' CHECK (jsonb_typeof(responses) = 'array'),
+  current_question_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ,
+  completion_reason VARCHAR(50),
+  submitted_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE admin_interview_attempts
+  ADD COLUMN IF NOT EXISTS stage VARCHAR(100) NOT NULL DEFAULT 'Technical';
+ALTER TABLE admin_interview_attempts
+  ADD COLUMN IF NOT EXISTS responses JSONB NOT NULL DEFAULT '[]'
+  CHECK (jsonb_typeof(responses) = 'array');
+ALTER TABLE admin_interview_attempts
+  ADD COLUMN IF NOT EXISTS current_question_started_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE admin_interview_attempts
+  ADD COLUMN IF NOT EXISTS completion_reason VARCHAR(50);
+
+CREATE INDEX IF NOT EXISTS idx_admin_attempts_set_id
+  ON admin_interview_attempts(question_set_id);
+CREATE INDEX IF NOT EXISTS idx_admin_attempts_user_id
+  ON admin_interview_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_attempts_active
+  ON admin_interview_attempts(id, expires_at)
+  WHERE completed_at IS NULL AND submitted_at IS NULL;
+
+ALTER TABLE admin_interview_attempts ENABLE ROW LEVEL SECURITY;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 3. AUTO-UPDATE updated_at TRIGGER
@@ -138,21 +188,11 @@ BEGIN
   END IF;
 END $$;
 
--- Anyone (including anon) can read active question sets (public share links)
+-- Public access is served through the backend endpoint, which can hide
+-- protected question text. Do not expose the table directly to anon users.
 DO $$
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE schemaname = 'public'
-      AND tablename = 'admin_question_sets'
-      AND policyname = 'Public can read active question sets'
-  ) THEN
-    CREATE POLICY "Public can read active question sets"
-      ON admin_question_sets
-      FOR SELECT
-      TO anon, authenticated
-      USING (is_active = true);
-  END IF;
+  DROP POLICY IF EXISTS "Public can read active question sets" ON admin_question_sets;
 END $$;
 
 -- ─── admin_interview_submissions policies ────────────────────────

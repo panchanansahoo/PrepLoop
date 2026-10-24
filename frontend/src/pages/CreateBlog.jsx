@@ -90,7 +90,7 @@ export default function CreateBlog() {
     formData.append('pdf', file);
 
     try {
-      const res = await fetch(`${API_URL}/api/blog/parse-pdf`, {
+      const res = await authFetch(`${API_URL}/api/blog/parse-pdf`, {
         method: 'POST',
         body: formData,
       });
@@ -176,7 +176,7 @@ export default function CreateBlog() {
     formData.append('eml', file);
 
     try {
-      const res = await fetch(`${API_URL}/api/blog/parse-eml`, {
+      const res = await authFetch(`${API_URL}/api/blog/parse-eml`, {
         method: 'POST',
         body: formData,
       });
@@ -573,4 +573,3 @@ export default function CreateBlog() {
     </div>
   );
 }
-

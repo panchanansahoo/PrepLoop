@@ -7,6 +7,30 @@ import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getV
 
 const router = express.Router();
 
+const SESSION_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+};
+
+const setSessionCookies = (res, session) => {
+  if (!session?.access_token || !session?.refresh_token) return;
+  res.cookie('preploop_access', session.access_token, {
+    ...SESSION_COOKIE_OPTIONS,
+    maxAge: 60 * 60 * 1000,
+  });
+  res.cookie('preploop_refresh', session.refresh_token, {
+    ...SESSION_COOKIE_OPTIONS,
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+};
+
+const clearSessionCookies = (res) => {
+  res.clearCookie('preploop_access', SESSION_COOKIE_OPTIONS);
+  res.clearCookie('preploop_refresh', SESSION_COOKIE_OPTIONS);
+};
+
 // SECURITY: Common weak passwords blocklist (top entries from breach databases)
 const COMMON_PASSWORDS = new Set([
   'password', 'password1', 'password123', '123456', '12345678', '123456789',
@@ -308,6 +332,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         console.error('Failed to update last_login:', updateErr.message || updateErr);
       });
 
+    setSessionCookies(res, data.session);
     res.json({
       message: 'Login successful',
       token: data.session.access_token,
@@ -456,7 +481,12 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
 });
 
 router.post('/refresh', async (req, res) => {
-  const { refreshToken } = req.body;
+  const cookieHeader = req.headers.cookie || '';
+  const cookieRefreshToken = cookieHeader.split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith('preploop_refresh='))
+    ?.slice('preploop_refresh='.length);
+  const { refreshToken = cookieRefreshToken } = req.body || {};
 
   if (!refreshToken) {
     return res.status(400).json({ error: 'Refresh token is required' });
@@ -471,6 +501,7 @@ router.post('/refresh', async (req, res) => {
       return res.status(401).json({ error: 'Invalid refresh token' });
     }
 
+    setSessionCookies(res, data.session);
     res.json({
       token: data.session.access_token,
       refreshToken: data.session.refresh_token
@@ -480,6 +511,11 @@ router.post('/refresh', async (req, res) => {
     console.error('Refresh error:', error);
     res.status(500).json({ error: 'Failed to refresh token' });
   }
+});
+
+router.post('/logout', (_req, res) => {
+  clearSessionCookies(res);
+  res.json({ success: true });
 });
 
 router.post('/resend-verification', verificationLimiter, async (req, res) => {

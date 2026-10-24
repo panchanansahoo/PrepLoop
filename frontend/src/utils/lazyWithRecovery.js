@@ -17,15 +17,42 @@ import { lazy } from 'react';
 export function lazyWithRecovery(importFn, retries = 1) {
   return lazy(() =>
     new Promise((resolve, reject) => {
+      const getReloadFlag = () => {
+        try {
+          return window.sessionStorage.getItem('chunk_reload');
+        } catch {
+          return null;
+        }
+      };
+
+      const setReloadFlag = () => {
+        try {
+          window.sessionStorage.setItem('chunk_reload', '1');
+        } catch {
+          // Storage may be unavailable in private browsing; continue without it.
+        }
+      };
+
+      const clearReloadFlag = () => {
+        try {
+          window.sessionStorage.removeItem('chunk_reload');
+        } catch {
+          // Storage may be unavailable in private browsing; nothing to clear.
+        }
+      };
+
       const attemptImport = (retriesLeft) => {
         importFn()
-          .then(resolve)
+          .then((module) => {
+            clearReloadFlag();
+            resolve(module);
+          })
           .catch((error) => {
             if (retriesLeft === 0) {
               // Avoid infinite reload loop: check sessionStorage flag
-              const reloaded = sessionStorage.getItem('chunk_reload');
+              const reloaded = getReloadFlag();
               if (!reloaded) {
-                sessionStorage.setItem('chunk_reload', '1');
+                setReloadFlag();
                 window.location.reload();
               }
               reject(error);

@@ -6,6 +6,7 @@ import cacheManager from '../utils/cacheManager.js';
 import { breakers } from '../utils/circuitBreaker.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import performanceMonitor from '../utils/performanceMonitor.js';
 
 const router = express.Router();
 const logger = createLogger('monitoring');
@@ -29,6 +30,29 @@ const metrics = {
     byType: new Map(),
     recent: [],
   },
+};
+
+const getAlertSummary = () => {
+  const total = metrics.requests.total;
+  const errorRate = total > 0 ? metrics.requests.errors / total : 0;
+  const alerts = [];
+  const p95 = metrics.performance.p95ResponseTime || 0;
+  const errorRateThreshold = Number(process.env.MONITORING_ERROR_RATE_THRESHOLD || 0.05);
+  const p95Threshold = Number(process.env.MONITORING_P95_MS_THRESHOLD || 2000);
+
+  if (errorRate >= errorRateThreshold) {
+    alerts.push({ code: 'HIGH_ERROR_RATE', severity: 'critical', value: errorRate, threshold: errorRateThreshold });
+  }
+  if (p95 >= p95Threshold) {
+    alerts.push({ code: 'HIGH_P95_LATENCY', severity: 'warning', value: p95, threshold: p95Threshold });
+  }
+
+  return {
+    status: alerts.some((alert) => alert.severity === 'critical') ? 'critical' : alerts.length ? 'warning' : 'healthy',
+    errorRate,
+    p95ResponseTimeMs: p95,
+    alerts,
+  };
 };
 
 // Track request metrics
@@ -191,6 +215,8 @@ router.get('/metrics', authenticateToken, requireAdmin, (req, res) => {
         byType: errorsByType,
         recent: metrics.errors.recent.slice(-10),
       },
+      runtime: performanceMonitor.getMetrics(),
+      alerts: getAlertSummary(),
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

@@ -893,7 +893,6 @@ router.get('/', optionalAuth, async (req, res) => {
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
     let adminJobs = [];
     let externalJobs = [];
-    let totalAdmin = 0;
 
     // ── Fetch admin-posted jobs from Supabase ──
     let query = supabaseAdmin
@@ -913,13 +912,12 @@ router.get('/', optionalAuth, async (req, res) => {
       query = query.or(`title.ilike.%${search}%,company.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    const { data, count, error } = await query.range(offset, offset + parseInt(limit) - 1);
+    const { data, error } = await query.range(offset, offset + parseInt(limit) - 1);
 
     if (error) {
       logger.error('Supabase job fetch error', { error: error.message, code: error.code });
     } else {
       adminJobs = (data || []).map(j => ({ ...j, source: 'admin' }));
-      totalAdmin = count || 0;
     }
 
     // ── Fetch external API jobs (only page 1 or when specifically requested) ──
@@ -935,15 +933,35 @@ router.get('/', optionalAuth, async (req, res) => {
         ? adminJobs
         : [...adminJobs, ...externalJobs];
 
+    // External providers may return broad fallback results when a query has
+    // no exact matches. Never show those unrelated jobs for a keyword search.
+    const searchTerms = String(search || '')
+      .toLowerCase()
+      .split(/\s+/)
+      .map(term => term.replace(/[^a-z0-9+#.-]/g, ''))
+      .filter(term => term.length >= 2);
+    const filteredJobs = searchTerms.length > 0
+      ? allJobs.filter(job => {
+        const searchableText = [
+          job.title,
+          job.company,
+          job.description,
+          job.location,
+          job.skills,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return searchTerms.some(term => searchableText.includes(term));
+      })
+      : allJobs;
+
     // Respect the limit parameter for the combined results
     const requestedLimit = Math.min(100, parseInt(limit, 10));
-    const combinedJobs = allJobs.slice(0, requestedLimit);
+    const combinedJobs = filteredJobs.slice(0, requestedLimit);
 
     res.json({
       jobs: combinedJobs,
-      total: totalAdmin + externalJobs.length,
+      total: filteredJobs.length,
       page: parseInt(page),
-      totalPages: Math.ceil(totalAdmin / parseInt(limit, 10)) || 1,
+      totalPages: Math.ceil(filteredJobs.length / parseInt(limit, 10)) || 1,
       hasExternalApi: !!RAPIDAPI_KEY,
       cached: !!getCachedJobs(`jobs_${searchQuery}_${parseInt(page, 10)}`),
       rateLimit: {

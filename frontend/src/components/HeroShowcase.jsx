@@ -218,7 +218,7 @@ export default function HeroShowcase() {
                   </div>
                   <div className="hs-chat-prompt">
                     <span>Type your goal...</span>
-                    <button className="hs-chat-send">
+                    <button type="button" aria-label="Send message" className="hs-chat-send">
                       <ArrowRight size={14} />
                     </button>
                   </div>

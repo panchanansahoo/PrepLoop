@@ -35,6 +35,18 @@ jobs:
       - name: Frontend build
         run: npm run build --prefix frontend
 
+      - name: Check frontend bundle budget
+        run: npm run check:bundle --prefix frontend
+
+      - name: Install Chromium for smoke tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Public route smoke tests
+        run: npm run test:e2e --prefix frontend -- tests/e2e/public-smoke.spec.js --project=chromium
+
+      - name: Accessibility and mobile smoke tests
+        run: npm run test:e2e:a11y --prefix frontend
+
   deploy-staging:
     name: Deploy Frontend Staging
     runs-on: ubuntu-latest

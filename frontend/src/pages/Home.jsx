@@ -1203,7 +1203,7 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '48px' }}>
-            <button onClick={prevTestimonial} style={{
+            <button aria-label="Previous testimonial" onClick={prevTestimonial} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '48px', height: '48px', borderRadius: '12px',
               background: 'var(--bg-card)', border: '1px solid var(--border)',
@@ -1212,7 +1212,7 @@ export default function Home() {
             }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}>
               <ChevronLeft size={20} />
             </button>
-            <button onClick={nextTestimonial} style={{
+            <button aria-label="Next testimonial" onClick={nextTestimonial} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: '48px', height: '48px', borderRadius: '12px',
               background: 'var(--bg-card)', border: '1px solid var(--border)',

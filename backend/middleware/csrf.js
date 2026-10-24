@@ -58,10 +58,15 @@ export function csrfProtection(req, res, next) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     return next();
   }
+
+  const cookies = req.cookies || parseCookies(req.headers.cookie);
+  const hasSessionCookie = Boolean(cookies.preploop_access || cookies.preploop_refresh);
+  if (!hasSessionCookie) {
+    return next();
+  }
   
   // For cookie-based auth, verify CSRF token
   // Use req.cookies if cookie-parser is loaded, otherwise parse manually
-  const cookies = req.cookies || parseCookies(req.headers.cookie);
   const cookieToken = cookies[CSRF_COOKIE_NAME];
   const headerToken = req.headers[CSRF_HEADER_NAME];
   

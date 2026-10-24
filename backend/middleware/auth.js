@@ -4,6 +4,31 @@ const ROLE_CACHE_TTL_MS = Number.parseInt(process.env.AUTH_ROLE_CACHE_TTL_MS || 
 const ROLE_CACHE_MAX_ENTRIES = Number.parseInt(process.env.AUTH_ROLE_CACHE_MAX_ENTRIES || '10000', 10);
 const roleCache = new Map();
 
+const parseCookies = (header = '') => {
+  const cookies = {};
+  for (const part of header.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator < 1) continue;
+    const key = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    try {
+      cookies[decodeURIComponent(key)] = decodeURIComponent(value);
+    } catch {
+      // Ignore malformed cookie pairs and continue with header authentication.
+    }
+  }
+  return cookies;
+};
+
+export const getAccessToken = (req) => {
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ')
+    ? authHeader.slice(7).trim()
+    : null;
+  if (bearerToken) return bearerToken;
+  return parseCookies(req.headers.cookie || '').preploop_access || null;
+};
+
 const getRoleFromCache = (userId) => {
   const cached = roleCache.get(userId);
   if (!cached) return null;
@@ -77,8 +102,7 @@ const isTokenExpired = (errorMessage) => {
 };
 
 export const authenticateToken = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = getAccessToken(req);
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -136,8 +160,7 @@ export const requireHR = (req, res, next) => {
 };
 
 export const optionalAuth = async (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
+  const token = getAccessToken(req);
 
   if (token) {
     try {

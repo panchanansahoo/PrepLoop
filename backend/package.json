@@ -5,7 +5,7 @@
     "main": "index.js",
     "type": "module",
     "engines": {
-        "node": ">=20.0.0"
+        "node": "22.x"
     },
     "scripts": {
         "start": "node index.js",
@@ -52,7 +52,9 @@
         "test:career": "node scripts/testPrepLoopCareerService.js",
         "test:aiml:career": "node scripts/testAimlCareerGuidance.js",
         "test:copilot": "node scripts/test-copilot.js",
-        "test:circuit-breaker": "node tests/circuitBreaker.test.js"
+        "test:circuit-breaker": "node tests/circuitBreaker.test.js",
+        "test:hardening": "node --test tests/hardening.test.js",
+        "maintenance:cleanup-interview-retention": "node scripts/cleanupInterviewRetention.js"
     },
     "dependencies": {
         "@google/genai": "^1.50.1",
@@ -74,6 +76,7 @@
         "jsonwebtoken": "^9.0.3",
         "kokoro-js": "^1.2.1",
         "libmime": "5.3.8",
+        "mammoth": "^1.13.0",
         "multer": "^2.0.0",
         "node-cache": "^5.1.2",
         "node-edge-tts": "^1.2.10",

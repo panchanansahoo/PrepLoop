@@ -85,7 +85,6 @@ const COMPANY_TABS = [
  *  - companySearch / setCompanySearch
  *  - companyTab / setCompanyTab
  *  - resumeFile
- *  - realtimeMode / setRealtimeMode
  *  - loading
  *  - savedSession
  *  - interviewer          { name, role }
@@ -108,7 +107,6 @@ function InterviewLobby({
     companySearch, setCompanySearch,
     companyTab, setCompanyTab,
     resumeFile,
-    realtimeMode, setRealtimeMode,
     loading,
     savedSession,
     interviewer,
@@ -124,6 +122,7 @@ function InterviewLobby({
     customQuestionSet,
     questionSetLoading,
     questionSetError,
+    resumeParseError,
 }) {
     const navigate = useNavigate();
 
@@ -443,13 +442,18 @@ function InterviewLobby({
                                                 <>
                                                     <FileText size={28} className="ai-setup-drop-icon" />
                                                     <p className="ai-setup-drop-text">Drop your resume here or <span>browse files</span></p>
-                                                    <p className="ai-setup-drop-hint">PDF, DOCX up to 5MB</p>
+                                                    <p className="ai-setup-drop-hint">PDF or DOCX up to 5MB</p>
                                                 </>
+                                            )}
+                                            {resumeParseError && (
+                                                <div role="status" style={{ color: '#fbbf24', fontSize: '12px', marginTop: '10px' }}>
+                                                    {resumeParseError}
+                                                </div>
                                             )}
                                             <input
                                                 id="resume-file-input"
                                                 type="file"
-                                                accept=".pdf,.doc,.docx"
+                                                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                                 style={{ display: 'none' }}
                                                 onChange={onResumeFileChange}
                                             />
@@ -607,20 +611,13 @@ function InterviewLobby({
                                     <div className="ai-wizard-review-row ai-lobby-review-divider">
                                         <span className="ai-wizard-review-label ai-lobby-realtime-label">
                                             <Zap size={14} className="ai-lobby-realtime-icon" /> Real-Time Voice
-                                            <span className="ai-lobby-beta-badge">BETA</span>
+                                            <span className="ai-lobby-beta-badge">COMING SOON</span>
                                         </span>
-                                        <button
-                                            onClick={() => setRealtimeMode(m => !m)}
-                                            className={`ai-lobby-toggle ${realtimeMode ? 'ai-lobby-toggle--on' : ''}`}
-                                        >
-                                            <div className="ai-lobby-toggle-knob" style={{ left: realtimeMode ? 22 : 2 }} />
-                                        </button>
+                                        <span className="ai-lobby-realtime-status">Classic voice enabled</span>
                                     </div>
-                                    {realtimeMode && (
-                                        <div className="ai-lobby-realtime-desc">
-                                            ⚡ Deepgram STT + Kokoro TTS — ultra-low latency, 100% Node.js. No Python required.
-                                        </div>
-                                    )}
+                                    <div className="ai-lobby-realtime-desc">
+                                        Real-time voice infrastructure is being finalized. Your interview will use the reliable classic voice flow.
+                                    </div>
                                 </div>
                             </div>
                         )}

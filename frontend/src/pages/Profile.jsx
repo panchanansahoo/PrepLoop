@@ -29,6 +29,7 @@ function buildInitialProfile(user) {
     company: '',
     yearsOfExperience: '',
     specialization: '',
+    profileTheme: 'aurora',
     socialLinks: {
       twitter: '',
       linkedin: '',
@@ -59,6 +60,7 @@ function normalizeProfileData(data) {
     company: merged.company ?? '',
     yearsOfExperience: merged.yearsOfExperience ?? merged.years_of_experience ?? '',
     specialization: merged.specialization ?? '',
+    profileTheme: merged.profileTheme ?? merged.profile_theme ?? 'aurora',
     avatar_url: merged.avatar_url ?? '',
     custom_url: merged.custom_url ?? '',
     is_public: merged.is_public ?? false,
@@ -238,6 +240,7 @@ export default function Profile() {
   const [claimEditing, setClaimEditing] = useState(false);
   const [claimValue, setClaimValue] = useState('');
   const [claimStatus, setClaimStatus] = useState('idle');
+  const [themeSaving, setThemeSaving] = useState(false);
   const [toastExiting, setToastExiting] = useState(false);
 
   const fetchProfile = useCallback(async () => {
@@ -403,7 +406,9 @@ export default function Profile() {
         method: 'PUT',
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('Failed to save profile');
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Could not save profile. Please try again.'));
+      }
       const data = await res.json();
       
       const normalized = normalizeProfileData(data);
@@ -470,41 +475,64 @@ export default function Profile() {
     const next = !isPublic;
     setIsPublic(next);
     try {
-      await authFetch('/api/user/profile', {
+      const res = await authFetch('/api/user/profile', {
         method: 'PUT',
         body: JSON.stringify({ is_public: next })
       });
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Could not update profile visibility.'));
+      }
       setProfile(prev => ({ ...prev, is_public: next }));
+      setStatus('saved');
     } catch (err) {
       console.error(err);
       setIsPublic(!next);
+      setErrorMessage(err.message || 'Could not update profile visibility.');
+      setStatus('error');
     }
   };
 
   const handleCopyLink = async () => {
     if (!isPublic) {
-      setIsPublic(true);
       try {
-        await authFetch('/api/user/profile', {
+        const visibilityResponse = await authFetch('/api/user/profile', {
           method: 'PUT',
           body: JSON.stringify({ is_public: true })
         });
+        if (!visibilityResponse.ok) {
+          throw new Error(await readApiErrorMessage(visibilityResponse, 'Could not make your profile public.'));
+        }
+        setIsPublic(true);
         setProfile(prev => ({ ...prev, is_public: true }));
       } catch (e) {
         console.error('Failed to make profile public:', e);
+        setErrorMessage(e.message || 'Could not make your profile public.');
+        setStatus('error');
+        return;
       }
     }
 
-    navigator.clipboard.writeText(profileLink).catch(() => {
-      const ta = document.createElement('textarea');
-      ta.value = profileLink;
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-    });
-    setLinkCopied(true);
-    setTimeout(() => setLinkCopied(false), 2000);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(profileLink);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = profileLink;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        if (!document.execCommand('copy')) throw new Error('Copy command was rejected');
+        document.body.removeChild(ta);
+      }
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy profile link:', err);
+      setErrorMessage('Could not copy the profile link. Please copy it manually.');
+      setStatus('error');
+    }
   };
 
   const handleClaimUrl = async () => {
@@ -516,11 +544,13 @@ export default function Profile() {
       .replace(/^-|-$/g, '');
 
     if (!slug) {
-      alert('Please enter a custom URL slug');
+      setErrorMessage('Please enter a custom URL slug.');
+      setStatus('error');
       return;
     }
     if (slug.length < 3 || slug.length > 30) {
-      alert('Custom URL must be between 3 and 30 characters');
+      setErrorMessage('Custom URL must be between 3 and 30 characters.');
+      setStatus('error');
       return;
     }
 
@@ -545,12 +575,13 @@ export default function Profile() {
       setIsPublic(true);
       setClaimEditing(false);
       setClaimStatus('saved');
-      setSuccessMessage(`Custom URL claimed! Your public profile is live at preploop.com/u/${slug}`);
+      setSuccessMessage(`Custom URL claimed! Your public profile is live at ${publicAppUrl}/u/${slug}`);
       setStatus('saved');
     } catch (err) {
       console.error('Claim error', err);
       setClaimStatus('error');
-      alert(err.message || 'Failed to claim custom URL');
+      setErrorMessage(err.message || 'Failed to claim custom URL.');
+      setStatus('error');
     }
   };
 
@@ -572,6 +603,32 @@ export default function Profile() {
         [platform]: value
       }
     }));
+  };
+
+  const handleProfileThemeChange = async (event) => {
+    const nextTheme = event.target.value;
+    const previousTheme = profile.profileTheme || 'aurora';
+    setProfile((prev) => ({ ...prev, profileTheme: nextTheme }));
+    setThemeSaving(true);
+    setErrorMessage('');
+    try {
+      const res = await authFetch('/api/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ profile_theme: nextTheme })
+      });
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Could not update profile theme.'));
+      }
+      setSuccessMessage('Profile theme updated.');
+      setStatus('saved');
+    } catch (err) {
+      console.error('Profile theme update error:', err);
+      setProfile((prev) => ({ ...prev, profileTheme: previousTheme }));
+      setErrorMessage(err.message || 'Could not update profile theme.');
+      setStatus('error');
+    } finally {
+      setThemeSaving(false);
+    }
   };
 
   const handleAcceptAutofillField = (key) => {
@@ -626,6 +683,12 @@ export default function Profile() {
   const handleLinkedInFileChange = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setErrorMessage('Please select a LinkedIn PDF export.');
+      setStatus('error');
+      e.target.value = '';
+      return;
+    }
     setLinkedinImporting(true);
     setStatus('idle');
     setSuccessMessage('');
@@ -667,6 +730,13 @@ export default function Profile() {
   const handleResumeFileChange = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
+    const allowedExtensions = ['.pdf', '.doc', '.docx'];
+    if (!allowedExtensions.some((extension) => file.name.toLowerCase().endsWith(extension))) {
+      setErrorMessage('Please select a PDF, DOC, or DOCX resume.');
+      setStatus('error');
+      e.target.value = '';
+      return;
+    }
     setResumeImporting(true);
     setStatus('idle');
     setSuccessMessage('');
@@ -741,6 +811,18 @@ export default function Profile() {
   const handleAvatarFileChange = async (e) => {
     const file = e?.target?.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please select an image file for your avatar.');
+      setStatus('error');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Avatar images must be 5 MB or smaller.');
+      setStatus('error');
+      e.target.value = '';
+      return;
+    }
     setSaving(true);
     setStatus('idle');
     try {
@@ -755,7 +837,9 @@ export default function Profile() {
         body: form,
       });
 
-      if (!res.ok) throw new Error('Upload failed');
+      if (!res.ok) {
+        throw new Error(await readApiErrorMessage(res, 'Avatar upload failed. Please try again.'));
+      }
       const data = await res.json();
 
       const normalized = normalizeProfileData(data);
@@ -764,6 +848,7 @@ export default function Profile() {
       setStatus('saved');
     } catch (err) {
       console.error('Avatar upload error:', err);
+      setErrorMessage(err.message || 'Avatar upload failed. Please try again.');
       setStatus('error');
     }
     setSaving(false);
@@ -778,7 +863,9 @@ export default function Profile() {
   const aiMatches = dashboardData?.stats?.problemsSolved || 0;
   const coverLetters = dashboardData?.stats?.resumesAnalyzed || 0;
   const activeSlug = profile.custom_url || displayName.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'user';
-  const profileLink = `https://preploop.com/u/${activeSlug}`;
+  const publicAppUrl = (import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin).replace(/\/+$/, '');
+  const publicAppHost = publicAppUrl.replace(/^https?:\/\//i, '');
+  const profileLink = `${publicAppUrl}/u/${activeSlug}`;
   const localProfilePath = `/u/${activeSlug}`;
   const roleDisplay = profile.currentRole || resumeSnapshot?.candidateHeadline || 'Not set';
   const _educationDisplay = profile.education || 'Not set';
@@ -958,7 +1045,7 @@ export default function Profile() {
                 </div>
               ) : (
                 <div className="du-claim-input-group" style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>preploop.com/u/</span>
+                  <span style={{ fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>{publicAppHost}/u/</span>
                   <input
                     className="du-form-input"
                     style={{ width: 'auto', minWidth: 150 }}
@@ -1794,9 +1881,20 @@ export default function Profile() {
             <p className="du-card-subtitle" style={{ marginBottom: 14 }}>
               Customize your public profile appearance.
             </p>
-            <button className="du-theme-coming" type="button" disabled>
-              More Themes Coming Soon
-            </button>
+            <label className="du-theme-selector">
+              <span>Choose a public profile theme</span>
+              <select
+                className="du-form-input"
+                value={profile.profileTheme || 'aurora'}
+                onChange={handleProfileThemeChange}
+                disabled={themeSaving}
+              >
+                <option value="aurora">Aurora (Default)</option>
+                <option value="midnight">Midnight</option>
+                <option value="sunrise">Sunrise</option>
+              </select>
+              {themeSaving && <small>Saving theme...</small>}
+            </label>
           </div>
           
           {/* Quick Stats */}

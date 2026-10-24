@@ -149,9 +149,13 @@ export default function CompanyInterview() {
     const speakingStartRef = useRef(null);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
+    const sendAnswerRef = useRef(null);
     const consecutiveSkipsRef = useRef(0);
     const captionsEndRef = useRef(null);
     const resumeFileInputRef = useRef(null);
+    const saveIdempotencyKeyRef = useRef(
+        `company-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    );
     const [isTranscribing, setIsTranscribing] = useState(false);
 
     // Advanced features state
@@ -998,17 +1002,9 @@ export default function CompanyInterview() {
             setIsListening(false);
             recognitionRef.current?.stop();
 
-            // Stop outstanding MediaRecorder if user mutes or aborts
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                try { mediaRecorderRef.current.stop(); } catch (_e) { /* empty */ }
-            }
-
-            // Send speech feedback with accumulated transcript
-            const finalText = accumulatedTranscriptRef.current.trim();
-            if (finalText && speechStartTime) {
-                const duration = (Date.now() - speechStartTime) / 1000;
-                fetchSpeechFeedback(finalText, duration);
-            }
+            // Route manual stop through the same path as auto-submit so a
+            // MediaRecorder-only browser sends its audio to Whisper.
+            sendAnswerRef.current?.(false);
         } else {
             // If we are already listening and forceStart is requested, just return to keep it running
             if (isListeningRef.current && forceStart) return;
@@ -1242,6 +1238,8 @@ export default function CompanyInterview() {
             processFinalAudioAndSend(isAutoSkip, isInterrupted, answerSnapshot);
         }
     };
+
+    sendAnswerRef.current = sendAnswer;
 
     const processFinalAudioAndSend = async (isAutoSkip, isInterrupted, answerSnapshot = '') => {
         let answerText = String(answerSnapshot || userInput || '').trim();
@@ -1612,6 +1610,7 @@ export default function CompanyInterview() {
         try {
             authFetch(`${API_URL}/api/company-interview/save-session`, {
                 method: 'POST',
+                headers: { 'Idempotency-Key': saveIdempotencyKeyRef.current },
                 body: JSON.stringify({
                     type: 'single',
                     company: config.company, role: config.role,
@@ -2971,4 +2970,3 @@ export default function CompanyInterview() {
         </div>
     );
 }
-

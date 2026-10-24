@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
+import { authFetch } from '../utils/authFetch';
 
 const AuthContext = createContext(null);
 
@@ -38,6 +39,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  axios.defaults.withCredentials = true;
+
   // Fix #9: use a ref so the interceptor always calls the latest refreshSession
   const refreshSessionRef = useRef(null);
 
@@ -52,7 +55,6 @@ export function AuthProvider({ children }) {
           if (session) {
             const token = session.access_token;
             localStorage.setItem('token', token);
-            localStorage.setItem('refreshToken', session.refresh_token);
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
@@ -116,7 +118,6 @@ export function AuthProvider({ children }) {
         if (event === 'SIGNED_IN' && session) {
           const token = session.access_token;
           localStorage.setItem('token', token);
-          localStorage.setItem('refreshToken', session.refresh_token);
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
           try {
@@ -164,10 +165,9 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const response = await axios.post('/api/auth/login', { email, password });
-    const { token, refreshToken, user } = response.data;
+    const { token, user } = response.data;
 
     localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
     localStorage.setItem('user', JSON.stringify(user));
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     setUser(user);
@@ -205,11 +205,10 @@ export function AuthProvider({ children }) {
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
     const response = await axios.post('/api/auth/signup', { email, password, fullName });
-    const { token, refreshToken, user } = response.data;
+    const { token, user } = response.data;
 
     if (token) {
       localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('user', JSON.stringify(user));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
@@ -222,6 +221,10 @@ export function AuthProvider({ children }) {
     if (supabase) {
       await supabase.auth.signOut();
     }
+    const logoutResponse = await authFetch('/api/auth/logout', { method: 'POST' });
+    if (!logoutResponse.ok) {
+      console.warn('Session cookie cleanup failed:', logoutResponse.status);
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     localStorage.removeItem('user');
@@ -230,9 +233,6 @@ export function AuthProvider({ children }) {
   };
 
   const refreshSession = async () => {
-    const storedRefreshToken = localStorage.getItem('refreshToken');
-    if (!storedRefreshToken) return false;
-
     let data = { session: null };
     let error = null;
 
@@ -244,19 +244,16 @@ export function AuthProvider({ children }) {
 
     if (!error && data?.session) {
       const token = data.session.access_token;
-      const newRefreshToken = data.session.refresh_token;
       localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', newRefreshToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(prev => prev ? { ...prev, access_token: token } : prev);
       return true;
     }
 
     try {
-      const response = await axios.post('/api/auth/refresh', { refreshToken: storedRefreshToken });
-      const { token, refreshToken: newRefreshToken } = response.data;
+      const response = await axios.post('/api/auth/refresh');
+      const { token } = response.data;
       localStorage.setItem('token', token);
-      localStorage.setItem('refreshToken', newRefreshToken);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(prev => prev ? { ...prev, access_token: token } : prev);
       return true;
@@ -292,7 +289,7 @@ export function AuthProvider({ children }) {
           (error.response?.status === 401 ||
             (error.response?.status === 403 && !isEmailNotVerified)) &&
           !originalRequest._retry &&
-          localStorage.getItem('refreshToken')
+          (supabase || localStorage.getItem('refreshToken'))
         ) {
           originalRequest._retry = true;
           const refreshed = await refreshSessionRef.current();

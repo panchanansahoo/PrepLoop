@@ -136,6 +136,21 @@ describe("useInterviewSession", () => {
     expect(result.current.isListening).toBe(false);
   });
 
+  it("tracks browser connectivity for resilient sessions", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    expect(result.current.state.isOnline).toBe(true);
+
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(result.current.state.isOnline).toBe(false);
+
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(result.current.state.isOnline).toBe(true);
+  });
+
   it("initializes with default code as python boilerplate", () => {
     const { result } = renderHook(() => useInterviewSession());
     expect(result.current.state.language).toBe("python");

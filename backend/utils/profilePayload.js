@@ -12,14 +12,17 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   if (fullNameRaw !== undefined) {
     const trimmed = String(fullNameRaw || '').trim();
     if (trimmed !== '') updates.full_name = trimmed;
+    else if (fullNameRaw === '') updates.full_name = '';
   }
   if (experienceLevelRaw !== undefined) {
     const trimmed = String(experienceLevelRaw || '').trim();
     if (trimmed !== '') updates.experience_level = trimmed;
+    else if (experienceLevelRaw === '') updates.experience_level = '';
   }
   if (currentRoleRaw !== undefined) {
     const trimmed = String(currentRoleRaw || '').trim();
     if (trimmed !== '') updates.designation = trimmed;
+    else if (currentRoleRaw === '') updates.designation = '';
   }
   if (bioRaw !== undefined) {
     updates.bio = typeof bioRaw === 'string' ? bioRaw.trim() : bioRaw;
@@ -106,6 +109,7 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   const company = body.company;
   const yearsOfExperience = body.yearsOfExperience;
   const specialization = body.specialization;
+  const profileTheme = body.profileTheme ?? body.profile_theme;
   const socialLinks = body.socialLinks;
 
   // Validate and sanitize inputs
@@ -134,6 +138,12 @@ const normalizeProfileUpdatePayload = (body = {}) => {
   }
   if (specialization !== undefined) {
     updates.specialization = String(specialization || '').trim().substring(0, 100);
+  }
+  if (profileTheme !== undefined) {
+    const normalizedTheme = String(profileTheme || '').trim().toLowerCase();
+    if (['aurora', 'midnight', 'sunrise'].includes(normalizedTheme)) {
+      updates.profile_theme = normalizedTheme;
+    }
   }
   if (socialLinks !== undefined) {
     // Ensure social_links is a valid JSON object

@@ -52,6 +52,25 @@ function run() {
     'Text experience should map to experience_summary',
   );
 
+  const clearedFields = normalizeProfileUpdatePayload({
+    fullName: '',
+    currentRole: '',
+    experienceLevel: '',
+  });
+
+  assert(clearedFields.full_name === '', 'An explicit empty name should clear the stored name');
+  assert(clearedFields.designation === '', 'An explicit empty role should clear the stored role');
+  assert(clearedFields.experience_level === '', 'An explicit empty level should clear the stored level');
+
+  const themeUpdate = normalizeProfileUpdatePayload({ profile_theme: 'MIDNIGHT' });
+  assert(themeUpdate.profile_theme === 'midnight', 'Profile themes should be normalized');
+
+  const invalidTheme = normalizeProfileUpdatePayload({ profile_theme: 'neon' });
+  assert(
+    !Object.prototype.hasOwnProperty.call(invalidTheme, 'profile_theme'),
+    'Unsupported profile themes should not be included in updates',
+  );
+
   console.log('Profile payload normalization tests passed.');
 }
 

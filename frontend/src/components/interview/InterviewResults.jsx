@@ -2,6 +2,8 @@ import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause } from 'lucide-react';
 
+const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
+
 /**
  * InterviewResults — Summary/Results dashboard.
  *
@@ -11,6 +13,7 @@ import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, Ba
  *  - interviewer:         { name, company } object
  *  - interviewType:       'hr' | 'technical' | etc.
  *  - conversation:        Array of { role, content } messages
+ *  - submissionStatus:    Custom interview submission state
  *  - onStartNew:          Callback to reset and start a new interview
  */
 function InterviewResults({
@@ -19,17 +22,75 @@ function InterviewResults({
     interviewer,
     interviewType,
     conversation,
+    submissionStatus,
+    onRetrySubmission,
     onStartNew,
 }) {
     const navigate = useNavigate();
     const [resultTab, setResultTab] = useState('overview');
     const [expandedMoment, setExpandedMoment] = useState(null);
+    const [actionMessage, setActionMessage] = useState('');
 
     const a = analysisResult; // shorthand
     // Enrichment fields from backend intelligence
     const benchmarkTier = a?.benchmark_tier || a?.benchmarkTier;
     const timingAnalysis = a?.timing_analysis || a?.timingAnalysis;
     const perQBreakdown = a?.per_question_breakdown || a?.perQuestionBreakdown;
+    const categories = ensureArray(a?.categories)
+        .filter(category => category && Number.isFinite(Number(category.score)))
+        .map(category => ({ ...category, score: Number(category.score) }));
+    const weakestCategory = categories.length > 0
+        ? categories.reduce((weakest, category) => category.score < weakest.score ? category : weakest)
+        : null;
+    const firstImprovement = ensureArray(a?.improvements)[0];
+
+    const showActionMessage = (message) => {
+        setActionMessage(message);
+        window.setTimeout(() => setActionMessage(''), 3500);
+    };
+
+    const handleShare = async () => {
+        const shareText = `I scored ${a?.overallScore || '—'}/10 in my ${interviewType} interview practice session.`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: 'My PrepLoop interview result', text: shareText });
+                return;
+            }
+            await navigator.clipboard.writeText(shareText);
+            showActionMessage('Result summary copied to your clipboard.');
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                showActionMessage('Sharing is unavailable in this browser.');
+            }
+        }
+    };
+
+    const handleExport = () => {
+        const exportData = {
+            score: a?.overallScore ?? null,
+            performance: a?.performanceLabel || null,
+            interviewType,
+            duration: a?.stats?.duration || null,
+            categories: categories.map(({ name, score, detail }) => ({ name, score, detail })),
+            strengths: ensureArray(a?.strengths),
+            improvements: ensureArray(a?.improvements),
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `preploop-interview-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        showActionMessage('Interview report downloaded.');
+    };
+
+    const submissionMessage = {
+        saved: 'Your interview result was saved.',
+        'login-required': 'Please log in to save this interview result.',
+        'already-submitted': 'This interview result was already submitted.',
+        failed: 'We could not save your interview result. Please contact the administrator if needed.',
+    }[submissionStatus];
 
     // Show loading state during AI analysis
     if (analysisLoading && !a) {
@@ -41,8 +102,6 @@ function InterviewResults({
             </div>
         );
     }
-
-const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
 
     return (
         <div className="ai-interview-page">
@@ -64,16 +123,29 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
                     <button className="ai-result-action-btn" onClick={() => navigate('/interview-history')}>
                         <Clock size={14} /> History
                     </button>
-                    <button className="ai-result-action-btn">
+                    <button className="ai-result-action-btn" onClick={handleShare}>
                         <Share2 size={14} /> Share
                     </button>
-                    <button className="ai-result-action-btn ai-result-action-btn--primary">
+                    <button className="ai-result-action-btn ai-result-action-btn--primary" onClick={handleExport}>
                         <Download size={14} /> Export
                     </button>
                 </div>
             </header>
 
             <div className="ai-result-page">
+                {actionMessage && (
+                    <div className="ai-results-action-message" role="status">{actionMessage}</div>
+                )}
+                {submissionMessage && (
+                    <div role="status" style={{ margin: '16px 24px', padding: '12px 16px', borderRadius: '10px', background: submissionStatus === 'saved' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.12)', color: submissionStatus === 'saved' ? '#86efac' : '#fcd34d' }}>
+                        {submissionMessage}
+                        {submissionStatus === 'failed' && onRetrySubmission && (
+                            <button type="button" onClick={onRetrySubmission} style={{ marginLeft: '12px' }}>
+                                Retry save
+                            </button>
+                        )}
+                    </div>
+                )}
                 {/* ── Hero Section ── */}
                 <div className="ai-result-hero">
                     <div className="ai-result-hero-left">
@@ -132,6 +204,26 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
                             <Brain size={14} className="ai-results-summary-icon" /> AI Summary
                         </div>
                         {a.summary}
+                    </div>
+                )}
+
+                {weakestCategory && (
+                    <div className="ai-results-focus-card">
+                        <div className="ai-results-focus-icon"><Target size={18} /></div>
+                        <div className="ai-results-focus-content">
+                            <div className="ai-results-focus-label">Your next practice focus</div>
+                            <h2>{weakestCategory.name} <span>{weakestCategory.score}/10</span></h2>
+                            <p>
+                                {firstImprovement || `Build confidence in ${weakestCategory.name.toLowerCase()} with one focused practice round.`}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            className="ai-result-focus-btn"
+                            onClick={() => navigate(`/ai-interview?focus=${encodeURIComponent(weakestCategory.name)}`)}
+                        >
+                            Practice this next <ChevronRight size={14} />
+                        </button>
                     </div>
                 )}
 
@@ -205,7 +297,7 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
                             <div className="ai-result-card">
                                 <h3 className="ai-result-card-title"><Target size={16} /> Competency Breakdown</h3>
                                 <div className="ai-result-categories">
-                                    {ensureArray(a.categories).map((cat, i) => (
+                                    {categories.map((cat, i) => (
                                         <div key={i} className="ai-result-cat">
                                             <div className="ai-result-cat-header">
                                                 <div className="ai-result-cat-label">
@@ -256,7 +348,7 @@ const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string'
                                     a score of {ensureArray(a.categories).length > 0 ? ensureArray(a.categories).reduce((acc, curr) => acc.score > curr.score ? acc : curr).score : (a.overallScore || 0)}/10.
                                 </p>
                             </div>
-                            {ensureArray(a.categories).map((cat, i) => (
+                            {categories.map((cat, i) => (
                                 <div key={i} className="ai-result-card">
                                     <div className="ai-result-analysis-cat-header">
                                         <div className="ai-result-cat-label">

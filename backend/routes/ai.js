@@ -3,6 +3,7 @@ import { getGroqClient } from '../utils/groqClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import { usageQuota } from '../middleware/usageQuota.js';
 
 const router = express.Router();
 
@@ -53,7 +54,7 @@ const resolveProblemId = async (problemIdentifier) => {
   return null;
 };
 
-router.post('/code-feedback', authenticateToken, async (req, res) => {
+router.post('/code-feedback', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { code, language, problemId } = req.body;
 
   if (!code || !language) {
@@ -151,7 +152,7 @@ router.post('/code-feedback', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/mock-interview', authenticateToken, async (req, res) => {
+router.post('/mock-interview', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { interviewType, difficulty, userResponse } = req.body;
 
   try {
@@ -186,7 +187,7 @@ router.post('/mock-interview', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/hint', authenticateToken, async (req, res) => {
+router.post('/hint', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { problemId, currentCode } = req.body;
 
   try {
@@ -235,7 +236,7 @@ router.post('/hint', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/explain', authenticateToken, async (req, res) => {
+router.post('/explain', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { code, language } = req.body;
 
   try {
@@ -269,7 +270,7 @@ router.post('/explain', authenticateToken, async (req, res) => {
 });
 
 // ─── Playground AI Assistant ───
-router.post('/playground-assist', authenticateToken, async (req, res) => {
+router.post('/playground-assist', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { code, language, mode, prompt, history } = req.body;
 
   if (!code && mode !== 'ask') {

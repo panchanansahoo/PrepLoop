@@ -12,14 +12,16 @@ import { _getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from 
 import { _buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
 import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import { groq, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, _getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal, generateFresherHRQuestion, generateFresherTechnicalQuestion, generateFresherScriptedQuestion } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Follow-up with realistic interviewer behavior ───
-router.post('/follow-up', optionalAuth, async (req, res) => {
+router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res) => {
   const requestStartTime = Date.now();
-  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions, questionSetCode: _questionSetCode } = req.body || {};
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: _questionSetCode, attemptId } = req.body || {};
+  let allQuestions = providedQuestions;
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
@@ -27,13 +29,17 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
   // Fix #8: Declare safeQuestionNumber BEFORE buildCanonicalFollowUpPayload so the
   // closure can reference it without a ReferenceError (const is not hoisted).
   const parsedQuestionNumber = Number(questionNumber);
-  const safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
+  let safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
     ? Math.floor(parsedQuestionNumber)
     : 2;
   const parsedTotalQuestions = Number(totalQuestions);
   const safeTotalQuestions = Number.isFinite(parsedTotalQuestions) && parsedTotalQuestions >= 1
-    ? Math.floor(parsedTotalQuestions)
+    ? Math.min(20, Math.floor(parsedTotalQuestions))
     : 8;
+
+  if (questionSource !== 'admin-custom' && safeQuestionNumber > safeTotalQuestions + 1) {
+    return res.status(400).json({ error: 'Invalid interview question sequence' });
+  }
 
   const buildCanonicalFollowUpPayload = (payload = {}) => {
     const turn = Number(payload?.questionMeta?.sequence);
@@ -58,13 +64,109 @@ router.post('/follow-up', optionalAuth, async (req, res) => {
     interviewRuntimeMode: resolvedRuntimeMode,
     runtime,
   });
+  let customAttempt = null;
 
   try {
     // ─── Admin Custom Question Set Flow ───
+    if (questionSource === 'admin-custom' && !_questionSetCode) {
+      return res.status(400).json({ error: 'Custom interview code is required' });
+    }
+    if (questionSource === 'admin-custom' && _questionSetCode) {
+      const { data: attempt, error: attemptError } = await _supabaseAdmin
+        .from('admin_interview_attempts')
+        .select('id, question_set_id, user_id, stage, current_question_index, responses, expires_at, completed_at')
+        .eq('id', attemptId || '')
+        .single();
+      if (attemptError || !attempt) {
+        return res.status(404).json({ error: 'Interview attempt not found' });
+      }
+      customAttempt = attempt;
+      if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+        return res.status(410).json({ error: 'This interview attempt has expired' });
+      }
+      if (attempt.completed_at) {
+        return res.status(409).json({ error: 'This interview attempt is already complete' });
+      }
+      if (attempt.user_id && attempt.user_id !== req.user?.id) {
+        return res.status(403).json({ error: 'Interview attempt belongs to another user' });
+      }
+
+      const { data: questionSet, error: questionSetError } = await _supabaseAdmin
+        .from('admin_question_sets')
+        .select('questions, is_active, requires_login, share_code')
+        .eq('id', attempt.question_set_id)
+        .single();
+      if (questionSetError || !questionSet || !questionSet.is_active || questionSet.share_code !== _questionSetCode) {
+        return res.status(410).json({ error: 'This interview is no longer available' });
+      }
+      if (questionSet.requires_login && !req.user) {
+        return res.status(401).json({ error: 'Login required for this interview' });
+      }
+      allQuestions = Array.isArray(questionSet.questions) ? questionSet.questions : [];
+      if (allQuestions.length === 0) {
+        return res.status(400).json({ error: 'Question set has no questions configured' });
+      }
+      const nextQuestionIndex = attempt.current_question_index + 1;
+      const attemptComplete = nextQuestionIndex >= allQuestions.length;
+      const currentQuestionItem = allQuestions[attempt.current_question_index];
+      const currentQuestionText = typeof currentQuestionItem === 'string'
+        ? currentQuestionItem
+        : (currentQuestionItem?.question || '');
+      const configuredTimeLimit = Number(currentQuestionItem?.timeLimit);
+      const elapsedForQuestion = Math.max(
+        0,
+        Math.round((Date.now() - new Date(attempt.current_question_started_at).getTime()) / 1000),
+      );
+      const storedResponses = Array.isArray(attempt.responses) ? attempt.responses : [];
+      const answerText = String(userAnswer || '').trim();
+      if (answerText.length > 20000) {
+        return res.status(400).json({ error: 'Interview response is too large' });
+      }
+      const nextResponses = answerText
+        ? [...storedResponses, {
+          role: 'candidate',
+          status: 'answered',
+          question: currentQuestionText,
+          content: answerText,
+          questionIndex: attempt.current_question_index,
+          elapsedSeconds: elapsedForQuestion,
+          overTime: Number.isFinite(configuredTimeLimit) && elapsedForQuestion > configuredTimeLimit + 10,
+          code: typeof code === 'string' ? code.slice(0, 50000) : undefined,
+          timestamp: new Date().toISOString(),
+        }]
+        : [...storedResponses, {
+          role: 'candidate',
+          status: 'skipped',
+          question: currentQuestionText,
+          content: '',
+          questionIndex: attempt.current_question_index,
+          elapsedSeconds: elapsedForQuestion,
+          timestamp: new Date().toISOString(),
+        }];
+      const updatePayload = attemptComplete
+        ? { completed_at: new Date().toISOString(), completion_reason: 'completed', responses: nextResponses }
+        : {
+          current_question_index: nextQuestionIndex,
+          current_question_started_at: new Date().toISOString(),
+          responses: nextResponses,
+        };
+      const { data: updatedAttempt, error: updateError } = await _supabaseAdmin
+        .from('admin_interview_attempts')
+        .update(updatePayload)
+        .eq('id', attempt.id)
+        .eq('current_question_index', attempt.current_question_index)
+        .is('completed_at', null)
+        .select('id')
+        .maybeSingle();
+      if (updateError || !updatedAttempt) {
+        return res.status(409).json({ error: 'Interview attempt has already advanced' });
+      }
+      safeQuestionNumber = nextQuestionIndex + 1;
+    }
     if (questionSource === 'admin-custom' && Array.isArray(allQuestions) && allQuestions.length > 0) {
       const qIndex = safeQuestionNumber - 1;
       const isComplete = qIndex >= allQuestions.length;
-      const evaluated = evaluateFresherAnswer(userAnswer, stage, code);
+      const evaluated = evaluateFresherAnswer(userAnswer, customAttempt?.stage || stage, code);
 
       const feedbackOptions = [
         'Good answer, thank you for sharing that.',

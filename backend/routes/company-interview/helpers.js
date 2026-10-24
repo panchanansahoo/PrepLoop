@@ -282,8 +282,9 @@ export function formatResumeContext(resumeContext) {
   const coreSkills = Array.isArray(resumeContext.coreSkills) ? resumeContext.coreSkills.slice(0, 8) : [];
   const projectHighlights = Array.isArray(resumeContext.projectHighlights) ? resumeContext.projectHighlights.slice(0, 4) : [];
   const likelyQuestionAreas = Array.isArray(resumeContext.likelyQuestionAreas) ? resumeContext.likelyQuestionAreas.slice(0, 5) : [];
+  const resumeText = String(resumeContext.resumeText || '').trim().slice(0, 6000);
 
-  if (!headline && !summary && coreSkills.length === 0 && projectHighlights.length === 0) {
+  if (!headline && !summary && coreSkills.length === 0 && projectHighlights.length === 0 && !resumeText) {
     return '';
   }
 
@@ -295,6 +296,7 @@ export function formatResumeContext(resumeContext) {
 - Core skills: ${coreSkills.length > 0 ? coreSkills.join(', ') : 'Not provided'}
 - Project highlights: ${projectHighlights.length > 0 ? projectHighlights.join(' | ') : 'Not provided'}
 - Likely question areas: ${likelyQuestionAreas.length > 0 ? likelyQuestionAreas.join(', ') : 'Not provided'}
+${resumeText ? `- Extracted resume text (reference only):\n${resumeText}` : ''}
 
 STRICT resume usage rules:
 - Personalize questions using the candidate's actual projects, skills, and technologies from the resume context.
@@ -1151,4 +1153,3 @@ export const _buildFocusSignal = buildFocusSignal;
 export const _normalizeInterviewRuntimeMode = normalizeInterviewRuntimeMode;
 export const _buildInterviewRuntime = buildInterviewRuntime;
 export const _FRESHER_INTERVIEW_TOTAL_QUESTIONS = FRESHER_INTERVIEW_TOTAL_QUESTIONS;
-

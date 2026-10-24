@@ -3,7 +3,7 @@
   <p><strong>AI-Powered Interview Preparation Platform</strong></p>
   
   <p>
-    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-18.x-green.svg" alt="Node.js"></a>
+    <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-22.x-green.svg" alt="Node.js"></a>
     <a href="https://reactjs.org/"><img src="https://img.shields.io/badge/React-18-blue.svg" alt="React"></a>
     <a href="https://vitejs.dev/"><img src="https://img.shields.io/badge/Vite-5-purple.svg" alt="Vite"></a>
     <a href="https://supabase.com/"><img src="https://img.shields.io/badge/Supabase-Auth%20%7C%20DB-3ECF8E.svg" alt="Supabase"></a>
@@ -70,7 +70,7 @@ This repository is organized as a monorepo containing everything needed to run P
 ## ⚙️ Environment Setup
 
 ### 1. Backend Config (`backend/.env`)
-Create a `.env` file in the `backend/` directory using `backend/.env.template` as a reference:
+Create a `.env` file in the `backend/` directory using `backend/.env.example` as a reference:
 
 ```env
 # Core
@@ -94,6 +94,14 @@ RAZORPAY_WEBHOOK_SECRET=your_razorpay_webhook_secret
 # Database Migrations (Optional)
 SUPABASE_DB_PASSWORD=your_supabase_db_password
 SUPABASE_KEY=your_supabase_key
+
+# Usage guardrails
+AI_DAILY_REQUEST_LIMIT=100
+VOICE_DAILY_REQUEST_LIMIT=60
+PRO_AI_DAILY_REQUEST_LIMIT=500
+PRO_VOICE_DAILY_REQUEST_LIMIT=300
+PREMIUM_AI_DAILY_REQUEST_LIMIT=2000
+PREMIUM_VOICE_DAILY_REQUEST_LIMIT=1200
 ```
 
 ### 2. Frontend Config (`frontend/.env`)
@@ -106,6 +114,32 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
 > **💡 Security Note:** We use Supabase Auth + Postgres with Row Level Security (RLS). Missing keys for optional features (like Groq or Razorpay) will gracefully disable the feature without crashing your server.
+
+The backend issues HttpOnly session cookies for legacy email/password authentication. Keep
+`FRONTEND_URL` and the production frontend origin in the CORS allowlist when deploying the
+frontend and API on separate origins. Apply `backend/db/migration_usage_quotas.sql` before
+enabling persistent AI and voice limits in production.
+
+Authenticated AI and voice limits use `profiles.subscription_tier` (`free`, `pro`, or
+`premium`) and cache the tier for five minutes. Runtime request latency, slow requests,
+provider fallbacks, cache activity, and errors are available from the protected
+`/api/monitoring-enhanced` endpoint for dashboard or alert integration.
+
+Frontend CI runs Playwright accessibility checks with axe-core against the public routes
+and verifies that those routes do not horizontally overflow at a mobile viewport.
+
+Cookie-authenticated mutations are protected by the double-submit CSRF token at
+`/api/csrf-token`. The frontend fetch helper obtains this token automatically. Configure
+Redis with `REDIS_URL` in multi-instance production deployments so anonymous quota
+guardrails are shared across backend replicas; authenticated quotas use the Supabase RPC.
+Run `cleanup_interview_retention` through a scheduled service-role job to remove expired
+checkpoints and idempotency keys.
+
+The repository includes a scheduled GitHub Actions workflow at
+`.github/workflows/maintenance-retention.yml`. Configure `SUPABASE_URL`,
+`SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` repository secrets before enabling
+scheduled maintenance. Monitoring responses include an `alerts` summary controlled by
+`MONITORING_ERROR_RATE_THRESHOLD` and `MONITORING_P95_MS_THRESHOLD`.
 
 ---
 
@@ -121,6 +155,15 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 | `npm run lint` | Runs linters across frontend and backend. |
 | `npm run test` | Runs the full test suite (Vitest/Jest). |
 | `npm run build` | Builds the frontend for production. |
+| `npm run check:bundle --prefix frontend` | Verifies the generated frontend asset size budget. |
+
+### Supported deployment targets
+
+The supported production path is **Vercel for the frontend**, **Render or an equivalent
+Node 22 service for the backend**, and **Supabase for Auth/Postgres**. The deployment
+workflow validates frontend tests, the production build, the asset budget, and public-route
+Playwright smoke tests before deployment. Keep other provider manifests for reference only
+unless they are actively maintained and monitored.
 
 ### Discord Bot Commands (`discord-bot/`)
 | Command | Action |

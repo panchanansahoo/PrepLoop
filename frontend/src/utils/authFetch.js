@@ -14,13 +14,28 @@ import { buildAuthHeaders } from './authHeaders';
  *         — on 401 the Supabase session is refreshed and the request retried once.
  */
 export async function authFetch(url, options = {}) {
+  const method = String(options.method || 'GET').toUpperCase();
+  let csrfToken = null;
+  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    try {
+      const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+      if (csrfResponse.ok) csrfToken = (await csrfResponse.json()).csrfToken;
+    } catch {
+      // Bearer-token requests remain valid without CSRF; cookie requests fail explicitly at the API.
+    }
+  }
   // Merge caller-provided headers on top of the default auth headers.
   const headers = {
     ...buildAuthHeaders(),
     ...(options.headers || {}),
   };
+  if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
+  if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+  }
 
-  const response = await fetch(url, { ...options, headers });
+  const response = await fetch(url, { ...options, credentials: 'include', headers });
 
   // If not a 401, return as-is (including 403 — that means genuine permission denial).
   if (response.status !== 401) {
@@ -39,12 +54,10 @@ export async function authFetch(url, options = {}) {
       return response; // Refresh failed — return original 401.
     }
 
-    // Persist the refreshed tokens so subsequent calls pick them up.
+    // Keep the access token for legacy header-based callers. The refresh token
+    // remains in the HttpOnly cookie issued by the backend.
     const newToken = data.session.access_token;
     localStorage.setItem('token', newToken);
-    if (data.session.refresh_token) {
-      localStorage.setItem('refreshToken', data.session.refresh_token);
-    }
 
     // Retry the original request with the fresh token.
     const retryHeaders = {
@@ -52,7 +65,7 @@ export async function authFetch(url, options = {}) {
       Authorization: `Bearer ${newToken}`,
     };
 
-    return fetch(url, { ...options, headers: retryHeaders });
+    return fetch(url, { ...options, credentials: 'include', headers: retryHeaders });
   } catch {
     // Refresh threw — return the original 401 response.
     return response;

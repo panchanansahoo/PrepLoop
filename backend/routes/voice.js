@@ -11,6 +11,8 @@ import path from 'path';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { expensiveFeatureLimiter } from '../middleware/apiRateLimiter.js';
+import { usageQuota } from '../middleware/usageQuota.js';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();
@@ -108,14 +110,17 @@ router.get('/providers', optionalAuth, (req, res) => {
 // POST /api/voice/tts
 // Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts', optionalAuth, async (req, res) => {
+router.post('/tts', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text, provider } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
     const gender   = sanitizeGender(req.body.gender);
 
-    if (!text || text.trim().length === 0) {
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
+    }
+    if (text.length > 10000) {
+        return res.status(400).json({ error: 'Text is too long' });
     }
 
     try {
@@ -156,12 +161,12 @@ router.post('/tts', optionalAuth, async (req, res) => {
     }
 });
 
-router.post('/tts-fast', optionalAuth, async (req, res) => {
+router.post('/tts-fast', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text } = req.body;
     const persona = sanitizePersona(req.body.persona);
     const gender  = sanitizeGender(req.body.gender);
 
-    if (!text || text.trim().length === 0) {
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
         return res.status(400).json({ error: 'Text is required' });
     }
 
@@ -205,7 +210,7 @@ router.post('/tts-fast', optionalAuth, async (req, res) => {
 // Previously used ElevenLabs streaming; now uses the same buffered chain
 // so existing frontend callers continue to work without code changes.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts-stream', optionalAuth, async (req, res) => {
+router.post('/tts-stream', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
@@ -385,7 +390,7 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 // STT FILE — Legacy file-based STT (still used by other features)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt', optionalAuth, upload.single('audio'), async (req, res) => {
+router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
     const filePath = req.file?.path;
 
     try {

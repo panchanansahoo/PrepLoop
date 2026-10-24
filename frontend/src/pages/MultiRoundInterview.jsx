@@ -66,6 +66,9 @@ export default function MultiRoundInterview() {
     const [phase, setPhase] = useState('setup'); // setup | transition | active | report
     const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
     const [roundResults, setRoundResults] = useState([]); // {roundId, score, strengths, improvements, conversation}
+    const saveIdempotencyKeyRef = React.useRef(
+        `multi-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    );
 
     const companyObj = COMPANIES.find(c => c.id === company) || COMPANIES[0];
     const activeRounds = ROUND_TYPES.filter(r => selectedRounds.includes(r.id));
@@ -136,6 +139,7 @@ export default function MultiRoundInterview() {
         try {
             await authFetch(`${API_URL}/api/company-interview/save-session`, {
                 method: 'POST',
+                headers: { 'Idempotency-Key': saveIdempotencyKeyRef.current },
                 body: JSON.stringify({
                     type: 'multi-round',
                     company,

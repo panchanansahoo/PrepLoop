@@ -785,6 +785,7 @@ export default function Login() {
                     />
                     <button
                       type="button" onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                       className="auth-toggle-pw"
                       style={{
                         position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)',

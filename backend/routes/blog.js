@@ -7,7 +7,10 @@ import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 const router = express.Router();
 
 const isBlogPostsTableMissing = (error) => {
@@ -261,7 +264,7 @@ router.get('/public/posts/:slug', async (req, res) => {
 
 // ─── PARSE ENDPOINTS ────────────────────────────────────────────────
 
-router.post('/parse-pdf', upload.single('pdf'), async (req, res) => {
+router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
     const data = await pdf(req.file.buffer);
@@ -272,7 +275,7 @@ router.post('/parse-pdf', upload.single('pdf'), async (req, res) => {
   }
 });
 
-router.post('/parse-eml', upload.single('eml'), async (req, res) => {
+router.post('/parse-eml', authenticateToken, requireAdmin, upload.single('eml'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No EML file uploaded' });
     let title = '';
@@ -334,15 +337,35 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.get('/:slug', async (req, res) => {
   try {
     const { slug } = req.params;
-    const { data, error } = await supabaseAdmin
+    const primary = await supabaseAdmin
       .from('blogs')
       .select('*, author:author_id(id, full_name, avatar_url)')
       .eq('slug', slug).maybeSingle();
-    if (error) throw error;
+    let data = primary.data;
+
+    // A missing author relationship should not make an otherwise valid post
+    // inaccessible. Retry the post lookup without the relationship if needed.
+    if (primary.error) {
+      const fallback = await supabaseAdmin
+        .from('blogs')
+        .select('*')
+        .eq('slug', slug)
+        .maybeSingle();
+      if (fallback.error) throw fallback.error;
+      data = fallback.data;
+    }
+
+    if (!data) return res.status(404).json({ error: 'Blog not found' });
+
     // Atomic view increment via RPC; ignore errors
-    await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id }).catch(() => {});
+    try {
+      await supabaseAdmin.rpc('increment_blog_view', { blog_id: data.id });
+    } catch {
+      // View tracking must not prevent a published post from rendering.
+    }
     res.json(data);
   } catch (_error) {
+    console.error('Failed to fetch blog post:', _error);
     res.status(404).json({ error: 'Blog not found' });
   }
 });

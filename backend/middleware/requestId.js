@@ -13,8 +13,10 @@
 import { randomUUID } from 'crypto';
 
 export const requestIdMiddleware = (req, res, next) => {
-  // Use client-provided X-Request-ID or generate new one
-  const requestId = req.get('X-Request-ID') || randomUUID();
+  const suppliedRequestId = req.get('X-Request-ID');
+  const requestId = suppliedRequestId && /^[A-Za-z0-9._-]{1,100}$/.test(suppliedRequestId)
+    ? suppliedRequestId
+    : randomUUID();
   
   res.locals.requestId = requestId;
   res.set('X-Request-ID', requestId);

@@ -73,40 +73,53 @@ function LiveCaptions({
         const words = displayText.split(/\s+/).filter(Boolean);
 
         return { isUserSpeaking: false, liveInterim: '', speakerName, displayText, words };
-    }, [captionsOn, isListening, aiSpeaking, aiThinking, interimText, transcript, conversation, interviewerName]);
+    }, [captionsOn, isListening, aiSpeaking, aiThinking, interimText, transcript, conversation, interviewerName, silenceCountdown]);
 
     if (!captionData) return null;
 
     const { isUserSpeaking, liveInterim, speakerName, displayText, words } = captionData;
 
     return (
-        <div className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''}`}>
-            <div className="ai-vc-captions-inner">
+    <div
+        className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''}`}
+        role="status"
+        aria-live="polite"
+        aria-label={`${speakerName} caption`}
+    >
+        <div className="ai-vc-captions-inner">
+            <div className="ai-vc-captions-meta">
                 <span className={`ai-vc-captions-speaker ${aiSpeaking ? 'ai-vc-captions-speaker--ai' : ''} ${isUserSpeaking ? 'ai-vc-captions-speaker--user-live' : ''}`}>
-                    {speakerName}:
+                    {speakerName}
                 </span>
-                <span className="ai-vc-captions-text">
-                    {words.map((word, i) => {
-                        const isInterimWord = isUserSpeaking && liveInterim && displayText.indexOf(liveInterim) !== -1 && i >= words.length - liveInterim.split(/\s+/).length;
-                        return (
-                            <span
-                                key={`${word}-${i}`}
-                                className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''}`}
-                                style={{ animationDelay: `${i * 0.06}s` }}
-                            >
-                                {word}{' '}
-                            </span>
-                        );
-                    })}
-                    {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
-                    {silenceCountdown > 0 && isListening && !aiSpeaking && (
-                        <span className="ai-vc-silence-countdown">
-                            submitting in {silenceCountdown}s...
-                        </span>
-                    )}
-                </span>
+                {isUserSpeaking && (
+                    <span className="ai-vc-captions-live-badge">
+                        <span className="ai-vc-captions-live-dot" /> LIVE TRANSCRIPT
+                    </span>
+                )}
+                {!isUserSpeaking && aiSpeaking && <span className="ai-vc-captions-live-badge">AI SPEAKING</span>}
             </div>
+            <span className="ai-vc-captions-text">
+                {words.map((word, i) => {
+                    const interimWordCount = liveInterim ? liveInterim.split(/\s+/).filter(Boolean).length : 0;
+                    const isInterimWord = isUserSpeaking && interimWordCount > 0 && i >= words.length - interimWordCount;
+                    return (
+                        <span
+                            key={`${word}-${i}`}
+                            className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''}`}
+                        >
+                            {word}{' '}
+                        </span>
+                    );
+                })}
+                {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
+                {silenceCountdown > 0 && isListening && !aiSpeaking && (
+                    <span className="ai-vc-silence-countdown">
+                        submitting in {silenceCountdown}s...
+                    </span>
+                )}
+            </span>
         </div>
+    </div>
     );
 }
 

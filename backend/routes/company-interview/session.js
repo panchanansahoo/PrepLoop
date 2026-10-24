@@ -12,12 +12,13 @@ import { getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from '
 import { buildInitialVoiceTelemetry, _buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
 import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import { groq, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Start Interview ───
-router.post('/start', optionalAuth, async (req, res) => {
+router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => {
   const _requestStartTime = Date.now();
   const {
     company,
@@ -32,6 +33,7 @@ router.post('/start', optionalAuth, async (req, res) => {
     useRealQuestions = false,
     advancedOptions,
     resumeContext,
+    focusArea,
     questionSetCode,
   } = req.body || {};
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
@@ -90,11 +92,26 @@ router.post('/start', optionalAuth, async (req, res) => {
     const firstQTimeLimit = typeof firstQ === 'object' ? firstQ?.timeLimit : null;
 
     const interviewerName = questionSet.settings?.interviewerName || (await generateInterviewerName(questionSet.settings?.companyName || company || 'PrepLoop'));
+    const attemptId = _crypto.randomUUID();
+    const { error: attemptError } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .insert({
+        id: attemptId,
+        question_set_id: questionSet.id,
+        user_id: req.user?.id || null,
+        stage,
+        current_question_started_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      });
+    if (attemptError) {
+      console.error('Failed to create custom interview attempt:', attemptError.code || attemptError.message);
+      return res.status(500).json({ error: 'Failed to start custom interview' });
+    }
 
     return res.json(withRuntime({
       question: firstQText,
-      allQuestions: questions,
       questionSetId: questionSet.id,
+      attemptId,
       questionSetCode: questionSet.share_code,
       context: {
         company: questionSet.settings?.companyName || company || 'Company',
@@ -295,7 +312,10 @@ router.post('/start', optionalAuth, async (req, res) => {
           messages: [
             {
               role: 'system',
-              content: getInterviewerPersona(company, role, stage, difficulty, 1, interviewTotalQuestions, normalizedAdvanced, resumeContext, experienceLevel) + `
+              content: getInterviewerPersona(company, role, stage, difficulty, 1, interviewTotalQuestions, normalizedAdvanced, resumeContext, experienceLevel) +
+                (focusArea && typeof focusArea === 'string'
+                  ? `\n\nTARGETED PRACTICE FOCUS: Prioritize questions that assess "${focusArea.trim().slice(0, 100)}" and give the candidate opportunities to improve in this area.`
+                  : '') + `
 
 Respond as JSON:
 {
@@ -335,6 +355,9 @@ Respond as JSON:
     }));
   } catch (error) {
     console.error('Interview start error:', error.message?.substring(0, 200));
+    if (questionSetCode) {
+      return res.status(500).json({ error: 'Failed to start custom interview' });
+    }
     return res.json(withRuntime({
       question: `Hi! Welcome to your ${stage || 'interview'} at ${company || 'PrepLoop'}. Tell me about yourself and your background.`,
       context: {
@@ -354,6 +377,36 @@ Respond as JSON:
   }
 });
 
+router.post('/attempt/:id/terminate', optionalAuth, async (req, res) => {
+  try {
+    const reason = ['user_ended', 'silent_termination', 'technical_error'].includes(req.body?.reason)
+      ? req.body.reason
+      : 'user_ended';
+    const { data: attempt, error } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .select('id, user_id, completed_at, submitted_at')
+      .eq('id', req.params.id)
+      .single();
+    if (error || !attempt) return res.status(404).json({ error: 'Interview attempt not found' });
+    if (attempt.user_id && attempt.user_id !== req.user?.id) {
+      return res.status(403).json({ error: 'Interview attempt belongs to another user' });
+    }
+    if (attempt.submitted_at) return res.status(409).json({ error: 'Interview attempt is already submitted' });
+    if (!attempt.completed_at) {
+      const { error: updateError } = await supabaseAdmin
+        .from('admin_interview_attempts')
+        .update({ completed_at: new Date().toISOString(), completion_reason: reason })
+        .eq('id', attempt.id)
+        .is('completed_at', null);
+      if (updateError) throw updateError;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Terminate interview attempt error:', error.code || error.message);
+    res.status(500).json({ error: 'Failed to terminate interview attempt' });
+  }
+});
+
 
 // ─── Save Interview Session ───
 router.post('/save-session', authenticateToken, async (req, res) => {
@@ -365,13 +418,70 @@ router.post('/save-session', authenticateToken, async (req, res) => {
     conversation, scores, overallScore, summaryData,
     speechMetrics, emotionData, proctoringViolations,
     rounds, completedAt,
-    questionSetId, userName, userEmail, duration
+    questionSetId, attemptId, userName, userEmail, duration
   } = req.body || {};
+  const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
+  let reservedSessionId = null;
 
   try {
+    if (idempotencyKey) {
+      if (!/^[a-zA-Z0-9._:-]{8,160}$/.test(idempotencyKey)) {
+        return res.status(400).json({ error: 'Invalid idempotency key' });
+      }
+      reservedSessionId = _crypto.randomUUID();
+      const { error: reservationError } = await supabaseAdmin
+        .from('interview_submission_keys')
+        .insert({
+          user_id: userId,
+          idempotency_key: idempotencyKey,
+          resource_id: reservedSessionId,
+        });
+      if (reservationError?.code === '23505') {
+        const { data: existingKey, error: lookupError } = await supabaseAdmin
+          .from('interview_submission_keys')
+          .select('resource_id')
+          .eq('user_id', userId)
+          .eq('idempotency_key', idempotencyKey)
+          .single();
+        if (lookupError || !existingKey) throw lookupError || new Error('Idempotency reservation unavailable');
+        const { data: existingSession } = await supabaseAdmin
+          .from('interview_sessions')
+          .select('id')
+          .eq('id', existingKey.resource_id)
+          .maybeSingle();
+        if (existingSession) return res.json({ success: true, sessionId: existingSession.id, duplicate: true });
+        reservedSessionId = existingKey.resource_id;
+      } else if (reservationError) {
+        throw reservationError;
+      }
+    }
+
+    let customAttempt = null;
+    if (questionSetId) {
+      if (!attemptId) {
+        return res.status(400).json({ error: 'A valid custom interview attempt is required' });
+      }
+      const { data: attempt, error: attemptError } = await supabaseAdmin
+        .from('admin_interview_attempts')
+        .select('id, question_set_id, user_id, expires_at, completed_at, submitted_at')
+        .eq('id', attemptId)
+        .eq('question_set_id', questionSetId)
+        .single();
+      if (attemptError || !attempt) {
+        return res.status(404).json({ error: 'Interview attempt not found' });
+      }
+      if (attempt.user_id !== userId || !attempt.completed_at || attempt.submitted_at) {
+        return res.status(409).json({ error: 'Interview attempt is not eligible for saving' });
+      }
+      if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+        return res.status(410).json({ error: 'This interview attempt has expired' });
+      }
+      customAttempt = attempt;
+    }
     const { data, error } = await supabaseAdmin
       .from('interview_sessions')
       .insert({
+        ...(reservedSessionId ? { id: reservedSessionId } : {}),
         user_id: userId,
         session_type: type,
         company,
@@ -397,6 +507,7 @@ router.post('/save-session', authenticateToken, async (req, res) => {
       try {
         await supabaseAdmin.from('admin_interview_submissions').insert({
           question_set_id: questionSetId,
+          attempt_id: customAttempt.id,
           user_id: userId || null,
           user_name: userName || req.user?.user_metadata?.full_name || req.user?.email || null,
           user_email: userEmail || req.user?.email || null,
@@ -417,6 +528,88 @@ router.post('/save-session', authenticateToken, async (req, res) => {
     if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to save session' });
   }
+});
+
+
+// ─── Interview Checkpoints ───
+router.get('/checkpoints/:sessionId', authenticateToken, async (req, res) => {
+  const sessionKey = String(req.params.sessionId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(sessionKey)) {
+    return res.status(400).json({ error: 'Invalid interview session key' });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('interview_session_checkpoints')
+    .select('payload, version, updated_at')
+    .eq('user_id', req.user.id)
+    .eq('session_key', sessionKey)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Load interview checkpoint error:', error.message);
+    return res.status(500).json({ error: 'Failed to load interview checkpoint' });
+  }
+  return res.json({ checkpoint: data || null });
+});
+
+router.put('/checkpoints/:sessionId', authenticateToken, async (req, res) => {
+  const sessionKey = String(req.params.sessionId || '').trim();
+  const payload = req.body?.payload;
+  const version = Number(req.body?.version);
+  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(sessionKey) || !payload || typeof payload !== 'object') {
+    return res.status(400).json({ error: 'Invalid interview checkpoint' });
+  }
+  if (!Number.isInteger(version) || version < 1 || version > 1000000) {
+    return res.status(400).json({ error: 'Invalid checkpoint version' });
+  }
+
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from('interview_session_checkpoints')
+    .select('version')
+    .eq('user_id', req.user.id)
+    .eq('session_key', sessionKey)
+    .maybeSingle();
+  if (existingError) {
+    console.error('Read interview checkpoint version error:', existingError.message);
+    return res.status(500).json({ error: 'Failed to save interview checkpoint' });
+  }
+  if (existing?.version >= version) {
+    return res.json({ saved: false, version: existing.version });
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('interview_session_checkpoints')
+    .upsert({
+      user_id: req.user.id,
+      session_key: sessionKey,
+      payload,
+      version,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,session_key' })
+    .select('version, updated_at')
+    .single();
+  if (error) {
+    console.error('Save interview checkpoint error:', error.message);
+    return res.status(500).json({ error: 'Failed to save interview checkpoint' });
+  }
+  return res.json({ saved: true, checkpoint: data });
+});
+
+router.delete('/checkpoints/:sessionId', authenticateToken, async (req, res) => {
+  const sessionKey = String(req.params.sessionId || '').trim();
+  if (!/^[a-zA-Z0-9_-]{8,120}$/.test(sessionKey)) {
+    return res.status(400).json({ error: 'Invalid interview session key' });
+  }
+  const { error } = await supabaseAdmin
+    .from('interview_session_checkpoints')
+    .delete()
+    .eq('user_id', req.user.id)
+    .eq('session_key', sessionKey);
+  if (error) {
+    console.error('Delete interview checkpoint error:', error.message);
+    return res.status(500).json({ error: 'Failed to clear interview checkpoint' });
+  }
+  return res.json({ deleted: true });
 });
 
 

@@ -44,7 +44,7 @@ const host = `db.${ref}.supabase.co`;
 const encodedPassword = encodeURIComponent(supabasePassword);
 const connectionString = `postgres://postgres:${encodedPassword}@${host}:5432/postgres`;
 
-const migrationSql = readBackendFileUtf8('db/migration_fix_rls_recursion.sql');
+const migrationSql = readBackendFileUtf8('db/migration_enable_profiles_rls.sql');
 
 const verifyPoliciesSql = `
 SELECT schemaname, tablename, policyname
@@ -81,17 +81,29 @@ async function run() {
     const rlsResult = await client.query(verifyRlsSql);
     const rlsEnabled = rlsResult.rows[0]?.rls_enabled;
 
-    if (rows.length) {
-      console.log('WARNING: Policies still present on profiles:');
-      console.log(JSON.stringify(rows, null, 2));
+    const policyNames = rows.map(({ policyname }) => policyname);
+    const expectedPolicies = [
+      'Admins can update all profiles',
+      'Admins can view all profiles',
+      'Users can update own profile',
+      'Users can view own profile',
+    ];
+    const missingPolicies = expectedPolicies.filter(
+      (policyName) => !policyNames.includes(policyName),
+    );
+
+    if (missingPolicies.length) {
+      console.log('WARNING: Expected profiles policies are missing:');
+      console.log(JSON.stringify(missingPolicies, null, 2));
+      process.exitCode = 1;
     } else {
-      console.log('SUCCESS: No policies remain on profiles table.');
+      console.log('SUCCESS: Expected profiles policies are present.');
     }
 
-    if (rlsEnabled === false) {
-      console.log('SUCCESS: RLS is disabled on profiles table.');
-    } else if (rlsEnabled === true) {
-      console.log('WARNING: RLS is still enabled on profiles table.');
+    if (rlsEnabled === true) {
+      console.log('SUCCESS: RLS is enabled on profiles table.');
+    } else if (rlsEnabled === false) {
+      console.log('WARNING: RLS is disabled on profiles table.');
       process.exitCode = 1;
     } else {
       console.log('WARNING: Could not verify RLS state for profiles table.');

@@ -24,6 +24,7 @@ import {
 import { createLogger } from './utils/structuredLogger.js';
 import { setupGracefulShutdown } from './utils/gracefulShutdown.js';
 import cacheManager from './utils/cacheManager.js';
+import performanceMonitor from './utils/performanceMonitor.js';
 
 let routesInitialized = false;
 const voiceHttpLogger = createLogger('voice-http');
@@ -174,6 +175,20 @@ async function initializeServer() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
+    app.use((req, res, next) => {
+      const startedAt = Date.now();
+      res.on('finish', () => {
+        performanceMonitor.recordRequest({
+          id: req.requestId,
+          path: req.route?.path || req.path,
+          method: req.method,
+          duration: Date.now() - startedAt,
+          status: res.statusCode,
+          error: res.statusCode >= 500,
+        });
+      });
+      next();
+    });
 
     // Input sanitization (skip for webhooks)
     app.use(sanitizeInput({ skipPaths: ['/payment/webhook'] }));
@@ -243,12 +258,19 @@ async function initializeServer() {
 
     // Health check endpoints
     app.get('/health', healthCheck);
-    app.get('/health/ready', readinessCheck);
+    app.get('/health/ready', (req, res, next) => {
+      if (!routesInitialized) {
+        return res.status(503).json({ ready: false, message: 'Routes are still initializing' });
+      }
+      return readinessCheck(req, res, next);
+    });
     app.get('/health/live', livenessCheck);
 
     // CSRF token endpoint (for cookie-based auth flows)
     const { csrfTokenEndpoint } = await import('./middleware/csrf.js');
     app.get('/api/csrf-token', csrfTokenEndpoint);
+    const { csrfProtection } = await import('./middleware/csrf.js');
+    app.use('/api', csrfProtection);
 
     // Register all routes
     app.use('/api/auth', authRoutes);

@@ -31,7 +31,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV !== 'production',
     minify: 'esbuild',
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 1200,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -93,6 +93,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    pool: 'forks',
+    maxWorkers: 2,
+    minWorkers: 1,
     setupFiles: './src/test/setup.js',
     css: true,
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
