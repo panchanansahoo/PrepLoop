@@ -170,19 +170,26 @@ router.post('/signup', async (req, res) => {
     }
 
     if (!legacyMode) {
-      // Fix #17: reuse shared transporter
-      try {
-        const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
-        await transporter.sendMail({
-          from: getFromAddress(),
-          to: email,
-          subject: 'Confirm Your Email - PrepLoop',
-          html: getVerificationEmailHTML(verificationUrl, email)
-        });
-        markEmailSent('signup', email);
-      } catch (emailError) {
-        console.error('Error sending verification email:', emailError);
+      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('----------------------------------------------------');
+        console.log(`🔗 [DEV] Email Verification Link for ${email}:`);
+        console.log(verificationUrl);
+        console.log('----------------------------------------------------');
       }
+
+      // Send verification email in the background so signup responds in <200ms
+      transporter.sendMail({
+        from: getFromAddress(),
+        to: email,
+        subject: 'Confirm Your Email - PrepLoop',
+        html: getVerificationEmailHTML(verificationUrl, email)
+      }).then(() => {
+        markEmailSent('signup', email);
+      }).catch((emailError) => {
+        console.error('Error sending verification email in background:', emailError?.message);
+      });
     }
 
     res.status(201).json({
@@ -194,7 +201,10 @@ router.post('/signup', async (req, res) => {
         email: data.user.email,
         fullName: fullName,
         emailVerified: legacyMode
-      }
+      },
+      ...(process.env.NODE_ENV !== 'production' && {
+        devVerificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`
+      })
     });
 
   } catch (error) {
@@ -466,21 +476,18 @@ router.post('/resend-verification-email', verificationLimiter, async (req, res) 
       return res.status(500).json({ error: 'Failed to resend verification email' });
     }
 
-    // Fix #17: reuse shared transporter
-    try {
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
-      await transporter.sendMail({
-        from: getFromAddress(),
-        to: email,
-        subject: 'Confirm Your Email - PrepLoop',
-        html: getVerificationEmailHTML(verificationUrl, email)
-      });
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+    transporter.sendMail({
+      from: getFromAddress(),
+      to: email,
+      subject: 'Confirm Your Email - PrepLoop',
+      html: getVerificationEmailHTML(verificationUrl, email)
+    }).then(() => {
       markEmailSent('resend-verification-email', email);
-    } catch (emailError) {
-      console.error('Error sending verification email:', emailError);
-    }
+    }).catch((emailError) => {
+      console.error('Error sending verification email in background:', emailError?.message);
+    });
 
-    // Fix #11: grammar fix
     res.json({ message: 'If an account with that email exists and is unverified, we have sent a verification email.' });
   } catch (error) {
     console.error('Resend verification error:', error);

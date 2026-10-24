@@ -206,7 +206,8 @@ export function AuthProvider({ children }) {
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
     const response = await apiClient.post('/api/auth/signup', { email, password, fullName });
-    const { token, user } = response.data;
+    const payload = response?.data || response;
+    const { token, user } = payload || {};
 
     if (token) {
       localStorage.setItem('token', token);
@@ -215,7 +216,7 @@ export function AuthProvider({ children }) {
       setUser(user);
     }
 
-    return response.data.user;
+    return user || payload?.user || payload;
   };
 
   const logout = async () => {
