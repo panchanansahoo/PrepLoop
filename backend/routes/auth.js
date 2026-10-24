@@ -313,8 +313,12 @@ router.post('/login', authLoginLimiter, async (req, res) => {
           const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
           const user = usersData?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
           if (user) {
-            await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true }).catch(() => {});
-            await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', user.id).catch(() => {});
+            try {
+              await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true });
+              await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', user.id);
+            } catch (confirmErr) {
+              console.warn('Auto-confirm retry warning:', confirmErr?.message);
+            }
             const retry = await supabaseAdmin.auth.signInWithPassword({ email, password });
             if (!retry.error) {
               data = retry.data;
@@ -367,8 +371,12 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     }
 
     if (!shouldRequireVerification && !profile?.email_verified) {
-      await supabaseAdmin.auth.admin.updateUserById(data.user.id, { email_confirm: true }).catch(() => {});
-      await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', data.user.id).catch(() => {});
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(data.user.id, { email_confirm: true });
+        await supabaseAdmin.from('profiles').update({ email_verified: true, verification_token: null }).eq('id', data.user.id);
+      } catch (confirmErr) {
+        console.warn('Auto-confirm login profile warning:', confirmErr?.message);
+      }
     }
 
     supabaseAdmin
@@ -720,12 +728,15 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       console.warn('SMTP credentials not configured. Skipping email send.');
     }
 
+    if (!emailSent) {
+      console.error('Password reset email was not sent:', mailErrorMessage || 'SMTP credentials are not configured');
+      return res.status(503).json({
+        error: 'Password reset email is temporarily unavailable. Please try again later.',
+      });
+    }
+
     return res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
-      resetLink,
-      devResetLink: resetLink,
-      emailSent,
-      mailError: mailErrorMessage,
     });
   } catch (error) {
     console.error('Forgot password error:', error);

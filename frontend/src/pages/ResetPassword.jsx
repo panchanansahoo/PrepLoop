@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import apiClient from '../utils/apiClient';
 import { Lock, AlertCircle, CheckCircle, Eye, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
@@ -192,6 +193,7 @@ export default function ResetPassword() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [ready, setReady] = useState(false);
+    const [resetAccessToken, setResetAccessToken] = useState('');
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -209,9 +211,15 @@ export default function ResetPassword() {
         const refreshToken = hashParams.get('refresh_token');
         const code = searchParams.get('code');
 
+        if (accessToken) {
+            setResetAccessToken(accessToken);
+            setReady(true);
+        }
+
         if (supabase) {
             const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
                 if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
+                    if (session?.access_token) setResetAccessToken(session.access_token);
                     setReady(true);
                 }
             });
@@ -222,14 +230,16 @@ export default function ResetPassword() {
                     refresh_token: refreshToken || '',
                 }).then(({ data, error: sessionErr }) => {
                     if (!sessionErr && data?.session) {
+                        setResetAccessToken(data.session.access_token);
                         setReady(true);
                     } else if (sessionErr) {
-                        setError(sessionErr.message);
+                        console.warn('Recovery session setup failed; using the recovery access token directly.', sessionErr);
                     }
                 }).catch(() => {});
             } else if (code) {
                 supabase.auth.exchangeCodeForSession(code).then(({ data, error: codeErr }) => {
                     if (!codeErr && data?.session) {
+                        setResetAccessToken(data.session.access_token);
                         setReady(true);
                     } else if (codeErr) {
                         setError(codeErr.message);
@@ -237,7 +247,10 @@ export default function ResetPassword() {
                 }).catch(() => {});
             } else {
                 supabase.auth.getSession().then(({ data: { session } }) => {
-                    if (session) setReady(true);
+                    if (session) {
+                        setResetAccessToken(session.access_token);
+                        setReady(true);
+                    }
                 });
             }
 
@@ -253,20 +266,23 @@ export default function ResetPassword() {
             setError('Passwords do not match');
             return;
         }
-        if (password.length < 8) {
-            setError('Password must be at least 8 characters');
+        if (password.length < 12) {
+            setError('Password must be at least 12 characters');
+            return;
+        }
+        if (!resetAccessToken) {
+            setError('This reset link is invalid or expired. Please request a new one.');
             return;
         }
 
         setLoading(true);
         try {
-            const { error: updateError } = await supabase.auth.updateUser({ password });
-            if (updateError) {
-                setError(updateError.message);
-            } else {
-                setSuccess(true);
-                setTimeout(() => navigate('/login'), 3000);
-            }
+            await apiClient.post('/api/auth/reset-password', {
+                accessToken: resetAccessToken,
+                newPassword: password,
+            });
+            setSuccess(true);
+            setTimeout(() => navigate('/login'), 3000);
         } catch (err) {
             setError(err?.message || 'Failed to reset password. Please try again.');
         } finally {
@@ -328,7 +344,7 @@ export default function ResetPassword() {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password} onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••" required minLength={6}
+                                    placeholder="••••••••" required minLength={12}
                                     style={styles.input}
                                     className="auth-input"
                                 />
@@ -345,7 +361,7 @@ export default function ResetPassword() {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                                    placeholder="••••••••" required minLength={6}
+                                    placeholder="••••••••" required minLength={12}
                                     style={styles.input}
                                     className="auth-input"
                                 />
