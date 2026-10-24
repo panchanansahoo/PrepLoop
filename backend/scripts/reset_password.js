@@ -52,7 +52,7 @@ async function run() {
         process.exit(1);
       }
 
-      const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
+      const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(user.id, {
         password: newPassword,
       });
 

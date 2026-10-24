@@ -1,5 +1,5 @@
 import express from 'express';
-import { supabase, supabaseAdmin } from '../db/supabaseClient.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
 import nodemailer from 'nodemailer';
@@ -299,7 +299,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
   }
 
   try {
-    let authResult = await supabaseAdmin.auth.signInWithPassword({
+    const authResult = await supabaseAdmin.auth.signInWithPassword({
       email,
       password
     });
