@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import './CompanyInterview.css';
 import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, Send, Clock, Users, Sparkles, ChevronRight, ChevronLeft, Star, TrendingUp, CheckCircle, AlertCircle, BarChart3, RefreshCw, ArrowLeft, Volume2, X, Monitor, MoreVertical, Hand, SmilePlus, Lightbulb, Target, Brain, Award, Zap, Timer, Eye, Code2, Shield, Bookmark, Settings } from 'lucide-react';
 import { Upload, FileText } from 'lucide-react';
@@ -10,7 +10,7 @@ import { Link } from 'react-router-dom';
 import SpeechAnalyzer from '../utils/speechAnalyzer';
 import EmotionDetector from '../components/EmotionDetector';
 import AICopilot from '../components/AICopilot';
-import CodeEditorPanel from '../components/CodeEditorPanel';
+const CodeEditorPanel = lazy(() => import('../components/CodeEditorPanel'));
 import ProctoringManager from '../components/ProctoringManager';
 import DetailedReport from '../components/interview/DetailedReport';
 
@@ -2956,17 +2956,21 @@ export default function CompanyInterview() {
             )}
 
             {/* Code Editor Panel (DSA/OA stages) */}
-            <CodeEditorPanel
-                isOpen={codeEditorOpen}
-                onClose={() => setCodeEditorOpen(false)}
-                code={editorCode}
-                onCodeChange={setEditorCode}
-                language={editorLanguage}
-                onLanguageChange={setEditorLanguage}
-                codeFeedback={codeFeedback}
-                onSubmitCode={sendAnswer}
-                loading={loading}
-            />
+            {codeEditorOpen && (
+              <Suspense fallback={null}>
+                <CodeEditorPanel
+                    isOpen={codeEditorOpen}
+                    onClose={() => setCodeEditorOpen(false)}
+                    code={editorCode}
+                    onCodeChange={setEditorCode}
+                    language={editorLanguage}
+                    onLanguageChange={setEditorLanguage}
+                    codeFeedback={codeFeedback}
+                    onSubmitCode={sendAnswer}
+                    loading={loading}
+                />
+              </Suspense>
+            )}
         </div>
     );
 }

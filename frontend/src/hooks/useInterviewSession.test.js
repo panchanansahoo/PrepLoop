@@ -99,6 +99,14 @@ describe("useInterviewSession", () => {
       getAuthHeaders: vi.fn(() => ({})),
     });
     localStorage.clear();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ fallback: true }),
+      }),
+    );
   });
 
   it("starts in lobby phase with default settings", () => {
@@ -201,6 +209,29 @@ describe("useInterviewSession", () => {
     expect(result.current.state.elapsed).toBe(3);
 
     vi.useRealTimers();
+  });
+
+  it("resets pause state when the interview ends", () => {
+    Object.defineProperty(window, "speechSynthesis", {
+      value: { cancel: vi.fn() },
+      configurable: true,
+    });
+
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+    act(() => {
+      result.current.actions.togglePause();
+    });
+    expect(result.current.state.isPaused).toBe(true);
+
+    act(() => {
+      result.current.actions.endInterview();
+    });
+
+    expect(result.current.state.isPaused).toBe(false);
+    expect(result.current.state.phase).toBe("summary");
   });
 
   it("stores refs for voice and timer coordination", () => {

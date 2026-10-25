@@ -126,7 +126,7 @@ async function initializeServer() {
     // Stricter rate limit for auth endpoints to prevent brute-force attacks
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || '30', 10),
+      max: Number.parseInt(process.env.AUTH_RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '100' : '60'), 10),
       message: 'Too many authentication attempts. Please try again later.',
       standardHeaders: true,
       legacyHeaders: false,

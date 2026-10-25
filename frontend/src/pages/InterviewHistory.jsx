@@ -195,33 +195,37 @@ export default function InterviewHistory() {
                         <h3 style={{ fontSize: 13, fontWeight: 600, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <MessageSquare size={14} style={{ color: 'var(--accent-primary)' }} /> Conversation Replay
                         </h3>
-                        {(selectedSession.conversation || []).filter(c => c.role !== 'feedback').map((msg, i) => (
+                        {(selectedSession.conversation || []).filter(c => c.role !== 'feedback').map((msg, i) => {
+                            const isAiMessage = msg.role === 'interviewer' || msg.role === 'clarification';
+                            const isCandidateMessage = msg.role === 'candidate' || msg.role === 'clarification-question';
+                            return (
                             <div key={i} style={{
                                 display: 'flex', gap: 10,
                                 marginBottom: 12,
-                                flexDirection: msg.role === 'candidate' ? 'row-reverse' : 'row'
+                                flexDirection: isCandidateMessage ? 'row-reverse' : 'row'
                             }}>
                                 <div style={{
                                     width: 28, height: 28, borderRadius: 8,
-                                    background: msg.role === 'interviewer' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)',
+                                    background: isAiMessage ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: 12, flexShrink: 0,
-                                    color: msg.role === 'interviewer' ? '#8b5cf6' : '#3b82f6'
+                                    color: isAiMessage ? '#8b5cf6' : '#3b82f6'
                                 }}>
-                                    {msg.role === 'interviewer' ? '🤖' : '👤'}
+                                    {isAiMessage ? '🤖' : '👤'}
                                 </div>
                                 <div style={{
                                     maxWidth: '70%',
                                     padding: '10px 14px',
                                     borderRadius: 12,
-                                    background: msg.role === 'interviewer' ? 'rgba(139,92,246,0.08)' : 'rgba(59,130,246,0.08)',
-                                    border: `1px solid ${msg.role === 'interviewer' ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)'}`,
+                                    background: isAiMessage ? 'rgba(139,92,246,0.08)' : 'rgba(59,130,246,0.08)',
+                                    border: `1px solid ${isAiMessage ? 'rgba(139,92,246,0.15)' : 'rgba(59,130,246,0.15)'}`,
                                     fontSize: 13, lineHeight: 1.6
                                 }}>
                                     {msg.content}
                                 </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>

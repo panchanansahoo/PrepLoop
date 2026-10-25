@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {ArrowLeft, Image as ImageIcon, Loader, FileText, Mail} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -6,10 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 
 import { authFetch } from '../utils/authFetch';
 
-// --- EDITOR SWITCH ---
-// Use 'SimpleEditor' if Tiptap dependencies are broken/missing (White Screen fix).
-// Use 'TiptapEditor' for the full Notion-style experience (requires dependencies to be fixed).
-import NotionEditor from '../components/editor/NotionEditor';
+// Dynamically import NotionEditor so heavy BlockNote/ProseMirror bundles only load on demand
+const NotionEditor = lazy(() => import('../components/editor/NotionEditor'));
 
 import { API_URL } from '../config/api.js';
 
@@ -564,10 +562,17 @@ export default function CreateBlog() {
         <div style={{ height: '1px', background: 'var(--zinc-800)', marginBottom: '32px' }}></div>
 
         {/* Editor */}
-        <NotionEditor
-          onEditorReady={setEditorInstance}
-          onChange={(newBlocks) => setContent(JSON.stringify(newBlocks))}
-        />
+        <Suspense fallback={
+          <div style={{ padding: '40px', textAlign: 'center', color: 'var(--zinc-400)' }}>
+            <Loader className="animate-spin" style={{ display: 'inline-block', marginRight: '8px' }} />
+            Loading rich text editor...
+          </div>
+        }>
+          <NotionEditor
+            onEditorReady={setEditorInstance}
+            onChange={(newBlocks) => setContent(JSON.stringify(newBlocks))}
+          />
+        </Suspense>
 
       </main>
     </div>

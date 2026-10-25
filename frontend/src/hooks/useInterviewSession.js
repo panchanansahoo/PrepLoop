@@ -73,6 +73,10 @@ export function useInterviewSession(options = {}) {
   const questionBankIdsRef = useRef([]);
   const currentQuestionIdRef = useRef(null);
   const submissionSentRef = useRef(false);
+  const sessionSavedRef = useRef(false);
+  const saveIdempotencyKeyRef = useRef(
+    `ai-interview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+  );
   const [submissionStatus, setSubmissionStatus] = useState(null);
 
   useEffect(() => {
@@ -205,9 +209,33 @@ export function useInterviewSession(options = {}) {
   const intelligence = useInterviewIntelligence({ getAuthHeaders });
   const isListening = voiceAI.state === "listening";
 
+  // Keep the latest phase in a ref so async callbacks (TTS/handoff) see the
+  // real phase instead of the value captured by an older render.
+  const phaseRef = useRef(phase);
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  const isPausedRef = useRef(isPaused);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // These callbacks are stable; depending on them (instead of the whole
+  // `intelligence` object) avoids re-running effects on every score update.
+  const { ingestTranscript, ingestAudioConfidence } = intelligence;
+
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  // Clear the "your turn" cue as soon as either side becomes active again,
+  // or when the microphone failed so the real error can be shown.
+  useEffect(() => {
+    if (isListening || aiSpeaking || voiceAI.state === "error") {
+      setAwaitingAnswer(false);
+    }
+  }, [isListening, aiSpeaking, voiceAI.state]);
 
   useEffect(() => {
     setMicOn(isListening);
@@ -279,27 +307,31 @@ export function useInterviewSession(options = {}) {
 
   const handoffToCandidate = useCallback(() => {
     setAwaitingAnswer(false);
-    if (!isPaused && phase === "interview" && !isListeningRef.current) {
+    if (!isPausedRef.current && phaseRef.current === "interview" && !isListeningRef.current) {
       // Cancel any lingering speechSynthesis before starting recognition.
       // This is critical — SpeechRecognition can't capture audio while
       // speechSynthesis is still active on some browsers.
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
+      // While the browser settles (and if recognition fails to start), keep a
+      // visible "your turn" cue so the candidate knows they can use the mic.
+      setAwaitingAnswer(true);
 
       // Give the browser time to settle after TTS playback ends.
       // SpeechRecognition can fail to capture audio if started too quickly
       // after TTS/audio playback due to echo cancellation conflicts.
       // 800ms is more reliable than 500ms across browsers.
       setTimeout(() => {
-        if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
+        if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
           startVoiceRecording();
           // Safety retry: if SpeechRecognition didn't start, try again after 1.5s
           setTimeout(() => {
-            if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
+            if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
               console.log("[handoffToCandidate] Retry #1 starting voice recording");
               startVoiceRecording();
               // Extra safety retry at 3s
               setTimeout(() => {
-                if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
+                if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
                   console.log("[handoffToCandidate] Retry #2 starting voice recording");
                   startVoiceRecording();
                 }
@@ -309,7 +341,7 @@ export function useInterviewSession(options = {}) {
         }
       }, 800);
     }
-  }, [isPaused, phase, startVoiceRecording]);
+  }, [startVoiceRecording]);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [conversation, setConversation] = useState([]);
@@ -331,16 +363,16 @@ export function useInterviewSession(options = {}) {
 
   useEffect(() => {
     if (transcript && transcript.trim().length > 0) {
-      intelligence.ingestTranscript(transcript);
+      ingestTranscript(transcript);
     }
-  }, [transcript, intelligence]);
+  }, [transcript, ingestTranscript]);
 
   useEffect(() => {
     if (voiceAI.inputLevel > 0) {
       lastSpeechTimestampRef.current = Date.now();
-      intelligence.ingestAudioConfidence(voiceAI.inputLevel);
+      ingestAudioConfidence(voiceAI.inputLevel);
     }
-  }, [voiceAI.inputLevel, intelligence]);
+  }, [voiceAI.inputLevel, ingestAudioConfidence]);
 
   const [notes, setNotes] = useState("");
   const [savedSession, setSavedSession] = useState(null);
@@ -508,8 +540,13 @@ export function useInterviewSession(options = {}) {
     setLanguage(session.language || "python");
     setNotes(session.notes || "");
     setSavedSession(null);
+    setLoading(false);
     setPhase("interview");
-  }, []);
+    // Mid-answer transcripts are not part of the checkpoint, so resume the
+    // current question by opening the mic again instead of waiting for the
+    // candidate to discover the mic button.
+    setTimeout(() => handoffToCandidate(), 600);
+  }, [handoffToCandidate]);
 
   const questionIndexRef = useRef(1);
   useEffect(() => {
@@ -591,8 +628,11 @@ export function useInterviewSession(options = {}) {
   const interviewerPlaybackRef = useRef({ speaking: 0, listening: 0 });
   const interviewerTargetModeRef = useRef("listening");
   const videoRef = useRef(null);
+  const analysisRequestIdRef = useRef(0);
 
   const generateAnalysis = useCallback(async () => {
+    // Ignore a late response from an evaluation for a previous interview.
+    const requestId = ++analysisRequestIdRef.current;
     const totalMessages = conversation.length;
     const userMessages = conversation.filter((m) => m.role === "candidate");
     const statsObj = {
@@ -638,7 +678,8 @@ export function useInterviewSession(options = {}) {
         }),
       });
       const data = await res.json();
-      if (data && !data.fallback && data.overallScore) {
+      if (requestId !== analysisRequestIdRef.current) return;
+      if (data && !data.fallback && Number.isFinite(Number(data.overallScore))) {
         const score10 = Math.round((data.overallScore / 10) * 10) / 10;
         const cats = data.categoryScores ? [
           { name: "Technical Skills", score: Math.round((data.categoryScores.technicalSkills || 0) / 10 * 10) / 10 },
@@ -676,6 +717,9 @@ export function useInterviewSession(options = {}) {
     } catch (err) {
       console.warn("AI analysis failed, using local fallback:", err.message);
     }
+
+    // A newer interview started while this request was in flight.
+    if (requestId !== analysisRequestIdRef.current) return;
 
     const avgResponseLength =
       userMessages.length > 0
@@ -857,14 +901,16 @@ export function useInterviewSession(options = {}) {
   }, [phase, isPaused]);
 
   useEffect(() => {
-    if (phase === "interview" && !isPaused) {
+    // Only count time the candidate can actually answer: pause the per-question
+    // clock while the AI is thinking (loading) or speaking (aiSpeaking).
+    if (phase === "interview" && !isPaused && !loading && !aiSpeaking) {
       questionTimerRef.current = setInterval(
         () => setQuestionElapsed((prev) => prev + 1),
         1000,
       );
     }
     return () => clearInterval(questionTimerRef.current);
-  }, [phase, isPaused]);
+  }, [phase, isPaused, loading, aiSpeaking]);
 
   const countdownWarnedRef = useRef(false);
   useEffect(() => {
@@ -900,6 +946,50 @@ export function useInterviewSession(options = {}) {
   useEffect(() => {
     if (phase === "summary") generateAnalysis();
   }, [phase, generateAnalysis]);
+
+  // Persist the finished interview so it shows up in Interview History and
+  // analytics. Best-effort: a failure here must never break the results page.
+  useEffect(() => {
+    if (phase !== "summary" || !analysisResult || !_user?.id) return;
+    if (sessionSavedRef.current) return;
+    sessionSavedRef.current = true;
+
+    const scores = conversation
+      .filter((m) => m.role === "feedback" && Number.isFinite(Number(m.score)))
+      .map((m) => Number(m.score));
+    const numericOverall = Number(analysisResult.overallScore);
+    const overallScore = Number.isFinite(numericOverall)
+      ? Math.round(numericOverall * 10)
+      : 0;
+
+    authFetch("/api/company-interview/save-session", {
+      method: "POST",
+      headers: { "Idempotency-Key": saveIdempotencyKeyRef.current },
+      body: JSON.stringify({
+        type: "single",
+        company: targetCompany || "General",
+        role: targetRole || "Software Engineer",
+        stage: STAGE_API_MAP[interviewType] || "Technical",
+        difficulty: experienceLevel === "fresher" ? "easy" : "medium",
+        conversation,
+        scores,
+        overallScore,
+        summaryData: analysisResult,
+        completedAt: new Date().toISOString(),
+      }),
+    }).catch((error) => {
+      console.warn("[Interview] Session save failed (non-critical):", error.message);
+    });
+  }, [
+    phase,
+    analysisResult,
+    _user?.id,
+    conversation,
+    targetCompany,
+    targetRole,
+    interviewType,
+    experienceLevel,
+  ]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -941,16 +1031,16 @@ export function useInterviewSession(options = {}) {
     };
   }, [phase, cameraOn]);
 
-  const handleLanguageChange = (newLang) => {
+  const handleLanguageChange = useCallback((newLang) => {
     setLanguage(newLang);
     if (!code || code === BOILERPLATE[language]) {
       setCode(BOILERPLATE[newLang] || BOILERPLATE.python);
     }
-  };
+  }, [code, language]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setCode(BOILERPLATE[language] || BOILERPLATE.python);
-  };
+  }, [language]);
 
   const handleInterviewerTimeUpdate = useCallback((mode) => {
     const video =
@@ -1003,10 +1093,24 @@ export function useInterviewSession(options = {}) {
     setPhase("connecting");
     setElapsed(0);
     setLoading(true);
+    // A previous interview may have been ended while paused (or left pause
+    // stats behind). Reset everything pause-related or the new session would
+    // start frozen with the mic handoff suppressed.
+    setIsPaused(false);
+    isPausedRef.current = false;
+    pauseStartRef.current = null;
+    setTotalPauseTime(0);
+    setInterviewerStatus("");
+    setAwaitingAnswer(false);
+    setAnalysisResult(null);
+    setAnalysisLoading(false);
+    analysisRequestIdRef.current += 1;
     customAttemptIdRef.current = null;
     questionBankIdsRef.current = [];
     currentQuestionIdRef.current = null;
     submissionSentRef.current = false;
+    sessionSavedRef.current = false;
+    saveIdempotencyKeyRef.current = `ai-interview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     setSubmissionStatus(null);
     setQuestionSetError(null);
     setResumeParseError(null);
@@ -1109,7 +1213,7 @@ export function useInterviewSession(options = {}) {
         difficulty: experienceLevel === "fresher" ? "easy" : "medium",
         experienceLevel,
         totalQuestions,
-        interactionFormat: "text",
+        interactionFormat: "voice",
         advancedOptions: advancedOpts,
         resumeContext: resumeCtx,
         interviewerName: undefined,
@@ -1176,9 +1280,10 @@ export function useInterviewSession(options = {}) {
       await Promise.all([prefetchPromise, minDelay]);
 
       setPhase("interview");
+      phaseRef.current = "interview";
       setLoading(false);
       await speakInterviewerText(questionText);
-      startVoiceRecording();
+      handoffToCandidate();
     } catch (error) {
       if (questionSetCode) {
         setQuestionSetError(
@@ -1227,8 +1332,9 @@ export function useInterviewSession(options = {}) {
       await prefetchPromise;
       setLoading(false);
       setPhase("interview");
+      phaseRef.current = "interview";
       await speakInterviewerText(fallbackQ);
-      startVoiceRecording();
+      handoffToCandidate();
     }
   };
 
@@ -1349,8 +1455,12 @@ export function useInterviewSession(options = {}) {
           difficulty: experienceLevel === "fresher" ? "easy" : "medium",
           experienceLevel,
           conversationHistory: conversation
+            .filter((m) => m.role === "interviewer" || m.role === "candidate" || m.role === "clarification-question")
             .slice(-12)
-            .map((m) => ({ role: m.role, content: m.content })),
+            .map((m) => ({
+              role: m.role === "interviewer" ? "interviewer" : "candidate",
+              content: m.content,
+            })),
           code: code.trim() || undefined,
           codeLanguage: language,
           advancedOptions: followUpAdvancedOpts,
@@ -1390,6 +1500,31 @@ export function useInterviewSession(options = {}) {
           data.followUpQuestion || data.nextQuestion || data.question;
         const closingRemark = data.closingRemark;
         const isInterviewOver = data.complete === true;
+
+        // Per-answer feedback is part of the conversation so the sidebar,
+        // results transcript, and /evaluate QA extraction all see it.
+        const feedbackObject =
+          data.feedback && typeof data.feedback === "object" ? data.feedback : null;
+        const feedbackContent = String(
+          typeof data.feedback === "string"
+            ? data.feedback
+            : feedbackObject?.content || feedbackObject?.text || "",
+        ).trim();
+        if (feedbackContent || feedbackScore) {
+          setConversation((prev) => [
+            ...prev,
+            {
+              role: "feedback",
+              content: feedbackContent || "Answer recorded.",
+              score: feedbackScore,
+              strengths: Array.isArray(data.strengths) ? data.strengths : [],
+              improvements: Array.isArray(data.improvements) ? data.improvements : [],
+              hint: data.hint || "",
+              reaction: data.interviewerReaction || null,
+              timestamp: Date.now(),
+            },
+          ]);
+        }
 
         const followUpFallbackByStage = {
           "DSA / Coding":
@@ -1535,6 +1670,13 @@ export function useInterviewSession(options = {}) {
     sendAnswerRef.current = sendAnswer;
   }, [sendAnswer]);
 
+  // Stable entry point for memoized children. `sendAnswer` closes over a lot
+  // of changing state, so the ref always points at the newest implementation.
+  const dispatchSendAnswer = useCallback(
+    (...args) => sendAnswerRef.current?.(...args),
+    [],
+  );
+
   const stopSilenceHandling = useCallback(() => {
     if (silenceStageTimerRef.current)
       clearTimeout(silenceStageTimerRef.current);
@@ -1549,6 +1691,64 @@ export function useInterviewSession(options = {}) {
     return hasTranscript || recentAudio;
   }, []);
 
+  // Latest interview context for the hint endpoint. Kept in a ref so the
+  // silence-timer callback below stays stable across conversation updates.
+  const hintContextRef = useRef({});
+  const hintRequestedForRef = useRef("");
+  const hintInFlightRef = useRef(false);
+  useEffect(() => {
+    hintContextRef.current = {
+      currentQuestion,
+      targetCompany,
+      targetRole,
+      interviewType,
+      conversation,
+    };
+  }, [currentQuestion, targetCompany, targetRole, interviewType, conversation]);
+
+  const requestHint = useCallback(async () => {
+    const context = hintContextRef.current || {};
+    const questionText = String(context.currentQuestion || "").trim();
+    if (!questionText || hintInFlightRef.current) return;
+    if (hintRequestedForRef.current === questionText) return;
+    hintRequestedForRef.current = questionText;
+    hintInFlightRef.current = true;
+    try {
+      const res = await authFetch("/api/company-interview/hint", {
+        method: "POST",
+        body: JSON.stringify({
+          company: context.targetCompany || "Google",
+          role: context.targetRole || "Software Engineer",
+          stage: STAGE_API_MAP[context.interviewType] || "Technical",
+          currentQuestion: questionText,
+          conversationHistory: (context.conversation || [])
+            .filter(
+              (m) =>
+                m.role === "interviewer" ||
+                m.role === "candidate" ||
+                m.role === "clarification-question",
+            )
+            .slice(-6)
+            .map((m) => ({
+              role: m.role === "interviewer" ? "interviewer" : "candidate",
+              content: m.content,
+            })),
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const hintText = String(data?.hint || "").trim();
+      // Don't pop a hint over an answer that has already started.
+      if (hintText && !hasRecentSpeech()) {
+        setActiveHint({ isHint: true, hintTier: 1, hintMessage: hintText });
+      }
+    } catch {
+      // Hints are best-effort; a failure must never interrupt the interview.
+    } finally {
+      hintInFlightRef.current = false;
+    }
+  }, [hasRecentSpeech]);
+
   const startSilenceHandling = useCallback(() => {
     stopSilenceHandling();
     if (phase !== "interview") return;
@@ -1558,6 +1758,7 @@ export function useInterviewSession(options = {}) {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
       setInterviewerStatus(getSilencePrompt(interviewType, 0));
+      requestHint();
 
       // Stage 2: Offer to rephrase after another 15s (27s total silence)
       silenceStageTimerRef.current = setTimeout(() => {
@@ -1571,10 +1772,20 @@ export function useInterviewSession(options = {}) {
         ]);
         if (isListeningRef.current) stopVoiceRecording();
         speakInterviewerText(rephraseText).then(() => {
-          if (!isPaused && phase === "interview") startVoiceRecording();
+          // The candidate may have answered while the rephrase was spoken.
+          // In that case the follow-up flow owns the microphone now: do not
+          // restart recognition or schedule a stale auto-skip timer.
+          if (
+            isPausedRef.current ||
+            phaseRef.current !== "interview" ||
+            isSendingRef.current
+          )
+            return;
+          if (!isListeningRef.current) startVoiceRecording();
           // Stage 3: Auto-skip after another 15s of silence (42s total)
           silenceStageTimerRef.current = setTimeout(() => {
-            if (hasRecentSpeech()) return;
+            // Never burn a question while the tab is in the background.
+            if (document.hidden || hasRecentSpeech()) return;
             setSilenceStage(3);
             setInterviewerStatus("");
             if (sendAnswerRef.current) sendAnswerRef.current(true);
@@ -1590,16 +1801,19 @@ export function useInterviewSession(options = {}) {
     hasRecentSpeech,
     stopVoiceRecording,
     startVoiceRecording,
-    isPaused,
+    requestHint,
   ]);
 
   useEffect(() => {
-    if (isListening && !transcript.trim() && !aiSpeaking)
+    // Don't nudge or skip while the candidate is composing a typed answer in
+    // the chat panel — that reads as the system talking over them.
+    if (isListening && !transcript.trim() && !userInput.trim() && !aiSpeaking)
       startSilenceHandling();
     else stopSilenceHandling();
   }, [
     isListening,
     transcript,
+    userInput,
     aiSpeaking,
     startSilenceHandling,
     stopSilenceHandling,
@@ -1621,6 +1835,10 @@ export function useInterviewSession(options = {}) {
     setAiSpeaking(false);
     setAwaitingAnswer(false);
     setShowEndConfirm(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    pauseStartRef.current = null;
+    setInterviewerStatus("");
     voiceAI.cleanup();
     try {
       const stats = voiceAI.getAnalytics();
@@ -1637,6 +1855,7 @@ export function useInterviewSession(options = {}) {
     }
     setAnalysisLoading(true);
     setPhase("summary");
+    phaseRef.current = "summary";
   }, [authFetch, clearSavedSession, questionSetCode, stopVoiceRecording, voiceAI]);
 
   const togglePause = useCallback(() => {
@@ -1679,6 +1898,7 @@ export function useInterviewSession(options = {}) {
   }, [elapsed, phase, isPaused, interviewType, totalQuestions]);
 
   const toggleMic = useCallback(() => {
+    if (isPausedRef.current) return;
     if (isListening) {
       // If user has spoken something, submit it instead of discarding
       const currentTranscript = stateRefs.current.transcript.trim();
@@ -1704,7 +1924,7 @@ export function useInterviewSession(options = {}) {
     setCameraOn((prev) => !prev);
   }, [cameraOn, streamRef, videoRef]);
 
-  const handleVoiceInput = () => {
+  const handleVoiceInput = useCallback(() => {
     if (isListening) {
       // If user has spoken something, submit it instead of discarding
       const currentTranscript = stateRefs.current.transcript.trim();
@@ -1715,10 +1935,10 @@ export function useInterviewSession(options = {}) {
       } else {
         stopVoiceRecording();
       }
-    } else {
+    } else if (!isPausedRef.current) {
       startVoiceRecording();
     }
-  };
+  }, [isListening, stopVoiceRecording, startVoiceRecording, voiceAI.interimText]);
 
   const handleAskQuestion = useCallback(
     async (question) => {
@@ -1737,7 +1957,10 @@ export function useInterviewSession(options = {}) {
       setConversation((prev) => [
         ...prev,
         {
-          role: "candidate",
+          // Deliberately not "candidate": /evaluate treats any candidate turn
+          // after an interviewer question as the answer, which would replace
+          // the real answer with this clarifying question.
+          role: "clarification-question",
           content: trimmedQuestion,
           timestamp: Date.now(),
           isClarificationQuestion: true,
@@ -1763,6 +1986,7 @@ export function useInterviewSession(options = {}) {
 
   const startAnswer = useCallback(() => {
     setAwaitingAnswer(false);
+    if (isPausedRef.current) return;
     if (!isListeningRef.current) startVoiceRecording();
   }, [startVoiceRecording]);
 
@@ -1891,6 +2115,7 @@ export function useInterviewSession(options = {}) {
       setCompanyTab,
       setResumeFile,
       setActiveResumeContext,
+      setResumeParseError,
       setResultTab,
       setAnalysisResult,
       setExpandedMoment,
@@ -1911,7 +2136,7 @@ export function useInterviewSession(options = {}) {
       handleLanguageChange,
       handleReset,
       startInterview,
-      sendAnswer,
+      sendAnswer: dispatchSendAnswer,
       endInterview,
       togglePause,
       toggleMic,

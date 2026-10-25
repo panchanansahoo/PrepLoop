@@ -1,5 +1,7 @@
+/* @vitest-environment jsdom */
 import { describe, it, expect } from 'vitest';
-import { detectFillersInText, normalizeConfidence } from './useInterviewIntelligence';
+import { renderHook, act } from '@testing-library/react';
+import useInterviewIntelligence, { detectFillersInText, normalizeConfidence } from './useInterviewIntelligence';
 
 describe('detectFillersInText', () => {
   it('detects single-word fillers', () => {
@@ -54,6 +56,24 @@ describe('detectFillersInText', () => {
     expect(result.total).toBe(5);
     expect(result.counts.um).toBe(3);
     expect(result.counts.like).toBe(2);
+  });
+});
+
+describe('useInterviewIntelligence', () => {
+  it('keeps the same fillerCounts object when counts are unchanged', () => {
+    const { result } = renderHook(() => useInterviewIntelligence({}));
+    const initialCounts = result.current.fillerCounts;
+
+    act(() => {
+      result.current.ingestTranscript('I built a distributed cache');
+    });
+    expect(result.current.fillerCounts).toBe(initialCounts);
+
+    act(() => {
+      result.current.ingestTranscript('um I built a distributed cache');
+    });
+    expect(result.current.fillerCounts).not.toBe(initialCounts);
+    expect(result.current.fillerCounts.um).toBe(1);
   });
 });
 

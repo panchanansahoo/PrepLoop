@@ -1,16 +1,12 @@
 /**
  * AI Job Copilot Backend Test Script
  * 
- * Tests the new /api/copilot endpoints
- * Run with: node backend/test-copilot.js
+ * Tests the /api/copilot endpoints
+ * Run with: npm run test:copilot
  */
 
-import fetch from 'node-fetch';
-
 const API_BASE = process.env.API_URL || 'http://localhost:5000';
-
-// Mock auth token - replace with real token for actual testing
-const AUTH_TOKEN = process.env.TEST_AUTH_TOKEN || 'test-token';
+const AUTH_TOKEN = process.env.TEST_AUTH_TOKEN || null;
 
 const colors = {
   reset: '\x1b[0m',
@@ -96,7 +92,6 @@ async function testValidation() {
   log('\n🔍 Testing input validation', 'blue');
   
   try {
-    // Test with empty query
     const response = await fetch(`${API_BASE}/api/copilot/ask`, {
       method: 'POST',
       headers: {
@@ -114,11 +109,47 @@ async function testValidation() {
       log('✅ Validation working correctly', 'green');
       return true;
     } else {
-      log('❌ Validation not working as expected', 'red');
+      log(`❌ Validation not working as expected (status: ${response.status})`, 'red');
       return false;
     }
   } catch (error) {
     log(`❌ Validation test error: ${error.message}`, 'red');
+    return false;
+  }
+}
+
+async function testUnauthenticatedProtection() {
+  log('\n🔒 Testing Auth-Gate Protection (Unauthenticated)', 'blue');
+  
+  try {
+    // 1. Missing token
+    const resNoToken = await fetch(`${API_BASE}/api/copilot/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: 'Hello' }),
+    });
+    const passNoToken = resNoToken.status === 401;
+
+    // 2. Malformed token
+    const resBadToken = await fetch(`${API_BASE}/api/copilot/job-fit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer invalid-token-12345',
+      },
+      body: JSON.stringify({ jobTitle: 'Developer' }),
+    });
+    const passBadToken = resBadToken.status === 401 || resBadToken.status === 403;
+
+    if (passNoToken && passBadToken) {
+      log('✅ Copilot routes strictly enforce authentication (401)', 'green');
+      return true;
+    } else {
+      log(`❌ Auth gate failed: missing=${resNoToken.status}, invalid=${resBadToken.status}`, 'red');
+      return false;
+    }
+  } catch (error) {
+    log(`❌ Auth gate test error: ${error.message}`, 'red');
     return false;
   }
 }
@@ -155,35 +186,33 @@ async function runTests() {
     process.exit(1);
   }
 
-  const results = {
-    ask: await testCopilotAsk(),
-    jobFit: await testCopilotJobFit(),
-    validation: await testValidation(),
-  };
+  if (AUTH_TOKEN) {
+    log('Mode: AUTHENTICATED (Running live inference tests)', 'green');
+    const results = {
+      ask: await testCopilotAsk(),
+      jobFit: await testCopilotJobFit(),
+      validation: await testValidation(),
+    };
 
-  log('\n📊 Test Results', 'blue');
-  log('===============', 'blue');
-  log(`Ask Endpoint: ${results.ask ? '✅ PASS' : '❌ FAIL'}`, results.ask ? 'green' : 'red');
-  log(`Job-Fit Endpoint: ${results.jobFit ? '✅ PASS' : '❌ FAIL'}`, results.jobFit ? 'green' : 'red');
-  log(`Validation: ${results.validation ? '✅ PASS' : '❌ FAIL'}`, results.validation ? 'green' : 'red');
+    log('\n📊 Test Results', 'blue');
+    log('===============', 'blue');
+    log(`Ask Endpoint: ${results.ask ? '✅ PASS' : '❌ FAIL'}`, results.ask ? 'green' : 'red');
+    log(`Job-Fit Endpoint: ${results.jobFit ? '✅ PASS' : '❌ FAIL'}`, results.jobFit ? 'green' : 'red');
+    log(`Validation: ${results.validation ? '✅ PASS' : '❌ FAIL'}`, results.validation ? 'green' : 'red');
 
-  const allPassed = Object.values(results).every(r => r);
-  
-  if (allPassed) {
-    log('\n🎉 All tests passed!', 'green');
+    const allPassed = Object.values(results).every(r => r);
+    process.exit(allPassed ? 0 : 1);
   } else {
-    log('\n⚠️  Some tests failed. Check the logs above.', 'yellow');
+    log('Mode: UNAUTHENTICATED (Verifying security auth gates)', 'yellow');
+    log('💡 Note: Set TEST_AUTH_TOKEN to run live Copilot AI inference tests.', 'yellow');
     
-    if (!process.env.GROQ_API_KEY) {
-      log('\n💡 Tip: Make sure GROQ_API_KEY is set in your .env file', 'yellow');
-    }
-    
-    if (AUTH_TOKEN === 'test-token') {
-      log('💡 Tip: Set TEST_AUTH_TOKEN environment variable with a valid JWT token', 'yellow');
-    }
-  }
+    const authGatePassed = await testUnauthenticatedProtection();
+    log('\n📊 Test Results', 'blue');
+    log('===============', 'blue');
+    log(`Copilot Auth Guard: ${authGatePassed ? '✅ PASS' : '❌ FAIL'}`, authGatePassed ? 'green' : 'red');
 
-  process.exit(allPassed ? 0 : 1);
+    process.exit(authGatePassed ? 0 : 1);
+  }
 }
 
 // Run tests

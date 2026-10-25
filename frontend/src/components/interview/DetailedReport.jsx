@@ -212,17 +212,20 @@ export default function DetailedReport({ data, companyName, companyColor, compan
                     <h4><MessageSquare size={14} /> Full Conversation History</h4>
                     {conversation && conversation.length > 0 ? (
                         <div className="dr-transcript-list">
-                            {conversation.map((msg, idx) => (
+                            {conversation.map((msg, idx) => {
+                                const isAiMsg = msg.role === 'interviewer' || msg.role === 'clarification';
+                                const isCandidateMsg = msg.role === 'candidate' || msg.role === 'clarification-question';
+                                return (
                                 <div
                                     key={idx}
-                                    className={`dr-msg ${msg.role === 'interviewer' ? 'dr-msg-interviewer' : msg.role === 'candidate' ? 'dr-msg-candidate' : 'dr-msg-feedback'}`}
+                                    className={`dr-msg ${isAiMsg ? 'dr-msg-interviewer' : isCandidateMsg ? 'dr-msg-candidate' : 'dr-msg-feedback'}`}
                                 >
                                     <div className="dr-msg-avatar">
-                                        {msg.role === 'interviewer' ? (
+                                        {isAiMsg ? (
                                             <div className="dr-msg-icon dr-msg-icon-ai" style={{ background: companyColor || '#6366f1' }}>
                                                 <Bot size={14} />
                                             </div>
-                                        ) : msg.role === 'candidate' ? (
+                                        ) : isCandidateMsg ? (
                                             <div className="dr-msg-icon dr-msg-icon-user">
                                                 <User size={14} />
                                             </div>
@@ -235,7 +238,7 @@ export default function DetailedReport({ data, companyName, companyColor, compan
                                     <div className="dr-msg-body">
                                         <div className="dr-msg-header">
                                             <span className="dr-msg-role">
-                                                {msg.role === 'interviewer' ? `AI Interviewer` : msg.role === 'candidate' ? 'You' : 'Feedback'}
+                                                {isAiMsg ? `AI Interviewer` : isCandidateMsg ? 'You' : 'Feedback'}
                                             </span>
                                             {msg.timestamp && (
                                                 <span className="dr-msg-time">
@@ -266,11 +269,17 @@ export default function DetailedReport({ data, companyName, companyColor, compan
                                                         ))}
                                                     </div>
                                                 )}
+                                                {msg.hint && (
+                                                    <div className="dr-msg-fb-list">
+                                                        <span className="dr-msg-fb-chip" style={{ color: '#c4b5fd' }}>💡 Hint: {msg.hint}</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     ) : (
                         <div className="dr-empty">

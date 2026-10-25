@@ -52,6 +52,17 @@ const toRms = (timeData) => {
   return Math.sqrt(sum / timeData.length);
 };
 
+const LEVEL_EPSILON = 0.015;
+const BAR_EPSILON = 0.02;
+
+function barsDiffer(nextBars, previousBars) {
+  if (!previousBars || previousBars.length !== nextBars.length) return true;
+  for (let i = 0; i < nextBars.length; i += 1) {
+    if (Math.abs(nextBars[i] - previousBars[i]) > BAR_EPSILON) return true;
+  }
+  return false;
+}
+
 export default function useAudioVisualizer({ inputStream = null, outputAudioElement = null, barCount = 8 } = {}) {
   const [inputBars, setInputBars] = useState(() => Array.from({ length: barCount }, () => 0));
   const [outputBars, setOutputBars] = useState(() => Array.from({ length: barCount }, () => 0));
@@ -59,6 +70,14 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
   const [outputLevel, setOutputLevel] = useState(0);
 
   const rafRef = useRef(null);
+  // Remember the last painted values so silence doesn't re-render the whole
+  // page 60 times a second.
+  const lastPaintRef = useRef({
+    inputBars: null,
+    outputBars: null,
+    inputLevel: 0,
+    outputLevel: 0,
+  });
 
   useEffect(() => {
     const audioContext = getGlobalAudioContext();
@@ -119,10 +138,28 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
       outputAnalyser.getByteFrequencyData(outputFrequency);
       outputAnalyser.getByteTimeDomainData(outputTime);
 
-      setInputBars(normalizeBars(inputFrequency, barCount));
-      setOutputBars(normalizeBars(outputFrequency, barCount));
-      setInputLevel(toRms(inputTime));
-      setOutputLevel(toRms(outputTime));
+      const nextInputBars = normalizeBars(inputFrequency, barCount);
+      const nextOutputBars = normalizeBars(outputFrequency, barCount);
+      const nextInputLevel = toRms(inputTime);
+      const nextOutputLevel = toRms(outputTime);
+      const lastPaint = lastPaintRef.current;
+
+      if (barsDiffer(nextInputBars, lastPaint.inputBars)) {
+        lastPaint.inputBars = nextInputBars;
+        setInputBars(nextInputBars);
+      }
+      if (barsDiffer(nextOutputBars, lastPaint.outputBars)) {
+        lastPaint.outputBars = nextOutputBars;
+        setOutputBars(nextOutputBars);
+      }
+      if (Math.abs(nextInputLevel - lastPaint.inputLevel) > LEVEL_EPSILON) {
+        lastPaint.inputLevel = nextInputLevel;
+        setInputLevel(nextInputLevel);
+      }
+      if (Math.abs(nextOutputLevel - lastPaint.outputLevel) > LEVEL_EPSILON) {
+        lastPaint.outputLevel = nextOutputLevel;
+        setOutputLevel(nextOutputLevel);
+      }
 
       rafRef.current = requestAnimationFrame(tick);
     };

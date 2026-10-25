@@ -46,7 +46,14 @@ export default function useInterviewIntelligence({ _getAuthHeaders } = {}) {
 
   const ingestTranscript = useCallback((text) => {
     const detected = detectFillersInText(text);
-    setFillerCounts(detected.counts);
+    // Keep the previous object when nothing changed. Returning a fresh object on
+    // every call re-renders every consumer (and used to create an infinite
+    // render loop when callers listed this hook's return value in effect deps).
+    setFillerCounts((prev) => (
+      FILLERS.every((filler) => prev?.[filler] === detected.counts[filler])
+        ? prev
+        : detected.counts
+    ));
     return detected;
   }, []);
 

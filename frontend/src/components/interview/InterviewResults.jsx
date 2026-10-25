@@ -108,7 +108,7 @@ function InterviewResults({
             <header className="ai-topbar">
                 <div className="ai-topbar-left">
                     <div className="ai-breadcrumb">
-                        <span className="ai-breadcrumb-link" onClick={() => window.location.href = '/interview-suite'}>← Interview Suite</span>
+                        <span className="ai-breadcrumb-link" onClick={() => navigate('/interview-suite')}>← Interview Suite</span>
                         <ChevronRight size={12} className="ai-breadcrumb-sep" />
                         <span className="ai-breadcrumb-current">Session Results</span>
                     </div>
@@ -523,15 +523,30 @@ function InterviewResults({
                                     {ensureArray(conversation).length === 0 ? (
                                         <p className="ai-result-empty-text" style={{ textAlign: 'center', padding: 24 }}>No conversation data available</p>
                                     ) : (
-                                        ensureArray(conversation).map((msg, i) => (
-                                            <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
-                                                <div className="ai-result-transcript-role">
-                                                    {msg.role === 'interviewer' ? <Sparkles size={12} /> : <User size={12} />}
-                                                    {msg.role === 'interviewer' ? interviewer.name : 'You'}
+                                        ensureArray(conversation).map((msg, i) => {
+                                            const isInterviewerMsg = msg.role === 'interviewer';
+                                            const isFeedbackMsg = msg.role === 'feedback';
+                                            const RoleIcon = isInterviewerMsg ? Sparkles : isFeedbackMsg ? Star : User;
+                                            const roleLabel = isInterviewerMsg
+                                                ? interviewer.name
+                                                : isFeedbackMsg
+                                                    ? `Feedback${msg.score ? ` · ${msg.score}%` : ''}`
+                                                    : 'You';
+                                            return (
+                                                <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
+                                                    <div className="ai-result-transcript-role">
+                                                        <RoleIcon size={12} />
+                                                        {roleLabel}
+                                                    </div>
+                                                    <div className="ai-result-transcript-text">{msg.content || msg.text}</div>
+                                                    {isFeedbackMsg && msg.hint && (
+                                                        <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: '#a5b4fc' }}>
+                                                            Hint: {msg.hint}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <div className="ai-result-transcript-text">{msg.content || msg.text}</div>
-                                            </div>
-                                        ))
+                                            );
+                                        })
                                     )}
                                 </div>
                             </div>
@@ -564,7 +579,7 @@ function InterviewResults({
                     <button className="ai-result-cta ai-result-cta--secondary" onClick={onStartNew}>
                         <RefreshCw size={16} /> Start New Interview
                     </button>
-                    <button className="ai-result-cta ai-result-cta--secondary" onClick={() => window.location.href = '/interview-suite'}>
+                    <button className="ai-result-cta ai-result-cta--secondary" onClick={() => navigate('/interview-suite')}>
                         <ArrowLeft size={16} /> Back to Interview Suite
                     </button>
                 </div>

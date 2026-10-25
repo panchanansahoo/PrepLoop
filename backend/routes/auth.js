@@ -4,6 +4,7 @@ import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCo
 import { verifyCaptcha } from '../utils/captcha.js';
 import { sendEmail, isEmailConfigured } from '../services/emailService.js';
 import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
+import cacheManager from '../utils/cacheManager.js';
 
 const router = express.Router();
 
@@ -227,19 +228,50 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// SECURITY: Account lockout — track failed login attempts per email+IP
+// SECURITY: Account lockout — track failed login attempts per email+IP (multi-tier: Redis + local fallback)
 const LOGIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_ATTEMPT_WINDOW_SEC = 15 * 60; // 900 seconds
 const MAX_LOGIN_ATTEMPTS = 5;
-const loginAttempts = new Map(); // key: "email:ip" => { count, firstAttempt, lockedUntil }
 
-function checkLoginLockout(email, ip) {
+// In-memory fallback in case cacheManager or Redis is warming up/disconnected
+const localLoginAttempts = new Map();
+
+async function getLoginRecord(key) {
+  try {
+    const cached = await cacheManager.get(`lockout:${key}`);
+    if (cached) return cached;
+  } catch (err) {
+    console.warn('[auth] cacheManager get error, falling back to local memory:', err.message);
+  }
+  return localLoginAttempts.get(key) || null;
+}
+
+async function setLoginRecord(key, record, ttlSec = LOGIN_ATTEMPT_WINDOW_SEC) {
+  localLoginAttempts.set(key, record);
+  try {
+    await cacheManager.set(`lockout:${key}`, record, ttlSec);
+  } catch (err) {
+    console.warn('[auth] cacheManager set error:', err.message);
+  }
+}
+
+async function removeLoginRecord(key) {
+  localLoginAttempts.delete(key);
+  try {
+    await cacheManager.delete(`lockout:${key}`);
+  } catch (err) {
+    console.warn('[auth] cacheManager delete error:', err.message);
+  }
+}
+
+async function checkLoginLockout(email, ip) {
   const key = `${email.toLowerCase()}:${ip}`;
-  const record = loginAttempts.get(key);
+  const record = await getLoginRecord(key);
   if (!record) return { locked: false };
 
   // Auto-expire old lockouts
   if (record.lockedUntil && Date.now() > record.lockedUntil) {
-    loginAttempts.delete(key);
+    await removeLoginRecord(key);
     return { locked: false };
   }
 
@@ -251,16 +283,17 @@ function checkLoginLockout(email, ip) {
 
   // Reset if outside the tracking window
   if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
-    loginAttempts.delete(key);
+    await removeLoginRecord(key);
     return { locked: false };
   }
 
   return { locked: false };
 }
 
-function recordFailedLogin(email, ip) {
+async function recordFailedLogin(email, ip) {
   const key = `${email.toLowerCase()}:${ip}`;
-  const record = loginAttempts.get(key) || { count: 0, firstAttempt: Date.now() };
+  const existing = await getLoginRecord(key);
+  const record = existing || { count: 0, firstAttempt: Date.now() };
 
   // Reset if outside the tracking window
   if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
@@ -274,21 +307,22 @@ function recordFailedLogin(email, ip) {
     record.lockedUntil = Date.now() + LOGIN_ATTEMPT_WINDOW_MS;
   }
 
-  loginAttempts.set(key, record);
+  await setLoginRecord(key, record, LOGIN_ATTEMPT_WINDOW_SEC);
 
-  // Prune old entries every so often
-  if (loginAttempts.size > 5000) {
+  // Prune local memory map if large
+  if (localLoginAttempts.size > 5000) {
     const now = Date.now();
-    for (const [k, v] of loginAttempts) {
+    for (const [k, v] of localLoginAttempts) {
       if (now - v.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS * 2) {
-        loginAttempts.delete(k);
+        localLoginAttempts.delete(k);
       }
     }
   }
 }
 
-function clearLoginAttempts(email, ip) {
-  loginAttempts.delete(`${email.toLowerCase()}:${ip}`);
+async function clearLoginAttempts(email, ip) {
+  const key = `${email.toLowerCase()}:${ip}`;
+  await removeLoginRecord(key);
 }
 
 router.post('/login', authLoginLimiter, async (req, res) => {
@@ -303,8 +337,8 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     return res.status(400).json({ error: 'Please enter a valid email address' });
   }
 
-  // SECURITY: Check account lockout before attempting authentication
-  const lockout = checkLoginLockout(normalizedEmail, req.ip);
+  // SECURITY: Check account lockout before attempting authentication (multi-tier Redis + local)
+  const lockout = await checkLoginLockout(normalizedEmail, req.ip);
   if (lockout.locked) {
     return res.status(429).json({
       error: `Account temporarily locked due to too many failed attempts. Try again in ${lockout.remainingMinutes} minute(s).`,
@@ -344,7 +378,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
 
       if (error) {
         // Record the failed attempt
-        recordFailedLogin(normalizedEmail, req.ip);
+        await recordFailedLogin(normalizedEmail, req.ip);
 
         if (error.message === 'Email not confirmed') {
           return res.status(403).json({
@@ -358,7 +392,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     }
 
     // Clear failed attempts on successful login
-    clearLoginAttempts(normalizedEmail, req.ip);
+    await clearLoginAttempts(normalizedEmail, req.ip);
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')

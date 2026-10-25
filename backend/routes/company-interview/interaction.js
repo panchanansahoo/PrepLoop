@@ -74,7 +74,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
     if (questionSource === 'admin-custom' && _questionSetCode) {
       const { data: attempt, error: attemptError } = await _supabaseAdmin
         .from('admin_interview_attempts')
-        .select('id, question_set_id, user_id, stage, current_question_index, responses, expires_at, completed_at')
+        .select('id, question_set_id, user_id, stage, current_question_index, current_question_started_at, responses, expires_at, completed_at')
         .eq('id', attemptId || '')
         .single();
       if (attemptError || !attempt) {
@@ -739,7 +739,7 @@ Respond as JSON:
 }`
       },
       ...truncateConversationHistory(conversationHistory || []).map(h => ({
-        role: h.role === 'interviewer' ? 'assistant' : 'user',
+        role: (h.role === 'interviewer' || h.role === 'clarification') ? 'assistant' : 'user',
         content: h.content
       })),
       { role: 'assistant', content: previousQuestion },
@@ -772,6 +772,13 @@ Respond as JSON:
     });
     res.json(withRuntime({
       ...normalizedResult,
+      // Completion is decided by the server's question budget, never by the
+      // model: without this the frontend never learns the interview is over.
+      complete: isLastQuestion,
+      followUpQuestion: isLastQuestion ? '' : normalizedResult.followUpQuestion,
+      closingRemark: isLastQuestion
+        ? (result.closingRemark || getStaticInterviewClosing(stage))
+        : undefined,
       interviewerReaction: result.interviewerReaction || 'neutral',
       thinkTime: result.thinkTime || 45,
       hint: normalizedResult.hint || 'Try breaking the problem into smaller parts',
@@ -825,7 +832,13 @@ Respond as JSON:
     });
     res.json(withRuntime({
       ...fallbackFeedback,
-      followUpQuestion: fallbackFollowUps[stage] || defaultFallbackByExperience,
+      complete: safeQuestionNumber > safeTotalQuestions,
+      followUpQuestion: safeQuestionNumber > safeTotalQuestions
+        ? ''
+        : (fallbackFollowUps[stage] || defaultFallbackByExperience),
+      closingRemark: safeQuestionNumber > safeTotalQuestions
+        ? getStaticInterviewClosing(stage)
+        : undefined,
       score: deterministicScore(72, 15, safeQuestionNumber + (userAnswer?.length || 0)),
       interviewerReaction: 'encouraging',
       thinkTime: 45,

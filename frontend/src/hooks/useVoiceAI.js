@@ -8,7 +8,7 @@
  *   → Backchannel clips play during long user speech
  *   → User can interrupt AI speech by speaking
  */
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useAudioVisualizer from "./useAudioVisualizer";
 import { mergeAuthHeaders } from "../utils/authHeaders";
 import { authFetch } from "../utils/authFetch";
@@ -46,7 +46,6 @@ export function buildVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
 }
 
 const TTS_ENDPOINT = buildVoiceApiUrl("/voice/tts-stream");
-const ANALYZE_ENDPOINT = buildVoiceApiUrl("/voice/analyze-answer");
 const BACKCHANNEL_ENDPOINT = buildVoiceApiUrl("/voice/backchannel-clips");
 
 function isVoiceDebugEnabled() {
@@ -447,16 +446,6 @@ export function useVoiceAI({
     finalTextRef.current = "";
     interimRef.current = "";
 
-    authFetch(ANALYZE_ENDPOINT, {
-      method: "POST",
-      headers: resolveAuthHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        question: questionRef.current,
-        answer: savedAnswer,
-        interviewType,
-      }),
-    }).catch(() => {});
-
     try {
       onAnswer?.(savedAnswer, {});
     } catch {
@@ -465,7 +454,7 @@ export function useVoiceAI({
 
     setTranscript("");
     setInterimText("");
-  }, [onAnswer, interviewType, resolveAuthHeaders]);
+  }, [onAnswer]);
 
   const scheduleAfterSpeechSilence = useCallback(
     (delayMs) => {
@@ -1279,7 +1268,10 @@ export function useVoiceAI({
     [cleanup],
   );
 
-  return {
+  // Memoize so consumers' callbacks stay stable between unrelated renders
+  // (e.g. the parent's 1s interview clock). A fresh object every render used to
+  // restart silence timers and re-subscribe effects constantly.
+  return useMemo(() => ({
     state,
     transcript,
     interimText,
@@ -1307,7 +1299,27 @@ export function useVoiceAI({
       ...analyticsRef.current,
       sessionDurationMs: Date.now() - analyticsRef.current.sessionStart,
     }),
-  };
+  }), [
+    state,
+    transcript,
+    interimText,
+    finalTranscript,
+    errorMessage,
+    interruptDetected,
+    connectionMode,
+    connectionHealth,
+    silenceCountdown,
+    start,
+    stop,
+    interrupt,
+    speak,
+    prefetch,
+    cleanup,
+    inputBars,
+    outputBars,
+    inputLevel,
+    outputLevel,
+  ]);
 }
 
 export default useVoiceAI;

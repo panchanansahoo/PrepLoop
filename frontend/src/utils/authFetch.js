@@ -1,6 +1,22 @@
 import { supabase } from '../lib/supabase';
 import { buildAuthHeaders } from './authHeaders';
 
+const DEFAULT_TIMEOUT_MS = 90_000;
+const CSRF_TIMEOUT_MS = 5_000;
+
+async function fetchWithTimeout(url, init, timeoutMs) {
+  // Callers that manage their own AbortController keep full control.
+  if (!timeoutMs || init?.signal) return fetch(url, init);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * Fetch wrapper with automatic Supabase token refresh on 401.
  *
@@ -12,13 +28,23 @@ import { buildAuthHeaders } from './authHeaders';
  * Usage:  const res = await authFetch(url, { method: 'POST', body: ... });
  *         — headers (Content-Type + Authorization) are injected automatically.
  *         — on 401 the Supabase session is refreshed and the request retried once.
+ *         — requests time out after 90s by default; pass `timeoutMs` to override
+ *           (or `0` to disable, or your own `signal` to manage it yourself).
  */
 export async function authFetch(url, options = {}) {
-  const method = String(options.method || 'GET').toUpperCase();
+  const {
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    ...fetchOptions
+  } = options;
+  const method = String(fetchOptions.method || 'GET').toUpperCase();
   let csrfToken = null;
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
     try {
-      const csrfResponse = await fetch('/api/csrf-token', { credentials: 'include' });
+      const csrfResponse = await fetchWithTimeout(
+        '/api/csrf-token',
+        { credentials: 'include' },
+        Math.min(CSRF_TIMEOUT_MS, timeoutMs || CSRF_TIMEOUT_MS),
+      );
       if (csrfResponse.ok) csrfToken = (await csrfResponse.json()).csrfToken;
     } catch {
       // Bearer-token requests remain valid without CSRF; cookie requests fail explicitly at the API.
@@ -27,15 +53,19 @@ export async function authFetch(url, options = {}) {
   // Merge caller-provided headers on top of the default auth headers.
   const headers = {
     ...buildAuthHeaders(),
-    ...(options.headers || {}),
+    ...(fetchOptions.headers || {}),
   };
   if (csrfToken) headers['X-CSRF-Token'] = csrfToken;
-  if (typeof FormData !== 'undefined' && options.body instanceof FormData) {
+  if (typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData) {
     delete headers['Content-Type'];
     delete headers['content-type'];
   }
 
-  const response = await fetch(url, { ...options, credentials: 'include', headers });
+  const response = await fetchWithTimeout(
+    url,
+    { ...fetchOptions, credentials: 'include', headers },
+    timeoutMs,
+  );
 
   // If not a 401, return as-is (including 403 — that means genuine permission denial).
   if (response.status !== 401) {
@@ -65,7 +95,11 @@ export async function authFetch(url, options = {}) {
       Authorization: `Bearer ${newToken}`,
     };
 
-    return fetch(url, { ...options, credentials: 'include', headers: retryHeaders });
+    return fetchWithTimeout(
+      url,
+      { ...fetchOptions, credentials: 'include', headers: retryHeaders },
+      timeoutMs,
+    );
   } catch {
     // Refresh threw — return the original 401 response.
     return response;

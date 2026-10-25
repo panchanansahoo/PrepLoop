@@ -40,8 +40,8 @@ function InterviewControls({
                 <button
                     className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''} ${awaitingAnswer ? 'ai-vc-ctrl--attention' : ''}`}
                     onClick={toggleMic}
-                    title={awaitingAnswer ? 'Click to start answering' : (micOn ? (isListening ? 'Stop listening' : 'Mute') : 'Unmute & start listening')}
-                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to stop.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
+                    title={awaitingAnswer ? 'Click to start answering' : (micOn ? (isListening ? 'Send answer' : 'Mute') : 'Unmute & start listening')}
+                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to send your answer.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
                     aria-pressed={micOn}
                 >
                     {awaitingAnswer ? <Mic size={18} /> : (micOn ? <Mic size={18} /> : <MicOff size={18} />)}
@@ -49,7 +49,7 @@ function InterviewControls({
                     {isListening && <span className="ai-vc-listening-dot" />}
                     {isListening && (
                         <span className="ai-vc-conn-mode-badge">
-                            {connectionMode === 'websocket' ? 'WS' : connectionMode === 'rest' ? 'REST' : 'OFF'}
+                            {connectionMode === 'websocket' ? 'WS' : connectionMode === 'rest' ? 'REST' : connectionMode === 'browser' ? 'LIVE' : 'OFF'}
                         </span>
                     )}
                     {connectionMode === 'rest' && isListening && (

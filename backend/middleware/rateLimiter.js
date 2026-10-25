@@ -77,10 +77,10 @@ export const contactLimiter = rateLimit({
     keyGenerator: (req) => req.ip,
 });
 
-/** Auth login: 10 requests per 15 min per IP */
+/** Auth login: 30 requests per 15 min per IP (configurable; 60 in dev) */
 export const authLoginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: Number.parseInt(process.env.AUTH_LOGIN_RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '60' : '30'), 10),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many login attempts. Please try again in 15 minutes.' },

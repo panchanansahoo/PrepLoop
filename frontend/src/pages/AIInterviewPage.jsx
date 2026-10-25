@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -9,7 +9,7 @@ import InterviewResults from '../components/interview/InterviewResults';
 import InterviewLobby from '../components/interview/InterviewLobby';
 import InterviewControls from '../components/interview/InterviewControls';
 import LiveCaptions from '../components/interview/LiveCaptions';
-import InterviewWorkspace from '../components/interview/InterviewWorkspace';
+const InterviewWorkspace = lazy(() => import('../components/interview/InterviewWorkspace'));
 import ChatSidebar from '../components/interview/ChatSidebar';
 import InterviewTopBar from '../components/interview/InterviewTopBar';
 import ScoreCueToast from '../components/interview/ScoreCueToast';
@@ -25,9 +25,12 @@ import {
 import useInterviewSession from '../hooks/useInterviewSession';
 import './AIInterviewPage.css';
 
+const ALLOWED_RESUME_EXTENSIONS = ['pdf', 'docx'];
+const MAX_RESUME_BYTES = 5 * 1024 * 1024;
+const MAX_RESUME_MB = MAX_RESUME_BYTES / (1024 * 1024);
+
 export default function AIInterviewPage() {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const questionSetCode = searchParams.get('set');
     const focusArea = searchParams.get('focus') || '';
@@ -38,48 +41,46 @@ export default function AIInterviewPage() {
 
     const {
         phase, interviewType, realtimeMode, interviewerGender, activeTab,
-        language, code, _lineCount, elapsed, isPaused,_totalPauseTimee,
-        questionElapsed, _currentQuestion, questionIndex, totalQuestions,
-        stageLabel, stagePlan, loading, _consecutiveSilentQuestions,
+        language, code, elapsed, isPaused,
+        questionElapsed, questionIndex, totalQuestions,
+        stageLabel, stagePlan, loading,
         scoreCue, activeHint, analysisLoading, cameraOn, bookmarked,
         speakerMuted, micOn, interviewerVideoReady, interviewerVisibleMode,
         aiSpeaking, transcript, silenceCountdown, chatOpen, conversation,
-        userInput, interviewerStatus, _silenceStage, notes, savedSession,
+        userInput, interviewerStatus, notes, savedSession,
         setupStep, experienceLevel, targetRole, targetCompany, companySearch,
-        companyTab, resumeFile, _activeResumeContext,_resultTabb, analysisResult,
-        _expandedMoment, captionsOn, workspacePanelOpen, workspaceDropdownOpen,
-        cameraError, showEndConfirm, awaitingAnswer,
+        companyTab, resumeFile, analysisResult,
+        captionsOn, workspacePanelOpen, workspaceDropdownOpen,
+        cameraError, showEndConfirm, awaitingAnswer, isOnline,
         customQuestionSet, questionSetLoading, questionSetError, submissionStatus, resumeParseError,
     } = state;
 
     const {
-        _sendAnswerRef, chatEndRef,_ttsAudioReff,
-        _streamRef, interviewerSpeakingVideoRef, interviewerListeningVideoRef,
+        chatEndRef,
+        interviewerSpeakingVideoRef, interviewerListeningVideoRef,
         interviewerTargetModeRef, videoRef,
     } = refs;
 
     const {
         setPhase, setInterviewType, setRealtimeMode, setInterviewerGender,
         setActiveTab, setLanguage, setCode, setNotes,
-        _setIsPaused,_setCurrentQuestionn, setQuestionIndex,
-        _setTotalQuestions,_setStageLabell_setStagePlanan,
-        _setLoading, setScoreCue, setActiveHint,
-        _setCameraOn, setBookmarked, setSpeakerMuted,
-        setChatOpen, setConversation, setUserInput, _setInterviewerStatus,
+        setQuestionIndex,
+        setScoreCue, setActiveHint,
+        setBookmarked, setSpeakerMuted,
+        setChatOpen, setConversation, setUserInput,
         setSetupStep, setExperienceLevel, setTargetRole, setTargetCompany,
-        setCompanySearch, setCompanyTab, setResumeFile, _setActiveResumeContext,
-        _setResultTab, setAnalysisResult,_setExpandedMomentt,
+        setCompanySearch, setCompanyTab, setResumeFile, setResumeParseError,
+        setAnalysisResult,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
-        _setSavedSession,_setMicOnn, setElapsed,
+        setElapsed,
         retryCustomSubmission,
         clearSavedSession, restoreSession, setTranscript,
         handleLanguageChange, handleReset, startInterview, sendAnswer,
         endInterview, togglePause, toggleMic, toggleCamera,
-        handleVoiceInput, _startVoiceRecording,_stopVoiceRecordingg,
-        _speakInterviewerText,_speakSequencee_stopSilenceHandlingng,
+        handleVoiceInput,
         handleInterviewerTimeUpdate, handleInterviewerLoadedMetadata,
         handleInterviewerCanPlay,
-        setShowEndConfirm, _setCameraError,_setAwaitingAnswerr,
+        setShowEndConfirm,
         handleAskQuestion, startAnswer,
     } = actions;
 
@@ -98,16 +99,31 @@ export default function AIInterviewPage() {
         toggleMic();
     }, [awaitingAnswer, toggleMic, startAnswer]);
 
+    const acceptResumeFile = React.useCallback((file) => {
+        if (!file) return;
+        const extension = String(file.name || '').split('.').pop()?.toLowerCase();
+        if (!ALLOWED_RESUME_EXTENSIONS.includes(extension)) {
+            setResumeParseError('Please upload a PDF or DOCX file.');
+            return;
+        }
+        if (file.size > MAX_RESUME_BYTES) {
+            setResumeParseError(`Resume must be ${MAX_RESUME_MB}MB or smaller.`);
+            return;
+        }
+        setResumeParseError(null);
+        setResumeFile(file);
+    }, [setResumeFile, setResumeParseError]);
+
     const handleResumeDragOver = React.useCallback((e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }, []);
     const handleResumeDragLeave = React.useCallback((e) => { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); }, []);
     const handleResumeDrop = React.useCallback((e) => {
         e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
-        if (e.dataTransfer.files.length > 0) setResumeFile(e.dataTransfer.files[0]);
-    }, [setResumeFile]);
+        if (e.dataTransfer.files.length > 0) acceptResumeFile(e.dataTransfer.files[0]);
+    }, [acceptResumeFile]);
     const handleResumeFileChange = React.useCallback((e) => {
-        if (e.target.files?.[0]) setResumeFile(e.target.files[0]);
-    }, [setResumeFile]);
+        acceptResumeFile(e.target.files?.[0]);
+    }, [acceptResumeFile]);
 
     const companyPool = targetCompany && COMPANY_INTERVIEWERS[targetCompany]
         ? COMPANY_INTERVIEWERS[targetCompany]
@@ -146,9 +162,28 @@ export default function AIInterviewPage() {
         return () => window.removeEventListener('keydown', handler);
     }, [phase, handleToggleMic, toggleCamera, togglePause, keyboardHelpOpen, setShowEndConfirm, aiSpeaking, loading]);
 
+    // Guard against accidentally closing/refreshing the tab mid-interview.
+    // In-app navigation is handled by the logo/End actions below.
+    useEffect(() => {
+        if (phase !== 'interview') return undefined;
+        const handleBeforeUnload = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [phase]);
+
     const handleEndClick = useCallback(() => {
         setShowEndConfirm(true);
     }, [setShowEndConfirm]);
+
+    // Stable dismiss handlers: the page re-renders every second (timers), and
+    // inline callbacks would reset the toast/banner auto-hide timers.
+    const dismissScoreCue = useCallback(() => setScoreCue(null), [setScoreCue]);
+    const dismissHint = useCallback(() => setActiveHint(null), [setActiveHint]);
+    const closeChat = useCallback(() => setChatOpen(false), [setChatOpen]);
+    const toggleKeyboardHelp = useCallback(() => setKeyboardHelpOpen((prev) => !prev), []);
 
     const confirmEnd = useCallback(() => {
         setShowEndConfirm(false);
@@ -285,7 +320,7 @@ export default function AIInterviewPage() {
                 workspacePanelOpen={workspacePanelOpen}
                 setWorkspacePanelOpen={setWorkspacePanelOpen}
                 endInterview={handleEndClick}
-                onNavigateBack={() => navigate('/interview-suite')}
+                onNavigateBack={handleEndClick}
             />
 
             <div className="ai-vc-body">
@@ -351,6 +386,10 @@ export default function AIInterviewPage() {
                                 <div className="ai-vc-status-pill ai-vc-status-pill--speaking"><Volume2 size={12} /> Speaking...</div>
                             ) : loading ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking"><Brain size={12} /> Evaluating...</div>
+                            ) : !isOnline ? (
+                                <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(239, 68, 68, 0.9)' }}>
+                                    <Wifi size={12} /> Connection lost — we'll retry when you're back online
+                                </div>
                             ) : awaitingAnswer ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(34, 197, 94, 0.9)' }}>
                                     <Mic size={12} /> Click mic or press M to answer
@@ -397,13 +436,18 @@ export default function AIInterviewPage() {
                         bookmarked={bookmarked} setBookmarked={setBookmarked}
                         endInterview={handleEndClick}
                         connectionMode={voiceAI.connectionMode}
-                        onKeyboardHelp={() => setKeyboardHelpOpen(prev => !prev)}
+                        onKeyboardHelp={toggleKeyboardHelp}
                         onAskQuestion={handleAskQuestion}
                         awaitingAnswer={awaitingAnswer}
                     />
                 </div>
 
                 {workspacePanelOpen && (
+                  <Suspense fallback={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px', color: 'var(--zinc-400)' }}>
+                      Loading workspace...
+                    </div>
+                  }>
                     <InterviewWorkspace
                         activeTab={activeTab} setActiveTab={setActiveTab}
                         workspaceDropdownOpen={workspaceDropdownOpen} setWorkspaceDropdownOpen={setWorkspaceDropdownOpen}
@@ -416,13 +460,14 @@ export default function AIInterviewPage() {
                         userInput={userInput} setUserInput={setUserInput} setTranscript={setTranscript}
                         onSendAnswer={sendAnswer} loading={loading}
                     />
+                  </Suspense>
                 )}
 
                 {chatOpen && (
                     <ChatSidebar
                         conversation={conversation} interviewerName={INTERVIEWER.name}
                         loading={loading} userInput={userInput} setUserInput={setUserInput}
-                        onSendAnswer={sendAnswer} onClose={() => setChatOpen(false)}
+                        onSendAnswer={sendAnswer} onClose={closeChat}
                         chatEndRef={chatEndRef} code={code}
                     />
                 )}
@@ -459,8 +504,8 @@ export default function AIInterviewPage() {
                     </div>
                 )}
 
-                <ScoreCueToast cue={scoreCue} onDismiss={() => setScoreCue(null)} />
-                <HintBanner hint={activeHint} onDismiss={() => setActiveHint(null)} />
+                <ScoreCueToast cue={scoreCue} onDismiss={dismissScoreCue} />
+                <HintBanner hint={activeHint} onDismiss={dismissHint} />
             </div>
         </div>
     );

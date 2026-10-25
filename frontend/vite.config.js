@@ -32,14 +32,14 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: process.env.NODE_ENV !== 'production',
     minify: 'esbuild',
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 1600,
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (!id.includes('node_modules')) return;
 
           // Keep manual chunking focused on very heavy dependencies.
-          // Let Rollup auto-split the rest to avoid circular chunk warnings.
+          // Group tightly coupled editor packages to avoid circular chunk warnings.
           if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-monaco';
           if (id.includes('@blocknote') || id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-editor';
           if (id.includes('prettier')) return 'vendor-prettier';
