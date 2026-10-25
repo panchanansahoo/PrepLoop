@@ -4,6 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, User, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, Github, Linkedin, Chrome, CheckCircle, Star, Rocket, Trophy, Target } from 'lucide-react';
 import logo from '../assets/logo.svg';
 
+const PASSWORD_RULES = [
+  { id: 'length', label: 'At least 8 characters', test: (value) => value.length >= 8 },
+  { id: 'uppercase', label: 'One uppercase letter', test: (value) => /[A-Z]/.test(value) },
+  { id: 'lowercase', label: 'One lowercase letter', test: (value) => /[a-z]/.test(value) },
+  { id: 'number', label: 'One number', test: (value) => /[0-9]/.test(value) },
+  { id: 'special', label: 'One special character', test: (value) => /[^A-Za-z0-9]/.test(value) },
+];
+
 /* ─── Canvas Particle Constellation ─── */
 function ParticleCanvas() {
   const canvasRef = useRef(null);
@@ -343,6 +351,7 @@ const keyframes = `
 export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -353,17 +362,35 @@ export default function Signup() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
-    setLoading(true);
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters');
-      setLoading(false);
+
+    const trimmedName = fullName.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName) {
+      setError('Please enter your full name');
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+    const failedRule = PASSWORD_RULES.find((rule) => !rule.test(password));
+    if (failedRule) {
+      setError(`Password must include: ${failedRule.label.toLowerCase()}`);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const user = await signup(email, password, fullName);
+      const user = await signup(trimmedEmail, password, trimmedName);
       if (user && user.emailVerified === false) {
-        navigate(`/check-email?email=${encodeURIComponent(email)}`);
+        navigate(`/check-email?email=${encodeURIComponent(trimmedEmail)}`);
       } else {
         navigate('/login');
       }
@@ -389,12 +416,13 @@ export default function Signup() {
     }
   };
 
-  // Password strength
+  // Password strength (counts the same rules the backend enforces)
+  const metRuleCount = PASSWORD_RULES.filter((rule) => rule.test(password)).length;
   const getStrength = () => {
     if (password.length === 0) return { level: 0, label: 'At least 8 characters', color: 'rgba(148,163,184,0.4)' };
-    if (password.length < 6) return { level: 1, label: `${8 - password.length} more needed`, color: '#f87171' };
-    if (password.length < 8) return { level: 2, label: `${8 - password.length} more needed`, color: '#fbbf24' };
-    if (password.length < 12) return { level: 3, label: 'Good password', color: '#34d399' };
+    if (metRuleCount <= 2) return { level: 1, label: `${metRuleCount}/5 requirements met`, color: '#f87171' };
+    if (metRuleCount === 3) return { level: 2, label: '3/5 requirements met', color: '#fbbf24' };
+    if (metRuleCount === 4) return { level: 3, label: '4/5 requirements met', color: '#34d399' };
     return { level: 4, label: 'Strong password ✓', color: '#22d3ee' };
   };
   const strength = getStrength();
@@ -558,7 +586,7 @@ export default function Signup() {
 
               {/* Error */}
               {error && (
-                <div className="signup-stagger" style={{
+                <div id="signup-error" role="alert" aria-live="polite" className="signup-stagger" style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   padding: '11px 14px', marginBottom: '16px',
                   background: 'rgba(239,68,68,0.06)', borderRadius: '12px',
@@ -632,7 +660,7 @@ export default function Signup() {
               <form onSubmit={handleSubmit}>
                 {/* Full Name */}
                 <div className="signup-stagger signup-stagger-4 signup-input-wrap" style={{ marginBottom: '12px' }}>
-                  <label style={{
+                  <label htmlFor="signup-name" style={{
                     fontSize: '11px', fontWeight: 700, color: 'rgba(203,213,225,0.65)',
                     marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase',
                   }}>Full Name</label>
@@ -643,7 +671,11 @@ export default function Signup() {
                       pointerEvents: 'none', transition: 'all 0.3s ease',
                     }} />
                     <input
-                      type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+                      id="signup-name"
+                      name="name"
+                      type="text"
+                      autoComplete="name"
+                      value={fullName} onChange={e => setFullName(e.target.value)}
                       onFocus={() => setFocusedField('name')}
                       onBlur={() => setFocusedField(null)}
                       placeholder="Your full name" required
@@ -661,7 +693,7 @@ export default function Signup() {
 
                 {/* Email */}
                 <div className="signup-stagger signup-stagger-5 signup-input-wrap" style={{ marginBottom: '12px' }}>
-                  <label style={{
+                  <label htmlFor="signup-email" style={{
                     fontSize: '11px', fontWeight: 700, color: 'rgba(203,213,225,0.65)',
                     marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase',
                   }}>Email</label>
@@ -672,7 +704,14 @@ export default function Signup() {
                       pointerEvents: 'none', transition: 'all 0.3s ease',
                     }} />
                     <input
-                      type="email" value={email} onChange={e => setEmail(e.target.value)}
+                      id="signup-email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      value={email} onChange={e => setEmail(e.target.value)}
                       onFocus={() => setFocusedField('email')}
                       onBlur={() => setFocusedField(null)}
                       placeholder="you@example.com" required
@@ -690,7 +729,7 @@ export default function Signup() {
 
                 {/* Password */}
                 <div className="signup-stagger signup-stagger-6 signup-input-wrap" style={{ marginBottom: '18px' }}>
-                  <label style={{
+                  <label htmlFor="signup-password" style={{
                     fontSize: '11px', fontWeight: 700, color: 'rgba(203,213,225,0.65)',
                     marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase',
                   }}>Password</label>
@@ -701,7 +740,10 @@ export default function Signup() {
                       pointerEvents: 'none', transition: 'all 0.3s ease',
                     }} />
                     <input
+                      id="signup-password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
                       value={password} onChange={e => setPassword(e.target.value)}
                       onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
@@ -744,6 +786,67 @@ export default function Signup() {
                     fontSize: '10px', color: strength.color, marginTop: '5px',
                     fontWeight: 600, transition: 'color 0.3s ease',
                   }}>{strength.label}</p>
+                  {password.length > 0 && (
+                    <ul style={{ listStyle: 'none', margin: '7px 0 0', padding: 0, display: 'grid', gap: '4px' }}>
+                      {PASSWORD_RULES.map((rule) => {
+                        const met = rule.test(password);
+                        return (
+                          <li key={rule.id} style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            fontSize: '10px',
+                            color: met ? '#86efac' : 'rgba(148,163,184,0.55)',
+                            transition: 'color 0.2s ease',
+                          }}>
+                            {met
+                              ? <CheckCircle size={11} style={{ flexShrink: 0 }} />
+                              : <span aria-hidden="true" style={{ width: 11, height: 11, borderRadius: '50%', border: '1px solid rgba(148,163,184,0.3)', flexShrink: 0 }} />}
+                            {rule.label}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Confirm Password */}
+                <div className="signup-stagger signup-stagger-7 signup-input-wrap" style={{ marginBottom: '18px' }}>
+                  <label htmlFor="signup-confirm-password" style={{
+                    fontSize: '11px', fontWeight: 700, color: 'rgba(203,213,225,0.65)',
+                    marginBottom: '6px', display: 'block', letterSpacing: '0.04em', textTransform: 'uppercase',
+                  }}>Confirm Password</label>
+                  <div style={{ position: 'relative' }}>
+                    <Lock size={15} className="signup-icon-v2" style={{
+                      position: 'absolute', left: '13px', top: '50%', transform: 'translateY(-50%)',
+                      color: focusedField === 'confirmPassword' ? '#c084fc' : 'rgba(148,163,184,0.35)',
+                      pointerEvents: 'none', transition: 'all 0.3s ease',
+                    }} />
+                    <input
+                      id="signup-confirm-password"
+                      name="confirmPassword"
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="new-password"
+                      value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                      onFocus={() => setFocusedField('confirmPassword')}
+                      onBlur={() => setFocusedField(null)}
+                      placeholder="Re-enter your password" required minLength={8}
+                      className="signup-input-v2"
+                      style={{
+                        width: '100%', padding: '12px 13px 12px 40px',
+                        background: 'rgba(0,0,0,0.25)',
+                        border: '1px solid rgba(255,255,255,0.07)',
+                        borderRadius: '13px', color: '#f8fafc', fontSize: '13px',
+                        fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                  {confirmPassword.length > 0 && (
+                    <p style={{
+                      fontSize: '10px', marginTop: '5px', fontWeight: 600,
+                      color: password === confirmPassword ? '#34d399' : '#f87171',
+                    }}>
+                      {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Submit */}

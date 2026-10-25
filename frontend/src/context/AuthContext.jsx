@@ -59,8 +59,9 @@ export function AuthProvider({ children }) {
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
             try {
+              // apiClient's default export resolves to response data, not the Axios response.
               const response = await apiClient.get('/api/user/profile');
-              const profileData = response.data.user;
+              const profileData = response.user;
               const fullUser = {
                 id: session.user.id,
                 email: session.user.email,
@@ -122,8 +123,9 @@ export function AuthProvider({ children }) {
           axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
           try {
+            // apiClient's default export resolves to response data, not the Axios response.
             const response = await apiClient.get('/api/user/profile');
-            const profileData = response.data.user;
+            const profileData = response.user;
             const fullUser = {
               ...profileData,
               id: profileData.id,
@@ -165,8 +167,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (email, password) => {
-    const response = await apiClient.post('/api/auth/login', { email, password });
-    const { token, user } = response.data;
+    const response = await apiClient.post(
+      '/api/auth/login',
+      { email: email.trim().toLowerCase(), password },
+      { skipAuthRefresh: true, skipRetry: true }
+    );
+    const { token, user } = response;
 
     localStorage.setItem('token', token);
     localStorage.setItem('user', JSON.stringify(user));
@@ -205,9 +211,13 @@ export function AuthProvider({ children }) {
 
   // Fix #4: signup now returns the user object so callers can redirect to /check-email
   const signup = async (email, password, fullName) => {
-    const response = await apiClient.post('/api/auth/signup', { email, password, fullName });
-    const payload = response?.data || response;
-    const { token, user } = payload || {};
+    const response = await apiClient.post(
+      '/api/auth/signup',
+      { email: email.trim().toLowerCase(), password, fullName: fullName.trim() },
+      { skipAuthRefresh: true, skipRetry: true }
+    );
+    const payload = response || {};
+    const { token, user } = payload;
 
     if (token) {
       localStorage.setItem('token', token);
@@ -253,8 +263,12 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const response = await apiClient.post('/api/auth/refresh');
-      const { token } = response.data;
+      const response = await apiClient.post(
+        '/api/auth/refresh',
+        {},
+        { skipAuthRefresh: true, skipRetry: true }
+      );
+      const { token } = response;
       localStorage.setItem('token', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(prev => prev ? { ...prev, access_token: token } : prev);

@@ -202,10 +202,15 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setLoading(true);
     try {
-      const res = await apiClient.post('/api/auth/forgot-password', { email: email.trim().toLowerCase() });
+      const res = await apiClient.post(
+        '/api/auth/forgot-password',
+        { email: email.trim().toLowerCase() },
+        { skipAuthRefresh: true, skipRetry: true }
+      );
       const payload = res?.data || res;
       const link = payload?.resetLink || payload?.devResetLink;
       if (link) {
@@ -216,10 +221,21 @@ export default function ForgotPassword() {
       }
       setSuccess(true);
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
+      if (!err.response) {
+        setError('Unable to connect to the server. Please check your connection and try again.');
+      } else {
+        setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTryAnotherEmail = () => {
+    setSuccess(false);
+    setDevResetLink(null);
+    setEmailSent(true);
+    setError('');
   };
 
   return (
@@ -244,7 +260,7 @@ export default function ForgotPassword() {
           </p>
 
           {error && (
-            <div style={styles.errorBox} className="fade-in-up">
+            <div id="forgot-error" role="alert" aria-live="polite" style={styles.errorBox} className="fade-in-up">
               <AlertCircle size={18} style={{ flexShrink: 0 }} /> {error}
             </div>
           )}
@@ -260,7 +276,7 @@ export default function ForgotPassword() {
                   <div style={{ marginTop: '6px' }}>
                     {emailSent
                       ? `We've sent a password reset link to ${email}. The link expires in 1 hour.`
-                      : `Email delivery isn't configured on this server. Use the button below to set a new password for ${email}.`}
+                      : `We couldn't send the email automatically. Use the button below to set a new password for ${email}.`}
                   </div>
                 </div>
               </div>
@@ -300,6 +316,20 @@ export default function ForgotPassword() {
                 </div>
               )}
 
+              <button
+                type="button"
+                onClick={handleTryAnotherEmail}
+                className="auth-link"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'rgba(148,163,184,0.6)', fontSize: '14px', fontWeight: 600,
+                  marginTop: '20px', width: '100%', fontFamily: 'inherit', padding: 0,
+                }}
+              >
+                Use a different email
+              </button>
+
               <Link to="/login" style={styles.backLink} className="auth-link">
                 <ArrowLeft size={16} /> Back to Sign In
               </Link>
@@ -307,12 +337,21 @@ export default function ForgotPassword() {
           ) : (
             <form onSubmit={handleSubmit}>
               <div style={styles.inputWrapper} className="auth-input-wrapper">
-                <label style={styles.label}>{EMAIL_ADDRESS_LABEL}</label>
+                <label htmlFor="forgot-email" style={styles.label}>{EMAIL_ADDRESS_LABEL}</label>
                 <div style={{ position: 'relative' }}>
                   <Mail size={18} style={styles.inputIcon} className="auth-input-icon" />
                   <input
-                    type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    id="forgot-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    inputMode="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={email} onChange={e => setEmail(e.target.value)}
                     placeholder="you@example.com" required
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? 'forgot-error' : undefined}
                     style={styles.input}
                     className="auth-input"
                   />

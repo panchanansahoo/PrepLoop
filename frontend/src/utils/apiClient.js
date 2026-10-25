@@ -13,14 +13,57 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+let csrfTokenCache = null;
+let csrfTokenRequest = null;
+
+function readCsrfCookie() {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)__csrf_token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function getCsrfToken(forceRefresh = false) {
+  if (!forceRefresh) {
+    // Prefer the cookie because other clients (authFetch) rotate it.
+    const cookieToken = readCsrfCookie();
+    if (cookieToken) return cookieToken;
+    if (csrfTokenCache) return csrfTokenCache;
+  }
+
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = axios
+      .get(`${API_URL}/api/csrf-token`, { withCredentials: true })
+      .then((response) => {
+        csrfTokenCache = response.data?.csrfToken || null;
+        return csrfTokenCache;
+      })
+      .catch(() => null)
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
+  }
+
+  return csrfTokenRequest;
+}
+
 /**
- * Request interceptor - Add auth token
+ * Request interceptor - Add auth token and CSRF header
  */
 apiClient.interceptors.request.use(
-  (config) => {
+  async (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Cookie-authenticated mutations need the double-submit CSRF header.
+    const method = String(config.method || 'get').toUpperCase();
+    if (!SAFE_METHODS.has(method)) {
+      const csrfToken = await getCsrfToken();
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken;
+      }
     }
     
     // Add request ID for tracing
@@ -56,7 +99,9 @@ apiClient.interceptors.response.use(
     const originalRequest = error.config;
 
     // Handle network errors with retry
-    if (!error.response && !originalRequest._retry) {
+    // Auth requests opt out with skipRetry so a wrong password / offline backend
+    // reports immediately instead of retrying with backoff.
+    if (!error.response && !originalRequest._retry && !originalRequest.skipRetry) {
       originalRequest._retry = true;
       originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
 
@@ -87,13 +132,18 @@ apiClient.interceptors.response.use(
 
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        const response = await axios.post(`${API_URL}/api/auth/refresh`, {
-          refreshToken,
-        });
+        // Prefer the HttpOnly refresh cookie set by the backend; fall back to
+        // a stored refresh token for older sessions. The refresh endpoint is
+        // cookie-authenticated, so it needs the double-submit CSRF header.
+        const csrfToken = await getCsrfToken();
+        const response = await axios.post(
+          `${API_URL}/api/auth/refresh`,
+          refreshToken ? { refreshToken } : {},
+          {
+            withCredentials: true,
+            headers: csrfToken ? { 'X-CSRF-Token': csrfToken } : {},
+          }
+        );
 
         const { token } = response.data;
         localStorage.setItem('token', token);
@@ -114,8 +164,26 @@ apiClient.interceptors.response.use(
       }
     }
 
+    // Handle a stale/missing CSRF token: refresh it and replay once.
+    // The replay is safe because a CSRF failure means the request was never processed.
+    const csrfErrorCode = error.response?.data?.code;
+    if (
+      error.response?.status === 403 &&
+      typeof csrfErrorCode === 'string' &&
+      csrfErrorCode.startsWith('CSRF_') &&
+      !originalRequest._csrfRetry
+    ) {
+      originalRequest._csrfRetry = true;
+      csrfTokenCache = null;
+      const csrfToken = await getCsrfToken(true);
+      if (csrfToken) {
+        originalRequest.headers['X-CSRF-Token'] = csrfToken;
+        return apiClient(originalRequest);
+      }
+    }
+
     // Handle 429 Too Many Requests - Retry with backoff
-    if (error.response?.status === 429 && !originalRequest._retry) {
+    if (error.response?.status === 429 && !originalRequest._retry && !originalRequest.skipRetry) {
       originalRequest._retry = true;
       const retryAfter = error.response.headers['retry-after'] || 5;
       await sleep(retryAfter * 1000);
@@ -123,7 +191,7 @@ apiClient.interceptors.response.use(
     }
 
     // Handle 503 Service Unavailable - Retry
-    if (error.response?.status === 503 && !originalRequest._retry) {
+    if (error.response?.status === 503 && !originalRequest._retry && !originalRequest.skipRetry) {
       originalRequest._retry = true;
       await sleep(2000);
       return apiClient(originalRequest);

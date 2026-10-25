@@ -424,11 +424,20 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setLoading(true);
     try {
-      await login(email, password);
-      const target = redirectTo && redirectTo.startsWith('/') ? decodeURIComponent(redirectTo) : '/dashboard';
+      await login(email.trim().toLowerCase(), password);
+      const target = (() => {
+        if (!redirectTo) return '/dashboard';
+        try {
+          const decoded = decodeURIComponent(redirectTo);
+          return decoded.startsWith('/') && !decoded.startsWith('//') ? decoded : '/dashboard';
+        } catch {
+          return '/dashboard';
+        }
+      })();
       navigate(target);
     } catch (err) {
       console.error("Login error:", err);
@@ -436,6 +445,8 @@ export default function Login() {
         setError('Unable to connect to the server. Please ensure the backend is running.');
       } else if (err.response?.status === 403 && err.response?.data?.email) {
         navigate(`/check-email?email=${encodeURIComponent(err.response.data.email)}`);
+      } else if (err.response?.status === 429) {
+        setError(err.response?.data?.error || 'Too many attempts. Please wait a few minutes and try again.');
       } else {
         setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
       }
@@ -635,7 +646,7 @@ export default function Login() {
 
               {/* Error */}
               {error && (
-                <div className="auth-stagger" style={{
+                <div id="login-error" role="alert" aria-live="polite" className="auth-stagger" style={{
                   display: 'flex', alignItems: 'center', gap: '10px',
                   padding: '12px 16px', marginBottom: '20px',
                   background: 'rgba(239,68,68,0.06)', borderRadius: '14px',
@@ -718,7 +729,7 @@ export default function Login() {
               <form onSubmit={handleSubmit}>
                 {/* Email */}
                 <div className="auth-stagger auth-stagger-4 auth-input-wrap" style={{ marginBottom: '16px' }}>
-                  <label style={{
+                  <label htmlFor="login-email" style={{
                     fontSize: '12px', fontWeight: 700, color: 'rgba(203,213,225,0.7)',
                     marginBottom: '8px', display: 'block', letterSpacing: '0.02em',
                     textTransform: 'uppercase',
@@ -730,10 +741,19 @@ export default function Login() {
                       pointerEvents: 'none', transition: 'all 0.3s ease',
                     }} />
                     <input
-                      type="email" value={email} onChange={e => setEmail(e.target.value)}
+                      id="login-email"
+                      name="email"
+                      type="email"
+                      autoComplete="email"
+                      inputMode="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      value={email} onChange={e => setEmail(e.target.value)}
                       onFocus={() => setFocusedField('email')}
                       onBlur={() => setFocusedField(null)}
                       placeholder="you@example.com" required
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? 'login-error' : undefined}
                       className="auth-input-v2"
                       style={{
                         width: '100%', padding: '13px 14px 13px 42px',
@@ -753,7 +773,7 @@ export default function Login() {
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     marginBottom: '8px',
                   }}>
-                    <label style={{
+                    <label htmlFor="login-password" style={{
                       fontSize: '12px', fontWeight: 700, color: 'rgba(203,213,225,0.7)',
                       letterSpacing: '0.02em', textTransform: 'uppercase',
                     }}>Password</label>
@@ -768,11 +788,16 @@ export default function Login() {
                       pointerEvents: 'none', transition: 'all 0.3s ease',
                     }} />
                     <input
+                      id="login-password"
+                      name="password"
                       type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
                       value={password} onChange={e => setPassword(e.target.value)}
                       onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
                       placeholder="••••••••" required
+                      aria-invalid={Boolean(error)}
+                      aria-describedby={error ? 'login-error' : undefined}
                       className="auth-input-v2"
                       style={{
                         width: '100%', padding: '13px 44px 13px 42px',

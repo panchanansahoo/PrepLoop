@@ -291,7 +291,7 @@ export default function ResetPassword() {
                     accessToken: resetAccessToken,
                     newPassword: password,
                 },
-                { skipAuthRefresh: true }
+                { skipAuthRefresh: true, skipRetry: true }
             );
             setSuccess(true);
             setTimeout(() => navigate('/login'), 3000);
@@ -324,7 +324,7 @@ export default function ResetPassword() {
                 <p style={styles.subtitle}>Choose a strong password for your account.</p>
 
                 {error && (
-                    <div style={styles.errorBox} className="fade-in-up">
+                    <div id="reset-error" role="alert" aria-live="polite" style={styles.errorBox} className="fade-in-up">
                         <AlertCircle size={18} style={{ flexShrink: 0 }} /> {error}
                     </div>
                 )}
@@ -354,13 +354,18 @@ export default function ResetPassword() {
                 ) : (
                     <form onSubmit={handleSubmit}>
                         <div style={styles.inputWrapper} className="auth-input-wrapper">
-                            <label style={styles.label}>{NEW_PASSWORD_LABEL}</label>
+                            <label htmlFor="reset-password" style={styles.label}>{NEW_PASSWORD_LABEL}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock size={18} style={styles.inputIcon} className="auth-input-icon" />
                                 <input
+                                    id="reset-password"
+                                    name="newPassword"
                                     type={showPassword ? 'text' : 'password'}
+                                    autoComplete="new-password"
                                     value={password} onChange={e => setPassword(e.target.value)}
                                     placeholder="••••••••" required minLength={8}
+                                    aria-invalid={Boolean(error)}
+                                    aria-describedby={error ? 'reset-error' : undefined}
                                     style={styles.input}
                                     className="auth-input"
                                 />
@@ -389,17 +394,30 @@ export default function ResetPassword() {
                         </div>
 
                         <div style={styles.inputWrapper} className="auth-input-wrapper">
-                            <label style={styles.label}>{CONFIRM_PASSWORD_LABEL}</label>
+                            <label htmlFor="reset-confirm-password" style={styles.label}>{CONFIRM_PASSWORD_LABEL}</label>
                             <div style={{ position: 'relative' }}>
                                 <Lock size={18} style={styles.inputIcon} className="auth-input-icon" />
                                 <input
+                                    id="reset-confirm-password"
+                                    name="confirmPassword"
                                     type={showPassword ? 'text' : 'password'}
+                                    autoComplete="new-password"
                                     value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                                     placeholder="••••••••" required minLength={8}
+                                    aria-invalid={Boolean(error)}
+                                    aria-describedby={error ? 'reset-error' : undefined}
                                     style={styles.input}
                                     className="auth-input"
                                 />
                             </div>
+                            {confirmPassword.length > 0 && (
+                                <p style={{
+                                    fontSize: '12px', marginTop: '6px', fontWeight: 600,
+                                    color: password === confirmPassword ? '#34d399' : '#f87171',
+                                }}>
+                                    {password === confirmPassword ? 'Passwords match' : 'Passwords do not match'}
+                                </p>
+                            )}
                         </div>
 
                         <button type="submit" disabled={loading || !ready} style={{

@@ -152,6 +152,22 @@ router.post('/signup', async (req, res) => {
   if (!email || !password || !fullName) {
     return res.status(400).json({ error: 'Email, password, and full name are required' });
   }
+  if (typeof email !== 'string' || typeof fullName !== 'string') {
+    return res.status(400).json({ error: 'Email and full name must be text' });
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const trimmedFullName = fullName.trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+  if (!trimmedFullName) {
+    return res.status(400).json({ error: 'Full name is required' });
+  }
+  if (trimmedFullName.length > 100) {
+    return res.status(400).json({ error: 'Full name must be 100 characters or fewer' });
+  }
 
   // SECURITY: Enforce strong password policy
   const passwordError = validatePasswordStrength(password);
@@ -164,10 +180,10 @@ router.post('/signup', async (req, res) => {
 
   try {
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: normalizedEmail,
       password,
       email_confirm: !shouldRequireVerification,
-      user_metadata: { full_name: fullName }
+      user_metadata: { full_name: trimmedFullName }
     });
 
     if (error) {
@@ -211,26 +227,30 @@ router.post('/signup', async (req, res) => {
     }
 
     if (shouldRequireVerification && !legacyMode) {
-      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`;
+      const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(normalizedEmail)}`;
       
       if (process.env.NODE_ENV !== 'production') {
         console.log('----------------------------------------------------');
-        console.log(`🔗 [DEV] Email Verification Link for ${email}:`);
+        console.log(`🔗 [DEV] Email Verification Link for ${normalizedEmail}:`);
         console.log(verificationUrl);
         console.log('----------------------------------------------------');
       }
 
-      // Send verification email in the background so signup responds in <200ms
-      transporter.sendMail({
-        from: getFromAddress(),
-        to: email,
-        subject: 'Confirm Your Email - PrepLoop',
-        html: getVerificationEmailHTML(verificationUrl, email)
-      }).then(() => {
-        markEmailSent('signup', email);
-      }).catch((emailError) => {
-        console.error('Error sending verification email in background:', emailError?.message);
-      });
+      if (isEmailConfigured()) {
+        // Send verification email in the background so signup responds in <200ms
+        transporter.sendMail({
+          from: getFromAddress(),
+          to: normalizedEmail,
+          subject: 'Confirm Your Email - PrepLoop',
+          html: getVerificationEmailHTML(verificationUrl, normalizedEmail)
+        }).then(() => {
+          markEmailSent('signup', normalizedEmail);
+        }).catch((emailError) => {
+          console.error('Error sending verification email in background:', emailError?.message);
+        });
+      } else {
+        console.warn('Verification email not sent: email delivery is not configured.');
+      }
     }
 
     res.status(201).json({
@@ -240,12 +260,12 @@ router.post('/signup', async (req, res) => {
       user: {
         id: data.user.id,
         email: data.user.email,
-        fullName: fullName,
+        fullName: trimmedFullName,
         emailVerified: !shouldRequireVerification || legacyMode
       },
       ...(process.env.NODE_ENV !== 'production' && {
         devVerificationUrl: shouldRequireVerification && verificationToken
-          ? `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(email)}`
+          ? `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email?token=${verificationToken}&email=${encodeURIComponent(normalizedEmail)}`
           : null
       })
     });
@@ -323,12 +343,17 @@ function clearLoginAttempts(email, ip) {
 router.post('/login', authLoginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
+  if (!email || !password || typeof email !== 'string') {
     return res.status(400).json({ error: 'Email and password are required' });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
+
   // SECURITY: Check account lockout before attempting authentication
-  const lockout = checkLoginLockout(email, req.ip);
+  const lockout = checkLoginLockout(normalizedEmail, req.ip);
   if (lockout.locked) {
     return res.status(429).json({
       error: `Account temporarily locked due to too many failed attempts. Try again in ${lockout.remainingMinutes} minute(s).`,
@@ -338,7 +363,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
 
   try {
     const authResult = await supabaseAdmin.auth.signInWithPassword({
-      email,
+      email: normalizedEmail,
       password
     });
     let data = authResult.data;
@@ -349,7 +374,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
         const shouldRequireVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
         if (!shouldRequireVerification) {
           const { data: usersData } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-          const user = usersData?.users?.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+          const user = usersData?.users?.find(u => u.email?.toLowerCase() === normalizedEmail);
           if (user) {
             try {
               await supabaseAdmin.auth.admin.updateUserById(user.id, { email_confirm: true });
@@ -357,7 +382,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
             } catch (confirmErr) {
               console.warn('Auto-confirm retry warning:', confirmErr?.message);
             }
-            const retry = await supabaseAdmin.auth.signInWithPassword({ email, password });
+            const retry = await supabaseAdmin.auth.signInWithPassword({ email: normalizedEmail, password });
             if (!retry.error) {
               data = retry.data;
               error = null;
@@ -368,13 +393,13 @@ router.post('/login', authLoginLimiter, async (req, res) => {
 
       if (error) {
         // Record the failed attempt
-        recordFailedLogin(email, req.ip);
+        recordFailedLogin(normalizedEmail, req.ip);
 
         if (error.message === 'Email not confirmed') {
           return res.status(403).json({
             error: 'Please verify your email before logging in',
             code: 'EMAIL_NOT_VERIFIED',
-            email: email
+            email: normalizedEmail
           });
         }
         return res.status(401).json({ error: 'Invalid credentials' });
@@ -382,7 +407,7 @@ router.post('/login', authLoginLimiter, async (req, res) => {
     }
 
     // Clear failed attempts on successful login
-    clearLoginAttempts(email, req.ip);
+    clearLoginAttempts(normalizedEmail, req.ip);
 
     const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
@@ -682,6 +707,9 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   }
 
   const normalizedEmail = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
 
   // Optional CAPTCHA verification (only run if token was provided)
   if (captchaToken) {
