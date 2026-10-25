@@ -20,12 +20,12 @@ class AlertingSystem {
     this.config = {
       slackWebhook: config.slackWebhook || process.env.SLACK_WEBHOOK_URL,
       emailConfig: config.emailConfig || {
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT || 587,
-        secure: false,
+        host: process.env.SMTP_HOST || 'smtp.resend.com',
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: Number(process.env.SMTP_PORT) === 465,
         auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
+          user: process.env.SMTP_USER || 'resend',
+          pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
         },
       },
       alertEmail: config.alertEmail || process.env.ALERT_EMAIL || 'alerts@preploop.com',
@@ -263,8 +263,12 @@ class AlertingSystem {
       </html>
     `;
 
+    const alertSender = process.env.EMAIL_FROM ||
+      process.env.SMTP_FROM ||
+      (this.config.emailConfig.auth?.user?.includes('@') ? this.config.emailConfig.auth.user : '"PrepLoop Alerts" <alerts@preploop.me>');
+
     await this.emailTransporter.sendMail({
-      from: this.config.emailConfig.auth.user,
+      from: alertSender,
       to: this.config.alertEmail,
       subject,
       html,

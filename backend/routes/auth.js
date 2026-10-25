@@ -80,18 +80,21 @@ function validatePasswordStrength(password) {
 // Reuse a single transporter instance (connection pooling — fix #17)
 const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+  host: process.env.SMTP_HOST || 'smtp.resend.com',
   port: smtpPort,
   secure: smtpPort === 465,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || 'resend',
+    pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
   },
 });
 
 const getFromAddress = () => {
   if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
-  if (process.env.SMTP_USER) return `"PrepLoop" <${process.env.SMTP_USER}>`;
+  if (process.env.SMTP_FROM) return process.env.SMTP_FROM;
+  if (process.env.SMTP_USER && process.env.SMTP_USER.includes('@') && !process.env.SMTP_USER.endsWith('@smtp-brevo.com')) {
+    return `"PrepLoop" <${process.env.SMTP_USER}>`;
+  }
   return '"PrepLoop" <support@preploop.me>';
 };
 
@@ -685,7 +688,12 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     let emailSent = false;
     let mailErrorMessage = null;
 
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const hasSmtpConfig = Boolean(
+      (process.env.SMTP_PASS || process.env.RESEND_API_KEY) &&
+      (process.env.SMTP_USER || !process.env.SMTP_HOST || process.env.SMTP_HOST.includes('resend'))
+    );
+
+    if (hasSmtpConfig) {
       try {
         await transporter.sendMail({
           from: getFromAddress(),

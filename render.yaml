@@ -23,11 +23,13 @@ services:
       - key: FRONTEND_URL
         sync: false
       - key: SMTP_HOST
-        value: smtp-relay.brevo.com
+        value: smtp.resend.com
       - key: SMTP_PORT
         value: 587
       - key: SMTP_USER
-        sync: false
+        value: resend
+      - key: EMAIL_FROM
+        value: '"PrepLoop" <support@preploop.me>'
       - key: SMTP_PASS
         sync: false
       - key: GROQ_API_KEY

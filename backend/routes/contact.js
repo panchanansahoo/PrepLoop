@@ -9,12 +9,14 @@ const router = express.Router();
 const logger = createLogger('contact');
 
 // Reuse a single transporter (connection pooling)
+const smtpPort = Number(process.env.SMTP_PORT) || 587;
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-  port: Number(process.env.SMTP_PORT) || 587,
+  host: process.env.SMTP_HOST || 'smtp.resend.com',
+  port: smtpPort,
+  secure: smtpPort === 465,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.SMTP_USER || 'resend',
+    pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
   },
 });
 
@@ -49,11 +51,16 @@ router.post('/', contactLimiter, async (req, res) => {
     }
 
     // Try to send email notification if SMTP is configured
-    if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    const hasSmtpConfig = Boolean(
+      (process.env.SMTP_PASS || process.env.RESEND_API_KEY) &&
+      (process.env.SMTP_USER || !process.env.SMTP_HOST || process.env.SMTP_HOST.includes('resend'))
+    );
+    if (hasSmtpConfig) {
       try {
+        const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || '"PrepLoop Support" <support@preploop.me>';
         await transporter.sendMail({
-          from: `"PrepLoop Support" <support@preploop.me>`,
-          to: 'support@preploop.me',
+          from: fromAddress,
+          to: process.env.CONTACT_EMAIL || 'support@preploop.me',
           subject: `PrepLoop Contact: ${subject}`,
           text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\nMessage:\n${message}`,
           replyTo: email
