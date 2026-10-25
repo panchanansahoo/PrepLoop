@@ -3157,11 +3157,11 @@
 
 .ai-vc-captions {
   position: absolute;
-  bottom: 80px;
+  bottom: 110px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 14;
-  max-width: 70%;
+  max-width: 72%;
   min-width: 280px;
   animation: ai-vc-caption-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   pointer-events: none;
@@ -3245,21 +3245,24 @@
 
 .ai-vc-captions-text {
   display: block;
-  max-height: 86px;
-  overflow: hidden;
+  max-height: 110px;
+  overflow-y: auto;
+  overflow-x: hidden;
   font-size: 15px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.95);
   line-height: 1.5;
   word-break: break-word;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.15) transparent;
 }
 
 /* Responsive: Captions */
 @media (max-width: 768px) {
   .ai-vc-captions {
-    max-width: 90%;
+    max-width: 92%;
     min-width: 200px;
-    bottom: 72px;
+    bottom: 96px;
   }
   .ai-vc-captions-inner {
     padding: 8px 14px;
@@ -3267,6 +3270,7 @@
   }
   .ai-vc-captions-text {
     font-size: 13px;
+    max-height: 80px;
   }
 }
 

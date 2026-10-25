@@ -182,6 +182,9 @@ export function useInterviewSession(options = {}) {
   const isSendingRef = useRef(false);
   const submittedQuestionKeyRef = useRef(null);
   const ttsAudioRef = useRef(null);
+  // Holds the latest voice answer text so sendAnswer can read it synchronously
+  // even before React re-renders stateRefs.current.transcript.
+  const pendingVoiceAnswerRef = useRef("");
 
   const setTranscript = useCallback((val) => {
     setTranscriptRaw(typeof val === "function" ? val : val || "");
@@ -189,6 +192,7 @@ export function useInterviewSession(options = {}) {
 
   const voiceAI = useVoiceAI({
     onAnswer: useCallback((answerText) => {
+      pendingVoiceAnswerRef.current = answerText || "";
       setTranscriptRaw(answerText || "");
       const isSilentAnswer =
         !answerText ||
@@ -311,7 +315,14 @@ export function useInterviewSession(options = {}) {
       // Cancel any lingering speechSynthesis before starting recognition.
       // This is critical — SpeechRecognition can't capture audio while
       // speechSynthesis is still active on some browsers.
-      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+        // Double-cancel after a short delay — some browsers defer TTS teardown
+        // and the first cancel() doesn't fully release the audio pipeline.
+        setTimeout(() => {
+          if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+        }, 200);
+      }
 
       // While the browser settles (and if recognition fails to start), keep a
       // visible "your turn" cue so the candidate knows they can use the mic.
@@ -320,7 +331,9 @@ export function useInterviewSession(options = {}) {
       // Give the browser time to settle after TTS playback ends.
       // SpeechRecognition can fail to capture audio if started too quickly
       // after TTS/audio playback due to echo cancellation conflicts.
-      // 800ms is more reliable than 500ms across browsers.
+      // 1200ms gives the browser's echo cancellation enough time to fully
+      // release the audio pipeline after TTS. 800ms was too aggressive and
+      // caused the mic to appear active while silently dropping all input.
       setTimeout(() => {
         if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
           startVoiceRecording();
@@ -339,7 +352,7 @@ export function useInterviewSession(options = {}) {
             }
           }, 1500);
         }
-      }, 800);
+      }, 1200);
     }
   }, [startVoiceRecording]);
 
@@ -1361,6 +1374,10 @@ export function useInterviewSession(options = {}) {
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
       setAiSpeaking(false);
 
+      // Use pendingVoiceAnswerRef as the most reliable source for voice answers —
+      // it's set synchronously in onAnswer before React re-renders stateRefs.
+      const pendingVoice = pendingVoiceAnswerRef.current.trim();
+      pendingVoiceAnswerRef.current = "";
       const currentTranscript = stateRefs.current.transcript.trim();
       const currentUserInput = stateRefs.current.userInput.trim();
       // Include any pending interim text that hasn't been finalized by browser STT yet.
@@ -1369,7 +1386,7 @@ export function useInterviewSession(options = {}) {
       const fullTranscript = interimText
         ? (currentTranscript + " " + interimText).trim()
         : currentTranscript;
-      const providedAnswer = answerOverride?.trim() || currentUserInput || fullTranscript;
+      const providedAnswer = answerOverride?.trim() || pendingVoice || currentUserInput || fullTranscript;
       
       const answer =
         isAutoSkip === true && !providedAnswer

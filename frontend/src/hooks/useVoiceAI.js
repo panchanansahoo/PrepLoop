@@ -18,6 +18,7 @@ import { buildApiUrl } from "../utils/safeApiUrl";
 const MIN_ANSWER_LENGTH = 8; // chars before silence timer starts
 const MAX_ANSWER_WAIT_MS = 60_000; // safety: force-submit after 60s
 const BACKCHANNEL_MIN_MS = 8_000; // min speech duration before backchannel
+const MAX_NO_SPEECH_BEFORE_REFRESH = 3; // force-refresh mic after this many consecutive no-speech errors
 const BACKCHANNEL_GAP_MS = 12_000; // min gap between backchannel clips
 
 const SILENCE_AFTER_SPEECH_MAX_MS = 6_000;
@@ -307,6 +308,7 @@ export function useVoiceAI({
   const lastBackchannelRef = useRef(0);
   const listenStartRef = useRef(0);
   const backchannelTimerRef = useRef(null);
+  const noSpeechCountRef = useRef(0);
 
   const interruptTimerRef = useRef(null);
 
@@ -540,27 +542,30 @@ export function useVoiceAI({
     console.log("[useVoiceAI] Starting voice recording... (epoch", epoch, ")");
 
     try {
-      let stream = streamRef.current;
-      const streamAlive =
-        stream && stream.getTracks().some((t) => t.readyState === "live");
-      if (!streamAlive) {
-        console.log("[useVoiceAI] Requesting microphone access...");
-        stream = await navigator.mediaDevices.getUserMedia({
+      // Request mic stream for visualizer WITHOUT aggressive echo-cancellation,
+      // noise suppression, or locked sample rates that compete with and mute
+      // SpeechRecognition's own audio pipeline.
+      try {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+        }
+        console.log("[useVoiceAI] Requesting microphone stream for visualizer...");
+        const stream = await navigator.mediaDevices.getUserMedia({
           audio: {
-            channelCount: 1,
-            sampleRate: 16000,
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
           },
         });
         streamRef.current = stream;
-        console.log("[useVoiceAI] ✓ Microphone access granted");
-      } else {
-        console.log("[useVoiceAI] ✓ Reusing existing microphone stream");
+        console.log("[useVoiceAI] ✓ Visualizer microphone stream acquired");
+        setInputStreamState(stream);
+      } catch (streamErr) {
+        console.warn("[useVoiceAI] Visualizer microphone stream unavailable:", streamErr);
       }
-      setInputStreamState(stream);
       activeRef.current = true;
+      noSpeechCountRef.current = 0;
       listenStartRef.current = Date.now();
 
       const SpeechRecognition =
@@ -571,7 +576,8 @@ export function useVoiceAI({
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = true;
-        recognition.lang = "en-US";
+        const browserLang = (typeof navigator !== "undefined" && navigator.language) || "";
+        recognition.lang = browserLang.startsWith("en") ? browserLang : "en-US";
         recognition.maxAlternatives = 1;
 
         // Confirm recognition has actually started before setting state
@@ -598,6 +604,13 @@ export function useVoiceAI({
           console.log("[useVoiceAI] ✓ Audio capture started (epoch", epoch, ")");
         };
 
+        // When the browser actually detects speech, clear no-speech counter
+        recognition.onspeechstart = () => {
+          if (recognitionEpochRef.current !== epoch) return;
+          noSpeechCountRef.current = 0;
+          console.log("[useVoiceAI] ✓ Speech detected by browser (epoch", epoch, ")");
+        };
+
         recognition.onresult = (event) => {
           if (!activeRef.current) return;
           let interim = "";
@@ -609,6 +622,9 @@ export function useVoiceAI({
             } else if (result[0]?.transcript) {
               interim += result[0].transcript;
             }
+          }
+          if (interim || finalText) {
+            console.log("[useVoiceAI] Speech result:", { interim, finalText });
           }
           if (finalText) {
             const appended = (finalTextRef.current + " " + finalText).trim();
@@ -640,7 +656,31 @@ export function useVoiceAI({
 
         recognition.onerror = (event) => {
           if (event.error === "no-speech") {
-            // no-speech is normal — the mic is open but user hasn't spoken yet
+            // no-speech fires when the mic is open but no voice is detected.
+            // After several consecutive no-speech errors, force-refresh the mic
+            // stream — the old stream may have stale echo-cancellation state
+            // that is silently suppressing all user audio.
+            noSpeechCountRef.current++;
+            console.log(
+              `[useVoiceAI] no-speech error #${noSpeechCountRef.current} (epoch ${epoch})`,
+            );
+            if (noSpeechCountRef.current >= MAX_NO_SPEECH_BEFORE_REFRESH) {
+              console.warn(
+                "[useVoiceAI] Too many no-speech errors — refreshing mic stream",
+              );
+              noSpeechCountRef.current = 0;
+              // Stop current recognition, refresh mic, and restart
+              activeRef.current = false;
+              try { recognition.stop(); } catch { /* no-op */ }
+              browserRecognitionRef.current = null;
+              // Re-start with a fresh stream after a brief delay
+              setTimeout(() => {
+                if (recognitionEpochRef.current === epoch && stateRef.current !== "error") {
+                  activeRef.current = false; // allow start() guard to pass
+                  start();
+                }
+              }, 500);
+            }
             return;
           }
           console.warn("[useVoiceAI] Browser STT error:", event.error);
@@ -656,6 +696,8 @@ export function useVoiceAI({
             setErrorMessage(
               "Could not capture audio. Please check that your microphone is not in use by another app.",
             );
+            activeRef.current = false;
+            setState("error");
           }
         };
 
@@ -1187,6 +1229,8 @@ export function useVoiceAI({
         }
       } finally {
         setOutputAudioEl(null);
+        // Ensure no lingering TTS output that could block the next mic capture
+        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
         if (!controller.signal.aborted) {
           setState("idle");
           onEnd?.();
