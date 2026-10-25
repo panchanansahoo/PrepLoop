@@ -1,24 +1,12 @@
 import express from 'express';
-import nodemailer from 'nodemailer';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { contactLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { isEmailConfigured, sendEmail } from '../services/emailService.js';
 
 const router = express.Router();
 const logger = createLogger('contact');
-
-// Reuse a single transporter (connection pooling)
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: smtpPort,
-  secure: smtpPort === 465,
-  auth: {
-    user: process.env.SMTP_USER || 'resend',
-    pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
-  },
-});
 
 // POST /api/contact - Store contact form submissions
 router.post('/', contactLimiter, async (req, res) => {
@@ -50,16 +38,11 @@ router.post('/', contactLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Failed to save message. Please try again later.' });
     }
 
-    // Try to send email notification if SMTP is configured
-    const hasSmtpConfig = Boolean(
-      (process.env.SMTP_PASS || process.env.RESEND_API_KEY) &&
-      (process.env.SMTP_USER || !process.env.SMTP_HOST || process.env.SMTP_HOST.includes('resend'))
-    );
-    if (hasSmtpConfig) {
+    // Try to send email notification if email delivery is configured
+    if (isEmailConfigured()) {
       try {
-        const fromAddress = process.env.EMAIL_FROM || process.env.SMTP_FROM || '"PrepLoop Support" <support@preploop.me>';
-        await transporter.sendMail({
-          from: fromAddress,
+        await sendEmail({
+          from: process.env.EMAIL_FROM || process.env.SMTP_FROM || undefined,
           to: process.env.CONTACT_EMAIL || 'support@preploop.me',
           subject: `PrepLoop Contact: ${subject}`,
           text: `Name: ${name}\nEmail: ${email}\nSubject: ${subject}\n\nMessage:\n${message}`,

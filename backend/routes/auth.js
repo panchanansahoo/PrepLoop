@@ -2,7 +2,7 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authLoginLimiter, forgotPasswordLimiter, verificationLimiter, isEmailCoolingDown, markEmailSent } from '../middleware/rateLimiter.js';
 import { verifyCaptcha } from '../utils/captcha.js';
-import nodemailer from 'nodemailer';
+import { sendEmail, isEmailConfigured } from '../services/emailService.js';
 import { generateVerificationToken, getTokenExpirationTime, isTokenExpired, getVerificationEmailHTML } from '../utils/emailVerification.js';
 
 const router = express.Router();
@@ -77,58 +77,10 @@ function validatePasswordStrength(password) {
   return null;
 }
 
-// Reuse a single transporter instance (connection pooling — fix #17)
-const smtpPort = Number(process.env.SMTP_PORT) || 587;
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.resend.com',
-  port: smtpPort,
-  secure: smtpPort === 465,
-  auth: {
-    user: process.env.SMTP_USER || 'resend',
-    pass: process.env.SMTP_PASS || process.env.RESEND_API_KEY,
-  },
-});
-
-const getFromAddress = () => {
-  if (process.env.EMAIL_FROM) return process.env.EMAIL_FROM;
-  if (process.env.SMTP_FROM) return process.env.SMTP_FROM;
-  if (process.env.SMTP_USER && process.env.SMTP_USER.includes('@') && !process.env.SMTP_USER.endsWith('@smtp-brevo.com')) {
-    return `"PrepLoop" <${process.env.SMTP_USER}>`;
-  }
-  return '"PrepLoop" <support@preploop.me>';
-};
-
-// Detect secrets that are still placeholders (e.g. "re_your_resend_api_key_here").
-// Treating them as "configured" made the app attempt SMTP with an invalid key,
-// so reset emails failed with a confusing 535 authentication error.
-const PLACEHOLDER_SECRET_PATTERN = /(your[_-]|changeme|replace[_-]?me|placeholder|^x+$)/i;
-
-const isPlaceholderSecret = (value) => {
-  if (!value) return true;
-  const trimmed = String(value).trim();
-  if (!trimmed) return true;
-  if (trimmed === 're_xxxxxxxxxxxx' || trimmed === 'your_resend_api_key_here') return true;
-  return PLACEHOLDER_SECRET_PATTERN.test(trimmed);
-};
-
-/**
- * Whether the backend has usable outbound email credentials.
- * Placeholder values are treated as missing so we fail clearly instead of
- * silently attempting (and failing) an SMTP login.
- */
-const isEmailConfigured = () => {
-  const pass = process.env.SMTP_PASS || process.env.RESEND_API_KEY;
-  if (isPlaceholderSecret(pass)) return false;
-
-  const host = process.env.SMTP_HOST || 'smtp.resend.com';
-  if (host.includes('resend')) return true;
-  return Boolean(process.env.SMTP_USER);
-};
-
 if (!isEmailConfigured()) {
   console.warn(
     '[auth] Email delivery is not configured: set a real SMTP_PASS ' +
-    '(Resend API key starting with "re_") in the environment. ' +
+    '(Resend API key starting with "re_") or RESEND_API_KEY in the environment. ' +
     'Password reset emails will not be delivered; in development the reset link is returned in the API response and shown on the Forgot Password page.'
   );
 }
@@ -238,8 +190,7 @@ router.post('/signup', async (req, res) => {
 
       if (isEmailConfigured()) {
         // Send verification email in the background so signup responds in <200ms
-        transporter.sendMail({
-          from: getFromAddress(),
+        sendEmail({
           to: normalizedEmail,
           subject: 'Confirm Your Email - PrepLoop',
           html: getVerificationEmailHTML(verificationUrl, normalizedEmail)
@@ -615,16 +566,19 @@ router.post(['/resend-verification-email', '/resend-verification'], verification
       console.log('----------------------------------------------------');
     }
 
-    transporter.sendMail({
-      from: getFromAddress(),
-      to: email,
-      subject: 'Confirm Your Email - PrepLoop',
-      html: getVerificationEmailHTML(verificationUrl, email)
-    }).then(() => {
-      markEmailSent('resend-verification-email', email);
-    }).catch((emailError) => {
-      console.error('Error sending verification email in background:', emailError?.message);
-    });
+    if (isEmailConfigured()) {
+      sendEmail({
+        to: email,
+        subject: 'Confirm Your Email - PrepLoop',
+        html: getVerificationEmailHTML(verificationUrl, email)
+      }).then(() => {
+        markEmailSent('resend-verification-email', email);
+      }).catch((emailError) => {
+        console.error('Error sending verification email in background:', emailError?.message);
+      });
+    } else {
+      console.warn('Verification email not sent: email delivery is not configured.');
+    }
 
     res.json({
       message: 'If an account with that email exists and is unverified, we have sent a verification email.',
@@ -743,20 +697,21 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    console.log('----------------------------------------------------');
-    console.log(`🔗 Password Reset Link for ${normalizedEmail}:`);
-    console.log(resetLink);
-    console.log('----------------------------------------------------');
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('----------------------------------------------------');
+      console.log(`🔗 Password Reset Link for ${normalizedEmail}:`);
+      console.log(resetLink);
+      console.log('----------------------------------------------------');
+    }
 
     let emailSent = false;
     let mailErrorMessage = null;
 
-    const hasSmtpConfig = isEmailConfigured();
+    const hasEmailConfig = isEmailConfigured();
 
-    if (hasSmtpConfig) {
+    if (hasEmailConfig) {
       try {
-        await transporter.sendMail({
-          from: getFromAddress(),
+        await sendEmail({
           to: normalizedEmail,
           subject: 'Reset your PrepLoop password',
           html: `
@@ -790,20 +745,20 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
         markEmailSent('forgot-password', normalizedEmail);
       } catch (mailError) {
         mailErrorMessage = mailError.message;
-        console.error('SMTP sendMail error for password reset:', mailError.message);
+        console.error('Email send error for password reset:', mailError.message);
       }
     } else {
-      console.warn('SMTP credentials not configured. Skipping email send.');
+      console.warn('Email credentials not configured. Skipping password reset email.');
     }
 
     if (!emailSent) {
       console.error('Password reset email was not sent:', mailErrorMessage || 'email delivery is not configured');
       if (process.env.NODE_ENV === 'production') {
         return res.status(503).json({
-          error: hasSmtpConfig
+          error: hasEmailConfig
             ? 'Password reset email is temporarily unavailable. Please try again later.'
             : 'Password reset email is not configured on this server. Please contact support.',
-          code: hasSmtpConfig ? 'EMAIL_SERVICE_UNAVAILABLE' : 'EMAIL_NOT_CONFIGURED',
+          code: hasEmailConfig ? 'EMAIL_SERVICE_UNAVAILABLE' : 'EMAIL_NOT_CONFIGURED',
         });
       }
     }
