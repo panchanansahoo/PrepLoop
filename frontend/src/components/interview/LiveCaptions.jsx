@@ -52,6 +52,18 @@ function LiveCaptions({
             return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText: 'Thinking...', words: ['Thinking...'] };
         }
 
+        // When mic is active but user hasn't spoken yet — show listening indicator
+        if (isListening) {
+            return {
+                isUserSpeaking: false,
+                isWaiting: true,
+                liveInterim: '',
+                speakerName: 'You',
+                displayText: 'Listening... speak now',
+                words: ['Listening...', 'speak', 'now'],
+            };
+        }
+
         // When neither speaking — show the last message as static caption (already spoken)
         const lastMsg = [...conversation].reverse().find(
             m => m.role === 'interviewer' || m.role === 'candidate' || m.role === 'feedback'
@@ -77,11 +89,11 @@ function LiveCaptions({
 
     if (!captionData) return null;
 
-    const { isUserSpeaking, liveInterim, speakerName, displayText, words } = captionData;
+    const { isUserSpeaking, isWaiting, liveInterim, speakerName, displayText, words } = captionData;
 
     return (
     <div
-        className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''}`}
+        className={`ai-vc-captions ${isUserSpeaking ? 'ai-vc-captions--live' : ''} ${isWaiting ? 'ai-vc-captions--waiting' : ''}`}
         role="status"
         aria-live="polite"
         aria-label={`${speakerName} caption`}
@@ -96,7 +108,12 @@ function LiveCaptions({
                         <span className="ai-vc-captions-live-dot" /> LIVE TRANSCRIPT
                     </span>
                 )}
-                {!isUserSpeaking && aiSpeaking && <span className="ai-vc-captions-live-badge">AI SPEAKING</span>}
+                {isWaiting && (
+                    <span className="ai-vc-captions-live-badge ai-vc-captions-live-badge--waiting">
+                        <span className="ai-vc-captions-live-dot" /> LISTENING
+                    </span>
+                )}
+                {!isUserSpeaking && !isWaiting && aiSpeaking && <span className="ai-vc-captions-live-badge">AI SPEAKING</span>}
             </div>
             <span className="ai-vc-captions-text">
                 {words.map((word, i) => {
@@ -105,13 +122,13 @@ function LiveCaptions({
                     return (
                         <span
                             key={`${word}-${i}`}
-                            className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''}`}
+                            className={`ai-vc-caption-word ${isInterimWord ? 'ai-vc-caption-word--interim' : ''} ${isWaiting ? 'ai-vc-caption-word--waiting' : ''}`}
                         >
                             {word}{' '}
                         </span>
                     );
                 })}
-                {isUserSpeaking && <span className="ai-vc-caption-cursor">|</span>}
+                {(isUserSpeaking || isWaiting) && <span className="ai-vc-caption-cursor">|</span>}
                 {silenceCountdown > 0 && isListening && !aiSpeaking && (
                     <span className="ai-vc-silence-countdown">
                         submitting in {silenceCountdown}s...

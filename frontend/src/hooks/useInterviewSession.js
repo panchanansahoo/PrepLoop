@@ -280,21 +280,34 @@ export function useInterviewSession(options = {}) {
   const handoffToCandidate = useCallback(() => {
     setAwaitingAnswer(false);
     if (!isPaused && phase === "interview" && !isListeningRef.current) {
+      // Cancel any lingering speechSynthesis before starting recognition.
+      // This is critical — SpeechRecognition can't capture audio while
+      // speechSynthesis is still active on some browsers.
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+
       // Give the browser time to settle after TTS playback ends.
       // SpeechRecognition can fail to capture audio if started too quickly
       // after TTS/audio playback due to echo cancellation conflicts.
+      // 800ms is more reliable than 500ms across browsers.
       setTimeout(() => {
-        if (!isListeningRef.current && !isSendingRef.current) {
+        if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
           startVoiceRecording();
-          // Safety retry: if SpeechRecognition didn't start, try again
+          // Safety retry: if SpeechRecognition didn't start, try again after 1.5s
           setTimeout(() => {
             if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
-              console.log("[handoffToCandidate] Retry starting voice recording");
+              console.log("[handoffToCandidate] Retry #1 starting voice recording");
               startVoiceRecording();
+              // Extra safety retry at 3s
+              setTimeout(() => {
+                if (!isListeningRef.current && !isSendingRef.current && phase === "interview" && !isPaused) {
+                  console.log("[handoffToCandidate] Retry #2 starting voice recording");
+                  startVoiceRecording();
+                }
+              }, 1500);
             }
-          }, 800);
+          }, 1500);
         }
-      }, 500);
+      }, 800);
     }
   }, [isPaused, phase, startVoiceRecording]);
 

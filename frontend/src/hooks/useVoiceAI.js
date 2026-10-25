@@ -509,7 +509,8 @@ export function useVoiceAI({
     if (activeRef.current) return;
 
     setErrorMessage(null);
-    setState("listening");
+    // Don't set state to "listening" yet — wait until recognition actually starts.
+    // This prevents the UI from showing "listening" when recognition hasn't initialized.
     finalTextRef.current = "";
     interimRef.current = "";
     setTranscript("");
@@ -584,6 +585,30 @@ export function useVoiceAI({
         recognition.lang = "en-US";
         recognition.maxAlternatives = 1;
 
+        // Confirm recognition has actually started before setting state
+        recognition.onstart = () => {
+          if (recognitionEpochRef.current !== epoch) return;
+          console.log("[useVoiceAI] ✓ SpeechRecognition onstart fired (epoch", epoch, ")");
+          setState("listening");
+
+          // Start silence/max-wait timers ONLY after recognition is confirmed active.
+          // This prevents premature auto-submit when recognition takes time to initialize.
+          clearMaxWait();
+          clearTotalSilenceTimer();
+          maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
+          totalSilenceTimerRef.current = setTimeout(() => {
+            console.log(
+              "[useVoiceAI] 15 seconds of total silence (no speech detected), auto-submitting",
+            );
+            submitAnswer();
+          }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
+        };
+
+        recognition.onaudiostart = () => {
+          if (recognitionEpochRef.current !== epoch) return;
+          console.log("[useVoiceAI] ✓ Audio capture started (epoch", epoch, ")");
+        };
+
         recognition.onresult = (event) => {
           if (!activeRef.current) return;
           let interim = "";
@@ -625,8 +650,23 @@ export function useVoiceAI({
         };
 
         recognition.onerror = (event) => {
-          if (event.error !== "no-speech") {
-            console.warn("[useVoiceAI] Browser STT error:", event.error);
+          if (event.error === "no-speech") {
+            // no-speech is normal — the mic is open but user hasn't spoken yet
+            return;
+          }
+          console.warn("[useVoiceAI] Browser STT error:", event.error);
+          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+            setErrorMessage(
+              "Microphone access was denied. Please allow microphone access in your browser settings and try again.",
+            );
+            activeRef.current = false;
+            setState("error");
+          } else if (event.error === "audio-capture") {
+            // Audio capture failed — mic may be in use by another app
+            console.warn("[useVoiceAI] Audio capture error — mic may be unavailable");
+            setErrorMessage(
+              "Could not capture audio. Please check that your microphone is not in use by another app.",
+            );
           }
         };
 
@@ -638,7 +678,7 @@ export function useVoiceAI({
             console.log("[useVoiceAI] Stale recognition onend (epoch", epoch, "vs current", recognitionEpochRef.current, ") — not restarting");
             return;
           }
-          if (activeRef.current && stateRef.current === "listening") {
+          if (activeRef.current && stateRef.current !== "error") {
             // Rescue any pending interim text as final before restarting.
             // When recognition restarts, the previous session's pending
             // interim results are lost — this saves them.
@@ -667,20 +707,36 @@ export function useVoiceAI({
           }
         };
 
-        const attemptStart = (retries = 3, delayMs = 300) => {
+        const attemptStart = (retries = 5, delayMs = 400) => {
           if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
           try {
             recognition.start();
             browserRecognitionRef.current = recognition;
-            console.log("[useVoiceAI] ✓ Browser SpeechRecognition started");
+            console.log("[useVoiceAI] ✓ Browser SpeechRecognition.start() called");
           } catch (e) {
             console.warn(`[useVoiceAI] Browser STT start failed (retries left: ${retries}):`, e);
+            // Always store the ref so stop() can clean it up
+            browserRecognitionRef.current = recognition;
             if (retries > 0) {
-              setTimeout(() => attemptStart(retries - 1, delayMs), delayMs);
+              setTimeout(() => attemptStart(retries - 1, Math.min(delayMs * 1.5, 2000)), delayMs);
+            } else {
+              // All retries exhausted
+              console.error("[useVoiceAI] Browser STT failed after all retries");
+              setErrorMessage(
+                "Speech recognition failed to start. Please refresh the page and try again.",
+              );
+              activeRef.current = false;
+              setState("error");
             }
           }
         };
-        attemptStart();
+        // Wait a small extra delay before starting recognition to let the audio
+        // system settle after TTS/speechSynthesis playback
+        setTimeout(() => {
+          if (activeRef.current && recognitionEpochRef.current === epoch) {
+            attemptStart();
+          }
+        }, 150);
       } else {
         console.warn(
           "[useVoiceAI] No STT available (no browser SpeechRecognition)",
@@ -688,16 +744,14 @@ export function useVoiceAI({
         setErrorMessage(
           "Speech recognition is not available in this browser. Please use Chrome or Edge.",
         );
+        activeRef.current = false;
+        setState("error");
       }
 
+      // Start max-wait timer immediately as a safety net.
+      // The total silence timer is started in recognition.onstart after
+      // recognition is confirmed active.
       maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
-
-      totalSilenceTimerRef.current = setTimeout(() => {
-        console.log(
-          "[useVoiceAI] 10 seconds of total silence (no speech detected), auto-submitting",
-        );
-        submitAnswer();
-      }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
 
       startBackchannelSchedule();
     } catch (err) {
