@@ -260,7 +260,7 @@ export default function ForgotPassword() {
                   <div style={{ marginTop: '6px' }}>
                     {emailSent
                       ? `We've sent a password reset link to ${email}. The link expires in 1 hour.`
-                      : `A password reset link was generated for ${email}.`}
+                      : `Email delivery isn't configured on this server. Use the button below to set a new password for ${email}.`}
                   </div>
                 </div>
               </div>

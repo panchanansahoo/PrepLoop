@@ -19,7 +19,7 @@ import { colors, typography, spacing, borderRadius } from "../../utils/theme";
 function PasswordStrength({ password }) {
     if (!password) return null;
     const checks = [
-        password.length >= 12,
+        password.length >= 8,
         /[A-Z]/.test(password),
         /[a-z]/.test(password),
         /[0-9]/.test(password),
@@ -93,8 +93,8 @@ export default function SignupScreen({ navigation }) {
             setError("Passwords do not match.");
             return;
         }
-        if (password.length < 12) {
-            setError("Password must be at least 12 characters.");
+        if (password.length < 8) {
+            setError("Password must be at least 8 characters.");
             return;
         }
         setLoading(true);
@@ -239,7 +239,7 @@ export default function SignupScreen({ navigation }) {
                                 >
                                     <TextInput
                                         style={styles.inputInner}
-                                        placeholder="Min. 12 characters"
+                                        placeholder="Min. 8 characters"
                                         placeholderTextColor={colors.textMuted}
                                         value={password}
                                         onChangeText={setPassword}

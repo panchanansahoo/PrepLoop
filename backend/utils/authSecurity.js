@@ -24,8 +24,8 @@ export const validatePasswordStrength = (password) => {
     return { valid: false, errors };
   }
 
-  if (password.length < 12) {
-    errors.push('Password must be at least 12 characters (recommended 16+)');
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters (recommended 12+)');
   }
 
   if (!/[a-z]/.test(password)) {

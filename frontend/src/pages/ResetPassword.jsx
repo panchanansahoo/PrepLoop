@@ -186,6 +186,13 @@ const keyframes = `
 export default function ResetPassword() {
     const NEW_PASSWORD_LABEL = 'New Password';
     const CONFIRM_PASSWORD_LABEL = 'Confirm Password';
+    const PASSWORD_RULES = [
+        { id: 'length', label: 'At least 8 characters', test: (value) => value.length >= 8 },
+        { id: 'uppercase', label: 'One uppercase letter', test: (value) => /[A-Z]/.test(value) },
+        { id: 'lowercase', label: 'One lowercase letter', test: (value) => /[a-z]/.test(value) },
+        { id: 'number', label: 'One number', test: (value) => /[0-9]/.test(value) },
+        { id: 'special', label: 'One special character', test: (value) => /[^A-Za-z0-9]/.test(value) },
+    ];
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -266,8 +273,9 @@ export default function ResetPassword() {
             setError('Passwords do not match');
             return;
         }
-        if (password.length < 12) {
-            setError('Password must be at least 12 characters');
+        const failedRule = PASSWORD_RULES.find((rule) => !rule.test(password));
+        if (failedRule) {
+            setError(`Password must include: ${failedRule.label.toLowerCase()}`);
             return;
         }
         if (!resetAccessToken) {
@@ -277,14 +285,22 @@ export default function ResetPassword() {
 
         setLoading(true);
         try {
-            await apiClient.post('/api/auth/reset-password', {
-                accessToken: resetAccessToken,
-                newPassword: password,
-            });
+            await apiClient.post(
+                '/api/auth/reset-password',
+                {
+                    accessToken: resetAccessToken,
+                    newPassword: password,
+                },
+                { skipAuthRefresh: true }
+            );
             setSuccess(true);
             setTimeout(() => navigate('/login'), 3000);
         } catch (err) {
-            setError(err?.message || 'Failed to reset password. Please try again.');
+            if (!err?.response) {
+                setError('Unable to reach the server. Please check your connection and try again.');
+            } else {
+                setError(err.response?.data?.error || 'Failed to reset password. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -344,7 +360,7 @@ export default function ResetPassword() {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={password} onChange={e => setPassword(e.target.value)}
-                                    placeholder="••••••••" required minLength={12}
+                                    placeholder="••••••••" required minLength={8}
                                     style={styles.input}
                                     className="auth-input"
                                 />
@@ -352,6 +368,24 @@ export default function ResetPassword() {
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
+                            <ul style={{ listStyle: 'none', margin: '10px 0 0', padding: 0, display: 'grid', gap: '5px' }}>
+                                {PASSWORD_RULES.map((rule) => {
+                                    const met = rule.test(password);
+                                    return (
+                                        <li key={rule.id} style={{
+                                            display: 'flex', alignItems: 'center', gap: '8px',
+                                            fontSize: '12px',
+                                            color: met ? '#86efac' : 'rgba(148,163,184,0.65)',
+                                            transition: 'color 0.2s ease',
+                                        }}>
+                                            {met
+                                                ? <CheckCircle size={13} style={{ flexShrink: 0 }} />
+                                                : <span aria-hidden="true" style={{ width: 13, height: 13, borderRadius: '50%', border: '1px solid rgba(148,163,184,0.35)', flexShrink: 0 }} />}
+                                            {rule.label}
+                                        </li>
+                                    );
+                                })}
+                            </ul>
                         </div>
 
                         <div style={styles.inputWrapper} className="auth-input-wrapper">
@@ -361,7 +395,7 @@ export default function ResetPassword() {
                                 <input
                                     type={showPassword ? 'text' : 'password'}
                                     value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                                    placeholder="••••••••" required minLength={12}
+                                    placeholder="••••••••" required minLength={8}
                                     style={styles.input}
                                     className="auth-input"
                                 />

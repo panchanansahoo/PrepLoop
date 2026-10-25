@@ -44,7 +44,7 @@ const COMMON_PASSWORDS = new Set([
 
 /**
  * Validate password meets security requirements:
- * - At least 12 characters
+ * - At least 8 characters
  * - At least 1 uppercase letter
  * - At least 1 lowercase letter
  * - At least 1 digit
@@ -56,8 +56,8 @@ function validatePasswordStrength(password) {
   if (!password || typeof password !== 'string') {
     return 'Password is required';
   }
-  if (password.length < 12) {
-    return 'Password must be at least 12 characters long';
+  if (password.length < 8) {
+    return 'Password must be at least 8 characters long';
   }
   if (!/[A-Z]/.test(password)) {
     return 'Password must contain at least one uppercase letter';
@@ -97,6 +97,41 @@ const getFromAddress = () => {
   }
   return '"PrepLoop" <support@preploop.me>';
 };
+
+// Detect secrets that are still placeholders (e.g. "re_your_resend_api_key_here").
+// Treating them as "configured" made the app attempt SMTP with an invalid key,
+// so reset emails failed with a confusing 535 authentication error.
+const PLACEHOLDER_SECRET_PATTERN = /(your[_-]|changeme|replace[_-]?me|placeholder|^x+$)/i;
+
+const isPlaceholderSecret = (value) => {
+  if (!value) return true;
+  const trimmed = String(value).trim();
+  if (!trimmed) return true;
+  if (trimmed === 're_xxxxxxxxxxxx' || trimmed === 'your_resend_api_key_here') return true;
+  return PLACEHOLDER_SECRET_PATTERN.test(trimmed);
+};
+
+/**
+ * Whether the backend has usable outbound email credentials.
+ * Placeholder values are treated as missing so we fail clearly instead of
+ * silently attempting (and failing) an SMTP login.
+ */
+const isEmailConfigured = () => {
+  const pass = process.env.SMTP_PASS || process.env.RESEND_API_KEY;
+  if (isPlaceholderSecret(pass)) return false;
+
+  const host = process.env.SMTP_HOST || 'smtp.resend.com';
+  if (host.includes('resend')) return true;
+  return Boolean(process.env.SMTP_USER);
+};
+
+if (!isEmailConfigured()) {
+  console.warn(
+    '[auth] Email delivery is not configured: set a real SMTP_PASS ' +
+    '(Resend API key starting with "re_") in the environment. ' +
+    'Password reset emails will not be delivered; in development the reset link is returned in the API response and shown on the Forgot Password page.'
+  );
+}
 
 const isMissingEmailVerificationSchema = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -688,10 +723,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     let emailSent = false;
     let mailErrorMessage = null;
 
-    const hasSmtpConfig = Boolean(
-      (process.env.SMTP_PASS || process.env.RESEND_API_KEY) &&
-      (process.env.SMTP_USER || !process.env.SMTP_HOST || process.env.SMTP_HOST.includes('resend'))
-    );
+    const hasSmtpConfig = isEmailConfigured();
 
     if (hasSmtpConfig) {
       try {
@@ -737,11 +769,13 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     }
 
     if (!emailSent) {
-      console.error('Password reset email was not sent:', mailErrorMessage || 'SMTP credentials are not configured');
+      console.error('Password reset email was not sent:', mailErrorMessage || 'email delivery is not configured');
       if (process.env.NODE_ENV === 'production') {
         return res.status(503).json({
-          error: 'Password reset email is temporarily unavailable. Please try again later.',
-          code: 'EMAIL_SERVICE_UNAVAILABLE',
+          error: hasSmtpConfig
+            ? 'Password reset email is temporarily unavailable. Please try again later.'
+            : 'Password reset email is not configured on this server. Please contact support.',
+          code: hasSmtpConfig ? 'EMAIL_SERVICE_UNAVAILABLE' : 'EMAIL_NOT_CONFIGURED',
         });
       }
     }

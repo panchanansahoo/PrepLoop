@@ -355,8 +355,8 @@ export default function Signup() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    if (password.length < 12) {
-      setError('Password must be at least 12 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -391,9 +391,9 @@ export default function Signup() {
 
   // Password strength
   const getStrength = () => {
-    if (password.length === 0) return { level: 0, label: 'At least 12 characters', color: 'rgba(148,163,184,0.4)' };
-    if (password.length < 8) return { level: 1, label: `${12 - password.length} more needed`, color: '#f87171' };
-    if (password.length < 12) return { level: 2, label: `${12 - password.length} more needed`, color: '#fbbf24' };
+    if (password.length === 0) return { level: 0, label: 'At least 8 characters', color: 'rgba(148,163,184,0.4)' };
+    if (password.length < 6) return { level: 1, label: `${8 - password.length} more needed`, color: '#f87171' };
+    if (password.length < 8) return { level: 2, label: `${8 - password.length} more needed`, color: '#fbbf24' };
     if (password.length < 12) return { level: 3, label: 'Good password', color: '#34d399' };
     return { level: 4, label: 'Strong password ✓', color: '#22d3ee' };
   };
@@ -705,7 +705,7 @@ export default function Signup() {
                       value={password} onChange={e => setPassword(e.target.value)}
                       onFocus={() => setFocusedField('password')}
                       onBlur={() => setFocusedField(null)}
-                      placeholder="Minimum 12 characters" required minLength={12}
+                      placeholder="Minimum 8 characters" required minLength={8}
                       className="signup-input-v2"
                       style={{
                         width: '100%', padding: '12px 42px 12px 40px',

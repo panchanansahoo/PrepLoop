@@ -67,7 +67,10 @@ apiClient.interceptors.response.use(
     }
 
     // Handle 401 Unauthorized - Token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Public endpoints (e.g. password reset with a recovery token) opt out with
+    // skipAuthRefresh so an invalid token is shown to the user instead of
+    // silently bouncing them to /login.
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipAuthRefresh) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

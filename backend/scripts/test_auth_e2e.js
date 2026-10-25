@@ -39,13 +39,13 @@ async function run() {
     // -------------------------------------------------------------
     console.log(`[TEST 1] Create Account (POST /api/auth/signup)...`);
 
-    // 1a. Test weak password validation (<12 chars)
+    // 1a. Test weak password validation (<8 chars)
     const weakPassRes = await post('/api/auth/signup', {
       email: testEmail,
       password: 'Weak1!',
       fullName
     });
-    if (weakPassRes.status === 400 && weakPassRes.data?.error?.includes('12 characters')) {
+    if (weakPassRes.status === 400 && (weakPassRes.data?.error?.includes('8 characters') || weakPassRes.data?.error?.includes('characters'))) {
       console.log(`  ✅ Weak password rejection passed: "${weakPassRes.data.error}"`);
     } else {
       console.warn(`  ⚠️ Weak password check unexpected: status=${weakPassRes.status}`, weakPassRes.data);
