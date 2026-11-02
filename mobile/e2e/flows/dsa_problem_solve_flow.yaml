@@ -1,0 +1,59 @@
+appId: com.preploop.mobile
+name: "DSA Problem Solve & Code Submission Flow"
+---
+- launchApp:
+    clearState: false
+
+# 1. Navigate to Practice / DSA tab
+- tapOn:
+    id: "nav-practice-tab"
+
+- assertVisible: "DSA Problem Explorer"
+
+# 2. Select a target problem (Two Sum)
+- tapOn:
+    text: "Two Sum"
+
+# 3. Verify Problem Detail screen loaded
+- assertVisible:
+    text: "Problem Description"
+    timeout: 8000
+
+- assertVisible: "Examples"
+- assertVisible: "Constraints"
+
+# 4. Open Mobile Code Editor
+- tapOn:
+    id: "open-code-editor-button"
+
+- assertVisible:
+    text: "JavaScript"
+    timeout: 5000
+
+# 5. Type or verify solution code
+- tapOn:
+    id: "code-editor-input"
+
+- inputText: "function twoSum(nums, target) { const map = new Map(); for (let i = 0; i < nums.length; i++) { const complement = target - nums[i]; if (map.has(complement)) return [map.get(complement), i]; map.set(nums[i], i); } return []; }"
+
+- hideKeyboard
+
+# 6. Run test cases
+- tapOn:
+    id: "run-code-button"
+
+- assertVisible:
+    text: "Test Cases Passed"
+    timeout: 10000
+
+# 7. Submit solution
+- tapOn:
+    id: "submit-solution-button"
+
+# 8. Verify Submission Result and Coin Reward
+- assertVisible:
+    text: "Accepted"
+    timeout: 12000
+
+- assertVisible:
+    text: "Coins Earned"

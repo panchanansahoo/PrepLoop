@@ -1,0 +1,47 @@
+appId: com.preploop.mobile
+name: "Profile Editing and Synchronization Flow"
+---
+- launchApp:
+    clearState: false
+
+# 1. Navigate to Profile tab
+- tapOn:
+    id: "nav-profile-tab"
+
+- assertVisible:
+    text: "My Profile"
+    timeout: 5000
+
+# 2. Enter Edit Profile Screen
+- tapOn:
+    id: "edit-profile-button"
+
+- assertVisible:
+    text: "Edit Profile"
+    timeout: 5000
+
+# 3. Update target role and skills
+- tapOn:
+    id: "input-designation"
+- eraseText: 30
+- inputText: "Senior Full Stack Engineer"
+
+- hideKeyboard
+
+- tapOn:
+    id: "input-skills"
+- eraseText: 40
+- inputText: "TypeScript, Node.js, React, PostgreSQL, Docker"
+
+- hideKeyboard
+
+# 4. Save Changes
+- tapOn:
+    id: "save-profile-button"
+
+# 5. Verify Success Notification & Persisted Updates
+- assertVisible:
+    text: "Profile updated successfully"
+    timeout: 8000
+
+- assertVisible: "Senior Full Stack Engineer"
