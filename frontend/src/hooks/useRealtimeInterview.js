@@ -27,27 +27,34 @@ export function useRealtimeInterview({
   const silenceTimerRef = useRef(null);
   const maxDurationTimerRef = useRef(null);
 
+  // Use refs for callbacks to avoid stale closures
+  const onAnswerRef = useRef(onAnswer);
+  const onTranscriptUpdateRef = useRef(onTranscriptUpdate);
+  useEffect(() => { onAnswerRef.current = onAnswer; }, [onAnswer]);
+  useEffect(() => { onTranscriptUpdateRef.current = onTranscriptUpdate; }, [onTranscriptUpdate]);
+  const submitAnswerRef = useRef(null);
+
   // Voice pipeline (Deepgram STT + Kokoro TTS)
   const voice = useWebSpeech({
     onAnswer: useCallback((text) => {
-      // Voice detected answer completion
-      submitAnswer(text);
-    }, []), // eslint-disable-line react-hooks/exhaustive-deps
+      // Voice detected answer completion — use ref for current submitAnswer
+      if (submitAnswerRef.current) submitAnswerRef.current(text);
+    }, []),
     onTranscriptUpdate: useCallback((partial) => {
       setTranscript(partial);
       setInterimText(partial);
       answerBufferRef.current = partial;
       
-      // Update parent
-      if (onTranscriptUpdate) {
-        onTranscriptUpdate(partial);
+      // Update parent via ref to avoid stale closure
+      if (onTranscriptUpdateRef.current) {
+        onTranscriptUpdateRef.current(partial);
       }
 
       // Reset silence timer on new speech
       if (partial && partial.trim().length > 0) {
         resetSilenceTimer();
       }
-    }, [onTranscriptUpdate]),
+    }, []),
     interviewType,
     personaGender,
     question: currentQuestion,
@@ -71,7 +78,7 @@ export function useRealtimeInterview({
       // User stopped speaking for SILENCE_THRESHOLD_MS
       const answer = answerBufferRef.current.trim();
       if (answer.length >= ANSWER_MIN_LENGTH) {
-        submitAnswer(answer);
+        if (submitAnswerRef.current) submitAnswerRef.current(answer);
       }
     }, SILENCE_THRESHOLD_MS);
   }, []);
@@ -104,11 +111,12 @@ export function useRealtimeInterview({
     setInterimText('');
     setAnswerStartTime(null);
 
-    // Notify parent
-    if (onAnswer) {
-      onAnswer(answer);
+    // Notify parent via ref to avoid stale closure
+    if (onAnswerRef.current) {
+      onAnswerRef.current(answer);
     }
-  }, [onAnswer, voice]);
+  }, [voice]);
+  submitAnswerRef.current = submitAnswer;
 
   // Start listening for answer
   const startListening = useCallback(async () => {
@@ -171,7 +179,7 @@ export function useRealtimeInterview({
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
     };
-  }, [voice, video]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — cleanup runs once on unmount
 
   return {
     // State

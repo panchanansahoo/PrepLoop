@@ -13,11 +13,58 @@ import { buildInitialVoiceTelemetry, _buildVoiceTelemetrySnapshot } from '../../
 import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
-import { groq, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
+import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
+import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Start Interview ───
+export function sanitizeOpeningQuestion(rawQuestion, stage = 'Behavioral', candidateName = '', interviewerName = 'Arjun Mehta') {
+  if (!rawQuestion || typeof rawQuestion !== 'string') return rawQuestion;
+  let q = rawQuestion.trim();
+
+  // Replace any literal placeholders like [Name], [Your Name], [Interviewer Name]
+  if (interviewerName) {
+    q = q.replace(/\[(?:Your Name|Name|Interviewer Name|Interviewer)\]/gi, interviewerName);
+  }
+  if (candidateName) {
+    q = q.replace(/\[(?:Candidate Name|Candidate|User Name)\]/gi, candidateName);
+  }
+
+  // Strip interview agenda/schedule breakdowns
+  q = q.replace(/We'll spend [^.?!]+:[^.?!]+[.?!]/gi, '');
+  q = q.replace(/We'll spend about [^.?!]+[.?!]/gi, '');
+  q = q.replace(/I'm listening for clear examples[^.?!]+[.?!]/gi, '');
+
+  // Strip format check / gatekeeper questions
+  const metaPatterns = [
+    /Any questions about the format before we start\??/gi,
+    /Any questions before we start\??/gi,
+    /Any questions before we begin\??/gi,
+    /Do you have any questions before we (?:start|begin|jump in|get started)\??/gi,
+    /Are you ready to (?:start|begin)\??/gi,
+    /Shall we (?:start|begin)\??/gi,
+    /Ready to (?:start|begin)\??/gi,
+  ];
+  for (const pattern of metaPatterns) {
+    q = q.replace(pattern, '').trim();
+  }
+
+  // Ensure there is a real opening interview question asked
+  const hasRealQuestion = /(introduce yourself|tell me about yourself|walk me through|can you tell me|what brings you|how would you|given an?|design an?|explain the)/i.test(q);
+  const normalizedStage = String(stage || '').toLowerCase();
+
+  if (!hasRealQuestion || (!q.trim().endsWith('?') && !q.trim().endsWith('.'))) {
+    if (normalizedStage.includes('behavioral') || normalizedStage.includes('hr')) {
+      q = q.replace(/[.\s]+$/, '') + '. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.';
+    } else if (normalizedStage.includes('technical')) {
+      q = q.replace(/[.\s]+$/, '') + '. To kick things off, please introduce yourself and walk me through a technical project you built recently.';
+    }
+  }
+
+  return q.replace(/\s{2,}/g, ' ').trim();
+}
+
 router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => {
   const _requestStartTime = Date.now();
   const {
@@ -34,8 +81,11 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     advancedOptions,
     resumeContext,
     focusArea,
-    questionSetCode,
+    questionSetCode: rawQuestionSetCode,
+    token,
+    questionSetPasscode,
   } = req.body || {};
+  const questionSetCode = token || rawQuestionSetCode;
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);
@@ -67,7 +117,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
   if (questionSetCode) {
     const { data: questionSet, error: qsError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('*')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, expires_at, max_attempts, passcode_hash, allowed_emails')
       .eq('share_code', questionSetCode)
       .eq('is_active', true)
       .single();
@@ -78,6 +128,22 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
 
     if (questionSet.requires_login && !req.user) {
       return res.status(401).json({ error: 'Login required for this interview' });
+    }
+    if (isInterviewLinkExpired(questionSet.expires_at)) {
+      return res.status(410).json({ error: 'This interview link has expired' });
+    }
+    if (!verifyInterviewPasscode(questionSetPasscode, questionSet.passcode_hash)) {
+      return res.status(401).json({ error: 'The interview passcode is incorrect' });
+    }
+
+    const allowedEmails = Array.isArray(questionSet.allowed_emails)
+      ? questionSet.allowed_emails
+      : (Array.isArray(questionSet.settings?.allowedEmails) ? questionSet.settings.allowedEmails : []);
+    if (allowedEmails.length > 0) {
+      const candidateEmail = req.user?.email || req.body?.userEmail;
+      if (!candidateEmail || !verifyInterviewInviteeEmail(candidateEmail, allowedEmails)) {
+        return res.status(403).json({ error: 'Your email address is not on the authorized invitee list for this interview' });
+      }
     }
 
     const questions = Array.isArray(questionSet.questions) ? questionSet.questions : [];
@@ -100,12 +166,24 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
         question_set_id: questionSet.id,
         user_id: req.user?.id || null,
         stage,
+        question_snapshot: questions,
         current_question_started_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
       });
     if (attemptError) {
       console.error('Failed to create custom interview attempt:', attemptError.code || attemptError.message);
       return res.status(500).json({ error: 'Failed to start custom interview' });
+    }
+
+    const { data: attemptClaimed, error: claimError } = await supabaseAdmin
+      .rpc('claim_admin_interview_attempt', { p_share_code: questionSet.share_code });
+    if (claimError || !attemptClaimed) {
+      await supabaseAdmin.from('admin_interview_attempts').delete().eq('id', attemptId);
+      if (claimError) {
+        console.error('Failed to reserve custom interview attempt:', claimError.code || claimError.message);
+        return res.status(503).json({ error: 'Private interview access is not ready. Please contact the interviewer.' });
+      }
+      return res.status(429).json({ error: 'This interview has reached its maximum number of attempts' });
     }
 
     return res.json(withRuntime({
@@ -200,7 +278,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
     }));
   }
 
-  if (staticQuestions.length > 0) {
+  if (!groq && staticQuestions.length > 0) {
     const interviewerName = await generateInterviewerName(company);
     const openingQuestion = getStaticInterviewQuestion(stage, 1);
     return res.json(withRuntime({
@@ -278,8 +356,8 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
 
     if (!groq) {
       const fallbackQuestions = {
-        HR: `Hey! Welcome to your HR interview at ${company}. Tell me about yourself and what excites you about this role.`,
-        Behavioral: `Hey! Welcome to your behavioral interview. Tell me about a challenging project and how you handled it.`,
+        HR: `Hey! Welcome to your HR interview at ${company}. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
+        Behavioral: `Hey! Welcome to your Behavioral interview at ${company}. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
         'DSA / Coding': 'Given an array of integers, how would you find two numbers that sum to a target?',
         'System Design': 'How would you design a URL shortening service?',
         Technical: 'Can you explain the difference between a process and a thread?',
@@ -305,10 +383,14 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
       }));
     }
 
+    const interviewerName = req.body?.interviewerName || (await generateInterviewerName(company));
+    const candidateName = req.body?.userName || req.user?.user_metadata?.full_name || req.user?.name || '';
+    const candidateGreeting = candidateName ? ` ${candidateName}` : '';
+
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -317,26 +399,48 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
                   ? `\n\nTARGETED PRACTICE FOCUS: Prioritize questions that assess "${focusArea.trim().slice(0, 100)}" and give the candidate opportunities to improve in this area.`
                   : '') + `
 
+CRITICAL INSTRUCTIONS FOR OPENING QUESTION (Turn 1):
+- Your name is ${interviewerName}.
+- Greet briefly and warmly (e.g. "Hi${candidateGreeting}, I'm ${interviewerName} from ${company}. Welcome to your ${stage} interview!").
+- DO NOT provide an agenda breakdown (NEVER say "We'll spend 30 minutes...", "quick introductions, around 25 minutes...", etc.).
+- DO NOT ask permission to start or ask meta-questions (NEVER ask "Any questions about the format before we start?", "Are you ready?").
+- IMMEDIATELY ask the first interview question:
+  * For Behavioral or HR: "Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity." (or an equivalent direct self-introduction question).
+  * For Technical: Greet and ask them to introduce themselves and walk through a recent technical project.
+  * For DSA / System Design: Greet and present the problem scenario immediately.
+
 Respond as JSON:
 {
-  "question": "Your opening greeting + first question",
+  "question": "Your brief greeting + immediate first interview question",
   "tips": ["Tip 1", "Tip 2"],
   "thinkTime": 30,
   "interviewerReaction": "greeting"
 }`,
             },
-            { role: 'user', content: `Start the ${stage} interview for ${role} at ${company}.` },
+            {
+              role: 'user',
+              content: `Start the ${stage} interview for ${role} at ${company}. Your name is ${interviewerName}.${candidateName ? ` The candidate's name is ${candidateName}.` : ''} Greet warmly and immediately ask the opening interview question (for Behavioral/HR, ask them to introduce themselves in a minute or two, focusing on their background and what brings them to this opportunity). Do NOT ask if they have questions about the format.`,
+            },
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.8,
+          temperature: 0.7,
+          max_tokens: 400,
         }),
       timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });
 
-    const result = safeJsonParse(completion.choices?.[0]?.message?.content || '');
-    if (!result) throw new Error('Failed to parse AI start response');
+    const parsedResult = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    if (!parsedResult) throw new Error('Failed to parse AI start response');
+    const result = {
+      ...parsedResult,
+      question: sanitizeOpeningQuestion(parsedResult.question, stage, candidateName, interviewerName),
+      questionMeta: {
+        ...(parsedResult.questionMeta || {}),
+        interviewerName,
+      },
+    };
     return res.json(withRuntime({
       ...result,
       context: {
@@ -375,6 +479,129 @@ Respond as JSON:
       questionSource: personalizedQuestionSource,
     }));
   }
+});
+
+// ─── Generate Interview Questions from Job Description (JD) ───
+router.post('/jd-questions', optionalAuth, async (req, res) => {
+  const { jobDescription } = req.body || {};
+  if (!jobDescription || typeof jobDescription !== 'string' || jobDescription.trim().length < 40) {
+    return res.status(400).json({ error: 'Please provide a job description with at least 40 characters.' });
+  }
+
+  const jdText = jobDescription.trim().slice(0, 8000);
+
+  const fallbackSkills = [];
+  const commonTech = ['React', 'Node.js', 'TypeScript', 'JavaScript', 'Python', 'Java', 'SQL', 'PostgreSQL', 'AWS', 'Docker', 'Kubernetes', 'GraphQL', 'System Design', 'Git', 'REST API', 'Microservices', 'Tailwind', 'Next.js', 'Redis', 'Kafka'];
+  for (const tech of commonTech) {
+    if (new RegExp('\\b' + tech.replace('.', '\\.') + '\\b', 'i').test(jdText)) {
+      fallbackSkills.push(tech);
+    }
+  }
+  if (fallbackSkills.length === 0) fallbackSkills.push('Problem Solving', 'Data Structures', 'Communication', 'System Design');
+
+  let parsed = {
+    company: 'Target Company',
+    role: 'Software Engineer',
+    experience: '2-4 years',
+    skills: fallbackSkills.slice(0, 6),
+    rounds: ['Technical', 'System Design', 'HR']
+  };
+
+  let questions = [
+    {
+      question: `Can you walk me through your experience building scalable applications with ${fallbackSkills[0] || 'modern tech stacks'}?`,
+      difficulty: 'Medium',
+      topic: fallbackSkills[0] || 'Technical Overview',
+      round: 'Technical'
+    },
+    {
+      question: 'How do you approach debugging a high-latency issue or bottleneck in a production system?',
+      difficulty: 'Medium',
+      topic: 'Troubleshooting & Performance',
+      round: 'Technical'
+    },
+    {
+      question: 'Design a high-throughput backend architecture or data pipeline for this role. What tradeoffs would you make?',
+      difficulty: 'Hard',
+      topic: 'System Design',
+      round: 'System Design'
+    },
+    {
+      question: 'Tell me about a challenging technical decision you had to advocate for with your team or stakeholders.',
+      difficulty: 'Medium',
+      topic: 'Collaboration & Leadership',
+      round: 'HR'
+    },
+    {
+      question: 'What attracted you to this role and how does your background align with what the team needs?',
+      difficulty: 'Easy',
+      topic: 'Role Alignment',
+      round: 'HR'
+    }
+  ];
+
+  if (groq) {
+    try {
+      const completion = await aiCallWithRetry({
+        operation: () =>
+          createGroqChatCompletion({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert technical recruiter and hiring manager.
+Analyze the following Job Description (JD) and extract key metadata, then generate 5-8 tailored interview questions across interview rounds (e.g. Technical, System Design, HR).
+Return ONLY a valid JSON object matching this exact schema:
+{
+  "parsed": {
+    "company": "Company Name (extracted or 'Company')",
+    "role": "Role Title (e.g. Senior Frontend Engineer)",
+    "experience": "Experience range (e.g. 3-5 years or Fresher)",
+    "skills": ["Skill1", "Skill2", "Skill3", "Skill4"],
+    "rounds": ["Technical", "System Design", "HR"]
+  },
+  "questions": [
+    {
+      "question": "The specific question text tailored to this JD",
+      "difficulty": "Easy" | "Medium" | "Hard",
+      "topic": "Skill or domain topic",
+      "round": "Technical" | "System Design" | "HR"
+    }
+  ]
+}`
+              },
+              {
+                role: 'user',
+                content: `Job Description:\n${jdText}`
+              }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.6,
+            max_tokens: 1500,
+          }),
+        timeoutMs: 15000,
+        maxRetries: 2,
+        baseDelayMs: 300,
+      });
+
+      const raw = completion.choices?.[0]?.message?.content || '';
+      const parsedAi = safeJsonParse(raw);
+      if (parsedAi?.parsed && Array.isArray(parsedAi?.questions) && parsedAi.questions.length > 0) {
+        parsed = {
+          company: parsedAi.parsed.company || parsed.company,
+          role: parsedAi.parsed.role || parsed.role,
+          experience: parsedAi.parsed.experience || parsed.experience,
+          skills: Array.isArray(parsedAi.parsed.skills) && parsedAi.parsed.skills.length > 0 ? parsedAi.parsed.skills : parsed.skills,
+          rounds: Array.isArray(parsedAi.parsed.rounds) && parsedAi.parsed.rounds.length > 0 ? parsedAi.parsed.rounds : parsed.rounds,
+        };
+        questions = parsedAi.questions;
+      }
+    } catch (err) {
+      console.warn('AI JD question generation fallback used:', err.message);
+    }
+  }
+
+  return res.json({ parsed, questions });
 });
 
 router.post('/attempt/:id/terminate', optionalAuth, async (req, res) => {

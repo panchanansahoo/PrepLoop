@@ -6,13 +6,18 @@ import { useAuth } from "../context/AuthContext";
 import {
   getThinkingDelayMs,
   getInterviewerReaction,
+  getConversationalTransition,
   getSilencePrompt,
-  communicationScore as calcCommunication,
-  technicalScore as calcTechnical,
-  problemSolvingScore as calcProblemSolving,
-  codeQualityScore as calcCodeQuality,
   getQuestionTimeLimit,
+  getModeConfig,
+  logInterviewTelemetry,
+  PACING_MODES,
 } from "../pages/aiInterviewTiming";
+import {
+  playTurnChime,
+  playSentChime,
+  playWarningChime,
+} from "../utils/interviewSounds";
 import {
   BOILERPLATE,
   AI_INTERVIEW_GENDER_STORAGE_KEY,
@@ -45,7 +50,43 @@ const SKILL_MAP = {
   "ai-llm": ["LLM Applications", "Prompt Engineering", "Evaluation"],
 };
 
+function sanitizeOpeningQuestionText(text, stage) {
+  if (!text || typeof text !== "string") return text;
+  let q = text.trim();
+  // Remove schedule breakdowns
+  q = q.replace(/We'll spend [^.?!]+:[^.?!]+[.?!]/gi, "");
+  q = q.replace(/We'll spend about [^.?!]+[.?!]/gi, "");
+  q = q.replace(/I'm listening for clear examples[^.?!]+[.?!]/gi, "");
+  // Remove meta questions
+  q = q.replace(/Any questions about the format before we start\??/gi, "");
+  q = q.replace(/Any questions before we start\??/gi, "");
+  q = q.replace(/Any questions before we begin\??/gi, "");
+  q = q.replace(/Do you have any questions before we (?:start|begin|jump in|get started)\??/gi, "");
+  q = q.replace(/Are you ready to (?:start|begin)\??/gi, "");
+  q = q.trim();
+
+  const hasRealQuestion = /(introduce yourself|tell me about yourself|walk me through|what brings you|how would you|given an?|design an?|explain the)/i.test(q);
+  if (!hasRealQuestion || (!q.endsWith("?") && !q.endsWith("."))) {
+    const stageLower = String(stage || "").toLowerCase();
+    if (stageLower.includes("behavioral") || stageLower.includes("hr")) {
+      q = q.replace(/[.\s]+$/, "") + ". Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.";
+    } else if (stageLower.includes("technical")) {
+      q = q.replace(/[.\s]+$/, "") + ". To kick things off, please introduce yourself and walk me through a technical project you built recently.";
+    }
+  }
+  return q.replace(/\s{2,}/g, " ").trim();
+}
+
 export function useInterviewSession(options = {}) {
+  const defaultPacingMode = options?.defaultPacingMode || "realistic";
+  const [pacingMode, setPacingMode] = useState(defaultPacingMode);
+  const [needAMomentCount, setNeedAMomentCount] = useState(0);
+  const [checkInActive, setCheckInActive] = useState(false);
+  const [wrapUpWarning, setWrapUpWarning] = useState(false);
+  const silenceNudgeTimerRef = useRef(null);
+  const silenceCheckInTimerRef = useRef(null);
+  const silenceAutoAdvanceTimerRef = useRef(null);
+  const wrapUpTimerRef = useRef(null);
   const { user: _user, getAuthHeaders } = useAuth();
 
   const [phase, setPhase] = useState("lobby");
@@ -55,18 +96,36 @@ export function useInterviewSession(options = {}) {
     readStoredInterviewerGender,
   );
 
-  // ─── Custom Admin Question Set State ───
+  // ─── Custom Admin Question Set / Candidate Token State ───
+  const searchParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : null;
   const initialQuestionSetCode =
+    options?.token ||
     options?.questionSetCode ||
-    (typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("set")
-      : null);
+    searchParams?.get("token") ||
+    searchParams?.get("set") ||
+    null;
   const initialFocusArea = options?.focusArea || "";
   const [questionSetCode, setQuestionSetCode] = useState(initialQuestionSetCode);
   const [focusArea] = useState(initialFocusArea);
   const [customQuestionSet, setCustomQuestionSet] = useState(null);
   const [questionSetLoading, setQuestionSetLoading] = useState(false);
   const [questionSetError, setQuestionSetError] = useState(null);
+  const [questionSetAccessError, setQuestionSetAccessError] = useState(null);
+  const [questionSetPasscode, setQuestionSetPasscode] = useState("");
+  const [candidateEmail, setCandidateEmail] = useState("");
+  const [candidateName, setCandidateName] = useState("");
+
+  // Sync token whenever options or search params change dynamically
+  useEffect(() => {
+    const raw = options?.token || options?.questionSetCode || null;
+    const sanitized = raw ? String(raw).trim() : null;
+    if (sanitized && sanitized !== questionSetCode) {
+      setQuestionSetCode(sanitized);
+    }
+  }, [options?.token, options?.questionSetCode, questionSetCode]);
   const allAdminQuestionsRef = useRef([]);
   const customQuestionSetRef = useRef(null);
   const customAttemptIdRef = useRef(null);
@@ -176,6 +235,7 @@ export function useInterviewSession(options = {}) {
   const [cameraError, setCameraError] = useState(null);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [awaitingAnswer, setAwaitingAnswer] = useState(false);
+  const [answerReview, setAnswerReview] = useState(false);
   const lastSpeechTimestampRef = useRef(0);
   const [transcript, setTranscriptRaw] = useState("");
   const isListeningRef = useRef(false);
@@ -191,15 +251,30 @@ export function useInterviewSession(options = {}) {
   }, []);
 
   const voiceAI = useVoiceAI({
-    onAnswer: useCallback((answerText) => {
-      pendingVoiceAnswerRef.current = answerText || "";
-      setTranscriptRaw(answerText || "");
+    pacingMode,
+    onAnswer: useCallback((answerText, meta = {}) => {
+      const priorAnswer = pendingVoiceAnswerRef.current.trim();
+      const completeAnswer = [priorAnswer, (answerText || "").trim()].filter(Boolean).join(" ");
+      pendingVoiceAnswerRef.current = "";
+      setTranscriptRaw(completeAnswer);
       const isSilentAnswer =
-        !answerText ||
-        answerText.trim().length === 0 ||
-        answerText === "I do not have a response to this question.";
+        !completeAnswer ||
+        completeAnswer === "I do not have a response to this question.";
       setConsecutiveSilentQuestions((prev) => (isSilentAnswer ? prev + 1 : 0));
-      if (sendAnswerRef.current) sendAnswerRef.current(false, answerText);
+
+      if (completeAnswer && !isSilentAnswer) {
+        setAnswerReview(false);
+        if (sendAnswerRef.current) {
+          sendAnswerRef.current(false, completeAnswer, meta);
+        }
+      } else if (meta?.isAutoSkip || meta?.submissionType === "user_done") {
+        setAnswerReview(false);
+        if (sendAnswerRef.current) {
+          sendAnswerRef.current(true, null, meta);
+        }
+      } else {
+        setAnswerReview(Boolean(completeAnswer));
+      }
     }, []),
     onTranscriptUpdate: useCallback((partial) => {
       setTranscriptRaw(partial || "");
@@ -208,6 +283,7 @@ export function useInterviewSession(options = {}) {
     personaGender: interviewerGender,
     question: currentQuestion,
     getAuthHeaders,
+    isPaused,
   });
 
   const intelligence = useInterviewIntelligence({ getAuthHeaders });
@@ -310,51 +386,41 @@ export function useInterviewSession(options = {}) {
   const stopVoiceRecording = useCallback(() => voiceAI.stop(), [voiceAI]);
 
   const handoffToCandidate = useCallback(() => {
-    setAwaitingAnswer(false);
-    if (!isPausedRef.current && phaseRef.current === "interview" && !isListeningRef.current) {
+    if (!isPausedRef.current && phaseRef.current === "interview") {
+      // Prompt user immediately and give a clear auditory cue
+      setAwaitingAnswer(true);
+      playTurnChime(speakerMuted);
+
       // Cancel any lingering speechSynthesis before starting recognition.
-      // This is critical — SpeechRecognition can't capture audio while
-      // speechSynthesis is still active on some browsers.
       if ("speechSynthesis" in window) {
         window.speechSynthesis.cancel();
-        // Double-cancel after a short delay — some browsers defer TTS teardown
-        // and the first cancel() doesn't fully release the audio pipeline.
         setTimeout(() => {
           if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-        }, 200);
+        }, 150);
       }
 
-      // While the browser settles (and if recognition fails to start), keep a
-      // visible "your turn" cue so the candidate knows they can use the mic.
-      setAwaitingAnswer(true);
-
-      // Give the browser time to settle after TTS playback ends.
-      // SpeechRecognition can fail to capture audio if started too quickly
-      // after TTS/audio playback due to echo cancellation conflicts.
-      // 1200ms gives the browser's echo cancellation enough time to fully
-      // release the audio pipeline after TTS. 800ms was too aggressive and
-      // caused the mic to appear active while silently dropping all input.
+      // Snappy handoff: 350ms settles audio pipeline without awkward dead silence
       setTimeout(() => {
         if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
           startVoiceRecording();
-          // Safety retry: if SpeechRecognition didn't start, try again after 1.5s
+          // Safety retry if SpeechRecognition took longer to start
           setTimeout(() => {
             if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
               console.log("[handoffToCandidate] Retry #1 starting voice recording");
               startVoiceRecording();
-              // Extra safety retry at 3s
-              setTimeout(() => {
-                if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
-                  console.log("[handoffToCandidate] Retry #2 starting voice recording");
-                  startVoiceRecording();
-                }
-              }, 1500);
             }
-          }, 1500);
+          }, 800);
         }
-      }, 1200);
+      }, 350);
     }
-  }, [startVoiceRecording]);
+  }, [startVoiceRecording, speakerMuted]);
+
+  // Once speech is actively detected or transcribed, dismiss the 'Your turn' cue smoothly
+  useEffect(() => {
+    if (awaitingAnswer && (voiceAI.inputActive || voiceAI.interimText || transcript)) {
+      setAwaitingAnswer(false);
+    }
+  }, [awaitingAnswer, voiceAI.inputActive, voiceAI.interimText, transcript]);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [conversation, setConversation] = useState([]);
@@ -363,6 +429,7 @@ export function useInterviewSession(options = {}) {
   const [interviewerStatus, setInterviewerStatus] = useState("");
   const [silenceStage, setSilenceStage] = useState(0);
   const silenceStageTimerRef = useRef(null);
+
 
   const stateRefs = useRef({
     userInput: "",
@@ -564,6 +631,9 @@ export function useInterviewSession(options = {}) {
   const questionIndexRef = useRef(1);
   useEffect(() => {
     questionIndexRef.current = questionIndex;
+    setNeedAMomentCount(0);
+    setCheckInActive(false);
+    setWrapUpWarning(false);
   }, [questionIndex]);
 
   const [setupStep, setSetupStep] = useState(0);
@@ -650,7 +720,7 @@ export function useInterviewSession(options = {}) {
     const userMessages = conversation.filter((m) => m.role === "candidate");
     const statsObj = {
       duration: formatTime(elapsed),
-      questionsAnswered: questionIndex,
+      questionsAnswered: userMessages.length,
       totalMessages,
       linesOfCode: lineCount,
       language,
@@ -692,7 +762,7 @@ export function useInterviewSession(options = {}) {
       });
       const data = await res.json();
       if (requestId !== analysisRequestIdRef.current) return;
-      if (data && !data.fallback && Number.isFinite(Number(data.overallScore))) {
+      if (data?.aiGenerated === true && !data.fallback && Number.isFinite(Number(data.overallScore))) {
         const score10 = Math.round((data.overallScore / 10) * 10) / 10;
         const cats = data.categoryScores ? [
           { name: "Technical Skills", score: Math.round((data.categoryScores.technicalSkills || 0) / 10 * 10) / 10 },
@@ -723,6 +793,7 @@ export function useInterviewSession(options = {}) {
                   : "#ef4444",
           stats: statsObj,
           aiGenerated: true,
+          analysisMode: data.analysisMode || "ai",
         });
         setAnalysisLoading(false);
         return;
@@ -733,26 +804,6 @@ export function useInterviewSession(options = {}) {
 
     // A newer interview started while this request was in flight.
     if (requestId !== analysisRequestIdRef.current) return;
-
-    const avgResponseLength =
-      userMessages.length > 0
-        ? Math.round(
-            userMessages.reduce(
-              (sum, m) => sum + ((m.content || m.text || "").length || 0),
-              0,
-            ) / userMessages.length,
-          )
-        : 0;
-    const commScore = calcCommunication(
-      avgResponseLength,
-      userMessages.length,
-      Math.max(questionIndex, 1),
-    );
-    const techScore = calcTechnical(code, lineCount);
-    const psScore = calcProblemSolving(questionIndex, userMessages.length);
-    const cqScore = calcCodeQuality(code, lineCount);
-    const overallScore =
-      Math.round(((commScore + techScore + psScore + cqScore) / 4) * 10) / 10;
 
     const keyMoments = [];
     conversation.forEach((msg, idx) => {
@@ -776,77 +827,28 @@ export function useInterviewSession(options = {}) {
     });
 
     setAnalysisResult({
-      overallScore,
-      performanceLabel:
-        overallScore >= 7
-          ? "Strong Hire"
-          : overallScore >= 5
-            ? "Inclined Hire"
-            : overallScore >= 3
-              ? "Needs Improvement"
-              : "Not Ready",
-      performanceColor:
-        overallScore >= 7
-          ? "#22c55e"
-          : overallScore >= 5
-            ? "#f59e0b"
-            : overallScore >= 3
-              ? "#f97316"
-              : "#ef4444",
-      categories: [
-        {
-          name: "Communication",
-          score: commScore,
-          icon: "Communication",
-          color: "#818cf8",
-        },
-        {
-          name: "Technical Skills",
-          score: techScore,
-          icon: "Technical Skills",
-          color: "#22d3ee",
-        },
-        {
-          name: "Problem Solving",
-          score: psScore,
-          icon: "Problem Solving",
-          color: "#a78bfa",
-        },
-        {
-          name: "Code Quality",
-          score: cqScore,
-          icon: "Code Quality",
-          color: "#34d399",
-        },
-      ],
-      strengths: [
-        "Structured approach to problem decomposition",
-        "Clear communication of thought process",
-        userMessages.length > 3
-          ? "Good follow-up engagement"
-          : "Showed initiative in discussion",
-      ],
-      improvements: [
-        "Consider edge cases more thoroughly",
-        "Optimize time complexity analysis",
-        "Strengthen system design fundamentals",
-      ],
+      overallScore: null,
+      performanceLabel: "Review ready",
+      performanceColor: "#94a3b8",
+      analysisUnavailable: true,
+      summary: "AI feedback could not be generated for this session. Your transcript and session details are available below, but no score has been assigned.",
+      categories: [],
+      strengths: [],
+      improvements: [],
       keyMoments: keyMoments.slice(0, 5),
       stats: statsObj,
       aiGenerated: false,
+      analysisMode: "unavailable",
     });
     setAnalysisLoading(false);
   }, [
     conversation,
     elapsed,
-    questionIndex,
-    code,
     lineCount,
     language,
     targetCompany,
     targetRole,
     interviewType,
-    getAuthHeaders,
     totalPauseTime,
   ]);
 
@@ -859,8 +861,16 @@ export function useInterviewSession(options = {}) {
       setSubmissionStatus("failed");
       return;
     }
-    const candidateName =
-      _user?.user_metadata?.full_name || _user?.fullName || _user?.email || "Candidate";
+    const candidateDisplayName =
+      candidateName?.trim() ||
+      _user?.user_metadata?.full_name ||
+      _user?.fullName ||
+      _user?.email ||
+      "Candidate";
+    const candidateDisplayEmail =
+      candidateEmail?.trim() ||
+      _user?.email ||
+      null;
     try {
       const res = await authFetch(`/api/interview/question-set/${code}/submit`, {
         method: "POST",
@@ -870,8 +880,8 @@ export function useInterviewSession(options = {}) {
           scores: analysisResult?.categories || {},
           overallScore: Math.round((analysisResult?.overallScore || 0) * 10),
           duration: elapsed || 0,
-          userName: candidateName,
-          userEmail: _user?.email || null,
+          userName: candidateDisplayName,
+          userEmail: candidateDisplayEmail,
         }),
       });
       if (res.ok) {
@@ -889,6 +899,28 @@ export function useInterviewSession(options = {}) {
       console.error("[Interview] Custom submission failed:", err.message);
     }
   }, [analysisResult, authFetch, conversation, elapsed, _user, questionSetCode]);
+
+  useEffect(() => {
+    if (analysisResult && typeof window !== "undefined") {
+      try {
+        const rawCtx = sessionStorage.getItem("multiRoundContext");
+        if (rawCtx) {
+          const ctx = JSON.parse(rawCtx);
+          const roundScore = analysisResult.overallScore ?? analysisResult.score ?? 75;
+          const multiRoundResult = {
+            roundId: ctx.roundId,
+            stage: ctx.stage,
+            score: roundScore,
+            feedback: analysisResult.feedback || analysisResult.summary || "Completed round",
+            breakdown: analysisResult.breakdown || {}
+          };
+          sessionStorage.setItem("multiRoundResult", JSON.stringify(multiRoundResult));
+        }
+      } catch (e) {
+        console.warn("Failed to set multiRoundResult in sessionStorage", e);
+      }
+    }
+  }, [analysisResult]);
 
   // Auto-submit custom interview submission when analysis completes.
   useEffect(() => {
@@ -939,6 +971,7 @@ export function useInterviewSession(options = {}) {
     if (remaining === 30 && !countdownWarnedRef.current) {
       countdownWarnedRef.current = true;
       setInterviewerStatus("30 seconds remaining");
+      playWarningChime(speakerMuted);
       setTimeout(() => setInterviewerStatus(""), 4000);
     }
     if (
@@ -1007,6 +1040,36 @@ export function useInterviewSession(options = {}) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation]);
+
+  // Pause silence timers when tab is hidden or network drops
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden) {
+        stopSilenceHandling();
+      } else if (isListeningRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
+        startSilenceHandling();
+      }
+    };
+    const handleOffline = () => {
+      stopSilenceHandling();
+      setInterviewerStatus("Reconnecting to network...");
+    };
+    const handleOnline = () => {
+      setInterviewerStatus("");
+      if (isListeningRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
+        startSilenceHandling();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+    };
+  }, []);
 
   useEffect(() => {
     setLineCount(code ? code.split("\n").length : 1);
@@ -1126,6 +1189,7 @@ export function useInterviewSession(options = {}) {
     saveIdempotencyKeyRef.current = `ai-interview-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     setSubmissionStatus(null);
     setQuestionSetError(null);
+    setQuestionSetAccessError(null);
     setResumeParseError(null);
     submittedQuestionKeyRef.current = null;
 
@@ -1234,8 +1298,19 @@ export function useInterviewSession(options = {}) {
         focusArea: focusArea || undefined,
       };
 
+      if (candidateDisplayName && candidateDisplayName !== "Candidate") {
+        startPayload.userName = candidateDisplayName;
+      }
       if (questionSetCode) {
         startPayload.questionSetCode = questionSetCode;
+        startPayload.token = questionSetCode;
+        startPayload.questionSetPasscode = questionSetPasscode;
+        if (candidateName?.trim()) {
+          startPayload.userName = candidateName.trim();
+        }
+        if (candidateEmail?.trim()) {
+          startPayload.userEmail = candidateEmail.trim();
+        }
       }
 
       const [res] = await Promise.all([
@@ -1247,13 +1322,14 @@ export function useInterviewSession(options = {}) {
       ]);
 
       if (!res.ok) {
+        const errorPayload = await res.json().catch(() => ({}));
         logAPIError(
           "/api/company-interview/start",
           "interview-start-http",
           res,
           { company: resolvedCompany, stage: resolvedStage, experienceLevel },
         );
-        throw createHttpError(res.status, res.statusText);
+        throw createHttpError(res.status, errorPayload.error || res.statusText);
       }
 
       const data = await res.json();
@@ -1274,14 +1350,15 @@ export function useInterviewSession(options = {}) {
       const stageFallbacks = {
         "DSA / Coding": `Alright, let's kick things off with a coding problem. So, given an array of integers and a target sum, how would you find two numbers that add up to the target? Walk me through how you'd think about it.`,
         "System Design": `Cool, so let's talk system design. How would you go about designing something like a URL shortener — think bit.ly? What are the key pieces you'd need?`,
-        Behavioral: `Hey, I'd love to get to know you a bit. Can you tell me about a challenging project you worked on? What made it tough, and how did you handle it?`,
+        Behavioral: `Hey, welcome! Thanks for making the time. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
         Technical: technicalOpeningFallback,
-        HR: `Hey, welcome! Thanks for being here. Let's keep this relaxed — tell me a bit about yourself and your journey so far.`,
+        HR: `Hey, welcome! Thanks for making the time. Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity.`,
       };
-      const questionText =
+      const rawQuestionText =
         data.question ||
         stageFallbacks[resolvedStage] ||
         `Welcome! Let's start this ${resolvedStage.toLowerCase()} interview. Tell me about a project you've worked on that you're proud of.`;
+      const questionText = sanitizeOpeningQuestionText(rawQuestionText, resolvedStage);
       setCurrentQuestion(questionText);
       setQuestionIndex(1);
       setConversation([
@@ -1299,7 +1376,7 @@ export function useInterviewSession(options = {}) {
       handoffToCandidate();
     } catch (error) {
       if (questionSetCode) {
-        setQuestionSetError(
+        setQuestionSetAccessError(
           error?.message || "Unable to continue this custom interview",
         );
         setLoading(false);
@@ -1319,7 +1396,7 @@ export function useInterviewSession(options = {}) {
           "[AI Interview API Warning] start unauthorized; using local fallback question flow.",
         );
       if (questionSetCode) {
-        setQuestionSetError(
+        setQuestionSetAccessError(
           error?.message || "Unable to start this custom interview",
         );
         setLoading(false);
@@ -1351,19 +1428,20 @@ export function useInterviewSession(options = {}) {
     }
   };
 
-  const sendAnswer = async (isAutoSkip = false, answerOverride = null) => {
+  const sendAnswer = async (isAutoSkip = false, answerOverride = null, meta = {}) => {
     if (isSendingRef.current) return;
     isSendingRef.current = true;
+    setAnswerReview(false);
     try {
+      playSentChime(speakerMuted);
       if (questionTimerRef.current) {
         clearInterval(questionTimerRef.current);
         questionTimerRef.current = null;
       }
-      if (silenceStageTimerRef.current) {
-        clearTimeout(silenceStageTimerRef.current);
-        silenceStageTimerRef.current = null;
-      }
+      stopSilenceHandling();
       setSilenceStage(0);
+      setCheckInActive(false);
+      setWrapUpWarning(false);
       if (isListeningRef.current) stopVoiceRecording();
       speakSequenceCancelledRef.current = true;
       voiceAI.interrupt();
@@ -1379,13 +1457,19 @@ export function useInterviewSession(options = {}) {
       const pendingVoice = pendingVoiceAnswerRef.current.trim();
       pendingVoiceAnswerRef.current = "";
       const currentTranscript = stateRefs.current.transcript.trim();
-      const currentUserInput = stateRefs.current.userInput.trim();
-      // Include any pending interim text that hasn't been finalized by browser STT yet.
+      // Shared private interviews are voice-only. Ignore stale/manual text input
+      // so an invitee cannot accidentally submit a typed answer through another UI.
+      const currentUserInput = questionSetCode ? "" : stateRefs.current.userInput.trim();
+      // Include any pending interim text or hook transcript that hasn't been finalized by browser STT yet.
       // This prevents the last few words from being silently dropped.
       const interimText = (voiceAI.interimText || "").trim();
-      const fullTranscript = interimText
-        ? (currentTranscript + " " + interimText).trim()
-        : currentTranscript;
+      const hookTranscript = (voiceAI.transcript || "").trim();
+      const fullTranscript = (
+        currentTranscript ||
+        hookTranscript ||
+        interimText ||
+        ""
+      ).trim();
       const providedAnswer = answerOverride?.trim() || pendingVoice || currentUserInput || fullTranscript;
       
       const answer =
@@ -1405,8 +1489,11 @@ export function useInterviewSession(options = {}) {
       }
 
       const questionKey = `${questionIndexRef.current}:${currentQuestion}`;
-      if (submittedQuestionKeyRef.current === questionKey) return;
+      if (submittedQuestionKeyRef.current === questionKey && isSendingRef.current) return;
       submittedQuestionKeyRef.current = questionKey;
+
+      const isSkippedQuestion = isAutoSkip === true && !providedAnswer;
+      const skipReason = meta?.reason || (isAutoSkip ? "silence_timeout" : "user_skipped");
 
       const currentCode = stateRefs.current.code.trim();
       const fullAnswer = currentCode
@@ -1417,7 +1504,12 @@ export function useInterviewSession(options = {}) {
         ...prev,
         {
           role: "candidate",
-          content: answer || "[Code submitted]",
+          content: isSkippedQuestion
+            ? (skipReason === "user_skipped" ? "[Question skipped by candidate]" : "[No response - question timed out]")
+            : (answer || "[Code submitted]"),
+          status: isSkippedQuestion ? "unanswered" : "answered",
+          reason: isSkippedQuestion ? skipReason : null,
+          isSkipped: isSkippedQuestion,
           timestamp: Date.now(),
         },
       ]);
@@ -1490,6 +1582,7 @@ export function useInterviewSession(options = {}) {
         if (allAdminQuestionsRef.current?.length > 0 || questionSetCode) {
           followUpPayload.questionSource = 'admin-custom';
           followUpPayload.questionSetCode = questionSetCode;
+          followUpPayload.token = questionSetCode;
           followUpPayload.attemptId = customAttemptIdRef.current;
         }
 
@@ -1612,16 +1705,19 @@ export function useInterviewSession(options = {}) {
         } else {
           setCurrentQuestion(continueQ);
           setQuestionIndex((prev) => prev + 1);
+          submittedQuestionKeyRef.current = null;
           setConversation((prev) => [
             ...prev,
             { role: "interviewer", content: continueQ, timestamp: Date.now() },
           ]);
           const reaction = getInterviewerReaction(feedbackScore, interviewType);
           setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
-          await speakAndHandoff(continueQ);
+          const transitionPhrase = getConversationalTransition(feedbackScore, resolvedStage, questionIndex);
+          await speakAndHandoff(`${transitionPhrase} ${continueQ}`);
           setInterviewerStatus("");
         }
       } catch (error) {
+        submittedQuestionKeyRef.current = null;
         const statusCode = getHttpStatus(error);
         if (statusCode !== 401)
           logAPIError(
@@ -1672,9 +1768,11 @@ export function useInterviewSession(options = {}) {
           ]);
           setCurrentQuestion(fallbackQ);
           setQuestionIndex((prev) => prev + 1);
+          submittedQuestionKeyRef.current = null;
           await voiceAI.prefetch(fallbackQ);
           setLoading(false);
-          await speakInterviewerText(fallbackQ);
+          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndex);
+          await speakInterviewerText(`${transitionPhrase} ${fallbackQ}`);
           handoffToCandidate();
         }
       }
@@ -1694,19 +1792,17 @@ export function useInterviewSession(options = {}) {
     [],
   );
 
-  const stopSilenceHandling = useCallback(() => {
-    if (silenceStageTimerRef.current)
-      clearTimeout(silenceStageTimerRef.current);
-    setSilenceStage(0);
-    setInterviewerStatus("");
-  }, []);
+  /* old stopSilenceHandling replaced below */
 
   const hasRecentSpeech = useCallback(() => {
-    const hasTranscript = stateRefs.current.transcript.trim().length > 0;
+    const hasTranscript =
+      stateRefs.current.transcript.trim().length > 0 ||
+      (voiceAI.interimText || "").trim().length > 0 ||
+      (voiceAI.transcript || "").trim().length > 0;
     // 5-second window: natural pauses between thoughts are 3-5 seconds
     const recentAudio = Date.now() - lastSpeechTimestampRef.current < 5000;
     return hasTranscript || recentAudio;
-  }, []);
+  }, [voiceAI.interimText, voiceAI.transcript]);
 
   // Latest interview context for the hint endpoint. Kept in a ref so the
   // silence-timer callback below stays stable across conversation updates.
@@ -1766,60 +1862,140 @@ export function useInterviewSession(options = {}) {
     }
   }, [hasRecentSpeech]);
 
+  const clearAllSilenceTimers = useCallback(() => {
+    if (silenceStageTimerRef.current) {
+      clearTimeout(silenceStageTimerRef.current);
+      silenceStageTimerRef.current = null;
+    }
+    if (silenceNudgeTimerRef.current) {
+      clearTimeout(silenceNudgeTimerRef.current);
+      silenceNudgeTimerRef.current = null;
+    }
+    if (silenceCheckInTimerRef.current) {
+      clearTimeout(silenceCheckInTimerRef.current);
+      silenceCheckInTimerRef.current = null;
+    }
+    if (silenceAutoAdvanceTimerRef.current) {
+      clearTimeout(silenceAutoAdvanceTimerRef.current);
+      silenceAutoAdvanceTimerRef.current = null;
+    }
+    if (wrapUpTimerRef.current) {
+      clearTimeout(wrapUpTimerRef.current);
+      wrapUpTimerRef.current = null;
+    }
+  }, []);
+
+  const stopSilenceHandling = useCallback(() => {
+    clearAllSilenceTimers();
+    setCheckInActive(false);
+  }, [clearAllSilenceTimers]);
+
   const startSilenceHandling = useCallback(() => {
     stopSilenceHandling();
-    if (phase !== "interview") return;
+    if (phase !== "interview" || aiSpeaking) return;
 
-    // Stage 1: Show encouragement after 12s of silence (was 8s)
-    silenceStageTimerRef.current = setTimeout(() => {
+    const modeConfig = getModeConfig(pacingMode);
+
+    // 1. Nudge timer
+    silenceNudgeTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
       setInterviewerStatus(getSilencePrompt(interviewType, 0));
+      logInterviewTelemetry("nudge_shown", { questionIndex, mode: pacingMode });
       requestHint();
+    }, modeConfig.nudgeMs);
 
-      // Stage 2: Offer to rephrase after another 15s (27s total silence)
-      silenceStageTimerRef.current = setTimeout(() => {
-        if (!isListeningRef.current || hasRecentSpeech()) return;
-        setSilenceStage(2);
-        const rephraseText = "Would you like me to rephrase the question?";
-        setInterviewerStatus(rephraseText);
-        setConversation((prev) => [
-          ...prev,
-          { role: "interviewer", content: rephraseText, timestamp: Date.now() },
-        ]);
-        if (isListeningRef.current) stopVoiceRecording();
-        speakInterviewerText(rephraseText).then(() => {
-          // The candidate may have answered while the rephrase was spoken.
-          // In that case the follow-up flow owns the microphone now: do not
-          // restart recognition or schedule a stale auto-skip timer.
-          if (
-            isPausedRef.current ||
-            phaseRef.current !== "interview" ||
-            isSendingRef.current
-          )
-            return;
-          if (!isListeningRef.current) startVoiceRecording();
-          // Stage 3: Auto-skip after another 15s of silence (42s total)
-          silenceStageTimerRef.current = setTimeout(() => {
-            // Never burn a question while the tab is in the background.
-            if (document.hidden || hasRecentSpeech()) return;
-            setSilenceStage(3);
-            setInterviewerStatus("");
-            if (sendAnswerRef.current) sendAnswerRef.current(true);
-          }, 15000);
-        });
-      }, 15000);
-    }, 12000);
+    // 2. Interactive check-in timer
+    silenceCheckInTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current || hasRecentSpeech()) return;
+      setSilenceStage(2);
+      setCheckInActive(true);
+      logInterviewTelemetry("checkin_shown", { questionIndex, mode: pacingMode });
+    }, modeConfig.checkInMs);
+
+    // 3. Graceful auto-advance timer
+    silenceAutoAdvanceTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current || isSendingRef.current) return;
+      const currentText = (stateRefs.current.transcript || "").trim();
+      logInterviewTelemetry("silence_timeout", { questionIndex, mode: pacingMode, hasPartial: Boolean(currentText) });
+      if (currentText.length >= 2) {
+        sendAnswerRef.current?.(false, currentText, { submissionType: "timeout_partial", reason: "silence_timeout" });
+      } else {
+        sendAnswerRef.current?.(true, null, { submissionType: "timeout_empty", reason: "silence_timeout" });
+      }
+    }, modeConfig.autoAdvanceMs);
+
+    // 4. Soft wrap-up warning timer (at 150s of answering)
+    wrapUpTimerRef.current = setTimeout(() => {
+      if (isListeningRef.current && !isSendingRef.current) {
+        setWrapUpWarning(true);
+      }
+    }, modeConfig.softWrapUpMs);
   }, [
     phase,
-    speakInterviewerText,
-    stopSilenceHandling,
+    aiSpeaking,
+    pacingMode,
     interviewType,
     hasRecentSpeech,
-    stopVoiceRecording,
-    startVoiceRecording,
+    stopSilenceHandling,
+    questionIndex,
     requestHint,
   ]);
+
+  const requestNeedAMoment = useCallback(() => {
+    const modeConfig = getModeConfig(pacingMode);
+    if (needAMomentCount >= modeConfig.maxNeedAMoment) return false;
+    setNeedAMomentCount((prev) => prev + 1);
+    setCheckInActive(false);
+    setInterviewerStatus("Take your time — extra 30s added.");
+    logInterviewTelemetry("need_moment_clicked", {
+      questionIndex,
+      remaining: modeConfig.maxNeedAMoment - (needAMomentCount + 1),
+    });
+
+    // Reset silence timers with extended +30s window
+    stopSilenceHandling();
+    silenceAutoAdvanceTimerRef.current = setTimeout(() => {
+      if (!isListeningRef.current || isSendingRef.current) return;
+      const currentText = (stateRefs.current.transcript || "").trim();
+      if (currentText.length >= 2) {
+        sendAnswerRef.current?.(false, currentText, { submissionType: "timeout_partial", reason: "silence_timeout" });
+      } else {
+        sendAnswerRef.current?.(true, null, { submissionType: "timeout_empty", reason: "silence_timeout" });
+      }
+    }, modeConfig.needAMomentMs + 10000);
+
+    return true;
+  }, [needAMomentCount, pacingMode, questionIndex, stopSilenceHandling]);
+
+  const repeatCurrentQuestion = useCallback(async () => {
+    if (!currentQuestion) return;
+    stopVoiceRecording();
+    stopSilenceHandling();
+    setCheckInActive(false);
+    setNeedAMomentCount(0);
+    logInterviewTelemetry("repeat_question", { questionIndex });
+    await speakInterviewerText(currentQuestion);
+    handoffToCandidate();
+  }, [
+    currentQuestion,
+    questionIndex,
+    speakInterviewerText,
+    handoffToCandidate,
+    stopVoiceRecording,
+    stopSilenceHandling,
+  ]);
+
+  const skipCurrentQuestion = useCallback(() => {
+    logInterviewTelemetry("user_skip", { questionIndex });
+    stopSilenceHandling();
+    sendAnswerRef.current?.(true, null, { submissionType: "voluntary_skip", reason: "user_skipped" });
+  }, [questionIndex, stopSilenceHandling]);
+
+  const handleDoneAnswering = useCallback(() => {
+    stopSilenceHandling();
+    voiceAI.submitAnswer(true, { submissionType: "user_done" });
+  }, [stopSilenceHandling, voiceAI]);
 
   useEffect(() => {
     // Don't nudge or skip while the candidate is composing a typed answer in
@@ -1917,20 +2093,12 @@ export function useInterviewSession(options = {}) {
   const toggleMic = useCallback(() => {
     if (isPausedRef.current) return;
     if (isListening) {
-      // If user has spoken something, submit it instead of discarding
-      const currentTranscript = stateRefs.current.transcript.trim();
-      const interimText = (voiceAI.interimText || "").trim();
-      const hasVoiceContent = currentTranscript.length > 0 || interimText.length > 0;
-      if (hasVoiceContent) {
-        // Submit the voice answer
-        if (sendAnswerRef.current) sendAnswerRef.current(false);
-      } else {
-        stopVoiceRecording();
-      }
+      // Finish capture and let the candidate review/edit before sending.
+      voiceAI.submitAnswer();
     } else {
       startVoiceRecording();
     }
-  }, [isListening, stopVoiceRecording, startVoiceRecording, voiceAI]);
+  }, [isListening, startVoiceRecording, voiceAI]);
 
   const toggleCamera = useCallback(() => {
     if (cameraOn && streamRef.current) {
@@ -1943,19 +2111,11 @@ export function useInterviewSession(options = {}) {
 
   const handleVoiceInput = useCallback(() => {
     if (isListening) {
-      // If user has spoken something, submit it instead of discarding
-      const currentTranscript = stateRefs.current.transcript.trim();
-      const interimText = (voiceAI.interimText || "").trim();
-      const hasVoiceContent = currentTranscript.length > 0 || interimText.length > 0;
-      if (hasVoiceContent) {
-        if (sendAnswerRef.current) sendAnswerRef.current(false);
-      } else {
-        stopVoiceRecording();
-      }
+      voiceAI.submitAnswer();
     } else if (!isPausedRef.current) {
       startVoiceRecording();
     }
-  }, [isListening, stopVoiceRecording, startVoiceRecording, voiceAI.interimText]);
+  }, [isListening, startVoiceRecording, voiceAI]);
 
   const handleAskQuestion = useCallback(
     async (question) => {
@@ -2045,12 +2205,20 @@ export function useInterviewSession(options = {}) {
       userInput,
       interviewerStatus,
       silenceStage,
+      pacingMode,
+      needAMomentCount,
+      maxNeedAMoment: getModeConfig(pacingMode).maxNeedAMoment,
+      checkInActive,
+      wrapUpWarning,
+      micWarning: voiceAI.micWarning,
+      voiceState: voiceAI.voiceState,
       notes,
       savedSession,
       isOnline,
       cameraError,
       showEndConfirm,
       awaitingAnswer,
+      answerReview,
       setupStep,
       experienceLevel,
       targetRole,
@@ -2070,6 +2238,10 @@ export function useInterviewSession(options = {}) {
       customQuestionSet,
       questionSetLoading,
       questionSetError,
+      questionSetAccessError,
+      questionSetPasscode,
+      candidateEmail,
+      candidateName,
       submissionStatus,
     },
     refs: {
@@ -2139,6 +2311,10 @@ export function useInterviewSession(options = {}) {
       setCaptionsOn,
       setWorkspacePanelOpen,
       setWorkspaceDropdownOpen,
+      setQuestionSetPasscode,
+      setCandidateEmail,
+      setCandidateName,
+      setQuestionSetAccessError,
       setSavedSession,
       retryCustomSubmission: submitCustomInterview,
       setMicOn,
@@ -2159,10 +2335,23 @@ export function useInterviewSession(options = {}) {
       toggleMic,
       toggleCamera,
       handleVoiceInput,
+      setPacingMode,
+      requestNeedAMoment,
+      repeatCurrentQuestion,
+      skipCurrentQuestion,
+      handleDoneAnswering,
+      setCheckInActive,
       startVoiceRecording,
       stopVoiceRecording,
       handleAskQuestion,
       startAnswer,
+      continueAnswer: () => {
+        const currentAnswer = stateRefs.current.transcript.trim();
+        if (currentAnswer) pendingVoiceAnswerRef.current = currentAnswer;
+        setTranscript("");
+        setAnswerReview(false);
+        if (!isPausedRef.current) startVoiceRecording();
+      },
       speakInterviewerText,
       speakSequence,
       stopSilenceHandling,

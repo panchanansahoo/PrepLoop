@@ -67,16 +67,20 @@ vi.mock("./useInterviewIntelligence", () => ({
   })),
 }));
 
-vi.mock("../pages/aiInterviewTiming", () => ({
-  getThinkingDelayMs: vi.fn(() => 0),
-  getInterviewerReaction: vi.fn(() => ({ emoji: "", text: "" })),
-  getSilencePrompt: vi.fn(() => ""),
-  communicationScore: vi.fn(() => 70),
-  technicalScore: vi.fn(() => 70),
-  problemSolvingScore: vi.fn(() => 70),
-  codeQualityScore: vi.fn(() => 70),
-  getQuestionTimeLimit: vi.fn(() => 120),
-}));
+vi.mock("../pages/aiInterviewTiming", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    getThinkingDelayMs: vi.fn(() => 0),
+    getInterviewerReaction: vi.fn(() => ({ emoji: "", text: "" })),
+    getSilencePrompt: vi.fn(() => ""),
+    communicationScore: vi.fn(() => 70),
+    technicalScore: vi.fn(() => 70),
+    problemSolvingScore: vi.fn(() => 70),
+    codeQualityScore: vi.fn(() => 70),
+    getQuestionTimeLimit: vi.fn(() => 120),
+  };
+});
 
 vi.mock("../pages/aiInterviewConfig", () => ({
   BOILERPLATE: { python: "# Python", javascript: "// JS" },

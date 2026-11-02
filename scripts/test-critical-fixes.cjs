@@ -9,9 +9,10 @@ const tests = [];
 let passed = 0;
 let failed = 0;
 
-// Test 1: Check if new files exist
-const fs = await import('fs');
-const path = await import('path');
+const fs = require('fs');
+const path = require('path');
+
+async function main() {
 
 const requiredFiles = [
   'backend/middleware/apiRateLimiter.js',
@@ -162,3 +163,9 @@ if (failed === 0) {
   console.log('❌ Some tests failed. Please review the output above.\n');
   process.exit(1);
 }
+}
+
+main().catch((err) => {
+  console.error('Fatal error running critical fixes test:', err);
+  process.exit(1);
+});

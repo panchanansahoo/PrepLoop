@@ -46,6 +46,12 @@ export function useWebSpeech({
     const [interruptDetected, setInterruptDetected] = useState(false);
     const [fillerStats, setFillerStats] = useState({ count: 0, words: [] });
 
+    // Use refs for callbacks to prevent SpeechRecognition recreation on every parent render
+    const onAnswerRef = useRef(onAnswer);
+    const onTranscriptUpdateRef = useRef(onTranscriptUpdate);
+    useEffect(() => { onAnswerRef.current = onAnswer; }, [onAnswer]);
+    useEffect(() => { onTranscriptUpdateRef.current = onTranscriptUpdate; }, [onTranscriptUpdate]);
+
     const recognitionRef = useRef(null);
     const accumulatedTranscriptRef = useRef('');
     const silenceTimerRef = useRef(null);
@@ -98,8 +104,8 @@ export function useWebSpeech({
             }
 
             setInterimText(interim);
-            if (onTranscriptUpdate) {
-                onTranscriptUpdate(accumulatedTranscriptRef.current + (interim ? ' ' + interim : ''));
+            if (onTranscriptUpdateRef.current) {
+                onTranscriptUpdateRef.current(accumulatedTranscriptRef.current + (interim ? ' ' + interim : ''));
             }
 
             // Interrupt AI if user starts speaking
@@ -108,9 +114,11 @@ export function useWebSpeech({
                 window.speechSynthesis.cancel();
             }
 
-            // Simulate mic level based on text length for visual feedback
-            const level = Math.min((interim.length + final.length) * 5, 100);
-            setInputLevel(level);
+            // Use speech detection as a binary signal for visual feedback.
+            // Real audio levels come from useAudioVisualizer in the main pipeline (useVoiceAI).
+            if (interim || final) {
+              setInputLevel(Math.min(50 + (interim.length + final.length) * 2, 100));
+            }
 
             // Reset silence timer
             clearTimeout(silenceTimerRef.current);
@@ -162,20 +170,20 @@ export function useWebSpeech({
                 recognitionRef.current.stop();
             }
         };
-    }, [onAnswer, onTranscriptUpdate, enableInterrupt]);
+    }, [enableInterrupt]); // Only recreate on enableInterrupt change; callbacks use refs below
 
     const handleAutoSubmit = useCallback(() => {
         if (!accumulatedTranscriptRef.current.trim()) return;
         const finalAnswer = accumulatedTranscriptRef.current.trim();
         setState('processing');
-        if (onAnswer) {
-            onAnswer(finalAnswer);
+        if (onAnswerRef.current) {
+            onAnswerRef.current(finalAnswer);
         }
         accumulatedTranscriptRef.current = '';
         setTranscript('');
         setInterimText('');
         setState('idle');
-    }, [onAnswer]);
+    }, []);
 
     const start = useCallback(() => {
         if (!recognitionRef.current) return;

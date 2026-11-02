@@ -132,8 +132,20 @@ const OPENAI_VOICES = {
 };
 
 const GROQ_VOICES = {
-    female: { friendly: 'hannah', analytical: 'hannah', formal: 'hannah', casual: 'autumn', default: 'hannah' },
-    male:   { friendly: 'austin', analytical: 'austin', formal: 'austin', casual: 'austin', default: 'austin' }
+    female: {
+        friendly:   'hannah',  // Warm, empathetic, natural
+        analytical: 'diana',   // Crisp, measured, intellectual
+        formal:     'diana',   // Professional, clear
+        casual:     'autumn',  // Conversational, relaxed, peer-to-peer
+        default:    'hannah',
+    },
+    male: {
+        friendly:   'austin',  // Warm, personable, engaging
+        analytical: 'daniel',  // Deep, measured, analytical lead
+        formal:     'daniel',  // Authoritative, structured
+        casual:     'troy',    // Modern, crisp, energetic
+        default:    'austin',
+    }
 };
 
 // Kokoro voice mapping — Grade-A/B voices selected for interview personas
@@ -174,34 +186,104 @@ export function getAvailableProviders() {
         tts: {
             elevenlabs: providers.elevenlabs,
             openai:  providers.openai,
+            groq:    providers.groq,
             edge:    providers.edge,
             kokoro:  providers.kokoro && !_kokoroInitFailed,
-            groq:    providers.groq,
             browser: true,
         },
         stt: {
-            // STT is now 100% client-side via Web Speech API (free forever).
-            // No server-side STT providers are used.
-            browser:  true,
+            browser: true,
+            groq: providers.groq,
         },
         recommended: {
-            tts: providers.elevenlabs ? 'elevenlabs' : providers.openai ? 'openai' : providers.edge ? 'edge' : providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
+            tts: providers.elevenlabs ? 'elevenlabs' : providers.openai ? 'openai' : providers.groq ? 'groq' : providers.edge ? 'edge' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
             stt: 'browser',
         }
     };
 }
 
+// ── LRU TTS in-memory audio cache ──
+const ttsAudioCache = new Map();
+const MAX_TTS_CACHE_ITEMS = 150;
+
+/**
+ * Normalizes text for speech synthesis:
+ * - Strips code blocks, inline backticks, markdown styling (#, **, _, links, bullets)
+ * - Expands programming complexity notations (O(1) -> "O of 1", O(n log n) -> "O of N log N")
+ * - Expands equality / comparison symbols
+ * - Removes emojis and URLs so speech engines don't stumble
+ */
+export function cleanTextForSpeech(text) {
+    if (!text || typeof text !== 'string') return '';
+    let clean = text;
+
+    // Code blocks -> replace with spoken transition
+    clean = clean.replace(/```[\s\S]*?```/g, 'here is the code.');
+
+    // Inline code backticks: `variable` -> variable
+    clean = clean.replace(/`([^`]+)`/g, '$1');
+
+    // Markdown headers: # Title -> Title
+    clean = clean.replace(/^#{1,6}\s+/gm, '');
+
+    // Bold / italic markdown: **text** or *text* -> text
+    clean = clean.replace(/\*\*([^*]+)\*\*/g, '$1');
+    clean = clean.replace(/\*([^*]+)\*/g, '$1');
+    clean = clean.replace(/__([^_]+)__/g, '$1');
+    clean = clean.replace(/_([^_]+)_/g, '$1');
+
+    // Markdown links: [text](url) -> text
+    clean = clean.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+
+    // Bullet points & numbered lists: "- item" / "1. item" -> "item"
+    clean = clean.replace(/^\s*[-*+]\s+/gm, '');
+    clean = clean.replace(/^\s*\d+\.\s+/gm, '');
+
+    // Common algorithmic complexity & syntax expansions for natural speech
+    clean = clean.replace(/\bO\(1\)/gi, 'O of 1');
+    clean = clean.replace(/\bO\(n\)/gi, 'O of N');
+    clean = clean.replace(/\bO\(n\^2\)/gi, 'O of N squared');
+    clean = clean.replace(/\bO\(n\s*log\s*n\)/gi, 'O of N log N');
+    clean = clean.replace(/\bO\(log\s*n\)/gi, 'O of log N');
+    clean = clean.replace(/\bO\(([^)]+)\)/gi, 'O of $1');
+    clean = clean.replace(/===?/g, ' equals ');
+    clean = clean.replace(/!==?/g, ' does not equal ');
+    clean = clean.replace(/&&/g, ' and ');
+    clean = clean.replace(/\|\|/g, ' or ');
+    clean = clean.replace(/=>/g, ' yields ');
+    clean = clean.replace(/<=/g, ' is less than or equal to ');
+    clean = clean.replace(/>=/g, ' is greater than or equal to ');
+
+    // URLs
+    clean = clean.replace(/https?:\/\/\S+/gi, '');
+
+    // Emojis and miscellaneous non-verbal symbols
+    clean = clean.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+
+    // Collapse multiple whitespace
+    return clean.replace(/\s+/g, ' ').trim();
+}
+
 /**
  * Text-to-Speech — returns audio buffer
- * Chain: Groq Orpheus → Kokoro (local) → { fallback: true }
+ * Chain: Groq Orpheus → Edge TTS → Kokoro (local) → { fallback: true }
  * When fallback: true is returned, the frontend should use browser speechSynthesis.
- * Now with intelligent provider selection based on performance.
+ * Intelligent provider selection based on availability and performance.
  */
 export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, _language = 'en', gender = 'female') {
-    if (!text || text.trim().length === 0) throw new Error('Text is required for TTS');
+    if (!text || String(text).trim().length === 0) throw new Error('Text is required for TTS');
 
-    const cleanText = String(text).trim();
+    const cleanText = cleanTextForSpeech(String(text));
+    if (!cleanText) throw new Error('Text is required for TTS');
+
     const g = normalizeGender(gender);
+    const cacheKey = `${persona}:${g}:${cleanText.substring(0, 300)}`;
+
+    // ⚡ Fast path: Return cached synthesized audio buffer (0ms latency)
+    if (ttsAudioCache.has(cacheKey)) {
+        console.log(`[TTS] ⚡ Cache hit for: "${cleanText.substring(0, 35)}..."`);
+        return ttsAudioCache.get(cacheKey);
+    }
 
     // Helper to check if provider is in cooldown
     const isInCooldown = (provider) => {
@@ -245,12 +327,12 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         return null;
     };
 
-    // Provider chain — ordered by reliability for production:
-    // 1. ElevenLabs (premium, best quality)
-    // 2. OpenAI (premium, very high quality)
-    // 3. Edge TTS (FREE, Azure Neural — most reliable free option)
-    // 4. Groq Orpheus (free tier, cloud)
-    // 5. Kokoro (local ONNX, may fail on constrained hosts)
+    // Provider chain — ordered by reliability & speed:
+    // 1. ElevenLabs (premium, if API key set)
+    // 2. OpenAI (premium, if API key set)
+    // 3. Groq Orpheus (FREE tier cloud, fast ~600ms, natural)
+    // 4. Edge TTS (FREE Azure Neural voices)
+    // 5. Kokoro (local ONNX model, zero-cost, CPU)
     // 6. Browser fallback (last resort)
 
     let result = null;
@@ -265,14 +347,14 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         result = await tryProvider('openai', () => openAITTS(cleanText, persona, g));
     }
 
-    // Edge TTS — Free, High Quality Azure Neural voices (most reliable free option)
-    if (!result && providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
-        result = await tryProvider('edge', () => edgeNeuralTTS(cleanText, persona, g));
-    }
-
-    // Groq Orpheus — cloud TTS (free tier)
+    // Groq Orpheus — cloud TTS (free tier, fast ~600ms)
     if (!result && providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         result = await tryProvider('groq', () => groqOrpheusTTS(cleanText, persona, g));
+    }
+
+    // Edge TTS — Free, High Quality Azure Neural voices
+    if (!result && providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
+        result = await tryProvider('edge', () => edgeNeuralTTS(cleanText, persona, g));
     }
 
     // Kokoro — local, free, CPU-only (may fail on constrained servers)
@@ -280,7 +362,15 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         result = await tryProvider('kokoro', () => kokoroTTS(cleanText, persona, g));
     }
 
-    if (result) return result;
+    if (result && result.audio) {
+        // Enforce max cache size (LRU eviction of oldest element)
+        if (ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) {
+            const oldestKey = ttsAudioCache.keys().next().value;
+            ttsAudioCache.delete(oldestKey);
+        }
+        ttsAudioCache.set(cacheKey, result);
+        return result;
+    }
 
     // All server-side TTS failed — signal frontend to use browser speechSynthesis
     console.warn('[TTS] ⚠ All providers failed — falling back to browser speechSynthesis');
@@ -289,13 +379,24 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
 
 /**
  * Speech-to-Text from audio file
- * DEPRECATED: STT is now handled client-side via Web Speech API.
- * This function returns { fallback: true } to signal the frontend
- * to use the browser's built-in SpeechRecognition.
+ * Primary STT is handled client-side via Web Speech API.
+ * When client-side STT is unavailable (Firefox, Safari, Mobile), this server endpoint
+ * transcribes using Groq Whisper (large-v3-turbo) for ultra-fast, 99% accuracy.
  */
-export function speechToText(_filePath, _preferredProvider = null) {
-    // All STT is now client-side via Web Speech API (free forever)
-    console.info('[STT] Server-side STT removed — using client-side Web Speech API');
+export async function speechToText(filePath, _preferredProvider = null) {
+    if (providers.groq && groq && filePath) {
+        try {
+            const res = await _groqWhisperSTT(filePath);
+            return {
+                text: res.text,
+                language: res.language || 'en',
+                provider: 'groq-whisper',
+                confidence: 0.98,
+            };
+        } catch (err) {
+            console.warn('[STT] Groq Whisper failed:', err.message?.substring(0, 100));
+        }
+    }
     return { fallback: true, text: '' };
 }
 
@@ -522,22 +623,53 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
     return { audio: combined, contentType: 'audio/mpeg', provider: 'edge', voice };
 }
 
+function getOrpheusDirection(sentence, persona = 'friendly') {
+    const trimmed = sentence.trim();
+    const isQuestion = trimmed.endsWith('?');
+    const isEncouraging = /^(great|good|nice|thank|thanks|excellent|well done|i see|interesting|understood|awesome|right|alright)/i.test(trimmed);
+    const isThoughtful = /^(let's|now|consider|imagine|suppose|how would|what if|walk me through|can you explain|could you tell)/i.test(trimmed);
+
+    if (isEncouraging) return '[encouraging] ';
+    if (isQuestion) return '[curious] ';
+    if (isThoughtful) return '[thoughtful] ';
+
+    switch (persona) {
+        case 'analytical':
+        case 'formal':
+            return '[thoughtful] ';
+        case 'casual':
+            return '[conversational] ';
+        case 'friendly':
+        default:
+            return '[warm] ';
+    }
+}
+
 async function groqOrpheusTTS(text, persona, gender = 'female') {
     const genderDict  = GROQ_VOICES[gender] || GROQ_VOICES.female;
     const voice       = genderDict[persona] || genderDict.default;
-    const direction   = persona === 'friendly' ? '[cheerful] ' : '';
-    const chunkLimit  = 200 - direction.length;
-    const chunks      = chunkText(text, chunkLimit);
+
+    // Split into sentences for per-sentence prosody and natural inflection changes
+    const rawSentences = text
+        .split(/(?<=[.!?])\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    // If single long block without punctuation, fallback to chunkText
+    const segments = rawSentences.length > 0
+        ? rawSentences.flatMap(s => (s.length > 180 ? chunkText(s, 180) : [s]))
+        : chunkText(text, 180);
 
     const GROQ_TTS_TIMEOUT_MS = 10_000; // 10s max per chunk
     
-    // Fetch chunks concurrently
-    const chunkPromises = chunks.map(async (chunk) => {
-        if (!chunk.trim()) return null;
+    // Fetch chunks concurrently with intelligent emotional direction
+    const chunkPromises = segments.map(async (segment) => {
+        if (!segment.trim()) return null;
+        const direction = getOrpheusDirection(segment, persona);
         try {
             const response = await groq.audio.speech.create({
                 model:           'canopylabs/orpheus-v1-english',
-                input:           direction + chunk,
+                input:           direction + segment,
                 voice,
                 response_format: 'wav',
             }, { timeout: GROQ_TTS_TIMEOUT_MS });

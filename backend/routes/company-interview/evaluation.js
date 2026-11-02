@@ -2,7 +2,7 @@ import express from 'express';
 import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { groq, safeJsonParse } from './helpers.js';
+import { groq, safeJsonParse, createGroqChatCompletion } from './helpers.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 
 const router = express.Router();
@@ -377,7 +377,10 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
   const fallbackReport = buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory });
 
   if (!groq || qaPairs.length === 0) {
-    return normalizeInterviewReport(fallbackReport, { company, role, stage, qaPairs, sessionScores, speechHistory });
+    return normalizeInterviewReport(
+      { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
+      { company, role, stage, qaPairs, sessionScores, speechHistory }
+    );
   }
 
   const qaText = qaPairs.map((qa, index) => {
@@ -398,8 +401,8 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
   try {
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -468,6 +471,8 @@ Return valid JSON with this shape:
       {
         ...fallbackReport,
         ...parsed,
+        aiGenerated: true,
+        analysisMode: 'ai',
         questionBreakdown: parsed.questionBreakdown || fallbackReport.questionBreakdown,
         categoryScores: parsed.categoryScores || parsed.detailedBreakdown || fallbackReport.categoryScores,
         detailedBreakdown: parsed.detailedBreakdown || parsed.categoryScores || fallbackReport.detailedBreakdown,
@@ -483,7 +488,10 @@ Return valid JSON with this shape:
     );
   } catch (error) {
     console.error('Interview report generation error:', error.message);
-    return normalizeInterviewReport(fallbackReport, { company, role, stage, qaPairs, sessionScores, speechHistory });
+    return normalizeInterviewReport(
+      { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
+      { company, role, stage, qaPairs, sessionScores, speechHistory }
+    );
   }
 }
 

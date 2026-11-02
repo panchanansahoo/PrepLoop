@@ -715,9 +715,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: normalizedEmail,
-      options: {
-        redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
-      }
+      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
     });
 
     if (error) {

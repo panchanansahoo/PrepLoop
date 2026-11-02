@@ -1,5 +1,8 @@
 import rateLimit from 'express-rate-limit';
 
+const isDevOrLocal = (req) => process.env.NODE_ENV === 'development' || req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+
+
 // Critical endpoints rate limiting
 export const aiEndpointsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -7,6 +10,7 @@ export const aiEndpointsLimiter = rateLimit({
   message: { error: 'Too many AI requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const paymentEndpointsLimiter = rateLimit({
@@ -15,6 +19,7 @@ export const paymentEndpointsLimiter = rateLimit({
   message: { error: 'Too many payment requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const jobsEndpointsLimiter = rateLimit({
@@ -23,6 +28,7 @@ export const jobsEndpointsLimiter = rateLimit({
   message: { error: 'Too many job requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const adminEndpointsLimiter = rateLimit({
@@ -31,6 +37,7 @@ export const adminEndpointsLimiter = rateLimit({
   message: { error: 'Too many admin requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const customInterviewLimiter = rateLimit({
@@ -39,6 +46,7 @@ export const customInterviewLimiter = rateLimit({
   message: { error: 'Too many interview requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const customInterviewSubmissionLimiter = rateLimit({
@@ -47,6 +55,7 @@ export const customInterviewSubmissionLimiter = rateLimit({
   message: { error: 'Too many submission attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });
 
 export const expensiveFeatureLimiter = rateLimit({
@@ -55,4 +64,5 @@ export const expensiveFeatureLimiter = rateLimit({
   message: { error: 'Too many expensive requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: isDevOrLocal,
 });

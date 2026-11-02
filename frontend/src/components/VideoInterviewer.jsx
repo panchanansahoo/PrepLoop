@@ -28,7 +28,7 @@ const VideoInterviewer = ({
   const videos = {
     male: {
       speaking: '/malespeaking.mp4',
-      listening: '/malelisrning.mp4',
+      listening: '/malelistening.mp4',
     },
     female: {
       speaking: '/HannahChenSpeaking.mp4',
@@ -86,14 +86,19 @@ const VideoInterviewer = ({
   }, [state, videoReady]);
 
   // Lip-sync bars (visual indicator during speech)
+  // Use deterministic offsets per bar instead of Math.random() to prevent
+  // jittery re-renders that aren't synced to actual audio.
+  const BAR_OFFSETS = [0, 0.3, 0.6, 0.15, 0.45];
   const lipSyncBars = Array.from({ length: 5 }, (_, i) => {
-    const height = state === 'speaking' ? 4 + audioLevel * 20 + Math.random() * 8 : 4;
+    const offset = BAR_OFFSETS[i] * 8;
+    const height = state === 'speaking' ? 4 + audioLevel * 24 + offset : 4;
     return (
       <div
         key={i}
         className="video-interviewer-lipsync-bar"
         style={{
           height: `${height}px`,
+          transition: 'height 0.15s ease-out',
           animationDelay: `${i * 0.1}s`,
         }}
       />

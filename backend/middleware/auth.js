@@ -64,7 +64,30 @@ const setRoleCache = (userId, role) => {
   });
 };
 
-const resolveUserRole = async (userId) => {
+export const DEFAULT_ADMIN_EMAILS = [
+  'panchanansahoo0143@gmail.com',
+  'javasahooai@gmail.com',
+];
+
+export const getAdminEmails = () => {
+  const envAdmins = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return new Set([...DEFAULT_ADMIN_EMAILS.map((e) => e.toLowerCase()), ...envAdmins]);
+};
+
+export const isAdminEmail = (email) => {
+  if (!email || typeof email !== 'string') return false;
+  return getAdminEmails().has(email.trim().toLowerCase());
+};
+
+const resolveUserRole = async (userId, userEmail = null) => {
+  if (userEmail && isAdminEmail(userEmail)) {
+    setRoleCache(userId, 'admin');
+    return 'admin';
+  }
+
   const cachedRole = getRoleFromCache(userId);
   if (cachedRole) {
     return cachedRole;
@@ -83,6 +106,10 @@ const resolveUserRole = async (userId) => {
     }
   } catch (_e) {
     // Default to user if profile fetch fails
+  }
+
+  if (role !== 'admin' && userEmail && isAdminEmail(userEmail)) {
+    role = 'admin';
   }
 
   setRoleCache(userId, role);
@@ -127,7 +154,7 @@ export const authenticateToken = async (req, res, next) => {
       return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
     }
 
-    const role = await resolveUserRole(user.id);
+    const role = await resolveUserRole(user.id, user.email);
 
     req.user = { 
       id: user.id, 
@@ -166,7 +193,7 @@ export const optionalAuth = async (req, res, next) => {
     try {
       const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
       if (!error && user) {
-        const role = await resolveUserRole(user.id);
+        const role = await resolveUserRole(user.id, user.email);
         req.user = { 
           id: user.id, 
           email: user.email, 

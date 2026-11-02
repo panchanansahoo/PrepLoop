@@ -114,7 +114,8 @@ export default function InterviewSession({ _interview, config, onComplete }) {
         method: 'POST',
         body: JSON.stringify({
           questionIndex: currentQuestionIndex,
-          answerText: currentAnswer
+          answerText: currentAnswer,
+          questionText: typeof currentQuestion === 'string' ? currentQuestion : currentQuestion?.question || ''
         })
       });
 

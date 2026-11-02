@@ -1,7 +1,7 @@
 import express from 'express';
-import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
 
 const router = express.Router();
 
@@ -293,7 +293,8 @@ router.delete('/content/:type/:id', async (req, res) => {
 
 // ─── Admin Interview Question Sets ──────────────────────────────
 
-const generateShareCode = () => crypto.randomBytes(6).toString('base64url').slice(0, 10);
+// Generates standard UUID tokens for candidate assessment links (e.g., /app?token=40247bbf-cace-43da-8a0e-87fe703b9f7f)
+const generateShareCode = () => generateInterviewToken();
 
 const VALID_INTERVIEW_TYPES = ['technical', 'behavioral', 'system-design', 'coding', 'dsa', 'mixed', 'hr'];
 const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'];
@@ -303,8 +304,9 @@ router.post('/question-sets', async (req, res) => {
   try {
     const {
       title, description, interviewType = 'technical',
-      difficulty = 'medium', requiresLogin = true,
-      questions = [], settings = {}
+      difficulty = 'medium', requiresLogin = false,
+      questions = [], settings = {}, passcode = '', expiresAt = null, maxAttempts = null,
+      allowedEmails = [], role = '', roleName = ''
     } = req.body;
 
     if (!title || !title.trim()) {
@@ -341,6 +343,14 @@ router.post('/question-sets', async (req, res) => {
     });
 
     const shareCode = generateShareCode();
+    const accessLimits = normalizeInterviewLimits({ passcode, expiresAt, maxAttempts, allowedEmails });
+    const mergedSettings = { ...settings };
+    if (role || roleName) {
+      mergedSettings.roleName = (roleName || role).trim();
+    }
+    if (accessLimits.allowed_emails) {
+      mergedSettings.allowedEmails = accessLimits.allowed_emails;
+    }
 
     const { data, error } = await supabaseAdmin
       .from('admin_question_sets')
@@ -353,17 +363,21 @@ router.post('/question-sets', async (req, res) => {
         difficulty,
         requires_login: requiresLogin,
         questions: validatedQuestions,
-        settings: settings || {},
+        settings: mergedSettings,
+        ...accessLimits,
       })
       .select()
       .single();
 
     if (error) throw error;
 
-    res.status(201).json({ questionSet: data, shareCode: data.share_code });
+    const { passcode_hash: _passcodeHash, ...safeQuestionSet } = data;
+    res.status(201).json({ questionSet: safeQuestionSet, shareCode: data.share_code, token: data.share_code });
   } catch (error) {
     console.error('Create question set error:', error);
-    const message = error.message?.startsWith('Question') ? error.message : 'Failed to create question set';
+    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
+      ? error.message
+      : 'Failed to create question set';
     res.status(400).json({ error: message });
   }
 });
@@ -376,7 +390,7 @@ router.get('/question-sets', async (req, res) => {
 
     const { data, count, error } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, created_at, updated_at', { count: 'exact' })
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, created_at, updated_at', { count: 'exact' })
       .eq('admin_id', req.user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + parseInt(limit, 10) - 1);
@@ -397,11 +411,21 @@ router.get('/question-sets', async (req, res) => {
       });
     }
 
-    const setsWithCounts = (data || []).map(s => ({
-      ...s,
-      questionCount: Array.isArray(s.questions) ? s.questions.length : 0,
-      submissionCount: submissionCounts[s.id] || 0,
-    }));
+    const setsWithCounts = (data || []).map(({ passcode_hash: passcodeHash, ...s }) => {
+      const allowlist = Array.isArray(s.allowed_emails) && s.allowed_emails.length > 0
+        ? s.allowed_emails
+        : (Array.isArray(s.settings?.allowedEmails) ? s.settings.allowedEmails : []);
+
+      return {
+        ...s,
+        has_passcode: Boolean(passcodeHash),
+        has_allowlist: allowlist.length > 0,
+        allowed_emails: allowlist,
+        roleName: s.settings?.roleName || '',
+        questionCount: Array.isArray(s.questions) ? s.questions.length : 0,
+        submissionCount: submissionCounts[s.id] || 0,
+      };
+    });
 
     res.json({
       questionSets: setsWithCounts,
@@ -420,7 +444,7 @@ router.get('/question-sets/:id', async (req, res) => {
   try {
     const { data, error } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('*')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, expires_at, max_attempts, attempts_started, allowed_emails, created_at, updated_at, passcode_hash')
       .eq('id', req.params.id)
       .eq('admin_id', req.user.id)
       .single();
@@ -429,7 +453,20 @@ router.get('/question-sets/:id', async (req, res) => {
       return res.status(404).json({ error: 'Question set not found' });
     }
 
-    res.json({ questionSet: data });
+    const { passcode_hash: passcodeHash, ...safeQuestionSet } = data;
+    const allowlist = Array.isArray(safeQuestionSet.allowed_emails) && safeQuestionSet.allowed_emails.length > 0
+      ? safeQuestionSet.allowed_emails
+      : (Array.isArray(safeQuestionSet.settings?.allowedEmails) ? safeQuestionSet.settings.allowedEmails : []);
+
+    res.json({
+      questionSet: {
+        ...safeQuestionSet,
+        has_passcode: Boolean(passcodeHash),
+        has_allowlist: allowlist.length > 0,
+        allowed_emails: allowlist,
+        roleName: safeQuestionSet.settings?.roleName || '',
+      }
+    });
   } catch (error) {
     console.error('Get question set error:', error);
     res.status(500).json({ error: 'Failed to fetch question set' });
@@ -441,13 +478,15 @@ router.put('/question-sets/:id', async (req, res) => {
   try {
     const {
       title, description, interviewType, difficulty,
-      requiresLogin, isActive, questions, settings
+      requiresLogin, isActive, questions, settings,
+      passcode, clearPasscode, expiresAt, maxAttempts,
+      allowedEmails, role, roleName
     } = req.body;
 
     // Verify ownership
     const { data: existing, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id')
+      .select('id, passcode_hash, settings')
       .eq('id', req.params.id)
       .eq('admin_id', req.user.id)
       .single();
@@ -473,7 +512,28 @@ router.put('/question-sets/:id', async (req, res) => {
     }
     if (requiresLogin !== undefined) updates.requires_login = requiresLogin;
     if (isActive !== undefined) updates.is_active = isActive;
-    if (settings !== undefined) updates.settings = settings;
+
+    const mergedSettings = { ...(existing.settings || {}), ...(settings || {}) };
+    if (role !== undefined || roleName !== undefined) {
+      mergedSettings.roleName = (roleName || role || '').trim();
+    }
+    if (allowedEmails !== undefined) {
+      const accessLimits = normalizeInterviewLimits({ allowedEmails }, { isUpdate: true });
+      Object.assign(updates, accessLimits);
+      if (accessLimits.allowed_emails !== undefined) {
+        mergedSettings.allowedEmails = accessLimits.allowed_emails;
+      }
+    }
+    updates.settings = mergedSettings;
+
+    if (clearPasscode === true) {
+      updates.passcode_hash = null;
+    } else if (passcode !== undefined) {
+      Object.assign(updates, normalizeInterviewLimits({ passcode }, { isUpdate: true }));
+    }
+    if (expiresAt !== undefined || maxAttempts !== undefined) {
+      Object.assign(updates, normalizeInterviewLimits({ expiresAt, maxAttempts }, { isUpdate: true }));
+    }
     if (questions !== undefined) {
       if (!Array.isArray(questions) || questions.length === 0) {
         return res.status(400).json({ error: 'At least one question is required' });
@@ -503,10 +563,13 @@ router.put('/question-sets/:id', async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ questionSet: data });
+    const { passcode_hash: passcodeHash, ...safeQuestionSet } = data;
+    res.json({ questionSet: { ...safeQuestionSet, has_passcode: Boolean(passcodeHash) } });
   } catch (error) {
     console.error('Update question set error:', error);
-    const message = error.message?.startsWith('Question') ? error.message : 'Failed to update question set';
+    const message = /^(Question|Passcode|Expiry|Maximum attempts|Invalid email)/i.test(error.message || '')
+      ? error.message
+      : 'Failed to update question set';
     res.status(400).json({ error: message });
   }
 });
@@ -560,7 +623,7 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
 
     const { data: submissions, count, error } = await supabaseAdmin
       .from('admin_interview_submissions')
-      .select('id, user_id, user_name, user_email, scores, overall_score, duration, completed_at, created_at', { count: 'exact' })
+      .select('id, user_id, user_name, user_email, responses, scores, overall_score, duration, completed_at, created_at', { count: 'exact' })
       .eq('question_set_id', req.params.id)
       .order('completed_at', { ascending: false })
       .range(offset, offset + parseInt(limit, 10) - 1);

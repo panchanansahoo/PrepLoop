@@ -140,7 +140,7 @@ export const readStoredInterviewerGender = () => {
 export const HR_INTERVIEWER_VIDEOS = {
     male: {
         speaking: '/malespeaking.mp4',
-        listening: '/malelisrning.mp4',
+        listening: '/malelistening.mp4',
     },
     female: {
         speaking: '/HannahChenSpeaking.mp4',

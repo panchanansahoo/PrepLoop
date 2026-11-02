@@ -1,8 +1,9 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import {
     Code2, Palette, FileText, ChevronDown, CheckCircle,
     Sparkles, RotateCcw, Mic, MicOff, Send,
+    AlertCircle, Clock, HelpCircle,
 } from 'lucide-react';
 
 /**
@@ -49,7 +50,47 @@ function InterviewWorkspace({
     userInput, setUserInput, setTranscript,
     onSendAnswer,
     loading,
+    voiceOnly = false,
+    pacingMode = 'realistic',
+    needAMomentCount = 0,
+    maxNeedAMoment = 2,
+    checkInActive = false,
+    wrapUpWarning = false,
+    micWarning = false,
+    isThinking = false,
+    onRequestNeedAMoment,
+    onRepeatQuestion,
+    onSkipQuestion,
+    onDoneAnswering,
+    onDismissCheckIn,
 }) {
+    // Keyboard shortcuts for candidates (Space = Done, R = Repeat, N = More time, Esc = Skip)
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            const tag = e.target?.tagName?.toLowerCase();
+            if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable || e.target?.closest?.('.monaco-editor')) {
+                return;
+            }
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                (onDoneAnswering || onSendAnswer)?.();
+            } else if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                onRepeatQuestion?.();
+            } else if (e.key === 'n' || e.key === 'N') {
+                e.preventDefault();
+                onRequestNeedAMoment?.();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                onSkipQuestion?.();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onDoneAnswering, onSendAnswer, onRepeatQuestion, onRequestNeedAMoment, onSkipQuestion]);
+
     // Monaco editor options — stable reference
     const editorOptions = useMemo(() => ({
         fontSize: 13,
@@ -166,12 +207,102 @@ function InterviewWorkspace({
                 <div className="ai-ws-transcript-indicator">
                     <span className="ai-ws-transcript-dot" />
                     <span className="ai-ws-transcript-text">
-                        <strong>Live transcript</strong> {transcript}{interimText ? ` ${interimText}` : ''}
+                        <strong>Live transcript</strong> {transcript || interimText}
                     </span>
                 </div>
             )}
 
-            {/* Text input for chat at bottom of workspace */}
+            {/* Candidate Alerts: Mic Problem / Wrap-up Warning */}
+            {micWarning && (
+                <div className="ai-ws-banner ai-ws-banner--mic-warning" role="alert">
+                    <AlertCircle size={14} />
+                    <span>We can't hear you. Check your microphone or speak louder.</span>
+                </div>
+            )}
+
+            {wrapUpWarning && (
+                <div className="ai-ws-banner ai-ws-banner--wrapup" role="alert">
+                    <Clock size={14} />
+                    <span>Wrap up your thoughts — 30 seconds remaining.</span>
+                </div>
+            )}
+
+            {/* Check-in Banner when candidate is thinking/silent */}
+            {checkInActive && (
+                <div className="ai-ws-checkin-banner" role="region" aria-label="Interviewer Check-in">
+                    <div className="ai-ws-checkin-msg">
+                        <HelpCircle size={14} />
+                        <span>Ready to share your approach, or need another moment?</span>
+                    </div>
+                    <div className="ai-ws-checkin-actions">
+                        <button
+                            type="button"
+                            className="ai-ws-chip-btn ai-ws-chip-btn--primary"
+                            onClick={onDismissCheckIn}
+                        >
+                            I'm Ready
+                        </button>
+                        {needAMomentCount < maxNeedAMoment && (
+                            <button
+                                type="button"
+                                className="ai-ws-chip-btn ai-ws-chip-btn--secondary"
+                                onClick={onRequestNeedAMoment}
+                            >
+                                +30s More ({maxNeedAMoment - needAMomentCount} left)
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            className="ai-ws-chip-btn ai-ws-chip-btn--danger"
+                            onClick={onSkipQuestion}
+                        >
+                            Skip Question
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Candidate Control Toolbar */}
+            <div className="ai-ws-control-chips" role="toolbar" aria-label="Interview controls">
+                <button
+                    type="button"
+                    className="ai-ws-chip-btn ai-ws-chip-btn--done"
+                    onClick={onDoneAnswering || onSendAnswer}
+                    title="Finish answering and submit (Shortcut: Space)"
+                    disabled={loading}
+                >
+                    Done Answering <kbd className="ai-ws-kbd">Space</kbd>
+                </button>
+                <button
+                    type="button"
+                    className="ai-ws-chip-btn"
+                    onClick={onRequestNeedAMoment}
+                    disabled={needAMomentCount >= maxNeedAMoment || loading}
+                    title="Add 30 seconds of quiet thinking time (Shortcut: N)"
+                >
+                    Need a moment {maxNeedAMoment > 0 ? `(${maxNeedAMoment - needAMomentCount} left)` : ''} <kbd className="ai-ws-kbd">N</kbd>
+                </button>
+                <button
+                    type="button"
+                    className="ai-ws-chip-btn"
+                    onClick={onRepeatQuestion}
+                    title="Ask interviewer to repeat the question (Shortcut: R)"
+                    disabled={loading}
+                >
+                    Repeat Question <kbd className="ai-ws-kbd">R</kbd>
+                </button>
+                <button
+                    type="button"
+                    className="ai-ws-chip-btn ai-ws-chip-btn--muted"
+                    onClick={onSkipQuestion}
+                    title="Skip to next question without penalty (Shortcut: Esc)"
+                    disabled={loading}
+                >
+                    Skip <kbd className="ai-ws-kbd">Esc</kbd>
+                </button>
+            </div>
+
+            {/* Voice-only private links never expose a typed-answer composer. */}
             <div className="ai-vc-ws-input">
                 <button
                     className={`ai-vc-ws-voice ${isListening ? 'ai-vc-ws-voice--active' : ''}`}
@@ -199,7 +330,11 @@ function InterviewWorkspace({
                     </div>
                 )}
 
-                <input
+                {voiceOnly ? (
+                    <div className="ai-vc-ws-voice-prompt" role="status">
+                        {isListening ? (silenceCountdown > 0 ? `Listening · sending in ${silenceCountdown}s` : 'Listening · speak your answer') : 'Use your voice to answer'}
+                    </div>
+                ) : <input
                     type="text"
                     value={userInput || transcript}
                     onChange={(e) => { setUserInput(e.target.value); setTranscript(''); }}
@@ -207,14 +342,14 @@ function InterviewWorkspace({
                         ? (silenceCountdown > 0 ? `Auto-sending in ${silenceCountdown}s...` : "Listening... speak now")
                         : "Type or speak your response..."}
                     onKeyDown={(e) => { if (e.key === 'Enter') onSendAnswer(); }}
-                />
-                <button
+                />}
+                {!voiceOnly && <button
                     className="ai-vc-ws-send"
                     onClick={onSendAnswer}
                     disabled={(!userInput.trim() && !transcript.trim() && !code.trim()) || loading}
                 >
                     <Send size={14} />
-                </button>
+                </button>}
             </div>
         </div>
     );

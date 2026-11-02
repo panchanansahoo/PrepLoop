@@ -61,6 +61,8 @@ export default function AdminDashboard() {
   const [showSetModal, setShowSetModal] = useState(false);
   const [editingSet, setEditingSet] = useState(null);
   const [copiedCode, setCopiedCode] = useState(null);
+  const [showSetPreview, setShowSetPreview] = useState(false);
+  const [previewModalSet, setPreviewModalSet] = useState(null);
 
   // Submissions modal state
   const [showSubmissionsModal, setShowSubmissionsModal] = useState(false);
@@ -75,7 +77,13 @@ export default function AdminDashboard() {
     description: '',
     interviewType: 'technical',
     difficulty: 'medium',
-    requiresLogin: true,
+    requiresLogin: false,
+    passcode: '',
+    clearPasscode: false,
+    hasPasscode: false,
+    expiresAt: '',
+    maxAttempts: '',
+    allowedEmails: '',
     companyName: '',
     roleName: '',
     customInstructions: '',
@@ -309,6 +317,7 @@ export default function AdminDashboard() {
     setShowBulkUpload(false);
     setBulkCsvText('');
     setBulkError('');
+    setShowSetPreview(false);
     setShowSetModal(true);
   };
 
@@ -321,20 +330,31 @@ export default function AdminDashboard() {
       timeLimit: q.timeLimit || 60,
     })) : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }];
 
+    const allowlistStr = Array.isArray(qs.allowed_emails)
+      ? qs.allowed_emails.join(', ')
+      : (Array.isArray(qs.settings?.allowedEmails) ? qs.settings.allowedEmails.join(', ') : '');
+
     setSetForm({
       title: qs.title || '',
       description: qs.description || '',
       interviewType: qs.interview_type || 'technical',
       difficulty: qs.difficulty || 'medium',
       requiresLogin: qs.requires_login !== false,
+      passcode: '',
+      clearPasscode: false,
+      hasPasscode: Boolean(qs.has_passcode),
+      expiresAt: qs.expires_at ? new Date(qs.expires_at).toISOString().slice(0, 16) : '',
+      maxAttempts: qs.max_attempts ?? '',
+      allowedEmails: allowlistStr,
       companyName: qs.settings?.companyName || '',
-      roleName: qs.settings?.roleName || '',
+      roleName: qs.settings?.roleName || qs.roleName || '',
       customInstructions: qs.settings?.customInstructions || '',
       questions: questionsArr.length > 0 ? questionsArr : [{ question: '', context: '', expectedTopics: '', timeLimit: 60 }],
     });
     setShowBulkUpload(false);
     setBulkCsvText('');
     setBulkError('');
+    setShowSetPreview(false);
     setShowSetModal(true);
   };
 
@@ -360,6 +380,16 @@ export default function AdminDashboard() {
         ...prev,
         questions: prev.questions.filter((_, i) => i !== index)
       };
+    });
+  };
+
+  const moveQuestion = (index, offset) => {
+    setSetForm(prev => {
+      const destination = index + offset;
+      if (destination < 0 || destination >= prev.questions.length) return prev;
+      const questions = [...prev.questions];
+      [questions[index], questions[destination]] = [questions[destination], questions[index]];
+      return { ...prev, questions };
     });
   };
 
@@ -475,17 +505,29 @@ export default function AdminDashboard() {
       return;
     }
 
+    const emailsList = setForm.allowedEmails
+      ? setForm.allowedEmails.split(/[\n,;]+/).map(s => s.trim().toLowerCase()).filter(Boolean)
+      : [];
+
     const payload = {
       title: setForm.title.trim(),
       description: setForm.description?.trim() || '',
       interviewType: setForm.interviewType,
       difficulty: setForm.difficulty,
       requiresLogin: setForm.requiresLogin,
+      passcode: setForm.passcode,
+      clearPasscode: setForm.clearPasscode,
+      expiresAt: setForm.expiresAt ? new Date(setForm.expiresAt).toISOString() : null,
+      maxAttempts: setForm.maxAttempts,
+      allowedEmails: emailsList,
+      role: setForm.roleName?.trim() || '',
+      roleName: setForm.roleName?.trim() || '',
       questions: cleanedQuestions,
       settings: {
         companyName: setForm.companyName?.trim() || '',
         roleName: setForm.roleName?.trim() || '',
         customInstructions: setForm.customInstructions?.trim() || '',
+        allowedEmails: emailsList,
       }
     };
 
@@ -496,7 +538,8 @@ export default function AdminDashboard() {
         setSuccess('Question set updated successfully');
       } else {
         const res = await axios.post('/api/admin/question-sets', payload);
-        setSuccess(`Question set created! Share code: ${res.data.questionSet.share_code}`);
+        const token = res.data.token || res.data.questionSet.share_code;
+        setSuccess(`Question set created! Candidate link: ${window.location.origin}/app?token=${token}`);
       }
       setShowSetModal(false);
       fetchQuestionSets();
@@ -509,11 +552,21 @@ export default function AdminDashboard() {
 
   const handleToggleSetActive = async (qs) => {
     try {
-      await axios.put(`/api/admin/question-sets/${qs.id}`, { is_active: !qs.is_active });
+      await axios.put(`/api/admin/question-sets/${qs.id}`, { isActive: !qs.is_active });
       setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, is_active: !s.is_active } : s));
       setSuccess(`Question set ${qs.is_active ? 'deactivated' : 'activated'}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to update status');
+    }
+  };
+
+  const handleToggleRequiresLogin = async (qs) => {
+    try {
+      await axios.put(`/api/admin/question-sets/${qs.id}`, { requiresLogin: !qs.requires_login });
+      setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, requires_login: !s.requires_login } : s));
+      setSuccess(`Updated "${qs.title}": ${qs.requires_login ? 'Now accessible via direct link without login' : 'Now requires candidate login'}`);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update access requirement');
     }
   };
 
@@ -529,7 +582,7 @@ export default function AdminDashboard() {
   };
 
   const handleCopyShareLink = (code) => {
-    const link = `${window.location.origin}/ai-interview?set=${code}`;
+    const link = `${window.location.origin}/app?token=${code}`;
     navigator.clipboard.writeText(link).then(() => {
       setCopiedCode(code);
       setTimeout(() => setCopiedCode(null), 2500);
@@ -1049,7 +1102,7 @@ export default function AdminDashboard() {
               <tbody>
                 {questionSets.map(qs => {
                   const qCount = Array.isArray(qs.questions) ? qs.questions.length : 0;
-                  const shareUrl = `${window.location.origin}/ai-interview?set=${qs.share_code}`;
+                  const shareUrl = `${window.location.origin}/app?token=${qs.share_code}`;
                   const isCopied = copiedCode === qs.share_code;
 
                   return (
@@ -1083,15 +1136,28 @@ export default function AdminDashboard() {
                         </div>
                       </td>
                       <td>
-                        {qs.requires_login ? (
-                          <span style={{ fontSize: '11px', color: '#a5b4fc', background: 'rgba(99,102,241,0.1)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
-                            Login Req.
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: '11px', color: '#86efac', background: 'rgba(34,197,94,0.1)', padding: '2px 6px', borderRadius: '4px', display: 'inline-block' }}>
-                            Public Link
-                          </span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleRequiresLogin(qs)}
+                          style={{
+                            background: qs.requires_login ? 'rgba(99,102,241,0.15)' : 'rgba(34,197,94,0.15)',
+                            color: qs.requires_login ? '#a5b4fc' : '#86efac',
+                            border: qs.requires_login ? '1px solid rgba(99,102,241,0.3)' : '1px solid rgba(34,197,94,0.3)',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            display: 'inline-block',
+                          }}
+                          title="Click to toggle candidate login requirement"
+                        >
+                          {qs.requires_login ? 'Login Req.' : 'Link Only'}
+                        </button>
+                        {qs.has_allowlist && <span style={{ display: 'block', width: 'fit-content', marginTop: '4px', fontSize: '10px', color: '#6ee7b7' }}>Email Allowlist</span>}
+                        {qs.has_passcode && <span style={{ display: 'block', width: 'fit-content', marginTop: '4px', fontSize: '10px', color: '#c4b5fd' }}>Passcode</span>}
+                        {qs.expires_at && <span style={{ display: 'block', marginTop: '4px', fontSize: '10px', color: new Date(qs.expires_at) <= new Date() ? '#fca5a5' : 'rgba(255,255,255,.45)' }}>Expires {new Date(qs.expires_at).toLocaleDateString()}</span>}
+                        {Number.isInteger(qs.max_attempts) && <span style={{ display: 'block', marginTop: '4px', fontSize: '10px', color: 'rgba(255,255,255,.45)' }}>{qs.attempts_started || 0}/{qs.max_attempts} attempts used</span>}
                       </td>
                       <td>
                         <button
@@ -1109,17 +1175,19 @@ export default function AdminDashboard() {
                             className="admin-btn-sm"
                             onClick={() => handleCopyShareLink(qs.share_code)}
                             style={{ background: isCopied ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.15)', color: isCopied ? '#86efac' : '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
-                            title="Copy interview link"
+                            title={`Copy candidate invite link: ${shareUrl}`}
                           >
                             {isCopied ? <Check size={13} /> : <Copy size={13} />}
-                            <span style={{ fontSize: '11px', fontWeight: '600' }}>{isCopied ? 'Copied!' : qs.share_code}</span>
+                            <span style={{ fontSize: '11px', fontWeight: '600' }}>
+                              {isCopied ? 'Copied!' : (qs.share_code?.length > 12 ? `${qs.share_code.slice(0, 8)}...` : qs.share_code)}
+                            </span>
                           </button>
                           <a
                             href={shareUrl}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="admin-btn-icon"
-                            title="Open interview in new tab"
+                            title="Open candidate lobby in new tab"
                             style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                           >
                             <ExternalLink size={13} />
@@ -1129,11 +1197,20 @@ export default function AdminDashboard() {
                       <td className="admin-actions-cell">
                         <button
                           className="admin-btn-sm"
+                          style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd', border: '1px solid rgba(59, 130, 246, 0.25)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
+                          onClick={() => setPreviewModalSet(qs)}
+                          title="Preview interview sequence"
+                        >
+                          <Eye size={13} />
+                          <span style={{ fontSize: '11px' }}>Preview</span>
+                        </button>
+                        <button
+                          className="admin-btn-sm"
                           style={{ background: 'rgba(129, 140, 248, 0.1)', color: '#a5b4fc', border: '1px solid rgba(129, 140, 248, 0.25)', padding: '4px 8px', gap: '4px', display: 'flex', alignItems: 'center' }}
                           onClick={() => handleViewSubmissions(qs)}
                           title="View candidate submissions"
                         >
-                          <Eye size={13} />
+                          <BarChart3 size={13} />
                           <span style={{ fontSize: '11px' }}>Results</span>
                         </button>
                         <button className="admin-btn-sm promote" onClick={() => openEditSet(qs)} title="Edit Question Set">
@@ -1255,9 +1332,65 @@ export default function AdminDashboard() {
                       checked={setForm.requiresLogin}
                       onChange={e => setSetForm({ ...setForm, requiresLogin: e.target.checked })}
                     />
-                    <span>Require candidate login (uncheck to allow direct public access)</span>
+                    <span>Require candidate sign-in (otherwise anyone with this unlisted link can join)</span>
                   </label>
                 </div>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>{editingSet?.has_passcode ? 'Change passcode (optional)' : 'Passcode (optional)'}</label>
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    minLength={4}
+                    maxLength={64}
+                    value={setForm.passcode}
+                    onChange={e => setSetForm({ ...setForm, passcode: e.target.value, clearPasscode: false })}
+                    placeholder={editingSet?.has_passcode ? 'Leave blank to keep current passcode' : '4–64 characters'}
+                  />
+                  {editingSet?.has_passcode && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '7px', marginTop: '8px', fontSize: '12px' }}>
+                      <input type="checkbox" checked={setForm.clearPasscode} onChange={e => setSetForm({ ...setForm, clearPasscode: e.target.checked, passcode: '' })} />
+                      Remove existing passcode
+                    </label>
+                  )}
+                </div>
+                <div className="form-group">
+                  <label>Link expiry (optional)</label>
+                  <input
+                    type="datetime-local"
+                    value={setForm.expiresAt}
+                    onChange={e => setSetForm({ ...setForm, expiresAt: e.target.value })}
+                  />
+                  <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px' }}>The link stops accepting new interview attempts after this time.</span>
+                </div>
+                <div className="form-group">
+                  <label>Maximum attempts (optional)</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5000"
+                    step="1"
+                    value={setForm.maxAttempts}
+                    onChange={e => setSetForm({ ...setForm, maxAttempts: e.target.value })}
+                    placeholder="Unlimited"
+                  />
+                  <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px' }}>Limits how many interview sessions can be started.</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Invitee Email Allowlist (optional, comma-separated)</label>
+                <input
+                  type="text"
+                  value={setForm.allowedEmails}
+                  onChange={e => setSetForm({ ...setForm, allowedEmails: e.target.value })}
+                  placeholder="e.g. candidate1@company.com, candidate2@company.com"
+                />
+                <span style={{ color: 'rgba(255,255,255,.45)', fontSize: '11px' }}>
+                  Restricts access strictly to these email addresses. Leave blank for unlisted open access.
+                </span>
               </div>
 
               <div className="form-group">
@@ -1290,6 +1423,14 @@ export default function AdminDashboard() {
                     >
                       <UploadCloud size={14} />
                       {showBulkUpload ? 'Hide Bulk Import' : 'Bulk Import (CSV/JSON)'}
+                    </button>
+                    <button
+                      type="button"
+                      className="admin-btn-sm"
+                      onClick={() => setShowSetPreview(value => !value)}
+                      style={{ background: 'rgba(59,130,246,0.12)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)', display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <Eye size={14} /> {showSetPreview ? 'Hide Preview' : 'Preview Interview'}
                     </button>
                     <button
                       type="button"
@@ -1360,14 +1501,17 @@ export default function AdminDashboard() {
                           Question #{idx + 1}
                         </span>
                         {setForm.questions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveQuestion(idx)}
-                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.7 }}
-                            title="Remove question"
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <button type="button" onClick={() => moveQuestion(idx, -1)} disabled={idx === 0} aria-label={`Move question ${idx + 1} up`} title="Move question up" style={{ background: 'none', border: 'none', color: '#a5b4fc', cursor: idx === 0 ? 'not-allowed' : 'pointer', opacity: idx === 0 ? 0.35 : 0.8 }}>
+                              <ChevronUp size={15} />
+                            </button>
+                            <button type="button" onClick={() => moveQuestion(idx, 1)} disabled={idx === setForm.questions.length - 1} aria-label={`Move question ${idx + 1} down`} title="Move question down" style={{ background: 'none', border: 'none', color: '#a5b4fc', cursor: idx === setForm.questions.length - 1 ? 'not-allowed' : 'pointer', opacity: idx === setForm.questions.length - 1 ? 0.35 : 0.8 }}>
+                              <ChevronDown size={15} />
+                            </button>
+                            <button type="button" onClick={() => handleRemoveQuestion(idx)} aria-label={`Remove question ${idx + 1}`} title="Remove question" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', opacity: 0.7 }}>
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -1415,6 +1559,25 @@ export default function AdminDashboard() {
                     </div>
                   ))}
                 </div>
+
+                {showSetPreview && (
+                  <section aria-label="Interview preview" style={{ marginTop: '16px', padding: '16px', border: '1px solid rgba(129,140,248,0.3)', borderRadius: '12px', background: 'rgba(99,102,241,0.06)' }}>
+                    <h4 style={{ color: '#fff', margin: '0 0 4px', fontSize: '14px' }}>{setForm.title || 'Untitled interview'} · Candidate preview</h4>
+                    <p style={{ color: 'rgba(255,255,255,0.56)', fontSize: '12px', margin: '0 0 12px' }}>
+                      {setForm.description || 'This is the fixed question order candidates will receive.'}
+                    </p>
+                    <ol style={{ margin: 0, paddingLeft: '22px', display: 'grid', gap: '10px' }}>
+                      {setForm.questions.filter(q => q.question.trim()).map((q, idx) => (
+                        <li key={`${idx}-${q.question}`} style={{ color: '#e4e4e7', paddingLeft: '4px' }}>
+                          <div style={{ fontWeight: 650 }}>{q.question}</div>
+                          {q.context?.trim() && <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px', marginTop: '3px' }}>Context: {q.context}</div>}
+                          <div style={{ color: 'rgba(255,255,255,0.45)', fontSize: '11px', marginTop: '3px' }}>{Number(q.timeLimit) || 60} seconds</div>
+                        </li>
+                      ))}
+                    </ol>
+                    {setForm.questions.every(q => !q.question.trim()) && <span style={{ color: '#fca5a5', fontSize: '12px' }}>Add a question to preview the interview.</span>}
+                  </section>
+                )}
               </div>
 
               <div className="admin-modal-actions" style={{ marginTop: '24px' }}>
@@ -1430,6 +1593,160 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {/* ═══ QUESTION SET PREVIEW MODAL ═══ */}
+      {previewModalSet && (
+        <div className="admin-modal-overlay" onClick={() => setPreviewModalSet(null)}>
+          <div className="admin-modal" style={{ maxWidth: '820px', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            <div className="admin-modal-header" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '16px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#818cf8', fontWeight: 700 }}>
+                    Interview Preview
+                  </span>
+                  <span className={`admin-badge admin-badge-${previewModalSet.interview_type || 'technical'}`} style={{ fontSize: '10px', padding: '1px 6px' }}>
+                    {previewModalSet.interview_type || 'Technical'}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textTransform: 'capitalize' }}>
+                    • {previewModalSet.difficulty || 'medium'}
+                  </span>
+                </div>
+                <h2 style={{ margin: 0, fontSize: '20px', color: '#fff' }}>{previewModalSet.title}</h2>
+                {previewModalSet.settings?.roleName && (
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#93c5fd' }}>
+                    Target Role: <strong>{previewModalSet.settings.roleName}</strong>
+                    {previewModalSet.settings.companyName ? ` at ${previewModalSet.settings.companyName}` : ''}
+                  </p>
+                )}
+              </div>
+              <button className="admin-modal-close" onClick={() => setPreviewModalSet(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', overflowY: 'auto', maxHeight: 'calc(90vh - 160px)' }}>
+              {/* Interview Metadata Card */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '12px',
+                padding: '14px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '10px',
+                marginBottom: '20px'
+              }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block' }}>Access Mode</span>
+                  <strong style={{ fontSize: '13px', color: previewModalSet.requires_login ? '#c4b5fd' : '#86efac' }}>
+                    {previewModalSet.requires_login ? 'Candidate Login Required' : 'Direct Link Only (Unlisted)'}
+                  </strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block' }}>Voice Orchestrator</span>
+                  <strong style={{ fontSize: '13px', color: '#67e8f9' }}>NVIDIA VoiceChat (Nemotron)</strong>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block' }}>Candidate Token</span>
+                  <code style={{ fontSize: '12px', color: '#fbbf24', background: 'rgba(251,191,36,0.1)', padding: '2px 6px', borderRadius: '4px', wordBreak: 'break-all' }}>
+                    {previewModalSet.share_code}
+                  </code>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', display: 'block' }}>Total Fixed Questions</span>
+                  <strong style={{ fontSize: '13px', color: '#fff' }}>
+                    {Array.isArray(previewModalSet.questions) ? previewModalSet.questions.length : 0} Questions
+                  </strong>
+                </div>
+              </div>
+
+              {previewModalSet.settings?.customInstructions && (
+                <div style={{
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  background: 'rgba(99,102,241,0.07)',
+                  border: '1px solid rgba(99,102,241,0.2)',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#a5b4fc', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Interviewer Instructions
+                  </div>
+                  <div style={{ fontSize: '13px', color: '#e0e7ff', lineHeight: 1.5 }}>
+                    {previewModalSet.settings.customInstructions}
+                  </div>
+                </div>
+              )}
+
+              {/* Ordered Question Sequence */}
+              <div>
+                <h3 style={{ fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(255,255,255,0.6)', margin: '0 0 12px' }}>
+                  Fixed Question Sequence (App Enforced)
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {Array.isArray(previewModalSet.questions) && previewModalSet.questions.map((q, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        padding: '14px 16px',
+                        background: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.06)',
+                        borderRadius: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#818cf8' }}>
+                          Question {idx + 1} of {previewModalSet.questions.length}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>
+                          <Clock size={12} />
+                          <span>{q.timeLimit || 60}s time limit</span>
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#fff', marginBottom: '8px', lineHeight: 1.4 }}>
+                        {q.question}
+                      </div>
+                      {q.context && (
+                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', background: 'rgba(255,255,255,0.03)', padding: '6px 10px', borderRadius: '6px', marginBottom: '6px' }}>
+                          <strong style={{ color: 'rgba(255,255,255,0.7)' }}>Context:</strong> {q.context}
+                        </div>
+                      )}
+                      {q.expectedTopics && (
+                        <div style={{ fontSize: '11px', color: '#93c5fd' }}>
+                          <strong style={{ color: '#bfdbfe' }}>Expected Topics:</strong> {q.expectedTopics}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="admin-modal-actions" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '16px 24px' }}>
+              <button
+                type="button"
+                className="admin-btn-secondary"
+                onClick={() => {
+                  handleCopyShareLink(previewModalSet.share_code);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Copy size={14} />
+                <span>Copy Candidate Link</span>
+              </button>
+              <a
+                href={`${window.location.origin}/app?token=${previewModalSet.share_code}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="admin-btn-primary"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+              >
+                <ExternalLink size={14} />
+                <span>Open Candidate Lobby</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ SUBMISSIONS / RESULTS MODAL ═══ */}
       {showSubmissionsModal && (
         <div className="admin-modal-overlay" onClick={() => setShowSubmissionsModal(false)}>
@@ -1437,9 +1754,55 @@ export default function AdminDashboard() {
             <div className="admin-modal-header">
               <div>
                 <h2>Submissions: {activeSetForSubmissions?.title}</h2>
-                <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: 0 }}>
-                  Candidates who completed this custom interview
-                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+                  <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', margin: 0 }}>
+                    Candidates who completed this fixed-question voice interview
+                  </p>
+                  {activeSetForSubmissions && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleToggleSetActive(activeSetForSubmissions);
+                          setActiveSetForSubmissions(prev => ({ ...prev, is_active: !prev.is_active }));
+                        }}
+                        style={{
+                          background: activeSetForSubmissions.is_active ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                          color: activeSetForSubmissions.is_active ? '#86efac' : '#fca5a5',
+                          border: 'none',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                        title="Toggle interview active status"
+                      >
+                        {activeSetForSubmissions.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await handleToggleRequiresLogin(activeSetForSubmissions);
+                          setActiveSetForSubmissions(prev => ({ ...prev, requires_login: !prev.requires_login }));
+                        }}
+                        style={{
+                          background: activeSetForSubmissions.requires_login ? 'rgba(99,102,241,0.15)' : 'rgba(16,185,129,0.15)',
+                          color: activeSetForSubmissions.requires_login ? '#a5b4fc' : '#6ee7b7',
+                          border: 'none',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer'
+                        }}
+                        title="Toggle require login / link-only"
+                      >
+                        {activeSetForSubmissions.requires_login ? 'Login Req.' : 'Link-Only'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
               <button className="admin-modal-close" onClick={() => setShowSubmissionsModal(false)}>
                 <X size={20} />
@@ -1456,7 +1819,7 @@ export default function AdminDashboard() {
                 <div style={{ textAlign: 'center', padding: '48px 0', color: 'rgba(255,255,255,0.4)' }}>
                   <p style={{ fontSize: '14px', margin: 0 }}>No candidates have submitted this interview yet.</p>
                   <p style={{ fontSize: '12px', margin: '4px 0 0', color: 'rgba(255,255,255,0.3)' }}>
-                    Share code: <code>{activeSetForSubmissions?.share_code}</code>
+                    Candidate Token: <code>{activeSetForSubmissions?.share_code}</code>
                   </p>
                 </div>
               ) : (
@@ -1491,7 +1854,7 @@ export default function AdminDashboard() {
                               {sub.user_name || sub.user_email || 'Candidate (Guest)'}
                             </div>
                             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
-                              {sub.user_email || 'No email provided'} · {new Date(sub.completed_at || sub.created_at).toLocaleString()}
+                              {sub.user_email || 'Direct link session'} · {new Date(sub.completed_at || sub.created_at).toLocaleString()}
                             </div>
                           </div>
 
@@ -1519,7 +1882,7 @@ export default function AdminDashboard() {
                               Interview Transcript & Answers ({Array.isArray(sub.responses) ? sub.responses.length : 0} turns)
                             </h4>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '350px', overflowY: 'auto' }}>
                               {Array.isArray(sub.responses) && sub.responses.map((turn, tIdx) => (
                                 <div
                                   key={tIdx}
@@ -1534,6 +1897,11 @@ export default function AdminDashboard() {
                                 >
                                   <div style={{ fontSize: '11px', fontWeight: '700', color: turn.role === 'candidate' ? '#a5b4fc' : '#94a3b8', marginBottom: '3px', textTransform: 'capitalize' }}>
                                     {turn.role === 'candidate' ? (sub.user_name || 'Candidate') : 'AI Interviewer'}
+                                    {turn.question_index !== undefined && (
+                                      <span style={{ marginLeft: '6px', opacity: 0.7, fontWeight: 500 }}>
+                                        (Question {turn.question_index + 1})
+                                      </span>
+                                    )}
                                   </div>
                                   <div style={{ color: '#fff', whiteSpace: 'pre-wrap' }}>
                                     {turn.content || turn.text || '—'}

@@ -68,7 +68,7 @@ export function AuthProvider({ children }) {
                 fullName: profileData.full_name || session.user.user_metadata?.full_name,
                 subscriptionTier: profileData.subscription_tier || 'free',
                 experienceLevel: profileData.experience_level || 'beginner',
-                role: profileData.role || 'user',
+                role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
                 access_token: session.access_token,
               };
               if (mounted) setUser(fullUser);
@@ -80,7 +80,7 @@ export function AuthProvider({ children }) {
                 id: session.user.id,
                 email: session.user.email,
                 fullName: userMetadata.full_name,
-                role: 'user',
+                role: session.user.app_metadata?.role || userMetadata.role || 'user',
                 ...userMetadata
               };
               if (mounted) setUser(fullUser);
@@ -131,7 +131,7 @@ export function AuthProvider({ children }) {
               id: profileData.id,
               email: profileData.email || session.user.email,
               fullName: profileData.full_name,
-              role: profileData.role || 'user',
+              role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
               access_token: session.access_token,
             };
             if (mounted) {
@@ -144,7 +144,7 @@ export function AuthProvider({ children }) {
               id: session.user.id,
               email: session.user.email,
               fullName: session.user.user_metadata?.full_name,
-              role: 'user'
+              role: session.user.app_metadata?.role || session.user.user_metadata?.role || 'user'
             };
             if (mounted) setUser(u);
           }

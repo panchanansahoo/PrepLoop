@@ -13,14 +13,16 @@ import { _buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../
 import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
-import { groq, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, _getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal, generateFresherHRQuestion, generateFresherTechnicalQuestion, generateFresherScriptedQuestion } from './helpers.js';
+import nvidiaVoiceService from '../../services/nvidiaVoiceService.js';
+import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, _getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal, generateFresherHRQuestion, generateFresherTechnicalQuestion, generateFresherScriptedQuestion } from './helpers.js';
 
 const router = express.Router();
 
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res) => {
   const requestStartTime = Date.now();
-  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: _questionSetCode, attemptId } = req.body || {};
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: rawQuestionSetCode, token, attemptId } = req.body || {};
+  const _questionSetCode = token || rawQuestionSetCode;
   let allQuestions = providedQuestions;
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
@@ -65,6 +67,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
     runtime,
   });
   let customAttempt = null;
+  let customCurrentQuestionText = '';
 
   try {
     // ─── Admin Custom Question Set Flow ───
@@ -74,7 +77,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
     if (questionSource === 'admin-custom' && _questionSetCode) {
       const { data: attempt, error: attemptError } = await _supabaseAdmin
         .from('admin_interview_attempts')
-        .select('id, question_set_id, user_id, stage, current_question_index, current_question_started_at, responses, expires_at, completed_at')
+        .select('id, question_set_id, user_id, stage, current_question_index, current_question_started_at, responses, expires_at, completed_at, question_snapshot')
         .eq('id', attemptId || '')
         .single();
       if (attemptError || !attempt) {
@@ -102,7 +105,11 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
       if (questionSet.requires_login && !req.user) {
         return res.status(401).json({ error: 'Login required for this interview' });
       }
-      allQuestions = Array.isArray(questionSet.questions) ? questionSet.questions : [];
+      // The attempt snapshot keeps the admin's published sequence stable even
+      // if the question set is edited while this candidate is interviewing.
+      allQuestions = Array.isArray(attempt.question_snapshot) && attempt.question_snapshot.length > 0
+        ? attempt.question_snapshot
+        : (Array.isArray(questionSet.questions) ? questionSet.questions : []);
       if (allQuestions.length === 0) {
         return res.status(400).json({ error: 'Question set has no questions configured' });
       }
@@ -112,6 +119,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
       const currentQuestionText = typeof currentQuestionItem === 'string'
         ? currentQuestionItem
         : (currentQuestionItem?.question || '');
+      customCurrentQuestionText = currentQuestionText;
       const configuredTimeLimit = Number(currentQuestionItem?.timeLimit);
       const elapsedForQuestion = Math.max(
         0,
@@ -175,11 +183,32 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
         'Great points! I appreciate the detail you provided.',
         'Understood, thank you for walking me through your thoughts.'
       ];
-      const feedbackMessage = deterministicPick(feedbackOptions, safeQuestionNumber);
+      let feedbackMessage = deterministicPick(feedbackOptions, safeQuestionNumber);
+
+      const nextQItem = !isComplete ? allQuestions[qIndex] : null;
+      const nextQText = !isComplete
+        ? (typeof nextQItem === 'string' ? nextQItem : (nextQItem?.question || 'Next question'))
+        : '';
+
+      if (nvidiaVoiceService.isConfigured() && typeof userAnswer === 'string' && userAnswer.trim().length > 5) {
+        try {
+          const naturalTransition = await nvidiaVoiceService.generateInterviewerTransition({
+            currentQuestion: customCurrentQuestionText,
+            candidateAnswer: userAnswer,
+            nextQuestion: isComplete ? '' : nextQText,
+            interviewerName: req.body?.interviewerName || 'Interviewer',
+          });
+          if (naturalTransition) {
+            feedbackMessage = naturalTransition;
+          }
+        } catch {
+          // Keep deterministic feedback on failure
+        }
+      }
 
       if (isComplete) {
         return res.json(withRuntime({
-          feedback: 'Thank you! You have answered all the questions for this interview.',
+          feedback: feedbackMessage || 'Thank you! You have answered all the questions for this interview.',
           followUpQuestion: '',
           closingRemark: 'That concludes our interview session today. Thank you for your time!',
           complete: true,
@@ -197,8 +226,6 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
         }));
       }
 
-      const nextQItem = allQuestions[qIndex];
-      const nextQText = typeof nextQItem === 'string' ? nextQItem : (nextQItem?.question || 'Next question');
       const nextQContext = typeof nextQItem === 'object' ? nextQItem?.context : null;
       const nextQTopics = typeof nextQItem === 'object' && Array.isArray(nextQItem?.expectedTopics) ? nextQItem.expectedTopics : [];
       const nextQTimeLimit = typeof nextQItem === 'object' ? nextQItem?.timeLimit : null;
@@ -380,7 +407,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
     }));
   }
 
-  if (staticQuestions.length > 0) {
+  if ((questionSource === 'scripted' || !groq) && staticQuestions.length > 0) {
     const nextQuestion = getStaticInterviewQuestion(stage, safeQuestionNumber);
     const isLastQuestion = safeQuestionNumber > staticQuestions.length;
     const safeQuestionIdx = Math.min(Math.max(safeQuestionNumber - 1, 0), staticQuestions.length - 1);
@@ -748,11 +775,12 @@ Respond as JSON:
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages,
           response_format: { type: 'json_object' },
-          temperature: 0.75
+          temperature: 0.75,
+          max_tokens: 500,
         }),
       timeoutMs: 30000,
       maxRetries: 2,
@@ -770,8 +798,14 @@ Respond as JSON:
       question: previousQuestion,
       answer: userAnswer,
     });
+    const parsedScore = Number(result?.score);
+    const resolvedScore = Number.isFinite(parsedScore)
+      ? Math.max(0, Math.min(100, Math.round(parsedScore)))
+      : 75;
+
     res.json(withRuntime({
       ...normalizedResult,
+      score: resolvedScore,
       // Completion is decided by the server's question budget, never by the
       // model: without this the frontend never learns the interview is over.
       complete: isLastQuestion,
@@ -798,28 +832,58 @@ Respond as JSON:
           'Can you connect that to a class project, internship, or side project you worked on?',
           'Can you give one concrete example from something you built or studied?',
           'Can you walk me through a specific project or coursework example that shows that in practice?',
+          'What was the most challenging technical roadblock you encountered when implementing that, and how did you resolve it?',
+          'If you had to test and validate this implementation thoroughly, what edge cases would you prioritize?',
+          'How would you explain that concept in simple terms to a non-technical stakeholder or new team member?',
+          'What performance or memory considerations would you keep in mind as this code scales up?',
+          'Looking back, is there anything in your approach or design you would do differently now?',
+          'How does this approach compare to an alternative method you considered or learned about?',
+          'Can you walk me through the error handling or failure recovery strategy for this scenario?',
+          'What tools, libraries, or debugging strategies did you find most useful during this process?',
+          'Do you have any questions for me about the technical challenges our team tackles daily?'
         ]
       : [
           'Can you walk me through your approach step by step, including trade-offs?',
           'What alternative would you consider, and why?',
           'How would you apply that in a real system or team setting?',
+          'What happens when concurrent access increases by an order of magnitude in this architecture?',
+          'How would you instrument observability, telemetry, and metrics for this component in production?',
+          'What failure modes or data consistency issues would you anticipate and mitigate?',
+          'Can you break down the space and time complexity trade-offs you chose here?',
+          'How would you structure unit and integration tests to prevent regressions in this logic?',
+          'What security vulnerabilities or input sanitization concerns must be guarded against here?',
+          'If this had to integrate with an asynchronous event-driven pipeline, what changes would you make?',
+          'How would you manage schema migrations or backward compatibility for this design over time?',
+          'Do you have any technical or architectural questions about our engineering stack?'
         ];
     const pickTechnicalFallbackQuestion = (seed = 0) => {
       const index = Math.abs(seed) % technicalFallbackQuestions.length;
       return technicalFallbackQuestions[index];
     };
+    const hrFallbackQuestions = [
+      'That makes sense. Can you tell me a bit more about your career goals and what you hope to achieve in the next few years?',
+      'Can you tell me about a time you had to adapt quickly when project requirements suddenly changed?',
+      'Describe a situation where you worked with a teammate who had a contrasting perspective or work style.',
+      'What is an achievement or milestone you are particularly proud of, and what made it significant to you?',
+      'How do you manage competing priorities when multiple deadlines land at the exact same time?',
+      'Can you share an example of feedback you received in the past and how you put it into practice?',
+      'What kind of work environment or team dynamic brings out your best performance?',
+      'Do you have any questions for me about our culture, team, or expectations?'
+    ];
+    const pickHrFallbackQuestion = (seed = 0) => {
+      const idx = Math.abs(seed) % hrFallbackQuestions.length;
+      return hrFallbackQuestions[idx];
+    };
     const fallbackFollowUps = {
-      'HR': 'That makes sense. Can you tell me a bit more about your career goals? Where do you honestly see yourself in a few years?',
+      'HR': pickHrFallbackQuestion(safeQuestionNumber - 1),
       'Behavioral': 'Got it. Can you give me another example where you really had to take the initiative — maybe on a college project or in a club?',
       'DSA / Coding': 'I see your approach. How might you optimize that solution further? I\'m curious about the time and space complexity there.',
       'System Design': 'Good thinking. If we suddenly got 10x the traffic, how would your design handle it? What\'s the first thing you\'d scale?',
-      'Technical': pickTechnicalFallbackQuestion(questionNumber),
+      'Technical': pickTechnicalFallbackQuestion(safeQuestionNumber - 1),
       'OA': 'Right. Here\'s a quick follow-up: what if the input size was 10 million? How would you change your approach?',
       'Managerial': 'That\'s a good example. How did you handle it if someone on the team disagreed with the approach you took?',
     };
-    const defaultFallbackByExperience = experienceLevel === 'fresher'
-      ? pickTechnicalFallbackQuestion(questionNumber)
-      : 'That makes sense. Could you compare that to an alternative approach and just walk me through the trade-offs?';
+    const defaultFallbackByExperience = pickTechnicalFallbackQuestion(safeQuestionNumber - 1);
     const fallbackFeedback = normalizeInterviewFeedback({
       feedback: 'That answer is a good start, but it needs one concrete example and a clearer takeaway.',
       strengths: [],
@@ -862,8 +926,8 @@ router.post('/hint', optionalAuth, async (req, res) => {
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -884,7 +948,8 @@ Respond as JSON:
             { role: 'user', content: `I'm stuck on: "${currentQuestion}". Can you give me a hint?` }
           ],
           response_format: { type: 'json_object' },
-          temperature: 0.7
+          temperature: 0.7,
+          max_tokens: 300,
         }),
       timeoutMs: 30000,
       maxRetries: 2,
@@ -904,17 +969,18 @@ Respond as JSON:
 
 // ─── Rephrase Interview Question ───
 router.post('/rephrase', optionalAuth, async (req, res) => {
-  const { question, company, stage } = req.body || {};
+  const { question, currentQuestion, company = 'Tech Company', stage = 'Technical' } = req.body || {};
+  const targetQuestion = question || currentQuestion;
 
   try {
-    if (!groq || !question) {
+    if (!groq || !targetQuestion) {
       return res.status(400).json({ error: 'Missing requirements for rephrase' });
     }
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -928,11 +994,11 @@ Output ONLY a JSON object with this shape:
   "rephrased": "The simpler version of the question"
 }`
             },
-            { role: 'user', content: `Original question: "${question}"` }
+            { role: 'user', content: `Original question: "${targetQuestion}"` }
           ],
           response_format: { type: 'json_object' },
           temperature: 0.7,
-          max_tokens: 200,
+          max_tokens: 300,
         }),
       timeoutMs: 8000,
       maxRetries: 2,
@@ -961,8 +1027,8 @@ router.post('/nudge', optionalAuth, async (req, res) => {
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -976,7 +1042,7 @@ Respond as JSON: { "nudge": "your tip", "type": "structure|depth|confidence|fill
           ],
           response_format: { type: 'json_object' },
           temperature: 0.7,
-          max_tokens: 60
+          max_tokens: 300,
         }),
       timeoutMs: 30000,
       maxRetries: 2,
@@ -1012,8 +1078,8 @@ router.post('/copilot-suggest', optionalAuth, async (req, res) => {
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',

@@ -176,20 +176,29 @@ export default function InterviewSuite() {
 
       try {
         // Load recent sessions
-        const sessRes = await authFetch(`${API_URL}/api/interview/sessions?limit=5`);
-        const sessData = await sessRes.json();
+        let sessData = null;
+        try {
+          const sessRes = await authFetch(`${API_URL}/api/interview/sessions?limit=5`);
+          if (sessRes.ok) sessData = await sessRes.json();
+        } catch {}
+        if (!sessData) {
+          try {
+            const fbRes = await authFetch(`${API_URL}/api/company-interview/sessions?limit=5`);
+            if (fbRes.ok) sessData = await fbRes.json();
+          } catch {}
+        }
         const sessions = Array.isArray(sessData?.sessions) ? sessData.sessions : (Array.isArray(sessData) ? sessData : []);
         setRecentSessions(sessions.slice(0, 5));
 
         // Compute stats
         if (sessions.length > 0) {
-          const scores = sessions.filter(s => s.score != null).map(s => s.score);
+          const scores = sessions.map(s => s.score ?? s.overall_score).filter(s => s != null);
           const avgScore = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
 
           // B-12: Compute a real consecutive-day streak from session dates
           const uniqueDays = [...new Set(
             sessions
-              .map(s => s.createdAt ? new Date(s.createdAt).toDateString() : null)
+              .map(s => (s.createdAt || s.created_at) ? new Date(s.createdAt || s.created_at).toDateString() : null)
               .filter(Boolean)
           )].sort((a, b) => new Date(b) - new Date(a)); // newest first
 

@@ -108,8 +108,10 @@ export const enhancedSecurity = () => {
     }
 
     // Rate limiting check
+    const isLocalhost = ip === '::1' || ip === '127.0.0.1' || ip === '::ffff:127.0.0.1' || ip === 'localhost' || process.env.NODE_ENV === 'development';
+    const maxRequests = isLocalhost ? 5000 : THRESHOLDS.MAX_REQUESTS_PER_MINUTE;
     const requestCount = checkRateLimit(ip);
-    if (requestCount > THRESHOLDS.MAX_REQUESTS_PER_MINUTE) {
+    if (requestCount > maxRequests) {
       trackIPActivity(ip, 'rate_limit_exceeded', 'high');
       logger.warn('Rate limit exceeded', { ip, requestId, count: requestCount });
       return res.status(429).json({ 

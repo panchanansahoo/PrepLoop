@@ -7,6 +7,7 @@ import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { customInterviewLimiter, customInterviewSubmissionLimiter } from '../middleware/apiRateLimiter.js';
 import { evaluateFresherAnswer } from '../services/interviewAnswerEvaluator.js';
+import { isInterviewLinkExpired, verifyInterviewInviteeEmail } from '../utils/privateInterviewAccess.js';
 
 const router = express.Router();
 const groq = getGroqClient();
@@ -809,6 +810,47 @@ router.get('/history', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/sessions', authenticateToken, async (req, res) => {
+  const userId = req.user?.id;
+  const { limit = 20, offset = 0 } = req.query;
+
+  try {
+    let sessions = [];
+    const { data, error } = await supabaseAdmin
+      .from('interview_sessions')
+      .select('id, session_type, company, role, stage, difficulty, overall_score, completed_at, created_at')
+      .eq('user_id', userId)
+      .order('completed_at', { ascending: false })
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+    if (!error && Array.isArray(data) && data.length > 0) {
+      sessions = data;
+    } else {
+      // Fallback to mock_interviews table
+      const { data: mockData } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('id, interview_type, difficulty, duration, overall_score, completed_at, created_at')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false })
+        .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+      sessions = mockData || [];
+    }
+
+    const normalized = sessions.map(s => ({
+      ...s,
+      score: s.overall_score ?? s.score ?? null,
+      overall_score: s.overall_score ?? s.score ?? null,
+      createdAt: s.completed_at || s.created_at || null,
+      created_at: s.completed_at || s.created_at || null,
+    }));
+
+    res.json({ sessions: normalized, data: normalized });
+  } catch (error) {
+    console.error('List interview sessions error:', error.message);
+    res.status(500).json({ error: 'Failed to fetch sessions' });
+  }
+});
+
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
@@ -841,23 +883,32 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
       return res.status(503).json({ error: 'AI feedback unavailable' });
     }
 
-    // Get the interview
-    const { data: interview, error: fetchError } = await supabaseAdmin
-      .from('mock_interviews')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', req.user.id)
-      .single();
-
-    if (fetchError || !interview) {
-      return res.status(404).json({ error: 'Interview not found' });
-    }
-
-    const question = interview.questions[questionIndex];
+    let question = req.body?.questionText || req.body?.question;
     const responseText = answerText || audioTranscript || '';
 
-    if (!question || !responseText) {
+    if (!responseText) {
       return res.status(400).json({ error: 'Invalid question or response' });
+    }
+
+    if (!question && id !== '0') {
+      try {
+        const { data: interview, error: fetchError } = await supabaseAdmin
+          .from('mock_interviews')
+          .select('*')
+          .eq('id', id)
+          .eq('user_id', req.user.id)
+          .single();
+
+        if (!fetchError && interview?.questions) {
+          question = interview.questions[questionIndex];
+        }
+      } catch (err) {
+        console.warn('Mock interview lookup skipped:', err.message);
+      }
+    }
+
+    if (!question) {
+      question = `Technical Interview Question #${(Number(questionIndex) || 0) + 1}`;
     }
 
     // Generate real-time feedback using Groq
@@ -1001,7 +1052,7 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
 
     const { data, error } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails')
       .eq('share_code', code)
       .single();
 
@@ -1012,6 +1063,13 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
     if (!data.is_active) {
       return res.status(410).json({ error: 'This interview is no longer available' });
     }
+    if (isInterviewLinkExpired(data.expires_at)) {
+      return res.status(410).json({ error: 'This interview link has expired' });
+    }
+
+    const allowedEmails = Array.isArray(data.allowed_emails)
+      ? data.allowed_emails
+      : (Array.isArray(data.settings?.allowedEmails) ? data.settings.allowedEmails : []);
 
     // Return user-safe fields only
     res.json({
@@ -1022,13 +1080,79 @@ router.get('/question-set/:code', customInterviewLimiter, optionalAuth, async (r
         interviewType: data.interview_type,
         difficulty: data.difficulty,
         requiresLogin: data.requires_login,
+        requiresPasscode: Boolean(data.passcode_hash),
+        requiresEmailAllowlist: allowedEmails.length > 0,
+        expiresAt: data.expires_at,
+        remainingAttempts: data.max_attempts === null
+          ? null
+          : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
         questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
         questions: [],
         settings: data.settings || {},
+        shareCode: data.share_code,
+        token: data.share_code,
       }
     });
   } catch (error) {
     console.error('Get question set by code error:', error);
+    res.status(500).json({ error: 'Failed to fetch question set' });
+  }
+});
+
+// ─── Get Question Set by Candidate Token Alias (/token/:token) ───
+router.get('/token/:token', customInterviewLimiter, optionalAuth, async (req, res) => {
+  req.params.code = req.params.token;
+  try {
+    const { code } = req.params;
+
+    if (!code || code.length < 5) {
+      return res.status(400).json({ error: 'Invalid candidate token' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, title, description, share_code, interview_type, difficulty, requires_login, questions, settings, is_active, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails')
+      .eq('share_code', code)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+
+    if (!data.is_active) {
+      return res.status(410).json({ error: 'This interview is no longer available' });
+    }
+    if (isInterviewLinkExpired(data.expires_at)) {
+      return res.status(410).json({ error: 'This interview link has expired' });
+    }
+
+    const allowedEmails = Array.isArray(data.allowed_emails)
+      ? data.allowed_emails
+      : (Array.isArray(data.settings?.allowedEmails) ? data.settings.allowedEmails : []);
+
+    res.json({
+      questionSet: {
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        interviewType: data.interview_type,
+        difficulty: data.difficulty,
+        requiresLogin: data.requires_login,
+        requiresPasscode: Boolean(data.passcode_hash),
+        requiresEmailAllowlist: allowedEmails.length > 0,
+        expiresAt: data.expires_at,
+        remainingAttempts: data.max_attempts === null
+          ? null
+          : Math.max(0, data.max_attempts - (data.attempts_started || 0)),
+        questionCount: Array.isArray(data.questions) ? data.questions.length : 0,
+        questions: [],
+        settings: data.settings || {},
+        shareCode: data.share_code,
+        token: data.share_code,
+      }
+    });
+  } catch (error) {
+    console.error('Get question set by token error:', error);
     res.status(500).json({ error: 'Failed to fetch question set' });
   }
 });
@@ -1045,7 +1169,7 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
     // Find the question set
     const { data: questionSet, error: fetchError } = await supabaseAdmin
       .from('admin_question_sets')
-      .select('id, is_active, requires_login')
+      .select('id, is_active, requires_login, allowed_emails, settings')
       .eq('share_code', code)
       .single();
 
@@ -1057,6 +1181,16 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
     }
     if (questionSet.requires_login && !req.user) {
       return res.status(401).json({ error: 'Login required for this interview' });
+    }
+
+    const allowedEmails = Array.isArray(questionSet.allowed_emails)
+      ? questionSet.allowed_emails
+      : (Array.isArray(questionSet.settings?.allowedEmails) ? questionSet.settings.allowedEmails : []);
+    if (allowedEmails.length > 0) {
+      const candidateEmail = req.user?.email || userEmail;
+      if (!candidateEmail || !verifyInterviewInviteeEmail(candidateEmail, allowedEmails)) {
+        return res.status(403).json({ error: 'Your email address is not authorized for this private interview' });
+      }
     }
     const { data: attempt, error: attemptError } = await supabaseAdmin
       .from('admin_interview_attempts')
@@ -1150,6 +1284,150 @@ router.post('/question-set/:code/submit', customInterviewSubmissionLimiter, opti
     res.status(201).json({ success: true, submissionId: data?.id });
   } catch (error) {
     console.error('Save submission error:', error);
+    res.status(500).json({ error: 'Failed to save submission' });
+  }
+});
+
+// ─── Save Admin Interview Submission by Token Alias (/token/:token/submit) ───
+router.post('/token/:token/submit', customInterviewSubmissionLimiter, optionalAuth, async (req, res) => {
+  req.params.code = req.params.token;
+  try {
+    const { code } = req.params;
+    const {
+      attemptId, duration,
+      userName, userEmail
+    } = req.body;
+
+    const { data: questionSet, error: fetchError } = await supabaseAdmin
+      .from('admin_question_sets')
+      .select('id, is_active, requires_login, allowed_emails, settings')
+      .eq('share_code', code)
+      .single();
+
+    if (fetchError || !questionSet) {
+      return res.status(404).json({ error: 'Question set not found' });
+    }
+    if (!questionSet.is_active) {
+      return res.status(410).json({ error: 'This interview is no longer available' });
+    }
+    if (questionSet.requires_login && !req.user) {
+      return res.status(401).json({ error: 'Login required for this interview' });
+    }
+
+    const allowedEmails = Array.isArray(questionSet.allowed_emails)
+      ? questionSet.allowed_emails
+      : (Array.isArray(questionSet.settings?.allowedEmails) ? questionSet.settings.allowedEmails : []);
+    if (allowedEmails.length > 0) {
+      const candidateEmail = req.user?.email || userEmail;
+      if (!candidateEmail || !verifyInterviewInviteeEmail(candidateEmail, allowedEmails)) {
+        return res.status(403).json({ error: 'Your email address is not authorized for this private interview' });
+      }
+    }
+    const { data: attempt, error: attemptError } = await supabaseAdmin
+      .from('admin_interview_attempts')
+      .select('id, question_set_id, user_id, stage, responses, expires_at, completed_at, submitted_at')
+      .eq('id', attemptId || '')
+      .eq('question_set_id', questionSet.id)
+      .single();
+    if (attemptError || !attempt) {
+      return res.status(404).json({ error: 'Interview attempt not found' });
+    }
+    if (new Date(attempt.expires_at).getTime() <= Date.now()) {
+      return res.status(410).json({ error: 'This interview attempt has expired' });
+    }
+    if (!attempt.completed_at) {
+      return res.status(409).json({ error: 'Interview must be completed before submission' });
+    }
+    if (attempt.submitted_at) {
+      return res.status(409).json({ error: 'This interview has already been submitted' });
+    }
+    if (attempt.user_id && attempt.user_id !== req.user?.id) {
+      return res.status(403).json({ error: 'Interview attempt belongs to another user' });
+    }
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!attemptId || !UUID_REGEX.test(attemptId)) {
+      return res.status(400).json({ error: 'A valid interview attempt is required' });
+    }
+    const serverResponses = Array.isArray(attempt.responses) ? attempt.responses : [];
+    if (serverResponses.length > 100 || JSON.stringify(serverResponses).length > 200000) {
+      return res.status(400).json({ error: 'Interview responses are too large' });
+    }
+    if (typeof userName === 'string' && userName.length > 255) {
+      return res.status(400).json({ error: 'Name is too long' });
+    }
+    if (typeof userEmail === 'string' && userEmail.length > 255) {
+      return res.status(400).json({ error: 'Email is too long' });
+    }
+
+    const parsedDuration = Number(duration);
+    const sanitizedDuration = Number.isFinite(parsedDuration)
+      ? Math.min(86400, Math.max(0, Math.round(parsedDuration)))
+      : 0;
+    const candidateAnswers = serverResponses
+      .map((entry, index) => ({
+        index: index + 1,
+        question: entry.question || entry.text || '',
+        answer: entry.answer || entry.userAnswer || '',
+      }))
+      .filter((qa) => Boolean(qa.answer));
+
+    let scores = {};
+    let overallScore = 0;
+    if (candidateAnswers.length > 0) {
+      try {
+        const evaluation = await evaluateFresherAnswer({
+          question: candidateAnswers[0].question,
+          answer: candidateAnswers.map((item) => `Q: ${item.question}\nA: ${item.answer}`).join('\n\n'),
+          role: questionSet.settings?.roleName || 'Software Engineer',
+          company: questionSet.settings?.companyName || 'General Practice',
+          expectedTopics: questionSet.settings?.expectedTopics || [],
+          experienceLevel: questionSet.settings?.experienceLevel || 'fresher',
+        });
+        if (evaluation && typeof evaluation.overallScore === 'number') {
+          overallScore = evaluation.overallScore;
+          scores = {
+            clarity: evaluation.clarity || 0,
+            relevance: evaluation.relevance || 0,
+            depth: evaluation.depth || 0,
+            structure: evaluation.structure || 0,
+            evaluationMethod: 'llm_rubric',
+          };
+        }
+      } catch (evalErr) {
+        console.warn('Submission evaluation fallback:', evalErr.message);
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('admin_question_set_submissions')
+      .insert({
+        question_set_id: questionSet.id,
+        user_id: req.user?.id || null,
+        user_name: (userName || req.user?.user_metadata?.full_name || 'Guest Candidate').trim(),
+        user_email: (userEmail || req.user?.email || null)?.trim().toLowerCase() || null,
+        responses: serverResponses,
+        scores,
+        overall_score: overallScore,
+        duration: sanitizedDuration,
+        attempt_id: attempt.id,
+      })
+      .select('id')
+      .single();
+
+    if (error?.code === '23505') {
+      return res.status(409).json({ error: 'This interview has already been submitted' });
+    }
+
+    if (error) throw error;
+    await supabaseAdmin
+      .from('admin_interview_attempts')
+      .update({ submitted_at: new Date().toISOString() })
+      .eq('id', attempt.id)
+      .is('submitted_at', null);
+
+    res.status(201).json({ success: true, submissionId: data?.id });
+  } catch (error) {
+    console.error('Save submission by token error:', error);
     res.status(500).json({ error: 'Failed to save submission' });
   }
 });

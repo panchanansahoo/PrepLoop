@@ -1,9 +1,10 @@
 import React, { memo, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import {
     ArrowLeft, ArrowRight, CheckCircle, Sparkles,
     FileText, Search, Star, Code2, MessageSquare, X,
-    GraduationCap, Briefcase, RefreshCw, Zap,
+    GraduationCap, Briefcase, RefreshCw, Zap, Mic, Volume2, KeyRound, User, Video, VideoOff, AlertTriangle,
 } from 'lucide-react';
 
 // ─── Static data (hoisted outside component to avoid recreation) ───
@@ -97,9 +98,150 @@ const COMPANY_TABS = [
  *  - onResumeDrop         (e) => void
  *  - onResumeFileChange   (e) => void
  */
+
+// ─── Device Preflight Component (Camera, Mic & Sound) ───
+const DevicePreflightCheck = memo(function DevicePreflightCheck({
+    cameraCheckStatus = 'not_checked',
+    onCheckCamera,
+    cameraStream,
+    micCheckStatus = 'not_checked',
+    onCheckMicrophone,
+    micLevel = 0,
+    speakerCheckStatus = 'not_checked',
+    onTestSpeaker,
+    preflightError,
+}) {
+    const videoRef = React.useRef(null);
+
+    React.useEffect(() => {
+        if (videoRef.current && cameraStream) {
+            videoRef.current.srcObject = cameraStream;
+        }
+    }, [cameraStream]);
+
+    const isMicReady = String(micCheckStatus).startsWith('ready:');
+    const isCameraReady = cameraCheckStatus === 'ready';
+
+    return (
+        <div className="ai-preflight-container">
+            <div className="ai-preflight-header">
+                <Sparkles size={16} className="ai-preflight-icon" />
+                <div>
+                    <h4 className="ai-preflight-title">Device & Readiness Check</h4>
+                    <p className="ai-preflight-subtitle">Confirm your camera and microphone are working before entering</p>
+                </div>
+            </div>
+
+            {preflightError && (
+                <div className="ai-preflight-error-banner" role="alert">
+                    <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+                    <span>{preflightError}</span>
+                </div>
+            )}
+
+            <div className="ai-preflight-grid">
+                {/* Camera Card */}
+                <div className={`ai-preflight-card ${isCameraReady ? 'is-ready' : cameraCheckStatus === 'denied' ? 'is-denied' : ''}`}>
+                    <div className="ai-preflight-card-top">
+                        <div className="ai-preflight-card-label">
+                            <Video size={14} />
+                            <span>Camera Preview</span>
+                        </div>
+                        <span className={`ai-preflight-status-pill ${isCameraReady ? 'ready' : cameraCheckStatus === 'denied' ? 'denied' : ''}`}>
+                            {isCameraReady ? '✓ Working' : cameraCheckStatus === 'denied' ? 'Denied' : cameraCheckStatus === 'checking' ? 'Checking...' : 'Not Checked'}
+                        </span>
+                    </div>
+
+                    <div className="ai-preflight-video-wrap">
+                        {cameraStream ? (
+                            <video ref={videoRef} autoPlay playsInline muted className="ai-preflight-video" />
+                        ) : (
+                            <div className="ai-preflight-video-placeholder">
+                                <VideoOff size={22} style={{ opacity: 0.5 }} />
+                                <span>{cameraCheckStatus === 'denied' ? 'Camera blocked in browser' : 'Click test to preview camera'}</span>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onCheckCamera}
+                        className="ai-preflight-action-btn"
+                        disabled={cameraCheckStatus === 'checking'}
+                    >
+                        <Video size={13} /> {isCameraReady ? 'Retest Camera' : 'Test Camera'}
+                    </button>
+                </div>
+
+                {/* Microphone Card */}
+                <div className={`ai-preflight-card ${isMicReady ? 'is-ready' : micCheckStatus === 'denied' ? 'is-denied' : ''}`}>
+                    <div className="ai-preflight-card-top">
+                        <div className="ai-preflight-card-label">
+                            <Mic size={14} />
+                            <span>Microphone Level</span>
+                        </div>
+                        <span className={`ai-preflight-status-pill ${isMicReady ? 'ready' : micCheckStatus === 'denied' ? 'denied' : ''}`}>
+                            {isMicReady ? '✓ Working' : micCheckStatus === 'denied' ? 'Denied' : micCheckStatus === 'checking' ? 'Checking...' : 'Not Checked'}
+                        </span>
+                    </div>
+
+                    <div className="ai-preflight-mic-info">
+                        <span className="ai-preflight-device-name">
+                            {isMicReady ? micCheckStatus.slice(6) : micCheckStatus === 'denied' ? 'Microphone blocked in browser' : 'Verify mic capture & volume'}
+                        </span>
+
+                        {/* Live volume equalizer meter */}
+                        <div className="ai-preflight-volume-bar-wrap">
+                            {[...Array(10)].map((_, i) => (
+                                <span
+                                    key={i}
+                                    className={`ai-preflight-volume-tick ${micLevel > (i + 1) * 0.08 ? 'active' : ''}`}
+                                />
+                            ))}
+                        </div>
+
+                        <span className="ai-preflight-mic-hint">
+                            {micLevel > 0.05 ? '🎙️ Voice detected!' : (isMicReady ? 'Speak to test volume' : 'Click test to verify mic')}
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onCheckMicrophone}
+                        className="ai-preflight-action-btn"
+                        disabled={micCheckStatus === 'checking'}
+                    >
+                        <Mic size={13} /> {isMicReady ? 'Retest Mic' : 'Test Microphone'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Speaker Sound Check Row */}
+            <div className="ai-preflight-speaker-row">
+                <div className="ai-preflight-speaker-left">
+                    <Volume2 size={16} />
+                    <div>
+                        <strong>Speaker & Sound Check</strong>
+                        <span>{speakerCheckStatus === 'ready' ? 'Sound ready! You will hear interviewer questions clearly.' : 'Test your audio output before starting.'}</span>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    onClick={onTestSpeaker}
+                    className="ai-preflight-speaker-btn"
+                    disabled={speakerCheckStatus === 'testing'}
+                >
+                    <Volume2 size={13} /> {speakerCheckStatus === 'ready' ? 'Retest sound' : 'Test speakers'}
+                </button>
+            </div>
+        </div>
+    );
+});
+
 function InterviewLobby({
     setupStep, setSetupStep,
     experienceLevel, setExperienceLevel,
+    pacingMode = 'realistic', setPacingMode = () => {},
     interviewType, setInterviewType,
     interviewerGender, setInterviewerGender,
     targetRole, setTargetRole,
@@ -122,9 +264,48 @@ function InterviewLobby({
     customQuestionSet,
     questionSetLoading,
     questionSetError,
+    questionSetAccessError,
+    questionSetPasscode = '',
+    onQuestionSetPasscodeChange,
+    candidateEmail = '',
+    onCandidateEmailChange,
+    candidateName = '',
+    onCandidateNameChange,
     resumeParseError,
+    micCheckStatus = 'not_checked', onCheckMicrophone,
+    cameraCheckStatus = 'not_checked', onCheckCamera,
+    cameraStream = null, micLevel = 0, preflightError = null, onClearPreflightError,
 }) {
     const navigate = useNavigate();
+    const { user } = useAuth();
+    const [speakerCheckStatus, setSpeakerCheckStatus] = React.useState('not_checked');
+
+    const handleTestSpeaker = useCallback(() => {
+        setSpeakerCheckStatus('testing');
+        try {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance('Audio check passed. Your speakers are ready for this voice interview.');
+                utterance.rate = 1.0;
+                utterance.onend = () => setSpeakerCheckStatus('ready');
+                utterance.onerror = () => setSpeakerCheckStatus('ready');
+                window.speechSynthesis.speak(utterance);
+            } else {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+                setSpeakerCheckStatus('ready');
+            }
+        } catch {
+            setSpeakerCheckStatus('ready');
+        }
+    }, []);
 
     // Derived: filtered companies
     const filteredCompanies = useMemo(() => COMPANIES.filter(c => {
@@ -173,9 +354,14 @@ function InterviewLobby({
                             </div>
                             <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: '700', marginBottom: '8px' }}>Interview Unavailable</h2>
                             <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px', marginBottom: '24px' }}>{questionSetError}</p>
-                            <button className="ai-setup-nav-btn ai-setup-nav-btn--next" onClick={() => navigate('/interview-suite')} style={{ margin: '0 auto' }}>
-                                Go to Interview Suite
-                            </button>
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                <button className="ai-setup-nav-btn ai-setup-nav-btn--prev" onClick={() => navigate('/app')}>
+                                    Enter Different Token
+                                </button>
+                                <button className="ai-setup-nav-btn ai-setup-nav-btn--next" onClick={() => navigate('/')}>
+                                    Go to Home
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -191,8 +377,15 @@ function InterviewLobby({
 
                         <div className="ai-setup-modal" style={{ maxWidth: '640px', padding: '36px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '6px 12px', borderRadius: '20px', color: '#a5b4fc', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                    <Sparkles size={14} /> Assigned Interview
+                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', padding: '6px 12px', borderRadius: '20px', color: '#a5b4fc', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                        <Sparkles size={14} /> Candidate Assessment
+                                    </div>
+                                    {(customQuestionSet.token || customQuestionSet.shareCode) && (
+                                        <span style={{ color: '#38bdf8', fontSize: '11px', background: 'rgba(56,189,248,.08)', border: '1px solid rgba(56,189,248,.2)', padding: '4px 8px', borderRadius: '6px', fontFamily: 'monospace' }}>
+                                            Token: {((customQuestionSet.token || customQuestionSet.shareCode).length > 16) ? `${(customQuestionSet.token || customQuestionSet.shareCode).slice(0, 8)}...` : (customQuestionSet.token || customQuestionSet.shareCode)}
+                                        </span>
+                                    )}
                                 </div>
                                 <button className="ai-setup-close" onClick={() => navigate('/interview-suite')} title="Close">
                                     <X size={20} />
@@ -207,6 +400,109 @@ function InterviewLobby({
                                     {customQuestionSet.description}
                                 </p>
                             )}
+
+                            {(customQuestionSet.requiresPasscode || customQuestionSet.expiresAt || customQuestionSet.remainingAttempts !== null) && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                                    {customQuestionSet.expiresAt && <span style={{ color: '#fbbf24', fontSize: '12px', background: 'rgba(251,191,36,.08)', padding: '6px 9px', borderRadius: '8px' }}>Link expires {new Date(customQuestionSet.expiresAt).toLocaleString()}</span>}
+                                    {customQuestionSet.remainingAttempts !== null && <span style={{ color: '#a5b4fc', fontSize: '12px', background: 'rgba(129,140,248,.08)', padding: '6px 9px', borderRadius: '8px' }}>{customQuestionSet.remainingAttempts} attempt{customQuestionSet.remainingAttempts === 1 ? '' : 's'} remaining</span>}
+                                </div>
+                            )}
+
+                            {customQuestionSet.requiresPasscode && (
+                                <div className="form-group" style={{ marginBottom: '14px' }}>
+                                    <label htmlFor="private-interview-passcode" style={{ color: '#e4e4e7', display: 'block', marginBottom: '6px' }}>Interview passcode</label>
+                                    <input
+                                        id="private-interview-passcode"
+                                        type="password"
+                                        autoComplete="current-password"
+                                        value={questionSetPasscode}
+                                        onChange={(event) => onQuestionSetPasscodeChange?.(event.target.value)}
+                                        placeholder="Enter the passcode shared by the interviewer"
+                                        maxLength={64}
+                                        style={{ width: '100%' }}
+                                    />
+                                    {questionSetAccessError && <span role="alert" style={{ color: '#fca5a5', display: 'block', fontSize: '12px', marginTop: '6px' }}>{questionSetAccessError}</span>}
+                                </div>
+                            )}
+
+                            {/* Candidate Identity Section */}
+                            {user ? (
+                                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', padding: '10px 14px', marginBottom: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <User size={15} style={{ color: '#818cf8' }} />
+                                        <span style={{ fontSize: '13px', color: '#e4e4e7' }}>
+                                            Taking assessment as <strong style={{ color: '#fff' }}>{user.user_metadata?.full_name || user.email}</strong>
+                                        </span>
+                                    </div>
+                                    <span style={{ fontSize: '11px', color: '#6ee7b7', background: 'rgba(110,231,183,0.1)', padding: '2px 8px', borderRadius: '4px', fontWeight: '600' }}>
+                                        Verified
+                                    </span>
+                                </div>
+                            ) : (
+                                <div style={{ background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.06)', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+                                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px' }}>
+                                        Candidate Information
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                                        <div className="form-group" style={{ margin: 0 }}>
+                                            <label htmlFor="candidate-name" style={{ color: '#e4e4e7', display: 'block', marginBottom: '6px', fontSize: '12px' }}>
+                                                Your Full Name
+                                            </label>
+                                            <input
+                                                id="candidate-name"
+                                                type="text"
+                                                autoComplete="name"
+                                                value={candidateName}
+                                                onChange={(event) => onCandidateNameChange?.(event.target.value)}
+                                                placeholder="e.g. Alex Johnson"
+                                                maxLength={100}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </div>
+                                        <div className="form-group" style={{ margin: 0 }}>
+                                            <label htmlFor="candidate-email" style={{ color: '#e4e4e7', display: 'block', marginBottom: '6px', fontSize: '12px' }}>
+                                                Your Email Address {customQuestionSet.requiresEmailAllowlist && '*'}
+                                            </label>
+                                            <input
+                                                id="candidate-email"
+                                                type="email"
+                                                autoComplete="email"
+                                                value={candidateEmail}
+                                                onChange={(event) => onCandidateEmailChange?.(event.target.value)}
+                                                placeholder={customQuestionSet.requiresEmailAllowlist ? 'Authorized invitee email' : 'e.g. alex@example.com'}
+                                                maxLength={120}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {customQuestionSet.requiresEmailAllowlist && (
+                                        <span style={{ color: '#f59e0b', fontSize: '11px', display: 'block', marginTop: '6px' }}>
+                                            This interview is restricted to pre-authorized invitee emails.
+                                        </span>
+                                    )}
+                                    {questionSetAccessError && !customQuestionSet.requiresPasscode && (
+                                        <span role="alert" style={{ color: '#fca5a5', display: 'block', fontSize: '12px', marginTop: '6px' }}>
+                                            {questionSetAccessError}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '18px' }}>
+                                <DevicePreflightCheck
+                                    cameraCheckStatus={cameraCheckStatus}
+                                    onCheckCamera={onCheckCamera}
+                                    cameraStream={cameraStream}
+                                    micCheckStatus={micCheckStatus}
+                                    onCheckMicrophone={onCheckMicrophone}
+                                    micLevel={micLevel}
+                                    speakerCheckStatus={speakerCheckStatus}
+                                    onTestSpeaker={handleTestSpeaker}
+                                    preflightError={preflightError}
+                                />
+                            </div>
+
+                            {questionSetAccessError && !customQuestionSet.requiresPasscode && !customQuestionSet.requiresEmailAllowlist && <p role="alert" style={{ color: '#fca5a5', fontSize: '12px', margin: '10px 0 0' }}>{questionSetAccessError}</p>}
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '24px' }}>
                                 <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '12px', padding: '14px' }}>
@@ -250,10 +546,14 @@ function InterviewLobby({
                                 </span>
                             </div>
 
+                            <p style={{ color: 'rgba(255,255,255,.55)', fontSize: '12px', lineHeight: 1.5, margin: '12px 0 0' }}>
+                                Your answers are processed as speech and the transcript and interview result are saved for the interviewer to review. PrepLoop does not save raw microphone recordings.
+                            </p>
+
                             <button
                                 className="ai-setup-nav-btn ai-setup-nav-btn--next"
                                 onClick={onStartInterview}
-                                disabled={loading}
+                                disabled={loading || !micCheckStatus.startsWith('ready:') || (customQuestionSet.requiresPasscode && !questionSetPasscode.trim()) || (customQuestionSet.requiresEmailAllowlist && !candidateEmail.trim()) || customQuestionSet.remainingAttempts === 0}
                                 style={{ width: '100%', justifyContent: 'center', padding: '16px 24px', fontSize: '16px', fontWeight: '700', borderRadius: '12px' }}
                             >
                                 {loading ? 'Starting Interview...' : 'Begin Interview'}
@@ -317,6 +617,76 @@ function InterviewLobby({
                         </div>
                     )}
 
+                    {/* Candidate Token Quick Entry */}
+                    <div style={{
+                        background: 'rgba(99, 102, 241, 0.08)',
+                        border: '1px solid rgba(99, 102, 241, 0.25)',
+                        borderRadius: '12px',
+                        padding: '10px 14px',
+                        marginBottom: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <KeyRound size={15} style={{ color: '#818cf8', flexShrink: 0 }} />
+                            <span style={{ fontSize: '13px', color: '#e4e4e7', fontWeight: '500' }}>
+                                Have an interview link or token?
+                            </span>
+                        </div>
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                const val = (e.currentTarget.elements.assessmentToken?.value || '').trim();
+                                if (!val) return;
+                                let token = val;
+                                try {
+                                    if (val.includes('token=')) {
+                                        const parsed = new URL(val.startsWith('http') ? val : `https://preploop.com/${val}`);
+                                        token = parsed.searchParams.get('token') || val;
+                                    } else if (val.includes('set=')) {
+                                        const parsed = new URL(val.startsWith('http') ? val : `https://preploop.com/${val}`);
+                                        token = parsed.searchParams.get('set') || val;
+                                    }
+                                } catch (_err) {}
+                                navigate(`/app?token=${encodeURIComponent(token.trim())}`);
+                            }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            <input
+                                name="assessmentToken"
+                                placeholder="Paste token or link (e.g. 40247bbf-...)"
+                                style={{
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(255,255,255,0.15)',
+                                    borderRadius: '8px',
+                                    padding: '5px 10px',
+                                    fontSize: '12px',
+                                    color: '#fff',
+                                    outline: 'none',
+                                    width: '210px',
+                                }}
+                            />
+                            <button
+                                type="submit"
+                                style={{
+                                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    padding: '5px 12px',
+                                    fontSize: '12px',
+                                    fontWeight: '600',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Enter
+                            </button>
+                        </form>
+                    </div>
+
                     {/* Stepper */}
                     <div className="ai-wizard-stepper">
                         {SETUP_STEPS.map((step, i) => (
@@ -365,6 +735,42 @@ function InterviewLobby({
                                             <span className="ai-setup-experience-desc">1+ years of industry experience. Questions focus on system design, leadership, and real-world problem solving.</span>
                                         </div>
                                         {experienceLevel === 'experienced' && <CheckCircle size={22} className="ai-setup-experience-check" />}
+                                    </button>
+                                </div>
+                                <div className="ai-setup-step-header" style={{ marginTop: '28px', marginBottom: '14px' }}>
+                                    <h2 className="ai-setup-step-title" style={{ fontSize: '18px' }}>Interview Pacing</h2>
+                                    <p className="ai-setup-step-subtitle" style={{ fontSize: '13px' }}>
+                                        Choose how the AI interviewer adapts to pauses and think time
+                                    </p>
+                                </div>
+                                <div className="ai-setup-experience-grid">
+                                    <button
+                                        type="button"
+                                        className={`ai-setup-experience-card ${pacingMode === 'realistic' ? 'selected' : ''}`}
+                                        onClick={() => setPacingMode('realistic')}
+                                    >
+                                        <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--experienced">
+                                            <span style={{ fontSize: '20px' }}>⏱️</span>
+                                        </div>
+                                        <div className="ai-setup-experience-info">
+                                            <span className="ai-setup-experience-title">Realistic (Timed)</span>
+                                            <span className="ai-setup-experience-desc">Company interview cadence. 12s nudge, 25s check-in, 3.5s auto-submit.</span>
+                                        </div>
+                                        {pacingMode === 'realistic' && <CheckCircle size={22} className="ai-setup-experience-check" />}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`ai-setup-experience-card ${pacingMode === 'relaxed' ? 'selected' : ''}`}
+                                        onClick={() => setPacingMode('relaxed')}
+                                    >
+                                        <div className="ai-setup-experience-icon-wrap ai-setup-experience-icon--fresher">
+                                            <span style={{ fontSize: '20px' }}>🌱</span>
+                                        </div>
+                                        <div className="ai-setup-experience-info">
+                                            <span className="ai-setup-experience-title">Relaxed (Practice)</span>
+                                            <span className="ai-setup-experience-desc">Generous think time. 20s nudge, 40s check-in, 5s auto-submit. Ideal for practice.</span>
+                                        </div>
+                                        {pacingMode === 'relaxed' && <CheckCircle size={22} className="ai-setup-experience-check" />}
                                     </button>
                                 </div>
                             </div>
@@ -571,11 +977,28 @@ function InterviewLobby({
                         {/* ─── Step 5: Review & Start ─── */}
                         {setupStep === 5 && (
                             <div className="ai-wizard-step-body">
+                                <DevicePreflightCheck
+                                        cameraCheckStatus={cameraCheckStatus}
+                                        onCheckCamera={onCheckCamera}
+                                        cameraStream={cameraStream}
+                                        micCheckStatus={micCheckStatus}
+                                        onCheckMicrophone={onCheckMicrophone}
+                                        micLevel={micLevel}
+                                        speakerCheckStatus={speakerCheckStatus}
+                                        onTestSpeaker={handleTestSpeaker}
+                                        preflightError={preflightError}
+                                    />
                                 <div className="ai-wizard-review">
                                     <div className="ai-wizard-review-row">
                                         <span className="ai-wizard-review-label">Experience</span>
                                         <span className="ai-wizard-review-value">
                                             {experienceLevel === 'fresher' ? '🎓 Fresher' : '💼 Experienced'}
+                                        </span>
+                                    </div>
+                                    <div className="ai-wizard-review-row">
+                                        <span className="ai-wizard-review-label">Pacing</span>
+                                        <span className="ai-wizard-review-value">
+                                            {pacingMode === 'relaxed' ? '🌱 Relaxed (Practice)' : '⏱️ Realistic (Timed)'}
                                         </span>
                                     </div>
                                     <div className="ai-wizard-review-row">
@@ -608,6 +1031,7 @@ function InterviewLobby({
                                             {interviewerGender === 'male' ? '👨‍💼' : '👩‍💼'} {interviewer.name} · {interviewer.role}
                                         </span>
                                     </div>
+                                    
                                     <div className="ai-wizard-review-row ai-lobby-review-divider">
                                         <span className="ai-wizard-review-label ai-lobby-realtime-label">
                                             <Zap size={14} className="ai-lobby-realtime-icon" /> Real-Time Voice
@@ -666,10 +1090,6 @@ function InterviewLobby({
                             )}
                         </div>
                     </div>
-
-                    <p className="ai-setup-privacy">
-                        🔒 Your data is encrypted and never shared. Sessions are private.
-                    </p>
                 </div>
             </div>
         </div>

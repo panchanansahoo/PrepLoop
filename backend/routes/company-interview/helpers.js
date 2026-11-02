@@ -15,6 +15,50 @@ import { evaluateFresherAnswer as _evaluateFresherAnswer } from '../../services/
 
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
+export const GROQ_CHAT_MODELS = [
+  process.env.GROQ_MODEL,
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-20b',
+].filter(Boolean);
+
+export async function createGroqChatCompletion(options = {}) {
+  if (!groq) {
+    throw new Error('Groq client is not initialized');
+  }
+  const requestedModel = options.model;
+  const candidateModels = [
+    requestedModel,
+    ...GROQ_CHAT_MODELS.filter(m => m !== requestedModel)
+  ].filter(Boolean);
+
+  let lastError;
+  for (const model of candidateModels) {
+    try {
+      const sanitizedOptions = {
+        ...options,
+        model,
+      };
+      if (sanitizedOptions.max_tokens !== undefined) {
+        sanitizedOptions.max_tokens = Math.max(Number(sanitizedOptions.max_tokens) || 400, 300);
+      }
+      return await groq.chat.completions.create(sanitizedOptions);
+    } catch (err) {
+      lastError = err;
+      const isNotFound =
+        err.status === 404 ||
+        err.status === 403 ||
+        err.code === 'model_not_found' ||
+        (err.message && (err.message.includes('does not exist') || err.message.includes('model_not_found')));
+      if (isNotFound) {
+        console.warn(`[Groq] Model ${model} unavailable (${err.message}), trying next fallback...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 export function safeDeleteUploadFile(filePath) {
   if (!filePath) return;
   const resolvedUploadDir = path.resolve(UPLOAD_DIR);
@@ -446,14 +490,14 @@ export async function generateFresherHRQuestion(qNum, _resumeContext = null) {
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
           temperature: 0.7,
-          max_tokens: 150,
+          max_tokens: 300,
         }),
     });
 
@@ -485,14 +529,14 @@ export async function generateFresherTechnicalQuestion(qNum, _resumeContext = nu
 
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
           temperature: 0.7,
-          max_tokens: 150,
+          max_tokens: 300,
         }),
     });
 
@@ -529,8 +573,8 @@ export async function generateInterviewerName(company = '') {
   try {
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.1-8b-instant',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -539,6 +583,7 @@ export async function generateInterviewerName(company = '') {
           ],
           response_format: { type: 'json_object' },
           temperature: 0.5,
+          max_tokens: 300,
         }),
       timeoutMs: 9000,
       maxRetries: 1,
@@ -729,8 +774,8 @@ ${styleHints.join('\n')}
   try {
     const completion = await aiCallWithRetry({
       operation: () =>
-        groq.chat.completions.create({
-          model: 'llama-3.3-70b-versatile',
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -740,6 +785,7 @@ ${styleHints.join('\n')}
           ],
           response_format: { type: 'json_object' },
           temperature: 0.9,
+          max_tokens: 300,
         }),
       timeoutMs: 10000,
       maxRetries: 1,
@@ -881,7 +927,16 @@ ${resumePrompt}
 - Build on previous answers — create a flowing, intellectually stimulating conversation.
 
 ## Interview Flow
-${questionNumber === 1 ? `- OPENING: Greet briefly and professionally. Example: "Hi, I'm [Name] from ${company}. Let's get started." Then ask your first question immediately.` : ''}
+${questionNumber === 1 ? `- OPENING QUESTION (MANDATORY FORMAT):
+  * Greet the candidate warmly and briefly: "Hi, I'm [Name] from ${company}. Welcome to your ${stage} interview!"
+  * IMMEDIATELY ask the first interview question in this opening turn.
+  * For Behavioral or HR rounds, start directly with: "Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity."
+  * For Technical rounds, start with: "To kick things off, please introduce yourself and walk me through a technical project you built recently."
+  * For DSA / System Design, present the problem description immediately.
+  * STRICT FORBIDDEN PHRASES:
+    - NEVER give an agenda or breakdown (do NOT say "We'll spend thirty minutes: quick introductions, around twenty-five minutes on...", etc.).
+    - NEVER ask meta questions (do NOT ask "Any questions about the format before we start?", "Are you ready to begin?", or "Do you have any questions before we jump in?").
+    - Jump directly into the interview question.` : ''}
 ${questionNumber === totalQuestions ? `- FINAL QUESTION: Signal this casually and warmly: "Awesome, just one last question and we're done — you're doing great!"` : ''}
 ${questionNumber > 1 && questionNumber < totalQuestions ? `- Transition naturally from the previous answer. Keep it feeling like an ongoing chat.` : ''}
 

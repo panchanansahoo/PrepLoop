@@ -42,6 +42,8 @@ function InterviewTopBar({
     stageLabel,
     stagePlan,
     targetCompany,
+    customTimeLimit,
+    customQuestionSet,
     connectionMode,
     connectionHealth,
     workspacePanelOpen,
@@ -53,13 +55,18 @@ function InterviewTopBar({
 
     // Global timer — remaining time for entire interview
     const globalRemaining = useMemo(() => {
-        const totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
+        let totalBudget = 0;
+        if (Array.isArray(customQuestionSet?.questions) && customQuestionSet.questions.length > 0) {
+            totalBudget = customQuestionSet.questions.reduce((acc, q) => acc + (Number(q.timeLimit) || 60), 0);
+        } else {
+            totalBudget = totalQuestions * getQuestionTimeLimit(resolvedStage);
+        }
         return formatTime(Math.max(0, totalBudget - elapsed));
-    }, [totalQuestions, resolvedStage, elapsed]);
+    }, [totalQuestions, resolvedStage, elapsed, customQuestionSet]);
 
     // Per-question timer
     const questionTimer = useMemo(() => {
-        const limit = getQuestionTimeLimit(resolvedStage);
+        const limit = Number(customTimeLimit) > 0 ? Number(customTimeLimit) : getQuestionTimeLimit(resolvedStage);
         const remaining = Math.max(0, limit - questionElapsed);
         return {
             remaining,
@@ -67,7 +74,7 @@ function InterviewTopBar({
             isWarning: remaining <= 30 && remaining > 0,
             isExpired: remaining <= 0,
         };
-    }, [resolvedStage, questionElapsed]);
+    }, [resolvedStage, questionElapsed, customTimeLimit]);
 
     // Timer tier CSS class
     const timerTier = questionTimer.isExpired
@@ -84,8 +91,8 @@ function InterviewTopBar({
                     <span>PrepLoop</span>
                 </div>
                 <div className="ai-vc-separator" />
-                <div className="ai-mode-badge">
-                    🎙️ Interview Mode
+                <div className="ai-mode-badge" title={customQuestionSet ? `Private Question Set: ${customQuestionSet.title}` : undefined}>
+                    {customQuestionSet ? `🔒 ${customQuestionSet.title || 'Private Interview'}` : '🎙️ Interview Mode'}
                 </div>
             </div>
             <div className="ai-vc-topbar-center">

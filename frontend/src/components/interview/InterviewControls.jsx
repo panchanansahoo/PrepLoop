@@ -24,6 +24,7 @@ function InterviewControls({
     onKeyboardHelp,
     onAskQuestion,
     awaitingAnswer,
+    voiceOnly = false,
 }) {
     const [questionText, setQuestionText] = useState('');
     const [askOpen, setAskOpen] = useState(false);
@@ -40,16 +41,16 @@ function InterviewControls({
                 <button
                     className={`ai-vc-ctrl ${!micOn ? 'ai-vc-ctrl--off' : ''} ${isListening ? 'ai-vc-ctrl--listening' : ''} ${awaitingAnswer ? 'ai-vc-ctrl--attention' : ''}`}
                     onClick={toggleMic}
-                    title={awaitingAnswer ? 'Click to start answering' : (micOn ? (isListening ? 'Send answer' : 'Mute') : 'Unmute & start listening')}
-                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to send your answer.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
+                    title={awaitingAnswer ? 'Click or press Space to start answering' : (micOn ? (isListening ? 'Finish recording to review your answer' : 'Mute') : 'Unmute & start listening')}
+                    aria-label={awaitingAnswer ? 'Click to start speaking your answer' : (micOn ? (isListening ? 'Microphone on, actively listening. Click to finish and review your answer.' : 'Microphone on. Click to mute.') : 'Microphone muted. Click to unmute and start listening.')}
                     aria-pressed={micOn}
                 >
                     {awaitingAnswer ? <Mic size={18} /> : (micOn ? <Mic size={18} /> : <MicOff size={18} />)}
-                    <span className="ai-vc-ctrl-label">{awaitingAnswer ? 'Answer' : (isListening ? 'Listening...' : micOn ? 'Mic' : 'Muted')}</span>
+                    <span className="ai-vc-ctrl-label">{awaitingAnswer ? 'Answer' : (isListening ? 'Finish' : micOn ? 'Mic' : 'Muted')}</span>
                     {isListening && <span className="ai-vc-listening-dot" />}
                     {isListening && (
                         <span className="ai-vc-conn-mode-badge">
-                            {connectionMode === 'websocket' ? 'WS' : connectionMode === 'rest' ? 'REST' : connectionMode === 'browser' ? 'LIVE' : 'OFF'}
+                            {connectionMode === 'whisper' ? 'WHISPER' : connectionMode === 'browser' ? 'LIVE' : connectionMode === 'websocket' ? 'WS' : connectionMode === 'rest' ? 'REST' : 'LIVE'}
                         </span>
                     )}
                     {connectionMode === 'rest' && isListening && (
@@ -113,15 +114,15 @@ function InterviewControls({
                     <span className="ai-vc-ctrl-label">{captionsOn ? 'CC' : 'CC Off'}</span>
                 </button>
 
-                {/* Chat */}
-                <button
+                {/* Private interviews keep transcript history visible without exposing a text answer composer. */}
+                {!voiceOnly && <button
                     className={`ai-vc-ctrl ${chatOpen ? 'ai-vc-ctrl--active' : ''}`}
                     onClick={() => setChatOpen(p => !p)}
                     title="Chat"
                 >
                     <MessageSquare size={18} />
                     <span className="ai-vc-ctrl-label">Chat</span>
-                </button>
+                </button>}
 
                 {/* Bookmark */}
                 <button

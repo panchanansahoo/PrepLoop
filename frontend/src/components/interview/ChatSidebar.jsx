@@ -70,6 +70,7 @@ function ChatSidebar({
     onClose,
     chatEndRef,
     code,
+    voiceOnly = false,
 }) {
     return (
         <div className="ai-vc-chat-overlay">
@@ -110,7 +111,7 @@ function ChatSidebar({
                 )}
                 <div ref={chatEndRef} />
             </div>
-            <div className="ai-chat-input-area">
+            {!voiceOnly && <div className="ai-chat-input-area">
                 <input
                     type="text"
                     className="ai-chat-input"
@@ -126,7 +127,7 @@ function ChatSidebar({
                 >
                     <Send size={14} />
                 </button>
-            </div>
+            </div>}
         </div>
     );
 }

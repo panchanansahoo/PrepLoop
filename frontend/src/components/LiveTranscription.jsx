@@ -55,7 +55,7 @@ const LiveTranscription = ({
               <span
                 key={`${word}-${i}`}
                 className={`live-transcription-word ${isInterim ? 'live-transcription-word--interim' : ''}`}
-                style={{ animationDelay: `${i * 0.05}s` }}
+                style={{ animationDelay: `${Math.min(i * 0.05, 0.5)}s` }}
               >
                 {word}{' '}
               </span>

@@ -9,15 +9,27 @@ import {
 
 describe("useVoiceAI helpers", () => {
   it("uses longer silence windows for shorter answers", () => {
-    expect(getAdaptiveSilenceMs(20)).toBe(6000);
-    expect(getAdaptiveSilenceMs(80)).toBe(5000);
-    expect(getAdaptiveSilenceMs(260)).toBe(4000);
+    expect(getAdaptiveSilenceMs(20)).toBe(7000);
+    expect(getAdaptiveSilenceMs(80)).toBe(6000);
+    expect(getAdaptiveSilenceMs(260)).toBe(5000);
+  });
+
+  it("adapts silence window based on terminal punctuation and connector words", () => {
+    // Terminal punctuation or concluding phrase allows a shorter 4.0s pause
+    expect(getAdaptiveSilenceMs(150, "Here is my approach.")).toBe(4000);
+    expect(getAdaptiveSilenceMs(150, "That's all")).toBe(4000);
+    expect(getAdaptiveSilenceMs(150, "I'm done")).toBe(4000);
+
+    // Connector words signal a mid-thought pause, so allow 7 seconds.
+    expect(getAdaptiveSilenceMs(150, "We can optimize this because")).toBe(7000);
+    expect(getAdaptiveSilenceMs(150, "And then")).toBe(7000);
   });
 
   it("gives candidates a natural pause before auto-submit", () => {
     expect(getPostSpeechAutoSubmitMs(20)).toBe(6000);
-    expect(getPostSpeechAutoSubmitMs(80)).toBe(5000);
-    expect(getPostSpeechAutoSubmitMs(260)).toBe(4000);
+    expect(getPostSpeechAutoSubmitMs(80)).toBe(6000);
+    expect(getPostSpeechAutoSubmitMs(260)).toBe(5000);
+    expect(getPostSpeechAutoSubmitMs(150, "Done.")).toBe(4000);
   });
 
   it("builds voice api urls from the configured backend origin", () => {

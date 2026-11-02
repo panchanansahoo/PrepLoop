@@ -89,6 +89,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             category: 'Admin',
             items: [
                 { path: '/admin', label: 'Admin Dashboard', subtitle: 'Manage users & content', icon: ShieldCheck },
+                { path: '/admin/library', label: 'Admin Library', subtitle: 'Manage study materials', icon: BookOpen },
             ]
         });
     }

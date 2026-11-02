@@ -10,24 +10,28 @@
  */
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useAudioVisualizer from "./useAudioVisualizer";
+import {
+  getModeConfig,
+  detectTerminalFiller,
+  logInterviewTelemetry,
+} from "../pages/aiInterviewTiming";
 import { mergeAuthHeaders } from "../utils/authHeaders";
 import { authFetch } from "../utils/authFetch";
 import { buildApiUrl } from "../utils/safeApiUrl";
 
 // ——— Configuration ———
-const MIN_ANSWER_LENGTH = 8; // chars before silence timer starts
-const MAX_ANSWER_WAIT_MS = 60_000; // safety: force-submit after 60s
+const MIN_ANSWER_LENGTH = 2; // minimum characters before silence timer starts and answer can be submitted
+const MAX_ANSWER_WAIT_MS = 300_000; // Long enough for a thoughtful response and pauses.
 const BACKCHANNEL_MIN_MS = 8_000; // min speech duration before backchannel
-const MAX_NO_SPEECH_BEFORE_REFRESH = 3; // force-refresh mic after this many consecutive no-speech errors
 const BACKCHANNEL_GAP_MS = 12_000; // min gap between backchannel clips
 
 const SILENCE_AFTER_SPEECH_MAX_MS = 6_000;
 const TOTAL_SILENCE_AUTO_SUBMIT_MS = 15_000;
 
 // Silence thresholds: LONGER answers get MORE pause time (user is mid-thought)
-const SILENCE_SHORT = 6000;  // < 50 chars: user just started, give time to continue
-const SILENCE_MEDIUM = 5000; // 50-200 chars: mid-answer, natural pause
-const SILENCE_LONG = 4000;   // > 200 chars: substantial answer, still need pause between thoughts
+const SILENCE_SHORT = 7000;
+const SILENCE_MEDIUM = 6000;
+const SILENCE_LONG = 5000;
 const MAX_TRANSCRIPT_LENGTH = 10_000;
 
 // TTS retry
@@ -37,6 +41,7 @@ const TTS_PLAYBACK_GUARD_MS = 30000;
 // Interrupt detection
 const INTERRUPT_LEVEL = 0.12;
 const INTERRUPT_DURATION = 400;
+const INTERRUPT_GRACE_PERIOD_MS = 1200; // Ignore interrupts during the first 1.2s of playback to prevent mic/speaker feedback false-positives
 
 // Endpoints
 const RAW_API_BASE_URL =
@@ -44,6 +49,32 @@ const RAW_API_BASE_URL =
 
 export function buildVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
   return buildApiUrl(path, { rawBaseUrl, apiPrefix: "/api" });
+}
+
+async function transcriptionHttpError(response) {
+  const messages = {
+    400: "The recording could not be uploaded. Please record again.",
+    401: "Your session has expired. Sign in again, then retry the saved recording.",
+    403: "Voice transcription is not available for this account.",
+    413: "The recording is too large. Try a shorter answer.",
+    429: "Voice transcription is temporarily rate limited. Wait a moment, then retry.",
+    500: "The transcription service encountered an error. Retry the saved recording.",
+    502: "The transcription service is temporarily unavailable. Retry the saved recording.",
+    503: "The transcription service is temporarily unavailable. Retry the saved recording.",
+    504: "Transcription took too long. Retry the saved recording.",
+  };
+  return new Error(messages[response.status] || `Transcription request failed (HTTP ${response.status}). Retry the saved recording.`);
+}
+
+function transcriptionNetworkError(error) {
+  if (error?.name === "AbortError") return "Transcription timed out. Your recording is kept in this session; retry it or record your answer again.";
+  if (typeof navigator !== "undefined" && !navigator.onLine) return "You're offline. Your recording is kept in this session; reconnect and retry transcription.";
+  if (error instanceof TypeError) return "Couldn't reach the transcription service. Check your connection and that the server is running, then retry the saved recording.";
+  return error?.message || "Transcription failed. Your recording is kept in this session; retry or record your answer again.";
+}
+
+function withSavedRecordingMessage(message) {
+  return message.includes("recording is kept") ? message : `${message} Your recording is kept in this session.`;
 }
 
 const TTS_ENDPOINT = buildVoiceApiUrl("/voice/tts-stream");
@@ -96,15 +127,32 @@ function pickTransition() {
   ];
 }
 
-export function getAdaptiveSilenceMs(textLength) {
+export function getAdaptiveSilenceMs(textLength, text = "") {
+  const trimmed = typeof text === "string" ? text.trim() : "";
+  if (trimmed) {
+    // If ending with terminal punctuation or clear conclusive phrase: fast turn-around
+    if (/[.!?]$/.test(trimmed) || /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer)$/i.test(trimmed)) {
+      return 4000;
+    }
+    // If ending with a connector word (mid-thought pause), allow candidate more time
+    if (/\b(?:and|so|because|like|which|but|or|then|also)\s*$/i.test(trimmed)) {
+      return 7000;
+    }
+    // Substantial answer without trailing connector: quick wrap-up
+    if (textLength >= 120) {
+      return 2800;
+    }
+  }
+
+  // Base fallback thresholds (preserves exact behavior when text is omitted)
   if (textLength < 50) return SILENCE_SHORT;
   if (textLength < 200) return SILENCE_MEDIUM;
   return SILENCE_LONG;
 }
 
-export function getPostSpeechAutoSubmitMs(textLength) {
+export function getPostSpeechAutoSubmitMs(textLength, text = "") {
   return Math.min(
-    getAdaptiveSilenceMs(textLength),
+    getAdaptiveSilenceMs(textLength, text),
     SILENCE_AFTER_SPEECH_MAX_MS,
   );
 }
@@ -273,6 +321,8 @@ export function useVoiceAI({
   question = "",
   enableInterrupt = true,
   getAuthHeaders = null,
+  isPaused = false,
+  pacingMode = "realistic",
 } = {}) {
   const [state, setState] = useState("idle");
   const [transcript, setTranscript] = useState("");
@@ -283,6 +333,15 @@ export function useVoiceAI({
   const [connectionMode, setConnectionMode] = useState("browser"); // Always browser for STT
   const [silenceCountdown, setSilenceCountdown] = useState(0);
   const [connectionHealth, setConnectionHealth] = useState("good"); // 'good' | 'degraded' | 'fallback'
+  const [voiceState, setVoiceState] = useState("idle"); // 'idle' | 'asking' | 'listening' | 'thinking' | 'countdown' | 'submitting' | 'done'
+  const [micWarning, setMicWarning] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const deadMicDurationRef = useRef(0);
+  const pacingModeRef = useRef(pacingMode);
+  useEffect(() => {
+    pacingModeRef.current = pacingMode;
+  }, [pacingMode]);
 
   const transcriptListener = onTranscriptUpdate || onTranscript;
   const inputLevelRef = useRef(0);
@@ -299,6 +358,10 @@ export function useVoiceAI({
   const interimRef = useRef("");
   const activeRef = useRef(false);
   const stateRef = useRef("idle");
+  const voiceSessionEpochRef = useRef(0);
+  const mediaRecorderRef = useRef(null);
+  const pendingWhisperBlobRef = useRef(null);
+  const processRecorderOnStopRef = useRef(false);
 
   const ttsAbortRef = useRef(null);
   const ttsCacheRef = useRef(new Map());
@@ -309,8 +372,11 @@ export function useVoiceAI({
   const listenStartRef = useRef(0);
   const backchannelTimerRef = useRef(null);
   const noSpeechCountRef = useRef(0);
+  const networkErrorCountRef = useRef(0);
+  const isPausedRef = useRef(false);
 
   const interruptTimerRef = useRef(null);
+  const speakingStartedAtRef = useRef(0);
 
   const analyticsRef = useRef({
     ttsFallbacks: 0,
@@ -322,6 +388,9 @@ export function useVoiceAI({
   useEffect(() => {
     questionRef.current = question;
   }, [question]);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
@@ -348,6 +417,39 @@ export function useVoiceAI({
   useEffect(() => {
     inputLevelRef.current = inputLevel;
   }, [inputLevel]);
+
+  // Mic Problem Detection: 8s near-zero RMS while listening and no speech
+  useEffect(() => {
+    if (state !== "listening" || isPaused) {
+      deadMicDurationRef.current = 0;
+      if (micWarning) setMicWarning(false);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const currentLevel = inputLevelRef.current || 0;
+      const hasSpeech = Boolean((finalTextRef.current || "").trim() || (interimRef.current || "").trim());
+
+      if (currentLevel < 0.005 && !hasSpeech) {
+        deadMicDurationRef.current += 500;
+        if (deadMicDurationRef.current >= 8000) {
+          if (!micWarning) {
+            setMicWarning(true);
+            logInterviewTelemetry("mic_dead_warning", { inputLevel: currentLevel });
+          }
+          if (totalSilenceTimerRef.current) {
+            clearTimeout(totalSilenceTimerRef.current);
+            totalSilenceTimerRef.current = null;
+          }
+        }
+      } else {
+        deadMicDurationRef.current = 0;
+        if (micWarning) setMicWarning(false);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [state, isPaused, micWarning]);
 
   useEffect(() => {
     if (backchannelLoadedRef.current) return;
@@ -408,12 +510,28 @@ export function useVoiceAI({
     // Disabled filler backchanneling
   }, []);
 
-  const submitAnswer = useCallback(async () => {
+  const submitAnswer = useCallback(async (force = false, meta = {}) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setVoiceState("submitting");
     clearSilenceTimer();
     clearMaxWait();
     clearBackchannelTimer();
     clearTotalSilenceTimer();
     clearAfterSpeechSilence();
+    setSilenceCountdown(0);
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+      try {
+        processRecorderOnStopRef.current = true;
+        setState("processing");
+        stateRef.current = "processing";
+        mediaRecorderRef.current.stop();
+      } catch {
+        /* no-op */
+      }
+      return;
+    }
 
     // Rescue any remaining interim text that the browser STT hasn't finalized yet.
     // This prevents words from being silently dropped during auto-submit.
@@ -431,31 +549,55 @@ export function useVoiceAI({
 
     const answer = finalTextRef.current.trim();
 
-    if (!answer || answer.length < MIN_ANSWER_LENGTH) {
-      if (activeRef.current) setState("listening");
+    if ((!answer || answer.length < MIN_ANSWER_LENGTH) && !force) {
+      isSubmittingRef.current = false;
+      if (activeRef.current) {
+        setState("listening");
+        stateRef.current = "listening";
+        setVoiceState("listening");
+      }
       return;
     }
 
+    // Cleanly stop speech recognition before processing so it doesn't keep running in background
+    if (browserRecognitionRef.current) {
+      browserRecognitionRef.current.onresult = null;
+      browserRecognitionRef.current.onerror = null;
+      browserRecognitionRef.current.onend = null;
+      try {
+        browserRecognitionRef.current.stop();
+      } catch {
+        /* no-op */
+      }
+      browserRecognitionRef.current = null;
+    }
+    activeRef.current = false;
+
     // Save the answer text BEFORE clearing any refs/state
-    // This prevents the race condition where onAnswer() receives an empty string
     const savedAnswer = answer;
 
     setState("processing");
+    stateRef.current = "processing";
     setFinalTranscript(savedAnswer);
 
     // Clear refs BEFORE calling onAnswer so the hook state is clean
-    // but the saved answer is already captured above
     finalTextRef.current = "";
     interimRef.current = "";
 
     try {
-      onAnswer?.(savedAnswer, {});
+      onAnswer?.(savedAnswer, meta);
     } catch {
       /* no-op */
+    } finally {
+      isSubmittingRef.current = false;
     }
 
     setTranscript("");
     setInterimText("");
+    activeRef.current = false;
+    setState("idle");
+    stateRef.current = "idle";
+    setVoiceState("done");
   }, [onAnswer]);
 
   const scheduleAfterSpeechSilence = useCallback(
@@ -468,11 +610,20 @@ export function useVoiceAI({
         if (remainingMs <= 0) {
           afterSpeechSilenceRef.current = null;
           setSilenceCountdown(0);
-          // Safety: if browser STT still has interim (partial) text,
-          // the user is mid-sentence — do NOT submit yet, reschedule.
+          // Rescue any interim text directly into final text when silence window completes
           if (interimRef.current && interimRef.current.trim().length > 0) {
-            console.log("[useVoiceAI] Interim text detected, deferring auto-submit");
-            scheduleAfterSpeechSilence(2000); // re-check in 2s
+            const rescued = (finalTextRef.current + " " + interimRef.current).trim();
+            finalTextRef.current =
+              rescued.length > MAX_TRANSCRIPT_LENGTH
+                ? rescued.slice(-MAX_TRANSCRIPT_LENGTH)
+                : rescued;
+            interimRef.current = "";
+            setTranscript(finalTextRef.current);
+            setInterimText("");
+          }
+          if (isPausedRef.current) {
+            // Interview is paused — reschedule instead of auto-submitting
+            afterSpeechSilenceRef.current = setTimeout(tick, 500);
             return;
           }
           if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
@@ -496,12 +647,195 @@ export function useVoiceAI({
   // captured epoch matches the current one.
   const recognitionEpochRef = useRef(0);
 
+  const startWhisperFallback = useCallback(async () => {
+    const sessionEpoch = voiceSessionEpochRef.current;
+    if (typeof window === "undefined" || !window.MediaRecorder) {
+      setErrorMessage(
+        "Speech recognition is not available in this browser. Please use Chrome or Edge.",
+      );
+      activeRef.current = false;
+      setState("error");
+      stateRef.current = "error";
+      return;
+    }
+
+    console.log("[useVoiceAI] Browser SpeechRecognition unavailable/failed — activating Groq Whisper audio recorder fallback");
+    // Invalidate any browser recognition instance before taking over audio capture.
+    recognitionEpochRef.current += 1;
+    if (browserRecognitionRef.current) {
+      const recognition = browserRecognitionRef.current;
+      recognition.onstart = null;
+      recognition.onaudiostart = null;
+      recognition.onspeechstart = null;
+      recognition.onresult = null;
+      recognition.onerror = null;
+      recognition.onend = null;
+      try {
+        recognition.abort();
+      } catch {
+        /* no-op */
+      }
+      browserRecognitionRef.current = null;
+    }
+    setConnectionMode("whisper");
+    setState("listening");
+    stateRef.current = "listening";
+    activeRef.current = true;
+
+    try {
+      const existingStream = streamRef.current;
+      const stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) {
+        if (!existingStream) stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      streamRef.current = stream;
+      setInputStreamState(stream);
+
+      const chunks = [];
+      const mimeType = window.MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : window.MediaRecorder.isTypeSupported("audio/webm")
+          ? "audio/webm"
+          : "audio/mp4";
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      // Silence auto-submit for Whisper fallback mode based on visualizer audio level
+      let whisperHasSpoken = false;
+      let whisperSilenceMs = 0;
+      const whisperSilenceInterval = setInterval(() => {
+        if (!activeRef.current || stateRef.current !== "listening" || processRecorderOnStopRef.current) {
+          clearInterval(whisperSilenceInterval);
+          return;
+        }
+
+        const level = inputLevelRef.current || 0;
+        if (level > 0.04) {
+          whisperHasSpoken = true;
+          whisperSilenceMs = 0;
+        } else if (whisperHasSpoken) {
+          whisperSilenceMs += 300;
+          const postSpeechMs = getModeConfig(pacingModeRef.current).postSpeechSubmitMs;
+          if (whisperSilenceMs >= postSpeechMs) {
+            clearInterval(whisperSilenceInterval);
+            console.log("[useVoiceAI] Whisper auto-submitting after user speech pause");
+            submitAnswer();
+          }
+        }
+      }, 300);
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        mediaRecorderRef.current = null;
+        if (voiceSessionEpochRef.current !== sessionEpoch) return;
+        if (!processRecorderOnStopRef.current) {
+          activeRef.current = false;
+          setState("idle");
+          stateRef.current = "idle";
+          return;
+        }
+        processRecorderOnStopRef.current = false;
+        if (chunks.length === 0) {
+          activeRef.current = false;
+          setErrorMessage("No audio was captured. Check your microphone and try again.");
+          setState("error");
+          stateRef.current = "error";
+          return;
+        }
+        const audioBlob = new Blob(chunks, { type: mimeType });
+        if (audioBlob.size < 500) {
+          activeRef.current = false;
+          setErrorMessage("We couldn't hear a clear recording. Please try speaking again.");
+          setState("error");
+          stateRef.current = "error";
+          return;
+        }
+
+        setState("processing");
+        stateRef.current = "processing";
+        pendingWhisperBlobRef.current = audioBlob;
+        try {
+          const formData = new FormData();
+          const extension = mimeType.includes("mp4") ? "mp4" : "webm";
+          formData.append("audio", audioBlob, `recording.${extension}`);
+          const res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+            method: "POST",
+            body: formData,
+          });
+          if (!res.ok) throw await transcriptionHttpError(res);
+          const data = await res.json();
+          if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
+          const transcribed = (data.transcript || data.text || "").trim();
+          if (transcribed && transcribed.length >= MIN_ANSWER_LENGTH) {
+            pendingWhisperBlobRef.current = null;
+            setFinalTranscript(transcribed);
+            setTranscript(transcribed);
+            setInterimText("");
+            transcriptListener?.(transcribed);
+            onAnswer?.(transcribed, {});
+          } else {
+            setErrorMessage(
+              data.fallback
+                ? "Speech transcription is temporarily unavailable. Your recording is kept in this session; retry transcription or record your answer again."
+                : "We couldn't recognize that answer. Your recording is kept in this session; try speaking again.",
+            );
+            setState("error");
+            stateRef.current = "error";
+          }
+        } catch (err) {
+          if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
+          console.warn("[useVoiceAI] Whisper fallback STT failed:", err);
+          setErrorMessage(withSavedRecordingMessage(transcriptionNetworkError(err)));
+          setState("error");
+          stateRef.current = "error";
+        } finally {
+          if (voiceSessionEpochRef.current === sessionEpoch) {
+            activeRef.current = false;
+            if (stateRef.current !== "error") {
+              setState("idle");
+              stateRef.current = "idle";
+            }
+          }
+        }
+      };
+
+      mediaRecorder.start(1000);
+      console.log("[useVoiceAI] ✓ Groq Whisper media recorder active");
+
+      // Start silence timers for Whisper mode
+      clearMaxWait();
+      clearTotalSilenceTimer();
+      maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
+      // Do not stop a buffered recording just because the candidate is thinking.
+      // They can finish explicitly; speech-triggered silence timing is available
+      // in browser recognition mode.
+    } catch (mediaErr) {
+      if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
+      console.error("[useVoiceAI] Failed to start MediaRecorder fallback:", mediaErr);
+      setErrorMessage("Microphone access failed. Please check permissions.");
+      setState("error");
+      stateRef.current = "error";
+      activeRef.current = false;
+    }
+  }, [onAnswer, submitAnswer, transcriptListener]);
+
   const start = useCallback(async () => {
-    if (activeRef.current) return;
+    // Only skip if already actively listening
+    if (activeRef.current && stateRef.current === "listening") {
+      return;
+    }
+    voiceSessionEpochRef.current += 1;
+    pendingWhisperBlobRef.current = null;
+    activeRef.current = true;
+    setState("listening");
+    stateRef.current = "listening";
 
     setErrorMessage(null);
-    // Don't set state to "listening" yet — wait until recognition actually starts.
-    // This prevents the UI from showing "listening" when recognition hasn't initialized.
     finalTextRef.current = "";
     interimRef.current = "";
     setTranscript("");
@@ -542,28 +876,43 @@ export function useVoiceAI({
     console.log("[useVoiceAI] Starting voice recording... (epoch", epoch, ")");
 
     try {
-      // Request mic stream for visualizer WITHOUT aggressive echo-cancellation,
-      // noise suppression, or locked sample rates that compete with and mute
-      // SpeechRecognition's own audio pipeline.
+      // Manage visualizer stream non-blockingly without destroying existing live tracks
+      // and with standard audio processing so microphone volume is not muted on Windows.
       try {
-        if (streamRef.current) {
-          streamRef.current.getTracks().forEach((t) => t.stop());
-          streamRef.current = null;
+        const isStreamActive =
+          streamRef.current &&
+          streamRef.current.getAudioTracks().some((t) => t.readyState === "live");
+        if (!isStreamActive && navigator.mediaDevices?.getUserMedia) {
+          navigator.mediaDevices
+            .getUserMedia({
+              audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+              },
+            })
+            .then((stream) => {
+              if (recognitionEpochRef.current === epoch && activeRef.current) {
+                streamRef.current = stream;
+                setInputStreamState(stream);
+                console.log("[useVoiceAI] ✓ Visualizer microphone stream acquired");
+              } else {
+                stream.getTracks().forEach((t) => t.stop());
+              }
+            })
+            .catch((streamErr) => {
+              console.warn(
+                "[useVoiceAI] Visualizer microphone stream unavailable:",
+                streamErr,
+              );
+            });
+        } else if (isStreamActive) {
+          setInputStreamState(streamRef.current);
         }
-        console.log("[useVoiceAI] Requesting microphone stream for visualizer...");
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false,
-          },
-        });
-        streamRef.current = stream;
-        console.log("[useVoiceAI] ✓ Visualizer microphone stream acquired");
-        setInputStreamState(stream);
       } catch (streamErr) {
-        console.warn("[useVoiceAI] Visualizer microphone stream unavailable:", streamErr);
+        console.warn("[useVoiceAI] Visualizer setup exception:", streamErr);
       }
+
       activeRef.current = true;
       noSpeechCountRef.current = 0;
       listenStartRef.current = Date.now();
@@ -573,204 +922,241 @@ export function useVoiceAI({
       if (SpeechRecognition) {
         console.log("[useVoiceAI] Using browser SpeechRecognition");
         setConnectionMode("browser");
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        const browserLang = (typeof navigator !== "undefined" && navigator.language) || "";
-        recognition.lang = browserLang.startsWith("en") ? browserLang : "en-US";
-        recognition.maxAlternatives = 1;
 
-        // Confirm recognition has actually started before setting state
-        recognition.onstart = () => {
-          if (recognitionEpochRef.current !== epoch) return;
-          console.log("[useVoiceAI] ✓ SpeechRecognition onstart fired (epoch", epoch, ")");
-          setState("listening");
-
-          // Start silence/max-wait timers ONLY after recognition is confirmed active.
-          // This prevents premature auto-submit when recognition takes time to initialize.
-          clearMaxWait();
-          clearTotalSilenceTimer();
-          maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
-          totalSilenceTimerRef.current = setTimeout(() => {
-            console.log(
-              "[useVoiceAI] 15 seconds of total silence (no speech detected), auto-submitting",
-            );
-            submitAnswer();
-          }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
+        const getRecognitionLocale = () => {
+          if (typeof navigator === "undefined") return "en-US";
+          const lang =
+            navigator.language ||
+            (navigator.languages && navigator.languages[0]) ||
+            "en-US";
+          // If browser has an English regional tag (en-US, en-IN, en-GB, etc.), use it
+          if (/^en[-_]/i.test(lang)) {
+            return lang.replace("_", "-");
+          }
+          return "en-US";
         };
 
-        recognition.onaudiostart = () => {
-          if (recognitionEpochRef.current !== epoch) return;
-          console.log("[useVoiceAI] ✓ Audio capture started (epoch", epoch, ")");
-        };
+        const createAndStartRecognition = () => {
+          if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
 
-        // When the browser actually detects speech, clear no-speech counter
-        recognition.onspeechstart = () => {
-          if (recognitionEpochRef.current !== epoch) return;
-          noSpeechCountRef.current = 0;
-          console.log("[useVoiceAI] ✓ Speech detected by browser (epoch", epoch, ")");
-        };
-
-        recognition.onresult = (event) => {
-          if (!activeRef.current) return;
-          let interim = "";
-          let finalText = "";
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
-            const result = event.results[i];
-            if (result.isFinal) {
-              finalText += result[0].transcript;
-            } else if (result[0]?.transcript) {
-              interim += result[0].transcript;
+          // Detach and abort old instance before creating a fresh one
+          if (browserRecognitionRef.current) {
+            try {
+              browserRecognitionRef.current.onstart = null;
+              browserRecognitionRef.current.onaudiostart = null;
+              browserRecognitionRef.current.onspeechstart = null;
+              browserRecognitionRef.current.onresult = null;
+              browserRecognitionRef.current.onerror = null;
+              browserRecognitionRef.current.onend = null;
+              browserRecognitionRef.current.abort();
+            } catch {
+              /* no-op */
             }
+            browserRecognitionRef.current = null;
           }
-          if (interim || finalText) {
-            console.log("[useVoiceAI] Speech result:", { interim, finalText });
-          }
-          if (finalText) {
-            const appended = (finalTextRef.current + " " + finalText).trim();
-            finalTextRef.current =
-              appended.length > MAX_TRANSCRIPT_LENGTH
-                ? appended.slice(-MAX_TRANSCRIPT_LENGTH)
-                : appended;
-            interimRef.current = "";
-            setTranscript(finalTextRef.current);
-            setInterimText("");
-            transcriptListener?.(finalTextRef.current);
-            clearTotalSilenceTimer();
-            clearAfterSpeechSilence();
 
-            const postMs = getPostSpeechAutoSubmitMs(
-              finalTextRef.current.trim().length,
-            );
-            scheduleAfterSpeechSilence(postMs);
-          }
-          if (interim) {
-            interimRef.current = interim;
-            setInterimText(interim);
-            const combined = (finalTextRef.current + " " + interim).trim();
-            transcriptListener?.(combined);
-            clearTotalSilenceTimer();
-            clearAfterSpeechSilence();
-          }
-        };
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = getRecognitionLocale();
+          recognition.maxAlternatives = 1;
+          browserRecognitionRef.current = recognition;
 
-        recognition.onerror = (event) => {
-          if (event.error === "no-speech") {
-            // no-speech fires when the mic is open but no voice is detected.
-            // After several consecutive no-speech errors, force-refresh the mic
-            // stream — the old stream may have stale echo-cancellation state
-            // that is silently suppressing all user audio.
-            noSpeechCountRef.current++;
-            console.log(
-              `[useVoiceAI] no-speech error #${noSpeechCountRef.current} (epoch ${epoch})`,
-            );
-            if (noSpeechCountRef.current >= MAX_NO_SPEECH_BEFORE_REFRESH) {
-              console.warn(
-                "[useVoiceAI] Too many no-speech errors — refreshing mic stream",
+          recognition.onstart = () => {
+            if (recognitionEpochRef.current !== epoch) return;
+            console.log("[useVoiceAI] ✓ SpeechRecognition onstart fired (epoch", epoch, ")");
+            setState("listening");
+            setVoiceState("listening");
+
+            // Start silence/max-wait timers ONLY after recognition is confirmed active.
+            clearMaxWait();
+            clearTotalSilenceTimer();
+            maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
+            totalSilenceTimerRef.current = setTimeout(() => {
+              console.log(
+                "[useVoiceAI] 15 seconds of total silence (no speech detected), auto-submitting",
               );
-              noSpeechCountRef.current = 0;
-              // Stop current recognition, refresh mic, and restart
-              activeRef.current = false;
-              try { recognition.stop(); } catch { /* no-op */ }
-              browserRecognitionRef.current = null;
-              // Re-start with a fresh stream after a brief delay
-              setTimeout(() => {
-                if (recognitionEpochRef.current === epoch && stateRef.current !== "error") {
-                  activeRef.current = false; // allow start() guard to pass
-                  start();
-                }
-              }, 500);
-            }
-            return;
-          }
-          console.warn("[useVoiceAI] Browser STT error:", event.error);
-          if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-            setErrorMessage(
-              "Microphone access was denied. Please allow microphone access in your browser settings and try again.",
-            );
-            activeRef.current = false;
-            setState("error");
-          } else if (event.error === "audio-capture") {
-            // Audio capture failed — mic may be in use by another app
-            console.warn("[useVoiceAI] Audio capture error — mic may be unavailable");
-            setErrorMessage(
-              "Could not capture audio. Please check that your microphone is not in use by another app.",
-            );
-            activeRef.current = false;
-            setState("error");
-          }
-        };
+              submitAnswer();
+            }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
+          };
 
-        recognition.onend = () => {
-          // CRITICAL: Check epoch to prevent ghost-restarts.
-          // If epoch has changed, a newer recognition instance exists —
-          // this old instance must NOT restart itself.
-          if (recognitionEpochRef.current !== epoch) {
-            console.log("[useVoiceAI] Stale recognition onend (epoch", epoch, "vs current", recognitionEpochRef.current, ") — not restarting");
-            return;
-          }
-          if (activeRef.current && stateRef.current !== "error") {
-            // Rescue any pending interim text as final before restarting.
-            // When recognition restarts, the previous session's pending
-            // interim results are lost — this saves them.
-            if (interimRef.current && interimRef.current.trim()) {
-              const rescued = (finalTextRef.current + " " + interimRef.current).trim();
+          recognition.onaudiostart = () => {
+            if (recognitionEpochRef.current !== epoch) return;
+            console.log("[useVoiceAI] ✓ Audio capture started (epoch", epoch, ")");
+          };
+
+          recognition.onspeechstart = () => {
+            if (recognitionEpochRef.current !== epoch) return;
+            noSpeechCountRef.current = 0;
+            console.log("[useVoiceAI] ✓ Speech detected by browser (epoch", epoch, ")");
+          };
+
+          recognition.onresult = (event) => {
+            if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
+            let interim = "";
+            let finalText = "";
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+              const result = event.results[i];
+              if (result.isFinal) {
+                finalText += result[0].transcript;
+              } else if (result[0]?.transcript) {
+                interim += result[0].transcript;
+              }
+            }
+            if (interim || finalText) {
+              networkErrorCountRef.current = 0;
+              console.log("[useVoiceAI] Speech result:", { interim, finalText });
+            }
+            if (finalText) {
+              const appended = (finalTextRef.current + " " + finalText).trim();
               finalTextRef.current =
-                rescued.length > MAX_TRANSCRIPT_LENGTH
-                  ? rescued.slice(-MAX_TRANSCRIPT_LENGTH)
-                  : rescued;
+                appended.length > MAX_TRANSCRIPT_LENGTH
+                  ? appended.slice(-MAX_TRANSCRIPT_LENGTH)
+                  : appended;
               interimRef.current = "";
               setTranscript(finalTextRef.current);
               setInterimText("");
-              console.log("[useVoiceAI] Rescued interim text on recognition restart");
+              transcriptListener?.(finalTextRef.current);
             }
-            
-            // Add a small delay to avoid tight loop on persistent audio-capture errors
-            setTimeout(() => {
-              if (activeRef.current && recognitionEpochRef.current === epoch) {
-                try {
-                  recognition.start();
-                } catch {
-                  /* already started */
-                }
-              }
-            }, 300);
-          }
-        };
+            if (interim) {
+              interimRef.current = interim;
+              setInterimText(interim);
+              const combined = (finalTextRef.current + " " + interim).trim();
+              transcriptListener?.(combined);
+            }
+            const currentTotal = (finalTextRef.current + " " + (interimRef.current || "")).trim();
+            if (currentTotal.length >= MIN_ANSWER_LENGTH) {
+              clearTotalSilenceTimer();
+              clearAfterSpeechSilence();
 
-        const attemptStart = (retries = 5, delayMs = 400) => {
-          if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
-          try {
-            recognition.start();
-            browserRecognitionRef.current = recognition;
-            console.log("[useVoiceAI] ✓ Browser SpeechRecognition.start() called");
-          } catch (e) {
-            console.warn(`[useVoiceAI] Browser STT start failed (retries left: ${retries}):`, e);
-            // Always store the ref so stop() can clean it up
-            browserRecognitionRef.current = recognition;
-            if (retries > 0) {
-              setTimeout(() => attemptStart(retries - 1, Math.min(delayMs * 1.5, 2000)), delayMs);
-            } else {
-              // All retries exhausted
-              console.error("[useVoiceAI] Browser STT failed after all retries");
+              const modeConfig = getModeConfig(pacingModeRef.current);
+
+              // Terminal filler phrase check: give think time extension
+              if (detectTerminalFiller(currentTotal)) {
+                setIsThinking(true);
+                setVoiceState("thinking");
+                logInterviewTelemetry("filler_detected", { transcript: currentTotal });
+                scheduleAfterSpeechSilence(modeConfig.fillerExtensionMs);
+                return;
+              }
+
+              setIsThinking(false);
+              setVoiceState("countdown");
+              scheduleAfterSpeechSilence(modeConfig.postSpeechSubmitMs);
+            }
+          };
+
+          recognition.onerror = (event) => {
+            if (recognitionEpochRef.current !== epoch) return;
+
+            // 'no-speech' is normal when candidate is thinking or waiting.
+            // NEVER switch to Whisper on no-speech; onend will restart recognition automatically.
+            if (event.error === "no-speech") {
+              return;
+            }
+
+            if (event.error === "aborted") {
+              return;
+            }
+
+            console.warn("[useVoiceAI] Browser STT error:", event.error);
+
+            if (event.error === "not-allowed" || event.error === "service-not-allowed") {
               setErrorMessage(
-                "Speech recognition failed to start. Please refresh the page and try again.",
+                "Microphone access was denied. Please allow microphone access in your browser settings and try again.",
               );
               activeRef.current = false;
               setState("error");
+              return;
+            }
+
+            if (event.error === "audio-capture") {
+              console.warn("[useVoiceAI] audio-capture error in SpeechRecognition, falling back to Groq Whisper");
+              if (window.MediaRecorder) {
+                startWhisperFallback();
+                return;
+              }
+              setErrorMessage(
+                "Could not capture audio. Please check that your microphone is not in use by another app.",
+              );
+              activeRef.current = false;
+              setState("error");
+              return;
+            }
+
+            if (event.error === "network") {
+              networkErrorCountRef.current = (networkErrorCountRef.current || 0) + 1;
+              console.warn(`[useVoiceAI] SpeechRecognition network error (attempt ${networkErrorCountRef.current})`);
+              // Retry browser SpeechRecognition first before falling back to Whisper
+              if (networkErrorCountRef.current <= 2) {
+                return; // onend will restart SpeechRecognition
+              }
+              if (window.MediaRecorder) {
+                console.warn("[useVoiceAI] Persistent network error in SpeechRecognition, falling back to Groq Whisper");
+                startWhisperFallback();
+                return;
+              }
+            }
+          };
+
+          recognition.onend = () => {
+            // CRITICAL: Check epoch to prevent ghost-restarts.
+            if (recognitionEpochRef.current !== epoch) {
+              console.log("[useVoiceAI] Stale recognition onend (epoch", epoch, "vs current", recognitionEpochRef.current, ") — not restarting");
+              return;
+            }
+            if (activeRef.current && stateRef.current !== "error" && stateRef.current !== "processing") {
+              // Rescue any pending interim text as final before restarting
+              if (interimRef.current && interimRef.current.trim()) {
+                const rescued = (finalTextRef.current + " " + interimRef.current).trim();
+                finalTextRef.current =
+                  rescued.length > MAX_TRANSCRIPT_LENGTH
+                    ? rescued.slice(-MAX_TRANSCRIPT_LENGTH)
+                    : rescued;
+                interimRef.current = "";
+                setTranscript(finalTextRef.current);
+                setInterimText("");
+                transcriptListener?.(finalTextRef.current);
+                console.log("[useVoiceAI] Rescued interim text on recognition restart:", finalTextRef.current);
+              }
+
+              // Create a fresh instance on restart to continue listening.
+              // Cancel any lingering speechSynthesis that could block mic capture.
+              if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+              setTimeout(() => {
+                if (activeRef.current && recognitionEpochRef.current === epoch && stateRef.current !== "error" && stateRef.current !== "processing") {
+                  createAndStartRecognition();
+                }
+              }, 50);
+            }
+          };
+
+          try {
+            recognition.start();
+            console.log("[useVoiceAI] ✓ Browser SpeechRecognition.start() called (epoch", epoch, ")");
+          } catch (e) {
+            console.warn("[useVoiceAI] Browser STT start failed:", e);
+            if (activeRef.current && recognitionEpochRef.current === epoch && stateRef.current !== "error") {
+              setTimeout(() => {
+                if (activeRef.current && recognitionEpochRef.current === epoch && stateRef.current !== "error") {
+                  createAndStartRecognition();
+                }
+              }, 400);
             }
           }
         };
-        // Wait a small extra delay before starting recognition to let the audio
-        // system settle after TTS/speechSynthesis playback
+
+        // Start recognition with small settling delay
         setTimeout(() => {
           if (activeRef.current && recognitionEpochRef.current === epoch) {
-            attemptStart();
+            createAndStartRecognition();
           }
-        }, 150);
+        }, 120);
+      } else if (typeof window !== "undefined" && window.MediaRecorder) {
+        startWhisperFallback();
       } else {
         console.warn(
-          "[useVoiceAI] No STT available (no browser SpeechRecognition)",
+          "[useVoiceAI] No STT available (neither SpeechRecognition nor MediaRecorder)",
         );
         setErrorMessage(
           "Speech recognition is not available in this browser. Please use Chrome or Edge.",
@@ -779,10 +1165,9 @@ export function useVoiceAI({
         setState("error");
       }
 
-      // Start max-wait timer immediately as a safety net.
-      // The total silence timer is started in recognition.onstart after
-      // recognition is confirmed active.
-      maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
+      // Max-wait timer is set inside recognition.onstart (or Whisper's start)
+      // so we do NOT duplicate it here — a second timer would race and could
+      // fire before recognition even begins.
 
       startBackchannelSchedule();
     } catch (err) {
@@ -797,9 +1182,11 @@ export function useVoiceAI({
       setState("error");
       activeRef.current = false;
     }
-  }, [submitAnswer, startBackchannelSchedule, scheduleAfterSpeechSilence]);
+  }, [submitAnswer, startBackchannelSchedule, scheduleAfterSpeechSilence, startWhisperFallback]);
 
   const stop = useCallback(() => {
+    voiceSessionEpochRef.current += 1;
+    recognitionEpochRef.current += 1;
     activeRef.current = false;
     clearSilenceTimer();
     clearMaxWait();
@@ -821,6 +1208,23 @@ export function useVoiceAI({
         /* no-op */
       }
       browserRecognitionRef.current = null;
+    }
+
+    if (mediaRecorderRef.current) {
+      processRecorderOnStopRef.current = false;
+      try {
+        if (mediaRecorderRef.current.state !== "inactive") {
+          mediaRecorderRef.current.stop();
+        }
+      } catch {
+        /* no-op */
+      }
+      mediaRecorderRef.current = null;
+    }
+
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     }
 
     setState("idle");
@@ -866,6 +1270,16 @@ export function useVoiceAI({
         interruptTimerRef.current = null;
       }
       setInterruptDetected(false);
+      return;
+    }
+
+    // Ignore interrupts during the initial playback grace window to prevent laptop speaker echo feedback
+    const elapsedSpeaking = Date.now() - speakingStartedAtRef.current;
+    if (elapsedSpeaking < INTERRUPT_GRACE_PERIOD_MS) {
+      if (interruptTimerRef.current) {
+        clearTimeout(interruptTimerRef.current);
+        interruptTimerRef.current = null;
+      }
       return;
     }
 
@@ -1125,6 +1539,7 @@ export function useVoiceAI({
             guardMs: TTS_PLAYBACK_GUARD_MS,
             onStartCb: () => {
               // Browser speech actually started — now activate speaking state
+              speakingStartedAtRef.current = Date.now();
               setState("speaking");
               onStart?.();
             },
@@ -1143,14 +1558,21 @@ export function useVoiceAI({
 
           if (!audioRef.current) audioRef.current = new Audio();
           audioRef.current.src = url;
+          // Smooth volume ramp to eliminate speaker pop/click transients
+          audioRef.current.volume = 0.2;
           setOutputAudioEl(audioRef.current);
 
           try {
             console.log("[useVoiceAI] Starting audio playback...");
             await audioRef.current.play();
+            setTimeout(() => {
+              if (audioRef.current) audioRef.current.volume = 1.0;
+            }, 50);
             console.log("[useVoiceAI] ✓ Audio playback started");
             // Audio is actually playing now — activate speaking state + lip-sync
+            speakingStartedAtRef.current = Date.now();
             setState("speaking");
+            setVoiceState("asking");
             onStart?.();
           } catch (playError) {
             console.error("[useVoiceAI] Audio playback failed:", playError);
@@ -1166,6 +1588,7 @@ export function useVoiceAI({
                 controller,
                 guardMs: TTS_PLAYBACK_GUARD_MS,
                 onStartCb: () => {
+                  speakingStartedAtRef.current = Date.now();
                   setState("speaking");
                   onStart?.();
                 },
@@ -1299,6 +1722,55 @@ export function useVoiceAI({
     [personaGender, resolveAuthHeaders],
   );
 
+  const retryTranscription = useCallback(async () => {
+    const audioBlob = pendingWhisperBlobRef.current;
+    if (!audioBlob || activeRef.current) return false;
+
+    const sessionEpoch = ++voiceSessionEpochRef.current;
+    activeRef.current = true;
+    setErrorMessage(null);
+    setState("processing");
+    stateRef.current = "processing";
+
+    try {
+      const formData = new FormData();
+      const extension = audioBlob.type.includes("mp4") ? "mp4" : "webm";
+      formData.append("audio", audioBlob, `recording.${extension}`);
+      const res = await authFetch(buildVoiceApiUrl("/voice/stt-chunk"), {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw await transcriptionHttpError(res);
+      const data = await res.json();
+      if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return false;
+
+      const transcribed = (data.transcript || data.text || "").trim();
+      if (!transcribed || transcribed.length < MIN_ANSWER_LENGTH) {
+        throw new Error(data.fallback
+          ? "Speech transcription is temporarily unavailable. Your recording is kept in this session; retry transcription or record your answer again."
+          : "We couldn't recognize that answer. Your recording is kept in this session; try speaking again.");
+      }
+
+      pendingWhisperBlobRef.current = null;
+      setFinalTranscript(transcribed);
+      setTranscript(transcribed);
+      setInterimText("");
+      transcriptListener?.(transcribed);
+      onAnswer?.(transcribed, {});
+      setState("idle");
+      stateRef.current = "idle";
+      activeRef.current = false;
+      return true;
+    } catch (error) {
+      if (voiceSessionEpochRef.current !== sessionEpoch) return false;
+      setErrorMessage(withSavedRecordingMessage(transcriptionNetworkError(error)));
+      setState("error");
+      stateRef.current = "error";
+      activeRef.current = false;
+      return false;
+    }
+  }, [onAnswer, transcriptListener]);
+
   const cleanup = useCallback(() => {
     stop();
     interrupt();
@@ -1325,8 +1797,15 @@ export function useVoiceAI({
     connectionMode,
     connectionHealth,
     silenceCountdown,
+    voiceState,
+    micWarning,
+    isThinking,
+    isSubmitting: isSubmittingRef.current,
     start,
     stop,
+    submitAnswer,
+    retryTranscription,
+    hasPendingTranscription: Boolean(pendingWhisperBlobRef.current),
     interrupt,
     speak,
     prefetch,
@@ -1355,6 +1834,8 @@ export function useVoiceAI({
     silenceCountdown,
     start,
     stop,
+    submitAnswer,
+    retryTranscription,
     interrupt,
     speak,
     prefetch,

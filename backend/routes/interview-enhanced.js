@@ -32,6 +32,92 @@ router.get('/analytics/advanced', authenticateToken, async (req, res) => {
  * Get real-time feedback as user answers
  * Provides instant analysis with strengths/improvements
  */
+// ==================== ENHANCED V2 INTERVIEW RUNTIME ====================
+router.post('/start', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'technical', difficulty = 'medium', duration = 30 } = req.body || {};
+    const normalizedType = ['technical', 'behavioral', 'system-design', 'coding'].includes(type) ? type : 'technical';
+    const normalizedDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium';
+
+    const fallbackList = getAdaptiveFallbackQuestions(normalizedType, normalizedDiff);
+    const questions = fallbackList.slice(0, 5);
+
+    res.json({
+      success: true,
+      questions,
+      type: normalizedType,
+      difficulty: normalizedDiff,
+      duration,
+      status: 'started'
+    });
+  } catch (error) {
+    console.error('Error starting enhanced interview:', error);
+    res.status(500).json({ error: 'Failed to start interview' });
+  }
+});
+
+router.post('/next-question', authenticateToken, async (req, res) => {
+  try {
+    const { type = 'technical', difficulty = 'medium', previousResponses = [] } = req.body || {};
+    const normalizedType = ['technical', 'behavioral', 'system-design', 'coding'].includes(type) ? type : 'technical';
+    const normalizedDiff = ['easy', 'medium', 'hard'].includes(difficulty) ? difficulty : 'medium';
+
+    const performanceAnalysis = analyzeUserPerformance([], previousResponses);
+    let nextDifficulty = normalizedDiff;
+    if (performanceAnalysis.accuracy > 0.8 && normalizedDiff !== 'hard') {
+      nextDifficulty = 'medium';
+    } else if (performanceAnalysis.accuracy < 0.5 && normalizedDiff !== 'easy') {
+      nextDifficulty = 'easy';
+    } else if (performanceAnalysis.accuracy > 0.9 && normalizedDiff === 'hard') {
+      nextDifficulty = 'hard';
+    }
+
+    if (groq) {
+      try {
+        const completion = await aiCallWithRetry({
+          operation: () => groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              {
+                role: 'system',
+                content: `You are an expert interviewer creating adaptive questions based on user's performance. 
+User's recent performance: ${JSON.stringify(performanceAnalysis)}.
+Generate a ${nextDifficulty} ${normalizedType} interview question appropriate for their skill level.
+Also provide a brief "context" or hint for the interviewer.
+Respond ONLY with valid JSON with "question" and "context" fields.`
+              },
+              {
+                role: 'user',
+                content: `Generate an adaptive ${normalizedType} question for difficulty: ${nextDifficulty}`
+              }
+            ],
+            response_format: { type: 'json_object' }
+          }),
+          timeoutMs: 12000,
+          maxRetries: 1,
+          baseDelayMs: 250
+        });
+
+        const raw = (completion.choices?.[0]?.message?.content || '').trim();
+        const clean = raw.replace(/^`[a-z]*\n?/i, '').replace(/\n?`$/i, '');
+        const parsed = JSON.parse(clean.trim());
+        if (parsed?.question) {
+          return res.json({ question: parsed, adaptiveDifficulty: nextDifficulty });
+        }
+      } catch (err) {
+        console.warn('AI next-question generation fallback:', err.message);
+      }
+    }
+
+    const fallbackQuestions = getAdaptiveFallbackQuestions(normalizedType, nextDifficulty, performanceAnalysis);
+    const randomQuestion = fallbackQuestions[crypto.randomInt(fallbackQuestions.length)];
+    res.json({ question: randomQuestion, adaptiveDifficulty: nextDifficulty });
+  } catch (error) {
+    console.error('Error getting next question:', error);
+    res.status(500).json({ error: 'Failed to get next question' });
+  }
+});
+
 router.post('/feedback/realtime', authenticateToken, async (req, res) => {
   try {
     const { question, answer, type, difficulty } = req.body;

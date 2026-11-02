@@ -44,13 +44,22 @@ function InterviewResults({
         : null;
     const firstImprovement = ensureArray(a?.improvements)[0];
 
+    const startFocusedPractice = (focus) => {
+        const params = new URLSearchParams();
+        if (focus) params.set('focus', focus);
+        const query = params.toString();
+        navigate(`/ai-interview${query ? `?${query}` : ''}`);
+    };
+
     const showActionMessage = (message) => {
         setActionMessage(message);
         window.setTimeout(() => setActionMessage(''), 3500);
     };
 
     const handleShare = async () => {
-        const shareText = `I scored ${a?.overallScore || '—'}/10 in my ${interviewType} interview practice session.`;
+        const shareText = a?.analysisUnavailable
+            ? `I completed a ${interviewType} interview practice session on PrepLoop. The transcript is ready to review.`
+            : `I scored ${a?.overallScore ?? '—'}/10 in my ${interviewType} interview practice session.`;
         try {
             if (navigator.share) {
                 await navigator.share({ title: 'My PrepLoop interview result', text: shareText });
@@ -177,7 +186,7 @@ function InterviewResults({
                             </svg>
                             <div className="ai-result-score-value">
                                 <span className="ai-result-score-num" style={{ color: a?.performanceColor }}>{a?.overallScore || '—'}</span>
-                                <span className="ai-result-score-of">/10</span>
+                            <span className="ai-result-score-of">{a?.analysisUnavailable ? 'Not scored' : '/10'}</span>
                             </div>
                         </div>
                         <div className="ai-result-verdict" style={{ background: `${a?.performanceColor}18`, color: a?.performanceColor, borderColor: `${a?.performanceColor}40` }}>
@@ -201,9 +210,23 @@ function InterviewResults({
                 {a?.summary && (
                     <div className="ai-results-summary-card">
                         <div className="ai-results-summary-header">
-                            <Brain size={14} className="ai-results-summary-icon" /> AI Summary
+                            <Brain size={14} className="ai-results-summary-icon" /> {a.analysisUnavailable ? 'Session review' : 'AI Summary'}
                         </div>
                         {a.summary}
+                    </div>
+                )}
+
+                {a?.analysisUnavailable && (
+                    <div className="ai-results-focus-card" role="status">
+                        <div className="ai-results-focus-icon"><Target size={18} /></div>
+                        <div className="ai-results-focus-content">
+                            <div className="ai-results-focus-label">Keep your practice moving</div>
+                            <h2>Review your answers, then try another {interviewType} round</h2>
+                            <p>Your transcript is available below. This session has no AI score or competency feedback.</p>
+                        </div>
+                        <button type="button" className="ai-result-focus-btn" onClick={() => startFocusedPractice(interviewType)}>
+                            Practice again <ChevronRight size={14} />
+                        </button>
                     </div>
                 )}
 
@@ -296,8 +319,10 @@ function InterviewResults({
                             {/* Category Scores */}
                             <div className="ai-result-card">
                                 <h3 className="ai-result-card-title"><Target size={16} /> Competency Breakdown</h3>
-                                <div className="ai-result-categories">
-                                    {categories.map((cat, i) => (
+                            <div className="ai-result-categories">
+                                    {categories.length === 0 ? (
+                                        <p className="ai-result-empty-state">No competency scores are available for this session.</p>
+                                    ) : categories.map((cat, i) => (
                                         <div key={i} className="ai-result-cat">
                                             <div className="ai-result-cat-header">
                                                 <div className="ai-result-cat-label">
@@ -319,7 +344,7 @@ function InterviewResults({
                                 <div className="ai-result-card ai-result-card--green">
                                     <h3 className="ai-result-card-title"><ThumbsUp size={16} style={{ color: '#22c55e' }} /> Strengths</h3>
                                     <ul className="ai-result-list">
-                                        {ensureArray(a.strengths).map((s, i) => (
+                                        {ensureArray(a.strengths).length === 0 ? <li>No AI-generated strengths are available.</li> : ensureArray(a.strengths).map((s, i) => (
                                             <li key={i}><CheckCircle size={14} className="ai-result-list-icon ai-result-list-icon--green" /> {s}</li>
                                         ))}
                                     </ul>
@@ -327,7 +352,7 @@ function InterviewResults({
                                 <div className="ai-result-card ai-result-card--amber">
                                     <h3 className="ai-result-card-title"><Lightbulb size={16} style={{ color: '#f59e0b' }} /> Areas to Improve</h3>
                                     <ul className="ai-result-list">
-                                        {ensureArray(a.improvements).map((s, i) => (
+                                        {ensureArray(a.improvements).length === 0 ? <li>No AI-generated improvement suggestions are available.</li> : ensureArray(a.improvements).map((s, i) => (
                                             <li key={i}><AlertTriangle size={14} className="ai-result-list-icon ai-result-list-icon--amber" /> {s}</li>
                                         ))}
                                     </ul>
@@ -340,12 +365,11 @@ function InterviewResults({
                     {resultTab === 'analysis' && a && (
                         <div className="ai-result-analysis">
                             <div className="ai-result-card">
-                                <h3 className="ai-result-card-title"><Brain size={16} /> AI Analysis Summary</h3>
+                                <h3 className="ai-result-card-title"><Brain size={16} /> {a.analysisUnavailable ? 'Session analysis status' : 'AI Analysis Summary'}</h3>
                                 <p className="ai-result-analysis-text">
-                                    Based on your {a.stats.questionsAnswered} questions answered across {a.stats.duration} of interview time,
-                                    here is a detailed breakdown of your performance across each competency area.
-                                    Your strongest area was <strong>{ensureArray(a.categories).length > 0 ? ensureArray(a.categories).reduce((acc, curr) => acc.score > curr.score ? acc : curr).name : 'General'}</strong> with
-                                    a score of {ensureArray(a.categories).length > 0 ? ensureArray(a.categories).reduce((acc, curr) => acc.score > curr.score ? acc : curr).score : (a.overallScore || 0)}/10.
+                                    {a.analysisUnavailable
+                                        ? `AI feedback is unavailable. You completed ${a.stats?.questionsAnswered || 0} answers across ${a.stats?.duration || '—'} of interview time; no competency score was assigned.`
+                                        : <>Based on your {a.stats.questionsAnswered} questions answered across {a.stats.duration} of interview time, here is a detailed breakdown of your performance across each competency area. Your strongest area was <strong>{categories.length > 0 ? categories.reduce((acc, curr) => acc.score > curr.score ? acc : curr).name : 'General'}</strong> with a score of {categories.length > 0 ? categories.reduce((acc, curr) => acc.score > curr.score ? acc : curr).score : (a.overallScore || 0)}/10.</>}
                                 </p>
                             </div>
                             {categories.map((cat, i) => (
@@ -403,9 +427,13 @@ function InterviewResults({
                                                     </div>
                                                 </div>
                                                 <div className="ai-result-analysis-score" style={{
-                                                    color: (q.scoreEstimate || 0) >= 7 ? '#22c55e' : (q.scoreEstimate || 0) >= 5 ? '#f59e0b' : '#ef4444'
+                                                    color: (q.isSkipped || q.status === 'unanswered' || q.scoreEstimate == null)
+                                                        ? '#a1a1aa'
+                                                        : (q.scoreEstimate || 0) >= 7 ? '#22c55e' : (q.scoreEstimate || 0) >= 5 ? '#f59e0b' : '#ef4444'
                                                 }}>
-                                                    {q.scoreEstimate || '—'}/10
+                                                    {(q.isSkipped || q.status === 'unanswered' || q.scoreEstimate == null)
+                                                        ? 'Skipped'
+                                                        : `${q.scoreEstimate || '—'}/10`}
                                                 </div>
                                             </div>
                                         ))}
@@ -573,6 +601,15 @@ function InterviewResults({
 
                 {/* ── Bottom Actions ── */}
                 <div className="ai-result-actions">
+                    {typeof window !== 'undefined' && Boolean(sessionStorage.getItem('multiRoundContext') || sessionStorage.getItem('multiRoundResult')) && (
+                        <button
+                            className="ai-result-cta"
+                            style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff', borderColor: '#8b5cf6' }}
+                            onClick={() => navigate('/multi-round-interview')}
+                        >
+                            <Zap size={16} /> Continue Multi-Round Interview Loop
+                        </button>
+                    )}
                     <button className="ai-result-cta" style={{ background: '#8b5cf6', color: '#fff', borderColor: '#8b5cf6' }} onClick={() => navigate('/improvement-plan')}>
                         <TrendingUp size={16} /> View Improvement Plan
                     </button>

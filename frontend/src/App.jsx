@@ -190,10 +190,10 @@ function AppContent() {
   }, [mobileSidebarOpen]);
 
   // Public pages that don't show sidebar
-  const PUBLIC_PATHS = new Set(['/', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
+  const PUBLIC_PATHS = new Set(['/', '/app', '/login', '/signup', '/pricing', '/blog', '/about', '/contact', '/verify-email', '/check-email', '/privacy', '/terms', '/library', '/payment', '/forgot-password', '/reset-password', '/copilot', '/job-updates']);
   const isPublicPortfolioRoute = location.pathname.startsWith('/u/');
   const isCodeEditorRoute = location.pathname.startsWith('/code-editor') || location.pathname.startsWith('/sql-editor') || location.pathname.startsWith('/dsa-editor');
-  const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview';
+  const isAIInterviewRoute = location.pathname === '/ai-interview' || location.pathname === '/company-interview' || location.pathname === '/app';
   const isVisualizerRoute = location.pathname === '/visualizer';
   const isPlaygroundRoute = location.pathname === '/playground';
 
@@ -301,6 +301,7 @@ function AppContent() {
                 <Route path="/company-prep" element={<CompanyPrep />} />
                 <Route path="/company-interview" element={<AIInterviewPage />} />
                 <Route path="/ai-interview" element={<AIInterviewPage />} />
+                <Route path="/app" element={<AIInterviewPage />} />
                 <Route path="/voice-test" element={<SimpleVoiceTest />} />
                 <Route path="/interview-hub" element={<Navigate to="/interview-suite" replace />} />
                 <Route path="/interview" element={<Navigate to="/interview-suite" replace />} />

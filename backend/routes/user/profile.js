@@ -1,6 +1,6 @@
 import express from "express";
 import { supabaseAdmin } from "../../db/supabaseClient.js";
-import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
+import { authenticateToken, optionalAuth, isAdminEmail } from "../../middleware/auth.js";
 import multer from 'multer';
 import { validateCustomUrl as _validateCustomUrl, buildAvatarPath, claimCustomUrl } from "../../utils/profileUtils.js";
 import _dsaLearningPath, {
@@ -67,7 +67,8 @@ const buildProfileResponse = (req, profile) => {
   const fullName = profile?.full_name || req.user?.user_metadata?.full_name || '';
   const subscriptionTier = profile?.subscription_tier || 'free';
   const experienceLevel = profile?.experience_level || 'beginner';
-  const role = profile?.role || req.user?.role || 'user';
+  const isUserAdmin = req.user?.role === 'admin' || isAdminEmail(req.user?.email) || profile?.role === 'admin';
+  const role = isUserAdmin ? 'admin' : (profile?.role || req.user?.role || 'user');
   const experienceSummary = profile?.experience_summary || '';
   const experienceYears = profile?.experience_years ?? null;
 
@@ -699,29 +700,35 @@ router.get("/profile", authenticateToken, async (req, res) => {
       return res.status(500).json({ error: "Failed to fetch profile" });
     }
 
-    if (!profile) {
-      // Create profile if it doesn't exist
-      const { data: newProfile, error: createError } = await supabaseAdmin
-        .from("profiles")
-        .insert({
-          id: req.user.id,
-          email: req.user.email,
-          full_name: req.user.user_metadata?.full_name || '',
-          subscription_tier: 'free',
-          experience_level: 'beginner',
-          role: req.user.role || 'user',
-          
-          // New profile fields
-          phone: '',
-          location: '',
-          website: '',
-          company: '',
-          years_of_experience: '',
-          specialization: '',
-          social_links: {}
-        })
-        .select()
-        .single();
+    if (profile) {
+      if ((req.user?.role === 'admin' || isAdminEmail(req.user?.email)) && profile.role !== 'admin') {
+        profile.role = 'admin';
+        supabaseAdmin.from("profiles").update({ role: 'admin' }).eq("id", req.user.id).catch(() => {});
+      }
+      return res.json(buildProfileResponse(req, profile));
+    }
+
+    // Create profile if it doesn't exist
+    const { data: newProfile, error: createError } = await supabaseAdmin
+      .from("profiles")
+      .insert({
+        id: req.user.id,
+        full_name: req.user.user_metadata?.full_name || '',
+        subscription_tier: 'free',
+        experience_level: 'beginner',
+        role: req.user.role || (isAdminEmail(req.user.email) ? 'admin' : 'user'),
+        
+        // New profile fields
+        phone: '',
+        location: '',
+        website: '',
+        company: '',
+        years_of_experience: '',
+        specialization: '',
+        social_links: {}
+      })
+      .select()
+      .single();
 
       if (createError) {
         console.error('Profile creation error:', createError);
@@ -748,9 +755,6 @@ router.get("/profile", authenticateToken, async (req, res) => {
       }
 
       return res.json(buildProfileResponse(req, newProfile));
-    }
-
-    return res.json(buildProfileResponse(req, profile));
   } catch (error) {
     console.error("Error fetching profile:", error);
     if (isProfilesAccessBlocked(error)) {

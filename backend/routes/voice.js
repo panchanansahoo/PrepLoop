@@ -13,6 +13,7 @@ import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { expensiveFeatureLimiter } from '../middleware/apiRateLimiter.js';
 import { usageQuota } from '../middleware/usageQuota.js';
+import nvidiaVoiceService from '../services/nvidiaVoiceService.js';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();
@@ -84,7 +85,16 @@ const safeDeleteTempFile = (filePath) => {
 const upload = multer({
     storage: multer.diskStorage({
         destination: os.tmpdir(),
-        filename: (req, file, cb) => cb(null, `voice-stt-${crypto.randomBytes(8).toString('hex')}.webm`),
+        filename: (req, file, cb) => {
+            const extension = file.mimetype === 'audio/mp4' || file.originalname?.toLowerCase().endsWith('.mp4') || file.originalname?.toLowerCase().endsWith('.m4a')
+                ? 'mp4'
+                : file.mimetype === 'audio/wav' || file.mimetype === 'audio/x-wav'
+                    ? 'wav'
+                    : file.mimetype === 'audio/ogg'
+                        ? 'ogg'
+                        : 'webm';
+            cb(null, `voice-stt-${crypto.randomBytes(8).toString('hex')}.${extension}`);
+        },
     }),
     limits: { fileSize: 25 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
@@ -103,6 +113,11 @@ const _rawUpload = multer({
 // Auth required to prevent leaking which API keys are configured
 router.get('/providers', optionalAuth, (req, res) => {
     res.json(voiceService.getAvailableProviders());
+});
+
+// ─── NVIDIA Nemotron VoiceChat status ───
+router.get('/nvidia/status', optionalAuth, (req, res) => {
+    res.json(nvidiaVoiceService.getStatus());
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,7 +402,7 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STT FILE — Legacy file-based STT (still used by other features)
+// STT FILE — File-based STT (powered by Groq Whisper)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
@@ -399,18 +414,51 @@ router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
         safeDeleteTempFile(filePath);
 
-        if (result.fallback) return res.status(200).json({ fallback: true, text: '' });
+        if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
 
         res.json({
             text:       result.text,
-            confidence: result.confidence,
-            language:   result.language,
-            provider:   result.provider,
+            transcript: result.text,
+            confidence: result.confidence || 0.98,
+            language:   result.language || 'en',
+            provider:   result.provider || 'groq-whisper',
         });
     } catch (error) {
         console.error('[voice/stt] Error:', error.message);
         safeDeleteTempFile(filePath);
-        res.status(200).json({ fallback: true, text: '' });
+        // Return 503 so the frontend can detect STT failure and show appropriate error
+        res.status(503).json({ fallback: true, text: '', transcript: '', error: 'Speech transcription service temporarily unavailable' });
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STT CHUNK — Realtime chunk/blob STT (used by voice tests and non-Chromium fallback)
+// POST /api/voice/stt-chunk
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/stt-chunk', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
+    const filePath = req.file?.path;
+
+    try {
+        if (!filePath) return res.status(400).json({ error: 'Audio file is required' });
+
+        const result = await voiceService.speechToText(filePath, req.body?.provider || null);
+        safeDeleteTempFile(filePath);
+
+        if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
+
+        res.json({
+            transcript: result.text,
+            text:       result.text,
+            confidence: result.confidence || 0.98,
+            isFinal:    true,
+            language:   result.language || 'en',
+            provider:   result.provider || 'groq-whisper',
+        });
+    } catch (error) {
+        console.error('[voice/stt-chunk] Error:', error.message);
+        safeDeleteTempFile(filePath);
+        // Return 503 so the frontend can detect STT failure and show appropriate error
+        res.status(503).json({ fallback: true, text: '', transcript: '', error: 'Speech transcription service temporarily unavailable' });
     }
 });
 

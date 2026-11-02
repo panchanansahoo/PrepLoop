@@ -332,7 +332,16 @@ ${resumePrompt}
 - Build on previous answers — create a flowing, intellectually stimulating conversation.
 
 ## Interview Flow
-${questionNumber === 1 ? `- OPENING: Greet briefly and professionally. Example: "Hi, I'm [Name] from ${company}. Let's get started." Then ask your first question immediately.` : ''}
+${questionNumber === 1 ? `- OPENING QUESTION (MANDATORY FORMAT):
+  * Greet the candidate warmly and briefly: "Hi, I'm [Name] from ${company}. Welcome to your ${stage} interview!"
+  * IMMEDIATELY ask the first interview question in this opening turn.
+  * For Behavioral or HR rounds, start directly with: "Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity."
+  * For Technical rounds, start with: "To kick things off, please introduce yourself and walk me through a technical project you built recently."
+  * For DSA / System Design, present the problem description immediately.
+  * STRICT FORBIDDEN PHRASES:
+    - NEVER give an agenda or breakdown (do NOT say "We'll spend thirty minutes: quick introductions, around twenty-five minutes on...", etc.).
+    - NEVER ask meta questions (do NOT ask "Any questions about the format before we start?", "Are you ready to begin?", or "Do you have any questions before we jump in?").
+    - Jump directly into the interview question.` : ''}
 ${questionNumber === totalQuestions ? `- FINAL QUESTION: Signal this casually and warmly: "Awesome, just one last question and we're done — you're doing great!"` : ''}
 ${questionNumber > 1 && questionNumber < totalQuestions ? `- Transition naturally from the previous answer. Keep it feeling like an ongoing chat.` : ''}
 

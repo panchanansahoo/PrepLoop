@@ -17,6 +17,7 @@ function LiveCaptions({
     conversation,
     interviewerName,
     silenceCountdown = 0,
+    connectionMode = 'browser',
 }) {
     // Compute caption content
     const captionData = useMemo(() => {
@@ -28,7 +29,7 @@ function LiveCaptions({
 
         // When user is speaking, show their live transcript
         if (isUserSpeaking) {
-            const currentSpeech = (liveTranscript + (liveInterim ? ' ' + liveInterim : '')).trim();
+            const currentSpeech = (liveTranscript || liveInterim || '').trim();
             const displayText = currentSpeech && currentSpeech.length > 200
                 ? '...' + currentSpeech.slice(-200)
                 : currentSpeech || '';
@@ -59,8 +60,14 @@ function LiveCaptions({
                 isWaiting: true,
                 liveInterim: '',
                 speakerName: 'You',
-                displayText: 'Listening... speak now',
-                words: ['Listening...', 'speak', 'now'],
+                displayText: connectionMode === 'whisper'
+                    ? 'Recording audio (Whisper)... speak your answer, then click Finish'
+                    : (silenceCountdown > 0
+                        ? `Listening... auto-submitting in ${silenceCountdown}s`
+                        : 'Listening... speak now'),
+                words: silenceCountdown > 0
+                    ? ['Listening...', `auto-submitting in ${silenceCountdown}s`]
+                    : ['Listening...', 'speak', 'now'],
             };
         }
 
