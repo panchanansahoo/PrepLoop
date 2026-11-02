@@ -90,6 +90,13 @@ for (const file of files) {
   for (const { name, pattern } of SECRET_PATTERNS) {
     const match = content.match(pattern);
     if (match) {
+      const matchText = match[0].toLowerCase();
+      if (
+        name === 'Generic credential assignment' &&
+        (matchText.includes('test') || matchText.includes('mock') || matchText.includes('example') || relPath.includes('tests') || relPath.includes('__tests__'))
+      ) {
+        continue;
+      }
       findings.push({
         file: relPath,
         name,

@@ -12,6 +12,12 @@ export default defineConfig({
       reporter: ['text', 'html', 'json-summary'],
       reportsDirectory: './coverage',
       exclude: ['node_modules', 'dist', 'scripts', 'tests', 'types'],
+      thresholds: {
+        lines: 35,
+        branches: 30,
+        functions: 45,
+        statements: 35,
+      },
     },
   },
 });

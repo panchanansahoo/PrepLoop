@@ -40,8 +40,10 @@ describe('Security Compliance & Hardening Verification', () => {
 
   it('verifies admin emails are read from environment rather than hardcoded', () => {
     const authMiddleware = read('middleware/auth.js');
-    expect(authMiddleware).toMatch(/DEFAULT_ADMIN_EMAILS\s*=\s*\[\s*\]/);
+    expect(authMiddleware).toMatch(/DEFAULT_ADMIN_EMAILS\s*=\s*process\.env\.ADMIN_EMAILS/);
     expect(authMiddleware).toMatch(/process\.env\.ADMIN_EMAILS/);
+    expect(authMiddleware).not.toMatch(/panchanansahoo0143/);
+    expect(authMiddleware).not.toMatch(/javasahooai/);
   });
 });
 

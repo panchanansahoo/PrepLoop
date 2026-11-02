@@ -11,7 +11,7 @@ const fromAddress = process.env.EMAIL_FROM ||
   process.env.SMTP_FROM ||
   (user && user.includes('@') ? `"${user}" <${user}>` : '"PrepLoop Test" <support@preploop.me>');
 
-const targetEmail = process.argv[2] || process.env.TEST_EMAIL_TO || 'javasahooai@gmail.com';
+const targetEmail = process.argv[2] || process.env.TEST_EMAIL_TO || process.env.EMAIL_FROM || 'test@preploop.example';
 
 const transporter = nodemailer.createTransport({
   host,

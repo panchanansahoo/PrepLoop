@@ -2,15 +2,15 @@
  * Authentication and Authorization Type Definitions
  */
 
-export type UserRole = 'user' | 'admin' | 'interviewer';
+export type UserRole = 'user' | 'admin' | 'interviewer' | 'hr';
 
-export type SubscriptionTier = 'free' | 'pro' | 'enterprise';
+export type SubscriptionTier = 'free' | 'pro' | 'enterprise' | 'premium';
 
 export interface AuthUser {
   id: string;
-  email: string;
+  email?: string | null;
   role: UserRole;
-  subscription_tier: SubscriptionTier;
+  subscription_tier?: SubscriptionTier;
   user_metadata?: {
     full_name?: string;
     avatar_url?: string;
@@ -32,4 +32,15 @@ export interface AuthenticatedRequest {
   userId?: string;
   token?: string;
 }
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: AuthUser;
+      userId?: string;
+      token?: string;
+    }
+  }
+}
+
 

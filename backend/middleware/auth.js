@@ -64,14 +64,12 @@ const setRoleCache = (userId, role) => {
   });
 };
 
-export const DEFAULT_ADMIN_EMAILS = [];
+export const DEFAULT_ADMIN_EMAILS = process.env.ADMIN_EMAILS
+  ? process.env.ADMIN_EMAILS.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+  : [];
 
 export const getAdminEmails = () => {
-  const envAdmins = (process.env.ADMIN_EMAILS || '')
-    .split(',')
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return new Set(envAdmins);
+  return new Set(DEFAULT_ADMIN_EMAILS);
 };
 
 export const isAdminEmail = (email) => {

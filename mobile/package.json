@@ -16,7 +16,8 @@
         "lint": "eslint src --ext .js,.jsx",
         "lint:fix": "eslint src --ext .js,.jsx --fix",
         "test": "node --test src/api/__tests__/*.test.js",
-        "test:e2e": "maestro test e2e/flows/"
+        "test:e2e": "maestro test e2e/flows/",
+        "test:e2e:verify": "node scripts/verify-e2e-flows.cjs"
     },
     "dependencies": {
         "@react-native-async-storage/async-storage": "^2.2.0",

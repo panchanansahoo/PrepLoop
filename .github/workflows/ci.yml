@@ -53,6 +53,7 @@ jobs:
             package-lock.json
             backend/package-lock.json
             frontend/package-lock.json
+            mobile/package-lock.json
 
       - name: Install root dependencies
         run: npm ci
@@ -62,6 +63,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --prefix frontend
+
+      - name: Install mobile dependencies
+        run: npm ci --prefix mobile
 
       - name: Backend type check
         run: npm run type-check --prefix backend

@@ -3,7 +3,61 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { getRedisClient } from '../config/redis.js';
 
 const logger = createLogger('usage-quota');
-const counters = new Map();
+
+export class BoundedTtlStore {
+  constructor(maxEntries = 5000) {
+    this.maxEntries = maxEntries;
+    this.map = new Map();
+  }
+
+  get(key) {
+    const entry = this.map.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt && Date.now() > entry.expiresAt) {
+      this.map.delete(key);
+      return null;
+    }
+    this.map.delete(key);
+    this.map.set(key, entry);
+    return entry;
+  }
+
+  set(key, value, ttlMs = 86400000) {
+    if (this.map.has(key)) {
+      this.map.delete(key);
+    } else if (this.map.size >= this.maxEntries) {
+      const oldestKey = this.map.keys().next().value;
+      if (oldestKey) this.map.delete(oldestKey);
+    }
+    const entry = typeof value === 'object' && value !== null
+      ? { ...value, expiresAt: Date.now() + ttlMs }
+      : { val: value, expiresAt: Date.now() + ttlMs };
+    this.map.set(key, entry);
+    return entry;
+  }
+
+  delete(key) {
+    return this.map.delete(key);
+  }
+
+  clear() {
+    this.map.clear();
+  }
+
+  get size() {
+    return this.map.size;
+  }
+
+  [Symbol.iterator]() {
+    return this.map[Symbol.iterator]();
+  }
+
+  keys() {
+    return this.map.keys();
+  }
+}
+
+const defaultCounterStore = new BoundedTtlStore(5000);
 const DEFAULT_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const limits = {
@@ -25,31 +79,16 @@ const planLimits = {
     voice: Number.parseInt(process.env.PREMIUM_VOICE_DAILY_REQUEST_LIMIT || '1200', 10),
   },
 };
-const planCache = new Map();
+const planCache = new BoundedTtlStore(2000);
 const PLAN_CACHE_TTL_MS = 5 * 60 * 1000;
-const MAX_CACHE_ENTRIES = 5000;
-
-const cleanupExpiredPlanCache = (now) => {
-  if (planCache.size > MAX_CACHE_ENTRIES) {
-    for (const [userId, entry] of planCache) {
-      if (entry.expiresAt <= now) planCache.delete(userId);
-    }
-    if (planCache.size > MAX_CACHE_ENTRIES) {
-      const keysToDelete = Array.from(planCache.keys()).slice(0, 1000);
-      for (const k of keysToDelete) planCache.delete(k);
-    }
-  }
-};
 
 const getPlanLimit = async (userId, category, client) => {
-  const now = Date.now();
   const cached = planCache.get(userId);
-  if (cached && cached.expiresAt > now) return planLimits[cached.plan]?.[category] || limits[category];
-  cleanupExpiredPlanCache(now);
+  if (cached?.plan) return planLimits[cached.plan]?.[category] || limits[category];
   try {
     const { data, error } = await client.from('profiles').select('subscription_tier').eq('id', userId).maybeSingle();
     const plan = !error && data?.subscription_tier ? String(data.subscription_tier).toLowerCase() : 'free';
-    planCache.set(userId, { plan, expiresAt: Date.now() + PLAN_CACHE_TTL_MS });
+    planCache.set(userId, { plan }, PLAN_CACHE_TTL_MS);
     return planLimits[plan]?.[category] || limits[category];
   } catch {
     return limits[category];
@@ -57,7 +96,7 @@ const getPlanLimit = async (userId, category, client) => {
 };
 
 export const resetUsageQuotaCounters = () => {
-  counters.clear();
+  defaultCounterStore.clear();
   planCache.clear();
 };
 
@@ -69,7 +108,7 @@ const getClientKey = (req, category) => {
 export const usageQuota = (category, options = {}) => {
   const configuredLimit = Number.isFinite(options.limit) ? options.limit : limits[category];
   const windowMs = options.windowMs || DEFAULT_WINDOW_MS;
-  const counterStore = options.counterStore || counters;
+  const counterStore = options.counterStore || defaultCounterStore;
   const nowProvider = options.now || Date.now;
   const quotaClient = options.client || supabaseAdmin;
 
@@ -82,6 +121,15 @@ export const usageQuota = (category, options = {}) => {
 
     // 1. Distributed Redis quota (primary path when Redis is configured and no mock counterStore is provided)
     const redis = getRedisClient();
+    if (process.env.NODE_ENV === 'production' && !redis && !options.counterStore) {
+      logger.error('CRITICAL: Redis is required in production for distributed usage quota counters. In-memory fallback active.');
+      if (process.env.ENFORCE_REDIS_QUOTA === 'true') {
+        return res.status(503).json({
+          error: 'Rate limiting service unavailable. Distributed Redis required in production.',
+          code: 'REDIS_QUOTA_UNAVAILABLE',
+        });
+      }
+    }
     if (redis && !options.counterStore) {
       try {
         const redisKey = req.user?.id

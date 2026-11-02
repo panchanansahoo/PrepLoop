@@ -36,6 +36,16 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('/src/data/problemsDatabase') || id.includes('/src/data/questionsBank')) {
+            return 'data-problem-bank';
+          }
+          if (id.includes('/src/data/algorithmCodesMulti') || id.includes('/src/data/dsaPatternsData')) {
+            return 'data-dsa-patterns';
+          }
+          if (id.includes('/src/data/systemDesignTheoryData') || id.includes('/src/data/systemDesignData')) {
+            return 'data-system-design';
+          }
+
           if (!id.includes('node_modules')) return;
 
           // Keep manual chunking focused on very heavy dependencies.

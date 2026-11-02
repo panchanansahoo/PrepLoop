@@ -1298,6 +1298,7 @@ export function useInterviewSession(options = {}) {
         focusArea: focusArea || undefined,
       };
 
+      const candidateDisplayName = candidateName?.trim() || _user?.user_metadata?.full_name || _user?.fullName || _user?.email || "Candidate";
       if (candidateDisplayName && candidateDisplayName !== "Candidate") {
         startPayload.userName = candidateDisplayName;
       }

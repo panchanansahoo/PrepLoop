@@ -48,14 +48,32 @@ class APIDocGenerator {
   }
 
   /**
+   * Recursively collect all route files
+   */
+  getAllRouteFiles(dir, baseDir = dir) {
+    let results = [];
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results = results.concat(this.getAllRouteFiles(fullPath, baseDir));
+      } else if (entry.isFile() && entry.name.endsWith('.js')) {
+        const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
+        results.push({ fullPath, relativePath });
+      }
+    }
+    return results;
+  }
+
+  /**
    * Generate documentation from routes directory
    */
   async generate() {
     const routesDir = path.join(__dirname, '../routes');
-    const routeFiles = fs.readdirSync(routesDir).filter((f) => f.endsWith('.js'));
+    const routeFiles = this.getAllRouteFiles(routesDir);
 
-    for (const file of routeFiles) {
-      await this.processRouteFile(path.join(routesDir, file), file);
+    for (const { fullPath, relativePath } of routeFiles) {
+      await this.processRouteFile(fullPath, relativePath);
     }
 
     return this.spec;
@@ -64,12 +82,17 @@ class APIDocGenerator {
   /**
    * Process individual route file
    */
-  processRouteFile(filePath, fileName) {
-    const routeName = fileName.replace('.js', '');
-    const basePath = `/api/${routeName}`;
+  processRouteFile(filePath, relativePath) {
+    const cleanRelative = relativePath.replace(/\.js$/, '');
+    const segments = cleanRelative.split('/');
+    const routeName = segments.join('-');
+
+    // If file is in routes/user/learning.js -> basePath /api/user
+    const isUserSubroute = segments[0] === 'user' && segments.length > 1;
+    const basePath = isUserSubroute ? '/api/user' : `/api/${segments[0]}`;
 
     // Common endpoints based on route patterns
-    const endpoints = this.inferEndpoints(routeName);
+    const endpoints = this.inferEndpoints(routeName, cleanRelative);
 
     for (const endpoint of endpoints) {
       const fullPath = `${basePath}${endpoint.path}`;
@@ -78,7 +101,7 @@ class APIDocGenerator {
       }
 
       this.spec.paths[fullPath][endpoint.method] = {
-        tags: [routeName],
+        tags: [segments[0]],
         summary: endpoint.summary,
         description: endpoint.description,
         security: endpoint.requiresAuth ? [{ bearerAuth: [] }] : [],
@@ -303,6 +326,77 @@ class APIDocGenerator {
           summary: 'Get job recommendations',
           description: 'Get personalized job recommendations based on user profile',
           requiresAuth: true,
+        },
+      ],
+      'user-learning': [
+        {
+          path: '/learning-paths',
+          method: 'get',
+          summary: 'List learning paths',
+          description: 'Get available interview preparation learning tracks',
+          requiresAuth: true,
+        },
+        {
+          path: '/learning-paths/:pathId',
+          method: 'get',
+          summary: 'Get learning path detail',
+          description: 'Get detailed syllabus, prerequisites, and modules for a path',
+          requiresAuth: true,
+          parameters: [{ name: 'pathId', in: 'path', required: true, schema: { type: 'string' } }],
+        },
+        {
+          path: '/learning-path/dsa',
+          method: 'get',
+          summary: 'Get DSA track progress',
+          description: 'Retrieve module-by-module DSA problem solving progress',
+          requiresAuth: false,
+        },
+      ],
+      'user-productivity': [
+        {
+          path: '/todos',
+          method: 'get',
+          summary: 'Get user todos',
+          description: 'Retrieve user study checklist items and priorities',
+          requiresAuth: true,
+        },
+        {
+          path: '/todos',
+          method: 'post',
+          summary: 'Create todo',
+          description: 'Add a new todo item with priority and due date',
+          requiresAuth: true,
+        },
+        {
+          path: '/calendar-events',
+          method: 'get',
+          summary: 'Get calendar events',
+          description: 'Retrieve scheduled interview practice and study sessions',
+          requiresAuth: true,
+        },
+      ],
+      'user-profile': [
+        {
+          path: '/profile',
+          method: 'get',
+          summary: 'Get profile',
+          description: 'Fetch authenticated user profile and stats',
+          requiresAuth: true,
+        },
+        {
+          path: '/profile',
+          method: 'put',
+          summary: 'Update profile',
+          description: 'Update profile fields, experience, and skills',
+          requiresAuth: true,
+        },
+        {
+          path: '/portfolio/public/:slug',
+          method: 'get',
+          summary: 'Get public portfolio',
+          description: 'Retrieve public portfolio by vanity slug or user ID',
+          requiresAuth: false,
+          parameters: [{ name: 'slug', in: 'path', required: true, schema: { type: 'string' } }],
         },
       ],
     };

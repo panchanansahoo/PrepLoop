@@ -179,7 +179,7 @@ export function useRealtimeInterview({
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       if (maxDurationTimerRef.current) clearTimeout(maxDurationTimerRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — cleanup runs once on unmount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- cleanup runs once on unmount
 
   return {
     // State

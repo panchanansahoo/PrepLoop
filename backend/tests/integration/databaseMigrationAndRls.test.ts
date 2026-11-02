@@ -55,13 +55,16 @@ describe('Database Migrations, Indexes & RLS Security Contracts', () => {
   it('verifies core query indexes cover high-frequency problem and interview lookups', () => {
     const v1Path = path.join(dbDir, 'migration_core_query_indexes.sql');
     const v2Path = path.join(dbDir, 'migration_core_query_indexes_v2.sql');
+    const v3Path = path.join(dbDir, 'migration_performance_indexes_v3.sql');
 
     expect(fs.existsSync(v1Path)).toBe(true);
     expect(fs.existsSync(v2Path)).toBe(true);
+    expect(fs.existsSync(v3Path)).toBe(true);
 
     const v1 = fs.readFileSync(v1Path, 'utf8');
     const v2 = fs.readFileSync(v2Path, 'utf8');
-    const combined = `${v1}\n${v2}`;
+    const v3 = fs.readFileSync(v3Path, 'utf8');
+    const combined = `${v1}\n${v2}\n${v3}`;
 
     expect(combined).toContain('idx_mock_interviews_user_started');
     expect(combined).toContain('idx_mock_interviews_user_type');
@@ -70,6 +73,8 @@ describe('Database Migrations, Indexes & RLS Security Contracts', () => {
     expect(combined).toContain('idx_submissions_user_problem');
     expect(combined).toContain('idx_profiles_subscription_tier');
     expect(combined).toContain('idx_submissions_submitted_at');
+    expect(combined).toContain('idx_checkpoints_session_user');
+    expect(combined).toContain('idx_career_ops_user_date');
   });
 
   it('verifies atomic coin transactions and idempotency constraints are declared', () => {

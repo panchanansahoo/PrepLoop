@@ -3,6 +3,7 @@ import {
   buildProfileResponse,
   isProfileCompleteForReward,
   calculateProfileCompletionPercentage,
+  isProfilesAccessBlocked,
   PROFILE_COMPLETION_COIN_REWARD,
 } from '../../services/profileService.js';
 
@@ -79,5 +80,14 @@ describe('Profile Service & Response Formatter', () => {
     expect(response.user.socialLinks.linkedin).toBe('https://linkedin.com/in/alex');
     expect(response.user.profile).toBeDefined();
   });
+
+  it('detects Supabase RLS recursion policy blockage error codes', () => {
+    const rlsError = { code: '42P17', message: 'infinite recursion detected in policy' };
+    expect(isProfilesAccessBlocked(rlsError)).toBe(true);
+
+    const otherError = { code: '23505', message: 'unique constraint violation' };
+    expect(isProfilesAccessBlocked(otherError)).toBe(false);
+  });
 });
+
 
