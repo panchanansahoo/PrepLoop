@@ -58,3 +58,4 @@ test('normalizeCoinTransactionsResponse unpacks both raw arrays and nested envel
 
   assert.deepEqual(normalizeCoinTransactionsResponse(null), []);
 });
+

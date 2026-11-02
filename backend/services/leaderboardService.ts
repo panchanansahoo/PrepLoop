@@ -79,7 +79,7 @@ export class LeaderboardService {
       if (redis?.isOpen) {
         // ZRANGE key 0 (limit - 1) REV WITHSCORES
         const rawResults = await (redis as any).zRangeWithScores(key, 0, limit - 1, { REV: true });
-        return await this.enrichLeaderboardUsers(
+        return this.enrichLeaderboardUsers(
           rawResults.map((r: { value: string; score: number }, index: number) => ({
             userId: r.value,
             score: r.score,
@@ -99,7 +99,7 @@ export class LeaderboardService {
       .slice(0, limit)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-    return await this.enrichLeaderboardUsers(sorted);
+    return this.enrichLeaderboardUsers(sorted);
   }
 
   /**

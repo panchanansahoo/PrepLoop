@@ -44,3 +44,4 @@ describe('Security Compliance & Hardening Verification', () => {
     expect(authMiddleware).toMatch(/process\.env\.ADMIN_EMAILS/);
   });
 });
+

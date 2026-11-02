@@ -6,7 +6,6 @@ import { createLogger } from '../utils/structuredLogger.js';
 import { GamificationService } from '../services/gamificationService.js';
 import { WebhookDispatcher } from '../services/webhookDispatcher.js';
 import { validateRequest } from '../middleware/validation.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
 import { createPeerRoomSchema, matchPeerRoomSchema, peerRoomParamSchema } from '../schemas/requestSchemas.js';
 
 const router = express.Router();

@@ -78,6 +78,7 @@ This manifest documents all 50 SQL migrations in `backend/db/`, organized by dom
 | `migration_platform_api_webhooks.sql` | Third-party API keys, webhook subscriptions & delivery logs | `api_keys`, `webhook_subscriptions`, `webhook_deliveries` |
 | `migration_performance_indexes.sql` | First-generation composite indexes | `mock_interviews`, `submissions` |
 | `migration_core_query_indexes.sql` | High-frequency composite query indexes | `submissions`, `user_progress`, `mock_interviews` |
+| `migration_core_query_indexes_v2.sql` | GIN indexes on problem companies/tags, submissions timestamp ordering, and profile subscription tiers | `problems`, `submissions`, `profiles` |
 | `migration_rls_security_hardening.sql` | Row Level Security policies for peer rooms, challenges, API keys, webhooks | `peer_interview_rooms`, `challenge_submissions`, `api_keys`, `webhook_subscriptions`, `webhook_deliveries` |
 
 ---

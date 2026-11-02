@@ -57,3 +57,4 @@ name: "DSA Problem Solve & Code Submission Flow"
 
 - assertVisible:
     text: "Coins Earned"
+

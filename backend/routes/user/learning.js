@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../../middleware/auth.js';
 import dsaLearningPath, { getModuleProblems, getModuleProgress } from '../../data/dsaLearningPath.js';
 import lldLearningPath from '../../data/lldLearningPath.js';
+import aiLearningPath from '../../data/aiLearningPath.js';
 
 const router = express.Router();
 
@@ -242,7 +243,7 @@ router.get("/learning-paths/:pathId", authenticateToken, (req, res) => {
         ],
         modules: [],
       },
-      ai: _aiLearningPath,
+      ai: aiLearningPath,
       lld: {
         id: "lld",
         title: "Low Level Design",

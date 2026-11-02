@@ -2,6 +2,97 @@ import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../../middleware/auth.js';
 
+const isProfilesAccessBlocked = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P17' || message.includes('infinite recursion detected in policy');
+};
+
+const isMissingRelationError = (error) => {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === '42P01' || message.includes('does not exist');
+};
+
+const buildDateKey = (value) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().split('T')[0];
+};
+
+const computeCurrentStreak = (dateKeys = []) => {
+  const uniqueSortedDates = Array.from(new Set(dateKeys.filter(Boolean))).sort().reverse();
+  if (!uniqueSortedDates.length) return 0;
+
+  const todayKey = buildDateKey(new Date());
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterdayKey = buildDateKey(yesterdayDate);
+
+  const mostRecent = uniqueSortedDates[0];
+  if (mostRecent !== todayKey && mostRecent !== yesterdayKey) {
+    return 0;
+  }
+
+  let streak = 0;
+  const expectedDate = new Date(mostRecent);
+
+  for (const dateKey of uniqueSortedDates) {
+    const expectedKey = buildDateKey(expectedDate);
+    if (dateKey === expectedKey) {
+      streak += 1;
+      expectedDate.setDate(expectedDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+};
+
+const toDisplayName = (profile) => {
+  const fullName = String(profile?.full_name || '').trim();
+  if (fullName.length > 0) return fullName;
+
+  const id = String(profile?.id || '').trim();
+  if (!id) return 'Anonymous Engineer';
+
+  return `Engineer ${id.slice(0, 6)}`;
+};
+
+const QUIZ_TOPICS = new Set([
+  'dsa',
+  'db',
+  'system-design',
+  'language',
+  'os',
+  'cn',
+  'oop',
+]);
+
+const normalizeQuizTopic = (value) => {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/_/g, '-');
+
+  const aliases = {
+    dbms: 'db',
+    database: 'db',
+    'system-design': 'system-design',
+    systemdesign: 'system-design',
+    networking: 'cn',
+    'computer-networks': 'cn',
+    'programming-language': 'language',
+    languages: 'language',
+  };
+
+  const resolved = aliases[normalized] || normalized;
+  return QUIZ_TOPICS.has(resolved) ? resolved : null;
+};
+
 const router = express.Router();
 
 router.get('/problem-leaderboard', optionalAuth, async (req, res) => {

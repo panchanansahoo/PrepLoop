@@ -45,3 +45,4 @@ name: "Profile Editing and Synchronization Flow"
     timeout: 8000
 
 - assertVisible: "Senior Full Stack Engineer"
+

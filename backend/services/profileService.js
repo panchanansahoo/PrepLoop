@@ -167,3 +167,4 @@ export default {
   awardProfileCompletionCoins,
   PROFILE_COMPLETION_COIN_REWARD,
 };
+

@@ -83,7 +83,7 @@ export class LeaderboardService {
       .slice(0, limit)
       .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
-    return await this.enrichLeaderboardUsers(sorted);
+    return this.enrichLeaderboardUsers(sorted);
   }
 
   /**

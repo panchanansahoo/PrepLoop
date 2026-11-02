@@ -87,6 +87,9 @@ jobs:
       - name: Frontend unit & component tests
         run: npm run test --prefix frontend -- --run
 
+      - name: Mobile unit tests
+        run: npm test --prefix mobile
+
       - name: Frontend build
         run: npm run build --prefix frontend
 
