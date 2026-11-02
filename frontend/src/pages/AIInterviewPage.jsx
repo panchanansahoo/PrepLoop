@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 
@@ -32,6 +32,7 @@ const MAX_RESUME_MB = MAX_RESUME_BYTES / (1024 * 1024);
 export default function AIInterviewPage() {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
     const [micCheckStatus, setMicCheckStatus] = useState('not_checked');
     const [cameraCheckStatus, setCameraCheckStatus] = useState('not_checked');
     const [lobbyMicStream, setLobbyMicStream] = useState(null);
@@ -205,7 +206,11 @@ export default function AIInterviewPage() {
             setLobbyCameraStream(null);
         }
 
-        // 4. Begin interview
+        // 4. Begin interview (or navigate to peer interview)
+        if (interviewType === 'peer') {
+            navigate('/peer-interview');
+            return;
+        }
         startInterview();
     }, [micCheckStatus, cameraCheckStatus, checkMicrophone, checkCamera, lobbyMicStream, lobbyCameraStream, startInterview]);
     const hasTranscriptDraft = Boolean(transcript.trim());

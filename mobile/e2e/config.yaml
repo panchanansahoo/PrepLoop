@@ -1,0 +1,8 @@
+appId: com.preploop.mobile
+tags:
+  - regression
+  - smoke
+env:
+  TEST_EMAIL: candidate@preploop.com
+  TEST_PASSWORD: SecurePassword123!
+

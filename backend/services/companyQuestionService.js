@@ -3,6 +3,7 @@
 // Data loading is lazy so backend startup does not depend on frontend-only files.
 
 import crypto from 'crypto';
+import { getRedisClient } from '../config/redis.js';
 
 // In-memory cache for the question bank
 let questionCache = null;
@@ -83,6 +84,14 @@ async function loadQuestionData() {
  * @returns {Array} Filtered questions
  */
 export async function getFilteredQuestions(company, role, stage, difficulty) {
+    const cacheKey = `company_questions:${(company || 'all').toLowerCase()}:${(role || 'all').toLowerCase()}:${(stage || 'all').toLowerCase()}:${(difficulty || 'all').toLowerCase()}`;
+    const redis = getRedisClient();
+    if (redis) {
+        try {
+            const cached = await redis.get(cacheKey);
+            if (cached) return JSON.parse(cached);
+        } catch (_) {}
+    }
     await loadQuestionData();
 
     const companyId = company?.toLowerCase().replace(/\s+/g, '_');
@@ -124,6 +133,11 @@ export async function getFilteredQuestions(company, role, stage, difficulty) {
         if (diffFiltered.length >= 3) filtered = diffFiltered;
     }
 
+    if (redis && filtered && filtered.length > 0) {
+        try {
+            await redis.set(cacheKey, JSON.stringify(filtered), { EX: 3600 });
+        } catch (_) {}
+    }
     return filtered;
 }
 

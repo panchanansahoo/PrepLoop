@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { Bell, Globe, Shield, Trash2, CreditCard, Save } from 'lucide-react';
+import { Bell, Globe, Shield, Trash2, CreditCard, Save, Code } from 'lucide-react';
 
 import { authFetch } from '../utils/authFetch';
 import './Dashboard.css';
@@ -189,6 +189,12 @@ export default function Settings() {
                     <Section title="Subscription" subtitle="Billing status" icon={<CreditCard size={18} color="var(--text-primary)" />}>
                         <SettingRow label="Current plan" desc="Starter (Free)">
                             <Link to="/pricing" className="account-link-action">Upgrade</Link>
+                        </SettingRow>
+                    </Section>
+
+                    <Section title="Developer & API" subtitle="Integrations and webhooks" icon={<Code size={18} color="var(--text-primary)" />}>
+                        <SettingRow label="Platform API Keys" desc="Manage API keys and automated webhooks">
+                            <Link to="/developer" className="account-link-action">Manage</Link>
                         </SettingRow>
                     </Section>
                 </div>

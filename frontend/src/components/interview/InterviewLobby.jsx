@@ -2,7 +2,7 @@ import React, { memo, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
-    ArrowLeft, ArrowRight, CheckCircle, Sparkles,
+    ArrowLeft, ArrowRight, CheckCircle, Sparkles, Users,
     FileText, Search, Star, Code2, MessageSquare, X,
     GraduationCap, Briefcase, RefreshCw, Zap, Mic, Volume2, KeyRound, User, Video, VideoOff, AlertTriangle,
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import {
 const TOPIC_PILLS = [
     { id: 'hr', label: 'HR Round' },
     { id: 'technical', label: 'Technical Round' },
+    { id: 'peer', label: 'Peer 1-on-1 Round' },
 ];
 
 const SETUP_STEPS = [
@@ -805,6 +806,19 @@ function InterviewLobby({
                                             <span className="ai-setup-experience-desc">Core technical skills, data structures, algorithms, and system design concepts.</span>
                                         </div>
                                         {interviewType === 'technical' && <CheckCircle size={22} className="ai-setup-experience-check" />}
+                                    </button>
+                                    <button
+                                        className={`ai-setup-experience-card ${interviewType === 'peer' ? 'selected' : ''}`}
+                                        onClick={() => setInterviewType('peer')}
+                                    >
+                                        <div className="ai-setup-experience-icon-wrap" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8' }}>
+                                            <Users size={32} />
+                                        </div>
+                                        <div className="ai-setup-experience-info">
+                                            <span className="ai-setup-experience-title">Peer 1-on-1 Round</span>
+                                            <span className="ai-setup-experience-desc">Collaborative live coding & interview practice with another peer in real-time.</span>
+                                        </div>
+                                        {interviewType === 'peer' && <CheckCircle size={22} className="ai-setup-experience-check" />}
                                     </button>
                                 </div>
                             </div>

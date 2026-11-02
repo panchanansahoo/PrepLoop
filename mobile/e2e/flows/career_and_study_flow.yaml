@@ -1,0 +1,21 @@
+appId: com.preploop.mobile
+name: "Career Roadmap & Study Notes Navigation Flow"
+---
+- launchApp
+
+- assertVisible: "Welcome back"
+
+# Tap Interview Hub tab
+- tapOn: "Interviews"
+
+- assertVisible: "AI Mock Interviews"
+- assertVisible: "Readiness Score"
+
+# Scroll and tap Study Notes
+- tapOn: "Notes & Bookmarks"
+- assertVisible: "My Saved Notes"
+
+# Back to Dashboard
+- back
+- assertVisible: "Welcome back"
+

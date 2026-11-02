@@ -14,7 +14,8 @@
         "ios": "expo run:ios",
         "web": "expo start --web",
         "lint": "eslint src --ext .js,.jsx",
-        "lint:fix": "eslint src --ext .js,.jsx --fix"
+        "lint:fix": "eslint src --ext .js,.jsx --fix",
+        "test:e2e": "maestro test e2e/flows/"
     },
     "dependencies": {
         "@react-native-async-storage/async-storage": "^2.2.0",

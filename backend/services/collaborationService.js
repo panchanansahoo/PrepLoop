@@ -96,6 +96,26 @@ class CollaborationService {
           this.handleControlRequest(userId, message.data);
           break;
         
+        case 'webrtc_offer':
+          this.relayPeerSignal(userId, 'webrtc_offer', message.data);
+          break;
+
+        case 'webrtc_answer':
+          this.relayPeerSignal(userId, 'webrtc_answer', message.data);
+          break;
+
+        case 'ice_candidate':
+          this.relayPeerSignal(userId, 'ice_candidate', message.data);
+          break;
+
+        case 'set_role':
+          this.handleSetRole(userId, message.data);
+          break;
+
+        case 'submit_evaluation':
+          this.handleEvaluation(userId, message.data);
+          break;
+        
         default:
           logger.warn('Unknown message type', { type: message.type });
       }
@@ -122,6 +142,8 @@ class CollaborationService {
         allowEditing: data.allowEditing !== false,
         requireApproval: data.requireApproval || false,
       },
+      roles: { [userId]: data.role || 'interviewer' },
+      evaluation: null,
     };
 
     this.sessions.set(sessionId, session);
@@ -288,6 +310,74 @@ class CollaborationService {
   }
 
   /**
+   * Relay WebRTC signaling (offer, answer, ICE candidates)
+   */
+  relayPeerSignal(senderId, signalType, data = {}) {
+    const user = this.users.get(senderId);
+    if (!user || !user.sessionId) return;
+
+    const targetUserId = data.targetUserId;
+    if (targetUserId) {
+      this.sendToUser(targetUserId, {
+        type: signalType,
+        senderId,
+        data: data.payload || data,
+      });
+    } else {
+      this.broadcastToSession(user.sessionId, {
+        type: signalType,
+        senderId,
+        data: data.payload || data,
+      }, senderId);
+    }
+  }
+
+  /**
+   * Set participant interview role (interviewer vs candidate)
+   */
+  handleSetRole(userId, data = {}) {
+    const user = this.users.get(userId);
+    if (!user || !user.sessionId) return;
+    const session = this.sessions.get(user.sessionId);
+    if (!session) return;
+
+    if (!session.roles) {
+      session.roles = {};
+    }
+    const targetUserId = data.targetUserId || userId;
+    session.roles[targetUserId] = data.role || 'candidate';
+
+    this.broadcastToSession(session.id, {
+      type: 'role_updated',
+      userId: targetUserId,
+      role: data.role || 'candidate',
+      roles: session.roles,
+    });
+  }
+
+  /**
+   * Handle rubric evaluation submission
+   */
+  handleEvaluation(userId, data = {}) {
+    const user = this.users.get(userId);
+    if (!user || !user.sessionId) return;
+    const session = this.sessions.get(user.sessionId);
+    if (!session) return;
+
+    session.evaluation = {
+      submittedBy: userId,
+      scores: data.scores || {},
+      feedback: data.feedback || '',
+      timestamp: Date.now(),
+    };
+
+    this.broadcastToSession(session.id, {
+      type: 'evaluation_completed',
+      evaluation: session.evaluation,
+    });
+  }
+
+  /**
    * Handle disconnect
    */
   handleDisconnect(userId) {
@@ -332,6 +422,8 @@ class CollaborationService {
       language: session.language,
       problem: session.problem,
       settings: session.settings,
+      roles: session.roles || {},
+      evaluation: session.evaluation || null,
     };
   }
 

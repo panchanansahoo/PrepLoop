@@ -1,0 +1,36 @@
+appId: com.preploop.mobile
+name: "User Login & Dashboard Smoke Flow"
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "PrepLoop"
+
+# Navigate to Login if on Onboarding
+- runFlow:
+    when:
+      visible: "Get Started"
+    commands:
+      - tapOn: "Log In"
+
+# Fill login credentials
+- tapOn:
+    id: "login-email-input"
+- inputText: ${TEST_EMAIL}
+
+- tapOn:
+    id: "login-password-input"
+- inputText: ${TEST_PASSWORD}
+
+- hideKeyboard
+
+- tapOn: "Sign In"
+
+# Verify Dashboard rendered
+- assertVisible:
+    text: "Welcome back"
+    timeout: 8000
+
+- assertVisible: "Streak"
+- assertVisible: "Daily Challenge"
+

@@ -1,0 +1,18 @@
+appId: com.preploop.mobile
+name: "Daily Community Challenges & Leaderboard Flow"
+---
+- launchApp
+
+# Tap Practice / Challenges
+- tapOn: "Practice"
+
+- assertVisible: "Daily Challenges"
+- tapOn: "Daily Challenges"
+
+- assertVisible: "Weekly Community Challenges"
+- assertVisible: "Leaderboard"
+
+# Switch to Leaderboard
+- tapOn: "Leaderboard"
+- assertVisible: "Top Solvers This Week"
+

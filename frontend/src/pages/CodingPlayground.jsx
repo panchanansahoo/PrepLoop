@@ -1,8 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import "./CodingPlayground.css";
 import { useNavigate, useParams } from "react-router-dom";
-import { PROBLEMS } from "../data/problemsDatabase";
-import { dsaPatternsAll } from "../data/dsaPatternsData";
 import ProblemDescriptionPanel from "../components/editor/ProblemDescriptionPanel";
 
 import Editor from "@monaco-editor/react";
@@ -579,24 +577,20 @@ export default function CodingPlayground({ sidebarCollapsed }) {
   const [problem, setProblem] = useState(null);
   const [_loading, setLoading] = useState(false);
 
-  // ─── Fetch problem data if problemId is present ───
-  useEffect(() => {
-    if (!problemId) {
-      setProblem(null);
-      return;
-    }
+  // ─── Dynamic async problem loader (lazy chunking for bundle optimization) ───
+  const resolveProblemData = useCallback(async (targetId) => {
+    try {
+      const { PROBLEMS } = await import("../data/problemsDatabase");
+      const direct = PROBLEMS.find((p) => String(p.id) === String(targetId));
+      if (direct) return direct;
 
-    setLoading(true);
-    let found = PROBLEMS.find((p) => String(p.id) === String(problemId));
-
-    // Fallback: search DSA patterns data for the problem
-    if (!found) {
+      const { dsaPatternsAll } = await import("../data/dsaPatternsData");
       for (const pattern of dsaPatternsAll) {
         const match = (pattern.problems || []).find(
-          (p) => String(p.id) === String(problemId),
+          (p) => String(p.id) === String(targetId)
         );
         if (match) {
-          found = {
+          return {
             id: match.id,
             title: match.title,
             difficulty: match.difficulty,
@@ -607,23 +601,40 @@ export default function CodingPlayground({ sidebarCollapsed }) {
             examples: [],
             constraints: [],
           };
-          break;
         }
       }
+    } catch (err) {
+      console.warn("Failed to load problem chunk", err);
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (!problemId) {
+      setProblem(null);
+      return;
     }
 
-    if (found) {
-      setProblem(found);
-      // Always reset to starter code when navigating to a new problem
-      const starter = STARTER_CODE[language]
-        ? STARTER_CODE[language](found.functionName)
-        : "";
-      if (starter) setCode(starter);
-      setSidebarTab("problem");
-    }
+    let isMounted = true;
+    setLoading(true);
 
-    setLoading(false);
-  }, [problemId]);
+    resolveProblemData(problemId).then((found) => {
+      if (!isMounted) return;
+      if (found) {
+        setProblem(found);
+        const starter = STARTER_CODE[language]
+          ? STARTER_CODE[language](found.functionName)
+          : "";
+        if (starter) setCode(starter);
+        setSidebarTab("problem");
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [problemId, language, resolveProblemData]);
 
   const voiceFetchAbortRef = useRef(null);
   const attentionAudioContextRef = useRef(null);

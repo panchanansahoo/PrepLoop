@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import apiClient from '../utils/apiClient';
 import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { dailyChallenges } from '../data/dailyChallenges';
@@ -25,6 +26,61 @@ export default function DailyChallengesPage() {
     const [search, setSearch] = useState('');
     const [filterType, setFilterType] = useState('all'); // 'all' | 'Product' | 'Service'
     const [filterSection, setFilterSection] = useState('all'); // 'all' | 'dsa' | 'sql'
+    const [pageView, setPageView] = useState('live'); // 'live' | 'companies'
+    const [liveChallenges, setLiveChallenges] = useState([]);
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [userStanding, setUserStanding] = useState(null);
+    const [selectedChallenge, setSelectedChallenge] = useState(null);
+    const [codeSolution, setCodeSolution] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitFeedback, setSubmitFeedback] = useState(null);
+
+    useEffect(() => {
+        apiClient.get('/api/community/challenges/current')
+            .then(res => {
+                if (res.data?.challenges) {
+                    setLiveChallenges(res.data.challenges);
+                    if (res.data.challenges[0]) {
+                        setSelectedChallenge(res.data.challenges[0]);
+                        setCodeSolution(res.data.challenges[0].starter_code?.javascript || '// Write solution here');
+                    }
+                }
+            })
+            .catch(() => {});
+
+        apiClient.get('/api/community/challenges/leaderboard')
+            .then(res => {
+                if (res.data?.leaderboard) setLeaderboard(res.data.leaderboard);
+                if (res.data?.userStanding) setUserStanding(res.data.userStanding);
+            })
+            .catch(() => {});
+    }, []);
+
+    const handleSubmitSolution = async () => {
+        if (!selectedChallenge || !codeSolution.trim()) return;
+        try {
+            setIsSubmitting(true);
+            setSubmitFeedback(null);
+            const res = await apiClient.post(`/api/community/challenges/${selectedChallenge.id}/submit`, {
+                code: codeSolution,
+                language: 'javascript',
+            });
+            if (res.data?.success) {
+                setSubmitFeedback({
+                    success: true,
+                    message: `🎉 Challenge passed! +${res.data.pointsAwarded} Coins & XP awarded! Weekly score: ${res.data.weeklyScore}`,
+                });
+                if (res.data.standing) setUserStanding(res.data.standing);
+            }
+        } catch (err) {
+            setSubmitFeedback({
+                success: false,
+                message: err.response?.data?.error || 'Failed to submit challenge solution.',
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     const filtered = useMemo(() => {
         return dailyChallenges.filter(c => {
@@ -71,7 +127,202 @@ export default function DailyChallengesPage() {
                             </p>
                         </div>
                     </div>
+
+                    {/* View Switcher Tabs */}
+                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                        <button
+                            onClick={() => setPageView('live')}
+                            style={{
+                                padding: '8px 18px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                background: pageView === 'live' ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)'),
+                                color: pageView === 'live' ? '#000' : (isLight ? '#475569' : '#94a3b8'),
+                                border: 'none', transition: 'all 0.2s',
+                            }}
+                        >
+                            ⚡ Weekly Community Challenges & Leaderboard
+                        </button>
+                        <button
+                            onClick={() => setPageView('companies')}
+                            style={{
+                                padding: '8px 18px', borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: 'pointer',
+                                background: pageView === 'companies' ? 'linear-gradient(135deg, #818cf8, #6366f1)' : (isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)'),
+                                color: pageView === 'companies' ? '#fff' : (isLight ? '#475569' : '#94a3b8'),
+                                border: 'none', transition: 'all 0.2s',
+                            }}
+                        >
+                            🏢 Company Question Bank
+                        </button>
+                    </div>
                 </div>
+
+                {/* ─── LIVE WEEKLY CHALLENGES & LEADERBOARD VIEW ─── */}
+                {pageView === 'live' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)', gap: 24, marginBottom: 36 }}>
+                        {/* Left: Active Challenge & Interactive Editor */}
+                        <div style={{
+                            padding: 24, borderRadius: 20,
+                            background: isLight ? '#ffffff' : 'rgba(24, 24, 27, 0.7)',
+                            border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <div style={{ fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Sparkles size={18} color="#fbbf24" />
+                                    <span>Active Weekly Challenges</span>
+                                </div>
+                                <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8, background: 'rgba(251,191,36,0.15)', color: '#fbbf24' }}>
+                                    Resets Every Monday
+                                </span>
+                            </div>
+
+                            {/* Challenge Selection Pills */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+                                {liveChallenges.map(c => (
+                                    <button
+                                        key={c.id}
+                                        onClick={() => {
+                                            setSelectedChallenge(c);
+                                            setCodeSolution(c.starter_code?.javascript || '// Write solution here');
+                                            setSubmitFeedback(null);
+                                        }}
+                                        style={{
+                                            padding: '8px 14px', borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                                            background: selectedChallenge?.id === c.id ? (isLight ? '#e0e7ff' : '#312e81') : (isLight ? '#f1f5f9' : '#27272a'),
+                                            color: selectedChallenge?.id === c.id ? '#818cf8' : (isLight ? '#475569' : '#a1a1aa'),
+                                            border: selectedChallenge?.id === c.id ? '1px solid #6366f1' : '1px solid transparent',
+                                        }}
+                                    >
+                                        {c.title} • <span style={{ textTransform: 'capitalize', color: c.difficulty === 'easy' ? '#34d399' : c.difficulty === 'medium' ? '#fbbf24' : '#f87171' }}>{c.difficulty}</span> ({c.points} XP)
+                                    </button>
+                                ))}
+                            </div>
+
+                            {selectedChallenge && (
+                                <div>
+                                    <h3 style={{ fontSize: 17, fontWeight: 800, marginBottom: 6 }}>{selectedChallenge.title}</h3>
+                                    <p style={{ fontSize: 13, color: isLight ? '#64748b' : '#a1a1aa', marginBottom: 16, lineHeight: 1.5 }}>
+                                        {selectedChallenge.description}
+                                    </p>
+
+                                    {/* Test cases sample */}
+                                    {selectedChallenge.test_cases && (
+                                        <div style={{ marginBottom: 16, padding: 12, borderRadius: 10, background: isLight ? '#f8fafc' : '#18181b', fontSize: 12 }}>
+                                            <div style={{ fontWeight: 700, marginBottom: 4, color: isLight ? '#334155' : '#e4e4e7' }}>Sample Test Cases:</div>
+                                            {selectedChallenge.test_cases.map((tc, idx) => (
+                                                <div key={idx} style={{ fontFamily: 'monospace', color: isLight ? '#64748b' : '#a1a1aa' }}>
+                                                    Input: {tc.input} ➔ Expected: {tc.expected}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Code Editor Area */}
+                                    <div style={{ marginBottom: 14 }}>
+                                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Your JavaScript Solution:</span>
+                                            <span style={{ color: '#818cf8' }}>Reward: +{selectedChallenge.points} Coins</span>
+                                        </div>
+                                        <textarea
+                                            value={codeSolution}
+                                            onChange={(e) => setCodeSolution(e.target.value)}
+                                            rows={8}
+                                            style={{
+                                                width: '100%', padding: 14, borderRadius: 12, fontFamily: 'monospace', fontSize: 13,
+                                                background: isLight ? '#f8fafc' : '#09090b',
+                                                color: isLight ? '#0f172a' : '#f4f4f5',
+                                                border: isLight ? '1px solid #cbd5e1' : '1px solid #27272a',
+                                                outline: 'none', resize: 'vertical',
+                                            }}
+                                        />
+                                    </div>
+
+                                    {/* Submission feedback */}
+                                    {submitFeedback && (
+                                        <div style={{
+                                            padding: '10px 14px', borderRadius: 10, marginBottom: 14, fontSize: 13, fontWeight: 600,
+                                            background: submitFeedback.success ? 'rgba(52, 211, 153, 0.15)' : 'rgba(248, 113, 113, 0.15)',
+                                            color: submitFeedback.success ? '#34d399' : '#f87171',
+                                            border: submitFeedback.success ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(248, 113, 113, 0.3)',
+                                        }}>
+                                            {submitFeedback.message}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={handleSubmitSolution}
+                                        disabled={isSubmitting}
+                                        style={{
+                                            padding: '10px 24px', borderRadius: 12, fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                                            background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                            color: '#fff', border: 'none', boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
+                                            display: 'flex', alignItems: 'center', gap: 6,
+                                        }}
+                                    >
+                                        {isSubmitting ? 'Verifying Solution...' : 'Submit & Claim Reward'}
+                                        <ArrowRight size={15} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Right: Live Weekly Leaderboard */}
+                        <div style={{
+                            padding: 24, borderRadius: 20,
+                            background: isLight ? '#ffffff' : 'rgba(24, 24, 27, 0.7)',
+                            border: isLight ? '1px solid #e2e8f0' : '1px solid rgba(255,255,255,0.08)',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                <div style={{ fontSize: 16, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <Trophy size={18} color="#fbbf24" />
+                                    <span>Weekly Leaderboard</span>
+                                </div>
+                                {userStanding && (
+                                    <span style={{ fontSize: 11, fontWeight: 700, color: '#818cf8' }}>
+                                        Your Rank: #{userStanding.rank || '-'} ({userStanding.score || 0} pts)
+                                    </span>
+                                )}
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                                {(leaderboard.length > 0 ? leaderboard : [
+                                    { rank: 1, userId: '0001', name: 'Alex M.', score: 135 },
+                                    { rank: 2, userId: '0002', name: 'Priya S.', score: 110 },
+                                    { rank: 3, userId: '0003', name: 'Liam K.', score: 85 },
+                                    { rank: 4, userId: '0004', name: 'Elena V.', score: 75 },
+                                    { rank: 5, userId: '0005', name: 'David C.', score: 50 },
+                                ]).map((entry, idx) => (
+                                    <div
+                                        key={idx}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                            padding: '10px 14px', borderRadius: 12,
+                                            background: idx === 0 ? 'rgba(251,191,36,0.1)' : idx === 1 ? 'rgba(148,163,184,0.1)' : idx === 2 ? 'rgba(180,83,9,0.1)' : (isLight ? '#f8fafc' : '#18181b'),
+                                            border: idx === 0 ? '1px solid rgba(251,191,36,0.25)' : '1px solid transparent',
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <span style={{
+                                                width: 24, height: 24, borderRadius: 8, fontSize: 11, fontWeight: 800,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                background: idx === 0 ? '#fbbf24' : idx === 1 ? '#94a3b8' : idx === 2 ? '#b45309' : (isLight ? '#e2e8f0' : '#27272a'),
+                                                color: idx === 0 ? '#000' : '#fff',
+                                            }}>
+                                                {entry.rank || idx + 1}
+                                            </span>
+                                            <span style={{ fontSize: 13, fontWeight: 600 }}>{entry.name || `Candidate #${String(entry.userId || '').slice(0, 5)}`}</span>
+                                        </div>
+                                        <span style={{ fontSize: 13, fontWeight: 800, color: '#fbbf24' }}>
+                                            {entry.score} pts
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── COMPANY QUESTION BANK (WHEN SELECTED) ─── */}
+                {pageView === 'companies' && (
+                    <>
 
                 {/* Today's Highlight */}
                 <div style={{
@@ -341,6 +592,8 @@ export default function DailyChallengesPage() {
 
                 {/* Bottom Spacer */}
                 <div style={{ height: 60 }} />
+                    </>
+                )}
             </div>
         </div>
     );

@@ -60,10 +60,15 @@ apiClient.interceptors.request.use(
     // Cookie-authenticated mutations need the double-submit CSRF header.
     const method = String(config.method || 'get').toUpperCase();
     if (!SAFE_METHODS.has(method)) {
-      const csrfToken = await getCsrfToken();
+      let csrfToken = await getCsrfToken();
+      if (!csrfToken) {
+        // Force refresh CSRF token if missing from cookie or cache
+        csrfToken = await getCsrfToken(true);
+      }
       if (csrfToken) {
         config.headers['X-CSRF-Token'] = csrfToken;
       }
+      config.headers['X-Requested-With'] = 'XMLHttpRequest';
     }
     
     // Add request ID for tracing

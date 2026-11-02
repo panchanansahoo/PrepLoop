@@ -189,6 +189,101 @@ class APIDocGenerator {
           },
         },
       ],
+      peerInterview: [
+        {
+          path: '/create',
+          method: 'post',
+          summary: 'Create peer interview room',
+          description: 'Initializes a real-time collaborative coding room for peer practice',
+          requiresAuth: true,
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    problemId: { type: 'string' },
+                    language: { type: 'string', default: 'javascript' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          path: '/match',
+          method: 'post',
+          summary: 'Find peer match',
+          description: 'Pairs user with a waiting candidate or initializes a waiting room',
+          requiresAuth: true,
+          requestBody: {
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    language: { type: 'string' },
+                    problemId: { type: 'string' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        {
+          path: '/:roomCode/complete',
+          method: 'post',
+          summary: 'Complete peer interview',
+          description: 'Submits rubric evaluation and awards peer champion badge',
+          requiresAuth: true,
+        },
+      ],
+      communityChallenges: [
+        {
+          path: '/current',
+          method: 'get',
+          summary: 'Get active weekly challenges',
+          description: 'Retrieves current active community coding challenges and test cases',
+          requiresAuth: false,
+        },
+        {
+          path: '/:challengeId/submit',
+          method: 'post',
+          summary: 'Submit challenge solution',
+          description: 'Validates code solution, increments weekly leaderboard score, and awards coins',
+          requiresAuth: true,
+        },
+        {
+          path: '/leaderboard',
+          method: 'get',
+          summary: 'Get community leaderboard',
+          description: 'Fetches real-time weekly rank standings',
+          requiresAuth: false,
+        },
+      ],
+      employer: [
+        {
+          path: '/api-keys',
+          method: 'post',
+          summary: 'Generate API key',
+          description: 'Issues a scoped platform API key for external ATS and screening bots',
+          requiresAuth: true,
+        },
+        {
+          path: '/webhooks',
+          method: 'post',
+          summary: 'Subscribe to webhooks',
+          description: 'Registers HTTPS webhook URL for interview lifecycle events',
+          requiresAuth: true,
+        },
+        {
+          path: '/candidates',
+          method: 'get',
+          summary: 'List candidate assessments',
+          description: 'Returns candidate screening pipeline and completed scores',
+          requiresAuth: true,
+        },
+      ],
       jobs: [
         {
           path: '/search',
@@ -336,7 +431,7 @@ class APIDocGenerator {
 }
 
 // CLI execution
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
   const generator = new APIDocGenerator();
   generator.save().catch(console.error);
 }

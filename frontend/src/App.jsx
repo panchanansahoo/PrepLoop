@@ -28,6 +28,8 @@ const Dashboard = lazyWithRecovery(() => import('./pages/Dashboard'));
 const _DSAPatterns = lazyWithRecovery(() => import('./pages/DSAPatterns'));
 const PatternDetail = lazyWithRecovery(() => import('./pages/PatternDetail'));
 const ProblemSolver = lazyWithRecovery(() => import('./pages/ProblemSolver'));
+const CareerRoadmapPage = lazyWithRecovery(() => import('./pages/CareerRoadmapPage'));
+const DeveloperPortalPage = lazyWithRecovery(() => import('./pages/DeveloperPortalPage'));
 const LanguageRoadmap = lazyWithRecovery(() => import('./pages/LanguageRoadmap'));
 const SystemDesignRoadmap = lazyWithRecovery(() => import('./pages/SystemDesignRoadmap'));
 const WebDevRoadmap = lazyWithRecovery(() => import('./pages/WebDevRoadmap'));
@@ -82,6 +84,7 @@ const MultiRoundInterview = lazyWithRecovery(() => import('./pages/MultiRoundInt
 const InterviewAnalytics = lazyWithRecovery(() => import('./pages/InterviewAnalytics'));
 const InterviewHistory = lazyWithRecovery(() => import('./pages/InterviewHistory'));
 const InterviewSuite = lazyWithRecovery(() => import('./pages/InterviewSuite'));
+const PeerInterviewRoom = lazyWithRecovery(() => import('./pages/PeerInterviewRoom'));
 const DebuggingInterview = lazyWithRecovery(() => import('./pages/DebuggingInterview'));
 const CodeReviewInterview = lazyWithRecovery(() => import('./pages/CodeReviewInterview'));
 const CodingPlayground = lazyWithRecovery(() => import('./pages/CodingPlayground'));
@@ -260,6 +263,10 @@ function AppContent() {
                 <Route path="/community" element={<CommunityHub />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/overview" element={<PrivateRoute><Overview /></PrivateRoute>} />
+                <Route path="/career-roadmap" element={<CareerRoadmapPage />} />
+                <Route path="/developer" element={<PrivateRoute><DeveloperPortalPage /></PrivateRoute>} />
+                <Route path="/dashboard/developer" element={<PrivateRoute><DeveloperPortalPage /></PrivateRoute>} />
+                <Route path="/roadmap" element={<CareerRoadmapPage />} />
                 <Route path="/roadmap/language" element={<LanguageRoadmap />} />
                 <Route path="/roadmap/system-design" element={<SystemDesignRoadmap />} />
                 <Route path="/roadmap/web-dev" element={<WebDevRoadmap />} />
@@ -309,6 +316,8 @@ function AppContent() {
                 <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
                 <Route path="/interview-suite" element={<InterviewSuite />} />
                 <Route path="/multi-round-interview" element={<MultiRoundInterview />} />
+                <Route path="/peer-interview" element={<PeerInterviewRoom />} />
+                <Route path="/peer-interview/:roomCode" element={<PeerInterviewRoom />} />
                 <Route path="/interview-platform" element={<InterviewPlatform />} />
                 <Route path="/interview-analytics" element={<InterviewAnalytics />} />
                 <Route path="/interview-history" element={<InterviewHistory />} />
