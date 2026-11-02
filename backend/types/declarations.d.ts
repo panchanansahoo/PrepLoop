@@ -11,3 +11,25 @@ declare module 'ws' {
     on(event: string, callback: (...args: any[]) => void): void;
   }
 }
+
+declare module '*/coinTransactions.js' {
+  export interface ApplyCoinTransactionParams {
+    userId: string;
+    amount: number;
+    type: 'credit' | 'debit';
+    description?: string;
+    referenceKey?: string | null;
+  }
+  export interface ApplyCoinTransactionResult {
+    handled: boolean;
+    success?: boolean;
+    balance?: number;
+    error?: any;
+    applied?: boolean;
+  }
+  export function applyCoinTransaction(
+    params: ApplyCoinTransactionParams
+  ): Promise<ApplyCoinTransactionResult>;
+}
+
+

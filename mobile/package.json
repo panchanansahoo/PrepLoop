@@ -15,6 +15,7 @@
         "web": "expo start --web",
         "lint": "eslint src --ext .js,.jsx",
         "lint:fix": "eslint src --ext .js,.jsx --fix",
+        "test": "node --test src/api/__tests__/*.test.js",
         "test:e2e": "maestro test e2e/flows/"
     },
     "dependencies": {

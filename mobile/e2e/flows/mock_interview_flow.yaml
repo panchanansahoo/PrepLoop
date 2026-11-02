@@ -1,0 +1,54 @@
+appId: com.preploop.mobile
+name: "Mock Interview Initiation & Completion Flow"
+---
+- launchApp:
+    clearState: false
+
+# Navigate to Interview Hub
+- tapOn:
+    id: "nav-interview-tab"
+
+- assertVisible: "AI Mock Interviews"
+- assertVisible: "Start Interview"
+
+# Select Track and Mode
+- tapOn: "Technical Track"
+- tapOn: "Standard Mode"
+
+# Start the Interview session
+- tapOn: "Begin Session"
+
+# Verify Session Screen Loaded
+- assertVisible:
+    text: "Question 1"
+    timeout: 10000
+
+- assertVisible: "Voice Active"
+
+# Provide simulated candidate answer
+- tapOn:
+    id: "interview-answer-input"
+- inputText: "To optimize this search problem, I would use a hash map for constant time lookups."
+
+- hideKeyboard
+
+- tapOn:
+    id: "submit-answer-button"
+
+# Verify follow-up or completion transition
+- assertVisible:
+    text: "AI Evaluator"
+    timeout: 12000
+
+# Complete interview
+- tapOn: "Finish Interview"
+- tapOn: "Confirm"
+
+# Verify Scorecard rendered
+- assertVisible:
+    text: "Interview Performance Report"
+    timeout: 15000
+
+- assertVisible: "Overall Score"
+- assertVisible: "Strengths"
+

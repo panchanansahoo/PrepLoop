@@ -7,5 +7,11 @@ export default defineConfig({
     include: ['tests/{unit,integration,smoke}/**/*.{test,spec}.{js,mjs,cjs,ts}'],
     exclude: ['node_modules', 'dist', 'scripts'],
     testTimeout: 15000,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary'],
+      reportsDirectory: './coverage',
+      exclude: ['node_modules', 'dist', 'scripts', 'tests', 'types'],
+    },
   },
 });

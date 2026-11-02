@@ -6,6 +6,14 @@ const isMissingAtomicCoinFunction = (error) => {
   return code === 'PGRST202' || message.includes('coin_apply_transaction');
 };
 
+/**
+ * @param {Object} params
+ * @param {string} params.userId
+ * @param {number} params.amount
+ * @param {string} params.type
+ * @param {string} [params.description]
+ * @param {string | null} [params.referenceKey]
+ */
 export const applyCoinTransaction = async ({ userId, amount, type, description, referenceKey = null }) => {
   const { data, error } = await supabaseAdmin.rpc('coin_apply_transaction', {
     user_id_input: userId,

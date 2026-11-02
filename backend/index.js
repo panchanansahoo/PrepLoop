@@ -63,60 +63,18 @@ app.get('/health/live', (_req, res) => {
 
 async function initializeServer() {
   try {
-    console.log('📦 Loading routes...');
-    const authRoutes = (await import('./routes/auth.js')).default;
-    const dsaRoutes = (await import('./routes/dsa.js')).default;
-    const practiceRoutes = (await import('./routes/practice.js')).default;
-    const aiRoutes = (await import('./routes/ai.js')).default;
-    const aiFeaturesRoutes = (await import('./routes/ai-features.js')).default;
-    const userRoutes = (await import('./routes/user.js')).default;
-    const resumeRoutes = (await import('./routes/resume.js')).default;
-    const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
-    const communityRoutes = (await import('./routes/community.js')).default;
-    const communityChallengesRoutes = (await import('./routes/communityChallenges.js')).default;
-    const coachRoutes = (await import('./routes/coach.js')).default;
-    const interviewModule = await import('./routes/interview.js');
-    const interviewRoutes = interviewModule.default;
-    const { getInterviewAnalytics, getInterviewRecommendations } = interviewModule;
-    const interviewEnhancedRoutes = (await import('./routes/interview-enhanced.js')).default;
-    const interviewSuiteRoutes = (await import('./routes/interview-suite.js')).default;
-    const contactRoutes = (await import('./routes/contact.js')).default;
-    const blogRoutes = (await import('./routes/blog.js')).default;
-    const activityRoutes = (await import('./routes/activity.js')).default;
-    const companyInterviewRoutes = (await import('./routes/companyInterview.js')).default;
-    const paymentRoutes = (await import('./routes/payment.js')).default;
-    const voiceRoutes = (await import('./routes/voice.js')).default;
-    const notesRoutes = (await import('./routes/notes.js')).default;
-    const adminRoutes = (await import('./routes/admin.js')).default;
-    const jobsRoutes = (await import('./routes/jobs.js')).default;
-    const coinsRoutes = (await import('./routes/coins.js')).default;
-    const chatRoutes = (await import('./routes/chat.js')).default;
-    const clientLogsRoutes = (await import('./routes/clientLogs.js')).default;
-    const scheduleRoutes = (await import('./routes/schedule.js')).default;
-    const hrRoutes = (await import('./routes/hr.js')).default;
-    const libraryRoutes = (await import('./routes/library.js')).default;
-    const improvementPlanRoutes = (await import('./routes/improvement-plan.js')).default;
-    const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
-    const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
-    const copilotRoutes = (await import('./routes/copilot.js')).default;
-    const peerInterviewRoutes = (await import('./routes/peerInterview.js')).default;
-    const portfolioRoutes = (await import('./routes/portfolio.js')).default;
-    const analyticsRoutes = (await import('./routes/analytics.js')).default;
-    const careerAnalyticsRoutes = (await import('./routes/career-analytics.js')).default;
-    const contestsRoutes = (await import('./routes/contests.js')).default;
-    const realInterviewRoutes = (await import('./routes/real-interview.js')).default;
-    const feedbackRoutes = (await import('./routes/feedback.js')).default;
-    const monitoringEnhancedRoutes = (await import('./routes/monitoring-enhanced.js')).default;
-    const errorReportRoutes = (await import('./routes/errorReport.js')).default;
-    const feedRoutes = (await import('./routes/feed.js')).default;
-    const gamificationRoutes = (await import('./routes/gamification.js')).default;
-    const employerRoutes = (await import('./routes/employer.js')).default;
-
+    console.log('📦 Initializing API Route Registry...');
+    const { createApiRouter } = await import('./routes/index.js');
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
-    const { healthCheck, readinessCheck, livenessCheck } =
-      await import('./middleware/healthCheck.js');
-
+    const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
+    const interviewModule = await import('./routes/interview.js');
+    const { getInterviewAnalytics, getInterviewRecommendations } = interviewModule;
+    const apiRouter = await createApiRouter({
+      authenticateToken,
+      getInterviewAnalytics,
+      getInterviewRecommendations,
+    });
     console.log('✅ Routes loaded successfully');
 
     // Configure rate limiting
@@ -326,56 +284,8 @@ async function initializeServer() {
     const { csrfProtection } = await import('./middleware/csrf.js');
     app.use('/api', csrfProtection);
 
-    // Register all routes
-    app.use('/api/auth', authRoutes);
-    app.use('/api/dsa', dsaRoutes);
-    app.use('/api/practice', practiceRoutes);
-    app.use('/api/ai', aiRoutes);
-    app.use('/api/ai-features', aiFeaturesRoutes);
-    app.use('/api/user', userRoutes);
-    app.use('/api/resume', resumeRoutes);
-    app.use('/api/system-design', systemDesignRoutes);
-    app.use('/api/community/challenges', communityChallengesRoutes);
-    app.use('/api/community', communityRoutes);
-    app.use('/api/ai/coach', coachRoutes);
-    app.use('/api/ai/interview', interviewRoutes);
-    app.use('/api/interview', interviewRoutes);
-    app.use('/api/ai/interview/v2', interviewEnhancedRoutes);
-    app.get('/api/analytics/overview', authenticateToken, getInterviewAnalytics);
-    app.get('/api/recommendations', authenticateToken, getInterviewRecommendations);
-    app.use('/api/interview-suite', interviewSuiteRoutes);
-    app.use('/api/contact', contactRoutes);
-    app.use('/api/blog', blogRoutes);
-    app.use('/api/activity', activityRoutes);
-    app.use('/api/company-interview', companyInterviewRoutes);
-    app.use('/api/payment', paymentRoutes);
-    app.use('/api/voice', voiceRoutes);
-    app.use('/api/notes', notesRoutes);
-    app.use('/api/admin', adminRoutes);
-    app.use('/api/jobs', jobsRoutes);
-    app.use('/api/coins', coinsRoutes);
-    app.use('/api/chat', chatRoutes);
-    app.use('/api/client-logs', clientLogsRoutes);
-    app.use('/api/schedule', scheduleRoutes);
-    app.use('/api/hr', hrRoutes);
-    app.use('/api/library', libraryRoutes);
-    app.use('/api/improvement-plan', improvementPlanRoutes);
-    app.use('/api/study-groups', studyGroupsRoutes);
-    app.use('/api/fresher-interview', fresherInterviewRoutes);
-    app.use('/api/copilot', copilotRoutes);
-    app.use('/api/peer-interview', peerInterviewRoutes);
-    app.use('/api/portfolio', portfolioRoutes);
-    app.use('/api/analytics', analyticsRoutes);
-    app.use('/api/career', careerAnalyticsRoutes);
-    app.use('/api', contestsRoutes);
-    app.use('/api/real-interview', realInterviewRoutes);
-    app.use('/api/feedback', feedbackRoutes);
-    app.use('/api/monitoring', monitoringEnhancedRoutes);
-    app.use('/api/errors', errorReportRoutes);
-    app.use('/api/feed', feedRoutes);
-    app.use('/api/gamification', gamificationRoutes);
-    app.use('/api/employer', employerRoutes);
-
+    // Register all API routes via standardized Route Registry
+    app.use('/api', apiRouter);
     // Catch-all 404 handler for undefined API routes to prevent silent failures
     app.use('/api', (req, res, _next) => {
       console.warn(`[404] API Endpoint Not Found: ${req.method} ${req.originalUrl}`);
