@@ -10,7 +10,24 @@ const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
 
 // Multer memory storage for resume uploads
-const resumeUploader = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const resumeUploader = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    const isAllowedExt = /\.(pdf|docx|doc|txt)$/i.test(file.originalname || '');
+    if (allowedMimes.includes(file.mimetype) || isAllowedExt) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid resume file. Only PDF, DOC, DOCX, and TXT files are accepted.'));
+    }
+  },
+});
 
 const router = express.Router();
 

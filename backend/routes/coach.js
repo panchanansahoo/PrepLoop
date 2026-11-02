@@ -7,7 +7,7 @@ const router = express.Router();
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 const getSystemPrompt = (mode) => {
-  const basePrompt = "You are an expert AI Technical Coach on CareerLoop. Your goal is to help users master software engineering concepts through the Socratic method. Do not just give answers; ask guiding questions to help the user derive the solution. Be concise, encouraging, and technically precise.";
+  const basePrompt = "You are an expert AI Technical Coach on PrepLoop. Your goal is to help users master software engineering concepts through the Socratic method. Do not just give answers; ask guiding questions to help the user derive the solution. Be concise, encouraging, and technically precise.";
   
   const prompts = {
     general: `${basePrompt} You can assist with DSA, System Design, and Career advice.`,
@@ -86,6 +86,56 @@ router.post('/chat', authenticateToken, async (req, res) => {
       ...mock,
       degraded: true,
     });
+  }
+});
+
+/**
+ * POST /api/ai/coach/socratic-challenge
+ * Generates a concept-level Socratic interview thought experiment
+ */
+router.post('/socratic-challenge', authenticateToken, async (req, res) => {
+  try {
+    const { topic = 'dsa', concept = 'Hash Maps vs BST' } = req.body;
+
+    if (groq) {
+      const completion = await aiCallWithRetry({
+        operation: () => groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are the PrepLoop Socratic Coach. Pose a targeted 2-part interview thought experiment to test understanding without giving away the answer. Be punchy and educational.',
+            },
+            {
+              role: 'user',
+              content: `Give me a Socratic challenge on topic "${topic}", specifically testing the concept "${concept}".`,
+            },
+          ],
+          temperature: 0.7,
+          max_tokens: 300,
+        }),
+        timeoutMs: 10000,
+        maxRetries: 2,
+      });
+
+      return res.json({
+        success: true,
+        topic,
+        concept,
+        challenge: completion.choices[0].message.content,
+      });
+    }
+
+    // Fallback response
+    return res.json({
+      success: true,
+      topic,
+      concept,
+      challenge: `Consider this scenario: You need to design an in-memory cache supporting O(1) lookups and order traversal by insertion time. Would a Hash Table alone suffice? What data structure combination would you propose, and what are the trade-offs?`,
+    });
+  } catch (err) {
+    console.error('Error generating Socratic challenge:', err);
+    return res.status(500).json({ error: 'Failed to generate Socratic challenge' });
   }
 });
 

@@ -12,6 +12,7 @@ import _aiLearningPath from "../../data/aiLearningPath.js";
 import { applyCoinTransaction } from "../../utils/coinTransactions.js";
 import { calculateDashboardStreak as _calculateDashboardStreak } from "../../utils/dashboardStreak.js";
 import { normalizeProfileUpdatePayload } from "../../utils/profilePayload.js";
+import cacheManager from "../../utils/cacheManager.js";
 
 
 const PROFILE_COMPLETION_COIN_REWARD = 20;
@@ -675,11 +676,25 @@ router.get("/profile", authenticateToken, async (req, res) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
 
-    const { data: profile, error } = await supabaseAdmin
+    const cacheKey = `profile:${req.user.id}`;
+    let profile = await cacheManager.get(cacheKey).catch(() => null);
+
+    if (profile) {
+      if ((req.user?.role === 'admin' || isAdminEmail(req.user?.email)) && profile.role !== 'admin') {
+        profile.role = 'admin';
+        supabaseAdmin.from("profiles").update({ role: 'admin' }).eq("id", req.user.id).catch(() => {});
+      }
+      cacheManager.set(cacheKey, profile, 60).catch(() => {});
+      return res.json(buildProfileResponse(req, profile));
+    }
+
+    const { data: fetchedProfile, error } = await supabaseAdmin
       .from("profiles")
       .select("*")
       .eq("id", req.user.id)
       .maybeSingle();
+
+    profile = fetchedProfile;
 
     if (isProfilesAccessBlocked(error)) {
       return res.json({
@@ -705,6 +720,7 @@ router.get("/profile", authenticateToken, async (req, res) => {
         profile.role = 'admin';
         supabaseAdmin.from("profiles").update({ role: 'admin' }).eq("id", req.user.id).catch(() => {});
       }
+      cacheManager.set(cacheKey, profile, 60).catch(() => {});
       return res.json(buildProfileResponse(req, profile));
     }
 
@@ -990,6 +1006,7 @@ router.put("/profile", authenticateToken, async (req, res) => {
       profileCompletionRewardApplied: rewardResult.applied,
       profileCompletionRewardDegraded: rewardDegraded,
     };
+    await cacheManager.delete(`profile:${req.user.id}`).catch(() => {});
     res.json(responsePayload);
   } catch (error) {
     console.error("Error updating profile:", error);

@@ -17,6 +17,7 @@ import demandForecasting from '../services/aimlDemandForecasting.js';
 import collaborativeFiltering from '../services/aimlCollaborativeFiltering.js';
 import trendDetection from '../services/aimlTrendDetection.js';
 import resumeMatcher from '../services/aimlResumeJdMatcher.js';
+import { InterviewAnalyticsService } from '../services/interviewAnalyticsService.js';
 import { supabase } from '../db/supabaseClient.js';
 
 const router = express.Router();
@@ -369,6 +370,89 @@ router.post('/pathway-interaction', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Error in /career/pathway-interaction:', err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/career/roadmap
+ * POST /api/career/roadmap
+ * Generate dynamic 4-week AI Career Roadmap based on historical interview performance
+ */
+router.post('/roadmap', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, req.body);
+    res.json({ success: true, roadmap });
+  } catch (err) {
+    console.error('Error generating career roadmap:', err);
+    res.status(500).json({ error: 'Failed to generate career roadmap' });
+  }
+});
+
+router.get('/roadmap', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+
+    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, req.query);
+    res.json({ success: true, roadmap });
+  } catch (err) {
+    console.error('Error fetching career roadmap:', err);
+    res.status(500).json({ error: 'Failed to fetch career roadmap' });
+  }
+});
+
+/**
+ * POST /api/career/jd-prep-plan
+ * Matches JD with user skills/resume and generates targeted practice schedule & questions
+ */
+router.post('/jd-prep-plan', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { jobDescription, targetRole = 'Software Engineer', company = 'Target Company' } = req.body;
+
+    if (!jobDescription || typeof jobDescription !== 'string') {
+      return res.status(400).json({ error: 'jobDescription is required' });
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('skills, experience_summary, bio')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const userText = [
+      Array.isArray(profile?.skills) ? profile.skills.join(', ') : (profile?.skills || ''),
+      profile?.experience_summary || '',
+      profile?.bio || ''
+    ].join(' ');
+
+    const matchResult = await resumeMatcher.matchResumeToJd(userText || 'Software Developer', jobDescription);
+
+    const prepPlan = {
+      targetRole,
+      company,
+      overallFitScore: matchResult.similarityScore || 72,
+      keywordMatches: matchResult.topMatchingKeywords || [],
+      missingCompetencies: matchResult.missingKeywords || [],
+      tailoredQuestions: [
+        `How have you applied ${matchResult.topMatchingKeywords?.[0] || 'core technologies'} in previous high-scale projects?`,
+        `Walk me through an architectural challenge you solved that relates to ${targetRole} requirements.`,
+        `How would you ramp up on ${matchResult.missingKeywords?.[0] || 'emerging tooling'} within your first 30 days at ${company}?`
+      ],
+      recommendedModules: [
+        { name: 'System Design Scaling', track: 'system-design' },
+        { name: 'Advanced DSA Problem Patterns', track: 'dsa' },
+        { name: `${company} Mock Interview Simulation`, track: 'company-prep' }
+      ]
+    };
+
+    res.json({ success: true, prepPlan });
+  } catch (err) {
+    console.error('Error in /career/jd-prep-plan:', err);
+    res.status(500).json({ error: 'Failed to generate JD prep plan' });
   }
 });
 

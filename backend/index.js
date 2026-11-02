@@ -8,6 +8,7 @@ import './config/env.js';
 import { apiCacheMiddleware } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
 import collaborationService from './services/collaborationService.js';
+import realtimeInterviewService from './services/realtimeInterviewService.js';
 
 import { disableConsoleLogs } from './utils/productionLogger.js';
 import { validateStartupEnv } from './config/startupEnvValidation.js';
@@ -72,6 +73,7 @@ async function initializeServer() {
     const resumeRoutes = (await import('./routes/resume.js')).default;
     const systemDesignRoutes = (await import('./routes/systemDesign.js')).default;
     const communityRoutes = (await import('./routes/community.js')).default;
+    const communityChallengesRoutes = (await import('./routes/communityChallenges.js')).default;
     const coachRoutes = (await import('./routes/coach.js')).default;
     const interviewModule = await import('./routes/interview.js');
     const interviewRoutes = interviewModule.default;
@@ -97,6 +99,7 @@ async function initializeServer() {
     const studyGroupsRoutes = (await import('./routes/study-groups.js')).default;
     const fresherInterviewRoutes = (await import('./routes/fresher-interview.js')).default;
     const copilotRoutes = (await import('./routes/copilot.js')).default;
+    const peerInterviewRoutes = (await import('./routes/peerInterview.js')).default;
     const portfolioRoutes = (await import('./routes/portfolio.js')).default;
     const analyticsRoutes = (await import('./routes/analytics.js')).default;
     const careerAnalyticsRoutes = (await import('./routes/career-analytics.js')).default;
@@ -106,6 +109,8 @@ async function initializeServer() {
     const monitoringEnhancedRoutes = (await import('./routes/monitoring-enhanced.js')).default;
     const errorReportRoutes = (await import('./routes/errorReport.js')).default;
     const feedRoutes = (await import('./routes/feed.js')).default;
+    const gamificationRoutes = (await import('./routes/gamification.js')).default;
+    const employerRoutes = (await import('./routes/employer.js')).default;
 
     const { authenticateToken } = await import('./middleware/auth.js');
     const { errorHandler } = await import('./middleware/errorHandler.js');
@@ -266,6 +271,55 @@ async function initializeServer() {
     });
     app.get('/health/live', livenessCheck);
 
+    // OpenAPI & Swagger Documentation endpoints
+    app.get('/api/docs/openapi.json', async (_req, res) => {
+      try {
+        const APIDocGenerator = (await import('./utils/apiDocGenerator.js')).default;
+        const generator = new APIDocGenerator();
+        const spec = await generator.generate();
+        res.json(spec);
+      } catch (err) {
+        res.status(500).json({ error: 'Failed to generate API docs', message: err.message });
+      }
+    });
+
+    app.get('/api/docs', async (_req, res) => {
+      try {
+        const APIDocGenerator = (await import('./utils/apiDocGenerator.js')).default;
+        const generator = new APIDocGenerator();
+        const spec = await generator.generate();
+        res.setHeader('Content-Type', 'text/html');
+        res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>PrepLoop API Documentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+  <style>
+    body { margin: 0; background-color: #0f172a; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+  <script>
+    SwaggerUIBundle({
+      spec: ${JSON.stringify(spec)},
+      dom_id: '#swagger-ui',
+      deepLinking: true,
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIBundle.SwaggerUIStandalonePreset
+      ],
+    });
+  </script>
+</body>
+</html>`);
+      } catch (err) {
+        res.status(500).json({ error: 'Failed to render API documentation', message: err.message });
+      }
+    });
+
     // CSRF token endpoint (for cookie-based auth flows)
     const { csrfTokenEndpoint } = await import('./middleware/csrf.js');
     app.get('/api/csrf-token', csrfTokenEndpoint);
@@ -281,6 +335,7 @@ async function initializeServer() {
     app.use('/api/user', userRoutes);
     app.use('/api/resume', resumeRoutes);
     app.use('/api/system-design', systemDesignRoutes);
+    app.use('/api/community/challenges', communityChallengesRoutes);
     app.use('/api/community', communityRoutes);
     app.use('/api/ai/coach', coachRoutes);
     app.use('/api/ai/interview', interviewRoutes);
@@ -308,6 +363,7 @@ async function initializeServer() {
     app.use('/api/study-groups', studyGroupsRoutes);
     app.use('/api/fresher-interview', fresherInterviewRoutes);
     app.use('/api/copilot', copilotRoutes);
+    app.use('/api/peer-interview', peerInterviewRoutes);
     app.use('/api/portfolio', portfolioRoutes);
     app.use('/api/analytics', analyticsRoutes);
     app.use('/api/career', careerAnalyticsRoutes);
@@ -317,6 +373,8 @@ async function initializeServer() {
     app.use('/api/monitoring', monitoringEnhancedRoutes);
     app.use('/api/errors', errorReportRoutes);
     app.use('/api/feed', feedRoutes);
+    app.use('/api/gamification', gamificationRoutes);
+    app.use('/api/employer', employerRoutes);
 
     // Catch-all 404 handler for undefined API routes to prevent silent failures
     app.use('/api', (req, res, _next) => {
@@ -407,6 +465,12 @@ startServer(DEFAULT_PORT)
   .then((server) => {
     // Initialize collaboration service (must happen before shutdown setup)
     collaborationService.initialize(server);
+    try {
+      realtimeInterviewService.initialize(server);
+      console.log('✅ Realtime interview service initialized');
+    } catch (realtimeErr) {
+      console.warn('Realtime interview service initialization warning:', realtimeErr.message);
+    }
     console.log('✅ Collaboration service initialized');
 
     // Setup graceful shutdown with configurable timeouts

@@ -10,7 +10,24 @@ import { mergePortfolioProfile } from '../services/portfolioProfileNormalizerSer
 import { createPortfolioSite, unpublishPortfolioSite } from '../services/portfolioPublishService.js';
 import { createShortLink, reservePortfolioSlug, resolveShortLink } from '../services/portfolioShortLinkService.js';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain',
+    ];
+    const isAllowedExt = /\.(pdf|docx|doc|txt)$/i.test(file.originalname || '');
+    if (allowedMimes.includes(file.mimetype) || isAllowedExt) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file format. Only PDF, DOC, DOCX, and TXT are supported.'));
+    }
+  },
+});
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');

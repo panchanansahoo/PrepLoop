@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { all425Problems } from '../data/allProblems.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
+import cacheManager from '../utils/cacheManager.js';
 import Groq from 'groq-sdk';
 
 const router = express.Router();
@@ -113,20 +114,22 @@ ${String(problem?.description || '').substring(0, 1500)}
 
 router.get('/patterns', optionalAuth, async (req, res) => {
   try {
-    // Get patterns with problem counts
-    const { data: patterns, error } = await supabaseAdmin
-      .from('patterns')
-      .select('*, problems(count)')
-      .order('id');
+    const transformed = await cacheManager.getOrSet('dsa:patterns', async () => {
+      // Get patterns with problem counts
+      const { data: patterns, error } = await supabaseAdmin
+        .from('patterns')
+        .select('*, problems(count)')
+        .order('id');
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Transform to match expected format
-    const transformed = (patterns || []).map(p => ({
-      ...p,
-      problem_count: p.problems?.[0]?.count || 0,
-      problems: undefined
-    }));
+      // Transform to match expected format
+      return (patterns || []).map(p => ({
+        ...p,
+        problem_count: p.problems?.[0]?.count || 0,
+        problems: undefined
+      }));
+    }, 1800);
 
     res.json({ patterns: transformed });
   } catch (error) {

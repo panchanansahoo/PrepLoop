@@ -92,9 +92,11 @@ export const errorHandler = (err, req, res, _next) => {
     ? errorCode
     : ErrorCodes.INTERNAL_ERROR;
 
-  // Don't leak error details in production
+  // Standardized error response with backward compatibility
   const response = {
+    success: false,
     error: error.message || 'Internal server error',
+    message: error.message || 'Internal server error',
     code: responseCode,
     requestId
   };

@@ -14,9 +14,13 @@
         "auth:reset-password": "node scripts/reset_password.js",
         "smtp:verify": "node scripts/verify_smtp.js",
         "lint": "node --check index.js && node --check setup.js && eslint .",
+        "type-check": "tsc --noEmit",
         "lint:fix": "echo 'Run prettier to format code'",
         "format": "prettier --write \"**/*.js\"",
-        "test": "node scripts/testStartup.js && node scripts/testVoiceServiceUnit.js && node scripts/testInterviewStateMachine.js && node scripts/testScoringAndFollowUp.js && node scripts/testInterviewGrounding.js && node scripts/testInterviewGroundingService.js && node scripts/testInterviewTelemetry.js && node scripts/testInterviewTelemetryService.js && node scripts/testInterviewConversationService.js && node scripts/testInterviewOrchestration.js && node scripts/testInterviewScoringRules.js && node scripts/testInterviewImprovements.js && node scripts/testInterviewIntelligence.js && node scripts/testSecurityFixes.js && node scripts/testProfilePayloadNormalization.js && node scripts/test_profile_endpoints.js && node scripts/testPortfolioProfileNormalizerService.js && node scripts/testPortfolioLinkedinService.js && node scripts/testPortfolioRendererService.js && node scripts/testNvidiaVoiceAndPrivateAccess.js",
+        "test": "npm run test:unit && node scripts/testStartup.js && node scripts/testVoiceServiceUnit.js && node scripts/testInterviewStateMachine.js && node scripts/testScoringAndFollowUp.js && node scripts/testInterviewGrounding.js && node scripts/testInterviewGroundingService.js && node scripts/testInterviewTelemetry.js && node scripts/testInterviewTelemetryService.js && node scripts/testInterviewConversationService.js && node scripts/testInterviewOrchestration.js && node scripts/testInterviewScoringRules.js && node scripts/testInterviewImprovements.js && node scripts/testInterviewIntelligence.js && node scripts/testSecurityFixes.js && node scripts/testProfilePayloadNormalization.js && node scripts/test_profile_endpoints.js && node scripts/testPortfolioProfileNormalizerService.js && node scripts/testPortfolioLinkedinService.js && node scripts/testPortfolioRendererService.js && node scripts/testNvidiaVoiceAndPrivateAccess.js",
+        "test:unit": "node --test tests/auth.test.js tests/validation.test.js tests/errorHandler.test.js tests/hardening.test.js",
+        "test:vitest": "vitest run",
+        "test:coverage": "vitest run --coverage",
         "test:all": "npm run test && node scripts/testInterviewFeedback.js && node scripts/testVoiceInterviewIntelligence.js && node scripts/testCareerOpsSerialization.js && node scripts/testCareerOpsHistory.js && npm run test:auth && npm run test:payment && npm run smoke:interview-flows",
         "test:auth": "node scripts/testAuthFlow.js",
         "test:email": "node scripts/testEmailService.js",
@@ -57,7 +61,8 @@
         "test:copilot": "node scripts/test-copilot.js",
         "test:circuit-breaker": "node tests/circuitBreaker.test.js",
         "test:hardening": "node --test tests/hardening.test.js",
-        "maintenance:cleanup-interview-retention": "node scripts/cleanupInterviewRetention.js"
+        "maintenance:cleanup-interview-retention": "node scripts/cleanupInterviewRetention.js",
+        "migrate:all": "node scripts/runMigrations.js"
     },
     "dependencies": {
         "@google/genai": "^1.50.1",
@@ -71,7 +76,6 @@
         "dotenv": "^16.3.1",
         "express": "^4.21.2",
         "express-rate-limit": "^7.5.1",
-        "express-validator": "^7.0.1",
         "groq-sdk": "^0.37.0",
         "helmet": "^7.2.0",
         "iconv-lite": "0.7.2",
@@ -94,8 +98,13 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
+        "@types/express": "^5.0.6",
+        "@types/node": "^26.6.6",
         "eslint": "^10.4.1",
-        "globals": "^17.6.0"
+        "globals": "^17.6.0",
+        "tsx": "^4.23.15",
+        "typescript": "^7.0.2",
+        "vitest": "^5.0.5"
     },
     "overrides": {
         "axios": "^1.20.0",

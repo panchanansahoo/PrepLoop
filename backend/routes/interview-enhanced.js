@@ -33,7 +33,7 @@ router.get('/analytics/advanced', authenticateToken, async (req, res) => {
  * Provides instant analysis with strengths/improvements
  */
 // ==================== ENHANCED V2 INTERVIEW RUNTIME ====================
-router.post('/start', authenticateToken, async (req, res) => {
+router.post('/start', authenticateToken, (req, res) => {
   try {
     const { type = 'technical', difficulty = 'medium', duration = 30 } = req.body || {};
     const normalizedType = ['technical', 'behavioral', 'system-design', 'coding'].includes(type) ? type : 'technical';

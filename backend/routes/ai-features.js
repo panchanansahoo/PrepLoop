@@ -1,8 +1,19 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/index.js';
-import { body, validationResult, param } from 'express-validator';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { validateRequest } from '../middleware/validation.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import {
+  codeReviewSchema,
+  reviewIdParamSchema,
+  problemIdParamSchema,
+  interviewSessionParamSchema,
+  groundingTestSchema,
+  interviewStartSchema,
+  interviewRespondSchema,
+} from '../schemas/requestSchemas.js';
 import { CodeReviewService, InterviewSimulatorService } from '../services/aiService.js';
+import { WebhookDispatcher } from '../services/webhookDispatcher.js';
 import { InterviewGroundingService } from '../services/ragInterviewGroundingService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
@@ -33,16 +44,9 @@ const isMissingPerformanceTrendSchema = (error) => {
 router.post(
   '/code-review',
   authenticateToken,
-  body('problemId').isInt().toInt(),
-  body('code').isString().notEmpty().trim(),
-  body('language').optional().isString().trim(),
-  async (req, res) => {
+  validateRequest({ body: codeReviewSchema }),
+  asyncHandler(async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       const { code, problemId, language = 'javascript' } = req.body;
       const userId = req.user.id;
       const requestId = req.requestId; // From requestId middleware
@@ -75,7 +79,7 @@ router.post(
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  })
 );
 
 /**
@@ -85,8 +89,8 @@ router.post(
 router.get(
   '/code-review/:reviewId',
   authenticateToken,
-  param('reviewId').isUUID(),
-  async (req, res) => {
+  validateRequest({ params: reviewIdParamSchema }),
+  asyncHandler(async (req, res) => {
     try {
       const { reviewId } = req.params;
       const userId = req.user.id;
@@ -117,7 +121,7 @@ router.get(
         message: 'Failed to fetch review'
       });
     }
-  }
+  })
 );
 
 /**
@@ -127,8 +131,8 @@ router.get(
 router.get(
   '/code-review/problem/:problemId',
   authenticateToken,
-  param('problemId').isInt().toInt(),
-  async (req, res) => {
+  validateRequest({ params: problemIdParamSchema }),
+  asyncHandler(async (req, res) => {
     try {
       const { problemId } = req.params;
       const userId = req.user.id;
@@ -157,7 +161,7 @@ router.get(
         message: 'Failed to fetch reviews'
       });
     }
-  }
+  })
 );
 
 /**
@@ -237,21 +241,9 @@ router.post(
   '/interview/test-grounding',
   authenticateToken,
   requireAdmin,
-  body('company').optional().isString().trim(),
-  body('role').optional().isString().trim(),
-  body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
-  body('stage').optional().isString().trim(),
-  body('interviewType').optional().isIn(['dsa', 'system_design', 'behavioral', 'mixed']),
-  body('missingAreas').optional().isArray(),
-  body('resumeContext').optional().isObject(),
-  body('limit').optional().isInt({ min: 1, max: 8 }).toInt(),
-  async (req, res) => {
+  validateRequest({ body: groundingTestSchema }),
+  asyncHandler(async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       const {
         company,
         role,
@@ -286,7 +278,7 @@ router.post(
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
-  }
+  })
 );
 
 /**
@@ -297,18 +289,9 @@ router.post(
 router.post(
   '/interview/start',
   authenticateToken,
-  body('interviewType').isIn(['dsa', 'system_design', 'behavioral', 'mixed']),
-  body('difficulty').optional().isIn(['easy', 'medium', 'hard']),
-  body('companyFocus').optional().isString().trim(),
-  body('interviewMode').optional().isIn(INTERVIEW_MODES),
-  body('totalQuestions').optional().isInt({ min: 3, max: 30 }).toInt(),
-  async (req, res) => {
+  validateRequest({ body: interviewStartSchema }),
+  asyncHandler(async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       const {
         interviewType,
         difficulty = 'medium',
@@ -351,7 +334,7 @@ router.post(
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  })
 );
 
 /**
@@ -362,16 +345,9 @@ router.post(
 router.post(
   '/interview/:sessionId/respond',
   authenticateToken,
-  param('sessionId').isUUID(),
-  body('response').isString().notEmpty().trim(),
-  body('interviewMode').optional().isIn(INTERVIEW_MODES),
-  async (req, res) => {
+  validateRequest({ params: interviewSessionParamSchema, body: interviewRespondSchema }),
+  asyncHandler(async (req, res) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
       const { sessionId } = req.params;
       const {
         response,
@@ -409,7 +385,7 @@ router.post(
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  })
 );
 
 /**
@@ -419,8 +395,8 @@ router.post(
 router.post(
   '/interview/:sessionId/complete',
   authenticateToken,
-  param('sessionId').isUUID(),
-  async (req, res) => {
+  validateRequest({ params: interviewSessionParamSchema }),
+  asyncHandler(async (req, res) => {
     try {
       const { sessionId } = req.params;
       const userId = req.user.id;
@@ -438,6 +414,19 @@ router.post(
         requestId
       );
 
+      // Dispatch webhook for completed interview
+      try {
+        await WebhookDispatcher.dispatchEvent('interview.completed', {
+          type: 'ai_mock_interview',
+          sessionId,
+          userId,
+          score: completedInterview?.analysis?.overallScore || completedInterview?.score || 80,
+          completedAt: new Date().toISOString(),
+        }, userId);
+      } catch (webhookErr) {
+        logger.warn('Failed to dispatch webhook event', { error: webhookErr.message });
+      }
+
       return res.status(200).json({
         success: true,
         data: completedInterview
@@ -451,7 +440,7 @@ router.post(
         error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
-  }
+  })
 );
 
 /**
@@ -461,8 +450,8 @@ router.post(
 router.get(
   '/interview/:sessionId/telemetry',
   authenticateToken,
-  param('sessionId').isUUID(),
-  async (req, res) => {
+  validateRequest({ params: interviewSessionParamSchema }),
+  asyncHandler(async (req, res) => {
     try {
       const { sessionId } = req.params;
       const userId = req.user.id;
@@ -503,7 +492,7 @@ router.get(
         message: 'Failed to fetch interview telemetry'
       });
     }
-  }
+  })
 );
 
 /**
@@ -519,8 +508,8 @@ router.get(
     }
     return next();
   },
-  param('sessionId').isUUID(),
-  async (req, res) => {
+  validateRequest({ params: interviewSessionParamSchema }),
+  asyncHandler(async (req, res) => {
     try {
       const { sessionId } = req.params;
       const userId = req.user.id;
@@ -545,7 +534,7 @@ router.get(
         message: 'Failed to fetch interview'
       });
     }
-  }
+  })
 );
 
 /**

@@ -10,6 +10,15 @@ const pdf = require('pdf-parse');
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    const isAllowedExt = /\\.(jpg|jpeg|png|webp|gif|pdf)$/i.test(file.originalname || '');
+    if (allowedMimes.includes(file.mimetype) || isAllowedExt) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid blog asset. Only images and PDF files are allowed.'));
+    }
+  },
 });
 const router = express.Router();
 

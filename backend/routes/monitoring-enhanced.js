@@ -1,5 +1,5 @@
 import express from 'express';
-import { getPoolStats } from '../config/dbPoolUnified.js';
+import { getPoolStats } from '../config/db.js';
 import { getCacheStats } from '../middleware/apiCache.js';
 import { getSecurityStats } from '../middleware/securityEnhanced.js';
 import cacheManager from '../utils/cacheManager.js';
