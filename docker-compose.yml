@@ -34,6 +34,8 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
       - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-local-dev-jwt-secret-with-at-least-32-chars-long}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-admin@preploop.local}
       # Local dev: use Docker Redis. Production: use UPSTASH_REDIS_REST_URL instead.
       - REDIS_URL=redis://redis:6379
     volumes:
