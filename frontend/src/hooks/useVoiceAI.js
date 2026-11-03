@@ -1751,6 +1751,11 @@ export function useVoiceAI({
           return null;
         });
 
+      // Evict oldest entry if cache exceeds 10 items to prevent unbounded memory growth
+      if (ttsCacheRef.current.size >= 10) {
+        const firstKey = ttsCacheRef.current.keys().next().value;
+        ttsCacheRef.current.delete(firstKey);
+      }
       ttsCacheRef.current.set(cacheKey, promise);
       setTimeout(() => ttsCacheRef.current.delete(cacheKey), 60_000);
       return promise;
@@ -1894,6 +1899,9 @@ export function useVoiceAI({
     outputBars,
     inputLevel,
     outputLevel,
+    voiceState,
+    micWarning,
+    isThinking,
   ]);
 }
 

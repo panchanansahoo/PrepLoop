@@ -651,7 +651,9 @@ function InterviewLobby({
                                         const parsed = new URL(val.startsWith('http') ? val : `https://preploop.com/${val}`);
                                         token = parsed.searchParams.get('set') || val;
                                     }
-                                } catch (_err) {}
+                                } catch (err) {
+                                    if (import.meta.env.DEV) console.warn('[token parse]', err);
+                                }
                                 navigate(`/app?token=${encodeURIComponent(token.trim())}`);
                             }}
                             style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
