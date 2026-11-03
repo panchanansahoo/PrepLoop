@@ -44,8 +44,7 @@ const INTERRUPT_DURATION = 400;
 const INTERRUPT_GRACE_PERIOD_MS = 1200; // Ignore interrupts during the first 1.2s of playback to prevent mic/speaker feedback false-positives
 
 // Endpoints
-const RAW_API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5000";
+const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || undefined;
 
 export function buildVoiceApiUrl(path, rawBaseUrl = RAW_API_BASE_URL) {
   return buildApiUrl(path, { rawBaseUrl, apiPrefix: "/api" });

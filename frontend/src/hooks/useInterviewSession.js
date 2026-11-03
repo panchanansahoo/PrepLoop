@@ -742,6 +742,7 @@ export function useInterviewSession(options = {}) {
         AI_INTERVIEW_SESSION_KEY,
         JSON.stringify({
           conversation,
+          pendingTranscript: transcript,
           questionIndex,
           currentQuestion,
           elapsed,
@@ -759,6 +760,7 @@ export function useInterviewSession(options = {}) {
       if (_user?.id && checkpointKeyRef.current) {
         const payload = {
           conversation,
+          pendingTranscript: transcript,
           questionIndex,
           currentQuestion,
           elapsed,
@@ -793,6 +795,7 @@ export function useInterviewSession(options = {}) {
     code,
     language,
     notes,
+    transcript,
     _user?.id,
   ]);
 
@@ -801,6 +804,7 @@ export function useInterviewSession(options = {}) {
     try {
       window.localStorage.removeItem(AI_INTERVIEW_SESSION_KEY);
       window.localStorage.removeItem(`${AI_INTERVIEW_SESSION_KEY}:key`);
+      window.sessionStorage.removeItem("preploop_active_transcript");
       if (checkpointTimerRef.current) clearTimeout(checkpointTimerRef.current);
       if (_user?.id && checkpointKeyRef.current) {
         authFetch(`/api/company-interview/checkpoints/${checkpointKeyRef.current}`, {
@@ -1763,6 +1767,10 @@ export function useInterviewSession(options = {}) {
           content: isSkippedQuestion
             ? (skipReason === "user_skipped" ? "[Question skipped by candidate]" : "[No response - question timed out]")
             : (answer || "[Code submitted]"),
+          question: currentQuestion,
+          questionNumber: questionIndexRef.current,
+          questionId: currentQuestionIdRef.current,
+          stage: resolvedStage,
           status: isSkippedQuestion ? "unanswered" : "answered",
           reason: isSkippedQuestion ? skipReason : null,
           isSkipped: isSkippedQuestion,

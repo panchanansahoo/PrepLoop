@@ -413,7 +413,14 @@ router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
 
-        if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
+        if (result.fallback) {
+            return res.status(503).json({
+                fallback: true,
+                text: '',
+                transcript: '',
+                error: 'Speech transcription service is unavailable',
+            });
+        }
 
         res.json({
             text:       result.text,
@@ -443,7 +450,14 @@ router.post('/stt-chunk', expensiveFeatureLimiter, optionalAuth, usageQuota('voi
 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
 
-        if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
+        if (result.fallback) {
+            return res.status(503).json({
+                fallback: true,
+                text: '',
+                transcript: '',
+                error: 'Speech transcription service is unavailable',
+            });
+        }
 
         res.json({
             transcript: result.text,

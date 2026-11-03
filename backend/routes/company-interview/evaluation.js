@@ -82,11 +82,22 @@ function extractInterviewQaPairs(conversation = []) {
       continue;
     }
 
-    if (message.role === 'candidate' && currentQuestion) {
+    if (message.role === 'candidate' && (currentQuestion || message.question)) {
+      const candidateQuestion = message.question
+        ? {
+            question: message.question,
+            questionSource: message.questionSource,
+            questionMeta: message.questionMeta,
+            timestamp: message.questionTimestamp || message.timestamp,
+          }
+        : currentQuestion;
       qaPairs.push({
-        ...currentQuestion,
+        ...candidateQuestion,
         answer: message.content,
         answerTimestamp: message.timestamp,
+        questionNumber: message.questionNumber,
+        questionId: message.questionId,
+        stage: message.stage,
       });
       currentQuestion = null;
       continue;

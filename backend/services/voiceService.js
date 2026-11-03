@@ -387,6 +387,9 @@ export async function speechToText(filePath, _preferredProvider = null) {
     if (providers.groq && groq && filePath) {
         try {
             const res = await _groqWhisperSTT(filePath);
+            if (!res.text?.trim()) {
+                throw new Error('Groq Whisper returned an empty transcript');
+            }
             return {
                 text: res.text,
                 language: res.language || 'en',
@@ -733,6 +736,8 @@ async function _groqWhisperSTT(_filePath) {
         model:           'whisper-large-v3-turbo',
         file:            fs.createReadStream(safeFilePath),
         response_format: 'json',
+        language:        'en',
+        temperature:     0,
     }, { timeout: GROQ_WHISPER_TIMEOUT_MS });
 
     return {
