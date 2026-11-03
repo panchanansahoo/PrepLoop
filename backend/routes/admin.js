@@ -2,8 +2,10 @@ import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
 import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const adminLogger = createLogger('admin-audit');
 
 const isProfilesAccessBlocked = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -197,6 +199,14 @@ router.put('/users/:id/role', async (req, res) => {
 
     if (error) throw error;
 
+    adminLogger.info('ADMIN_ROLE_UPDATED', {
+      adminId: req.user.id,
+      targetUserId: id,
+      newRole: role,
+      ip: req.ip,
+      requestId: req.requestId,
+    });
+
     res.json({ message: `User role updated to ${role}`, user: data });
   } catch (error) {
     console.error('Update role error:', error);
@@ -223,6 +233,13 @@ router.delete('/users/:id', async (req, res) => {
     // Delete from Supabase Auth (cascades to profiles via FK)
     const { error } = await supabaseAdmin.auth.admin.deleteUser(id);
     if (error) throw error;
+
+    adminLogger.warn('ADMIN_USER_DELETED', {
+      adminId: req.user.id,
+      targetUserId: id,
+      ip: req.ip,
+      requestId: req.requestId,
+    });
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -283,6 +300,14 @@ router.delete('/content/:type/:id', async (req, res) => {
       .eq('id', id);
 
     if (error) throw error;
+
+    adminLogger.warn('ADMIN_CONTENT_DELETED', {
+      adminId: req.user.id,
+      contentType: type,
+      contentId: id,
+      ip: req.ip,
+      requestId: req.requestId,
+    });
 
     res.json({ message: `${type} deleted successfully` });
   } catch (error) {

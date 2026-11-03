@@ -190,7 +190,7 @@ export default function useAudioVisualizer({ inputStream = null, outputAudioElem
     outputBars,
     inputLevel,
     outputLevel,
-    inputActive: inputLevel > 0.08,
+    inputActive: inputLevel > 0.04 || inputBars.some((b) => b > 0.08),
     outputActive: outputLevel > 0.05,
   }), [inputBars, outputBars, inputLevel, outputLevel]);
 }

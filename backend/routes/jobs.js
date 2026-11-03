@@ -1,6 +1,7 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/auth.js';
+import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 import { fetchAllIndianJobs } from '../utils/indianJobApis.js';
 import { getCachedJobs, setCachedJobs, checkRateLimit } from '../utils/jobCache.js';
@@ -743,7 +744,7 @@ router.get('/live', async (req, res) => {
 });
 
 // ─── POST /api/jobs/ai-search — AI-powered natural-language search ───
-router.post('/ai-search', async (req, res) => {
+router.post('/ai-search', aiEndpointsLimiter, async (req, res) => {
   try {
     const { query } = req.body;
     if (!query || query.trim().length < 3) {
@@ -908,8 +909,11 @@ router.get('/', optionalAuth, async (req, res) => {
     if (category && category !== 'all') query = query.eq('category', category);
     if (company) query = query.ilike('company', `%${company}%`);
     if (type) query = query.eq('type', type);
-    if (search) {
-      query = query.or(`title.ilike.%${search}%,company.ilike.%${search}%,description.ilike.%${search}%`);
+    if (search && typeof search === 'string') {
+      const safeSearch = search.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100);
+      if (safeSearch) {
+        query = query.or(`title.ilike.%${safeSearch}%,company.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+      }
     }
 
     const { data, error } = await query.range(offset, offset + parseInt(limit) - 1);

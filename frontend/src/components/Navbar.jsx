@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { PROBLEMS } from '../data/problemsDatabase';
+let problemsCache = null;
 import {
   Search, Bell, Menu, X, ChevronRight, User, LogOut,
   Settings, Sparkles, Crown, TrendingUp,
@@ -104,6 +104,21 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [problemsList, setProblemsList] = useState(problemsCache || []);
+
+  const loadProblems = useCallback(async () => {
+    if (problemsCache) {
+      setProblemsList(problemsCache);
+      return;
+    }
+    try {
+      const module = await import('../data/problemsDatabase');
+      problemsCache = module.PROBLEMS || [];
+      setProblemsList(problemsCache);
+    } catch (err) {
+      console.warn('Failed to load problems for search:', err);
+    }
+  }, []);
   const searchContainerRef = useRef(null);
   const dropdownRef = useRef(null);
   const notifRef = useRef(null);
@@ -175,8 +190,8 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
   }, []);
 
   // Search filtering
-  const searchResults = searchQuery.trim().length >= 2
-    ? PROBLEMS.filter(p => {
+  const searchResults = searchQuery.trim().length >= 2 && problemsList.length > 0
+    ? problemsList.filter(p => {
       const q = searchQuery.toLowerCase();
       return p.title.toLowerCase().includes(q)
         || p.topics.some(t => t.toLowerCase().includes(q))
@@ -482,8 +497,14 @@ export default function Navbar({ hasSidebar, onMobileMenuToggle }) {
               placeholder="Search problems, topics..."
               className="premium-search-input"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => setSearchFocused(true)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                loadProblems();
+              }}
+              onFocus={() => {
+                setSearchFocused(true);
+                loadProblems();
+              }}
             />
             {!searchQuery && <kbd className="premium-search-kbd">Ctrl K</kbd>}
 

@@ -412,7 +412,6 @@ router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
         if (!filePath) return res.status(400).json({ error: 'Audio file is required' });
 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
-        safeDeleteTempFile(filePath);
 
         if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
 
@@ -425,9 +424,10 @@ router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
         });
     } catch (error) {
         console.error('[voice/stt] Error:', error.message);
-        safeDeleteTempFile(filePath);
         // Return 503 so the frontend can detect STT failure and show appropriate error
         res.status(503).json({ fallback: true, text: '', transcript: '', error: 'Speech transcription service temporarily unavailable' });
+    } finally {
+        safeDeleteTempFile(filePath);
     }
 });
 
@@ -442,7 +442,6 @@ router.post('/stt-chunk', expensiveFeatureLimiter, optionalAuth, usageQuota('voi
         if (!filePath) return res.status(400).json({ error: 'Audio file is required' });
 
         const result = await voiceService.speechToText(filePath, req.body?.provider || null);
-        safeDeleteTempFile(filePath);
 
         if (result.fallback) return res.status(200).json({ fallback: true, text: '', transcript: '' });
 
@@ -456,9 +455,10 @@ router.post('/stt-chunk', expensiveFeatureLimiter, optionalAuth, usageQuota('voi
         });
     } catch (error) {
         console.error('[voice/stt-chunk] Error:', error.message);
-        safeDeleteTempFile(filePath);
         // Return 503 so the frontend can detect STT failure and show appropriate error
         res.status(503).json({ fallback: true, text: '', transcript: '', error: 'Speech transcription service temporarily unavailable' });
+    } finally {
+        safeDeleteTempFile(filePath);
     }
 });
 

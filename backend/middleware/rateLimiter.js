@@ -96,3 +96,14 @@ export const hrLoginLimiter = rateLimit({
     message: { error: 'Too many HR login attempts. Please try again in 15 minutes.' },
     keyGenerator: (req) => req.ip,
 });
+
+/** Signup / registration: 10 accounts per hour per IP (30 in development) */
+export const signupLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: Number.parseInt(process.env.AUTH_SIGNUP_RATE_LIMIT_MAX || (process.env.NODE_ENV === 'development' ? '30' : '10'), 10),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many account creation attempts. Please try again later.' },
+    keyGenerator: (req) => req.ip,
+});
+export const authRegisterLimiter = signupLimiter;

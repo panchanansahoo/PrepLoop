@@ -1,15 +1,19 @@
 import express from 'express';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, requireEmployerOrAdmin } from '../middleware/auth.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { WebhookDispatcher } from '../services/webhookDispatcher.js';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { createApiKeySchema, createWebhookSchema, createQuestionBankSchema } from '../schemas/requestSchemas.js';
+import { validateOutboundUrl } from '../utils/ssrfGuard.js';
 
 const router = express.Router();
 const logger = createLogger('employer-portal');
+
+// Enforce authentication and employer/admin role across all employer endpoints
+router.use(authenticateToken, requireEmployerOrAdmin);
 
 /**
  * GET /api/employer/candidates
@@ -125,8 +129,9 @@ router.post('/webhooks', authenticateToken, validateRequest({ body: createWebhoo
     const userId = req.user.id;
     const { url, events = ['interview.completed'] } = req.body;
 
-    if (!url || !url.startsWith('https://')) {
-      return res.status(400).json({ error: 'A secure HTTPS URL is required for webhook deliveries' });
+    const urlValidation = validateOutboundUrl(url, { requireHttps: true });
+    if (!urlValidation.safe) {
+      return res.status(400).json({ error: urlValidation.error || 'A secure, valid public HTTPS URL is required for webhook deliveries' });
     }
 
     const secret = `whsec_${crypto.randomBytes(24).toString('hex')}`;

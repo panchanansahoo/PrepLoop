@@ -14,13 +14,29 @@ class StructuredLogger {
   }
 
   // SECURITY: Scrub PII and sensitive fields from log context
-  // Prevents email addresses, tokens, passwords, and API keys from
-  // reaching log aggregation systems (Splunk, ELK, CloudWatch, etc.)
+  // Prevents email addresses, tokens, passwords, API keys, and sensitive documents
+  // from reaching log aggregation systems (Splunk, ELK, CloudWatch, etc.)
   static SENSITIVE_KEYS = new Set([
     'password', 'secret', 'token', 'authorization', 'cookie',
     'apikey', 'api_key', 'accesstoken', 'access_token', 'refreshtoken',
-    'refresh_token', 'ssn', 'creditcard', 'credit_card', 'cvv',
+    'refresh_token', 'jwtsecret', 'jwt_secret', 'keysecret', 'key_secret',
+    'servicerole', 'service_role', 'servicerolekey', 'service_role_key',
+    'privatekey', 'private_key', 'ssn', 'creditcard', 'credit_card', 'cvv',
+    'resumetext', 'resume_text', 'extractedtext', 'extracted_text',
+    'documentcontent', 'document_content', 'transcript', 'rawtext', 'raw_text',
+    'filebuffer', 'file_buffer', 'resetlink', 'reset_link', 'recoverylink', 'recovery_link'
   ]);
+
+  static sanitizeStringValue(str) {
+    if (typeof str !== 'string') return str;
+    // Redact JWT tokens
+    let sanitized = str.replace(/eyJ[a-zA-Z0-9_-]+\.eyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+/g, '[REDACTED_JWT]');
+    // Redact API key tokens
+    sanitized = sanitized.replace(/(?:whsec_|pl_live_|re_|gsk_|AIza)[a-zA-Z0-9_-]{12,}/g, '[REDACTED_KEY]');
+    // Redact reset / recovery link tokens in URLs
+    sanitized = sanitized.replace(/([?&](?:token|code|recovery_token)=)[^&\s]+/gi, '$1[REDACTED_TOKEN]');
+    return sanitized;
+  }
 
   static scrubFields(obj, depth = 0) {
     if (depth > 5 || !obj || typeof obj !== 'object') return obj;
@@ -37,6 +53,8 @@ class StructuredLogger {
         scrubbed[key] = atIdx > 2 ? value.slice(0, 2) + '***' + value.slice(atIdx) : '[REDACTED]';
       } else if (typeof value === 'object' && value !== null) {
         scrubbed[key] = StructuredLogger.scrubFields(value, depth + 1);
+      } else if (typeof value === 'string') {
+        scrubbed[key] = StructuredLogger.sanitizeStringValue(value);
       } else {
         scrubbed[key] = value;
       }
@@ -52,7 +70,7 @@ class StructuredLogger {
       timestamp: new Date().toISOString(),
       level: level.toUpperCase(),
       operation: this.operationName,
-      message,
+      message: StructuredLogger.sanitizeStringValue(message),
       ...StructuredLogger.scrubFields(fields),
     };
   }
@@ -61,6 +79,10 @@ class StructuredLogger {
    * Log with context
    */
   log(level, message, context = {}) {
+    if (process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true') {
+      return;
+    }
+
     const entry = this.formatEntry(level, message, context);
     
     if (level === 'error' || level === 'warn') {

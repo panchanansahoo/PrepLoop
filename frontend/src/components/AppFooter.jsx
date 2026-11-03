@@ -22,6 +22,8 @@ const footerLinks = {
     { label: 'Contact', to: '/contact' },
     { label: 'Privacy Policy', to: '/privacy' },
     { label: 'Terms of Service', to: '/terms' },
+    { label: 'Refund Policy', to: '/refund' },
+    { label: 'Cookie Policy', to: '/cookies' },
   ],
 };
 
@@ -88,6 +90,10 @@ export default function AppFooter() {
           <Link to="/privacy">Privacy</Link>
           <span>·</span>
           <Link to="/terms">Terms</Link>
+          <span>·</span>
+          <Link to="/refund">Refunds</Link>
+          <span>·</span>
+          <Link to="/cookies">Cookies</Link>
           <span>·</span>
           <a href="mailto:support@preploop.me">support@preploop.me</a>
         </p>

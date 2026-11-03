@@ -353,6 +353,7 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -383,6 +384,10 @@ export default function Signup() {
     }
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      return;
+    }
+    if (!agreedToTerms) {
+      setError('You must confirm you are at least 13 years old and agree to the Terms and Privacy Policy');
       return;
     }
 
@@ -884,9 +889,10 @@ export default function Signup() {
                 fontSize: '10px', color: 'rgba(148,163,184,0.35)', marginTop: '14px',
                 textAlign: 'center', lineHeight: 1.7,
               }}>
-                By creating an account, you agree to our{' '}
+                By creating an account, you confirm you are at least 13 years of age and agree to our{' '}
                 <Link to="/terms" className="signup-link-v2" style={{ color: 'rgba(167,139,250,0.65)', textDecoration: 'none' }}>Terms</Link> and{' '}
-                <Link to="/privacy" className="signup-link-v2" style={{ color: 'rgba(167,139,250,0.65)', textDecoration: 'none' }}>Privacy Policy</Link>.
+                <Link to="/privacy" className="signup-link-v2" style={{ color: 'rgba(167,139,250,0.65)', textDecoration: 'none' }}>Privacy Policy</Link>, and{' '}
+                <Link to="/refund" className="signup-link-v2" style={{ color: 'rgba(167,139,250,0.65)', textDecoration: 'none' }}>Refund Policy</Link>.
               </p>
 
               {/* Bottom link */}

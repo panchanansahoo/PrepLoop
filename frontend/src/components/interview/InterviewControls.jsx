@@ -118,7 +118,9 @@ function InterviewControls({
                 {!voiceOnly && <button
                     className={`ai-vc-ctrl ${chatOpen ? 'ai-vc-ctrl--active' : ''}`}
                     onClick={() => setChatOpen(p => !p)}
-                    title="Chat"
+                    title={chatOpen ? 'Close chat' : 'Open chat'}
+                    aria-label={chatOpen ? 'Chat panel open. Click to close.' : 'Chat panel closed. Click to open.'}
+                    aria-pressed={chatOpen}
                 >
                     <MessageSquare size={18} />
                     <span className="ai-vc-ctrl-label">Chat</span>
@@ -128,7 +130,9 @@ function InterviewControls({
                 <button
                     className={`ai-vc-ctrl ${bookmarked ? 'ai-vc-ctrl--active' : ''}`}
                     onClick={() => setBookmarked(p => !p)}
-                    title="Bookmark"
+                    title={bookmarked ? 'Remove bookmark' : 'Bookmark question'}
+                    aria-label={bookmarked ? 'Question bookmarked. Click to remove bookmark.' : 'Bookmark current question.'}
+                    aria-pressed={bookmarked}
                 >
                     <Bookmark size={18} />
                     <span className="ai-vc-ctrl-label">Bookmark</span>
@@ -181,7 +185,7 @@ function InterviewControls({
                         placeholder="Type your question here..."
                         autoFocus
                     />
-                    <button onClick={handleAskSubmit} disabled={!questionText.trim()}>Send</button>
+                    <button onClick={handleAskSubmit} disabled={!questionText.trim()} aria-label="Submit question to interviewer">Send</button>
                 </div>
             )}
         </div>

@@ -529,7 +529,10 @@ export function useVoiceAI({
         stateRef.current = "processing";
         mediaRecorderRef.current.stop();
       } catch {
-        /* no-op */
+        // If the recorder refuses to stop, `onstop` never fires and would never
+        // release the submit lock — release it here or every later submit is lost.
+        processRecorderOnStopRef.current = false;
+        isSubmittingRef.current = false;
       }
       return;
     }
@@ -732,7 +735,12 @@ export function useVoiceAI({
         if (e.data && e.data.size > 0) chunks.push(e.data);
       };
 
-      mediaRecorder.onstop = async () => {
+      // submitAnswer() takes the submit lock and then hands off to this handler
+      // by stopping the recorder and returning — it never releases the lock
+      // itself. Wrap the whole handler so the lock is released on EVERY exit
+      // path below; otherwise the first Whisper submission permanently wedges
+      // submitAnswer() and all later voice answers are silently dropped.
+      const handleRecorderStop = async () => {
         mediaRecorderRef.current = null;
         if (voiceSessionEpochRef.current !== sessionEpoch) return;
         if (!processRecorderOnStopRef.current) {
@@ -809,6 +817,14 @@ export function useVoiceAI({
         }
       };
 
+      mediaRecorder.onstop = async () => {
+        try {
+          await handleRecorderStop();
+        } finally {
+          isSubmittingRef.current = false;
+        }
+      };
+
       mediaRecorder.start(1000);
       console.log("[useVoiceAI] ✓ Groq Whisper media recorder active");
 
@@ -836,6 +852,9 @@ export function useVoiceAI({
       return;
     }
     voiceSessionEpochRef.current += 1;
+    // A new capture session must never inherit a submit lock from a previous
+    // one — a stale lock makes every later submitAnswer() a silent no-op.
+    isSubmittingRef.current = false;
     pendingWhisperBlobRef.current = null;
     activeRef.current = true;
     setState("listening");
@@ -1049,7 +1068,11 @@ export function useVoiceAI({
 
               setIsThinking(false);
               setVoiceState("countdown");
-              scheduleAfterSpeechSilence(modeConfig.postSpeechSubmitMs);
+              const autoSubmitMs = Math.max(
+                modeConfig.postSpeechSubmitMs,
+                getAdaptiveSilenceMs(currentTotal.length, currentTotal)
+              );
+              scheduleAfterSpeechSilence(autoSubmitMs);
             }
           };
 
@@ -1294,7 +1317,9 @@ export function useVoiceAI({
       return;
     }
 
-    if (inputLevel > INTERRUPT_LEVEL) {
+    const level = inputLevel;
+    const isLoud = level > 0.04 || inputBars.some((b) => b > 0.12);
+    if (isLoud) {
       if (!interruptTimerRef.current) {
         interruptTimerRef.current = setTimeout(() => {
           setInterruptDetected(true);
@@ -1308,7 +1333,7 @@ export function useVoiceAI({
         interruptTimerRef.current = null;
       }
     }
-  }, [enableInterrupt, state, inputLevel, interrupt, start]);
+  }, [enableInterrupt, state, inputLevel, inputBars, interrupt, start]);
 
   const pickBrowserVoice = useCallback(
     (gender) => {
@@ -1839,7 +1864,7 @@ export function useVoiceAI({
     outputBars,
     inputLevel,
     outputLevel,
-    inputActive: inputLevel > 0.08,
+    inputActive: inputLevel > 0.04 || (inputBars && inputBars.some((b) => b > 0.08)),
     outputActive: outputLevel > 0.05,
     getAnalytics: () => ({
       ...analyticsRef.current,

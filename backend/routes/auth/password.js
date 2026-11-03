@@ -70,12 +70,8 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
     }
 
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('----------------------------------------------------');
-      console.log(`🔗 Password Reset Link for ${normalizedEmail}:`);
-      console.log(resetLink);
-      console.log('----------------------------------------------------');
-    }
+    // Security: Do not log raw resetLink containing recovery tokens to console.
+    // An audit log with email hash was already recorded above.
 
     let emailSent = false;
     let mailErrorMessage = null;

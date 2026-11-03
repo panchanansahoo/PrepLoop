@@ -200,10 +200,13 @@ router.get('/books', async (req, res) => {
       query = query.eq('difficulty_level', difficulty_level);
     }
 
-    if (search) {
-      query = query.or(
-        `title.ilike.%${search}%, author.ilike.%${search}%, description.ilike.%${search}%`
-      );
+    if (search && typeof search === 'string') {
+      const safeSearch = search.replace(/[,.():;"'%_\\]/g, ' ').trim().slice(0, 100);
+      if (safeSearch) {
+        query = query.or(
+          `title.ilike.%${safeSearch}%,author.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`
+        );
+      }
     }
 
     // Pagination

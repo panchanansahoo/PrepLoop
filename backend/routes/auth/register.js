@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { markEmailSent } from '../../middleware/rateLimiter.js';
+import { markEmailSent, signupLimiter } from '../../middleware/rateLimiter.js';
 import { sendEmail, isEmailConfigured } from '../../services/emailService.js';
 import {
   generateVerificationToken,
@@ -14,7 +14,7 @@ import {
 
 const router = express.Router();
 
-router.post('/signup', async (req, res) => {
+router.post('/signup', signupLimiter, async (req, res) => {
   const { email, password, fullName } = req.body;
 
   if (!email || !password || !fullName) {

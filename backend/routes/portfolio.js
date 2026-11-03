@@ -3,6 +3,8 @@ import { createRequire } from 'module';
 import multer from 'multer';
 import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
+import { sanitizeDocumentForPrompt } from '../utils/promptInjectionGuard.js';
 import { parseResumeToProfile } from '../services/portfolioResumeParserService.js';
 import { fetchGithubPortfolioData } from '../services/portfolioGithubService.js';
 import { normalizeLinkedinPayload, validateLinkedinUrl, parseLinkedinExportText } from '../services/portfolioLinkedinService.js';
@@ -71,7 +73,7 @@ router.post('/profiles/parse-linkedin', authenticateToken, (req, res) => {
 });
 
 // POST /api/portfolio/profiles/import-resume (PDF or DOCX upload)
-router.post('/profiles/import-resume', authenticateToken, upload.single('resume'), async (req, res) => {
+router.post('/profiles/import-resume', authenticateToken, uploadEndpointsLimiter, upload.single('resume'), requireValidFileSignature(['pdf', 'docx']), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No resume file uploaded' });
@@ -97,14 +99,17 @@ router.post('/profiles/import-resume', authenticateToken, upload.single('resume'
       return res.status(422).json({ error: 'Could not extract text from this resume. Please upload a text-based PDF or DOCX file.' });
     }
 
+    // Sanitize extracted resume text against prompt injection triggers
+    const safeResumeText = sanitizeDocumentForPrompt(resumeText, 20000);
+
     const resume = parseResumeToProfile({
-      text: resumeText.slice(0, 20000),
-      uploadedFile: req.file.originalname || null,
+      text: safeResumeText,
+      uploadedFile: req.file.safeName || req.file.originalname || null,
     });
 
     return res.json({
-      resumeText: resumeText.slice(0, 20000),
-      fileName: req.file.originalname,
+      resumeText: safeResumeText,
+      fileName: req.file.safeName || req.file.originalname,
       parsed: resume,
     });
   } catch (error) {

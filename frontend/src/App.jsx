@@ -17,6 +17,7 @@ import GlobalErrorBoundary from './components/GlobalErrorBoundary';
 import { useToast, ToastContainer } from './hooks/useToast';
 import { ToastProvider } from './context/ToastContext';
 import NetworkStatus from './components/NetworkStatus';
+import CookieConsent from './components/CookieConsent';
 
 const AIAssistantOrb = lazyWithRecovery(() => import('./components/AIAssistantOrb'));
 
@@ -40,6 +41,8 @@ const BlogPost = lazyWithRecovery(() => import('./pages/BlogPost'));
 const CreateBlog = lazyWithRecovery(() => import('./pages/CreateBlog'));
 const PrivacyPolicy = lazyWithRecovery(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazyWithRecovery(() => import('./pages/TermsOfService'));
+const RefundPolicy = lazyWithRecovery(() => import('./pages/RefundPolicy'));
+const CookiePolicy = lazyWithRecovery(() => import('./pages/CookiePolicy'));
 const About = lazyWithRecovery(() => import('./pages/About'));
 const Library = lazyWithRecovery(() => import('./pages/Library'));
 const Contact = lazyWithRecovery(() => import('./pages/Contact'));
@@ -342,6 +345,8 @@ function AppContent() {
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/privacy" element={<PrivacyPolicy />} />
                 <Route path="/terms" element={<TermsOfService />} />
+                <Route path="/refund" element={<RefundPolicy />} />
+                <Route path="/cookies" element={<CookiePolicy />} />
                 <Route path="/copilot" element={<AIJobCopilot />} />
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/check-email" element={<VerifyEmailDialog />} />
@@ -391,6 +396,7 @@ function App() {
             >
               <ToastProvider>
                 <NetworkStatus />
+                <CookieConsent />
                 <AppContent />
               </ToastProvider>
             </Router>

@@ -1,4 +1,5 @@
 import { getFilteredQuestions } from './companyQuestionService.js';
+import { sanitizeHeadline, sanitizeList, sanitizeDocumentForPrompt } from '../utils/promptInjectionGuard.js';
 
 const STAGE_TO_COMPANY_STAGE = {
   intake: 'Technical',
@@ -61,19 +62,20 @@ const normalizeResumeContext = (resumeContext = {}) => {
     return {};
   }
 
-  const candidateHeadline = normalizeText(
+  const candidateHeadline = sanitizeHeadline(
     resumeContext.candidateHeadline ||
     resumeContext.headline ||
     resumeContext.title
   );
-  const summary = normalizeText(
+  const summary = sanitizeDocumentForPrompt(
     resumeContext.summary ||
     resumeContext.experienceSummary ||
-    resumeContext.bio
+    resumeContext.bio,
+    500
   );
-  const coreSkills = Array.from(new Set(normalizeList(resumeContext.coreSkills, resumeContext.skills))).slice(0, 12);
-  const projectHighlights = Array.from(new Set(normalizeList(resumeContext.projectHighlights, resumeContext.projects))).slice(0, 8);
-  const likelyQuestionAreas = Array.from(new Set(normalizeList(resumeContext.likelyQuestionAreas, resumeContext.questionAreas))).slice(0, 8);
+  const coreSkills = sanitizeList(Array.from(new Set(normalizeList(resumeContext.coreSkills, resumeContext.skills))), 12, 50);
+  const projectHighlights = sanitizeList(Array.from(new Set(normalizeList(resumeContext.projectHighlights, resumeContext.projects))), 8, 120);
+  const likelyQuestionAreas = sanitizeList(Array.from(new Set(normalizeList(resumeContext.likelyQuestionAreas, resumeContext.questionAreas))), 8, 100);
 
   return {
     ...resumeContext,

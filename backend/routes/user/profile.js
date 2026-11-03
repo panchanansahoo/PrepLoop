@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
+import { requireValidFileSignature, uploadEndpointsLimiter } from "../../middleware/uploadProtection.js";
 import {
   getOrCreateUserProfile,
   getPublicPortfolioBySlug,
@@ -84,7 +85,7 @@ router.put("/profile", authenticateToken, async (req, res) => {
  * POST /api/user/profile/avatar
  * Multipart avatar image upload with automatic storage URL linking
  */
-router.post("/profile/avatar", authenticateToken, upload.single("avatar"), async (req, res) => {
+router.post("/profile/avatar", authenticateToken, uploadEndpointsLimiter, upload.single("avatar"), requireValidFileSignature(['image']), async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "User not authenticated" });
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });

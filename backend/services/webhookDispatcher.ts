@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { isSafeOutboundUrl } from '../utils/ssrfGuard.js';
 import type { WebhookEventType, WebhookSubscription } from '../types/platform.js';
 
 const logger = createLogger('webhook-dispatcher');
@@ -55,6 +56,11 @@ export class WebhookDispatcher {
     eventType: WebhookEventType | string,
     payload: Record<string, unknown>
   ): Promise<DeliveryResult> {
+    if (!isSafeOutboundUrl(sub.url)) {
+      logger.warn('SSRF defense blocked dispatch to unsafe webhook URL', { subId: sub.id, url: sub.url });
+      return { success: false, error: 'Target webhook URL blocked by SSRF defense policy' };
+    }
+
     const rawBody = JSON.stringify({
       id: `evt_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
       event: eventType,

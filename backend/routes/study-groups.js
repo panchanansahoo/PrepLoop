@@ -127,6 +127,25 @@ router.get('/:id', optionalAuth, async (req, res) => {
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Study group not found' });
 
+    // Server-side access control for private study groups (IDOR / BOLA prevention)
+    if (data.is_public === false) {
+      if (!req.user?.id) {
+        return res.status(403).json({ error: 'Authentication required for private study groups', code: 'FORBIDDEN' });
+      }
+      if (data.creator_id !== req.user.id && req.user.role !== 'admin') {
+        const { data: member } = await supabaseAdmin
+          .from('study_group_members')
+          .select('id')
+          .eq('group_id', id)
+          .eq('user_id', req.user.id)
+          .maybeSingle();
+
+        if (!member) {
+          return res.status(403).json({ error: 'Access to this private study group requires membership', code: 'FORBIDDEN' });
+        }
+      }
+    }
+
     const group = {
       id: data.id,
       name: data.name,
@@ -207,6 +226,20 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Check if group exists and if private access is restricted
+    const { data: targetGroup } = await supabaseAdmin
+      .from('study_groups')
+      .select('id, is_public')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!targetGroup) {
+      return res.status(404).json({ error: 'Study group not found' });
+    }
+    if (targetGroup.is_public === false && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Cannot directly join a private study group. An invitation is required.', code: 'FORBIDDEN' });
+    }
+
     // Check if already a member
     const { data: existing } = await supabaseAdmin
       .from('study_group_members')
@@ -272,6 +305,33 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
 router.get('/:id/members', optionalAuth, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Check group visibility first (IDOR / BOLA prevention)
+    const { data: group } = await supabaseAdmin
+      .from('study_groups')
+      .select('id, is_public, creator_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!group) return res.status(404).json({ error: 'Study group not found' });
+
+    if (group.is_public === false) {
+      if (!req.user?.id) {
+        return res.status(403).json({ error: 'Authentication required for private study groups', code: 'FORBIDDEN' });
+      }
+      if (group.creator_id !== req.user.id && req.user.role !== 'admin') {
+        const { data: member } = await supabaseAdmin
+          .from('study_group_members')
+          .select('id')
+          .eq('group_id', id)
+          .eq('user_id', req.user.id)
+          .maybeSingle();
+
+        if (!member) {
+          return res.status(403).json({ error: 'Access to this private study group requires membership', code: 'FORBIDDEN' });
+        }
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('study_group_members')

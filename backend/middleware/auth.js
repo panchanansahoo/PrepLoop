@@ -199,6 +199,16 @@ export const requireHR = (req, res, next) => {
   next();
 };
 
+export const requireEmployerOrAdmin = (req, res, next) => {
+  if (!req.user || (req.user.role !== 'employer' && req.user.role !== 'hr' && req.user.role !== 'admin')) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn(`[auth] 403 Forbidden: Employer or Admin access required for user ${req.user?.id} (role: ${req.user?.role}) on ${req.method} ${req.originalUrl}`);
+    }
+    return res.status(403).json({ error: 'Employer or Admin access required' });
+  }
+  next();
+};
+
 export const optionalAuth = async (req, res, next) => {
   const token = getAccessToken(req);
 

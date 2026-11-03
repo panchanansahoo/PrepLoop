@@ -109,6 +109,7 @@ async function initializeServer() {
             styleSrc: ["'self'", "'unsafe-inline'"],
             scriptSrc: ["'self'"],
             imgSrc: ["'self'", 'data:', 'https:'],
+            frameAncestors: ["'none'"],
           },
         },
         hsts: {

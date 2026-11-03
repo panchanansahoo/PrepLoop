@@ -39,7 +39,10 @@ export default defineConfig({
           if (id.includes('/src/data/problemsDatabase') || id.includes('/src/data/questionsBank')) {
             return 'data-problem-bank';
           }
-          if (id.includes('/src/data/algorithmCodesMulti') || id.includes('/src/data/dsaPatternsData')) {
+          if (id.includes('/src/data/algorithmCodesMulti')) {
+            return 'data-algorithm-codes';
+          }
+          if (id.includes('/src/data/dsaPatterns')) {
             return 'data-dsa-patterns';
           }
           if (id.includes('/src/data/systemDesignTheoryData') || id.includes('/src/data/systemDesignData')) {
@@ -50,6 +53,7 @@ export default defineConfig({
 
           // Keep manual chunking focused on very heavy dependencies.
           // Group tightly coupled editor packages to avoid circular chunk warnings.
+          if (id.includes('@supabase')) return 'vendor-supabase';
           if (id.includes('@monaco-editor') || id.includes('monaco-editor')) return 'vendor-monaco';
           if (id.includes('@blocknote') || id.includes('@tiptap') || id.includes('prosemirror')) return 'vendor-editor';
           if (id.includes('prettier')) return 'vendor-prettier';

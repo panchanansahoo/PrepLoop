@@ -37,7 +37,7 @@ services:
       - JWT_SECRET=${JWT_SECRET:-local-dev-jwt-secret-with-at-least-32-chars-long}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-admin@preploop.local}
       # Local dev: use Docker Redis. Production: use UPSTASH_REDIS_REST_URL instead.
-      - REDIS_URL=redis://redis:6379
+      - REDIS_URL=redis://:devredispassword@redis:6379
     volumes:
       - ./backend/voices:/app/backend/voices:ro
     networks:
@@ -58,19 +58,19 @@ services:
     image: redis:7-alpine
     container_name: preploop-redis-dev
     restart: unless-stopped
-    # Local dev only — no auth needed for dev Redis
+    # Local dev: bind to localhost only (Production uses Upstash Redis)
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - preploop-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "devredispassword", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru --requirepass devredispassword
     logging:
       driver: "json-file"
       options:

@@ -3,6 +3,7 @@ import { createRequire } from 'module';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
 import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
 
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
@@ -11,12 +12,12 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
-    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
-    const isAllowedExt = /\\.(jpg|jpeg|png|webp|gif|pdf)$/i.test(file.originalname || '');
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf', 'message/rfc822'];
+    const isAllowedExt = /\.(jpg|jpeg|png|webp|gif|pdf|eml)$/i.test(file.originalname || '');
     if (allowedMimes.includes(file.mimetype) || isAllowedExt) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid blog asset. Only images and PDF files are allowed.'));
+      cb(new Error('Invalid blog asset. Only images, PDF, and EML files are allowed.'));
     }
   },
 });
@@ -273,7 +274,7 @@ router.get('/public/posts/:slug', async (req, res) => {
 
 // ─── PARSE ENDPOINTS ────────────────────────────────────────────────
 
-router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('pdf'), async (req, res) => {
+router.post('/parse-pdf', authenticateToken, requireAdmin, uploadEndpointsLimiter, upload.single('pdf'), requireValidFileSignature(['pdf']), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No PDF file uploaded' });
     const data = await pdf(req.file.buffer);
@@ -284,7 +285,7 @@ router.post('/parse-pdf', authenticateToken, requireAdmin, upload.single('pdf'),
   }
 });
 
-router.post('/parse-eml', authenticateToken, requireAdmin, upload.single('eml'), async (req, res) => {
+router.post('/parse-eml', authenticateToken, requireAdmin, uploadEndpointsLimiter, upload.single('eml'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No EML file uploaded' });
     let title = '';

@@ -73,12 +73,16 @@ const getSmtpTransporter = () => {
   return smtpTransporter;
 };
 
-const sendViaResend = async ({ from, to, subject, html, text, replyTo }) => {
+const sendViaResend = async ({ from, to, subject, html, text, replyTo, headers }) => {
   const recipients = Array.isArray(to) ? to : [to];
   const payload = {
     from: from || getFromAddress(),
     to: recipients,
     subject,
+    headers: {
+      'List-Unsubscribe': '<mailto:support@preploop.me?subject=unsubscribe>, <https://preploop.me/dashboard/settings>',
+      ...(headers || {}),
+    },
   };
 
   if (html) payload.html = html;
@@ -123,11 +127,15 @@ const sendViaResend = async ({ from, to, subject, html, text, replyTo }) => {
   }
 };
 
-const sendViaSmtp = async ({ from, to, subject, html, text, replyTo }) => {
+const sendViaSmtp = async ({ from, to, subject, html, text, replyTo, headers }) => {
   const info = await getSmtpTransporter().sendMail({
     from: from || getFromAddress(),
     to,
     subject,
+    headers: {
+      'List-Unsubscribe': '<mailto:support@preploop.me?subject=unsubscribe>, <https://preploop.me/dashboard/settings>',
+      ...(headers || {}),
+    },
     ...(html ? { html } : {}),
     ...(text ? { text } : {}),
     ...(replyTo ? { replyTo } : {}),
@@ -140,7 +148,7 @@ const sendViaSmtp = async ({ from, to, subject, html, text, replyTo }) => {
  * Send an email through the best available transport.
  * Resend keys use the HTTPS API; other credentials fall back to SMTP.
  */
-export const sendEmail = async ({ to, subject, html, text, from, replyTo } = {}) => {
+export const sendEmail = async ({ to, subject, html, text, from, replyTo, headers } = {}) => {
   if (!to) throw new Error('Email recipient is required');
   if (!subject) throw new Error('Email subject is required');
   if (!html && !text) throw new Error('Email content is required');
@@ -150,8 +158,8 @@ export const sendEmail = async ({ to, subject, html, text, from, replyTo } = {})
 
   const startedAt = Date.now();
   const result = provider === 'resend'
-    ? await sendViaResend({ from, to, subject, html, text, replyTo })
-    : await sendViaSmtp({ from, to, subject, html, text, replyTo });
+    ? await sendViaResend({ from, to, subject, html, text, replyTo, headers })
+    : await sendViaSmtp({ from, to, subject, html, text, replyTo, headers });
 
   logger.info('Email sent', {
     provider: result.provider,

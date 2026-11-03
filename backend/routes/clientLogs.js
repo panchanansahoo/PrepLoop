@@ -1,5 +1,5 @@
 import express from 'express';
-import { createLogger } from '../utils/structuredLogger.js';
+import StructuredLogger, { createLogger } from '../utils/structuredLogger.js';
 import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
@@ -29,9 +29,10 @@ router.post('/', (req, res) => {
     const allowedTypes = ['error', 'warn', 'info', 'log', 'render-error', 'unhandled-rejection'];
     const logType = allowedTypes.includes(type) ? type : 'info';
 
+    const rawMsg = typeof message === 'string' ? message.slice(0, 2000) : String(message).slice(0, 2000);
     const logData = {
       clientType: logType,
-      clientMessage: typeof message === 'string' ? message.slice(0, 2000) : String(message).slice(0, 2000),
+      clientMessage: StructuredLogger.sanitizeStringValue(rawMsg),
       url: context?.url?.slice(0, 500) || 'unknown',
       userAgent: context?.userAgent?.slice(0, 500) || req.headers['user-agent']?.slice(0, 500),
       timestamp: context?.timestamp || new Date().toISOString(),
@@ -41,7 +42,8 @@ router.post('/', (req, res) => {
     // Add error details if present
     if (error) {
       logData.errorName = typeof error === 'string' ? error : error.name || 'Error';
-      logData.errorMessage = typeof error === 'string' ? error : (error.message || '').slice(0, 2000);
+      const rawErrMsg = typeof error === 'string' ? error : (error.message || '').slice(0, 2000);
+      logData.errorMessage = StructuredLogger.sanitizeStringValue(rawErrMsg);
     }
 
     if (stack) {
@@ -49,7 +51,8 @@ router.post('/', (req, res) => {
     }
 
     if (data && typeof data === 'object') {
-      logData.extra = JSON.stringify(data).slice(0, 2000);
+      const scrubbedData = StructuredLogger.scrubFields(data);
+      logData.extra = JSON.stringify(scrubbedData).slice(0, 2000);
     }
 
     // Route to appropriate log level

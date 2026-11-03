@@ -10,7 +10,9 @@ const CHUNK_BUDGETS = {
   'vendor-three-core': 850_000,
   'vendor-prettier': 750_000,
   'vendor-monaco': 800_000,
+  'vendor-supabase': 650_000,
   'data-': 600_000,
+  index: 300_000,
   default: DEFAULT_MAX_BYTES,
 };
 

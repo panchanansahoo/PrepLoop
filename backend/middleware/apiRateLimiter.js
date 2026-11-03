@@ -66,3 +66,14 @@ export const expensiveFeatureLimiter = rateLimit({
   legacyHeaders: false,
   skip: isDevOrLocal,
 });
+
+export const analyticsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many analytics submissions. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isDevOrLocal,
+});
+
+export { uploadEndpointsLimiter } from './uploadProtection.js';

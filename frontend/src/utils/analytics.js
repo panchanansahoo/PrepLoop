@@ -342,7 +342,10 @@ class AnalyticsService {
   }
 
   generateSessionId() {
-    return `session_${Date.now()}_${crypto.randomUUID()}`;
+    const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 11);
+    return `session_${Date.now()}_${suffix}`;
   }
 
   getCohortDate(timestamp, cohortBy) {

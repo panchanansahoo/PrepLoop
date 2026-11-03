@@ -210,7 +210,10 @@ apiClient.interceptors.response.use(
  * Helper functions
  */
 function generateRequestId() {
-  return `${Date.now()}-${crypto.randomUUID()}`;
+  const suffix = typeof globalThis.crypto?.randomUUID === 'function'
+    ? globalThis.crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 11);
+  return `${Date.now()}-${suffix}`;
 }
 
 function sleep(ms) {

@@ -18,6 +18,7 @@
         "lint:fix": "echo 'Run prettier to format code'",
         "format": "prettier --write \"**/*.js\"",
         "test": "vitest run",
+        "test:boot": "node scripts/testStartup.js",
         "test:ci": "vitest run --test-timeout=15000 --reporter=default",
         "test:unit": "vitest run tests/unit",
         "test:integration": "vitest run tests/integration",

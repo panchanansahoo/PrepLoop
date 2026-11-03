@@ -120,7 +120,11 @@ function main() {
   const backendRequiredBase = ['PORT', 'FRONTEND_URL', 'SUPABASE_URL', 'SUPABASE_ANON_KEY'];
   const backendOptional = [
     'SUPABASE_SERVICE_ROLE_KEY',
+    'DATABASE_URL',
+    'HR_AUTH_ENABLED',
+    'JWT_SECRET',
     'GROQ_API_KEY',
+    'GEMINI_API_KEY',
     'SMTP_USER',
     'SMTP_PASS',
     'RECAPTCHA_SECRET_KEY',
@@ -132,6 +136,23 @@ function main() {
     'RAZORPAY_WEBHOOK_SECRET',
     'SUPABASE_DB_PASSWORD',
     'SUPABASE_KEY',
+    'JWT_REFRESH_SECRET',
+    'ACCESS_TOKEN_SECRET',
+    'REFRESH_TOKEN_SECRET',
+    'FIELD_ENCRYPTION_KEY',
+    'METRICS_API_KEY',
+    'PRODUCTION_FRONTEND_URL',
+    'ADMIN_EMAILS',
+    'REDIS_URL',
+    'UPSTASH_REDIS_REST_URL',
+    'UPSTASH_REDIS_REST_TOKEN',
+    'ELEVENLABS_API_KEY',
+    'OPENAI_API_KEY',
+    'NVIDIA_API_KEY',
+    'NVIDIA_MODEL',
+    'SMTP_HOST',
+    'SMTP_PORT',
+    'EMAIL_FROM',
     'NODE_ENV',
   ];
   const frontendRequiredBase = ['VITE_API_URL', 'VITE_SUPABASE_URL', 'VITE_SUPABASE_ANON_KEY'];
@@ -191,8 +212,23 @@ function main() {
   );
 
   const allMissing = [...backendMissing, ...frontendMissing];
-  if (allMissing.length > 0) {
-    console.log('\nSetup verification failed. Fix missing required keys and re-run: npm run verify:setup');
+  const consistencyErrors = [];
+  if (backendEnv.HR_AUTH_ENABLED === 'true' && !backendEnv.DATABASE_URL) {
+    consistencyErrors.push(
+      'HR_AUTH_ENABLED=true requires DATABASE_URL to be defined in backend/.env for PostgreSQL queries (or set HR_AUTH_ENABLED=false for local dev).'
+    );
+  }
+
+  if (consistencyErrors.length > 0) {
+    console.log('\n[ERROR] Inconsistent environment configuration:');
+    for (const err of consistencyErrors) {
+      console.log(`  - ${err}`);
+    }
+  }
+
+  const allFailures = [...allMissing, ...consistencyErrors];
+  if (allFailures.length > 0) {
+    console.log('\nSetup verification failed. Fix issues and re-run: npm run verify:setup');
     console.log('Tip: require specific integration keys with --require=KEY1,KEY2 or use --strict for full enforcement.');
     process.exit(1);
   }

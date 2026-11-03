@@ -77,7 +77,10 @@ apiClient.interceptors.request.use(
     }
 
     // Add request ID for tracing
-    config.headers['X-Request-ID'] = `${Date.now()}-${crypto.randomUUID()}`;
+    const requestIdSuffix = typeof globalThis.crypto?.randomUUID === 'function'
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 11);
+    config.headers['X-Request-ID'] = `${Date.now()}-${requestIdSuffix}`;
 
     return config;
   },

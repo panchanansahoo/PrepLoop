@@ -2,7 +2,7 @@
  * Authentication and Authorization Type Definitions
  */
 
-export type UserRole = 'user' | 'admin' | 'interviewer' | 'hr';
+export type UserRole = 'user' | 'admin' | 'interviewer' | 'hr' | 'employer';
 
 export type SubscriptionTier = 'free' | 'pro' | 'enterprise' | 'premium';
 

@@ -46,7 +46,9 @@ async function loadQuestionData() {
 
     const dataModules = await resolveQuestionModule();
     if (!dataModules || (!dataModules.metaMod && !dataModules.qsMod)) {
-        console.warn('⚠️ Company question dataset not found in this runtime. Using empty fallback set.');
+        if (process.env.NODE_ENV !== 'test') {
+            console.warn('⚠️ Company question dataset not found in this runtime. Using empty fallback set.');
+        }
         questionCache = [];
         companiesList = [];
         return;

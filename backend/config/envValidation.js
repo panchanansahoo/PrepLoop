@@ -95,11 +95,23 @@ const validators = {
     if (value.length < 32) {
       throw new Error('JWT_SECRET must be at least 32 characters long');
     }
+    if (process.env.NODE_ENV !== 'test') {
+      const lower = value.toLowerCase();
+      if (lower.includes('your_jwt_secret') || lower.includes('placeholder') || lower.includes('changeme') || /^(.)\1+$/.test(value)) {
+        throw new Error('JWT_SECRET must not use insecure placeholder or repeated character patterns');
+      }
+    }
   },
   
   JWT_REFRESH_SECRET: (value) => {
     if (value.length < 32) {
       throw new Error('JWT_REFRESH_SECRET must be at least 32 characters long');
+    }
+    if (process.env.NODE_ENV !== 'test') {
+      const lower = value.toLowerCase();
+      if (lower.includes('your_jwt_refresh') || lower.includes('placeholder') || lower.includes('changeme') || /^(.)\1+$/.test(value)) {
+        throw new Error('JWT_REFRESH_SECRET must not use insecure placeholder or repeated character patterns');
+      }
     }
   },
 };

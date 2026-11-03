@@ -2899,6 +2899,12 @@
   transition: all 0.2s;
 }
 
+.ai-vc-ctrl:focus-visible {
+  outline: 2px solid var(--ai-accent, #6366f1);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+}
+
 .ai-vc-ctrl:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;

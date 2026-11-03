@@ -316,6 +316,8 @@ export default function AIInterviewPage() {
                 case 'm': handleToggleMic(); break;
                 case 'v': toggleCamera(); break;
                 case 'p': togglePause(); break;
+                case 'c': setCaptionsOn(prev => !prev); break;
+                case 'b': setBookmarked(prev => !prev); break;
                 case 'escape':
                     if (!aiSpeaking && !loading) setShowEndConfirm(true);
                     break;
@@ -324,7 +326,7 @@ export default function AIInterviewPage() {
         };
         window.addEventListener('keydown', handler);
         return () => window.removeEventListener('keydown', handler);
-    }, [phase, handleToggleMic, toggleCamera, togglePause, keyboardHelpOpen, setShowEndConfirm, aiSpeaking, loading, isListening, awaitingAnswer]);
+    }, [phase, handleToggleMic, toggleCamera, togglePause, setCaptionsOn, setBookmarked, keyboardHelpOpen, setShowEndConfirm, aiSpeaking, loading, isListening, awaitingAnswer]);
 
     // Guard against accidentally closing/refreshing the tab mid-interview.
     // In-app navigation is handled by the logo/End actions below.
@@ -644,7 +646,7 @@ export default function AIInterviewPage() {
                         </div>
                     </div>
 
-                    {(answerReview || voiceAI.state === 'error' || sessionError) && (
+                    {(answerReview || voiceAI.state === 'error' || sessionError) && !isListening && (
                         <div className="ai-vc-answer-review" role="region" aria-label="Review your answer">
                             <div className="ai-vc-answer-review-heading">
                                 <strong>{sessionError?.title || (reviewingTranscript ? 'Review your answer' : 'Microphone needs attention')}</strong>
@@ -801,6 +803,8 @@ export default function AIInterviewPage() {
                                 <div className="ai-vc-shortcut-row"><kbd>M</kbd><span>Toggle microphone / Start answering</span></div>
                                 <div className="ai-vc-shortcut-row"><kbd>V</kbd><span>Toggle camera</span></div>
                                 <div className="ai-vc-shortcut-row"><kbd>P</kbd><span>Pause / Resume interview</span></div>
+                                <div className="ai-vc-shortcut-row"><kbd>C</kbd><span>Toggle closed captions</span></div>
+                                <div className="ai-vc-shortcut-row"><kbd>B</kbd><span>Bookmark current question</span></div>
                                 <div className="ai-vc-shortcut-row"><kbd>Esc</kbd><span>End interview</span></div>
                                 <div className="ai-vc-shortcut-row"><kbd>?</kbd><span>Toggle this help overlay</span></div>
                             </div>

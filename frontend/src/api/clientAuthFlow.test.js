@@ -1,9 +1,10 @@
+// @ts-nocheck
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import axios from 'axios';
 
 vi.mock('axios', () => {
   const createInstance = () => {
-    const instance = (config) => instance;
+    const instance = vi.fn((config) => Promise.resolve({ data: { success: true }, config }));
     instance.interceptors = {
       request: { use: vi.fn() },
       response: { use: vi.fn() },
@@ -25,10 +26,8 @@ vi.mock('axios', () => {
 
 import apiClient from './client';
 
-const requestInterceptor =
-  apiClient.interceptors.request.use.mock.calls[0]?.[0];
-const responseInterceptor =
-  apiClient.interceptors.response.use.mock.calls[0]?.[1];
+const requestInterceptor = apiClient.interceptors.request.use.mock.calls[0]?.[0];
+const responseInterceptor = apiClient.interceptors.response.use.mock.calls[0]?.[1];
 
 describe('API Client Auth Flow', () => {
   let originalLocalStorage;
@@ -38,11 +37,15 @@ describe('API Client Auth Flow', () => {
     storageMap = new Map();
     originalLocalStorage = globalThis.localStorage;
     globalThis.localStorage = {
+      length: 0,
+      clear: vi.fn(() => storageMap.clear()),
+      key: vi.fn((idx) => Array.from(storageMap.keys())[idx] || null),
       getItem: vi.fn((key) => storageMap.get(key) || null),
       setItem: vi.fn((key, value) => storageMap.set(key, value)),
       removeItem: vi.fn((key) => storageMap.delete(key)),
     };
-    vi.resetAllMocks();
+    vi.clearAllMocks();
+    axios.get.mockResolvedValue({ data: { csrfToken: 'test-csrf' } });
   });
 
   afterEach(() => {
@@ -57,6 +60,29 @@ describe('API Client Auth Flow', () => {
     const result = await requestInterceptor(config);
 
     expect(result.headers.Authorization).toBe('Bearer test-access-token');
+  });
+
+  it('generates an X-Request-ID header when crypto.randomUUID is available', async () => {
+    const config = { headers: {}, method: 'get', url: '/api/test' };
+    const result = await requestInterceptor(config);
+
+    expect(result.headers['X-Request-ID']).toBeDefined();
+    expect(result.headers['X-Request-ID']).toMatch(/^\d+-[a-zA-Z0-9-]+$/);
+  });
+
+  it('generates an X-Request-ID header safely in non-secure contexts where crypto.randomUUID is undefined', async () => {
+    const originalCrypto = globalThis.crypto;
+    try {
+      // @ts-ignore
+      delete globalThis.crypto;
+      const config = { headers: {}, method: 'get', url: '/api/test' };
+      const result = await requestInterceptor(config);
+
+      expect(result.headers['X-Request-ID']).toBeDefined();
+      expect(result.headers['X-Request-ID']).toMatch(/^\d+-[a-zA-Z0-9]+$/);
+    } finally {
+      globalThis.crypto = originalCrypto;
+    }
   });
 
   it('does not attach Authorization header when no token exists', async () => {
@@ -101,11 +127,23 @@ describe('API Client Auth Flow', () => {
 
     const error1 = {
       response: { status: 401 },
-      config: { url: '/api/a', method: 'get', headers: {}, _retry: undefined, skipAuthRefresh: undefined },
+      config: {
+        url: '/api/a',
+        method: 'get',
+        headers: {},
+        _retry: undefined,
+        skipAuthRefresh: undefined,
+      },
     };
     const error2 = {
       response: { status: 401 },
-      config: { url: '/api/b', method: 'get', headers: {}, _retry: undefined, skipAuthRefresh: undefined },
+      config: {
+        url: '/api/b',
+        method: 'get',
+        headers: {},
+        _retry: undefined,
+        skipAuthRefresh: undefined,
+      },
     };
 
     // Fire both requests concurrently (without awaiting the first)
@@ -125,7 +163,13 @@ describe('API Client Auth Flow', () => {
 
     const error = {
       response: { status: 401 },
-      config: { url: '/api/test', method: 'get', headers: {}, _retry: undefined, skipAuthRefresh: undefined },
+      config: {
+        url: '/api/test',
+        method: 'get',
+        headers: {},
+        _retry: undefined,
+        skipAuthRefresh: undefined,
+      },
     };
 
     await expect(responseInterceptor(error)).rejects.toThrow('Refresh failed');
@@ -155,18 +199,29 @@ describe('API Client Auth Flow', () => {
         headers: { 'retry-after': '1' },
         data: { message: 'Too many requests' },
       },
-      config: { url: '/api/test', method: 'get', headers: {}, _retry: undefined, skipRetry: undefined },
+      config: {
+        url: '/api/test',
+        method: 'get',
+        headers: {},
+        _retry: undefined,
+        skipRetry: undefined,
+      },
     };
 
-    const origSetTimeout = globalThis.setTimeout;
     let called = false;
-    globalThis.setTimeout = vi.fn((fn) => { called = true; fn(); });
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((fn) => {
+      called = true;
+      if (typeof fn === 'function') {
+        fn();
+      }
+      return 1;
+    });
 
     try {
       await responseInterceptor(error);
       expect(called).toBe(true);
     } finally {
-      globalThis.setTimeout = origSetTimeout;
+      setTimeoutSpy.mockRestore();
     }
   });
 });
