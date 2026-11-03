@@ -1174,8 +1174,14 @@ export default function CompanyInterview() {
             ];
             const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
-            const q = data.question || `Can you tell me about a challenging technical problem you solved recently?`;
-            const fullFirstMsg = `${greeting}Let's get started. ${q}`;
+            const rawQ = data.question || `Can you tell me about a challenging technical problem you solved recently?`;
+            const q = rawQ.replace(/We'll spend [^.?!]+:[^.?!]+[.?!]/gi, '')
+                          .replace(/We'll spend about [^.?!]+[.?!]/gi, '')
+                          .replace(/Any questions about the format before we start\??/gi, '')
+                          .replace(/Any questions before we start\??/gi, '')
+                          .trim();
+            const hasGreeting = /^(?:Hi|Hey|Hello|Welcome)\b/i.test(q);
+            const fullFirstMsg = hasGreeting ? q : `${greeting}Let's get started. ${q}`;
 
             setInterviewerReaction('thinking');
             await waitInterviewerBeat(550, 350);

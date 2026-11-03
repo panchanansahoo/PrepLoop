@@ -63,17 +63,29 @@ const SKILL_MAP = {
 function sanitizeOpeningQuestionText(text, stage) {
   if (!text || typeof text !== "string") return text;
   let q = text.trim();
-  // Remove schedule breakdowns
-  q = q.replace(/We'll spend [^.?!]+:[^.?!]+[.?!]/gi, "");
-  q = q.replace(/We'll spend about [^.?!]+[.?!]/gi, "");
+  // Strip interview agenda/schedule breakdowns and time allocations
+  q = q.replace(/(?:We'll|We will|We have|I have)\s+spend\s+[^.?!]+:[^.?!]+[.?!]/gi, "");
+  q = q.replace(/(?:We'll|We will|We have|I have)\s+spend\s+about\s+[^.?!]+[.?!]/gi, "");
+  q = q.replace(/(?:We'll|We will|Today we will)\s+spend\s+[^.?!]+[.?!]/gi, "");
+  q = q.replace(/quick introductions,[^.?!]+[.?!]/gi, "");
+  q = q.replace(/around twenty-five minutes[^.?!]+[.?!]/gi, "");
+  q = q.replace(/around \d+ minutes[^.?!]+[.?!]/gi, "");
   q = q.replace(/I'm listening for clear examples[^.?!]+[.?!]/gi, "");
-  // Remove meta questions
-  q = q.replace(/Any questions about the format before we start\??/gi, "");
-  q = q.replace(/Any questions before we start\??/gi, "");
-  q = q.replace(/Any questions before we begin\??/gi, "");
-  q = q.replace(/Do you have any questions before we (?:start|begin|jump in|get started)\??/gi, "");
-  q = q.replace(/Are you ready to (?:start|begin)\??/gi, "");
-  q = q.trim();
+  q = q.replace(/We'll start with quick introductions[^.?!]+[.?!]/gi, "");
+
+  // Strip format check / gatekeeper questions
+  const metaPatterns = [
+    /Any questions about the format(?: before we start| before we begin)?\??/gi,
+    /Any questions before we start\??/gi,
+    /Any questions before we begin\??/gi,
+    /Do you have any questions before we (?:start|begin|jump in|get started)\??/gi,
+    /Are you ready to (?:start|begin)\??/gi,
+    /Shall we (?:start|begin)\??/gi,
+    /Ready to (?:start|begin)\??/gi,
+  ];
+  for (const pattern of metaPatterns) {
+    q = q.replace(pattern, "").trim();
+  }
 
   const hasRealQuestion = /(introduce yourself|tell me about yourself|walk me through|what brings you|how would you|given an?|design an?|explain the)/i.test(q);
   if (!hasRealQuestion || (!q.endsWith("?") && !q.endsWith("."))) {

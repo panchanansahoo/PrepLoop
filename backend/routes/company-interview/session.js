@@ -31,14 +31,19 @@ export function sanitizeOpeningQuestion(rawQuestion, stage = 'Behavioral', candi
     q = q.replace(/\[(?:Candidate Name|Candidate|User Name)\]/gi, candidateName);
   }
 
-  // Strip interview agenda/schedule breakdowns
-  q = q.replace(/We'll spend [^.?!]+:[^.?!]+[.?!]/gi, '');
-  q = q.replace(/We'll spend about [^.?!]+[.?!]/gi, '');
+  // Strip interview agenda/schedule breakdowns and time allocations
+  q = q.replace(/(?:We'll|We will|We have|I have)\s+spend\s+[^.?!]+:[^.?!]+[.?!]/gi, '');
+  q = q.replace(/(?:We'll|We will|We have|I have)\s+spend\s+about\s+[^.?!]+[.?!]/gi, '');
+  q = q.replace(/(?:We'll|We will|Today we will)\s+spend\s+[^.?!]+[.?!]/gi, '');
+  q = q.replace(/quick introductions,[^.?!]+[.?!]/gi, '');
+  q = q.replace(/around twenty-five minutes[^.?!]+[.?!]/gi, '');
+  q = q.replace(/around \d+ minutes[^.?!]+[.?!]/gi, '');
   q = q.replace(/I'm listening for clear examples[^.?!]+[.?!]/gi, '');
+  q = q.replace(/We'll start with quick introductions[^.?!]+[.?!]/gi, '');
 
   // Strip format check / gatekeeper questions
   const metaPatterns = [
-    /Any questions about the format before we start\??/gi,
+    /Any questions about the format(?: before we start| before we begin)?\??/gi,
     /Any questions before we start\??/gi,
     /Any questions before we begin\??/gi,
     /Do you have any questions before we (?:start|begin|jump in|get started)\??/gi,
@@ -402,8 +407,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
 CRITICAL INSTRUCTIONS FOR OPENING QUESTION (Turn 1):
 - Your name is ${interviewerName}.
 - Greet briefly and warmly (e.g. "Hi${candidateGreeting}, I'm ${interviewerName} from ${company}. Welcome to your ${stage} interview!").
-- DO NOT provide an agenda breakdown (NEVER say "We'll spend 30 minutes...", "quick introductions, around 25 minutes...", etc.).
-- DO NOT ask permission to start or ask meta-questions (NEVER ask "Any questions about the format before we start?", "Are you ready?").
+- MANDATORY: Immediately ask the opening interview question without any agenda, time breakdown, or format questions.
 - IMMEDIATELY ask the first interview question:
   * For Behavioral or HR: "Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity." (or an equivalent direct self-introduction question).
   * For Technical: Greet and ask them to introduce themselves and walk through a recent technical project.
@@ -419,7 +423,7 @@ Respond as JSON:
             },
             {
               role: 'user',
-              content: `Start the ${stage} interview for ${role} at ${company}. Your name is ${interviewerName}.${candidateName ? ` The candidate's name is ${candidateName}.` : ''} Greet warmly and immediately ask the opening interview question (for Behavioral/HR, ask them to introduce themselves in a minute or two, focusing on their background and what brings them to this opportunity). Do NOT ask if they have questions about the format.`,
+              content: `Start the ${stage} interview for ${role} at ${company}. Your name is ${interviewerName}.${candidateName ? ` The candidate's name is ${candidateName}.` : ''} Greet warmly and immediately ask the opening interview question (for Behavioral/HR, ask them to introduce themselves in a minute or two, focusing on their background and what brings them to this opportunity).`,
             },
           ],
           response_format: { type: 'json_object' },

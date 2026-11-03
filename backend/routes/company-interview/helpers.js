@@ -936,10 +936,8 @@ ${questionNumber === 1 ? `- OPENING QUESTION (MANDATORY FORMAT):
   * For Behavioral or HR rounds, start directly with: "Please introduce yourself in a minute or two, focusing on your background and what brings you to this opportunity."
   * For Technical rounds, start with: "To kick things off, please introduce yourself and walk me through a technical project you built recently."
   * For DSA / System Design, present the problem description immediately.
-  * STRICT FORBIDDEN PHRASES:
-    - NEVER give an agenda or breakdown (do NOT say "We'll spend thirty minutes: quick introductions, around twenty-five minutes on...", etc.).
-    - NEVER ask meta questions (do NOT ask "Any questions about the format before we start?", "Are you ready to begin?", or "Do you have any questions before we jump in?").
-    - Jump directly into the interview question.` : ''}
+  * MANDATORY CONVERSATION RULE:
+    - Jump directly into the interview question without discussing any interview agenda, schedule, time breakdowns, or format checks.` : ''}
 ${questionNumber === totalQuestions ? `- FINAL QUESTION: Signal this casually and warmly: "Awesome, just one last question and we're done — you're doing great!"` : ''}
 ${questionNumber > 1 && questionNumber < totalQuestions ? `- Transition naturally from the previous answer. Keep it feeling like an ongoing chat.` : ''}
 
