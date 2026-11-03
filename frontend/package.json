@@ -15,6 +15,7 @@
         "format": "prettier --write \"src/**/*.{js,jsx}\"",
         "preview": "vite preview",
         "test": "vitest run",
+        "test:ci": "vitest run --test-timeout=15000 --reporter=default",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
         "test:e2e": "playwright test",

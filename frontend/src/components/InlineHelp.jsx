@@ -60,11 +60,11 @@ export default function InlineHelp({ topic, size = 14 }) {
                     </div>
                     <div className="ih-content">
                         {tip.content.split('\n').map((line, i) => (
-                            <p key={i} dangerouslySetInnerHTML={{
-                                __html: line
-                                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                                    .replace(/^• /, '<span style="color:var(--accent)">•</span> ')
-                            }} />
+                            <p key={i}>
+                                {line.split('**').map((part, idx) =>
+                                    idx % 2 === 0 ? part : <strong key={idx}>{part}</strong>
+                                )}
+                            </p>
                         ))}
                     </div>
                 </div>

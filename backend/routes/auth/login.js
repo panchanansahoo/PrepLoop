@@ -113,13 +113,10 @@ router.post('/login', authLoginLimiter, async (req, res) => {
       }
     }
 
-    supabaseAdmin
+    await supabaseAdmin
       .from('profiles')
       .update({ last_login: new Date().toISOString() })
       .eq('id', data.user.id)
-      .then(({ error: updateError }) => {
-        if (updateError) console.error('Failed to update last_login:', updateError.message || updateError);
-      })
       .catch((updateErr) => {
         console.error('Failed to update last_login:', updateErr.message || updateErr);
       });

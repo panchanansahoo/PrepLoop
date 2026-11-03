@@ -22,6 +22,27 @@ const _IS_DEVELOPMENT = import.meta.env.DEV;
 export function validateFrontendRuntimeConfig() {
   const errors = [];
   const apiUrl = import.meta.env.VITE_API_URL;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  // Supabase Configuration Checks
+  if (supabaseUrl && !isValidUrl(supabaseUrl)) {
+    errors.push(`❌ VITE_SUPABASE_URL is not a valid URL: "${supabaseUrl}"`);
+  }
+
+  if (IS_PRODUCTION) {
+    if (!supabaseUrl) {
+      errors.push('❌ VITE_SUPABASE_URL is required in production for user authentication.');
+    } else if (supabaseUrl.includes('your-project-ref') || supabaseUrl.includes('placeholder-project')) {
+      errors.push('🔒 SECURITY FAILURE: VITE_SUPABASE_URL contains a placeholder reference in production.');
+    }
+
+    if (!supabaseAnonKey) {
+      errors.push('❌ VITE_SUPABASE_ANON_KEY is required in production for client-side API authentication.');
+    } else if (supabaseAnonKey === 'your_supabase_anon_key') {
+      errors.push('🔒 SECURITY FAILURE: VITE_SUPABASE_ANON_KEY contains a placeholder key in production.');
+    }
+  }
 
   // In production, VITE_API_URL is recommended but not required.
   // If it is unset, the hosting layer needs to route /api/* to the backend origin.
@@ -93,6 +114,8 @@ export function getFrontendConfigInfo() {
   return {
     mode: IS_PRODUCTION ? 'production' : 'development',
     apiUrl: import.meta.env.VITE_API_URL || '(default)',
+    hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+    hasSupabaseAnonKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
     timestamp: new Date().toISOString(),
   };
 }

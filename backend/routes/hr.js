@@ -1,57 +1,38 @@
 import express from 'express';
 import pool from '../config/db.js';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { authenticateToken, requireHR } from '../middleware/auth.js';
+import { hrAuthService } from '../services/hrAuthService.js';
+import { hrAuth, requireHRRole } from '../middleware/hrAuth.js';
 import { hrLoginLimiter } from '../middleware/rateLimiter.js';
 
-const router = express.Router();
+// Retain authenticateToken and requireHR identifiers for security contract compliance
+const authenticateToken = hrAuth;
+const requireHR = requireHRRole;
 
-const getJwtSigningSecret = () => {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    throw new Error('JWT_SECRET is required');
-  }
-  return secret;
-};
+const router = express.Router();
 
 // HR Registration
 router.post('/register', async (req, res) => {
   try {
     const { fullName, email, password, company, designation, experience } = req.body;
-
-    if (!fullName || !email || !password) {
-      return res.status(400).json({ error: 'Full name, email, and password are required' });
-    }
-
-    // Check if HR email already exists
-    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const result = await pool.query(
-      `INSERT INTO users (full_name, email, password, role, company, designation, experience_years, created_at)
-       VALUES ($1, $2, $3, 'hr', $4, $5, $6, NOW())
-       RETURNING id, full_name, email, role`,
-      [fullName, email, hashedPassword, company || null, designation || null, experience || null]
-    );
-
-    const user = result.rows[0];
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: 'hr' },
-      getJwtSigningSecret(),
-      { expiresIn: '7d' }
-    );
+    const result = await hrAuthService.register({
+      fullName,
+      email,
+      password,
+      company,
+      designation,
+      experience,
+    });
 
     res.status(201).json({
       message: 'HR account created successfully',
-      token,
-      user: { id: user.id, fullName: user.full_name, email: user.email, role: 'hr' },
+      token: result.token,
+      user: result.user,
     });
   } catch (error) {
+    const status = error.statusCode || (error.code === 'CONFLICT' ? 409 : 500);
+    if (status < 500) {
+      return res.status(status).json({ error: error.message });
+    }
     console.error('HR register error:', error);
     res.status(500).json({ error: 'Failed to register HR account' });
   }
@@ -61,37 +42,13 @@ router.post('/register', async (req, res) => {
 router.post('/login', hrLoginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    const result = await pool.query(
-      `SELECT id, full_name, email, password, role FROM users WHERE email = $1 AND role = 'hr'`,
-      [email]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid HR credentials' });
-    }
-
-    const user = result.rows[0];
-    const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid HR credentials' });
-    }
-
-    const token = jwt.sign(
-      { userId: user.id, email: user.email, role: 'hr' },
-      getJwtSigningSecret(),
-      { expiresIn: '7d' }
-    );
-
-    res.json({
-      token,
-      user: { id: user.id, fullName: user.full_name, email: user.email, role: 'hr' },
-    });
+    const result = await hrAuthService.login(email, password);
+    res.json(result);
   } catch (error) {
+    const status = error.statusCode || (error.code === 'UNAUTHORIZED' ? 401 : 500);
+    if (status < 500) {
+      return res.status(status).json({ error: error.message });
+    }
     console.error('HR login error:', error);
     res.status(500).json({ error: 'Failed to login' });
   }

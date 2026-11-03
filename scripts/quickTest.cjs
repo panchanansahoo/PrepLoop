@@ -5,12 +5,9 @@
  * Verifies improvements integrate with existing PrepLoop codebase
  */
 
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const path = require('path');
+const fs = require('fs');
+const { join } = path;
 
 console.log('\n🔍 PrepLoop - Quick Integration Test\n');
 console.log('═'.repeat(60));

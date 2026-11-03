@@ -368,9 +368,10 @@ export default function ResumeAnalyzer() {
       className={className}
       style={{ outline: 'none', cursor: 'text', borderBottom: '1px dashed transparent', transition: 'border-color 0.2s', ...style }}
       onFocus={(e) => { e.target.style.borderBottomColor = '#a855f7'; }}
-      onBlur={(e) => { e.target.style.borderBottomColor = 'transparent'; onChange(e.target.innerText); }}
-      dangerouslySetInnerHTML={{ __html: value }}
-    />
+      onBlur={(e) => { e.target.style.borderBottomColor = 'transparent'; onChange(e.target.textContent); }}
+    >
+      {value}
+    </Tag>
   );
 
   const updateResumeField = (path, value) => {

@@ -65,9 +65,9 @@ export function AuthProvider({ children }) {
               const fullUser = {
                 id: session.user.id,
                 email: session.user.email,
-                fullName: profileData.full_name || session.user.user_metadata?.full_name,
-                subscriptionTier: profileData.subscription_tier || 'free',
-                experienceLevel: profileData.experience_level || 'beginner',
+                fullName: profileData.fullName || session.user.user_metadata?.full_name,
+                subscriptionTier: profileData.subscriptionTier || 'free',
+                experienceLevel: profileData.experienceLevel || 'beginner',
                 role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
                 access_token: session.access_token,
               };
@@ -130,7 +130,7 @@ export function AuthProvider({ children }) {
               ...profileData,
               id: profileData.id,
               email: profileData.email || session.user.email,
-              fullName: profileData.full_name,
+              fullName: profileData.fullName,
               role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
               access_token: session.access_token,
             };

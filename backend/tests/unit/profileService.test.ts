@@ -74,8 +74,8 @@ describe('Profile Service & Response Formatter', () => {
 
     expect(response.user.id).toBe('usr_test_123');
     expect(response.user.email).toBe('alex@example.com');
-    expect(response.user.full_name).toBe('Alex Mercer');
-    expect(response.user.subscription_tier).toBe('pro');
+    expect(response.user.fullName).toBe('Alex Mercer');
+    expect(response.user.subscriptionTier).toBe('pro');
     expect(response.user.coins).toBe(150);
     expect(response.user.socialLinks.linkedin).toBe('https://linkedin.com/in/alex');
     expect(response.user.profile).toBeDefined();

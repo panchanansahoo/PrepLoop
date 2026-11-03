@@ -4,8 +4,8 @@
  * Diagnostic script to identify implementation issues
  */
 
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
 console.log('🔍 Running diagnostics...\n');
 

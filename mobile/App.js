@@ -155,8 +155,10 @@ export default function App() {
         };
     }, []);
 
-    // Keep splash visible until startup is complete
-    if (!fontsLoaded || !isAppReady) {
+    // Keep splash visible until startup is complete.
+    // Fonts are non-blocking: if they fail to load, the app still renders
+    // with system fallbacks rather than being stuck on a blank screen.
+    if (!isAppReady) {
         return null;
     }
 

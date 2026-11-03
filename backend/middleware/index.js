@@ -15,6 +15,12 @@ export {
   DEFAULT_ADMIN_EMAILS,
 } from './auth.js';
 
+export {
+  hrAuth,
+  requireHRRole,
+  authenticateHR,
+} from './hrAuth.js';
+
 // Error Handling & Async Utilities
 export {
   errorHandler,

@@ -5,12 +5,9 @@
  * Tests all 17 new files and their integrations
  */
 
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const path = require('path');
+const fs = require('fs');
+const { join } = path;
 
 const colors = {
   reset: '\x1b[0m',
@@ -404,9 +401,11 @@ class ImprovementTester {
 
     log('═'.repeat(70) + '\n', 'blue');
 
-    // Exit with error code if tests failed
+    // Exit with code
     if (this.results.failed > 0) {
       process.exit(1);
+    } else {
+      process.exit(0);
     }
   }
 }

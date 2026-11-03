@@ -3,6 +3,33 @@ import { createLogger } from '../utils/structuredLogger.js';
 const logger = createLogger('env-validation');
 
 /**
+ * Common placeholder patterns that indicate a value was never configured
+ */
+const PLACEHOLDER_PATTERNS = [
+  /your_/i,
+  /_here$/i,
+  /_hier$/i,
+  /example\.com$/i,
+  /your_secret_here/i,
+  /your_api_key_here/i,
+  /your_jwt_secret_here/i,
+  /your_supabase_url_here/i,
+  /your_supabase_anon_key_here/i,
+  /your_supabase_service_role_key_here/i,
+  /your_resend_api_key_here/i,
+  /your_razorpay_key_id_here/i,
+  /your_razorpay_key_secret_here/i,
+  /your_gemini_api_key_here/i,
+  /your_groq_api_key_here/i,
+  /your_nvidia_api_key_here/i,
+  /your_elevenlabs_api_key_here/i,
+  /your_openai_api_key_here/i,
+  /your_adzuna_app_id_here/i,
+  /your_adzuna_app_key_here/i,
+  /your_rapidapi_key_here/i,
+];
+
+/**
  * Required environment variables for all environments
  */
 const REQUIRED_VARS = [
@@ -120,6 +147,29 @@ export function validateEnvironment() {
   for (const varName of RECOMMENDED_VARS) {
     if (!process.env[varName]) {
       warnings.push(`Recommended environment variable not set: ${varName}`);
+    }
+  }
+
+  // Warn about placeholder values in non-production environments
+  const CRITICAL_VARS = [
+    'JWT_SECRET',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SMTP_PASS',
+    'RAZORPAY_KEY_SECRET',
+    'GROQ_API_KEY',
+    'GEMINI_API_KEY',
+  ];
+  for (const varName of CRITICAL_VARS) {
+    const value = process.env[varName];
+    if (!value) continue;
+    const isPlaceholder = PLACEHOLDER_PATTERNS.some(p => p.test(value));
+    if (isPlaceholder) {
+      warnings.push(
+        `Placeholder value detected for ${varName} ("${value}"). ` +
+        'Replace with a real secret before deploying to production.'
+      );
     }
   }
 

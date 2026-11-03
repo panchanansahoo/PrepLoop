@@ -93,11 +93,8 @@ export const buildProfileResponse = (reqOrUser, profile) => {
     id: profile?.id || userContext?.id,
     email: userContext?.email || profile?.email || '',
     fullName,
-    full_name: fullName,
     subscriptionTier,
-    subscription_tier: subscriptionTier,
     experienceLevel,
-    experience_level: experienceLevel,
     role,
     created_at: profile?.created_at || null,
     last_login: profile?.last_login || null,
@@ -111,12 +108,11 @@ export const buildProfileResponse = (reqOrUser, profile) => {
     experienceYears,
     company: profile?.company || '',
     designation: profile?.designation || '',
-    avatar_url: profile?.avatar_url || '',
+    avatarUrl: profile?.avatar_url || '',
     githubUsername: profile?.github_username || '',
-    github_username: profile?.github_username || '',
     coins: profile?.coins ?? 0,
-    custom_url: profile?.custom_url || '',
-    is_public: profile?.is_public ?? false,
+    customUrl: profile?.custom_url || '',
+    isPublic: profile?.is_public ?? false,
     phone: profile?.phone || '',
     location: profile?.location || '',
     website: profile?.website || '',
@@ -129,7 +125,6 @@ export const buildProfileResponse = (reqOrUser, profile) => {
   };
 
   const userPayload = { ...flatProfile };
-  userPayload.social_links = flatProfile.socialLinks;
   userPayload.socialLinks = {
     twitter: flatProfile.socialLinks?.twitter,
     linkedin: flatProfile.socialLinks?.linkedin,

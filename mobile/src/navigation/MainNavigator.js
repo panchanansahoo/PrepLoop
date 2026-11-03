@@ -216,6 +216,7 @@ export default function MainNavigator() {
                 name="DSA"
                 component={DSAStack}
                 options={{
+                    tabBarButtonTestID: "nav-practice-tab",
                     tabBarLabel: "DSA",
                     tabBarIcon: ({ focused }) => (
                         <TabIcon emoji="🧩" focused={focused} />
@@ -226,6 +227,7 @@ export default function MainNavigator() {
                 name="Interview"
                 component={InterviewStack}
                 options={{
+                    tabBarButtonTestID: "nav-interview-tab",
                     tabBarLabel: "Interview",
                     tabBarIcon: ({ focused }) => (
                         <TabIcon emoji="🤖" focused={focused} />
@@ -246,6 +248,7 @@ export default function MainNavigator() {
                 name="Profile"
                 component={ProfileStack}
                 options={{
+                    tabBarButtonTestID: "nav-profile-tab",
                     tabBarLabel: "Profile",
                     tabBarIcon: ({ focused }) => (
                         <TabIcon emoji="👤" focused={focused} />

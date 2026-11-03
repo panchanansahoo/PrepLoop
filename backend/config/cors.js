@@ -27,19 +27,29 @@ const DEVELOPMENT_ORIGINS = process.env.NODE_ENV === 'development'
 
 const ALL_ALLOWED_ORIGINS = [...ALLOWED_ORIGINS, ...DEVELOPMENT_ORIGINS];
 
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /**
  * Validate origin against allowed list
  */
 function isOriginAllowed(origin) {
   // Allow server-side requests (no origin header)
-  if (!origin) return true;
+  if (!origin || typeof origin !== 'string') return true;
+
+  // Reject malformed origins
+  try {
+    const parsed = new URL(origin);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  } catch {
+    return false;
+  }
 
   // Check explicit allowed origins
   if (ALL_ALLOWED_ORIGINS.includes(origin)) return true;
 
   // In development only, allow localhost with specific ports only
   if (process.env.NODE_ENV === 'development') {
-    const allowedPorts = [5173, 5174, 4173];
+    const allowedPorts = [5173, 5174, 5175, 4173];
     const match = origin.match(/^https?:\/\/(localhost|127\.0\.0\.1):(\d+)$/i);
     if (match && allowedPorts.includes(parseInt(match[2], 10))) {
       return true;
@@ -48,10 +58,17 @@ function isOriginAllowed(origin) {
 
   // In production, check if origin matches production domain pattern
   if (process.env.NODE_ENV === 'production' && process.env.PRODUCTION_DOMAIN) {
-    const productionPattern = new RegExp(
-      `^https://(.*\\.)?${process.env.PRODUCTION_DOMAIN.replace('.', '\\.')}$`
-    );
-    if (productionPattern.test(origin)) return true;
+    try {
+      const cleanDomain = process.env.PRODUCTION_DOMAIN.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      const escapedDomain = escapeRegex(cleanDomain);
+      const productionPattern = new RegExp(
+        `^https://([a-zA-Z0-9-]+\\.)*${escapedDomain}$`,
+        'i'
+      );
+      if (productionPattern.test(origin)) return true;
+    } catch {
+      return false;
+    }
   }
 
   return false;

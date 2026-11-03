@@ -123,6 +123,35 @@ const isTokenExpired = (errorMessage) => {
   );
 };
 
+/**
+ * Verifies a candidate JWT against Supabase Auth.
+ * Note: Custom HR tokens are issued with JWT_SECRET and are not Supabase tokens;
+ * HR endpoints use hrAuth middleware (see middleware/hrAuth.js).
+ */
+export const verifySupabaseToken = async (token) => {
+  const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !user) {
+    const errorMsg = error?.message || '';
+    if (isTokenExpired(errorMsg)) {
+      const err = new Error('Token expired');
+      err.code = 'TOKEN_EXPIRED';
+      err.statusCode = 401;
+      throw err;
+    }
+    const err = new Error(error?.message || 'Invalid token');
+    err.code = 'INVALID_TOKEN';
+    err.statusCode = 401;
+    throw err;
+  }
+  const role = await resolveUserRole(user.id, user.email);
+  return {
+    id: user.id,
+    email: user.email,
+    role,
+    user_metadata: user.user_metadata || {},
+  };
+};
+
 export const authenticateToken = async (req, res, next) => {
   const token = getAccessToken(req);
 
@@ -131,36 +160,25 @@ export const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token);
-    
-    if (error || !user) {
-      // Check if the error is specifically a token expiration issue
-      const errorMsg = error?.message || '';
-      if (isTokenExpired(errorMsg)) {
-        console.warn(`[auth] JWT token expired, instructing client to refresh`);
-        return res.status(401).json({ 
-          error: 'Token expired', 
-          code: 'TOKEN_EXPIRED',
-          details: 'Please refresh your token'
-        });
-      }
-
-      console.warn(`[auth] JWT validation failed for token (403):`, error || 'User not found in token');
-      return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
-    }
-
-    const role = await resolveUserRole(user.id, user.email);
-
-    req.user = { 
-      id: user.id, 
-      email: user.email, 
-      role,
-      user_metadata: user.user_metadata || {}
-    };
+    const principal = await verifySupabaseToken(token);
+    req.user = principal;
     next();
   } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    if (error.code === 'TOKEN_EXPIRED') {
+      console.warn(`[auth] JWT token expired, instructing client to refresh`);
+      return res.status(401).json({ 
+        error: 'Token expired', 
+        code: 'TOKEN_EXPIRED',
+        details: 'Please refresh your token'
+      });
+    }
+
+    console.warn(`[auth] JWT validation failed:`, error.message);
+    return res.status(401).json({
+      error: 'Invalid or expired token',
+      code: 'INVALID_TOKEN',
+      details: error.message,
+    });
   }
 };
 

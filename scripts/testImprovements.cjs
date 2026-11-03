@@ -4,9 +4,9 @@
  * Comprehensive test script for all improvements
  */
 
-import { spawn } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+const { spawn } = require('child_process');
+const { readFileSync, existsSync } = require('fs');
+const { join } = require('path');
 
 const colors = {
   reset: '\x1b[0m',

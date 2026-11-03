@@ -33,11 +33,11 @@ export const lazyWithRetry = (importFn, retries = 3) => {
 /**
  * Preload component for faster navigation
  */
-export const preloadComponent = (importFn) => {
+export function preloadComponent(importFn) {
   importFn().catch((error) => {
     console.warn('Preload failed:', error.message);
   });
-};
+}
 
 /**
  * Loading fallback component

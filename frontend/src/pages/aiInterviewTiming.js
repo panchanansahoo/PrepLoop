@@ -13,11 +13,25 @@
 // Returns a deterministic delay in ms that scales with answer length,
 // simulating the interviewer "reading" the response. Capped at 800 ms
 // for snappy conversational feel.
-export function getThinkingDelayMs(text = '') {
+function stableDelayJitter(str) {
+    let hash = 0;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) {
+        hash = ((hash << 5) - hash + s.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash % 1000) / 1000;
+}
+
+export function getThinkingDelayMs(text = '', options = {}) {
     const length = String(text || '').trim().length;
     const base = Math.min(800, 200 + length * 1.5);
-    // Add ±30% randomness to avoid predictable timing
-    const jitter = base * 0.3 * (Math.random() * 2 - 1);
+    // Bounded ±10% jitter to avoid predictable timing while ensuring
+    // longer answers strictly receive at least as much or more delay than shorter ones.
+    const jitterRatio = typeof options?.jitterRatio === 'number' ? options.jitterRatio : 0.1;
+    const rand = typeof options?.random === 'number'
+        ? options.random
+        : (options?.deterministic ? stableDelayJitter(text) : Math.random());
+    const jitter = base * jitterRatio * (rand * 2 - 1);
     return Math.round(Math.min(1000, Math.max(200, base + jitter)));
 }
 

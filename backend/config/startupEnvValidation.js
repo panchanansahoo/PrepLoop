@@ -15,6 +15,31 @@
 const INSECURE_JWT_DEFAULT = 'preploop-jwt-secret-key';
 const PRODUCTION_ENV = process.env.NODE_ENV === 'production';
 
+// Common placeholder patterns that indicate a value was never configured
+const PLACEHOLDER_PATTERNS = [
+  /your_/i,
+  /_here$/i,
+  /_hier$/i,
+  /example\.com$/i,
+  /your_secret_here/i,
+  /your_api_key_here/i,
+  /your_jwt_secret_here/i,
+  /your_supabase_url_here/i,
+  /your_supabase_anon_key_here/i,
+  /your_supabase_service_role_key_here/i,
+  /your_resend_api_key_here/i,
+  /your_razorpay_key_id_here/i,
+  /your_razorpay_key_secret_here/i,
+  /your_gemini_api_key_here/i,
+  /your_groq_api_key_here/i,
+  /your_nvidia_api_key_here/i,
+  /your_elevenlabs_api_key_here/i,
+  /your_openai_api_key_here/i,
+  /your_adzuna_app_id_here/i,
+  /your_adzuna_app_key_here/i,
+  /your_rapidapi_key_here/i,
+];
+
 /**
  * Get list of validation errors for current environment
  * @returns {string[]} Array of validation error messages (empty if valid)
@@ -33,6 +58,18 @@ export function getProductionEnvValidationErrors() {
 
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     errors.push('❌ SUPABASE_SERVICE_ROLE_KEY is not configured. Server-side operations will fail.');
+  }
+
+  // Database and HR configuration checks
+  if (process.env.HR_AUTH_ENABLED === 'true' && !process.env.DATABASE_URL) {
+    errors.push('❌ DATABASE_URL is required when HR_AUTH_ENABLED=true for HR portal queries.');
+  }
+
+  if (process.env.DATABASE_URL) {
+    const isPlaceholderDb = PLACEHOLDER_PATTERNS.some(p => p.test(process.env.DATABASE_URL));
+    if (isPlaceholderDb && PRODUCTION_ENV) {
+      errors.push('🔒 SECURITY FAILURE: DATABASE_URL contains a placeholder value in production.');
+    }
   }
 
   // Security check: reject insecure JWT defaults in production
@@ -58,6 +95,29 @@ export function getProductionEnvValidationErrors() {
   // Check for other critical configurations
   if (!process.env.FRONTEND_URL) {
     errors.push('⚠️  FRONTEND_URL is not configured. CORS validation may be overly permissive.');
+  }
+
+  // Security check: reject placeholder / insecure default values in production
+  const CRITICAL_VARS = [
+    'JWT_SECRET',
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SMTP_PASS',
+    'RAZORPAY_KEY_SECRET',
+    'GROQ_API_KEY',
+    'GEMINI_API_KEY',
+  ];
+  for (const varName of CRITICAL_VARS) {
+    const value = process.env[varName];
+    if (!value) continue;
+    const isPlaceholder = PLACEHOLDER_PATTERNS.some(p => p.test(value));
+    if (isPlaceholder) {
+      errors.push(
+        `🔒 SECURITY FAILURE: ${varName} contains a placeholder value ("${value}"). ` +
+        'Set a real secret before deploying to production.'
+      );
+    }
   }
 
   return errors;

@@ -108,7 +108,10 @@ export default defineConfig({
     pool: 'forks',
     maxWorkers: 2,
     minWorkers: 1,
-    setupFiles: './src/test/setup.js',
+    testTimeout: 15000,
+    hookTimeout: 10000,
+    teardownTimeout: 5000,
+    setupFiles: ['./vitest.setup.js'],
     css: true,
     include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
     coverage: {

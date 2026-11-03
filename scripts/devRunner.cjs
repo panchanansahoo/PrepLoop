@@ -6,7 +6,13 @@ if (!allowedNodeEnvs.has(currentNodeEnv)) {
   process.env.NODE_ENV = 'development';
 }
 
-function run(name, command) {
+let shuttingDown = false;
+const processes = {};
+
+function startProcess(name, command) {
+  if (shuttingDown) return null;
+
+  console.log(`[devRunner] Starting ${name}...`);
   const child = spawn(command, {
     stdio: 'inherit',
     shell: true,
@@ -14,45 +20,43 @@ function run(name, command) {
   });
 
   child.on('error', (error) => {
-    console.error(`[${name}] failed to start:`, error.message);
+    console.error(`[${name}] process error:`, error.message);
   });
 
+  child.on('exit', (code, signal) => {
+    if (shuttingDown) return;
+    console.warn(`[${name}] process stopped (code=${code}, signal=${signal}). Restarting in 1.5s...`);
+    setTimeout(() => {
+      if (!shuttingDown) {
+        processes[name] = startProcess(name, command);
+      }
+    }, 1500);
+  });
+
+  processes[name] = child;
   return child;
 }
 
-const backend = run('backend', 'npm run dev --prefix backend');
-const frontend = run('frontend', 'npm run dev --prefix frontend');
-
-let shuttingDown = false;
+startProcess('backend', 'npm run dev --prefix backend');
+startProcess('frontend', 'npm run dev --prefix frontend');
 
 function stopAll(signal = 'SIGTERM') {
   if (shuttingDown) return;
   shuttingDown = true;
+  console.log(`[devRunner] Shutting down all processes with ${signal}...`);
 
-  if (!backend.killed) {
-    backend.kill(signal);
+  for (const [name, child] of Object.entries(processes)) {
+    if (child && !child.killed) {
+      try {
+        child.kill(signal);
+      } catch {}
+    }
   }
-  if (!frontend.killed) {
-    frontend.kill(signal);
-  }
+  process.exit(0);
 }
 
-function onChildExit(name, code, signal) {
-  const exitCode = code ?? (signal ? 1 : 0);
-  if (!shuttingDown) {
-    console.error(`[${name}] exited (code=${code}, signal=${signal})`);
-    stopAll();
-  }
-  process.exitCode = exitCode;
-}
+process.on('SIGINT', () => stopAll('SIGINT'));
+process.on('SIGTERM', () => stopAll('SIGTERM'));
 
-backend.on('exit', (code, signal) => onChildExit('backend', code, signal));
-frontend.on('exit', (code, signal) => onChildExit('frontend', code, signal));
-
-process.on('SIGINT', () => {
-  stopAll('SIGINT');
-});
-
-process.on('SIGTERM', () => {
-  stopAll('SIGTERM');
-});
+// Keep event loop active
+setInterval(() => {}, 1000 * 60);

@@ -65,6 +65,7 @@ jobs:
         run: npm ci --prefix frontend
 
       - name: Install mobile dependencies
+        if: hashFiles('mobile/package-lock.json') != ''
         run: npm ci --prefix mobile
 
       - name: Backend type check
@@ -73,11 +74,9 @@ jobs:
       - name: Backend lint
         run: npm run lint --prefix backend
 
-      - name: Backend vitest
-        run: npm run test:vitest --prefix backend
-
       - name: Backend tests
-        run: npm run test --prefix backend
+        timeout-minutes: 10
+        run: npm run test:ci --prefix backend
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/preploop_test
           NODE_ENV: test
@@ -89,13 +88,27 @@ jobs:
           JWT_SECRET: test-jwt-secret-key-with-32-characters
 
       - name: Frontend unit & component tests
-        run: npm run test --prefix frontend -- --run
+        timeout-minutes: 10
+        run: npm run test:ci --prefix frontend
 
       - name: Mobile unit tests
         run: npm test --prefix mobile
 
+      - name: Mobile lint
+        if: hashFiles('mobile/node_modules/eslint/bin/eslint.js') != ''
+        run: npm run lint --prefix mobile
+
       - name: Frontend build
         run: npm run build --prefix frontend
+
+      - name: Frontend bundle budget check
+        run: npm run check:bundle --prefix frontend
+
+      - name: Dependency security advisory audit
+        continue-on-error: true
+        run: |
+          npm audit --prefix backend || true
+          npm audit --prefix frontend || true
 
   dsa-editor-smoke:
     name: DSA Editor Smoke

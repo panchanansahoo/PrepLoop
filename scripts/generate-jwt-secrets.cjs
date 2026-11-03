@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { randomBytes } from 'crypto';
+const { randomBytes } = require('crypto');
 
 console.log('\n🔐 Generating secure JWT secrets...\n');
 

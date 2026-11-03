@@ -1655,12 +1655,16 @@ export function useInterviewSession(options = {}) {
             ? nextQ
             : fallbackQ;
 
+        const reaction = getInterviewerReaction(feedbackScore, interviewType);
+        const transitionPhrase = getConversationalTransition(feedbackScore, resolvedStage, questionIndexRef.current);
+        const spokenQuestion = transitionPhrase ? `${transitionPhrase} ${continueQ}` : continueQ;
+
         if (!isInterviewOver) {
           console.log(
             "[Interview] Pre-fetching next question audio:",
-            continueQ.substring(0, 50) + "...",
+            spokenQuestion.substring(0, 50) + "...",
           );
-          await voiceAI.prefetch(continueQ);
+          await voiceAI.prefetch(spokenQuestion);
         }
 
         const speakAndHandoff = async (questionSegment, isEnding = false) => {
@@ -1711,10 +1715,8 @@ export function useInterviewSession(options = {}) {
             ...prev,
             { role: "interviewer", content: continueQ, timestamp: Date.now() },
           ]);
-          const reaction = getInterviewerReaction(feedbackScore, interviewType);
           setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
-          const transitionPhrase = getConversationalTransition(feedbackScore, resolvedStage, questionIndex);
-          await speakAndHandoff(`${transitionPhrase} ${continueQ}`);
+          await speakAndHandoff(spokenQuestion);
           setInterviewerStatus("");
         }
       } catch (error) {
@@ -1770,10 +1772,11 @@ export function useInterviewSession(options = {}) {
           setCurrentQuestion(fallbackQ);
           setQuestionIndex((prev) => prev + 1);
           submittedQuestionKeyRef.current = null;
-          await voiceAI.prefetch(fallbackQ);
+          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndexRef.current);
+          const spokenFallback = transitionPhrase ? `${transitionPhrase} ${fallbackQ}` : fallbackQ;
+          await voiceAI.prefetch(spokenFallback);
           setLoading(false);
-          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndex);
-          await speakInterviewerText(`${transitionPhrase} ${fallbackQ}`);
+          await speakInterviewerText(spokenFallback);
           handoffToCandidate();
         }
       }
