@@ -24,6 +24,7 @@ function InterviewResults({
     conversation,
     submissionStatus,
     onRetrySubmission,
+    onRetryAnalysis,
     onStartNew,
 }) {
     const navigate = useNavigate();
@@ -132,6 +133,11 @@ function InterviewResults({
                     <button className="ai-result-action-btn" onClick={() => navigate('/interview-history')}>
                         <Clock size={14} /> History
                     </button>
+                    {onRetryAnalysis && (
+                        <button className="ai-result-action-btn" onClick={onRetryAnalysis} title="Re-evaluate interview">
+                            <RefreshCw size={14} /> Re-evaluate
+                        </button>
+                    )}
                     <button className="ai-result-action-btn" onClick={handleShare}>
                         <Share2 size={14} /> Share
                     </button>
@@ -589,12 +595,33 @@ function InterviewResults({
                             <Target size={15} /> Recommended Next Steps
                         </div>
                         <div className="ai-results-next-steps-list">
-                            {ensureArray(a.nextSteps).map((step, i) => (
-                                <div key={i} className="ai-results-next-step-item">
-                                    <span className="ai-results-next-step-num">{i + 1}</span>
-                                    {step}
-                                </div>
-                            ))}
+                            {ensureArray(a.nextSteps).map((step, i) => {
+                                const stepText = typeof step === 'string' ? step : step?.action || step?.text || '';
+                                const isCode = /coding|playground|algorithm|dsa/i.test(stepText);
+                                const isMock = /mock|round|practice|interview/i.test(stepText);
+                                const isPlan = /plan|schedule|study/i.test(stepText);
+                                return (
+                                    <div key={i} className="ai-results-next-step-item" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                            <span className="ai-results-next-step-num">{i + 1}</span>
+                                            <span>{stepText}</span>
+                                        </div>
+                                        {isCode ? (
+                                            <button type="button" className="ai-result-focus-btn" style={{ fontSize: '12px', padding: '6px 12px', minWidth: 'fit-content' }} onClick={() => navigate('/coding-playground')}>
+                                                Coding Playground <ChevronRight size={12} />
+                                            </button>
+                                        ) : isMock ? (
+                                            <button type="button" className="ai-result-focus-btn" style={{ fontSize: '12px', padding: '6px 12px', minWidth: 'fit-content' }} onClick={() => startFocusedPractice(interviewType)}>
+                                                Practice Now <ChevronRight size={12} />
+                                            </button>
+                                        ) : isPlan ? (
+                                            <button type="button" className="ai-result-focus-btn" style={{ fontSize: '12px', padding: '6px 12px', minWidth: 'fit-content' }} onClick={() => navigate('/improvement-plan')}>
+                                                View Plan <ChevronRight size={12} />
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}

@@ -329,6 +329,7 @@ export function useVoiceAI({
   const [interimText, setInterimText] = useState("");
   const [finalTranscript, setFinalTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState(null);
+  const [errorCode, setErrorCode] = useState(null); // 'not-allowed' | 'not-found' | 'audio-capture' | 'network' | 'not-supported' | 'no-audio' | 'general' | null
   const [interruptDetected, setInterruptDetected] = useState(false);
   const [connectionMode, setConnectionMode] = useState("browser"); // Always browser for STT
   const [silenceCountdown, setSilenceCountdown] = useState(0);
@@ -653,6 +654,7 @@ export function useVoiceAI({
       setErrorMessage(
         "Speech recognition is not available in this browser. Please use Chrome or Edge.",
       );
+      setErrorCode("not-supported");
       activeRef.current = false;
       setState("error");
       stateRef.current = "error";
@@ -743,6 +745,7 @@ export function useVoiceAI({
         if (chunks.length === 0) {
           activeRef.current = false;
           setErrorMessage("No audio was captured. Check your microphone and try again.");
+          setErrorCode("no-audio");
           setState("error");
           stateRef.current = "error";
           return;
@@ -751,6 +754,7 @@ export function useVoiceAI({
         if (audioBlob.size < 500) {
           activeRef.current = false;
           setErrorMessage("We couldn't hear a clear recording. Please try speaking again.");
+          setErrorCode("no-audio");
           setState("error");
           stateRef.current = "error";
           return;
@@ -791,6 +795,7 @@ export function useVoiceAI({
           if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
           console.warn("[useVoiceAI] Whisper fallback STT failed:", err);
           setErrorMessage(withSavedRecordingMessage(transcriptionNetworkError(err)));
+          setErrorCode("network");
           setState("error");
           stateRef.current = "error";
         } finally {
@@ -818,6 +823,7 @@ export function useVoiceAI({
       if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) return;
       console.error("[useVoiceAI] Failed to start MediaRecorder fallback:", mediaErr);
       setErrorMessage("Microphone access failed. Please check permissions.");
+      setErrorCode(mediaErr?.name === "NotAllowedError" ? "not-allowed" : mediaErr?.name === "NotFoundError" ? "not-found" : "not-allowed");
       setState("error");
       stateRef.current = "error";
       activeRef.current = false;
@@ -836,6 +842,7 @@ export function useVoiceAI({
     stateRef.current = "listening";
 
     setErrorMessage(null);
+    setErrorCode(null);
     finalTextRef.current = "";
     interimRef.current = "";
     setTranscript("");
@@ -1065,6 +1072,7 @@ export function useVoiceAI({
               setErrorMessage(
                 "Microphone access was denied. Please allow microphone access in your browser settings and try again.",
               );
+              setErrorCode("not-allowed");
               activeRef.current = false;
               setState("error");
               return;
@@ -1079,6 +1087,7 @@ export function useVoiceAI({
               setErrorMessage(
                 "Could not capture audio. Please check that your microphone is not in use by another app.",
               );
+              setErrorCode("audio-capture");
               activeRef.current = false;
               setState("error");
               return;
@@ -1161,6 +1170,7 @@ export function useVoiceAI({
         setErrorMessage(
           "Speech recognition is not available in this browser. Please use Chrome or Edge.",
         );
+        setErrorCode("not-supported");
         activeRef.current = false;
         setState("error");
       }
@@ -1179,6 +1189,7 @@ export function useVoiceAI({
             ? "No microphone found. Please connect a microphone and try again."
             : `Microphone error: ${err.message}`;
       setErrorMessage(errorMsg);
+      setErrorCode(err?.name === "NotAllowedError" ? "not-allowed" : err?.name === "NotFoundError" ? "not-found" : "general");
       setState("error");
       activeRef.current = false;
     }
@@ -1764,12 +1775,22 @@ export function useVoiceAI({
     } catch (error) {
       if (voiceSessionEpochRef.current !== sessionEpoch) return false;
       setErrorMessage(withSavedRecordingMessage(transcriptionNetworkError(error)));
+      setErrorCode("network");
       setState("error");
       stateRef.current = "error";
       activeRef.current = false;
       return false;
     }
   }, [onAnswer, transcriptListener]);
+
+  const resetError = useCallback(() => {
+    setErrorMessage(null);
+    setErrorCode(null);
+    if (stateRef.current === "error") {
+      setState("idle");
+      stateRef.current = "idle";
+    }
+  }, []);
 
   const cleanup = useCallback(() => {
     stop();
@@ -1793,6 +1814,8 @@ export function useVoiceAI({
     interimText,
     finalTranscript,
     errorMessage,
+    errorCode,
+    resetError,
     interruptDetected,
     connectionMode,
     connectionHealth,
@@ -1828,6 +1851,8 @@ export function useVoiceAI({
     interimText,
     finalTranscript,
     errorMessage,
+    errorCode,
+    resetError,
     interruptDetected,
     connectionMode,
     connectionHealth,

@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "../context/AuthContext";
-import useInterviewSession from "./useInterviewSession";
+import useInterviewSession, { INTERVIEW_LIFECYCLE } from "./useInterviewSession";
 
 const memoryStorage = (() => {
   let store = {};
@@ -243,5 +243,136 @@ describe("useInterviewSession", () => {
     expect(typeof result.current.refs.sendAnswerRef.current).toBe("function");
     expect(result.current.refs.isListeningRef.current).toBe(false);
     expect(typeof result.current.refs.questionIndexRef.current).toBe("number");
+  });
+  it("tracks explicit session lifecycle states across the interview", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.IDLE);
+
+    act(() => {
+      result.current.actions.setPhase("connecting");
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.STARTING);
+
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+
+    act(() => {
+      result.current.actions.togglePause();
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.PAUSED);
+
+    act(() => {
+      result.current.actions.togglePause();
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+
+    act(() => {
+      result.current.actions.endInterview();
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ENDED);
+  });
+
+  it("produces actionable session errors when offline or encountering voice failures", () => {
+    const { result } = renderHook(() => useInterviewSession());
+
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+    expect(result.current.state.sessionError).toEqual(
+      expect.objectContaining({
+        type: "network",
+        actionType: "reconnect",
+        canRetry: true,
+      })
+    );
+
+    act(() => {
+      window.dispatchEvent(new Event("online"));
+    });
+    expect(result.current.state.sessionError).toBeNull();
+  });
+
+  it("supports manual reconnect action to restore active voice state", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+
+    act(() => {
+      result.current.actions.reconnectSession();
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+  });
+
+  it("preserves active candidate transcript across restoreSession", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.restoreSession({
+        conversation: [{ role: "interviewer", content: "Tell me about React" }],
+        currentQuestion: "Tell me about React",
+        pendingTranscript: "React uses a virtual DOM",
+        questionIndex: 1,
+      });
+    });
+    expect(result.current.state.transcript).toBe("React uses a virtual DOM");
+  });
+  it("dispatches session error actions for microphone, typing, and reconnect", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+
+    act(() => {
+      result.current.actions.handleSessionErrorAction("switch_typed");
+    });
+    expect(result.current.state.answerReview).toBe(true);
+
+    act(() => {
+      result.current.actions.handleSessionErrorAction("reset_lobby");
+    });
+    expect(result.current.state.phase).toBe("lobby");
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.IDLE);
+  });
+
+  it("produces deterministic structured feedback and next steps on evaluation fallback", async () => {
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error("Network timeout"));
+
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.setConversation([
+        { role: "interviewer", content: "Tell me about React hooks" },
+        { role: "candidate", content: "React hooks allow functional components to maintain state and side effects cleanly using useState and useEffect." }
+      ]);
+      result.current.actions.setCode("function useCounter() { return useState(0); }");
+      result.current.actions.endInterview();
+    });
+
+    await act(async () => {
+      await result.current.actions.retryAnalysis();
+    });
+
+    expect(result.current.state.analysisResult).toBeDefined();
+    expect(result.current.state.analysisResult.overallScore).toBeGreaterThanOrEqual(4);
+    expect(Array.isArray(result.current.state.analysisResult.categories)).toBe(true);
+    expect(result.current.state.analysisResult.categories.length).toBe(4);
+    expect(result.current.state.analysisResult.strengths.length).toBeGreaterThan(0);
+    expect(result.current.state.analysisResult.improvements.length).toBeGreaterThan(0);
+    expect(result.current.state.analysisResult.nextSteps.length).toBeGreaterThan(0);
   });
 });

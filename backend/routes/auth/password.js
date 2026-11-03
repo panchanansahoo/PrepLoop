@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { forgotPasswordLimiter, isEmailCoolingDown, markEmailSent } from '../../middleware/rateLimiter.js';
@@ -39,11 +40,24 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   }
 
   try {
+    const rawFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    let resolvedFrontendUrl = 'http://localhost:5173';
+    try {
+      const parsed = new URL(rawFrontendUrl);
+      resolvedFrontendUrl = `${parsed.protocol}//${parsed.host}`;
+    } catch {
+      console.warn(`[auth] Invalid FRONTEND_URL: "${rawFrontendUrl}". Falling back to http://localhost:5173`);
+    }
+    const redirectTo = `${resolvedFrontendUrl}/reset-password`;
+
     const { data, error } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: normalizedEmail,
-      redirectTo: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password`
+      redirectTo
     });
+
+    const emailHash = crypto.createHash('sha256').update(normalizedEmail).digest('hex').slice(0, 10);
+    console.info(`[auth] Generated recovery link for email_hash=${emailHash} target=${resolvedFrontendUrl}`);
 
     if (error) {
       console.error('Generate link error:', error.message);

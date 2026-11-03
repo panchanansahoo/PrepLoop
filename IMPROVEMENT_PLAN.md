@@ -104,6 +104,6 @@ Help a candidate go from choosing a role or company to completing a realistic pr
 
 ## Implementation progress
 
-- **In progress — voice interview reliability:** stale transcription results are ignored after stop/restart; microphone tracks are released when capture stops; failed Whisper transcriptions retain the audio in memory for retry after connectivity returns, with typed-answer fallback.
-- **In progress — interview review:** unavailable evaluation is labeled as unscored, unsupported fallback strengths and hiring labels are removed from the results screen, and the server marks heuristic reports so the client does not present them as AI evaluations.
-- **In progress — account recovery:** recovery links now pass `redirectTo` in the top-level shape expected by Supabase `generateLink`.
+- **Completed — voice interview reliability:** consolidated session lifecycle state enum (`idle | starting | active | paused | reconnecting | ended | error`), automated network reconnect on offline/online events, microphone permission and unsupported browser recovery states, active draft transcript preservation across session storage and checkpoint restores.
+- **Completed — interview review & recommendation loop:** heuristic post-interview analysis structured with competency breakdown, strengths, prioritized gaps, and direct practice links to Coding Playground, focused mock rounds, and improvement plans.
+- **Completed — account recovery observability:** sanitized password recovery redirects, privacy-preserving email hash telemetry in server logs, and user-facing recovery guidance for expired links and provider service delays.

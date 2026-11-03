@@ -211,7 +211,12 @@ export default function ResetPassword() {
 
         const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
         if (errorDesc) {
-            setError(decodeURIComponent(errorDesc.replace(/\+/g, ' ')));
+            const decoded = decodeURIComponent(errorDesc.replace(/\+/g, ' '));
+            if (/expired|invalid|not found/i.test(decoded)) {
+                setError('This password reset link has expired or has already been used. Please request a new link.');
+            } else {
+                setError(decoded);
+            }
         }
 
         const accessToken = hashParams.get('access_token');
@@ -325,7 +330,15 @@ export default function ResetPassword() {
 
                 {error && (
                     <div id="reset-error" role="alert" aria-live="polite" style={styles.errorBox} className="fade-in-up">
-                        <AlertCircle size={18} style={{ flexShrink: 0 }} /> {error}
+                        <AlertCircle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                            <span>{error}</span>
+                            {/expired|invalid|request a new/i.test(error) && (
+                                <Link to="/forgot-password" style={{ color: '#c084fc', textDecoration: 'underline', fontWeight: 600, fontSize: '13px' }}>
+                                    Request a new password reset link →
+                                </Link>
+                            )}
+                        </div>
                     </div>
                 )}
 

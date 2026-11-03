@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Signup from './Signup';
 import ForgotPassword from './ForgotPassword';
+import ResetPassword from './ResetPassword';
 import apiClient from '../utils/apiClient';
 
 const { signupMock } = vi.hoisted(() => ({ signupMock: vi.fn() }));
@@ -156,5 +157,48 @@ describe('Forgot password page', () => {
       'href',
       'http://localhost:5173/reset-password#access_token=test-token'
     );
+  });
+  it('displays actionable error message when password recovery email service returns 503', async () => {
+    apiClient.post.mockRejectedValueOnce({
+      response: {
+        status: 503,
+        data: {
+          error: 'Password reset email is temporarily unavailable. Please try again later.',
+          code: 'EMAIL_SERVICE_UNAVAILABLE',
+        },
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/forgot-password']}>
+        <Routes>
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByLabelText('Email address'), {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send Reset Link/i }));
+
+    expect(await screen.findByText(/temporarily unavailable/i)).toBeInTheDocument();
+  });
+
+  it('renders expired reset link guidance with navigation back to forgot-password', async () => {
+    delete window.location;
+    window.location = new URL('http://localhost:5173/reset-password#error=access_denied&error_description=Email+link+is+invalid+or+has+expired');
+
+    render(
+      <MemoryRouter initialEntries={['/reset-password']}>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<div>FORGOT PASSWORD PAGE</div>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/expired or has already been used/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Request a new password reset link/i })).toBeInTheDocument();
   });
 });

@@ -223,6 +223,8 @@ export default function ForgotPassword() {
     } catch (err) {
       if (!err.response) {
         setError('Unable to connect to the server. Please check your connection and try again.');
+      } else if (err.response?.status === 503) {
+        setError(err.response?.data?.error || 'Password reset email service is currently unavailable. Please try again in a few minutes, or contact support.');
       } else {
         setError(err.response?.data?.error || err.message || 'Failed to send reset email. Please try again.');
       }

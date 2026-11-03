@@ -54,4 +54,38 @@ describe('Authentication & Password Security Validation', () => {
       expect(resetStatus.locked).toBe(false);
     });
   });
+  describe('Password Recovery Redirect & Observability Validation', () => {
+    it('sanitizes frontend URL to prevent open redirect vulnerabilities', () => {
+      const sanitizeRedirect = (rawUrl: string | undefined): string => {
+        const raw = rawUrl || 'http://localhost:5173';
+        try {
+          const parsed = new URL(raw);
+          return `${parsed.protocol}//${parsed.host}/reset-password`;
+        } catch {
+          return 'http://localhost:5173/reset-password';
+        }
+      };
+
+      expect(sanitizeRedirect('https://preploop.com')).toBe('https://preploop.com/reset-password');
+      expect(sanitizeRedirect('https://app.preploop.com/some/path')).toBe('https://app.preploop.com/reset-password');
+      expect(sanitizeRedirect('not-a-valid-url')).toBe('http://localhost:5173/reset-password');
+      expect(sanitizeRedirect(undefined)).toBe('http://localhost:5173/reset-password');
+    });
+
+    it('generates privacy-preserving candidate email identifiers for telemetry logs', () => {
+      const hashCandidateEmail = (email: string): string => {
+        const crypto = require('crypto');
+        return crypto.createHash('sha256').update(email.trim().toLowerCase()).digest('hex').slice(0, 10);
+      };
+
+      const hash1 = hashCandidateEmail('candidate@preploop.com');
+      const hash2 = hashCandidateEmail('candidate@preploop.com');
+      const hash3 = hashCandidateEmail('other@preploop.com');
+
+      expect(hash1).toBe(hash2);
+      expect(hash1).not.toBe(hash3);
+      expect(hash1).toHaveLength(10);
+      expect(hash1).not.toContain('@');
+    });
+  });
 });

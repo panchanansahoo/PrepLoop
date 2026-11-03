@@ -140,7 +140,7 @@ export default function AIInterviewPage() {
         setupStep, experienceLevel, targetRole, targetCompany, companySearch,
         companyTab, resumeFile, analysisResult,
         captionsOn, workspacePanelOpen, workspaceDropdownOpen,
-        cameraError, showEndConfirm, awaitingAnswer, isOnline,
+        cameraError, showEndConfirm, awaitingAnswer, isOnline, lifecycleState, sessionError,
         customQuestionSet, questionSetLoading, questionSetError, questionSetAccessError, questionSetPasscode, candidateEmail, candidateName, submissionStatus, resumeParseError,
         answerReview,
     } = state;
@@ -163,7 +163,7 @@ export default function AIInterviewPage() {
         setAnalysisResult,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
         setElapsed,
-        retryCustomSubmission,
+        retryCustomSubmission, reconnectSession, handleSessionErrorAction, retryAnalysis,
         setQuestionSetPasscode, setCandidateEmail, setCandidateName, setQuestionSetAccessError,
         clearSavedSession, restoreSession, setTranscript,
         handleLanguageChange, handleReset, startInterview, sendAnswer,
@@ -467,6 +467,7 @@ export default function AIInterviewPage() {
                 conversation={conversation}
                 submissionStatus={submissionStatus}
                 onRetrySubmission={retryCustomSubmission}
+                onRetryAnalysis={retryAnalysis}
                 onStartNew={() => {
                     setPhase('lobby');
                     setSetupStep(0);
@@ -643,13 +644,13 @@ export default function AIInterviewPage() {
                         </div>
                     </div>
 
-                    {(answerReview || voiceAI.state === 'error') && (
+                    {(answerReview || voiceAI.state === 'error' || sessionError) && (
                         <div className="ai-vc-answer-review" role="region" aria-label="Review your answer">
                             <div className="ai-vc-answer-review-heading">
-                                <strong>{reviewingTranscript ? 'Review your answer' : 'Microphone needs attention'}</strong>
-                                <span>{reviewingTranscript ? (answerReview ? (voiceOnlyInterview ? 'Your spoken answer is transcribed below. Send it or keep speaking.' : 'Review the transcript, send it, or keep speaking.') : `${voiceAI.errorMessage || 'Transcription failed.'} Your partial transcript is shown below.`) : (voiceAI.errorMessage || 'Retry the saved recording or record your answer again.')}</span>
+                                <strong>{sessionError?.title || (reviewingTranscript ? 'Review your answer' : 'Microphone needs attention')}</strong>
+                                <span>{sessionError?.message || (reviewingTranscript ? (answerReview ? (voiceOnlyInterview ? 'Your spoken answer is transcribed below. Send it or keep speaking.' : 'Review the transcript, send it, or keep speaking.') : `${voiceAI.errorMessage || 'Transcription failed.'} Your partial transcript is shown below.`) : (voiceAI.errorMessage || 'Retry the saved recording or record your answer again.'))}</span>
                             </div>
-                            {reviewingTranscript && (
+                            {(reviewingTranscript || transcript.trim().length > 0) && (
                                 <textarea
                                     value={transcript}
                                     onChange={voiceOnlyInterview ? undefined : (event) => setTranscript(event.target.value)}
@@ -659,7 +660,25 @@ export default function AIInterviewPage() {
                                 />
                             )}
                             <div className="ai-vc-answer-review-actions">
-                                {reviewingTranscript ? (
+                                {sessionError ? (
+                                    <>
+                                        {sessionError.actionText && (
+                                            <button type="button" className="primary" onClick={() => handleSessionErrorAction(sessionError.actionType)}>
+                                                <RotateCcw size={14} /> {sessionError.actionText}
+                                            </button>
+                                        )}
+                                        {sessionError.fallbackText && (
+                                            <button type="button" onClick={() => handleSessionErrorAction(sessionError.fallbackType)}>
+                                                {sessionError.fallbackText}
+                                            </button>
+                                        )}
+                                        {transcript.trim() && (
+                                            <button type="button" onClick={() => sendAnswer(false, transcript)} disabled={loading}>
+                                                <Send size={14} /> Send transcript
+                                            </button>
+                                        )}
+                                    </>
+                                ) : reviewingTranscript ? (
                                     <>
                                         {answerReview && <button type="button" onClick={continueAnswer}><Mic size={14} /> Continue speaking</button>}
                                         {!answerReview && voiceAI.hasPendingTranscription && (
