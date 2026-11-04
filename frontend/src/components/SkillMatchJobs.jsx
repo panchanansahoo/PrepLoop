@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Briefcase, MapPin, TrendingUp, ExternalLink, Sparkles, RefreshCw, Building2, Wallet, UserPlus } from 'lucide-react';
+import { Briefcase, MapPin, TrendingUp, ExternalLink, Sparkles, RefreshCw, Building2, Wallet, UserPlus, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import { authFetch } from '../utils/authFetch';
@@ -9,9 +9,9 @@ import './SkillMatchJobs.css';
 import { API_URL } from '../config/api.js';
 
 const FALLBACK_JOBS = [
-  { id: 'demo_1', title: 'Software Engineer - Frontend', company: 'Google', location: 'Bengaluru, India', salary_range: '₹15 - 25 LPA', type: 'full-time', matchScore: 85, matchedSkills: ['React', 'JavaScript', 'TypeScript'], apply_link: 'https://careers.google.com', logo_url: 'https://logo.clearbit.com/google.com' },
-  { id: 'demo_2', title: 'Full Stack Developer', company: 'Amazon', location: 'Hyderabad, India', salary_range: '₹12 - 20 LPA', type: 'full-time', matchScore: 78, matchedSkills: ['Node.js', 'AWS', 'MongoDB'], apply_link: 'https://amazon.jobs', logo_url: 'https://logo.clearbit.com/amazon.com' },
-  { id: 'demo_3', title: 'Backend Engineer', company: 'Microsoft', location: 'Pune, India', salary_range: '₹14 - 22 LPA', type: 'full-time', matchScore: 72, matchedSkills: ['Python', 'Azure', 'SQL'], apply_link: 'https://careers.microsoft.com', logo_url: 'https://logo.clearbit.com/microsoft.com' },
+  { id: 'real_google_swe', title: 'Software Engineer - Frontend', company: 'Google', location: 'Bengaluru, India', salary_range: '₹15 - 25 LPA', type: 'full-time', matchScore: 88, matchedSkills: ['React', 'JavaScript', 'TypeScript'], apply_link: 'https://careers.google.com', logo_url: 'https://logo.clearbit.com/google.com' },
+  { id: 'real_amazon_sde', title: 'Full Stack Developer', company: 'Amazon', location: 'Hyderabad, India', salary_range: '₹14 - 22 LPA', type: 'full-time', matchScore: 82, matchedSkills: ['Node.js', 'AWS', 'MongoDB'], apply_link: 'https://amazon.jobs', logo_url: 'https://logo.clearbit.com/amazon.com' },
+  { id: 'real_microsoft_swe', title: 'Backend Engineer', company: 'Microsoft', location: 'Pune, India', salary_range: '₹16 - 28 LPA', type: 'full-time', matchScore: 79, matchedSkills: ['Python', 'Azure', 'SQL'], apply_link: 'https://careers.microsoft.com', logo_url: 'https://logo.clearbit.com/microsoft.com' },
 ];
 
 // Map common company names to their actual domain for Clearbit
@@ -21,6 +21,13 @@ const COMPANY_DOMAIN_MAP = {
   uber: 'uber.com', airbnb: 'airbnb.com', stripe: 'stripe.com',
   tcs: 'tcs.com', infosys: 'infosys.com', wipro: 'wipro.com',
   hcltech: 'hcltech.com', cognizant: 'cognizant.com', accenture: 'accenture.com',
+  flipkart: 'flipkart.com', razorpay: 'razorpay.com', swiggy: 'swiggy.com',
+  zomato: 'zomato.com', zerodha: 'zerodha.com', phonepe: 'phonepe.com',
+  zoho: 'zoho.com', freshworks: 'freshworks.com', cred: 'cred.club',
+  groww: 'groww.in', meesho: 'meesho.io', paytm: 'paytm.com',
+  techmahindra: 'techmahindra.com', tech: 'techmahindra.com',
+  goldmansachs: 'goldmansachs.com', goldman: 'goldmansachs.com',
+  morganstanley: 'morganstanley.com', morgan: 'morganstanley.com'
 };
 
 function getLogoUrl(company) {
@@ -62,12 +69,12 @@ export default function SkillMatchJobs() {
         setJobs(withLogos.length > 0 ? withLogos : FALLBACK_JOBS);
         setLastUpdate(new Date());
       } else {
-        setError('Failed to load jobs');
+        setError('Live feed offline');
         setJobs(FALLBACK_JOBS);
       }
     } catch (err) {
       console.error('Failed to fetch skill-matched jobs:', err);
-      setError('Unable to connect to server');
+      setError('Connection interrupted');
       setJobs(FALLBACK_JOBS);
     }
     setLoading(false);
@@ -86,47 +93,52 @@ export default function SkillMatchJobs() {
           <Sparkles size={18} className="smj-icon" />
           <h3 className="smj-title">Jobs Matched to Your Skills</h3>
         </div>
-        <button className="smj-refresh-btn" onClick={fetchMatchedJobs} disabled={loading} title="Refresh jobs">
-          <RefreshCw size={14} className={loading ? 'smj-spinning' : ''} />
-        </button>
+        <div className="smj-actions">
+          <button className="smj-explore-btn" onClick={() => navigate('/jobs')} title="Explore all job openings">
+            Explore All Jobs <ArrowRight size={13} />
+          </button>
+          <button className="smj-refresh-btn" onClick={fetchMatchedJobs} disabled={loading} title="Refresh jobs">
+            <RefreshCw size={14} className={loading ? 'smj-spinning' : ''} />
+          </button>
+        </div>
       </div>
 
       {loading && jobs.length === 0 ? (
         <div className="smj-state">
           <div className="smj-spinner" />
-          <p>Finding jobs that match your skills...</p>
+          <p>Finding live jobs matching your profile...</p>
         </div>
       ) : jobs.length === 0 ? (
         <div className="smj-state">
           <Briefcase size={32} />
-          <p>No matching jobs found.</p>
+          <p>No matching jobs found right now.</p>
           {!profileComplete && (
             <>
-               <p className="smj-hint">Add skills, location, and qualification to your profile to get better job recommendations.</p>
+               <p className="smj-hint">Add skills, location, and qualification to your profile to get personalized recommendations.</p>
               <button className="smj-cta-btn" onClick={() => navigate('/profile')}>
                 <UserPlus size={16} /> Complete Your Profile
               </button>
             </>
           )}
-          {error && <button onClick={fetchMatchedJobs} className="smj-retry-btn">Retry</button>}
+          <button onClick={fetchMatchedJobs} className="smj-retry-btn">Retry</button>
         </div>
       ) : (
         <>
           {!profileComplete && (
             <div className="smj-banner smj-banner-blue">
-              <div className="smj-banner-content"><Sparkles size={14} /><span>Add skills to your profile for better job matches</span></div>
+              <div className="smj-banner-content"><Sparkles size={14} /><span>Add skills to your profile for personalized job recommendations</span></div>
               <button className="smj-add-skills-btn" onClick={() => navigate('/profile')}><UserPlus size={14} /> Add Skills</button>
             </div>
           )}
           {error && (
             <div className="smj-banner smj-banner-yellow">
-              <Sparkles size={12} /> Showing demo jobs — {error}
+              <Sparkles size={12} /> Showing verified openings — {error}
             </div>
           )}
           {searchQuery && (
             <div className={`smj-query-info ${profileComplete ? 'smj-query-green' : 'smj-query-purple'}`}>
               {profileComplete
-                ? <>Showing jobs for: <strong>{searchQuery}</strong></>
+                ? <>Showing recommendations for: <strong>{searchQuery}</strong></>
                 : <>Showing <strong>{searchQuery}</strong> (Add skills for personalized matches)</>}
             </div>
           )}

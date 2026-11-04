@@ -538,15 +538,44 @@ router.get('/analytics', authenticateToken, async (req, res) => {
   const userId = req.user?.id;
 
   try {
-    const { data: sessions, error } = await supabaseAdmin
+    const { data: dbSessions, error } = await supabaseAdmin
       .from('interview_sessions')
-      .select('overall_score, company, stage, difficulty, completed_at, scores, speech_metrics, emotion_data, proctoring_violations')
+      .select('id, interview_score, company_focus, interview_type, difficulty_level, performance_metrics, completed_at, created_at')
       .eq('user_id', userId)
       .order('completed_at', { ascending: true });
 
     if (error) throw error;
 
-    const totalSessions = sessions?.length || 0;
+    let sessions = (dbSessions || []).map(s => {
+      const pm = s.performance_metrics || {};
+      return {
+        overall_score: s.interview_score ?? pm.overallScore ?? 0,
+        company: s.company_focus || pm.company || 'General',
+        stage: pm.stage || s.interview_type || 'Technical',
+        difficulty: s.difficulty_level || pm.difficulty || 'medium',
+        completed_at: s.completed_at || s.created_at,
+      };
+    });
+
+    if (sessions.length === 0) {
+      const { data: mockData } = await supabaseAdmin
+        .from('mock_interviews')
+        .select('overall_score, company, interview_type, difficulty, completed_at, started_at')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: true });
+
+      if (Array.isArray(mockData) && mockData.length > 0) {
+        sessions = mockData.map(m => ({
+          overall_score: m.overall_score || 0,
+          company: m.company || 'General',
+          stage: m.interview_type || 'Technical',
+          difficulty: m.difficulty || 'medium',
+          completed_at: m.completed_at || m.started_at,
+        }));
+      }
+    }
+
+    const totalSessions = sessions.length;
     if (totalSessions === 0) {
       return res.json({
         totalSessions: 0, averageScore: 0, scoreTrend: [],
@@ -568,9 +597,10 @@ router.get('/analytics', authenticateToken, async (req, res) => {
     // Breakdown by company
     const companyBreakdown = {};
     sessions.forEach(s => {
-      if (!companyBreakdown[s.company]) companyBreakdown[s.company] = { count: 0, totalScore: 0 };
-      companyBreakdown[s.company].count++;
-      companyBreakdown[s.company].totalScore += s.overall_score || 0;
+      const comp = s.company || 'General';
+      if (!companyBreakdown[comp]) companyBreakdown[comp] = { count: 0, totalScore: 0 };
+      companyBreakdown[comp].count++;
+      companyBreakdown[comp].totalScore += s.overall_score || 0;
     });
     Object.keys(companyBreakdown).forEach(k => {
       companyBreakdown[k].avgScore = Math.round(companyBreakdown[k].totalScore / companyBreakdown[k].count);
@@ -579,9 +609,10 @@ router.get('/analytics', authenticateToken, async (req, res) => {
     // Breakdown by stage
     const stageBreakdown = {};
     sessions.forEach(s => {
-      if (!stageBreakdown[s.stage]) stageBreakdown[s.stage] = { count: 0, totalScore: 0 };
-      stageBreakdown[s.stage].count++;
-      stageBreakdown[s.stage].totalScore += s.overall_score || 0;
+      const stg = s.stage || 'Technical';
+      if (!stageBreakdown[stg]) stageBreakdown[stg] = { count: 0, totalScore: 0 };
+      stageBreakdown[stg].count++;
+      stageBreakdown[stg].totalScore += s.overall_score || 0;
     });
     Object.keys(stageBreakdown).forEach(k => {
       stageBreakdown[k].avgScore = Math.round(stageBreakdown[k].totalScore / stageBreakdown[k].count);

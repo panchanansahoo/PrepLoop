@@ -26,8 +26,11 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
  * GET /api/user/history
  * Chronological timeline of mock interviews, code submissions, and resume scans
  */
-router.get('/history', authenticateToken, async (req, res) => {
+router.get('/history', optionalAuth, async (req, res) => {
   try {
+    if (!req.user?.id) {
+      return res.json({ sessions: [] });
+    }
     const sessions = await fetchUserHistory(req.user.id);
     return res.json({ sessions });
   } catch (error) {

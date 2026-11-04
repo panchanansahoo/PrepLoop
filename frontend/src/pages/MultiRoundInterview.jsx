@@ -134,24 +134,45 @@ export default function MultiRoundInterview() {
         }
     }, [currentRoundIdx, activeRounds.length, roundResults]);
 
-    // Save session to backend
+    // Save session to backend and local history
     const saveMultiRoundSession = async (results) => {
+        const overallScore = Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / (results.length || 1));
+        const localSessionId = saveIdempotencyKeyRef.current || `multi-${Date.now()}`;
+        try {
+            const historyKey = "preploop_local_interview_history";
+            const existing = JSON.parse(localStorage.getItem(historyKey) || "[]");
+            const newLocal = {
+                id: localSessionId,
+                session_id: localSessionId,
+                session_type: "multi-round",
+                company: company || "General",
+                role: role || "Software Engineer",
+                stage: "Multi-Round",
+                difficulty: difficulty || "medium",
+                overall_score: overallScore,
+                score: overallScore,
+                rounds: results,
+                completed_at: new Date().toISOString()
+            };
+            localStorage.setItem(historyKey, JSON.stringify([newLocal, ...existing.filter(s => s.id !== localSessionId)].slice(0, 50)));
+        } catch { /* empty */ }
         try {
             await authFetch(`${API_URL}/api/company-interview/save-session`, {
-                method: 'POST',
-                headers: { 'Idempotency-Key': saveIdempotencyKeyRef.current },
+                method: "POST",
+                headers: { "Idempotency-Key": localSessionId },
                 body: JSON.stringify({
-                    type: 'multi-round',
+                    sessionId: localSessionId,
+                    type: "multi-round",
                     company,
                     role,
                     difficulty,
                     rounds: results,
-                    overallScore: Math.round(results.reduce((s, r) => s + (r.score || 0), 0) / results.length),
+                    overallScore,
                     completedAt: new Date().toISOString()
                 })
             });
         } catch (e) {
-            console.error('Failed to save multi-round session:', e);
+            console.error("Failed to save multi-round session:", e);
         }
     };
 

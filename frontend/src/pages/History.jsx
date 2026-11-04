@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-import {MessageSquare, Code2, FileText, Clock, Filter, ChevronRight} from 'lucide-react';
+import {MessageSquare, Code2, FileText, Clock, Filter, ChevronRight, Sparkles} from 'lucide-react';
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
@@ -14,6 +15,7 @@ const typeConfig = {
 };
 
 export default function History() {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -23,14 +25,69 @@ export default function History() {
   }, []);
 
   const fetchHistory = async () => {
+    let serverSessions = [];
     try {
       const res = await authFetch(`${API_URL}/api/user/history`);
       if (res.ok) {
         const data = await res.json();
-        setSessions(data.sessions || []);
+        if (Array.isArray(data.sessions)) {
+          serverSessions = data.sessions;
+        }
       }
     } catch (err) { console.error(err); }
+
+    let localSessions = [];
+    try {
+      const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
+      if (Array.isArray(local) && local.length > 0) {
+        localSessions = local.map((item, idx) => ({
+          id: item.id || `local_interview_${idx}`,
+          type: 'interview',
+          title: item.company && item.role ? `${item.company} ${item.role} Interview` : 'AI Interview',
+          date: item.completed_at ? new Date(item.completed_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          timestamp: item.completed_at ? new Date(item.completed_at).getTime() : Date.now(),
+          score: item.overall_score || 0,
+          duration: item.duration ? `${Math.max(1, Math.round(item.duration / 60))} min` : '15 min'
+        }));
+      }
+    } catch { /* empty */ }
+
+    const seen = new Set();
+    const combined = [];
+    for (const s of [...serverSessions, ...localSessions]) {
+      const key = String(s.id || '');
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        combined.push(s);
+      }
+    }
+
+    setSessions(combined);
     setLoading(false);
+  };
+
+  const handleLoadSampleSession = () => {
+    const sample = {
+      id: 'demo-google-fullstack-swe',
+      session_id: 'demo-google-fullstack-swe',
+      is_demo: true,
+      session_type: 'single',
+      company: 'Google',
+      role: 'Full Stack Engineer',
+      stage: 'Technical',
+      difficulty: 'medium',
+      overall_score: 88,
+      score: 88,
+      duration: 1260,
+      completed_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+      created_at: new Date(Date.now() - 3600000 * 2).toISOString()
+    };
+    try {
+      const historyKey = 'preploop_local_interview_history';
+      const existing = JSON.parse(localStorage.getItem(historyKey) || '[]');
+      localStorage.setItem(historyKey, JSON.stringify([sample, ...existing.filter(s => s.id !== sample.id)]));
+    } catch { /* empty */ }
+    fetchHistory();
   };
 
   const displaySessions = filter === 'all' ? sessions : sessions.filter(s => s.type === filter);
@@ -68,6 +125,16 @@ export default function History() {
           <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
             You haven't completed any {filter !== 'all' ? filter : ''} sessions yet.
           </p>
+          <button
+            onClick={handleLoadSampleSession}
+            style={{
+              padding: '9px 18px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+              borderRadius: 8, color: '#f59e0b', fontSize: 13, fontWeight: 600,
+              display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer'
+            }}
+          >
+            <Sparkles size={14} /> Explore Sample Interview
+          </button>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -78,6 +145,10 @@ export default function History() {
                 background: 'var(--bg-card)', borderRadius: 12, padding: '16px 20px',
                 border: '1px solid var(--border)', display: 'flex', alignItems: 'center',
                 gap: 16, cursor: 'pointer', transition: 'all 0.2s'
+              }} onClick={() => {
+                if (s.type === 'interview') navigate('/interview-history', { state: { sessionId: s.id } });
+                else if (s.type === 'practice') navigate('/coding-playground');
+                else if (s.type === 'resume') navigate('/resume-analyzer');
               }}>
                 <div style={{
                   width: 42, height: 42, borderRadius: 10,

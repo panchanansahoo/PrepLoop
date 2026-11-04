@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { authFetch } from '../utils/authFetch';
+import { API_URL } from '../config/api.js';
 import { Flame, Crown, User, ArrowRight, X, BookOpen, MessageSquare, Brain, Grid3X3, TrendingUp, Zap, ChevronRight, Clock, Bookmark, Code } from 'lucide-react';
 
 export default function Dashboard() {
@@ -143,7 +145,7 @@ export default function Dashboard() {
                       {activity.type === 'interview' ? <MessageSquare size={18} /> : <Code size={18} />}
                     </div>
                     <div className="activity-details">
-                      <div className="activity-title">{activity.detail}</div>
+                      <div className="activity-title">{activity.title || activity.detail}</div>
                       <div className="activity-meta">{new Date(activity.timestamp).toLocaleDateString()} • {activity.type === 'interview' ? 'Mock Interview' : 'Code Practice'}</div>
                     </div>
                     <ChevronRight size={16} className="text-muted" />

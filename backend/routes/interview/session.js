@@ -272,15 +272,58 @@ router.post('/complete', authenticateToken, async (req, res) => {
 
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data: mockData } = await supabaseAdmin
       .from('mock_interviews')
-      .select('id, interview_type, difficulty, duration, overall_score, completed_at')
+      .select('id, interview_type, difficulty, duration, overall_score, completed_at, company, role')
       .eq('user_id', req.user.id)
       .order('completed_at', { ascending: false })
       .limit(20);
 
-    if (error) throw error;
-    res.json({ interviews: data || [] });
+    const { data: sessData } = await supabaseAdmin
+      .from('interview_sessions')
+      .select('id, session_id, interview_type, difficulty_level, company_focus, interview_score, performance_metrics, completed_at, created_at')
+      .eq('user_id', req.user.id)
+      .order('completed_at', { ascending: false })
+      .limit(20);
+
+    let interviews = [];
+    if (sessData && sessData.length > 0) {
+      interviews = sessData.map(s => {
+        const pm = s.performance_metrics || {};
+        return {
+          id: s.id,
+          type: pm.stage || s.interview_type || 'technical',
+          interview_type: pm.stage || s.interview_type || 'technical',
+          difficulty: s.difficulty_level || pm.difficulty || 'medium',
+          duration: pm.duration || null,
+          overall_score: s.interview_score ?? pm.overallScore ?? 0,
+          score: s.interview_score ?? pm.overallScore ?? 0,
+          completed_at: s.completed_at || s.created_at,
+          created_at: s.created_at || s.completed_at,
+          company: s.company_focus || pm.company || 'General',
+          role: pm.role || 'Software Engineer'
+        };
+      });
+    }
+
+    if (mockData && mockData.length > 0) {
+      const mockMapped = mockData.map(m => ({
+        id: m.id,
+        type: m.interview_type || 'technical',
+        interview_type: m.interview_type || 'technical',
+        difficulty: m.difficulty || 'medium',
+        duration: m.duration || null,
+        overall_score: m.overall_score || 0,
+        score: m.overall_score || 0,
+        completed_at: m.completed_at,
+        created_at: m.completed_at,
+        company: m.company || 'General',
+        role: m.role || 'Software Engineer'
+      }));
+      interviews = [...interviews, ...mockMapped].sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+    }
+
+    res.json({ interviews });
   } catch (error) {
     console.error('Error fetching interview history:', error);
     res.status(500).json({ error: 'Failed to fetch history', message: error.message });
@@ -295,13 +338,29 @@ router.get('/sessions', authenticateToken, async (req, res) => {
     let sessions = [];
     const { data, error } = await supabaseAdmin
       .from('interview_sessions')
-      .select('id, session_type, company, role, stage, difficulty, overall_score, completed_at, created_at')
+      .select('id, session_id, interview_type, company_focus, difficulty_level, interview_score, performance_metrics, completed_at, created_at')
       .eq('user_id', userId)
       .order('completed_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
     if (!error && Array.isArray(data) && data.length > 0) {
-      sessions = data;
+      sessions = data.map(s => {
+        const pm = s.performance_metrics || {};
+        return {
+          id: s.id,
+          session_id: s.session_id,
+          session_type: pm.sessionType || 'single',
+          company: s.company_focus || pm.company || 'General',
+          role: pm.role || 'Software Engineer',
+          stage: pm.stage || s.interview_type || 'Technical',
+          difficulty: s.difficulty_level || pm.difficulty || 'medium',
+          score: s.interview_score ?? pm.overallScore ?? null,
+          overall_score: s.interview_score ?? pm.overallScore ?? null,
+          completed_at: s.completed_at || s.created_at || null,
+          created_at: s.created_at || s.completed_at || null,
+          createdAt: s.completed_at || s.created_at || null,
+        };
+      });
     } else {
       const { data: mockData } = await supabaseAdmin
         .from('mock_interviews')
@@ -346,6 +405,30 @@ router.get('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error fetching interview:', error);
     res.status(500).json({ error: 'Failed to fetch interview', message: error.message });
+  }
+});
+
+router.delete('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+    if (isUuid) {
+      await supabaseAdmin.from('interview_sessions').delete().eq('id', id).eq('user_id', userId);
+    } else {
+      await supabaseAdmin.from('interview_sessions').delete().eq('session_id', id).eq('user_id', userId);
+    }
+
+    const numericId = Number(id);
+    if (Number.isInteger(numericId) && numericId > 0) {
+      await supabaseAdmin.from('mock_interviews').delete().eq('id', numericId).eq('user_id', userId);
+    }
+
+    res.json({ success: true, deleted: true });
+  } catch (error) {
+    console.error('Delete interview error:', error.message);
+    res.status(500).json({ error: 'Failed to delete interview', message: error.message });
   }
 });
 

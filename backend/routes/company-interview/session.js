@@ -645,10 +645,8 @@ router.post('/attempt/:id/terminate', optionalAuth, async (req, res) => {
 
 
 // ─── Save Interview Session ───
-router.post('/save-session', authenticateToken, async (req, res) => {
+router.post('/save-session', optionalAuth, async (req, res) => {
   const userId = req.user?.id;
-  if (!userId) return res.status(200).json({ message: 'Guest session not saved' });
-
   const {
     type = 'single', company, role, stage, difficulty,
     conversation, scores, overallScore, summaryData,
@@ -656,6 +654,17 @@ router.post('/save-session', authenticateToken, async (req, res) => {
     rounds, completedAt,
     questionSetId, attemptId, userName, userEmail, duration
   } = req.body || {};
+  const sessionId = String(attemptId || req.body.sessionId || req.body.id || ('sess_' + _crypto.randomUUID()));
+
+  if (!userId) {
+    return res.status(200).json({
+      success: true,
+      guest: true,
+      sessionId,
+      message: 'Guest session stored locally'
+    });
+  }
+
   const idempotencyKey = String(req.headers['idempotency-key'] || '').trim();
   let reservedSessionId = null;
 
@@ -714,30 +723,86 @@ router.post('/save-session', authenticateToken, async (req, res) => {
       }
       customAttempt = attempt;
     }
+    const sessionId = String(attemptId || req.body.sessionId || req.body.id || reservedSessionId || ('sess_' + _crypto.randomUUID()));
+    const numericScore = Math.round(Number(overallScore) || 0);
+    const durationMinutes = duration ? Math.max(1, Math.round(duration / 60)) : null;
+    const safeConversation = Array.isArray(conversation) ? conversation : [];
+    const recommendationsText = typeof summaryData === 'string'
+      ? summaryData
+      : (summaryData?.summary || summaryData?.feedback || summaryData?.recommendations || '');
+
+    const metricsPayload = {
+      scores: scores || [],
+      overallScore: numericScore,
+      summaryData: summaryData || {},
+      speechMetrics: speechMetrics || null,
+      emotionData: emotionData || null,
+      proctoringViolations: proctoringViolations || [],
+      rounds: rounds || null,
+      role: role || 'Software Engineer',
+      stage: type === 'multi-round' ? 'Multi-Round' : (stage || 'Technical'),
+      sessionType: type,
+      company: company || 'General',
+      difficulty: difficulty || 'medium',
+      duration: duration || null,
+    };
+
+    const sessionInsertPayload = {
+      ...(reservedSessionId ? { id: reservedSessionId } : {}),
+      user_id: userId,
+      session_id: sessionId,
+      interview_type: type === 'multi-round' ? 'Multi-Round' : (stage || type || 'Technical'),
+      media_type: 'video',
+      difficulty_level: difficulty || 'medium',
+      company_focus: company || 'General',
+      duration_minutes: durationMinutes,
+      transcript: safeConversation,
+      performance_metrics: metricsPayload,
+      interview_score: numericScore,
+      status: 'completed',
+      recommendations: recommendationsText,
+      completed_at: completedAt || new Date().toISOString()
+    };
+
     const { data, error } = await supabaseAdmin
       .from('interview_sessions')
-      .insert({
-        ...(reservedSessionId ? { id: reservedSessionId } : {}),
-        user_id: userId,
-        session_type: type,
-        company,
-        role,
-        stage: type === 'multi-round' ? 'Multi-Round' : stage,
-        difficulty,
-        conversation: conversation || [],
-        scores: scores || [],
-        overall_score: overallScore || 0,
-        summary_data: summaryData || {},
-        speech_metrics: speechMetrics || null,
-        emotion_data: emotionData || null,
-        proctoring_violations: proctoringViolations || [],
-        rounds: rounds || null,
-        completed_at: completedAt || new Date().toISOString()
-      })
+      .insert(sessionInsertPayload)
       .select()
       .single();
 
     if (error) throw error;
+
+    // Mirror to mock_interviews so general history and analytics see it immediately
+    try {
+      const interviewerQuestions = safeConversation
+        .filter(m => m.role === 'interviewer' || m.role === 'system')
+        .map(m => m.content || m.text || '');
+      const candidateResponses = safeConversation
+        .filter(m => m.role === 'candidate' || m.role === 'user')
+        .map(m => m.content || m.text || '');
+
+      await supabaseAdmin
+        .from('mock_interviews')
+        .insert({
+          user_id: userId,
+          interview_type: type === 'multi-round' ? 'Multi-Round' : (stage || type || 'Technical'),
+          difficulty: difficulty || 'medium',
+          company: company || 'General',
+          role: role || 'Software Engineer',
+          duration: duration ? Math.round(duration) : null,
+          questions: interviewerQuestions,
+          responses: candidateResponses,
+          ai_feedback: recommendationsText,
+          overall_score: numericScore,
+          communication_score: summaryData?.communicationScore ?? (scores?.[0] || null),
+          technical_score: summaryData?.technicalScore ?? (scores?.[1] || null),
+          problem_solving_score: summaryData?.problemSolvingScore ?? (scores?.[2] || null),
+          started_at: req.body.startedAt || completedAt || new Date().toISOString(),
+          completed_at: completedAt || new Date().toISOString()
+        });
+    } catch (mockErr) {
+      console.warn('Failed to mirror to mock_interviews (non-critical):', mockErr.message);
+    }
 
     if (questionSetId) {
       try {
@@ -850,24 +915,90 @@ router.delete('/checkpoints/:sessionId', authenticateToken, async (req, res) => 
 
 
 // ─── List User's Interview Sessions ───
-router.get('/sessions', authenticateToken, async (req, res) => {
+router.get('/sessions', optionalAuth, async (req, res) => {
   const userId = req.user?.id;
   const { limit = 20, offset = 0, company, stage } = req.query;
+
+  if (!userId) {
+    return res.json([]);
+  }
 
   try {
     let query = supabaseAdmin
       .from('interview_sessions')
-      .select('id, session_type, company, role, stage, difficulty, overall_score, completed_at, created_at')
+      .select('id, session_id, interview_type, company_focus, difficulty_level, interview_score, performance_metrics, transcript, recommendations, completed_at, created_at')
       .eq('user_id', userId)
       .order('completed_at', { ascending: false })
       .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
 
-    if (company) query = query.eq('company', company);
-    if (stage) query = query.eq('stage', stage);
+    if (company) query = query.ilike('company_focus', `%${company}%`);
 
     const { data, error } = await query;
     if (error) throw error;
-    res.json(data || []);
+
+    let sessions = (data || []).map(s => {
+      const pm = s.performance_metrics || {};
+      return {
+        id: s.id,
+        session_id: s.session_id,
+        session_type: pm.sessionType || 'single',
+        company: s.company_focus || pm.company || 'General',
+        role: pm.role || 'Software Engineer',
+        stage: pm.stage || s.interview_type || 'Technical',
+        difficulty: s.difficulty_level || pm.difficulty || 'medium',
+        overall_score: s.interview_score ?? pm.overallScore ?? 0,
+        score: s.interview_score ?? pm.overallScore ?? 0,
+        conversation: s.transcript || [],
+        summary: s.recommendations || pm.summaryData?.summary || pm.summaryData?.feedback || '',
+        summary_data: pm.summaryData || {},
+        completed_at: s.completed_at || s.created_at,
+        created_at: s.created_at || s.completed_at
+      };
+    });
+
+    if (stage) {
+      sessions = sessions.filter(s => String(s.stage).toLowerCase() === String(stage).toLowerCase());
+    }
+
+    // Fallback or merge with mock_interviews if empty
+    if (sessions.length === 0) {
+      let mockQuery = supabaseAdmin
+        .from('mock_interviews')
+        .select('*')
+        .eq('user_id', userId)
+        .order('completed_at', { ascending: false })
+        .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+
+      if (company) mockQuery = mockQuery.ilike('company', `%${company}%`);
+
+      const { data: mockData } = await mockQuery;
+      if (Array.isArray(mockData) && mockData.length > 0) {
+        sessions = mockData.map(m => ({
+          id: String(m.id),
+          session_id: String(m.id),
+          session_type: 'single',
+          company: m.company || 'General',
+          role: m.role || 'Software Engineer',
+          stage: m.interview_type || 'Technical',
+          difficulty: m.difficulty || 'medium',
+          overall_score: m.overall_score || 0,
+          score: m.overall_score || 0,
+          conversation: (m.questions || []).map((q) => ({
+            role: 'interviewer',
+            content: q
+          })).concat((m.responses || []).map((r) => ({
+            role: 'candidate',
+            content: r
+          }))),
+          summary: m.ai_feedback || '',
+          summary_data: { feedback: m.ai_feedback },
+          completed_at: m.completed_at || m.started_at,
+          created_at: m.started_at || m.completed_at
+        }));
+      }
+    }
+
+    res.json(sessions);
   } catch (error) {
     console.error('List sessions error:', error.message);
     if (res.headersSent) return;
@@ -877,24 +1008,126 @@ router.get('/sessions', authenticateToken, async (req, res) => {
 
 
 // ─── Get Session Detail ───
-router.get('/sessions/:id', authenticateToken, async (req, res) => {
+router.get('/sessions/:id', optionalAuth, async (req, res) => {
   const userId = req.user?.id;
+  const rawId = String(req.params.id || '');
+  const cleanId = rawId.replace(/^(interview_session_|mock_interview_)/, '');
 
   try {
-    const { data, error } = await supabaseAdmin
-      .from('interview_sessions')
-      .select('*')
-      .eq('id', req.params.id)
-      .eq('user_id', userId)
-      .single();
+    let session = null;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId);
+    let query = supabaseAdmin.from('interview_sessions').select('*');
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    if (isUuid) {
+      query = query.eq('id', cleanId);
+    } else {
+      query = query.or(`session_id.eq.${cleanId},session_id.eq.${rawId}`);
+    }
 
-    if (error) throw error;
-    if (!data) return res.status(404).json({ error: 'Session not found' });
-    res.json(data);
+    const { data, error } = await query.maybeSingle();
+    if (!error && data) {
+      const pm = data.performance_metrics || {};
+      session = {
+        id: data.id,
+        session_id: data.session_id,
+        session_type: pm.sessionType || 'single',
+        company: data.company_focus || pm.company || 'General',
+        role: pm.role || 'Software Engineer',
+        stage: pm.stage || data.interview_type || 'Technical',
+        difficulty: data.difficulty_level || pm.difficulty || 'medium',
+        overall_score: data.interview_score ?? pm.overallScore ?? 0,
+        score: data.interview_score ?? pm.overallScore ?? 0,
+        conversation: data.transcript || [],
+        summary: data.recommendations || pm.summaryData?.summary || pm.summaryData?.feedback || '',
+        summary_data: pm.summaryData || {},
+        scores: pm.scores || [],
+        speech_metrics: data.speech_metrics || pm.speechMetrics || null,
+        emotion_data: data.emotion_data || pm.emotionData || null,
+        proctoring_violations: data.proctoring_violations || pm.proctoringViolations || [],
+        rounds: data.rounds || pm.rounds || null,
+        completed_at: data.completed_at || data.created_at,
+        created_at: data.created_at || data.completed_at
+      };
+    } else {
+      // Fallback to mock_interviews
+      let mockQuery = supabaseAdmin.from('mock_interviews').select('*');
+      if (userId) mockQuery = mockQuery.eq('user_id', userId);
+      const isNum = !isNaN(Number(cleanId));
+      if (isNum) {
+        mockQuery = mockQuery.eq('id', Number(cleanId));
+      } else {
+        mockQuery = mockQuery.eq('id', cleanId);
+      }
+
+      const { data: mockData } = await mockQuery.maybeSingle();
+
+      if (mockData) {
+        session = {
+          id: String(mockData.id),
+          session_id: String(mockData.id),
+          session_type: 'single',
+          company: mockData.company || 'General',
+          role: mockData.role || 'Software Engineer',
+          stage: mockData.interview_type || 'Technical',
+          difficulty: mockData.difficulty || 'medium',
+          overall_score: mockData.overall_score || 0,
+          score: mockData.overall_score || 0,
+          conversation: (mockData.questions || []).map(q => ({ role: 'interviewer', content: q })).concat(
+            (mockData.responses || []).map(r => ({ role: 'candidate', content: r }))
+          ),
+          summary: mockData.ai_feedback || '',
+          summary_data: { feedback: mockData.ai_feedback },
+          completed_at: mockData.completed_at || mockData.started_at,
+          created_at: mockData.started_at || mockData.completed_at
+        };
+      }
+    }
+
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json(session);
   } catch (error) {
     console.error('Get session error:', error.message);
     if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to fetch session' });
+  }
+});
+
+
+// ─── Delete Session ───
+router.delete('/sessions/:id', authenticateToken, async (req, res) => {
+  const userId = req.user?.id;
+  const sessionId = req.params.id;
+
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId);
+    if (isUuid) {
+      await supabaseAdmin
+        .from('interview_sessions')
+        .delete()
+        .eq('id', sessionId)
+        .eq('user_id', userId);
+    } else {
+      await supabaseAdmin
+        .from('interview_sessions')
+        .delete()
+        .eq('session_id', sessionId)
+        .eq('user_id', userId);
+    }
+
+    // Also delete from mock_interviews if present
+    await supabaseAdmin
+      .from('mock_interviews')
+      .delete()
+      .eq('id', sessionId)
+      .eq('user_id', userId);
+
+    res.json({ success: true, deleted: true });
+  } catch (error) {
+    console.error('Delete session error:', error.message);
+    if (res.headersSent) return;
+    res.status(500).json({ error: 'Failed to delete session' });
   }
 });
 

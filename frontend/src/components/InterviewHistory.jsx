@@ -4,7 +4,7 @@ import { Calendar, TrendingUp, Filter, ChevronRight, Clock } from 'lucide-react'
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
-export default function InterviewHistory({ _userId }) {
+export default function InterviewHistory({ _userId, onSelectInterview }) {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedType, setSelectedType] = useState('all');
@@ -21,8 +21,28 @@ export default function InterviewHistory({ _userId }) {
 
       if (response.ok) {
         const data = await response.json();
-        setInterviews(data.interviews || []);
+        if (Array.isArray(data.interviews) && data.interviews.length > 0) {
+          setInterviews(data.interviews);
+          setLoading(false);
+          return;
+        }
       }
+
+      try {
+        const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
+        if (Array.isArray(local) && local.length > 0) {
+          setInterviews(local.map(item => ({
+            id: item.id,
+            type: item.stage || 'Technical',
+            difficulty: item.difficulty || 'medium',
+            score: item.overall_score || 0,
+            created_at: item.completed_at || new Date().toISOString(),
+            feedback: item.summary || ''
+          })));
+          setLoading(false);
+          return;
+        }
+      } catch { /* empty */ }
     } catch (error) {
       console.error('Error fetching interview history:', error);
     } finally {
@@ -167,7 +187,7 @@ export default function InterviewHistory({ _userId }) {
             <div
               key={idx}
               className="bg-slate-800 border border-slate-700 hover:border-slate-600 rounded-lg p-5 transition-all cursor-pointer hover:bg-slate-700"
-              onClick={() => window.open(`/interview/${interview.id}`, '_blank')}
+              onClick={() => { if (onSelectInterview) onSelectInterview(interview); else window.open(`/interview/${interview.id}`, '_blank'); }}
             >
               <div className="flex items-center justify-between">
                 <div className="flex-1">

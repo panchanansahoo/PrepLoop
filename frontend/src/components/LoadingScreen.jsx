@@ -3,7 +3,7 @@ import './LoadingScreen.css';
 
 const LoadingScreen = ({ onFinished, minimumDuration = 400 }) => {
   const [progress, setProgress] = useState(0);
-  const [phase, setPhase] = useState('entering'); // entering, loading, exiting, done
+  const [phase, setPhase] = useState('loading'); // loading, exiting, done
   const [tipIndex, setTipIndex] = useState(0);
   const canvasRef = useRef(null);
   const animFrameRef = useRef(null);
@@ -27,6 +27,7 @@ const LoadingScreen = ({ onFinished, minimumDuration = 400 }) => {
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -143,10 +144,7 @@ const LoadingScreen = ({ onFinished, minimumDuration = 400 }) => {
     };
 
     // Start "entering" phase, then begin loading
-    beginTimer = setTimeout(() => {
-      setPhase('loading');
-      frame = requestAnimationFrame(tick);
-    }, 400);
+    frame = requestAnimationFrame(tick);
 
     // Fallback: ensure loader always completes even if RAF is throttled.
     finishTimer = setTimeout(() => {

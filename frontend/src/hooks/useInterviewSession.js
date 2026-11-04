@@ -1322,10 +1322,38 @@ export function useInterviewSession(options = {}) {
       ? Math.round(numericOverall * 10)
       : 0;
 
+    const localSessionId = saveIdempotencyKeyRef.current || `ai-${Date.now()}`;
+    const newEntry = {
+      id: localSessionId,
+      session_id: localSessionId,
+      session_type: "single",
+      company: targetCompany || "General",
+      role: targetRole || "Software Engineer",
+      stage: STAGE_API_MAP[interviewType] || "Technical",
+      difficulty: experienceLevel === "fresher" ? "easy" : "medium",
+      overall_score: overallScore,
+      score: overallScore,
+      scores,
+      conversation,
+      summary: analysisResult?.summary || analysisResult?.feedback || "",
+      summary_data: analysisResult || {},
+      completed_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+
+    // Save locally immediately so history is guaranteed available
+    try {
+      const historyKey = "preploop_local_interview_history";
+      const existing = JSON.parse(localStorage.getItem(historyKey) || "[]");
+      const updated = [newEntry, ...existing.filter((s) => s.id !== localSessionId)].slice(0, 50);
+      localStorage.setItem(historyKey, JSON.stringify(updated));
+    } catch { /* empty */ }
+
     authFetch("/api/company-interview/save-session", {
       method: "POST",
-      headers: { "Idempotency-Key": saveIdempotencyKeyRef.current },
+      headers: { "Idempotency-Key": localSessionId },
       body: JSON.stringify({
+        sessionId: localSessionId,
         type: "single",
         company: targetCompany || "General",
         role: targetRole || "Software Engineer",
@@ -1337,9 +1365,16 @@ export function useInterviewSession(options = {}) {
         summaryData: analysisResult,
         completedAt: new Date().toISOString(),
       }),
-    }).catch((error) => {
-      console.warn("[Interview] Session save failed (non-critical):", error.message);
-    });
+    })
+      .then((res) => {
+        if (!res.ok) {
+          sessionSavedRef.current = false;
+        }
+      })
+      .catch((error) => {
+        sessionSavedRef.current = false;
+        console.warn("[Interview] Session save failed (non-critical):", error.message);
+      });
   }, [
     phase,
     analysisResult,

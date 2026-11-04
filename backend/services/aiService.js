@@ -754,9 +754,11 @@ export class InterviewSimulatorService {
       let sessionData = null;
       let sessionError = null;
 
+      const initialSessionId = randomUUID();
       const payloadCandidates = [
         {
           user_id: userId,
+          session_id: initialSessionId,
           interview_type: interviewType,
           difficulty_level: difficulty,
           company_focus: companyFocus,
@@ -765,6 +767,7 @@ export class InterviewSimulatorService {
         },
         {
           user_id: userId,
+          session_id: initialSessionId,
           interview_type: interviewType,
           difficulty_level: difficulty,
           status: 'in_progress',
@@ -772,6 +775,7 @@ export class InterviewSimulatorService {
         },
         {
           user_id: userId,
+          session_id: initialSessionId,
           interview_type: interviewType,
           difficulty: difficulty,
           company_focus: companyFocus,
@@ -780,6 +784,7 @@ export class InterviewSimulatorService {
         },
         {
           user_id: userId,
+          session_id: initialSessionId,
           interview_type: interviewType,
           difficulty: difficulty,
           status: 'in_progress',
@@ -1271,17 +1276,20 @@ export class InterviewSimulatorService {
         questions_asked: (session.questions_asked || 0) + 1,
         follow_ups_count: (session.follow_ups_count || 0) + (followUp.isFollowUp ? 1 : 0),
         candidate_got_stuck: analysis.candidateStuck || session.candidate_got_stuck,
-        interview_context: {
-          ...interviewContext,
-          currentDifficulty: adaptiveUpdate.newDifficulty,
-          adaptiveReason: adaptiveUpdate.reason,
-          currentScores,
-          lastInterviewerPrompt: followUp.message,
-          missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])).slice(-5),
-          adaptiveFollowUp,
-          scoreHistory,
-          telemetry,
-          stuckCount,
+        performance_metrics: {
+          ...(session.performance_metrics || {}),
+          interview_context: {
+            ...interviewContext,
+            currentDifficulty: adaptiveUpdate.newDifficulty,
+            adaptiveReason: adaptiveUpdate.reason,
+            currentScores,
+            lastInterviewerPrompt: followUp.message,
+            missingAreas: Array.from(new Set([...(interviewContext.missingAreas || []), ...(analysis.nextFocus || [])])).slice(-5),
+            adaptiveFollowUp,
+            scoreHistory,
+            telemetry,
+            stuckCount,
+          }
         },
         updated_at: new Date().toISOString()
       };
@@ -1430,7 +1438,33 @@ export class InterviewSimulatorService {
         status: 'completed',
         completed_at: new Date().toISOString(),
         total_duration_seconds: totalDurationSeconds,
-        performance_metrics: analysis.metrics,
+        performance_metrics: {
+          ...(analysis.metrics || {}),
+          trend_narrative: trendNarrative,
+          score_trend_summary: {
+            trend: finalScoreTrend.trend,
+            volatility: finalScoreTrend.volatility,
+            mean: finalScoreTrend.mean,
+            stdDev: finalScoreTrend.stdDev,
+            delta: finalScoreTrend.delta,
+            turnsTracked: finalScoreHistory.length,
+          },
+          benchmark_tier: {
+            label: benchmarkTier.label,
+            emoji: benchmarkTier.emoji,
+            description: benchmarkTier.description,
+          },
+          per_question_breakdown: perQuestionBreakdown.slice(0, 10),
+          timing_analysis: {
+            avg_response_seconds: timingAnalysis.avgResponseSeconds,
+            total_turns: timingAnalysis.totalTurns,
+            recommendation: timingAnalysis.avgResponseSeconds < 30
+              ? 'You answered quickly. Take a few more seconds to structure your thoughts.'
+              : timingAnalysis.avgResponseSeconds > 120
+              ? 'Your responses were quite long. Practice being more concise.'
+              : 'Good pacing — your response times are in line with top candidates.',
+          },
+        },
         strengths: analysis.strengths,
         areas_for_improvement: analysis.areasForImprovement,
         critical_mistakes: analysis.criticalMistakes,
@@ -1440,30 +1474,6 @@ export class InterviewSimulatorService {
         technical_depth_score: scores.technicalDepthScore,
         recommendations: analysis.recommendations,
         follow_up_practice_problems: analysis.followUpProblems,
-        trend_narrative: trendNarrative,
-        score_trend_summary: {
-          trend: finalScoreTrend.trend,
-          volatility: finalScoreTrend.volatility,
-          mean: finalScoreTrend.mean,
-          stdDev: finalScoreTrend.stdDev,
-          delta: finalScoreTrend.delta,
-          turnsTracked: finalScoreHistory.length,
-        },
-        benchmark_tier: {
-          label: benchmarkTier.label,
-          emoji: benchmarkTier.emoji,
-          description: benchmarkTier.description,
-        },
-        per_question_breakdown: perQuestionBreakdown.slice(0, 10),
-        timing_analysis: {
-          avg_response_seconds: timingAnalysis.avgResponseSeconds,
-          total_turns: timingAnalysis.totalTurns,
-          recommendation: timingAnalysis.avgResponseSeconds < 30
-            ? 'You answered quickly. Take a few more seconds to structure your thoughts.'
-            : timingAnalysis.avgResponseSeconds > 120
-            ? 'Your responses were quite long. Practice being more concise.'
-            : 'Good pacing — your response times are in line with top candidates.',
-        },
       };
 
       let completedSession = null;
@@ -1502,6 +1512,36 @@ export class InterviewSimulatorService {
         // Remove from cache since interview is completed
         const cacheKey = `interview_session_${sessionId}`;
         interviewCache.del(cacheKey);
+
+        // Mirror to mock_interviews so user history and stats see it
+        try {
+          const interviewerQuestions = (session.transcript || [])
+            .filter(m => m.role === 'interviewer' || m.role === 'system')
+            .map(m => m.text || m.content || '');
+          const candidateResponses = (session.transcript || [])
+            .filter(m => m.role === 'candidate' || m.role === 'user')
+            .map(m => m.text || m.content || '');
+
+          await supabaseAdmin.from('mock_interviews').insert({
+            user_id: userId,
+            interview_type: session.interview_type || 'technical',
+            difficulty: session.difficulty_level || session.difficulty || 'medium',
+            company: session.company_focus || 'General',
+            role: session.role || 'Software Engineer',
+            duration: totalDurationSeconds,
+            questions: interviewerQuestions,
+            responses: candidateResponses,
+            ai_feedback: analysis.recommendations || '',
+            overall_score: scores.interviewScore,
+            communication_score: scores.communicationScore,
+            technical_score: scores.technicalDepthScore,
+            problem_solving_score: scores.problemSolvingScore,
+            started_at: session.started_at || new Date().toISOString(),
+            completed_at: completionPayload.completed_at
+          });
+        } catch (mirrorErr) {
+          logger.warn('Failed to mirror completed interview to mock_interviews', { error: mirrorErr.message });
+        }
       }
 
       logger.info('Interview completed', {

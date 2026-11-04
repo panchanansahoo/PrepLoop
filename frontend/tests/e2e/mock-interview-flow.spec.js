@@ -31,3 +31,4 @@ test.describe('AI Mock Interview Flow & Workspace Features', () => {
     await expect(page.locator('#root')).not.toBeEmpty({ timeout: 10000 });
   });
 });
+

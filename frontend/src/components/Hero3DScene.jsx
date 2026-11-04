@@ -1,4 +1,75 @@
-import {useRef, useMemo} from 'react';
+import React, { useRef, useMemo, useState } from 'react';
+
+function isWebGLAvailable() {
+    if (typeof window === 'undefined') return false;
+    try {
+        const canvas = document.createElement('canvas');
+        return Boolean(
+            window.WebGLRenderingContext &&
+            (canvas.getContext('webgl') || canvas.getContext('experimental-webgl'))
+        );
+    } catch {
+        return false;
+    }
+}
+
+class WebGLErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false };
+    }
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+    componentDidCatch(err) {
+        console.warn('Hero3DScene WebGL rendering disabled or unavailable:', err?.message || err);
+    }
+    render() {
+        if (this.state.hasError) {
+            return this.props.fallback || null;
+        }
+        return this.props.children;
+    }
+}
+
+function Hero3DFallback({ isLight }) {
+    return (
+        <div style={{
+            width: '100%', height: '100%', minHeight: '480px',
+            position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', borderRadius: isLight ? '24px' : '0'
+        }}>
+            <div style={{
+                position: 'absolute', width: '360px', height: '360px', borderRadius: '50%',
+                background: 'radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, rgba(96, 165, 250, 0.08) 50%, transparent 70%)',
+                filter: 'blur(30px)', pointerEvents: 'none'
+            }} />
+            <svg width="420" height="420" viewBox="0 0 420 420" fill="none" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+                <ellipse cx="210" cy="210" rx="160" ry="80" stroke="rgba(167, 139, 250, 0.3)" strokeWidth="1.5" strokeDasharray="4 6" transform="rotate(-20 210 210)" />
+                <ellipse cx="210" cy="210" rx="130" ry="90" stroke="rgba(96, 165, 250, 0.3)" strokeWidth="1.5" strokeDasharray="6 8" transform="rotate(35 210 210)" />
+                <ellipse cx="210" cy="210" rx="180" ry="60" stroke="rgba(52, 211, 153, 0.25)" strokeWidth="1.5" transform="rotate(75 210 210)" />
+                <circle cx="210" cy="210" r="32" fill="url(#core-grad)" />
+                <circle cx="210" cy="210" r="42" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1" />
+                <circle cx="90" cy="180" r="14" fill="#a78bfa" fillOpacity="0.8" />
+                <text x="90" y="210" fill="#a78bfa" fontSize="11" textAnchor="middle" fontFamily="sans-serif">DSA</text>
+                <circle cx="320" cy="160" r="14" fill="#60a5fa" fillOpacity="0.8" />
+                <text x="320" y="190" fill="#60a5fa" fontSize="11" textAnchor="middle" fontFamily="sans-serif">System Design</text>
+                <circle cx="270" cy="290" r="12" fill="#34d399" fillOpacity="0.8" />
+                <text x="270" y="318" fill="#34d399" fontSize="11" textAnchor="middle" fontFamily="sans-serif">SQL</text>
+                <circle cx="130" cy="270" r="12" fill="#f472b6" fillOpacity="0.8" />
+                <text x="130" y="298" fill="#f472b6" fontSize="11" textAnchor="middle" fontFamily="sans-serif">AI Mock</text>
+                <defs>
+                    <radialGradient id="core-grad" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="#ffffff" />
+                        <stop offset="60%" stopColor="#a78bfa" />
+                        <stop offset="100%" stopColor="#6366f1" />
+                    </radialGradient>
+                </defs>
+            </svg>
+        </div>
+    );
+}
+
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Text } from '@react-three/drei';
 import * as THREE from 'three';
@@ -462,9 +533,14 @@ function SceneGroup({ children, mouse }) {
 /* ═══════════════════════════════════════════════ */
 
 export default function Hero3DScene() {
+    const [hasWebGL] = useState(() => isWebGLAvailable());
     const mouse = useRef({ x: 0, y: 0 });
     const { theme } = useTheme();
     const isLight = theme === 'light';
+
+    if (!hasWebGL) {
+        return <Hero3DFallback isLight={isLight} />;
+    }
 
     const handleMouseMove = (e) => {
         const rect = e.currentTarget.getBoundingClientRect();
@@ -489,6 +565,7 @@ export default function Hero3DScene() {
                     : 'none',
             }}
         >
+            <WebGLErrorBoundary fallback={<Hero3DFallback isLight={isLight} />}>
             <Canvas
                 camera={{ position: [0, 0.5, 7.5], fov: 45 }}
                 style={{ background: 'transparent' }}
@@ -530,6 +607,7 @@ export default function Hero3DScene() {
                 {/* Background starfield (independent) */}
                 <Starfield count={250} />
             </Canvas>
+            </WebGLErrorBoundary>
         </div>
     );
 }

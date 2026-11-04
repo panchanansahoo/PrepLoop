@@ -264,6 +264,11 @@ export async function getComprehensiveUserStats(userId) {
       .select('id, interview_type, overall_score, communication_score, technical_score, problem_solving_score, started_at, completed_at')
       .eq('user_id', userId)
       .order('started_at', { ascending: false }),
+    supabaseAdmin
+      .from('interview_sessions')
+      .select('id, session_id, interview_type, company_focus, difficulty_level, interview_score, communication_clarity_score, technical_depth_score, problem_solving_score, performance_metrics, started_at, completed_at, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
     supabaseAdmin.from('resume_analyses').select('id').eq('user_id', userId),
     supabaseAdmin.from('problems').select('id, title, difficulty').order('id', { ascending: true }).limit(400),
     supabaseAdmin
@@ -282,7 +287,21 @@ export async function getComprehensiveUserStats(userId) {
 
   const progress = progressResult.data || [];
   const subs = submissionsResult.data || [];
-  const interviews = interviewsResult.data || [];
+  const mockInterviews = interviewsResult.data || [];
+  const sessionInterviews = (sessionInterviewsResult?.data || []).map(s => {
+    const pm = s.performance_metrics || {};
+    return {
+      id: s.id,
+      interview_type: pm.stage || s.interview_type || 'technical',
+      overall_score: s.interview_score ?? pm.overallScore ?? 0,
+      communication_score: s.communication_clarity_score ?? pm.scores?.[0] ?? s.interview_score ?? 0,
+      technical_score: s.technical_depth_score ?? pm.scores?.[1] ?? s.interview_score ?? 0,
+      problem_solving_score: s.problem_solving_score ?? pm.scores?.[2] ?? s.interview_score ?? 0,
+      started_at: s.started_at || s.created_at,
+      completed_at: s.completed_at || s.created_at,
+    };
+  });
+  const interviews = [...mockInterviews, ...sessionInterviews];
   const resumes = resumesResult.data || [];
   const allProblems = dailyProblemsResult.data || [];
   const calendarEvents = calendarEventsResult.error ? [] : calendarEventsResult.data || [];
@@ -525,9 +544,13 @@ export async function getComprehensiveUserStats(userId) {
   return {
     stats: {
       problemsSolved: solvedCount,
+      problems_solved: solvedCount,
       totalSubmissions: subs.length,
       mockInterviews: completedInterviews.length,
+      mock_interviews_completed: completedInterviews.length,
       resumesAnalyzed: resumes.length,
+      avg_score: avgScore,
+      avgScore: avgScore,
     },
     streak: currentStreak,
     bestStreak,
@@ -564,12 +587,17 @@ export async function getComprehensiveUserStats(userId) {
 export async function fetchUserHistory(userId) {
   const sessions = [];
 
-  const [interviewsResult, submissionsResult, resumesResult] = await Promise.all([
+  const [interviewsResult, sessionInterviewsResult, submissionsResult, resumesResult] = await Promise.all([
     supabaseAdmin
       .from('mock_interviews')
       .select('id, interview_type, overall_score, started_at, completed_at, company, role')
       .eq('user_id', userId)
       .order('started_at', { ascending: false }),
+    supabaseAdmin
+      .from('interview_sessions')
+      .select('id, session_id, interview_type, company_focus, difficulty_level, interview_score, performance_metrics, started_at, completed_at, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }),
     supabaseAdmin
       .from('submissions')
       .select('id, submitted_at, status, problems(title, difficulty)')
@@ -582,9 +610,53 @@ export async function fetchUserHistory(userId) {
       .order('created_at', { ascending: false }),
   ]);
 
+  const recordedInterviewTimes = new Set();
+
+  if (sessionInterviewsResult.data) {
+    sessionInterviewsResult.data.forEach((i) => {
+      const completedTime = i.completed_at || i.created_at;
+      if (!completedTime) return;
+      const pm = i.performance_metrics || {};
+      const company = i.company_focus || pm.company;
+      const role = pm.role;
+
+      let titleStr = 'AI Interview';
+      if (company && role) titleStr = `${company} ${role} Interview`;
+      else if (i.interview_type) titleStr = `${i.interview_type} Interview`;
+
+      let durationStr = 'N/A';
+      if (i.started_at && completedTime) {
+        const ds = new Date(i.started_at);
+        const de = new Date(completedTime);
+        const mins = Math.max(1, Math.round((de - ds) / 60000));
+        durationStr = `${mins} min`;
+      } else if (pm.duration) {
+        const mins = Math.max(1, Math.round(pm.duration / 60));
+        durationStr = `${mins} min`;
+      }
+
+      const ts = new Date(completedTime).getTime();
+      recordedInterviewTimes.add(Math.round(ts / 10000));
+
+      sessions.push({
+        id: String(i.session_id || i.id),
+        type: 'interview',
+        title: titleStr,
+        date: new Date(completedTime).toISOString().split('T')[0],
+        timestamp: ts,
+        score: i.interview_score ?? pm.overallScore ?? 0,
+        duration: durationStr,
+      });
+    });
+  }
+
   if (interviewsResult.data) {
     interviewsResult.data.forEach((i) => {
       if (!i.completed_at) return;
+      const ts = new Date(i.completed_at).getTime();
+      const timeBucket = Math.round(ts / 10000);
+      if (recordedInterviewTimes.has(timeBucket)) return; // Deduplicate mirrored session
+
       let titleStr = 'AI Interview';
       if (i.company && i.role) titleStr = `${i.company} ${i.role} Interview`;
       else if (i.interview_type) titleStr = `${i.interview_type} Interview`;
@@ -598,11 +670,11 @@ export async function fetchUserHistory(userId) {
       }
 
       sessions.push({
-        id: `interview_${i.id}`,
+        id: String(i.id),
         type: 'interview',
         title: titleStr,
         date: new Date(i.completed_at).toISOString().split('T')[0],
-        timestamp: new Date(i.completed_at).getTime(),
+        timestamp: ts,
         score: i.overall_score || 0,
         duration: durationStr,
       });

@@ -1613,21 +1613,58 @@ export default function CompanyInterview() {
         setPhase('summary');
         setLoading(false);
 
-        // Auto-save session to backend (non-blocking)
+        // Auto-save session locally and to backend
+        const numericOverall = Number(reportData?.overallScore || avg || 0);
+        const overall = Number.isFinite(numericOverall) ? Math.round(numericOverall) : 0;
+        const localSessionId = saveIdempotencyKeyRef.current || `company-${Date.now()}`;
+        const newLocalSession = {
+            id: localSessionId,
+            session_id: localSessionId,
+            session_type: 'single',
+            company: config.company || 'General',
+            role: config.role || 'Software Engineer',
+            stage: config.stage || 'Technical',
+            difficulty: config.difficulty || 'medium',
+            overall_score: overall,
+            score: overall,
+            scores: sessionScores || [],
+            conversation: conversation || [],
+            summary: reportData?.summary || reportData?.feedback || '',
+            summary_data: reportData || {},
+            speech_metrics: speechMetrics || null,
+            emotion_data: emotionMetrics || null,
+            proctoring_violations: proctoringViolations || [],
+            duration: elapsed || null,
+            completed_at: new Date().toISOString(),
+            created_at: new Date().toISOString()
+        };
+
+        try {
+            const historyKey = 'preploop_local_interview_history';
+            const existing = JSON.parse(localStorage.getItem(historyKey) || '[]');
+            const updated = [newLocalSession, ...existing.filter(s => s.id !== localSessionId)].slice(0, 50);
+            localStorage.setItem(historyKey, JSON.stringify(updated));
+        } catch { /* empty */ }
+
         try {
             authFetch(`${API_URL}/api/company-interview/save-session`, {
                 method: 'POST',
-                headers: { 'Idempotency-Key': saveIdempotencyKeyRef.current },
+                headers: { 'Idempotency-Key': localSessionId },
                 body: JSON.stringify({
+                    sessionId: localSessionId,
                     type: 'single',
-                    company: config.company, role: config.role,
-                    stage: config.stage, difficulty: config.difficulty,
-                    conversation, scores: sessionScores,
-                    overallScore: reportData?.overallScore || avg,
+                    company: config.company || 'General',
+                    role: config.role || 'Software Engineer',
+                    stage: config.stage || 'Technical',
+                    difficulty: config.difficulty || 'medium',
+                    conversation,
+                    scores: sessionScores,
+                    overallScore: overall,
                     summaryData: reportData || {},
                     speechMetrics: speechMetrics || null,
                     emotionData: emotionMetrics || null,
                     proctoringViolations: proctoringViolations || [],
+                    duration: elapsed || null,
                     completedAt: new Date().toISOString()
                 })
             }).catch(e => console.warn('Session save failed (non-critical):', e.message));

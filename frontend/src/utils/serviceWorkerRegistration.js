@@ -8,8 +8,20 @@ export const registerServiceWorker = async () => {
     return null;
   }
 
-  if (import.meta.env.DEV) {
+    if (import.meta.env.DEV) {
     logger.info('Service Worker disabled in development');
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) {
+          reg.unregister();
+        }
+      }).catch(() => {});
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          for (const k of keys) caches.delete(k);
+        }).catch(() => {});
+      }
+    }
     return null;
   }
 
