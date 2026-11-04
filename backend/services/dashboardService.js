@@ -248,6 +248,7 @@ export async function getComprehensiveUserStats(userId) {
     progressResult,
     submissionsResult,
     interviewsResult,
+    sessionInterviewsResult,
     resumesResult,
     dailyProblemsResult,
     calendarEventsResult,
