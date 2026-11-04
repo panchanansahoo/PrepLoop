@@ -13,6 +13,7 @@ import { buildInitialVoiceTelemetry as _buildInitialVoiceTelemetry, buildVoiceTe
 import { buildAnswerFeedbackPrompt as _buildAnswerFeedbackPrompt, normalizeInterviewFeedback as _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { evaluateFresherAnswer as _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { sanitizeHeadline, sanitizeList, sanitizeDocumentForPrompt, fenceUntrustedContent } from '../../utils/promptInjectionGuard.js';
+import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
@@ -880,6 +881,7 @@ export const getInterviewerPersona = (company, role, stage, difficulty, question
     : 'You may use a coaching tone when it helps confidence and learning momentum.';
 
   const normalizedExperience = String(experienceLevel || '').toLowerCase();
+  const companyStyle = getCompanyInterviewStyle(company);
   const candidateContext = normalizedExperience === 'experienced'
     ? `The candidate is an EXPERIENCED professional.\n- Assume real production/project ownership and ask depth on architecture, trade-offs, failures, and impact metrics.\n- Probe resume-backed decisions, scale, and team collaboration across delivered work.\n- Keep standards higher on practical judgment and execution details.`
     : `The candidate is most likely a STUDENT or RECENT GRADUATE preparing for campus placements or their first job.\n- They may have LIMITED or NO professional work experience.\n- Their experience comes from: college projects, hackathons, internships, coursework, open-source contributions, personal side projects, competitive programming, or academic research.\n- They might be nervous — this could be one of their first mock interviews.\n- Frame questions around their LEARNING journey, not their professional career.\n- NEVER assume they have had a full-time job before. Use "project" or "experience" instead of "at work" or "in production".`;
@@ -891,10 +893,14 @@ Difficulty level: ${difficulty}. This is question ${questionNumber} of ${totalQu
 ## IMPORTANT — Candidate Context
 ${candidateContext}
 
-## Your Interviewer Profile
+## Your Interviewer Profile & Company Style
 - **Role**: ${persona.name} at ${company}
 - **Style**: ${persona.style}
 - **Personality**: ${persona.description}
+- **Company Style**: ${companyStyle.style} (opening: ${companyStyle.openingStyle}, depth: ${companyStyle.probeDepth})
+- **Company Focus Areas**: ${companyStyle.focusAreas.join(', ')}
+- **Company Signature Perspective**: "${companyStyle.signaturePhrase}"
+- **Evaluation Priorities**: ${companyStyle.evaluationPriorities.join(', ')}
 
 ## Advanced Session Controls
 - Interviewer intensity: ${normalizedAdvanced.interviewerIntensity}
@@ -1043,59 +1049,91 @@ export function getCompanyChallengeProfile(company = '', stage = '') {
 }
 
 export function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company = '', stage = '') {
-  if (!lastScore && !averageScore) return '';
+  const scores = Array.isArray(cumulativeScores) && cumulativeScores.length > 0
+    ? cumulativeScores
+    : (lastScore ? [Number(lastScore)] : (averageScore ? [Number(averageScore)] : []));
+  if (scores.length === 0 && !lastScore && !averageScore) return '';
 
-  const trend = cumulativeScores && cumulativeScores.length >= 2
-    ? (cumulativeScores[cumulativeScores.length - 1] - cumulativeScores[cumulativeScores.length - 2])
-    : 0;
+  const recentScores = scores.slice(-3);
+  const rollingAvg = Math.round(recentScores.reduce((a, b) => a + Number(b || 0), 0) / (recentScores.length || 1));
+  const trend = scores.length >= 2 ? (scores[scores.length - 1] - scores[scores.length - 2]) : 0;
   const profile = getCompanyChallengeProfile(company, stage);
-  const highThreshold = profile.highThreshold;
-  const lowThreshold = profile.lowThreshold;
 
-  let adaptiveInstruction = '\n## Adaptive Difficulty (IMPORTANT)\n';
-  adaptiveInstruction += `Company challenge profile: ${profile.styleNote}\n`;
+  let adaptiveInstruction = '\n## Adaptive Difficulty & Scaling (STRICT)\n';
+  adaptiveInstruction += `Rolling 3-Question Average Score: ${rollingAvg}/100 (trend: ${trend > 0 ? '+' + trend : trend}, company profile: ${profile.styleNote})\n`;
 
-  if (averageScore >= highThreshold || lastScore >= highThreshold + 5) {
-    adaptiveInstruction += `The candidate is performing EXCELLENTLY (last: ${lastScore}/100, avg: ${averageScore}/100, trend: ${trend > 0 ? 'improving' : 'stable'}).
-- INCREASE difficulty significantly. Ask harder, more nuanced questions.
-- Probe for edge cases, system-level thinking, and trade-off analysis.
-- Challenge assumptions. Push for optimal solutions.
-- Set "difficultyLevel": "hard", "adaptiveNote": brief explanation of why you're increasing difficulty.`;
-  } else if (averageScore >= lowThreshold + 5 || lastScore >= lowThreshold + 5) {
-    adaptiveInstruction += `The candidate is performing MODERATELY (last: ${lastScore}/100, avg: ${averageScore}/100, trend: ${trend > 0 ? 'improving' : trend < 0 ? 'declining' : 'stable'}).
-- Keep difficulty STEADY at current level.
-- Ask clarifying follow-ups that test depth on the same topic.
-- If trend is improving, slightly increase complexity.
-- Set "difficultyLevel": "medium", "adaptiveNote": brief explanation.`;
+  if (rollingAvg < 50) {
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is STRUGGLING (rolling avg < 50).
+- SIMPLIFY the next question immediately and reduce technical friction.
+- Add scaffolding to the question (e.g. "Let's break this down together...", or start with a basic sub-case).
+- Provide a clear conceptual anchor or hint before asking.
+- Set "difficultyLevel": "easy", "adaptiveNote": "Simplifying question and adding scaffolding (rolling avg < 50)."`;
+  } else if (rollingAvg > 80) {
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is EXCELLING (rolling avg > 80).
+- ESCALATE difficulty. Introduce an additional technical constraint.
+- Challenge them with space/time constraints (e.g., "Now how would you achieve this in O(1) space?", handle race conditions, or reduce latency at 10x scale).
+- Probe edge cases and deep trade-offs to test their architectural ceiling.
+- Set "difficultyLevel": "hard", "adaptiveNote": "Escalating difficulty and adding constraints (rolling avg > 80)."`;
   } else {
-    adaptiveInstruction += `The candidate is STRUGGLING (last: ${lastScore}/100, avg: ${averageScore}/100).
-- DECREASE difficulty. Ask simpler, more foundational questions.
-- Give a gentle hint or framework before asking.
-- Build confidence — acknowledge what they got right before probing further.
-- Set "difficultyLevel": "easy", "adaptiveNote": brief explanation of how you're adjusting.`;
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is in the BALANCED band (rolling avg 50-80).
+- MAINTAIN current depth and pacing.
+- Ask a natural, insightful follow-up probing depth on the same topic.
+- Set "difficultyLevel": "medium", "adaptiveNote": "Maintaining current depth (rolling avg 50-80)."`;
   }
 
   return adaptiveInstruction;
+}
+
+export function extractCandidateKeyTopics(conversationHistory = [], userAnswer = '') {
+  const texts = [];
+  if (Array.isArray(conversationHistory)) {
+    conversationHistory
+      .filter((t) => t.role === 'candidate')
+      .slice(-3)
+      .forEach((t) => texts.push(String(t.content || '')));
+  }
+  if (userAnswer) texts.push(String(userAnswer));
+  const fullCandidateText = texts.join(' ');
+
+  const techKeywords = [
+    'react', 'redux', 'node', 'express', 'postgresql', 'postgres', 'mongodb', 'redis', 'kafka',
+    'docker', 'kubernetes', 'aws', 'gcp', 'python', 'java', 'c\\+\\+', 'typescript', 'javascript',
+    'hashmap', 'hash map', 'binary search', 'trie', 'dynamic programming', 'bfs', 'dfs', 'graph',
+    'microservices', 'monolith', 'rest', 'graphql', 'grpc', 'load balancer', 'cache', 'sharding',
+    'indexes', 'acid', 'star method', 'leadership', 'ownership', 'trade-off'
+  ];
+
+  const matched = new Set();
+  for (const kw of techKeywords) {
+    const rx = new RegExp(`\\b${kw}\\b`, 'i');
+    if (rx.test(fullCandidateText)) {
+      matched.add(kw.replace(/\\/g, '').toLowerCase());
+    }
+  }
+
+  return Array.from(matched).slice(0, 8);
 }
 
 export function buildInterviewMemoryPrompt(conversationHistory = [], previousQuestion = '', userAnswer = '') {
   const recentTurns = Array.isArray(conversationHistory) ? conversationHistory.slice(-6) : [];
   const recentCandidate = recentTurns.filter((t) => t.role === 'candidate').slice(-2);
   const recentFeedback = recentTurns.filter((t) => t.role === 'feedback').slice(-2);
+  const keyTopics = extractCandidateKeyTopics(conversationHistory, userAnswer);
 
   const candidateSummaries = recentCandidate.map((t, idx) => `Candidate_${idx + 1}: ${String(t.content || '').slice(0, 180)}`);
   const feedbackSummaries = recentFeedback.map((t, idx) => `Feedback_${idx + 1}: strengths=${(t.strengths || []).join(', ') || 'n/a'}; improvements=${(t.improvements || []).join(', ') || 'n/a'}`);
 
   return `
 
-## Interview Continuity Memory
+## Interview Continuity & Candidate Memory
+- Candidate previously mentioned: ${keyTopics.length > 0 ? keyTopics.join(', ') : 'No standout tech keywords yet'}
 - Previous question: ${String(previousQuestion || '').slice(0, 220) || 'n/a'}
 - Latest answer snapshot: ${String(userAnswer || '').slice(0, 220) || 'n/a'}
 ${candidateSummaries.length > 0 ? `- Recent candidate turns:\n${candidateSummaries.join('\n')}` : '- Recent candidate turns: n/a'}
 ${feedbackSummaries.length > 0 ? `- Recent coaching feedback:\n${feedbackSummaries.join('\n')}` : '- Recent coaching feedback: n/a'}
 
 Memory usage rules:
-- Reference exactly one specific detail from recent context when asking the next question.
+- Reference at least one specific detail or technology the candidate previously mentioned (e.g., "Earlier you mentioned ${keyTopics[0] || 'your approach'} — how does that apply here?").
 - Do not repeat the same probe category twice in a row unless the candidate still missed it.
 - If recent feedback flagged an improvement area, prioritize it in the next follow-up.
 `;

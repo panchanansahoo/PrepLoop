@@ -22,6 +22,7 @@
         "test:ci": "vitest run --test-timeout=15000 --reporter=default",
         "test:unit": "vitest run tests/unit",
         "test:integration": "vitest run tests/integration",
+        "test:security": "vitest run tests/security",
         "test:unit:legacy": "node --test tests/auth.test.js tests/validation.test.js tests/errorHandler.test.js tests/hardening.test.js",
         "test:legacy": "npm run test:unit:legacy && node scripts/testStartup.js && node scripts/testVoiceServiceUnit.js && node scripts/testInterviewStateMachine.js && node scripts/testScoringAndFollowUp.js && node scripts/testInterviewGrounding.js && node scripts/testInterviewGroundingService.js && node scripts/testInterviewTelemetry.js && node scripts/testInterviewTelemetryService.js && node scripts/testInterviewConversationService.js && node scripts/testInterviewOrchestration.js && node scripts/testInterviewScoringRules.js && node scripts/testInterviewImprovements.js && node scripts/testInterviewIntelligence.js && node scripts/testSecurityFixes.js && node scripts/testProfilePayloadNormalization.js && node scripts/test_profile_endpoints.js && node scripts/testPortfolioProfileNormalizerService.js && node scripts/testPortfolioLinkedinService.js && node scripts/testPortfolioRendererService.js && node scripts/testNvidiaVoiceAndPrivateAccess.js",
         "test:vitest": "vitest run",

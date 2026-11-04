@@ -1,13 +1,10 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { getGroqClient } from '../utils/groqClient.js';
-import { aiCallWithRetry } from '../utils/aiClient.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import { runAgenticChat } from '../services/agenticChatService.js';
 
 const router = express.Router();
-
-const groq = getGroqClient();
 
 const parsedChatCost = Number(process.env.AI_CHAT_COIN_COST || 0);
 const CHAT_QUERY_COST = Number.isFinite(parsedChatCost) ? Math.max(0, parsedChatCost) : 0;
@@ -29,15 +26,6 @@ const isProfilesAccessBlocked = (error) => {
   const message = String(error?.message || '').toLowerCase();
   return code === '42P17' || message.includes('infinite recursion detected in policy');
 };
-
-const SYSTEM_PROMPT = `You are PrepLoop AI Assistant — a friendly, expert coding interview preparation coach. You help with:
-- Data Structures & Algorithms explanations
-- Problem-solving strategies and hints
-- Interview tips (behavioral, technical, system design)
-- Code review and optimization suggestions
-- General career guidance for software engineers
-
-Keep responses concise, practical, and encouraging. Use code examples when helpful. Format with markdown.`;
 
 const spendCoinsForChat = async (userId, cost) => {
   const atomicResult = await applyCoinTransaction({
@@ -191,35 +179,22 @@ router.post('/message', authenticateToken, async (req, res) => {
       }
     }
 
-    const messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history.reverse().map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.content,
-      })),
-    ];
+    const formattedHistory = history.reverse().map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.content,
+    }));
 
-    // Get AI response
-    if (!groq) {
-      return res.status(503).json({
-        error: 'AI service is not configured',
-        message: 'GROQ_API_KEY is not set in the environment',
-      });
-    }
-
-    const completion = await aiCallWithRetry({
-      operation: () => groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages,
-        temperature: 0.7,
-        max_tokens: 1024,
-      }),
-      timeoutMs: 12000,
-      maxRetries: 2,
-      baseDelayMs: 250,
+    // Run Agentic AI ReAct execution
+    const agentResult = await runAgenticChat({
+      userId: req.user.id,
+      message: message.trim(),
+      history: formattedHistory,
     });
 
-    const aiResponse = completion.choices[0]?.message?.content || 'Sorry, I could not generate a response.';
+    const aiResponse = agentResult.response || 'Sorry, I could not generate a response.';
+    if (agentResult.degraded) {
+      degraded = true;
+    }
 
     // Save assistant message
     try {
@@ -238,6 +213,9 @@ router.post('/message', authenticateToken, async (req, res) => {
 
     res.json({
       response: aiResponse,
+      thoughtProcess: agentResult.thoughtProcess || [],
+      actions: agentResult.actions || [],
+      suggestions: agentResult.suggestions || [],
       coins: didCharge ? spendResult.newBalance : null,
       spent: didCharge ? CHAT_QUERY_COST : 0,
       degraded,

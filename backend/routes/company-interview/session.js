@@ -14,6 +14,7 @@ import { _buildAnswerFeedbackPrompt, _normalizeInterviewFeedback } from '../../u
 import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
+import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
 
 const router = express.Router();
@@ -97,6 +98,7 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
   let normalizedAdvanced = null;
   let interviewTotalQuestions = 8;
   let personalizedQuestionSource = 'ai';
+  const companyStyle = getCompanyInterviewStyle(company);
   const buildCanonicalStartPayload = (payload = {}) => {
     const turn = Number(payload?.questionMeta?.sequence);
     return {
@@ -107,6 +109,9 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
       turn: Number.isFinite(turn) ? turn : 1,
       initialQuestion: payload.question || payload.initialQuestion || null,
       nextQuestion: payload.nextQuestion || null,
+      warmupLine: payload.warmupLine || companyStyle.warmupLine || `Hey! Thanks for making time today. Ready to dive in?`,
+      companyStyle,
+      interviewerMood: 'neutral',
       telemetry: payload.telemetry || buildInitialVoiceTelemetry(stage, resolvedRuntimeMode),
     };
   };

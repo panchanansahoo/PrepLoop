@@ -540,12 +540,14 @@ const evaluateWithStdinCases = async (code, language, testCases = [], judgeProfi
 
     if (passed) testsPassed += 1;
 
+    const isHidden = Boolean(tc?.hidden || tc?.is_hidden);
     testResults.push({
       passed,
-      expected,
-      actual,
-      input: tc?.input,
-      ...(execResult.success ? {} : { error: execResult.error || 'Runtime Error' }),
+      hidden: isHidden,
+      expected: isHidden ? '[Hidden Test Case]' : expected,
+      actual: isHidden ? (passed ? '[Hidden Passed]' : '[Hidden Failed]') : actual,
+      input: isHidden ? '[Hidden Input]' : tc?.input,
+      ...(execResult.success ? {} : (isHidden ? {} : { error: execResult.error || 'Runtime Error' })),
     });
   }
 
@@ -687,10 +689,19 @@ router.post('/submit', authenticateToken, async (req, res) => {
       if (result.success) {
         const parsed = parseTestResults(result.output);
         if (parsed) {
-          testResults = parsed.map((r) => ({
-            ...r,
-            passed: !r.error && compareExpectedActual(r.expected, r.actual, judgeProfile),
-          }));
+          testResults = parsed.map((r, index) => {
+            const isHidden = Boolean(testCases[index]?.hidden || testCases[index]?.is_hidden);
+            const passed = !r.error && compareExpectedActual(r.expected, r.actual, judgeProfile);
+            return {
+              ...r,
+              passed,
+              hidden: isHidden,
+              expected: isHidden ? '[Hidden Test Case]' : r.expected,
+              actual: isHidden ? (passed ? '[Hidden Passed]' : '[Hidden Failed]') : r.actual,
+              input: isHidden ? '[Hidden Input]' : r.input,
+              error: isHidden ? undefined : r.error,
+            };
+          });
           testsPassed = testResults.filter((r) => r.passed).length;
         } else {
           // Wrapper did not return structured marker, fallback to stdin-based evaluation.
@@ -699,13 +710,17 @@ router.post('/submit', authenticateToken, async (req, res) => {
           testsPassed = evaluated.testsPassed;
         }
       } else {
-        testResults = testCases.map((tc) => ({
-          passed: false,
-          expected: tc.output,
-          actual: result.error || 'Runtime Error',
-          input: tc.input,
-          error: result.error,
-        }));
+        testResults = testCases.map((tc) => {
+          const isHidden = Boolean(tc?.hidden || tc?.is_hidden);
+          return {
+            passed: false,
+            hidden: isHidden,
+            expected: isHidden ? '[Hidden Test Case]' : tc.output,
+            actual: isHidden ? '[Hidden Failed]' : (result.error || 'Runtime Error'),
+            input: isHidden ? '[Hidden Input]' : tc.input,
+            error: isHidden ? undefined : result.error,
+          };
+        });
       }
     } else if (hasTestCases) {
       const evaluated = await evaluateWithStdinCases(code, language, testCases, judgeProfile);
@@ -951,10 +966,19 @@ router.post('/run', authenticateToken, async (req, res) => {
           if (result.success) {
             const parsed = parseTestResults(result.output);
             if (parsed) {
-              const judgedResults = parsed.map((r) => ({
-                ...r,
-                passed: !r.error && compareExpectedActual(r.expected, r.actual, judgeProfile),
-              }));
+              const judgedResults = parsed.map((r, index) => {
+                const isHidden = Boolean(testCases[index]?.hidden || testCases[index]?.is_hidden);
+                const passed = !r.error && compareExpectedActual(r.expected, r.actual, judgeProfile);
+                return {
+                  ...r,
+                  passed,
+                  hidden: isHidden,
+                  expected: isHidden ? '[Hidden Test Case]' : r.expected,
+                  actual: isHidden ? (passed ? '[Hidden Passed]' : '[Hidden Failed]') : r.actual,
+                  input: isHidden ? '[Hidden Input]' : r.input,
+                  error: isHidden ? undefined : r.error,
+                };
+              });
               const passed = judgedResults.filter((r) => r.passed).length;
               return res.json({
                 success: true,

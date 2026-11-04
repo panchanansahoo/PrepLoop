@@ -1,8 +1,28 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const logger = createLogger('community');
+
+// Rate limiting for community mutations to prevent spam & bot posting
+const communityMutationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many posts or comments. Please wait a few minutes before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+});
+
+const DANGEROUS_XSS_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|javascript:|on\w+\s*=|data:text\/html/gi;
+
+function sanitizeCommunityText(str = '') {
+  if (typeof str !== 'string') return '';
+  return str.replace(DANGEROUS_XSS_REGEX, '').trim();
+}
 
 router.get('/posts', optionalAuth, async (req, res) => {
   try {
@@ -64,12 +84,14 @@ router.get('/posts', optionalAuth, async (req, res) => {
   }
 });
 
-router.post('/posts', authenticateToken, async (req, res) => {
+router.post('/posts', authenticateToken, communityMutationLimiter, async (req, res) => {
   try {
-    const title = String(req.body?.title || '').trim().slice(0, 300);
-    const content = String(req.body?.content || '').trim().slice(0, 10000);
+    const rawTitle = String(req.body?.title || '').trim().slice(0, 300);
+    const rawContent = String(req.body?.content || '').trim().slice(0, 10000);
+    const title = sanitizeCommunityText(rawTitle);
+    const content = sanitizeCommunityText(rawContent);
     const tags = Array.isArray(req.body?.tags)
-      ? req.body.tags.slice(0, 10).map(t => String(t).trim().slice(0, 50))
+      ? req.body.tags.slice(0, 10).map((t) => sanitizeCommunityText(String(t)).slice(0, 50))
       : [];
 
     if (!title) return res.status(400).json({ error: 'Title is required' });
@@ -93,6 +115,109 @@ router.post('/posts', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error creating post:', error);
     res.status(500).json({ error: 'Failed to create post' });
+  }
+});
+
+router.put('/posts/:id', authenticateToken, communityMutationLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: post, error: fetchError } = await supabaseAdmin
+      .from('community_posts')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError || !post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.user_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You are not authorized to edit this post' });
+    }
+
+    const updates = {};
+    if (req.body?.title !== undefined) {
+      updates.title = sanitizeCommunityText(String(req.body.title)).slice(0, 300);
+    }
+    if (req.body?.content !== undefined) {
+      updates.content = sanitizeCommunityText(String(req.body.content)).slice(0, 10000);
+    }
+    if (Array.isArray(req.body?.tags)) {
+      updates.tags = req.body.tags.slice(0, 10).map((t) => sanitizeCommunityText(String(t)).slice(0, 50));
+    }
+    updates.updated_at = new Date().toISOString();
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('community_posts')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+    res.json({ post: updated });
+  } catch (error) {
+    console.error('Error updating post:', error);
+    res.status(500).json({ error: 'Failed to update post' });
+  }
+});
+
+router.delete('/posts/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { data: post, error: fetchError } = await supabaseAdmin
+      .from('community_posts')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError || !post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    if (post.user_id !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You are not authorized to delete this post' });
+    }
+
+    const { error: deleteError } = await supabaseAdmin
+      .from('community_posts')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) throw deleteError;
+    res.json({ success: true, message: 'Post deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    res.status(500).json({ error: 'Failed to delete post' });
+  }
+});
+
+router.post('/posts/:id/report', authenticateToken, communityMutationLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const reason = sanitizeCommunityText(String(req.body?.reason || '')).slice(0, 500);
+
+    const { data: post, error: fetchError } = await supabaseAdmin
+      .from('community_posts')
+      .select('id, user_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (fetchError || !post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    logger.info('COMMUNITY_POST_REPORTED', {
+      postId: id,
+      reportedBy: req.user.id,
+      postAuthorId: post.user_id,
+      reason: reason || 'Unspecified inappropriate content',
+    });
+
+    res.json({ success: true, message: 'Report submitted for moderator review.' });
+  } catch (error) {
+    console.error('Error reporting post:', error);
+    res.status(500).json({ error: 'Failed to report post' });
   }
 });
 
@@ -157,12 +282,13 @@ router.post('/posts/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
-router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
+router.post('/posts/:id/reply', authenticateToken, communityMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const { content } = req.body;
+    const rawContent = String(req.body?.content || '').trim().slice(0, 4000);
+    const content = sanitizeCommunityText(rawContent);
 
-    if (!content || content.trim().length === 0) {
+    if (!content || content.length === 0) {
       return res.status(400).json({ error: 'Reply content is required' });
     }
 
@@ -171,7 +297,7 @@ router.post('/posts/:id/reply', authenticateToken, async (req, res) => {
       .insert({
         post_id: id,
         user_id: req.user.id,
-        content: content.trim()
+        content
       });
 
     if (replyError) throw replyError;

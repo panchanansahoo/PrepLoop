@@ -411,10 +411,14 @@ export async function speechToText(filePath, _preferredProvider = null) {
  */
 export async function generateBackchannelClips(persona = 'friendly', gender = 'female') {
     const clips = {
-        mmhmm:  'Mm-hmm.',
-        isee:   'I see.',
-        goon:   'Go on.',
+        mmhmm:       'Mm-hmm.',
+        isee:        'I see.',
+        goon:        'Go on.',
         interesting: 'Interesting.',
+        right:       'Right.',
+        gotit:       'Got it.',
+        yeah:        'Yeah.',
+        okay:        'Okay.',
     };
 
     const results = {};

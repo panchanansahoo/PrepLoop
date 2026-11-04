@@ -208,9 +208,19 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Problem not found' });
     }
 
+    // Filter out hidden test cases so they are never leaked in client-facing payloads
+    const sanitizedTestCases = Array.isArray(problem.test_cases)
+      ? problem.test_cases.filter((tc) => !tc?.hidden && !tc?.is_hidden)
+      : problem.test_cases;
+    const sanitizedExtendedCases = Array.isArray(problem.extended_test_cases)
+      ? problem.extended_test_cases.filter((tc) => !tc?.hidden && !tc?.is_hidden)
+      : (problem.extended_test_cases || []);
+
     // Flatten pattern data
     const transformed = {
       ...problem,
+      test_cases: sanitizedTestCases,
+      extended_test_cases: sanitizedExtendedCases,
       pattern_name: problem.patterns?.name,
       pattern_category: problem.patterns?.category,
       patterns: undefined
@@ -231,7 +241,7 @@ router.get('/problems/:id', optionalAuth, async (req, res) => {
       problem: transformed,
       exploration: {
         exploreQuestions: problem.explore_questions || [],
-        extendedTestCases: problem.extended_test_cases || [],
+        extendedTestCases: sanitizedExtendedCases,
         metadata: problem.exploration_metadata || {}
       },
       userProgress
@@ -261,16 +271,20 @@ router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Problem not found' });
     }
 
+    const sanitizedExtendedCases = Array.isArray(problem.extended_test_cases)
+      ? problem.extended_test_cases.filter((tc) => !tc?.hidden && !tc?.is_hidden)
+      : (problem.extended_test_cases || []);
+
     res.json({
       problemId: problem.id,
       title: problem.title,
       difficulty: problem.difficulty,
       exploreQuestions: problem.explore_questions || [],
-      extendedTestCases: problem.extended_test_cases || [],
+      extendedTestCases: sanitizedExtendedCases,
       metadata: problem.exploration_metadata || {},
       statistics: {
         questionsCount: (problem.explore_questions || []).length,
-        testCasesCount: (problem.extended_test_cases || []).length
+        testCasesCount: sanitizedExtendedCases.length
       }
     });
   } catch (error) {

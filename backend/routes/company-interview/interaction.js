@@ -15,13 +15,15 @@ import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.j
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import nvidiaVoiceService from '../../services/nvidiaVoiceService.js';
 import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, _getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal, generateFresherHRQuestion, generateFresherTechnicalQuestion, generateFresherScriptedQuestion } from './helpers.js';
+import { computeNextMood, getMoodProfile, getMicroReaction, MOODS } from '../../services/interviewerMoodEngine.js';
+import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 
 const router = express.Router();
 
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res) => {
   const requestStartTime = Date.now();
-  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: rawQuestionSetCode, token, attemptId } = req.body || {};
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, sessionScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: rawQuestionSetCode, token, attemptId, interviewerMood: clientMood = MOODS.NEUTRAL, wasRescued = false, rescueCount = 0 } = req.body || {};
   const _questionSetCode = token || rawQuestionSetCode;
   let allQuestions = providedQuestions;
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
@@ -593,6 +595,47 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
     const effectiveTotalQuestions = fresherScriptMode ? FRESHER_INTERVIEW_TOTAL_QUESTIONS : safeTotalQuestions;
     const isLastQuestion = safeQuestionNumber > effectiveTotalQuestions;
 
+    // ─── Dead-End Detection & Rescue (Phase 3B) ───
+    const answerWords = String(userAnswer || '').trim().split(/\s+/).filter(Boolean);
+    const deadEndKeywords = [
+      /\b(i don'?t know|no idea|not sure|can'?t remember|have no clue|no clue)\b/i,
+      /\b(skip this|pass on this|give up|pass)\b/i,
+      /\b(i do not have a response|i have no answer|no response)\b/i,
+    ];
+    const isExplicitDeadEnd = deadEndKeywords.some((p) => p.test(String(userAnswer || '')));
+    const isTooShort = answerWords.length > 0 && answerWords.length < 15 && !code;
+    const isStuckAnswer = isExplicitDeadEnd || isTooShort;
+
+    if (isStuckAnswer && !wasRescued && Number(rescueCount || 0) === 0 && !isLastQuestion && previousQuestion) {
+      const scaffoldHint = stage.includes('Coding') || stage.includes('DSA')
+        ? "Let me rephrase that — what if I told you the answer involves a hash map or two-pointer approach? How would you structure that?"
+        : stage.includes('System Design')
+          ? "Let's break this down together — if we start with a simple client and a single database, what would be the first bottleneck you'd address?"
+          : "Let me rephrase that — what if you think back to a specific coursework or team project experience? Walk me through what happened there.";
+
+      return res.json(withRuntime({
+        rescueMode: true,
+        rescued: true,
+        rescueCount: 1,
+        score: 45,
+        feedback: {
+          content: "Let's take a step back and break this question down together.",
+          score: 45,
+          strengths: ["Willingness to explore another angle"],
+          improvements: ["Break down complex problems into smaller components when stuck"],
+        },
+        followUpQuestion: scaffoldHint,
+        microReaction: "No problem at all — let's break this down together.",
+        interviewerMood: MOODS.CURIOUS,
+        moodProfile: getMoodProfile(MOODS.CURIOUS),
+        thinkTime: 35,
+        hint: "Think about the simplest case first.",
+        difficultyLevel: "easy",
+        adaptiveNote: "Candidate stuck. Rescue mode activated with scaffolding.",
+        complete: false,
+      }));
+    }
+
     if (fresherScriptMode) {
       const evaluated = evaluateFresherAnswer(userAnswer, stage, code);
 
@@ -753,6 +796,7 @@ NATURAL SPEECH CONSTRAINTS (STRICT):
 Respond as JSON:
 {
   "feedback": "Internal evaluation of their answer (2 sentences)",
+  "microReaction": "Spoken natural micro-reaction (1 sentence, e.g. 'Interesting approach.', 'Hmm, let me push back on that.', 'That is exactly right.')",
   "followUpQuestion": "${isLastQuestion ? 'empty string since this is the last question' : 'Your spoken next question (natural, casual, max 2 sentences)'}",
   ${isLastQuestion ? '"closingRemark": "A warm, natural spoken closing thanking them (max 2 sentences)",' : ''}
   "score": 0-100,
@@ -803,9 +847,32 @@ Respond as JSON:
       ? Math.max(0, Math.min(100, Math.round(parsedScore)))
       : 75;
 
+    const allScores = Array.isArray(cumulativeScores) && cumulativeScores.length > 0
+      ? cumulativeScores
+      : (Array.isArray(sessionScores) ? sessionScores : []);
+    const updatedScores = [...allScores, resolvedScore];
+    const moodResult = computeNextMood(clientMood, {
+      score: resolvedScore,
+      wordCount: answerWords.length,
+      cumulativeScores: updatedScores,
+    });
+    const nextMood = moodResult.nextMood;
+    const microReaction = getMicroReaction(nextMood, {
+      customRemark: result?.microReaction,
+      seed: safeQuestionNumber,
+    });
+
+    const companyStyle = getCompanyInterviewStyle(company);
+    const wrapUpSequence = isLastQuestion ? [
+      "That is all the formal questions I have for you today.",
+      `Do you have any questions for me about the role, the team, or engineering at ${company}?`,
+      `Thank you so much for your time today. We'll be in touch within a week with our decision and next steps.`,
+    ] : null;
+
     res.json(withRuntime({
       ...normalizedResult,
       score: resolvedScore,
+      companyStyle,
       // Completion is decided by the server's question budget, never by the
       // model: without this the frontend never learns the interview is over.
       complete: isLastQuestion,
@@ -813,7 +880,12 @@ Respond as JSON:
       closingRemark: isLastQuestion
         ? (result.closingRemark || getStaticInterviewClosing(stage))
         : undefined,
+      closingSequence: isLastQuestion ? wrapUpSequence : undefined,
+      multiPartClosing: isLastQuestion ? wrapUpSequence : undefined,
       interviewerReaction: result.interviewerReaction || 'neutral',
+      interviewerMood: nextMood,
+      moodProfile: getMoodProfile(nextMood),
+      microReaction,
       thinkTime: result.thinkTime || 45,
       hint: normalizedResult.hint || 'Try breaking the problem into smaller parts',
       difficultyLevel: result.difficultyLevel || 'medium',
@@ -894,17 +966,35 @@ Respond as JSON:
       question: previousQuestion,
       answer: userAnswer,
     });
+    const fallbackScore = deterministicScore(72, 15, safeQuestionNumber + (userAnswer?.length || 0));
+    const fallbackWordCount = String(userAnswer || '').trim().split(/\s+/).filter(Boolean).length;
+    const fallbackMoodResult = computeNextMood(clientMood, { score: fallbackScore, wordCount: fallbackWordCount });
+    const fallbackMicroReaction = getMicroReaction(fallbackMoodResult.nextMood, { seed: safeQuestionNumber });
+    const fallbackIsComplete = safeQuestionNumber > safeTotalQuestions;
+    const fallbackCompanyStyle = getCompanyInterviewStyle(company);
+    const fallbackClosingSeq = fallbackIsComplete ? [
+      "That is all the formal questions I have for you today.",
+      `Do you have any questions for me about the role, the team, or engineering at ${company}?`,
+      `Thank you so much for your time today. We'll be in touch within a week with next steps.`,
+    ] : undefined;
+
     res.json(withRuntime({
       ...fallbackFeedback,
-      complete: safeQuestionNumber > safeTotalQuestions,
-      followUpQuestion: safeQuestionNumber > safeTotalQuestions
+      companyStyle: fallbackCompanyStyle,
+      complete: fallbackIsComplete,
+      followUpQuestion: fallbackIsComplete
         ? ''
         : (fallbackFollowUps[stage] || defaultFallbackByExperience),
-      closingRemark: safeQuestionNumber > safeTotalQuestions
+      closingRemark: fallbackIsComplete
         ? getStaticInterviewClosing(stage)
         : undefined,
-      score: deterministicScore(72, 15, safeQuestionNumber + (userAnswer?.length || 0)),
+      closingSequence: fallbackClosingSeq,
+      multiPartClosing: fallbackClosingSeq,
+      score: fallbackScore,
       interviewerReaction: 'encouraging',
+      interviewerMood: fallbackMoodResult.nextMood,
+      moodProfile: getMoodProfile(fallbackMoodResult.nextMood),
+      microReaction: fallbackMicroReaction,
       thinkTime: 45,
     }));
   }
@@ -1121,6 +1211,160 @@ Respond strictly in this JSON format:
     console.error('Copilot suggest error:', error.message);
     if (res.headersSent) return;
     res.status(500).json({ error: 'Failed to generate copilot suggestions' });
+  }
+});
+
+
+// ─── Interruption & Clarification Handling (Phase 3C) ───
+router.post('/clarify', customInterviewLimiter, optionalAuth, async (req, res) => {
+  const {
+    clarificationQuestion,
+    currentQuestion = '',
+    context = '',
+    company = 'Google',
+    role = 'Software Engineer',
+    stage = 'Technical',
+  } = req.body || {};
+
+  const query = String(clarificationQuestion || '').trim();
+  if (!query) {
+    return res.status(400).json({ error: 'clarificationQuestion is required' });
+  }
+
+  try {
+    if (!groq) {
+      return res.json({
+        clarification: 'Good clarification. You can assume standard input bounds and focus on optimal asymptotic complexity.',
+        restateQuestion: true,
+        spokenClarification: 'Good question. You can assume standard inputs and focus on an optimal solution.',
+      });
+    }
+
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
+          messages: [
+            {
+              role: 'system',
+              content: `You are a real-time interviewer at ${company} conducting a ${stage} interview for ${role}.
+The candidate just interrupted to ask a brief clarifying question:
+Current Question: "${currentQuestion}"
+Context: "${context}"
+
+Instructions:
+- Provide a direct, natural clarification in 1-2 sentences. Speak like a real senior engineer on a call.
+- Answer scope, constraints, edge case assumptions, or format expectations clearly without solving the problem for them.
+- Decide whether to restate the core question afterwards (true/false).
+Respond in JSON:
+{
+  "clarification": "Clear and helpful 1-2 sentence clarification.",
+  "restateQuestion": true,
+  "spokenClarification": "Natural spoken response addressing their doubt directly."
+}`,
+            },
+            {
+              role: 'user',
+              content: query,
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.6,
+          max_tokens: 250,
+        }),
+      timeoutMs: 8000,
+      maxRetries: 1,
+      baseDelayMs: 200,
+    });
+
+    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    const clarification = parsed?.clarification || 'Good question. You can assume typical scale and standard constraints.';
+    const restateQuestion = parsed?.restateQuestion !== false;
+    const spokenClarification = parsed?.spokenClarification || clarification;
+
+    return res.json({
+      clarification,
+      restateQuestion,
+      spokenClarification,
+    });
+  } catch (error) {
+    console.error('Clarify endpoint error:', error.message?.substring(0, 150));
+    return res.json({
+      clarification: 'Good clarification. For this problem, assume valid inputs and optimize for the common case.',
+      restateQuestion: true,
+      spokenClarification: 'Good question. Assume standard valid inputs and focus on optimal complexity.',
+    });
+  }
+});
+
+
+// ─── Live Code Review During Coding Questions (Phase 7A) ───
+router.post('/code-review-live', customInterviewLimiter, optionalAuth, async (req, res) => {
+  const {
+    code = '',
+    language = 'javascript',
+    currentQuestion = '',
+    company = 'Google',
+    role = 'Software Engineer',
+  } = req.body || {};
+
+  const cleanCode = String(code || '').trim();
+  if (!cleanCode || cleanCode.length < 20) {
+    return res.json({ observation: '' });
+  }
+
+  try {
+    if (!groq) {
+      let heuristic = 'I see your initial setup — looks clean.';
+      if (/Map|HashMap|dict|unordered_map/i.test(cleanCode)) {
+        heuristic = 'I see you are using a hash map — good choice for O(1) lookups.';
+      } else if (/Set|HashSet/i.test(cleanCode)) {
+        heuristic = 'Using a set to track seen elements is a smart approach.';
+      } else if (/while|for/i.test(cleanCode) && /left|right|pointer/i.test(cleanCode)) {
+        heuristic = 'Two-pointer approach — good direction to keep space optimal.';
+      }
+      return res.json({ observation: heuristic });
+    }
+
+    const completion = await aiCallWithRetry({
+      operation: () =>
+        createGroqChatCompletion({
+          model: 'openai/gpt-oss-120b',
+          messages: [
+            {
+              role: 'system',
+              content: `You are an expert technical interviewer at ${company} interviewing a candidate for ${role} and watching them write live code for: "${currentQuestion}".
+Current language: ${language}.
+Provide ONE brief, natural, insightful 1-line spoken observation or encouraging comment about their data structure choice, base case handling, or algorithmic direction.
+RULES:
+- Maximum 1 sentence (under 18 words).
+- Casual, encouraging, senior engineering tone (e.g. "I see you're using a HashMap — good choice for O(1) lookup.", "Nice base-case check on empty input.")
+- NO spoilers or full solutions.
+Respond in JSON:
+{
+  "observation": "1-sentence spoken observation"
+}`,
+            },
+            {
+              role: 'user',
+              content: cleanCode.substring(0, 1200),
+            },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.6,
+          max_tokens: 150,
+        }),
+      timeoutMs: 8000,
+      maxRetries: 1,
+      baseDelayMs: 200,
+    });
+
+    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '');
+    const observation = String(parsed?.observation || '').trim();
+    return res.json({ observation });
+  } catch (err) {
+    console.error('Code review live error:', err.message?.substring(0, 150));
+    return res.json({ observation: '' });
   }
 });
 
