@@ -48,6 +48,17 @@ function LiveCaptions({
             return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText, words };
         }
 
+        // Keep the submitted answer visible while the next AI response is loading.
+        // The session clears this draft when the next listening turn begins.
+        if (transcript && transcript.trim()) {
+            const currentSpeech = transcript.trim();
+            const displayText = currentSpeech.length > 200
+                ? '...' + currentSpeech.slice(-200)
+                : currentSpeech;
+            const words = displayText.split(/\s+/).filter(Boolean);
+            return { isUserSpeaking: false, liveInterim: '', speakerName: 'You', displayText, words };
+        }
+
         // When AI is thinking / preparing to speak
         if (aiThinking) {
             return { isUserSpeaking: false, liveInterim: '', speakerName: interviewerName, displayText: 'Thinking...', words: ['Thinking...'] };

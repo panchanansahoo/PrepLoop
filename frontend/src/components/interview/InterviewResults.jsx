@@ -1,6 +1,6 @@
 import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause } from 'lucide-react';
+import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause, Activity } from 'lucide-react';
 
 const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
 
@@ -23,6 +23,7 @@ function InterviewResults({
     interviewType,
     conversation,
     submissionStatus,
+    realismScore,
     onRetrySubmission,
     onRetryAnalysis,
     onStartNew,
@@ -292,6 +293,15 @@ function InterviewResults({
                             <div className="ai-result-stat-info">
                                 <div className="ai-result-stat-label">Avg Response</div>
                                 <div className="ai-result-stat-value">{timingAnalysis.avg_response_seconds || timingAnalysis.avgResponseSeconds || '—'}s</div>
+                            </div>
+                        </div>
+                    )}
+                    {typeof realismScore === 'number' && (
+                        <div className="ai-result-stat" title="How natural and authentic your conversational flow, response lengths, and pacing were">
+                            <div className="ai-result-stat-icon" style={{ background: 'rgba(99,102,241,0.1)', color: '#818cf8' }}><Activity size={18} /></div>
+                            <div className="ai-result-stat-info">
+                                <div className="ai-result-stat-label">Realism</div>
+                                <div className="ai-result-stat-value">{realismScore}%</div>
                             </div>
                         </div>
                     )}

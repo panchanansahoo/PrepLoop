@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,7 @@ import ChatSidebar from '../components/interview/ChatSidebar';
 import InterviewTopBar from '../components/interview/InterviewTopBar';
 import ScoreCueToast from '../components/interview/ScoreCueToast';
 import HintBanner from '../components/interview/HintBanner';
-import { Mic, MicOff, Sparkles, MessageSquare, Volume2, Wifi, User, Building2, AlertTriangle, Brain, Keyboard, Send, RotateCcw, HelpCircle } from 'lucide-react';
+import { Mic, MicOff, Sparkles, MessageSquare, Volume2, Wifi, User, Building2, AlertTriangle, Brain, Keyboard, Send, RotateCcw, HelpCircle, Activity } from 'lucide-react';
 import {
     BOILERPLATE,
     COMPANY_INTERVIEWERS,
@@ -143,6 +143,7 @@ export default function AIInterviewPage() {
         cameraError, showEndConfirm, awaitingAnswer, isOnline, lifecycleState, sessionError,
         customQuestionSet, questionSetLoading, questionSetError, questionSetAccessError, questionSetPasscode, candidateEmail, candidateName, submissionStatus, resumeParseError,
         answerReview,
+        interviewerMood, realisticJitter, whiteboardSnapshot, realismScore,
     } = state;
 
     const {
@@ -161,6 +162,7 @@ export default function AIInterviewPage() {
         setSetupStep, setExperienceLevel, setTargetRole, setTargetCompany,
         setCompanySearch, setCompanyTab, setResumeFile, setResumeParseError,
         setAnalysisResult,
+        setInterviewerMood, setRealisticJitter, setWhiteboardSnapshot,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
         setElapsed,
         retryCustomSubmission, reconnectSession, handleSessionErrorAction, retryAnalysis,
@@ -360,6 +362,29 @@ export default function AIInterviewPage() {
         setShowEndConfirm(false);
     }, [setShowEndConfirm]);
 
+    const liveWpm = useMemo(() => {
+        if (!isListening || questionElapsed < 3) return null;
+        const words = (transcript || '').trim().split(/\s+/).filter(Boolean).length;
+        if (words < 2) return null;
+        const minutes = questionElapsed / 60;
+        return Math.round(words / minutes);
+    }, [isListening, questionElapsed, transcript]);
+
+    const wpmInfo = useMemo(() => {
+        if (liveWpm == null) return null;
+        if (liveWpm > 165) return { label: 'Too fast', status: 'fast' };
+        if (liveWpm < 110) return { label: 'Too slow', status: 'slow' };
+        return { label: 'Good pace', status: 'good' };
+    }, [liveWpm]);
+
+    const fillerTooltip = useMemo(() => {
+        if (!intelligence?.fillerCounts) return 'No fillers detected';
+        const active = Object.entries(intelligence.fillerCounts)
+            .filter(([_, count]) => count > 0)
+            .map(([word, count]) => `${word} (${count})`);
+        return active.length > 0 ? `Fillers detected: ${active.join(', ')}` : 'No fillers detected';
+    }, [intelligence?.fillerCounts]);
+
     const userName = user?.fullName || user?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Candidate';
     const userInitial = userName[0]?.toUpperCase() || 'C';
 
@@ -369,6 +394,7 @@ export default function AIInterviewPage() {
                 setupStep={setupStep} setSetupStep={setSetupStep}
                 experienceLevel={experienceLevel} setExperienceLevel={setExperienceLevel}
                 pacingMode={pacingMode} setPacingMode={setPacingMode}
+                realisticJitter={realisticJitter} setRealisticJitter={setRealisticJitter}
                 interviewType={interviewType} setInterviewType={setInterviewType}
                 interviewerGender={interviewerGender} setInterviewerGender={setInterviewerGender}
                 targetRole={targetRole} setTargetRole={setTargetRole}
@@ -468,6 +494,7 @@ export default function AIInterviewPage() {
                 interviewType={interviewType}
                 conversation={conversation}
                 submissionStatus={submissionStatus}
+                realismScore={realismScore}
                 onRetrySubmission={retryCustomSubmission}
                 onRetryAnalysis={retryAnalysis}
                 onStartNew={() => {
@@ -510,7 +537,7 @@ export default function AIInterviewPage() {
 
             <div className="ai-vc-body">
                 <div className={`ai-vc-video-area ${!workspacePanelOpen ? 'ai-vc-video-area--full' : ''}`}>
-                    <div className={`ai-vc-tile ai-vc-tile--interviewer ${aiSpeaking ? 'ai-vc-tile--speaking' : ''}`}>
+                    <div className={`ai-vc-tile ai-vc-tile--interviewer ${aiSpeaking ? 'ai-vc-tile--speaking' : ''} ${interviewerMood ? `ai-vc-tile--mood-${interviewerMood}` : ''}`}>
                         {activeQuestionContext && (
                             <div className="ai-vc-q-context-pill" style={{
                                 position: 'absolute',
@@ -577,6 +604,14 @@ export default function AIInterviewPage() {
                             <div className="ai-vc-tile-badge-dot" />
                             <span className="ai-vc-tile-badge-name">{INTERVIEWER.name}</span>
                             <span className="ai-vc-tile-badge-role">{INTERVIEWER.role}</span>
+                            {interviewerMood && interviewerMood !== 'neutral' && (
+                                <span className={`ai-vc-mood-pill ai-vc-mood-pill--${interviewerMood}`} title={`Interviewer mood: ${interviewerMood}`}>
+                                    {interviewerMood === 'impressed' ? '🌟 Impressed' :
+                                     interviewerMood === 'skeptical' ? '🤔 Skeptical' :
+                                     interviewerMood === 'curious' ? '🧐 Curious' :
+                                     interviewerMood === 'impatient' ? '⏱️ Wrap-up' : interviewerMood}
+                                </span>
+                            )}
                         </div>
                         {aiSpeaking ? (
                             <div className="ai-vc-wave-overlay" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 12px 10px' }}>
@@ -591,14 +626,31 @@ export default function AIInterviewPage() {
                                 <VoiceWaveform bars={[0.3, 0.6, 0.45, 0.7, 0.5, 0.35]} active={true} color="#818cf8" height={28} />
                             </div>
                         ) : null}
-                        {isListening && intelligence.totalFillers > 0 && (
-                            <div className="ai-vc-filler-badge" title="Filler words detected">
-                                <AlertTriangle size={11} /><span>{intelligence.totalFillers}</span>
+                        {isListening && (
+                            <div className="ai-vc-speech-analytics" style={{ position: 'absolute', top: 14, right: 14, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
+                                {wpmInfo && (
+                                    <div className={`ai-vc-wpm-badge ai-vc-wpm-badge--${wpmInfo.status}`} title={`Current pace: ${liveWpm} WPM (${wpmInfo.label})`}>
+                                        <Activity size={11} />
+                                        <span>{liveWpm} WPM · {wpmInfo.label}</span>
+                                    </div>
+                                )}
+                                {intelligence.totalFillers > 0 && (
+                                    <div className="ai-vc-filler-badge" style={{ position: 'static' }} title={fillerTooltip}>
+                                        <AlertTriangle size={11} />
+                                        <span>{intelligence.totalFillers} {intelligence.totalFillers === 1 ? 'filler' : 'fillers'}</span>
+                                    </div>
+                                )}
                             </div>
                         )}
                         {isListening && (
-                            <div className="ai-vc-confidence-meter" title={`Confidence: ${intelligence.confidenceScore}%`}>
-                                <div className="ai-vc-confidence-meter-fill" style={{ width: `${intelligence.confidenceScore}%` }} />
+                            <div className="ai-vc-confidence-meter" title={`Confidence: ${intelligence.confidenceScore}% (${intelligence.confidenceScore >= 70 ? 'High' : intelligence.confidenceScore >= 45 ? 'Moderate' : 'Low'})`}>
+                                <div
+                                    className="ai-vc-confidence-meter-fill"
+                                    style={{
+                                        width: `${intelligence.confidenceScore}%`,
+                                        background: intelligence.confidenceScore >= 70 ? '#22c55e' : intelligence.confidenceScore >= 45 ? '#fbbf24' : '#ef4444'
+                                    }}
+                                />
                             </div>
                         )}
                         <div className="ai-vc-status-overlay">
@@ -763,6 +815,8 @@ export default function AIInterviewPage() {
                         onSkipQuestion={skipCurrentQuestion}
                         onDoneAnswering={handleDoneAnswering}
                         onDismissCheckIn={() => setCheckInActive(false)}
+                        onWhiteboardSnapshot={setWhiteboardSnapshot}
+                        whiteboardSnapshot={whiteboardSnapshot}
                     />
                   </Suspense>
                 )}

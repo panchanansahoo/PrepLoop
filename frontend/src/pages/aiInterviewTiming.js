@@ -221,27 +221,27 @@ export function getQuestionTimeLimit(stage) {
 // Generates natural, varied interviewer transition phrases so the interviewer
 // feels like an attentive human, avoiding robotic repetitions.
 const HIGH_TRANSITIONS = [
-    "That's a very clear explanation — nicely put.",
-    "Great breakdown, that makes a lot of sense.",
-    "Solid answer — you touched on the key aspects there.",
-    "Excellent, I appreciate the depth in your response.",
-    "Very well reasoned. Let's build on that."
+    "Yeah, that's a really solid answer.",
+    "Nice, I like that approach.",
+    "Good thinking — that makes a lot of sense.",
+    "That's exactly the kind of depth I was looking for.",
+    "Great, you touched on the key points there."
 ];
 
 const MID_TRANSITIONS = [
-    "Got it, that gives me good context.",
-    "Understood, thanks for walking me through your thinking.",
-    "I see where you're coming from with that.",
-    "Fair enough, that covers the essentials.",
-    "Thanks for explaining that perspective."
+    "Got it, thanks for walking me through that.",
+    "Okay, I see where you're going with that.",
+    "Alright, fair enough — that gives me good context.",
+    "Understood, I appreciate you explaining that.",
+    "Right, okay — let me follow up on that."
 ];
 
 const LOW_TRANSITIONS = [
-    "Got it, thanks for giving it a shot.",
-    "Fair enough, let's explore another angle.",
-    "Understood. Let's move ahead to the next topic.",
-    "Thanks for sharing your thoughts on that.",
-    "Alright, let's pivot slightly."
+    "Okay, let's try a slightly different angle on this.",
+    "Alright, let me rephrase that a bit.",
+    "Got it — let's explore this from another direction.",
+    "Sure, let's dig into this a bit more.",
+    "Okay, let me ask you about this differently."
 ];
 
 export function getConversationalTransition(score = 70, stage = 'Technical', questionIndex = 1) {

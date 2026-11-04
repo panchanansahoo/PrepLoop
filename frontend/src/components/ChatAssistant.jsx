@@ -3,6 +3,12 @@ import { MessageSquare, X, Send, Trash2, Sparkles, Bot, User } from 'lucide-reac
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import { authFetch } from '../utils/authFetch';
+import {
+  AgentThoughtBadge,
+  ActionCardsContainer,
+  SuggestionPills,
+} from './AgentActionCards';
+import './AgentActionCards.css';
 
 import { API_URL } from '../config/api.js';
 const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
@@ -60,7 +66,16 @@ export default function ChatAssistant() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.response,
+            thoughtProcess: data.thoughtProcess || [],
+            actions: data.actions || [],
+            suggestions: data.suggestions || [],
+          }
+        ]);
         refreshBalance();
       } else {
         const data = await res.json().catch(() => ({}));
@@ -143,7 +158,47 @@ export default function ChatAssistant() {
                   {msg.role === 'user' ? <User size={14} /> : <Bot size={14} />}
                 </div>
                 <div className="chat-msg-content">
-                  {msg.content}
+                  {msg.role === 'assistant' && msg.thoughtProcess && msg.thoughtProcess.length > 0 && (
+                    <AgentThoughtBadge thoughts={msg.thoughtProcess} />
+                  )}
+                  <div className="chat-msg-text" style={{ whiteSpace: 'pre-wrap' }}>
+                    {msg.content}
+                  </div>
+                  {msg.role === 'assistant' && msg.actions && msg.actions.length > 0 && (
+                    <ActionCardsContainer actions={msg.actions} />
+                  )}
+                  {msg.role === 'assistant' && msg.suggestions && msg.suggestions.length > 0 && (
+                    <SuggestionPills
+                      suggestions={msg.suggestions}
+                      onSelectSuggestion={(sug) => {
+                        setInput('');
+                        setMessages(prev => [...prev, { role: 'user', content: sug }]);
+                        setLoading(true);
+                        authFetch(`${API_URL}/api/chat/message`, {
+                          method: 'POST',
+                          body: JSON.stringify({ message: sug }),
+                        })
+                          .then(res => res.json())
+                          .then(data => {
+                            setMessages(prev => [
+                              ...prev,
+                              {
+                                role: 'assistant',
+                                content: data.response,
+                                thoughtProcess: data.thoughtProcess || [],
+                                actions: data.actions || [],
+                                suggestions: data.suggestions || [],
+                              }
+                            ]);
+                            refreshBalance();
+                          })
+                          .catch(() => {
+                            setMessages(prev => [...prev, { role: 'assistant', content: 'Network error.' }]);
+                          })
+                          .finally(() => setLoading(false));
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             ))}

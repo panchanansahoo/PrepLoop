@@ -112,3 +112,34 @@ export function playWarningChime(muted = false) {
     }
 }
 
+
+/**
+ * Play a subtle, soft synthetic "thinking" sound (a very low, gentle warm hum/resonance)
+ * simulating an interviewer pondering or taking a quick note.
+ * Web Audio synthesized, zero network dependencies.
+ */
+export function playThinkingSound(muted = false) {
+    if (muted) return;
+    try {
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        const now = ctx.currentTime;
+        const gainNode = ctx.createGain();
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.025, now + 0.08);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        gainNode.connect(ctx.destination);
+
+        const osc = ctx.createOscillator();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(145, now);
+        osc.frequency.exponentialRampToValueAtTime(130, now + 0.45);
+        osc.connect(gainNode);
+
+        osc.start(now);
+        osc.stop(now + 0.45);
+    } catch {
+        // Fallback silently
+    }
+}

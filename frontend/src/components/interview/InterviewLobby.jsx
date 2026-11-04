@@ -243,6 +243,7 @@ function InterviewLobby({
     setupStep, setSetupStep,
     experienceLevel, setExperienceLevel,
     pacingMode = 'realistic', setPacingMode = () => {},
+    realisticJitter = false, setRealisticJitter = () => {},
     interviewType, setInterviewType,
     interviewerGender, setInterviewerGender,
     targetRole, setTargetRole,
@@ -774,6 +775,39 @@ function InterviewLobby({
                                             <span className="ai-setup-experience-desc">Generous think time. 20s nudge, 40s check-in, 5s auto-submit. Ideal for practice.</span>
                                         </div>
                                         {pacingMode === 'relaxed' && <CheckCircle size={22} className="ai-setup-experience-check" />}
+                                    </button>
+                                </div>
+                                <div style={{
+                                    marginTop: '16px',
+                                    padding: '12px 14px',
+                                    background: 'rgba(255, 255, 255, 0.03)',
+                                    borderRadius: '10px',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    gap: '12px'
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#f4f4f5' }}>Authentic Video Call Latency</div>
+                                        <div style={{ fontSize: '11px', color: '#a1a1aa' }}>Simulates realistic remote interview delays (500–1000ms latency & natural clarifies)</div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setRealisticJitter(!realisticJitter)}
+                                        style={{
+                                            padding: '4px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            fontWeight: 600,
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            background: realisticJitter ? '#6366f1' : 'rgba(255, 255, 255, 0.1)',
+                                            color: realisticJitter ? '#fff' : '#a1a1aa',
+                                            transition: 'all 0.15s ease'
+                                        }}
+                                    >
+                                        {realisticJitter ? 'Enabled' : 'Disabled'}
                                     </button>
                                 </div>
                             </div>

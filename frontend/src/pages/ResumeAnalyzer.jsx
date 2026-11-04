@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
@@ -96,6 +97,7 @@ function KeywordTag({ label, type }) {
 
 // ── Main Page ──
 export default function ResumeAnalyzer() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
 
@@ -1009,6 +1011,55 @@ export default function ResumeAnalyzer() {
                           )}
                         </div>
                       </div>
+
+                      {/* Targeted Practice CTA */}
+                      {(analysis.weaknesses?.length > 0 || analysis.keywordMatch?.missing?.length > 0) && (
+                        <div style={{
+                          marginTop: 20,
+                          padding: '14px 18px',
+                          borderRadius: 14,
+                          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                          border: '1px solid rgba(129, 140, 248, 0.3)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          flexWrap: 'wrap',
+                        }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Sparkles size={14} style={{ color: '#818cf8' }} /> Practice Identified Skill Gaps
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                              Launch an AI mock interview tailored to the areas identified above
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const targetSkills = (analysis.keywordMatch?.missing?.length > 0 ? analysis.keywordMatch.missing : analysis.weaknesses || []).slice(0, 3).join(', ');
+                              navigate(`/ai-interview?focus=${encodeURIComponent(targetSkills)}`);
+                            }}
+                            style={{
+                              padding: '7px 16px',
+                              borderRadius: 8,
+                              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                              border: 'none',
+                              color: '#fff',
+                              fontSize: 12,
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              whiteSpace: 'nowrap',
+                              boxShadow: '0 2px 10px rgba(99, 102, 241, 0.35)',
+                            }}
+                          >
+                            Start AI Interview <ArrowRight size={13} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1096,6 +1147,48 @@ export default function ResumeAnalyzer() {
                             <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>No missing keywords — great coverage!</span>
                           )}
                         </div>
+
+                        {analysis.keywordMatch?.missing?.length > 0 && (
+                          <div style={{
+                            marginTop: 14,
+                            padding: '12px 16px',
+                            borderRadius: 12,
+                            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.12))',
+                            border: '1px solid rgba(129, 140, 248, 0.3)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            flexWrap: 'wrap',
+                          }}>
+                            <div style={{ fontSize: 12, color: '#e2e8f0' }}>
+                              Want to practice questions about <strong style={{ color: '#c7d2fe' }}>{analysis.keywordMatch.missing.slice(0, 3).join(', ')}</strong>?
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetSkills = analysis.keywordMatch.missing.slice(0, 3).join(', ');
+                                navigate(`/ai-interview?focus=${encodeURIComponent(targetSkills)}`);
+                              }}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: 8,
+                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                border: 'none',
+                                color: '#fff',
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 5,
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              Practice in Mock Interview <ArrowRight size={12} />
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Keyword stats bar */}

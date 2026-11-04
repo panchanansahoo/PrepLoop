@@ -112,12 +112,12 @@ function withVoiceRequestId(headersInput = {}, prefix = "voice") {
 }
 
 const TRANSITION_PHRASES = [
-  "That's interesting.",
-  "Good point.",
-  "I appreciate you sharing that.",
-  "Thank you for that answer.",
-  "Alright, let's move on.",
-  "Great, noted.",
+  "Mm-hmm, got it.",
+  "Right, okay.",
+  "I see, yeah.",
+  "Alright.",
+  "Okay, noted.",
+  "Sure, makes sense.",
 ];
 
 function pickTransition() {
@@ -317,6 +317,7 @@ export function useVoiceAI({
   onTranscript = null,
   interviewType = "technical",
   personaGender = "female",
+  persona = null,
   question = "",
   enableInterrupt = true,
   getAuthHeaders = null,
@@ -385,6 +386,15 @@ export function useVoiceAI({
   });
 
   const questionRef = useRef(question);
+  const voicePersona = persona || (
+    ["coding", "dsa", "system-design", "data-science", "ai-llm"].includes(
+      String(interviewType || "").toLowerCase(),
+    )
+      ? "analytical"
+      : String(interviewType || "").toLowerCase() === "hr"
+        ? "formal"
+        : "friendly"
+  );
   useEffect(() => {
     questionRef.current = question;
   }, [question]);
@@ -462,7 +472,7 @@ export function useVoiceAI({
         const clips = {};
         for (const [key, dataUri] of Object.entries(data.clips)) {
           const audio = new Audio(dataUri);
-          audio.volume = 0.3;
+          audio.volume = 0.55; // Audible but doesn't overpower candidate
           clips[key] = audio;
         }
         backchannelRef.current = clips;
@@ -503,12 +513,45 @@ export function useVoiceAI({
   };
 
   const playBackchannel = useCallback(() => {
-    // Disabled filler backchanneling
+    const clips = backchannelRef.current;
+    if (!clips) return;
+    const now = Date.now();
+    if (now - lastBackchannelRef.current < BACKCHANNEL_GAP_MS) return;
+    // Pick clip intelligently based on transcript length
+    const text = (finalTextRef.current + ' ' + interimRef.current).trim();
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    let clipKey;
+    if (wordCount < 10) {
+      clipKey = ['goon', 'isee'][Math.floor(Math.random() * 2)];
+    } else if (wordCount > 80) {
+      clipKey = ['mmhmm', 'right', 'interesting'][Math.floor(Math.random() * 3)];
+    } else {
+      const keys = Object.keys(clips);
+      clipKey = keys[Math.floor(Math.random() * keys.length)];
+    }
+    const audio = clips[clipKey];
+    if (!audio) return;
+    lastBackchannelRef.current = now;
+    try {
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+    } catch { /* no-op */ }
   }, []);
 
   const startBackchannelSchedule = useCallback(() => {
-    // Disabled filler backchanneling
-  }, []);
+    clearBackchannelTimer();
+    if (!backchannelRef.current) return;
+    const scheduleNext = () => {
+      const delayMs = BACKCHANNEL_MIN_MS + Math.random() * (BACKCHANNEL_GAP_MS - BACKCHANNEL_MIN_MS);
+      backchannelTimerRef.current = setTimeout(() => {
+        if (!activeRef.current || stateRef.current !== 'listening') return;
+        const elapsed = Date.now() - listenStartRef.current;
+        if (elapsed >= BACKCHANNEL_MIN_MS) playBackchannel();
+        scheduleNext();
+      }, delayMs);
+    };
+    scheduleNext();
+  }, [playBackchannel]);
 
   const submitAnswer = useCallback(async (force = false, meta = {}) => {
     if (isSubmittingRef.current) return;
@@ -1414,7 +1457,7 @@ export function useVoiceAI({
         let blob;
         let cachedContentType = "";
         let isFallback = false;
-        const cacheKey = text.trim().slice(0, 200);
+        const cacheKey = `${personaGender}:${voicePersona}:${text.trim().slice(0, 200)}`;
 
         if (ttsCacheRef.current.has(cacheKey)) {
           console.log("[useVoiceAI] ✓ Using prefetched TTS audio");
@@ -1465,7 +1508,7 @@ export function useVoiceAI({
               headers: ttsRequest.headers,
               body: JSON.stringify({
                 text: spokenText,
-                persona: "friendly",
+                persona: voicePersona,
                 gender: personaGender,
               }),
               signal: controller.signal,
@@ -1695,13 +1738,13 @@ export function useVoiceAI({
         }
       }
     },
-    [personaGender, pickBrowserVoice, resolveAuthHeaders],
+    [personaGender, pickBrowserVoice, resolveAuthHeaders, voicePersona],
   );
 
   const prefetch = useCallback(
     (text) => {
       if (!text || !text.trim()) return null;
-      const cacheKey = text.trim().slice(0, 200);
+      const cacheKey = `${personaGender}:${voicePersona}:${text.trim().slice(0, 200)}`;
       if (ttsCacheRef.current.has(cacheKey)) return ttsCacheRef.current.get(cacheKey);
 
       const prefetchRequest = withVoiceRequestId(
@@ -1718,7 +1761,7 @@ export function useVoiceAI({
         headers: prefetchRequest.headers,
         body: JSON.stringify({
           text,
-          persona: "friendly",
+          persona: voicePersona,
           gender: personaGender,
         }),
       })
@@ -1759,7 +1802,7 @@ export function useVoiceAI({
       setTimeout(() => ttsCacheRef.current.delete(cacheKey), 60_000);
       return promise;
     },
-    [personaGender, resolveAuthHeaders],
+    [personaGender, resolveAuthHeaders, voicePersona],
   );
 
   const retryTranscription = useCallback(async () => {

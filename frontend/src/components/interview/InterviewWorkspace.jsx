@@ -1,9 +1,11 @@
-import { memo, useMemo, useEffect } from 'react';
+import { memo, useMemo, useState, useEffect, useCallback } from 'react';
 import Editor from '@monaco-editor/react';
+import WhiteboardPanel from './WhiteboardPanel';
+import { authFetch } from '../../utils/authFetch';
 import {
     Code2, Palette, FileText, ChevronDown, CheckCircle,
     Sparkles, RotateCcw, Mic, MicOff, Send,
-    AlertCircle, Clock, HelpCircle,
+    AlertCircle, Clock, HelpCircle, Play, Loader2, X,
 } from 'lucide-react';
 
 /**
@@ -63,6 +65,7 @@ function InterviewWorkspace({
     onSkipQuestion,
     onDoneAnswering,
     onDismissCheckIn,
+    onWhiteboardSnapshot,
 }) {
     // Keyboard shortcuts for candidates (Space = Done, R = Repeat, N = More time, Esc = Skip)
     useEffect(() => {
@@ -110,6 +113,41 @@ function InterviewWorkspace({
         renderLineHighlight: 'all',
         lineHeight: 20,
     }), []);
+
+    const [runningCode, setRunningCode] = useState(false);
+    const [execResult, setExecResult] = useState(null);
+
+    const handleRunCode = useCallback(async () => {
+        if (!code || !code.trim() || runningCode) return;
+        setRunningCode(true);
+        setExecResult(null);
+
+        try {
+            const res = await authFetch('/api/practice/execute', {
+                method: 'POST',
+                body: JSON.stringify({
+                    code,
+                    language: language === 'cpp' ? 'cpp' : language,
+                }),
+            });
+            const data = await res.json();
+            setExecResult({
+                success: Boolean(data?.success),
+                output: data?.output || '',
+                error: data?.error || '',
+                executionTime: data?.executionTime ?? null,
+            });
+        } catch (err) {
+            setExecResult({
+                success: false,
+                output: '',
+                error: err.message || 'Code execution failed',
+                executionTime: null,
+            });
+        } finally {
+            setRunningCode(false);
+        }
+    }, [code, language, runningCode]);
 
     return (
         <div className="ai-vc-workspace">
@@ -169,6 +207,18 @@ function InterviewWorkspace({
                                     <RotateCcw size={12} /> Reset
                                 </button>
                             </div>
+                            <div className="ai-editor-toolbar-right">
+                                <button
+                                    type="button"
+                                    className={`ai-run-code-btn ${runningCode ? 'is-running' : ''}`}
+                                    onClick={handleRunCode}
+                                    disabled={runningCode || !code || !code.trim()}
+                                    title="Run code against sandbox runner"
+                                >
+                                    {runningCode ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : <Play size={12} />}
+                                    <span>{runningCode ? 'Running...' : 'Run Code'}</span>
+                                </button>
+                            </div>
                         </div>
                         <div className="ai-editor-body">
                             <Editor
@@ -180,14 +230,45 @@ function InterviewWorkspace({
                                 options={editorOptions}
                             />
                         </div>
+                        {execResult && (
+                            <div className="ai-editor-exec-drawer" role="region" aria-label="Code execution output">
+                                <div className="ai-editor-exec-header">
+                                    <div className="ai-editor-exec-status">
+                                        {execResult.success ? (
+                                            <span className="status-badge status-badge--pass">
+                                                <CheckCircle size={11} /> Execution Passed
+                                            </span>
+                                        ) : (
+                                            <span className="status-badge status-badge--fail">
+                                                <AlertCircle size={11} /> Runtime Error
+                                            </span>
+                                        )}
+                                        {execResult.executionTime != null && (
+                                            <span className="status-meta">
+                                                <Clock size={11} /> {execResult.executionTime}ms
+                                            </span>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className="ai-editor-exec-close"
+                                        onClick={() => setExecResult(null)}
+                                        title="Close console"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                                <pre className={`ai-editor-exec-content ${execResult.success ? 'content--pass' : 'content--error'}`}>
+                                    {execResult.output ? execResult.output : (execResult.error || 'Program exited with no output.')}
+                                </pre>
+                            </div>
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'design' && (
-                    <div className="ai-design-canvas">
-                        <Palette size={48} />
-                        <p>Design Canvas — coming soon</p>
-                        <p className="ai-ws-design-sub">Draw system design diagrams here</p>
+                    <div className="ai-design-canvas" style={{ width: '100%', height: '100%', padding: 0 }}>
+                        <WhiteboardPanel onSnapshotChange={onWhiteboardSnapshot} />
                     </div>
                 )}
 

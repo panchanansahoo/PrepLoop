@@ -3,6 +3,12 @@ import { X, Send, Trash2, Sparkles, Bot, User, Mic, MicOff, Volume2, VolumeX } f
 import { useAuth } from '../context/AuthContext';
 import { useCoins } from '../context/CoinContext';
 import { authFetch } from '../utils/authFetch';
+import {
+  AgentThoughtBadge,
+  ActionCardsContainer,
+  SuggestionPills,
+} from './AgentActionCards';
+import './AgentActionCards.css';
 
 import { API_URL } from '../config/api.js';
 const CHAT_QUERY_COST = Number(import.meta.env.VITE_AI_CHAT_COIN_COST ?? 0);
@@ -252,7 +258,16 @@ export default function AIAssistantOrb() {
       });
       if (res.ok) {
         const data = await res.json();
-        setMessages(prev => [...prev, { role: 'assistant', content: data.response }]);
+        setMessages(prev => [
+          ...prev,
+          {
+            role: 'assistant',
+            content: data.response,
+            thoughtProcess: data.thoughtProcess || [],
+            actions: data.actions || [],
+            suggestions: data.suggestions || [],
+          }
+        ]);
         speakAssistantResponse(data.response);
         refreshBalance();
       } else {
@@ -625,7 +640,21 @@ export default function AIAssistantOrb() {
                   {msg.role === 'user' ? <User size={13} /> : <Bot size={13} />}
                 </div>
                 <div className="orb-chat-msg-bubble">
-                  {msg.content}
+                  {msg.role === 'assistant' && msg.thoughtProcess && msg.thoughtProcess.length > 0 && (
+                    <AgentThoughtBadge thoughts={msg.thoughtProcess} />
+                  )}
+                  <div className="orb-chat-msg-text" style={{ whiteSpace: 'pre-wrap' }}>
+                    {msg.content}
+                  </div>
+                  {msg.role === 'assistant' && msg.actions && msg.actions.length > 0 && (
+                    <ActionCardsContainer actions={msg.actions} />
+                  )}
+                  {msg.role === 'assistant' && msg.suggestions && msg.suggestions.length > 0 && (
+                    <SuggestionPills
+                      suggestions={msg.suggestions}
+                      onSelectSuggestion={(sug) => sendUserMessage(sug, { clearInput: true })}
+                    />
+                  )}
                 </div>
               </div>
             ))}

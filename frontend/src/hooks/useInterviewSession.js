@@ -17,7 +17,9 @@ import {
   playTurnChime,
   playSentChime,
   playWarningChime,
+  playThinkingSound,
 } from "../utils/interviewSounds";
+import useBackchannelPlayer from "./useBackchannelPlayer";
 import {
   BOILERPLATE,
   AI_INTERVIEW_GENDER_STORAGE_KEY,
@@ -97,6 +99,15 @@ function sanitizeOpeningQuestionText(text, stage) {
     }
   }
   return q.replace(/\s{2,}/g, " ").trim();
+}
+
+function getInterviewVoicePersona(interviewType) {
+  const normalizedType = String(interviewType || "").toLowerCase();
+  if (["coding", "dsa", "system-design", "data-science", "ai-llm"].includes(normalizedType)) {
+    return "analytical";
+  }
+  if (normalizedType === "hr") return "formal";
+  return "friendly";
 }
 
 export function useInterviewSession(options = {}) {
@@ -268,6 +279,13 @@ export function useInterviewSession(options = {}) {
   });
   const [interviewerVisibleMode, setInterviewerVisibleMode] =
     useState("listening");
+  const [interviewerMood, setInterviewerMood] = useState("neutral");
+  const [realisticJitter, setRealisticJitter] = useState(false);
+  const [whiteboardSnapshot, setWhiteboardSnapshot] = useState(null);
+  const wasRescuedRef = useRef(false);
+  const rescueCountRef = useRef(0);
+  const liveCodeReviewCountRef = useRef(0);
+  const lastLiveCodeReviewedRef = useRef("");
   const sendAnswerRef = useRef(null);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [cameraError, setCameraError] = useState(null);
@@ -340,6 +358,7 @@ export function useInterviewSession(options = {}) {
     }, []),
     interviewType,
     personaGender: interviewerGender,
+    persona: getInterviewVoicePersona(interviewType),
     question: currentQuestion,
     getAuthHeaders,
     isPaused,
@@ -478,6 +497,37 @@ export function useInterviewSession(options = {}) {
   const intelligence = useInterviewIntelligence({ getAuthHeaders });
   const isListening = voiceAI.state === "listening";
 
+  const backchannel = useBackchannelPlayer({
+    isListening,
+    aiSpeaking,
+    speakerMuted,
+    persona: "friendly",
+    gender: interviewerGender,
+    enabled: true,
+  });
+
+  // Soft backchannel audio triggers when candidate speaks substantive responses
+  useEffect(() => {
+    if (!isListening || aiSpeaking || speakerMuted) return;
+    const words = (transcript || "").trim().split(/\s+/).filter(Boolean).length;
+    if (words >= 15 && words % 25 === 0) {
+      backchannel.playBackchannel();
+    }
+  }, [transcript, isListening, aiSpeaking, speakerMuted, backchannel]);
+
+  // Thinking sound effect when server analysis takes > 1.5s (Phase 8B)
+  useEffect(() => {
+    let thinkingTimer = null;
+    if (loading && !speakerMuted) {
+      thinkingTimer = setTimeout(() => {
+        playThinkingSound(speakerMuted);
+      }, 1500);
+    }
+    return () => {
+      if (thinkingTimer) clearTimeout(thinkingTimer);
+    };
+  }, [loading, speakerMuted]);
+
 
 
   // Synchronize lifecycle state during active interview
@@ -549,6 +599,10 @@ export function useInterviewSession(options = {}) {
   const speakInterviewerText = useCallback(
     async (text) => {
       if (!text || speakerMuted) return;
+      if (realisticJitter) {
+        const jitterMs = Math.floor(Math.random() * 500) + 500;
+        await new Promise((r) => setTimeout(r, jitterMs));
+      }
       // Show a subtle thinking indicator while TTS audio is being fetched,
       // but do NOT start lip-sync/speaking video yet — that waits for actual audio playback.
       setInterviewerStatus("Preparing response...");
@@ -566,7 +620,7 @@ export function useInterviewSession(options = {}) {
         setInterviewerStatus("");
       }
     },
-    [voiceAI, speakerMuted],
+    [voiceAI, speakerMuted, realisticJitter],
   );
 
   const speakSequenceCancelledRef = useRef(false);
@@ -601,6 +655,7 @@ export function useInterviewSession(options = {}) {
 
   const handoffToCandidate = useCallback(() => {
     if (!isPausedRef.current && phaseRef.current === "interview") {
+      setTranscript("");
       // Prompt user immediately and give a clear auditory cue
       setAwaitingAnswer(true);
       playTurnChime(speakerMuted);
@@ -627,7 +682,7 @@ export function useInterviewSession(options = {}) {
         }
       }, 350);
     }
-  }, [startVoiceRecording, speakerMuted]);
+  }, [setTranscript, startVoiceRecording, speakerMuted]);
 
   // Once speech is actively detected or transcribed, dismiss the 'Your turn' cue smoothly
   useEffect(() => {
@@ -1632,6 +1687,21 @@ export function useInterviewSession(options = {}) {
       setPhase("interview");
       phaseRef.current = "interview";
       setLoading(false);
+
+      // Warm-up line: a short human greeting before Q1 — the most humanizing moment
+      // Makes the transition from "connecting" to "interview" feel natural
+      const warmupLines = {
+        Google: "Hey! I'm from the SWE team here at Google. Quick heads up — I'll be taking some notes as we go, totally normal. Alright, let's get started!",
+        Amazon: "Hi there! Before we jump in — just so you know, I'll be thinking about our Leadership Principles as we talk. No pressure, just context. Ready?",
+        Meta: "Hey, welcome! Super glad you could make it. We keep things pretty conversational here, so just think out loud as much as you can. Let's dive in!",
+        Microsoft: "Hi! Good to meet you. We like to keep these sessions collaborative, so feel free to ask clarifying questions anytime. Alright, let's get going!",
+        default: "Hey, good to meet you! Just to set expectations — I'll ask a few questions and I'm really interested in how you think, not just the final answer. Ready to start?",
+      };
+      const warmup = warmupLines[resolvedCompany] || warmupLines.default;
+      await speakInterviewerText(warmup);
+      // Brief natural pause after warm-up before first question
+      await new Promise(r => setTimeout(r, 600));
+
       await speakInterviewerText(questionText);
       handoffToCandidate();
     } catch (error) {
@@ -1683,6 +1753,8 @@ export function useInterviewSession(options = {}) {
       setLoading(false);
       setPhase("interview");
       phaseRef.current = "interview";
+      // Thinking pause before fallback question too
+      await new Promise(r => setTimeout(r, 800 + Math.random() * 400));
       await speakInterviewerText(fallbackQ);
       handoffToCandidate();
     }
@@ -1778,7 +1850,6 @@ export function useInterviewSession(options = {}) {
         },
       ]);
       setUserInput("");
-      setTranscript("");
       setLoading(true);
 
       const resolvedStage = STAGE_API_MAP[interviewType] || "Technical";
@@ -1841,6 +1912,11 @@ export function useInterviewSession(options = {}) {
           useRealQuestions: questionBankIdsRef.current.length > 0,
           questionBankIds: questionBankIdsRef.current,
           currentQuestionId: currentQuestionIdRef.current,
+          interviewerMood,
+          wasRescued: wasRescuedRef.current,
+          rescueCount: rescueCountRef.current,
+          cumulativeScores: conversation.filter((m) => m.role === 'feedback' && typeof m.score === 'number').map((m) => m.score),
+          whiteboardSnapshot: whiteboardSnapshot || undefined,
         };
 
         if (allAdminQuestionsRef.current?.length > 0 || questionSetCode) {
@@ -1867,13 +1943,32 @@ export function useInterviewSession(options = {}) {
 
         const data = await res.json();
         currentQuestionIdRef.current = data.questionMeta?.id || null;
+        if (data.interviewerMood) setInterviewerMood(data.interviewerMood);
         const feedbackScore = data.feedback?.score || data.score || 0;
         if (data.stageLabel) setStageLabel(data.stageLabel);
 
         const nextQ =
           data.followUpQuestion || data.nextQuestion || data.question;
         const closingRemark = data.closingRemark;
-        const isInterviewOver = data.complete === true;
+        const reachedQuestionLimit = questionIndexRef.current >= totalQuestions;
+        const isInterviewOver = data.complete === true || reachedQuestionLimit;
+
+        // Micro-coaching toast update (Phase 5B)
+        if (feedbackScore !== undefined) {
+          const scoreBand = feedbackScore >= 85 ? { level: 'strong', text: 'Strong Answer', color: 'green' }
+            : feedbackScore >= 70 ? { level: 'good', text: 'Good Response', color: 'yellow' }
+            : feedbackScore >= 55 ? { level: 'fair', text: 'Fair Attempt', color: 'orange' }
+            : { level: 'weak', text: 'Needs Improvement', color: 'red' };
+          const firstStrength = Array.isArray(data.strengths) && data.strengths[0] ? data.strengths[0] : null;
+          const firstImprovement = Array.isArray(data.improvements) && data.improvements[0] ? data.improvements[0] : null;
+          setScoreCue({
+            ...scoreBand,
+            score: feedbackScore,
+            strength: firstStrength,
+            improvement: firstImprovement,
+            questionIndex: questionIndexRef.current,
+          });
+        }
 
         // Per-answer feedback is part of the conversation so the sidebar,
         // results transcript, and /evaluate QA extraction all see it.
@@ -1918,44 +2013,63 @@ export function useInterviewSession(options = {}) {
             ? nextQ
             : fallbackQ;
 
-        const reaction = getInterviewerReaction(feedbackScore, interviewType);
-        const transitionPhrase = getConversationalTransition(feedbackScore, resolvedStage, questionIndexRef.current);
-        const spokenQuestion = transitionPhrase ? `${transitionPhrase} ${continueQ}` : continueQ;
-
-        if (!isInterviewOver) {
-          console.log(
-            "[Interview] Pre-fetching next question audio:",
-            spokenQuestion.substring(0, 50) + "...",
-          );
-          await voiceAI.prefetch(spokenQuestion);
+        // Dead-End Rescue Handling (Phase 3B)
+        if (data.rescueMode === true) {
+          wasRescuedRef.current = true;
+          rescueCountRef.current += 1;
+          const rescueQ = data.followUpQuestion || data.nextQuestion || continueQ;
+          setCurrentQuestion(rescueQ);
+          setConversation((prev) => [
+            ...prev,
+            { role: "interviewer", content: rescueQ, timestamp: Date.now(), isRescue: true },
+          ]);
+          setInterviewerStatus("Guiding you...");
+          setLoading(false);
+          const rescueMicro = data.microReaction || "No problem at all, let's break this down together.";
+          await speakSequence([rescueMicro, rescueQ], { pauseMs: 400 });
+          setInterviewerStatus("");
+          handoffToCandidate();
+          return;
         }
 
-        const speakAndHandoff = async (questionSegment, isEnding = false) => {
-          setLoading(false);
-          if (isEnding) {
-            await speakInterviewerText(questionSegment);
-            setTimeout(() => endInterview(), 1500);
-          } else {
-            await speakInterviewerText(questionSegment);
-            handoffToCandidate();
-          }
+        // Regular progression resets rescue and live code review counters
+        wasRescuedRef.current = false;
+        rescueCountRef.current = 0;
+        liveCodeReviewCountRef.current = 0;
+
+        const reaction = getInterviewerReaction(feedbackScore, interviewType);
+        const microReactions = {
+          high: ["That's a really solid answer.", "Nice, I like that.", "Good thinking on that one.", "Yeah, that makes a lot of sense."],
+          mid: ["Got it, thanks for walking me through that.", "Okay, I see where you're going.", "Alright, fair enough.", "Understood, that gives me good context."],
+          low: ["Okay, let's explore that a bit more.", "Alright, let's try a different angle.", "Got it, let me follow up on that.", "Okay, let's dig into this further."],
         };
+        const reactionPool = feedbackScore >= 80 ? microReactions.high : feedbackScore >= 55 ? microReactions.mid : microReactions.low;
+        const spokenMicroReaction = reactionPool[questionIndexRef.current % reactionPool.length];
+        const microToSpeak = data.microReaction || spokenMicroReaction;
+
+        if (!isInterviewOver) {
+          await voiceAI.prefetch(microToSpeak);
+          await voiceAI.prefetch(continueQ);
+        }
 
         if (isInterviewOver) {
-          const closingText =
-            data.closingRemark ||
-            closingRemark ||
-            "Great job today! Thank you for your time. We'll be in touch soon.";
-          await voiceAI.prefetch(closingText);
+          // Wrap-Up Ritual Multi-Part Closing (Phase 4B)
+          const closingSeq = Array.isArray(data.closingSequence) && data.closingSequence.length > 0
+            ? data.closingSequence
+            : [data.closingRemark || closingRemark || "Great job today! Thank you for your time. We'll be in touch soon."];
+          const fullClosingText = closingSeq.join(" ");
+          await voiceAI.prefetch(closingSeq[0]);
           setConversation((prev) => [
             ...prev,
             {
               role: "interviewer",
-              content: closingText,
+              content: fullClosingText,
               timestamp: Date.now(),
             },
           ]);
-          await speakAndHandoff(closingText, true);
+          setLoading(false);
+          await speakSequence(closingSeq, { pauseMs: 600 });
+          setTimeout(() => endInterview(), 1500);
         } else if (consecutiveSilentQuestions >= 3) {
           const earlyEndText =
             "I notice you might need more time to prepare. That's completely okay! Let's wrap up here. Thank you for your time today, and feel free to come back when you're ready. Best of luck with your preparation!";
@@ -1979,8 +2093,11 @@ export function useInterviewSession(options = {}) {
             { role: "interviewer", content: continueQ, timestamp: Date.now() },
           ]);
           setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
-          await speakAndHandoff(spokenQuestion);
+          setLoading(false);
+          // Micro-reaction spoken BEFORE the next question with 400ms pause (Phase 1B)
+          await speakSequence([microToSpeak, continueQ], { pauseMs: 400 });
           setInterviewerStatus("");
+          handoffToCandidate();
         }
       } catch (error) {
         submittedQuestionKeyRef.current = null;
@@ -2039,6 +2156,8 @@ export function useInterviewSession(options = {}) {
           const spokenFallback = transitionPhrase ? `${transitionPhrase} ${fallbackQ}` : fallbackQ;
           await voiceAI.prefetch(spokenFallback);
           setLoading(false);
+          // Thinking pause even on fallback path
+          await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
           await speakInterviewerText(spokenFallback);
           handoffToCandidate();
         }
@@ -2394,9 +2513,36 @@ export function useInterviewSession(options = {}) {
       setTranscript("");
       if (isListeningRef.current) stopVoiceRecording();
 
-      const clarification = currentQuestion
-        ? `Good clarification. For this answer, focus on what the question is asking and walk me through your reasoning. I'll repeat it: ${currentQuestion}`
-        : "Good clarification. Please answer with your reasoning, assumptions, and a concrete example if possible.";
+      setInterviewerStatus("Clarifying...");
+      let spokenClarification = currentQuestion
+        ? `Good clarification. Focus on the core constraints and walk me through your reasoning. I'll repeat the question: ${currentQuestion}`
+        : "Good clarification. Please proceed with your reasoning and assumptions.";
+      let textClarification = spokenClarification;
+
+      try {
+        const clarifyRes = await authFetch("/api/company-interview/clarify", {
+          method: "POST",
+          body: JSON.stringify({
+            clarificationQuestion: trimmedQuestion,
+            currentQuestion,
+            context: stageLabel,
+            company: targetCompany || "Google",
+            role: targetRole || "Software Engineer",
+            stage: stageLabel,
+          }),
+        });
+        if (clarifyRes.ok) {
+          const clarifyData = await clarifyRes.json();
+          textClarification = clarifyData.clarification || textClarification;
+          spokenClarification = clarifyData.spokenClarification || textClarification;
+          if (clarifyData.restateQuestion && currentQuestion) {
+            spokenClarification = `${spokenClarification} To restate: ${currentQuestion}`;
+          }
+        }
+      } catch {
+        // Fallback to local default
+      }
+      setInterviewerStatus("");
 
       setConversation((prev) => [
         ...prev,
@@ -2411,22 +2557,80 @@ export function useInterviewSession(options = {}) {
         },
         {
           role: "clarification",
-          content: clarification,
+          content: textClarification,
           timestamp: Date.now(),
         },
       ]);
 
-      await speakInterviewerText(clarification);
+      await speakInterviewerText(spokenClarification);
       handoffToCandidate();
     },
     [
       currentQuestion,
+      stageLabel,
+      targetCompany,
+      targetRole,
       handoffToCandidate,
       speakInterviewerText,
       stopVoiceRecording,
       setTranscript,
     ],
   );
+
+  // Live Code Review During Coding Questions (Phase 7A)
+  useEffect(() => {
+    const isCodingStage = stageLabel === "DSA / Coding" || interviewType === "coding" || interviewType === "dsa";
+    if (!isCodingStage) return;
+    if (!code || code.trim().length < 25 || loading || isListening || aiSpeaking) return;
+    if (liveCodeReviewCountRef.current >= 2) return;
+    if (code === lastLiveCodeReviewedRef.current) return;
+
+    const timer = setTimeout(async () => {
+      if (loading || isListening || aiSpeaking || liveCodeReviewCountRef.current >= 2) return;
+      lastLiveCodeReviewedRef.current = code;
+      try {
+        const res = await authFetch("/api/company-interview/code-review-live", {
+          method: "POST",
+          body: JSON.stringify({
+            code,
+            language,
+            currentQuestion,
+            company: targetCompany || "Google",
+            role: targetRole || "Software Engineer",
+          }),
+        });
+        if (!res.ok) return;
+        const d = await res.json();
+        if (d?.observation && !aiSpeaking && !isListeningRef.current) {
+          liveCodeReviewCountRef.current += 1;
+          await speakInterviewerText(d.observation);
+        }
+      } catch {
+        // Silent fallback
+      }
+    }, 8000);
+
+    return () => clearTimeout(timer);
+  }, [code, stageLabel, interviewType, loading, isListening, aiSpeaking, currentQuestion, language, targetCompany, targetRole, speakInterviewerText]);
+
+  // Session Quality & Interview Realism Score (Phase 8C)
+  const calculateRealismScore = useCallback(() => {
+    const candidateTurns = conversation.filter((m) => m.role === "candidate" && !m.isSkipped);
+    if (candidateTurns.length === 0) return 75;
+
+    let score = 95;
+    const lengths = candidateTurns.map((t) => (t.content || "").split(/\s+/).filter(Boolean).length);
+    const shortAnswers = lengths.filter((l) => l < 18).length;
+    score -= shortAnswers * 5;
+
+    const fillers = Number(intelligence?.totalFillers || 0);
+    if (fillers > 8) score -= Math.min(15, (fillers - 8) * 2);
+
+    const completedRatio = Math.min(1, questionIndexRef.current / (totalQuestions || 1));
+    score = Math.round(score * (0.6 + 0.4 * completedRatio));
+
+    return Math.max(45, Math.min(98, score));
+  }, [conversation, intelligence?.totalFillers, totalQuestions]);
 
   const startAnswer = useCallback(() => {
     setAwaitingAnswer(false);
@@ -2514,6 +2718,10 @@ export function useInterviewSession(options = {}) {
       candidateEmail,
       candidateName,
       submissionStatus,
+      interviewerMood,
+      realisticJitter,
+      whiteboardSnapshot,
+      realismScore: calculateRealismScore(),
     },
     refs: {
       voiceHookRef,
@@ -2567,6 +2775,9 @@ export function useInterviewSession(options = {}) {
       setUserInput,
       setInterviewerStatus,
       setSilenceStage,
+      setInterviewerMood,
+      setRealisticJitter,
+      setWhiteboardSnapshot,
       setSetupStep,
       setExperienceLevel,
       setTargetRole,
