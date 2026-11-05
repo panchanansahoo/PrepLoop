@@ -11,6 +11,7 @@ import {
   getQuestionTimeLimit,
   getModeConfig,
   logInterviewTelemetry,
+  recordTurnEvent,
   PACING_MODES,
 } from "../pages/aiInterviewTiming";
 import {
@@ -89,7 +90,7 @@ function sanitizeOpeningQuestionText(text, stage) {
     q = q.replace(pattern, "").trim();
   }
 
-  const hasRealQuestion = /(introduce yourself|tell me about yourself|walk me through|what brings you|how would you|given an?|design an?|explain the)/i.test(q);
+  const hasRealQuestion = /(introduce yourself|tell me about|walk me through|can you|could you|describe|what brings you|how would you|given an?|design an?|explain|share with me|let's start|to begin|what is|how do you)/i.test(q);
   if (!hasRealQuestion || (!q.endsWith("?") && !q.endsWith("."))) {
     const stageLower = String(stage || "").toLowerCase();
     if (stageLower.includes("behavioral") || stageLower.includes("hr")) {
@@ -298,6 +299,17 @@ export function useInterviewSession(options = {}) {
 
 
   const isSendingRef = useRef(false);
+  const followUpAbortControllerRef = useRef(null);
+  const currentTurnEvalAbortControllerRef = useRef(null);
+  const currentTurnIdRef = useRef(0);
+  const latestCompletedScoreRef = useRef(null);
+  const completedScoresRef = useRef([]);
+  const totalTurnsCountRef = useRef(0);
+  const resumedTurnsCountRef = useRef(0);
+  const sttEndedAtRef = useRef(0);
+  const lastSpeechDetectedAtRef = useRef(0);
+  const pendingEvalPromiseRef = useRef(null);
+  const pendingEvalsRef = useRef([]);
   const submittedQuestionKeyRef = useRef(null);
   const ttsAudioRef = useRef(null);
   // Holds the latest voice answer text so sendAnswer can read it synchronously
@@ -327,9 +339,91 @@ export function useInterviewSession(options = {}) {
     setTranscriptRaw(typeof val === "function" ? val : val || "");
   }, []);
 
+  const speculativeFastReplyRef = useRef(null);
+  const speculativeAbortControllerRef = useRef(null);
+  const speculativePromiseRef = useRef(null);
+  const handleSpeculativeCandidateAnswerRef = useRef(null);
+  const abortSpeculativeRef = useRef(null);
+  const speculativeHitsRef = useRef(0);
+  const speculativeDiscardsRef = useRef(0);
+  const [degradationMode, setDegradationMode] = useState("normal");
+  const [speculationAllowed, setSpeculationAllowed] = useState(true);
+  const [candidatePacingOffset, setCandidatePacingOffset] = useState(0);
+  const candidatePausesRef = useRef([]);
+  const turnsSinceLastBackchannelRef = useRef(3);
+  const [isStillListening, setIsStillListening] = useState(false);
+
   const voiceAI = useVoiceAI({
     pacingMode,
+    stage: STAGE_API_MAP[interviewType] || "Technical",
+    candidatePacingOffset,
+    onResumeSpeech: useCallback((previousAnswer) => {
+      console.log("[Interview] Speech resumed in 2s resume window! Aborting pending follow-up and stopping audio.");
+      resumedTurnsCountRef.current += 1;
+      const totalTurns = Math.max(1, totalTurnsCountRef.current);
+      const resumeRate = (resumedTurnsCountRef.current / totalTurns) * 100;
+      logInterviewTelemetry("turn_resume_rate", {
+        resumeRate,
+        resumedTurns: resumedTurnsCountRef.current,
+        totalTurns,
+      });
+      if (resumeRate > 15) {
+        console.warn(`[Interview Telemetry] Turn resume rate is high (${resumeRate.toFixed(1)}%). Consider lengthening silence thresholds.`);
+      }
+
+      if (currentTurnEvalAbortControllerRef.current) {
+        currentTurnEvalAbortControllerRef.current.abort();
+        currentTurnEvalAbortControllerRef.current = null;
+      }
+      if (followUpAbortControllerRef.current) {
+        followUpAbortControllerRef.current.abort();
+        followUpAbortControllerRef.current = null;
+      }
+      abortSpeculativeRef.current?.();
+
+      const cancelledTurnId = currentTurnIdRef.current;
+      pendingEvalsRef.current = (pendingEvalsRef.current || []).filter((e) => e.id !== cancelledTurnId);
+      pendingEvalPromiseRef.current = null;
+
+      // Roll back interviewer reply and candidate message for this cancelled turn
+      setConversation((prev) => prev.filter((m) => m.turnId !== cancelledTurnId));
+
+      speakSequenceCancelledRef.current = true;
+      voiceHookRef.current?.interrupt?.();
+      voiceHookRef.current?.stopImmediateBackchannel?.();
+      if (ttsAudioRef.current) {
+        try {
+          ttsAudioRef.current.pause();
+          ttsAudioRef.current.currentTime = 0;
+        } catch { /* no-op */ }
+        ttsAudioRef.current = null;
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+      setAiSpeaking(false);
+      setLoading(false);
+      setInterviewerStatus("");
+      pendingVoiceAnswerRef.current = previousAnswer;
+      setTranscriptRaw(previousAnswer);
+    }, []),
     onAnswer: useCallback((answerText, meta = {}) => {
+      sttEndedAtRef.current = Date.now();
+      const lastSpeechTime = meta?.lastSpeechAt || lastSpeechTimestampRef.current || Date.now();
+      lastSpeechDetectedAtRef.current = lastSpeechTime;
+      const pauseSample = Date.now() - lastSpeechTime;
+      if (pauseSample > 300 && pauseSample < 8000) {
+        candidatePausesRef.current.push(pauseSample);
+        if (candidatePausesRef.current.length > 5) candidatePausesRef.current.shift();
+        const avgPause = candidatePausesRef.current.reduce((a, b) => a + b, 0) / candidatePausesRef.current.length;
+        if (avgPause > 2400) {
+          setCandidatePacingOffset(350);
+        } else if (avgPause < 1300) {
+          setCandidatePacingOffset(-200);
+        } else {
+          setCandidatePacingOffset(0);
+        }
+      }
       const priorAnswer = pendingVoiceAnswerRef.current.trim();
       const completeAnswer = [priorAnswer, (answerText || "").trim()].filter(Boolean).join(" ");
       pendingVoiceAnswerRef.current = "";
@@ -362,7 +456,10 @@ export function useInterviewSession(options = {}) {
     question: currentQuestion,
     getAuthHeaders,
     isPaused,
+    onSpeculativeCandidateAnswer: (text) => handleSpeculativeCandidateAnswerRef.current?.(text),
+    onAbortSpeculative: () => abortSpeculativeRef.current?.(),
   });
+  voiceHookRef.current = voiceAI;
 
   const updateLifecycle = useCallback((nextState, reason = "") => {
     if (lifecycleStateRef.current !== nextState) {
@@ -626,21 +723,28 @@ export function useInterviewSession(options = {}) {
   const speakSequenceCancelledRef = useRef(false);
   const speakSequence = useCallback(
     async (segments, { pauseMs = 150 } = {}) => {
-      if (!segments || segments.length === 0 || speakerMuted) return;
-      speakSequenceCancelledRef.current = false;
+      if (!segments || segments.length === 0 || speakerMuted || speakSequenceCancelledRef.current) return;
       // Don't set aiSpeaking here — let voiceAI.speak's onStart fire it when audio plays
       try {
-        for (let i = 0; i < segments.length; i++) {
-          if (speakSequenceCancelledRef.current) break;
-          const text = segments[i];
-          if (!text || !text.trim()) continue;
-          await voiceAI.speak(text, {
+        recordTurnEvent(questionIndexRef.current, "audio_playback_started", { segmentsCount: segments.length });
+        if (typeof voiceAI.speakGaplessSequence === "function") {
+          await voiceAI.speakGaplessSequence(segments, {
             onStart: () => setAiSpeaking(true),
-            onEnd: () => {},
           });
-          if (i < segments.length - 1 && pauseMs > 0) {
+        } else {
+          for (let i = 0; i < segments.length; i++) {
             if (speakSequenceCancelledRef.current) break;
-            await new Promise((r) => setTimeout(r, pauseMs));
+            const text = segments[i];
+            if (!text || !text.trim()) continue;
+            await voiceAI.speak(text, {
+              onStart: () => setAiSpeaking(true),
+              onEnd: () => {},
+            });
+            if (speakSequenceCancelledRef.current) break;
+            if (i < segments.length - 1 && pauseMs > 0) {
+              await new Promise((r) => setTimeout(r, pauseMs));
+            }
+            if (speakSequenceCancelledRef.current) break;
           }
         }
       } finally {
@@ -911,6 +1015,77 @@ export function useInterviewSession(options = {}) {
   const [activeResumeContext, setActiveResumeContext] = useState(null);
   const [resumeParseError, setResumeParseError] = useState(null);
 
+  const abortSpeculative = useCallback(() => {
+    if (speculativeAbortControllerRef.current) {
+      speculativeAbortControllerRef.current.abort();
+      speculativeAbortControllerRef.current = null;
+      speculativeDiscardsRef.current += 1;
+    }
+    speculativeFastReplyRef.current = null;
+    speculativePromiseRef.current = null;
+  }, []);
+  abortSpeculativeRef.current = abortSpeculative;
+
+  const handleSpeculativeCandidateAnswer = useCallback((textSoFar) => {
+    if (!textSoFar || textSoFar.length < 15) return;
+    // Skip speculative prefetch in Lite, Minimal, and Waitlist degradation modes to preserve zero-cost token budget
+    if (!speculationAllowed || degradationMode === "lite" || degradationMode === "minimal" || degradationMode === "waitlist") {
+      return;
+    }
+    const cleanText = textSoFar.trim();
+    if (speculativeFastReplyRef.current?.answer === cleanText) return;
+    if (isSendingRef.current || speakSequenceCancelledRef.current) return;
+
+    if (speculativeAbortControllerRef.current) {
+      speculativeAbortControllerRef.current.abort();
+      speculativeAbortControllerRef.current = null;
+      speculativeDiscardsRef.current += 1;
+    }
+
+    const controller = new AbortController();
+    speculativeAbortControllerRef.current = controller;
+
+    const resolvedStage = STAGE_API_MAP[interviewType] || "Technical";
+    const resolvedCompany = targetCompany || "Google";
+    const resolvedRole = targetRole || "Software Engineer";
+
+    const payload = {
+      previousQuestion: currentQuestion,
+      userAnswer: cleanText,
+      questionNumber: questionIndexRef.current + 1,
+      totalQuestions,
+      company: resolvedCompany,
+      role: resolvedRole,
+      stage: resolvedStage,
+      lastScore: latestCompletedScoreRef.current,
+      cumulativeScores: completedScoresRef.current,
+    };
+
+    speculativePromiseRef.current = authFetch("/api/company-interview/fast-reply", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        if (controller.signal.aborted) return null;
+        if (res && res.ok) {
+          const resData = await res.json();
+          if (!controller.signal.aborted) {
+            speculativeFastReplyRef.current = { answer: cleanText, data: resData, timestamp: Date.now() };
+            return resData;
+          }
+        }
+        return null;
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          console.warn("[Interview Speculative] Prefetch aborted or failed:", err.message);
+        }
+        return null;
+      });
+  }, [currentQuestion, totalQuestions, interviewType, targetCompany, targetRole]);
+  handleSpeculativeCandidateAnswerRef.current = handleSpeculativeCandidateAnswer;
+
   useEffect(() => {
     setTotalQuestions(13);
   }, [experienceLevel]);
@@ -979,6 +1154,52 @@ export function useInterviewSession(options = {}) {
   const analysisRequestIdRef = useRef(0);
 
   const generateAnalysis = useCallback(async () => {
+    // Flush any pending evaluations with 10s timeout + 1 retry so the final report incorporates every turn score
+    if (pendingEvalsRef.current && pendingEvalsRef.current.length > 0) {
+      const itemsToFlush = [...pendingEvalsRef.current];
+      const promises = itemsToFlush.map((item) => item.promise || item);
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Timeout")), 10000)
+      );
+
+      try {
+        await Promise.race([Promise.allSettled(promises), timeoutPromise]);
+      } catch {
+        console.warn("[Interview] Pending eval flush timed out; running 1 retry...");
+        try {
+          await Promise.allSettled(promises);
+        } catch { /* ignore */ }
+      }
+
+      // Mark any still-unscored turn as "not scored"
+      const currentConversation = stateRefs?.current?.conversation || conversation;
+      const scoredTurns = new Set(
+        currentConversation
+          .filter((m) => m.role === "feedback" && typeof m.score === "number")
+          .map((m) => m.turnId)
+      );
+
+      for (const item of itemsToFlush) {
+        if (item.id && !scoredTurns.has(item.id)) {
+          setConversation((prev) => [
+            ...prev,
+            {
+              role: "feedback",
+              turnId: item.id,
+              score: null,
+              isUnscored: true,
+              status: "not_scored",
+              content: "Turn evaluation timed out.",
+              strengths: [],
+              improvements: [],
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+      }
+      pendingEvalsRef.current = [];
+      pendingEvalPromiseRef.current = null;
+    }
     // Ignore a late response from an evaluation for a previous interview.
     const requestId = ++analysisRequestIdRef.current;
     const totalMessages = conversation.length;
@@ -1293,6 +1514,13 @@ export function useInterviewSession(options = {}) {
       sendAnswerRef.current &&
       !isSendingRef.current
     ) {
+      // If candidate is actively speaking into mic, grant wrap-up grace period up to 25s
+      const isSpeaking = voiceAI.inputActive || (voiceAI.inputLevel && voiceAI.inputLevel > 0.05);
+      const hardCeiling = limit + 25;
+      if (isSpeaking && questionElapsed < hardCeiling) {
+        setInterviewerStatus("Time is up — please wrap up your thought");
+        return;
+      }
       console.info(
         `[AI Interview] Per-question timer expired for Q${questionIndex} (${formatTime(limit)}). Auto-submitting.`,
       );
@@ -1683,6 +1911,12 @@ export function useInterviewSession(options = {}) {
       }
 
       const data = await res.json();
+      if (data.degradationMode) {
+        setDegradationMode(data.degradationMode);
+      }
+      if (data.speculationAllowed !== undefined) {
+        setSpeculationAllowed(data.speculationAllowed);
+      }
       if (data.questionSetId) {
         customQuestionSetRef.current = {
           ...(customQuestionSetRef.current || {}),
@@ -1799,7 +2033,27 @@ export function useInterviewSession(options = {}) {
     if (isSendingRef.current) return;
     isSendingRef.current = true;
     setAnswerReview(false);
+    speakSequenceCancelledRef.current = false;
+    totalTurnsCountRef.current += 1;
+    const turnId = ++currentTurnIdRef.current;
     try {
+      // Await eval N-1 before next turn's difficulty and completion decision
+      if (pendingEvalPromiseRef.current) {
+        try {
+          const prevEvalRes = await pendingEvalPromiseRef.current;
+          if (prevEvalRes && typeof prevEvalRes.score === "number") {
+            latestCompletedScoreRef.current = prevEvalRes.score;
+          }
+        } catch (err) {
+          console.warn("[Interview] Prior eval settled with error:", err);
+        }
+        pendingEvalPromiseRef.current = null;
+      }
+      if (speakSequenceCancelledRef.current) {
+        isSendingRef.current = false;
+        return;
+      }
+
       playSentChime(speakerMuted);
       if (questionTimerRef.current) {
         clearInterval(questionTimerRef.current);
@@ -1871,6 +2125,7 @@ export function useInterviewSession(options = {}) {
         ...prev,
         {
           role: "candidate",
+          turnId,
           content: isSkippedQuestion
             ? (skipReason === "user_skipped" ? "[Question skipped by candidate]" : "[No response - question timed out]")
             : (answer || "[Code submitted]"),
@@ -1961,22 +2216,154 @@ export function useInterviewSession(options = {}) {
           followUpPayload.attemptId = customAttemptIdRef.current;
         }
 
-        const res = await authFetch("/api/company-interview/follow-up", {
-          method: "POST",
-          body: JSON.stringify(followUpPayload),
-        });
+        followUpPayload.lastScore = latestCompletedScoreRef.current;
+        followUpPayload.cumulativeScores = completedScoresRef.current;
 
-        if (!res.ok) {
-          logAPIError(
-            "/api/company-interview/follow-up",
-            "follow-up-http",
-            res,
-            { stage: resolvedStage, questionIndex, experienceLevel },
-          );
-          throw createHttpError(res.status, res.statusText);
+        let data = null;
+        const finalAnswerTrimmed = (fullAnswer || "").trim();
+        const speculatedAnswerTrimmed = (speculativeFastReplyRef.current?.answer || "").trim();
+
+        // STRICT EXACT TRANSCRIPT COMPARISON:
+        // If final transcript differs from speculated text by even a single character,
+        // discard the speculative prefetch immediately and regenerate with complete transcript!
+        if (
+          speculativeFastReplyRef.current &&
+          speculatedAnswerTrimmed === finalAnswerTrimmed &&
+          Date.now() - speculativeFastReplyRef.current.timestamp < 12000
+        ) {
+          console.log("[Interview] ⚡ Speculative Fast-Reply HIT (Exact transcript match)! Reusing pre-generated spoken response.");
+          data = speculativeFastReplyRef.current.data;
+          speculativeHitsRef.current += 1;
+        } else {
+          if (speculativeFastReplyRef.current) {
+            console.log("[Interview] 🔄 Speculative Fast-Reply DISCARDED: transcript changed after mid-pause. Regenerating.");
+            speculativeDiscardsRef.current += 1;
+          }
+        }
+        abortSpeculative();
+
+        let deadAirTimer = null;
+        if (!data) {
+          deadAirTimer = setTimeout(() => {
+            if (isSendingRef.current && !speakSequenceCancelledRef.current) {
+              if (turnsSinceLastBackchannelRef.current >= 3) {
+                console.log("[Interview] Reply taking >1s, firing immediate backchannel clip (capped 1 per 3 turns)");
+                recordTurnEvent(questionIndexRef.current, "backchannel_started");
+                voiceAI.playImmediateBackchannel?.('mmhmm');
+                turnsSinceLastBackchannelRef.current = 0;
+              }
+            }
+          }, 1000);
         }
 
-        const data = await res.json();
+        if (!data) {
+          followUpAbortControllerRef.current = new AbortController();
+          let res = await authFetch("/api/company-interview/fast-reply", {
+            method: "POST",
+            body: JSON.stringify(followUpPayload),
+            signal: followUpAbortControllerRef.current.signal,
+          }).catch(() => null);
+
+          if (!res || !res.ok) {
+            res = await authFetch("/api/company-interview/follow-up", {
+              method: "POST",
+              body: JSON.stringify(followUpPayload),
+              signal: followUpAbortControllerRef.current.signal,
+            });
+          }
+
+          if (speakSequenceCancelledRef.current) {
+            isSendingRef.current = false;
+            return;
+          }
+
+          if (deadAirTimer) clearTimeout(deadAirTimer);
+          recordTurnEvent(questionIndexRef.current, "reply_llm_ready");
+          if (!res.ok) {
+            logAPIError(
+              "/api/company-interview/follow-up",
+              "follow-up-http",
+              res,
+              { stage: resolvedStage, questionIndex, experienceLevel },
+            );
+            throw createHttpError(res.status, res.statusText);
+          }
+
+          data = await res.json();
+        }
+
+        if (data?.interviewerNotice) {
+          setConversation((prev) => [
+            ...prev,
+            {
+              role: "system",
+              content: data.interviewerNotice,
+              timestamp: Date.now(),
+            },
+          ]);
+        }
+
+        if (speakSequenceCancelledRef.current) {
+          isSendingRef.current = false;
+          return;
+        }
+
+        // Launch decoupled turn evaluation asynchronously in the background
+        const evalCtrl = new AbortController();
+        currentTurnEvalAbortControllerRef.current = evalCtrl;
+        const turnEvalPromise = authFetch("/api/company-interview/evaluate-turn", {
+          method: "POST",
+          body: JSON.stringify({
+            company: resolvedCompany,
+            role: resolvedRole,
+            stage: resolvedStage,
+            previousQuestion: currentQuestion,
+            userAnswer: fullAnswer,
+            code: currentCode || undefined,
+            codeLanguage: language,
+            questionNumber: questionIndexRef.current,
+            interviewerMood,
+          }),
+          signal: evalCtrl.signal,
+        })
+          .then(async (evalRes) => {
+            if (!evalRes.ok) throw new Error(`Eval error ${evalRes.status}`);
+            const evalData = await evalRes.json();
+            if (evalData && typeof evalData.score === "number" && !evalData.isEstimated) {
+              latestCompletedScoreRef.current = evalData.score;
+              completedScoresRef.current.push(evalData.score);
+            }
+            if (!speakSequenceCancelledRef.current) {
+              setConversation((prev) => [
+                ...prev,
+                {
+                  role: "feedback",
+                  turnId,
+                  content: evalData.feedback || (evalData.isEstimated ? "Answer recorded (Estimated score)." : "Answer recorded."),
+                  score: evalData.score,
+                  isEstimated: evalData.isEstimated === true,
+                  status: evalData.status || (evalData.isEstimated ? "estimated" : "scored"),
+                  evalModelUsed: evalData.evalModelUsed,
+                  strengths: Array.isArray(evalData.strengths) ? evalData.strengths : [],
+                  improvements: Array.isArray(evalData.improvements) ? evalData.improvements : [],
+                  hint: evalData.hint || "",
+                  reaction: evalData.interviewerReaction || null,
+                  timestamp: Date.now(),
+                },
+              ]);
+            }
+            return evalData;
+          })
+          .catch((err) => {
+            if (err.name !== "AbortError") {
+              console.warn("[Interview] Async turn eval failed:", err.message);
+            }
+            return null;
+          });
+
+        pendingEvalPromiseRef.current = turnEvalPromise;
+        pendingEvalsRef.current.push({ id: turnId, promise: turnEvalPromise, controller: evalCtrl });
+
         currentQuestionIdRef.current = data.questionMeta?.id || null;
         if (data.interviewerMood) setInterviewerMood(data.interviewerMood);
         const feedbackScore = data.feedback?.score || data.score || 0;
@@ -2061,6 +2448,8 @@ export function useInterviewSession(options = {}) {
           setInterviewerStatus("Guiding you...");
           setLoading(false);
           const rescueMicro = data.microReaction || "No problem at all, let's break this down together.";
+          await voiceAI.waitForBackchannel?.();
+          if (speakSequenceCancelledRef.current) return;
           await speakSequence([rescueMicro, rescueQ], { pauseMs: 400 });
           setInterviewerStatus("");
           handoffToCandidate();
@@ -2083,8 +2472,9 @@ export function useInterviewSession(options = {}) {
         const microToSpeak = data.microReaction || spokenMicroReaction;
 
         if (!isInterviewOver) {
-          await voiceAI.prefetch(microToSpeak);
-          await voiceAI.prefetch(continueQ);
+          // Concurrent prefetch: pipeline the next question in the background
+          // so it's ready while the micro-reaction is already speaking aloud
+          voiceAI.prefetch(continueQ).catch(() => {});
         }
 
         if (isInterviewOver) {
@@ -2120,21 +2510,45 @@ export function useInterviewSession(options = {}) {
           await speakInterviewerText(earlyEndText);
           setTimeout(() => endInterview(), 1500);
         } else {
+          setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
+          setLoading(false);
+          const speechAnchor = lastSpeechDetectedAtRef.current || sttEndedAtRef.current || Date.now();
+          const lastSpeechToFirstAudioLatencyMs = Date.now() - speechAnchor;
+          // Don't log a latency sample for turns cancelled by resume
+          if (!speakSequenceCancelledRef.current && lastSpeechToFirstAudioLatencyMs > 0) {
+            console.log(`[Interview Latency] Q${questionIndexRef.current} last-speech to first-audio: ${lastSpeechToFirstAudioLatencyMs}ms`);
+            logInterviewTelemetry("last_speech_to_first_audio_latency", { latencyMs: lastSpeechToFirstAudioLatencyMs, questionIndex: questionIndexRef.current });
+          }
+
+          // Micro-reaction spoken BEFORE the next question with 400ms pause (Phase 1B)
+          speakSequenceCancelledRef.current = false;
+          await voiceAI.waitForBackchannel?.();
+          if (speakSequenceCancelledRef.current) return;
+          await speakSequence([microToSpeak, continueQ], { pauseMs: 400 });
+          turnsSinceLastBackchannelRef.current += 1;
+
+          // If speech was resumed during audio playback, DO NOT advance question counter or commit new question!
+          if (speakSequenceCancelledRef.current) {
+            console.log("[Interview] Audio playback cancelled by candidate speech resumption. Retaining current question and counter.");
+            return;
+          }
+
           setCurrentQuestion(continueQ);
           setQuestionIndex((prev) => prev + 1);
+          voiceAI.resetVoicePinning?.();
           submittedQuestionKeyRef.current = null;
           setConversation((prev) => [
             ...prev,
-            { role: "interviewer", content: continueQ, timestamp: Date.now() },
+            { role: "interviewer", content: continueQ, turnId, timestamp: Date.now() },
           ]);
-          setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
-          setLoading(false);
-          // Micro-reaction spoken BEFORE the next question with 400ms pause (Phase 1B)
-          await speakSequence([microToSpeak, continueQ], { pauseMs: 400 });
           setInterviewerStatus("");
           handoffToCandidate();
         }
       } catch (error) {
+        if (error?.name === "AbortError" || followUpAbortControllerRef.current?.signal?.aborted) {
+          console.log("[Interview] Follow-up request was cleanly aborted for speech resumption.");
+          return;
+        }
         submittedQuestionKeyRef.current = null;
         const statusCode = getHttpStatus(error);
         if (statusCode !== 401)
@@ -2180,6 +2594,18 @@ export function useInterviewSession(options = {}) {
           await speakInterviewerText(closingFallback);
           setTimeout(() => endInterview(), 1500);
         } else {
+          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndexRef.current);
+          const spokenFallback = transitionPhrase ? `${transitionPhrase} ${fallbackQ}` : fallbackQ;
+          await voiceAI.prefetch(spokenFallback);
+          setLoading(false);
+          // Thinking pause even on fallback path
+          await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
+          speakSequenceCancelledRef.current = false;
+          await speakInterviewerText(spokenFallback);
+          if (speakSequenceCancelledRef.current) {
+            console.log("[Interview] Fallback speech cancelled by candidate resumption. Retaining question counter.");
+            return;
+          }
           setConversation((prev) => [
             ...prev,
             { role: "interviewer", content: fallbackQ, timestamp: Date.now() },
@@ -2187,13 +2613,6 @@ export function useInterviewSession(options = {}) {
           setCurrentQuestion(fallbackQ);
           setQuestionIndex((prev) => prev + 1);
           submittedQuestionKeyRef.current = null;
-          const transitionPhrase = getConversationalTransition(65, resolvedStage, questionIndexRef.current);
-          const spokenFallback = transitionPhrase ? `${transitionPhrase} ${fallbackQ}` : fallbackQ;
-          await voiceAI.prefetch(spokenFallback);
-          setLoading(false);
-          // Thinking pause even on fallback path
-          await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
-          await speakInterviewerText(spokenFallback);
           handoffToCandidate();
         }
       }
@@ -2713,6 +3132,8 @@ export function useInterviewSession(options = {}) {
       silenceStage,
       pacingMode,
       needAMomentCount,
+      degradationMode,
+      speculationAllowed,
       maxNeedAMoment: getModeConfig(pacingMode).maxNeedAMoment,
       checkInActive,
       wrapUpWarning,

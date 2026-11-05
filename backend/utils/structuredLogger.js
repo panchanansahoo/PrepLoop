@@ -66,12 +66,15 @@ class StructuredLogger {
    * Format log entry as structured JSON
    */
   formatEntry(level, message, fields = {}) {
+    const safeFields = (typeof fields === 'object' && fields !== null && !Array.isArray(fields))
+      ? fields
+      : (fields !== undefined && fields !== null && fields !== '') ? { detail: String(fields) } : {};
     return {
       timestamp: new Date().toISOString(),
       level: level.toUpperCase(),
       operation: this.operationName,
       message: StructuredLogger.sanitizeStringValue(message),
-      ...StructuredLogger.scrubFields(fields),
+      ...StructuredLogger.scrubFields(safeFields),
     };
   }
 

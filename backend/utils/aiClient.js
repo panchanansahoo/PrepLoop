@@ -25,8 +25,11 @@ const withTimeout = async (operation, timeoutMs = DEFAULT_TIMEOUT_MS) => {
 };
 
 export const isTransientAiError = (error) => {
+  if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+    return false;
+  }
   const code = String(error?.code || '').toUpperCase();
-  const status = Number(error?.status || error?.statusCode || 0);
+  const status = Number(error?.status || error?.statusCode || error?.code || 0);
   const message = String(error?.message || '').toLowerCase();
 
   if (code === 'AI_TIMEOUT') return true;
@@ -39,6 +42,10 @@ export const isTransientAiError = (error) => {
     message.includes('rate limit') ||
     message.includes('too many requests') ||
     message.includes('temporar') ||
+    message.includes('high demand') ||
+    message.includes('spikes in demand') ||
+    message.includes('503') ||
+    message.includes('overloaded') ||
     message.includes('econnreset') ||
     message.includes('enotfound') ||
     message.includes('socket hang up')
@@ -82,6 +89,9 @@ const _executeWithRetry = async ({ operation, timeoutMs, maxRetries, baseDelayMs
     try {
       return await withTimeout(operation, timeoutMs);
     } catch (error) {
+      if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+        throw error;
+      }
       lastError = error;
       const canRetry = attempt < maxRetries && isTransientAiError(error);
       if (!canRetry) {

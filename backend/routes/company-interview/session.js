@@ -15,9 +15,21 @@ import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
+import { quotaGuard, DEGRADATION_MODES } from '../../services/quotaGuard.js';
+import { getSessionScorer } from '../../services/llmRouter.js';
 import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
 
 const router = express.Router();
+
+// ─── Quota Guard Status Endpoint ───
+router.get('/quota-status', optionalAuth, (req, res) => {
+  const status = quotaGuard.getStatus();
+  const userCap = quotaGuard.checkUserCap({ userId: req.user?.id || null, ip: req.ip || null });
+  return res.json({
+    ...status,
+    userCap,
+  });
+});
 
 // ─── Start Interview ───
 export function sanitizeOpeningQuestion(rawQuestion, stage = 'Behavioral', candidateName = '', interviewerName = 'Arjun Mehta') {
@@ -112,16 +124,53 @@ router.post('/start', customInterviewLimiter, optionalAuth, async (req, res) => 
       warmupLine: payload.warmupLine || companyStyle.warmupLine || `Hey! Thanks for making time today. Ready to dive in?`,
       companyStyle,
       interviewerMood: 'neutral',
+      degradationMode: quotaGuard.getCurrentMode(),
+      speculationAllowed: quotaGuard.isSpeculationAllowed(),
       telemetry: payload.telemetry || buildInitialVoiceTelemetry(stage, resolvedRuntimeMode),
     };
   };
-  const withRuntime = (payload) => ({
-    ...buildCanonicalStartPayload(payload),
-    interviewRuntimeMode: resolvedRuntimeMode,
-    runtime,
-  });
+  let recordedUsage = false;
+  const recordInterviewUsage = () => {
+    if (!recordedUsage) {
+      recordedUsage = true;
+      quotaGuard.recordUserInterview({
+        userId: req.user?.id || null,
+        ip: req.ip || null,
+      });
+    }
+  };
+  const withRuntime = (payload) => {
+    recordInterviewUsage();
+    return {
+      ...buildCanonicalStartPayload(payload),
+      interviewRuntimeMode: resolvedRuntimeMode,
+      runtime,
+    };
+  };
 
   try {
+    // ─── Quota Guard Enforcement ───
+    const userCapCheck = quotaGuard.checkUserCap({
+      userId: req.user?.id || null,
+      ip: req.ip || null,
+    });
+    if (!userCapCheck.allowed) {
+      return res.status(429).json({
+        error: userCapCheck.reason,
+        code: 'DAILY_CAP_REACHED',
+        interviewsRemaining: 0,
+      });
+    }
+
+    // Protect in-progress sessions by reserving 15% buffer against new sessions
+    const currentDegradationMode = quotaGuard.getCurrentMode({ isNewSession: true });
+    if (currentDegradationMode === DEGRADATION_MODES.WAITLIST) {
+      return res.status(429).json({
+        error: 'Daily interview quota exhausted. Slots are full for today; please book a slot or try again tomorrow.',
+        code: 'WAITLIST_ACTIVE',
+        mode: 'waitlist',
+      });
+    }
 
   // Admin Custom Question Set Mode
   if (questionSetCode) {
@@ -761,7 +810,11 @@ router.post('/save-session', optionalAuth, async (req, res) => {
       interview_score: numericScore,
       status: 'completed',
       recommendations: recommendationsText,
-      completed_at: completedAt || new Date().toISOString()
+      completed_at: completedAt || new Date().toISOString(),
+      ai_model_version: getSessionScorer(sessionId)
+        ? `${getSessionScorer(sessionId).provider}:${getSessionScorer(sessionId).model}`
+        : (summaryData?.reportModelUsed || 'openai/gpt-oss-20b'),
+      pinned_scorer: getSessionScorer(sessionId) || (summaryData?.reportModelUsed ? { provider: summaryData?.reportProvider, model: summaryData?.reportModelUsed } : null),
     };
 
     const { data, error } = await supabaseAdmin

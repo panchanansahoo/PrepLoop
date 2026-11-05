@@ -32,6 +32,7 @@ const PLACEHOLDER_PATTERNS = [
   /your_razorpay_key_secret_here/i,
   /your_gemini_api_key_here/i,
   /your_groq_api_key_here/i,
+  /your_openrouter_api_key_here/i,
   /your_nvidia_api_key_here/i,
   /your_elevenlabs_api_key_here/i,
   /your_openai_api_key_here/i,

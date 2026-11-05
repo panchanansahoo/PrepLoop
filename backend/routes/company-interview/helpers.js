@@ -14,20 +14,94 @@ import { buildAnswerFeedbackPrompt as _buildAnswerFeedbackPrompt, normalizeInter
 import { evaluateFresherAnswer as _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { sanitizeHeadline, sanitizeList, sanitizeDocumentForPrompt, fenceUntrustedContent } from '../../utils/promptInjectionGuard.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
+import {
+  createOpenRouterChatCompletion,
+  isOpenRouterAvailable,
+  OPENROUTER_MODELS,
+} from '../../services/openRouterService.js';
 
 export const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 export const GROQ_CHAT_MODELS = [
-  process.env.GROQ_MODEL,
+  process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+  process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
   'openai/gpt-oss-120b',
   'openai/gpt-oss-20b',
 ].filter(Boolean);
 
-export async function createGroqChatCompletion(options = {}) {
+export async function verifyGroqModelsOnStartup() {
   if (!groq) {
+    console.warn('[Groq Startup] Groq client not initialized (missing GROQ_API_KEY).');
+    return { status: 'uninitialized', availableModels: [] };
+  }
+  try {
+    const listRes = await groq.models.list();
+    const available = (listRes.data || []).map((m) => m.id);
+    const configuredModels = [
+      process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
+      process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
+    ];
+    const missing = configuredModels.filter((m) => !available.includes(m));
+    if (missing.length > 0) {
+      console.error(
+        `[Groq Startup CRITICAL] Configured model(s) NOT AVAILABLE on this Groq account: ${missing.join(', ')}. ` +
+        `Available models on key: ${available.join(', ')}`
+      );
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error(`Configured Groq models missing: ${missing.join(', ')}`);
+      }
+    } else {
+      console.log(`[Groq Startup] ✓ Verified configured Groq models available: ${configuredModels.join(', ')}`);
+    }
+    return { status: 'verified', availableModels: available };
+  } catch (err) {
+    console.error('[Groq Startup Error] Failed to list or verify models:', err.message);
+    return { status: 'error', error: err.message };
+  }
+}
+
+export async function verifyGeminiModelOnStartup() {
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const configuredModel = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+  if (!geminiApiKey) {
+    console.warn('[Gemini Startup] Google AI Studio client not initialized (missing GEMINI_API_KEY).');
+    return { status: 'uninitialized', configuredModel };
+  }
+  try {
+    const mod = await import('@google/genai').catch(() => null) ||
+                await import('@google/generative-ai').catch(() => null);
+    const GoogleGenAI = mod?.GoogleGenAI || mod?.default?.GoogleGenAI || mod?.default;
+    if (!GoogleGenAI) {
+      console.warn('[Gemini Startup] Neither @google/genai nor @google/generative-ai SDK is available.');
+      return { status: 'no_sdk', configuredModel };
+    }
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+    if (ai.models?.get) {
+      await ai.models.get({ model: configuredModel }).catch(() => null);
+    }
+    console.log(`[Gemini Startup] ✓ Configured Gemini model verified: ${configuredModel}`);
+    return { status: 'verified', configuredModel };
+  } catch (err) {
+    console.warn(`[Gemini Startup] Model check warning for ${configuredModel}:`, err.message);
+    return { status: 'warning', configuredModel, error: err.message };
+  }
+}
+
+export async function createGroqChatCompletion(options = {}, requestOptions = {}) {
+  const { signal: optionsSignal, ...bodyOptions } = options;
+  const signal = optionsSignal || requestOptions.signal;
+
+  if (!groq) {
+    if (isOpenRouterAvailable()) {
+      console.warn('[AI Gateway] Groq uninitialized. Routing to OpenRouter fallback...');
+      const isFast = Boolean(bodyOptions.model?.includes('20b') || bodyOptions.model?.includes('8b') || (bodyOptions.max_tokens && bodyOptions.max_tokens <= 120));
+      const fallbackModel = isFast ? OPENROUTER_MODELS.DEFAULT_FAST : OPENROUTER_MODELS.DEFAULT_EVAL;
+      return createOpenRouterChatCompletion({ ...bodyOptions, model: fallbackModel }, requestOptions);
+    }
     throw new Error('Groq client is not initialized');
   }
-  const requestedModel = options.model;
+
+  const requestedModel = bodyOptions.model;
   const candidateModels = [
     requestedModel,
     ...GROQ_CHAT_MODELS.filter(m => m !== requestedModel)
@@ -35,29 +109,66 @@ export async function createGroqChatCompletion(options = {}) {
 
   let lastError;
   for (const model of candidateModels) {
+    if (signal?.aborted) {
+      const abortErr = new Error('Request was aborted.');
+      abortErr.name = 'AbortError';
+      throw abortErr;
+    }
     try {
       const sanitizedOptions = {
-        ...options,
+        ...bodyOptions,
         model,
       };
-      if (sanitizedOptions.max_tokens !== undefined) {
-        sanitizedOptions.max_tokens = Math.max(Number(sanitizedOptions.max_tokens) || 400, 300);
+      if (model.includes('gpt-oss')) {
+        sanitizedOptions.reasoning_effort = 'low';
       }
-      return await groq.chat.completions.create(sanitizedOptions);
+      if (sanitizedOptions.max_tokens !== undefined) {
+        sanitizedOptions.max_tokens = Math.max(Number(sanitizedOptions.max_tokens) || 600, 300);
+      }
+      const response = await groq.chat.completions.create(sanitizedOptions, { signal });
+      if (response && typeof response === 'object') {
+        response._modelUsed = model;
+        response._provider = 'groq';
+      }
+      return response;
     } catch (err) {
+      if (signal?.aborted || err.name === 'AbortError' || err.message?.includes('aborted')) {
+        throw err;
+      }
       lastError = err;
-      const isNotFound =
+      const isFallbackable =
         err.status === 404 ||
         err.status === 403 ||
+        err.status === 429 ||
         err.code === 'model_not_found' ||
-        (err.message && (err.message.includes('does not exist') || err.message.includes('model_not_found')));
-      if (isNotFound) {
-        console.warn(`[Groq] Model ${model} unavailable (${err.message}), trying next fallback...`);
+        err.code === 'rate_limit_exceeded' ||
+        (err.message && (
+          err.message.includes('does not exist') ||
+          err.message.includes('model_not_found') ||
+          err.message.includes('Rate limit reached') ||
+          err.message.includes('rate_limit')
+        ));
+      if (isFallbackable) {
+        console.warn(`[Groq] Model ${model} unavailable or rate-limited (${err.message?.substring(0, 100)}), falling back to next model...`);
         continue;
       }
       throw err;
     }
   }
+
+  // Automatic OpenRouter failover when all Groq models are exhausted
+  if (isOpenRouterAvailable()) {
+    console.warn(`[AI Gateway] All Groq models failed. Engaging OpenRouter fallback...`);
+    try {
+      const isFast = Boolean(bodyOptions.model?.includes('20b') || bodyOptions.model?.includes('8b') || (bodyOptions.max_tokens && bodyOptions.max_tokens <= 120));
+      const fallbackModel = isFast ? OPENROUTER_MODELS.DEFAULT_FAST : OPENROUTER_MODELS.DEFAULT_EVAL;
+      return await createOpenRouterChatCompletion({ ...bodyOptions, model: fallbackModel }, requestOptions);
+    } catch (orErr) {
+      console.error('[AI Gateway] OpenRouter failover also failed:', orErr.message);
+      throw lastError || orErr;
+    }
+  }
+
   throw lastError;
 }
 
@@ -79,11 +190,11 @@ export function safeDeleteUploadFile(filePath) {
 
 // ─── Helpers ───
 
-/** Truncate conversation history to the last N turns (each turn = 1 user + 1 assistant message). */
-export const MAX_HISTORY_TURNS = 6;
-export function truncateConversationHistory(history) {
+/** Truncate conversation history to the last N turns (each turn = 1 user + 1 assistant message). Default 2 turns for zero-cost budget saving. */
+export const MAX_HISTORY_TURNS = 2;
+export function truncateConversationHistory(history, maxTurns = MAX_HISTORY_TURNS) {
   if (!Array.isArray(history) || history.length === 0) return [];
-  const maxMessages = MAX_HISTORY_TURNS * 2;
+  const maxMessages = Math.max(1, maxTurns) * 2;
   return history.length > maxMessages ? history.slice(-maxMessages) : history;
 }
 
@@ -1054,31 +1165,38 @@ export function getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeS
     : (lastScore ? [Number(lastScore)] : (averageScore ? [Number(averageScore)] : []));
   if (scores.length === 0 && !lastScore && !averageScore) return '';
 
-  const recentScores = scores.slice(-3);
+  // Use a 4-question window for stability to eliminate noisy single-turn oscillations
+  const recentScores = scores.slice(-4);
   const rollingAvg = Math.round(recentScores.reduce((a, b) => a + Number(b || 0), 0) / (recentScores.length || 1));
   const trend = scores.length >= 2 ? (scores[scores.length - 1] - scores[scores.length - 2]) : 0;
   const profile = getCompanyChallengeProfile(company, stage);
 
-  let adaptiveInstruction = '\n## Adaptive Difficulty & Scaling (STRICT)\n';
-  adaptiveInstruction += `Rolling 3-Question Average Score: ${rollingAvg}/100 (trend: ${trend > 0 ? '+' + trend : trend}, company profile: ${profile.styleNote})\n`;
+  // Hysteresis requirement:
+  // - Need at least 2 questions to downgrade to 'easy', and average must be firmly < 48 with no recent high score (>65)
+  // - Need at least 3 questions to upgrade to 'hard', and average must be firmly > 82 with no recent low score (<60)
+  const isStruggling = scores.length >= 2 && rollingAvg < 48 && !recentScores.some(s => Number(s) >= 65);
+  const isExcelling = scores.length >= 3 && rollingAvg >= 82 && !recentScores.some(s => Number(s) <= 60);
 
-  if (rollingAvg < 50) {
-    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is STRUGGLING (rolling avg < 50).
+  let adaptiveInstruction = '\n## Adaptive Difficulty & Scaling (STRICT with Hysteresis)\n';
+  adaptiveInstruction += `Rolling ${recentScores.length}-Question Average Score: ${rollingAvg}/100 (trend: ${trend > 0 ? '+' + trend : trend}, company profile: ${profile.styleNote})\n`;
+
+  if (isStruggling) {
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is STRUGGLING (sustained rolling avg < 48).
 - SIMPLIFY the next question immediately and reduce technical friction.
 - Add scaffolding to the question (e.g. "Let's break this down together...", or start with a basic sub-case).
 - Provide a clear conceptual anchor or hint before asking.
-- Set "difficultyLevel": "easy", "adaptiveNote": "Simplifying question and adding scaffolding (rolling avg < 50)."`;
-  } else if (rollingAvg > 80) {
-    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is EXCELLING (rolling avg > 80).
+- Set "difficultyLevel": "easy", "adaptiveNote": "Simplifying question and adding scaffolding (sustained rolling avg < 48)."`;
+  } else if (isExcelling) {
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is EXCELLING (sustained rolling avg >= 82).
 - ESCALATE difficulty. Introduce an additional technical constraint.
 - Challenge them with space/time constraints (e.g., "Now how would you achieve this in O(1) space?", handle race conditions, or reduce latency at 10x scale).
 - Probe edge cases and deep trade-offs to test their architectural ceiling.
-- Set "difficultyLevel": "hard", "adaptiveNote": "Escalating difficulty and adding constraints (rolling avg > 80)."`;
+- Set "difficultyLevel": "hard", "adaptiveNote": "Escalating difficulty and adding constraints (sustained rolling avg >= 82)."`;
   } else {
-    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is in the BALANCED band (rolling avg 50-80).
+    adaptiveInstruction += `- CRITICAL DIRECTIVE: Candidate is in the BALANCED band (rolling avg 48-81).
 - MAINTAIN current depth and pacing.
 - Ask a natural, insightful follow-up probing depth on the same topic.
-- Set "difficultyLevel": "medium", "adaptiveNote": "Maintaining current depth (rolling avg 50-80)."`;
+- Set "difficultyLevel": "medium", "adaptiveNote": "Maintaining current depth (balanced band with hysteresis)."`;
   }
 
   return adaptiveInstruction;
@@ -1204,6 +1322,36 @@ export const _INTERVIEW_RUNTIME_MODES = INTERVIEW_RUNTIME_MODES;
 export const _MAX_HISTORY_TURNS = MAX_HISTORY_TURNS;
 export const _truncateConversationHistory = truncateConversationHistory;
 export const _deterministicScore = deterministicScore;
+/**
+ * Clamps spoken interviewer text to at most 2 sentences.
+ * CRITICAL: If text contains > 2 sentences, it guarantees the actual question
+ * (the sentence ending with '?') is PRESERVED, dropping conversational preamble rather
+ * than the question itself.
+ */
+export function clampToTwoSentences(rawText) {
+  if (!rawText) return '';
+  const trimmed = String(rawText).trim();
+  const sentences = trimmed.match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+  if (!sentences || sentences.length <= 2) return trimmed;
+
+  const questionIndices = [];
+  sentences.forEach((s, idx) => {
+    if (s.trim().endsWith('?')) questionIndices.push(idx);
+  });
+
+  if (questionIndices.length > 0) {
+    const qIndex = questionIndices[questionIndices.length - 1];
+    if (qIndex > 0) {
+      const leadIndex = qIndex - 1 >= 0 ? qIndex - 1 : 0;
+      return [sentences[leadIndex].trim(), sentences[qIndex].trim()].join(' ').trim();
+    } else {
+      return [sentences[0].trim(), sentences[1].trim()].join(' ').trim();
+    }
+  }
+
+  return sentences.slice(0, 2).map(s => s.trim()).join(' ').trim();
+}
+
 export const _deterministicPick = deterministicPick;
 export const _safeDeleteUploadFile = safeDeleteUploadFile;
 export const _safeJsonParse = safeJsonParse;
@@ -1247,3 +1395,4 @@ export const _buildFocusSignal = buildFocusSignal;
 export const _normalizeInterviewRuntimeMode = normalizeInterviewRuntimeMode;
 export const _buildInterviewRuntime = buildInterviewRuntime;
 export const _FRESHER_INTERVIEW_TOTAL_QUESTIONS = FRESHER_INTERVIEW_TOTAL_QUESTIONS;
+export { createOpenRouterChatCompletion, isOpenRouterAvailable, OPENROUTER_MODELS };

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+    getSemanticSilenceThreshold,
     getThinkingDelayMs,
     getInterviewerReaction,
     communicationScore,
@@ -213,5 +214,33 @@ describe('aiInterviewTiming', () => {
             expect(Object.keys(QUESTION_TIME_LIMITS).length).toBeGreaterThan(3);
         });
     });
-});
+    describe('Semantic Silence & Turn-Taking Threshold Engine', () => {
+        it('returns 1500ms for explicit conclusion phrases', () => {
+            expect(getSemanticSilenceThreshold({ stage: 'Technical', wordCount: 20, text: "That is all." })).toBe(1500);
+            expect(getSemanticSilenceThreshold({ stage: 'Technical', wordCount: 8, text: "and that's my approach." })).toBe(1500);
+        });
 
+        it('gives technical answers 2500ms if short (<15 words) and 2000ms when substantive', () => {
+            expect(getSemanticSilenceThreshold({ stage: 'Technical', wordCount: 8, text: "I would use a hash map" })).toBe(2500);
+            expect(getSemanticSilenceThreshold({ stage: 'DSA / Coding', wordCount: 12, text: "We can maintain two pointers" })).toBe(2500);
+            expect(getSemanticSilenceThreshold({ stage: 'Technical', wordCount: 25, text: "We iterate through the array once and store seen elements in a hash set to get linear time" })).toBe(2000);
+        });
+
+        it('gives behavioral answers 1800ms when substantive and 2200ms when short', () => {
+            expect(getSemanticSilenceThreshold({ stage: 'Behavioral', wordCount: 25, text: "In my previous project I led the migration" })).toBe(1800);
+            expect(getSemanticSilenceThreshold({ stage: 'Behavioral', wordCount: 5, text: "I worked on teams" })).toBe(2200);
+        });
+
+        it('clamps candidate pacing offset and enforces hard 3600ms ceiling for deliberate speakers with trailing fillers', () => {
+            // Deliberate offset (+500ms) with trailing filler (+1200ms) on short technical question (2500ms) = 4200ms -> clamped to 3600ms
+            const clamped = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 8,
+                text: "I think we can use a trie, um...",
+                candidatePacingOffset: 800, // excessive offset passed
+            });
+            expect(clamped).toBe(3600);
+            expect(clamped).toBeLessThanOrEqual(3600);
+        });
+    });
+});

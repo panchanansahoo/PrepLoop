@@ -1,5 +1,6 @@
 import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getInterviewTelemetrySummary } from '../../pages/aiInterviewTiming';
 import { Clock, ChevronRight, Sparkles, CheckCircle, Star, Award, TrendingUp, BarChart3, Target, Brain, Shield, ThumbsUp, AlertTriangle, Download, Share2, RefreshCw, ArrowLeft, FileText, User, Building2, Lightbulb, ChevronDown, ChevronUp, Eye, Timer, Trophy, Gauge, MessageSquare, Code2, Zap, Pause, Activity } from 'lucide-react';
 
 const ensureArray = (val) => Array.isArray(val) ? val : (typeof val === 'string' && val.trim().length > 0 ? [val] : []);
@@ -32,6 +33,11 @@ function InterviewResults({
     const [resultTab, setResultTab] = useState('overview');
     const [expandedMoment, setExpandedMoment] = useState(null);
     const [actionMessage, setActionMessage] = useState('');
+    const [surveyCutOff, setSurveyCutOff] = useState(null);
+    const [surveyPacing, setSurveyPacing] = useState(null);
+    const [surveyFairness, setSurveyFairness] = useState(null);
+    const [surveyNotes, setSurveyNotes] = useState('');
+    const [surveyCopied, setSurveyCopied] = useState(false);
 
     const a = analysisResult; // shorthand
     // Enrichment fields from backend intelligence
@@ -73,6 +79,50 @@ function InterviewResults({
             if (error?.name !== 'AbortError') {
                 showActionMessage('Sharing is unavailable in this browser.');
             }
+        }
+    };
+
+    const handleCopyPilotPacket = async () => {
+        const telemetry = getInterviewTelemetrySummary();
+        const pilotPacket = {
+            timestamp: new Date().toISOString(),
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
+            browser: /chrome/i.test(navigator?.userAgent || '') ? 'Chrome' : /safari/i.test(navigator?.userAgent || '') && !/chrome/i.test(navigator?.userAgent || '') ? 'Safari' : 'Other',
+            survey: {
+                didItCutYouOff: surveyCutOff || 'Not answered',
+                didItFeelSlow: surveyPacing || 'Not answered',
+                wasScoreFair: surveyFairness || 'Not answered',
+                candidateNotes: surveyNotes || 'None',
+            },
+            telemetrySummary: {
+                totalTurns: telemetry.totalTurns || (conversation || []).filter(m => m.role === 'candidate').length,
+                resumeRatePct: telemetry.resumeRate,
+                resumedTurns: telemetry.resumedTurns,
+                lastSpeechToAudioLatency: {
+                    samples: telemetry.samples,
+                    p50Ms: telemetry.p50,
+                    p95Ms: telemetry.p95,
+                    minMs: telemetry.min,
+                    maxMs: telemetry.max,
+                },
+            },
+            interviewMeta: {
+                interviewType,
+                company: interviewer?.company,
+                overallScore: a?.overallScore,
+                categories: categories.map(c => ({ name: c.name, score: c.score })),
+            },
+            fullTelemetryLog: telemetry.allEvents,
+            turnTimelines: telemetry.turnTimelines || [],
+        };
+
+        try {
+            await navigator.clipboard.writeText(JSON.stringify(pilotPacket, null, 2));
+            showActionMessage('✓ Pilot telemetry & survey copied to clipboard! Share with team.');
+            setSurveyCopied(true);
+        } catch {
+            showActionMessage('Telemetry logged to developer console.');
+            console.log('[Pilot Telemetry Packet]', pilotPacket);
         }
     };
 
@@ -192,13 +242,27 @@ function InterviewResults({
                                 />
                             </svg>
                             <div className="ai-result-score-value">
-                                <span className="ai-result-score-num" style={{ color: a?.performanceColor }}>{a?.overallScore || '—'}</span>
-                            <span className="ai-result-score-of">{a?.analysisUnavailable ? 'Not scored' : '/10'}</span>
+                                <span className="ai-result-score-num" style={{ color: a?.performanceColor }}>
+                                    {a?.isDeferred || a?.reportStatus === 'pending'
+                                        ? '...'
+                                        : (a?.isEstimated || a?.overallScore == null)
+                                        ? '—'
+                                        : (a?.overallScore || '—')}
+                                </span>
+                                <span className="ai-result-score-of">
+                                    {a?.isDeferred || a?.reportStatus === 'pending'
+                                        ? 'Pending'
+                                        : a?.isEstimated
+                                        ? 'Estimated'
+                                        : a?.analysisUnavailable || a?.overallScore == null
+                                        ? 'Not scored'
+                                        : '/10'}
+                                </span>
                             </div>
                         </div>
                         <div className="ai-result-verdict" style={{ background: `${a?.performanceColor}18`, color: a?.performanceColor, borderColor: `${a?.performanceColor}40` }}>
-                            {a?.overallScore >= 7 ? <Trophy size={14} /> : a?.overallScore >= 5 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
-                            {benchmarkTier ? `${benchmarkTier.emoji || ''} ${benchmarkTier.label}` : (a?.performanceLabel || 'Analyzing...')}
+                            {a?.isDeferred || a?.reportStatus === 'pending' ? <Timer size={14} /> : a?.overallScore >= 7 ? <Trophy size={14} /> : a?.overallScore >= 5 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
+                            {a?.isDeferred || a?.reportStatus === 'pending' ? 'Report Pending' : a?.isEstimated ? 'Estimated Assessment' : benchmarkTier ? `${benchmarkTier.emoji || ''} ${benchmarkTier.label}` : (a?.performanceLabel || 'Analyzing...')}
                         </div>
                         {benchmarkTier?.description && (
                             <div className="ai-results-ai-badge" style={{ marginTop: 4, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>
@@ -207,11 +271,35 @@ function InterviewResults({
                         )}
                         {a?.aiGenerated && (
                             <div className="ai-results-ai-badge">
-                                <Sparkles size={11} /> AI-Analyzed by Groq
+                                <Sparkles size={11} /> AI-Analyzed by {a?.reportProvider === 'gemini' ? 'Google AI Studio (Gemini)' : a?.reportProvider === 'openrouter' ? 'OpenRouter' : 'Groq'}
+                            </div>
+                        )}
+                        {a?.hasMixedScorers && (
+                            <div className="ai-results-ai-badge" style={{ marginTop: 4, fontSize: 11, color: '#fde047', background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)', padding: '2px 8px', borderRadius: 4 }}>
+                                ⚡ Failover active: Turns scored across providers &amp; calibrated
                             </div>
                         )}
                     </div>
                 </div>
+
+                {/* ── Deferred Evaluation Pending Banner ── */}
+                {(a?.isDeferred || a?.reportStatus === 'pending') && (
+                    <div style={{ background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: 10, padding: '14px 18px', margin: '16px 0', display: 'flex', alignItems: 'center', gap: 12, color: '#fef08a' }}>
+                        <Timer size={20} className="animate-pulse" />
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: 14 }}>Evaluation Report Pending Background Processing</div>
+                            <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>Your spoken transcript is queued. You can safely navigate away; your full report will be available in your dashboard shortly.</div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Estimated Score Notice ── */}
+                {a?.isEstimated && (
+                    <div style={{ background: 'rgba(168, 85, 247, 0.12)', border: '1px solid rgba(168, 85, 247, 0.3)', borderRadius: 8, padding: '8px 14px', margin: '10px 0', display: 'flex', alignItems: 'center', gap: 8, color: '#e9d5ff', fontSize: 12 }}>
+                        <Activity size={14} />
+                        <span>This is an estimated heuristic score while background rubric evaluation completes.</span>
+                    </div>
+                )}
 
                 {/* ── AI Summary ── */}
                 {a?.summary && (
@@ -256,6 +344,155 @@ function InterviewResults({
                         </button>
                     </div>
                 )}
+
+                {/* ── Pilot Survey & Experience Telemetry (3 Quick Questions) ── */}
+                <div style={{
+                    margin: '20px 24px',
+                    padding: '20px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, rgba(30, 27, 75, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)',
+                    border: '1px solid rgba(139, 92, 246, 0.35)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.25)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <MessageSquare size={18} style={{ color: '#a78bfa' }} />
+                            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#f3f4f6' }}>Candidate Experience Pilot Survey</h3>
+                            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: 'rgba(167, 139, 250, 0.2)', color: '#c4b5fd', fontWeight: 500 }}>Live Pilot Metric</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleCopyPilotPacket}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: surveyCopied ? '#059669' : '#6366f1',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '8px',
+                                padding: '6px 12px',
+                                fontSize: '12px',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                                transition: 'background 0.2s',
+                            }}
+                        >
+                            <Sparkles size={13} />
+                            {surveyCopied ? '✓ Telemetry Copied!' : 'Copy Pilot Telemetry & Survey (JSON)'}
+                        </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '14px' }}>
+                        {/* Q1: Cut-off */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>1. Did the interviewer cut you off?</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {[
+                                    { id: 'never', label: 'Never / Natural pauses' },
+                                    { id: 'once_twice', label: 'Once or twice' },
+                                    { id: 'frequently', label: 'Frequently / Too aggressive' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSurveyCutOff(opt.id)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            textAlign: 'left',
+                                            border: surveyCutOff === opt.id ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: surveyCutOff === opt.id ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
+                                            color: surveyCutOff === opt.id ? '#ffffff' : '#94a3b8',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Q2: Latency */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>2. Did the interviewer feel slow?</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {[
+                                    { id: 'snappy', label: 'Snappy & responsive' },
+                                    { id: 'acceptable', label: 'Acceptable conversational pause' },
+                                    { id: 'sluggish', label: 'Too sluggish / Delayed' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSurveyPacing(opt.id)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            textAlign: 'left',
+                                            border: surveyPacing === opt.id ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: surveyPacing === opt.id ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
+                                            color: surveyPacing === opt.id ? '#ffffff' : '#94a3b8',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Q3: Fairness */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>3. Was the score and feedback fair?</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {[
+                                    { id: 'fair', label: 'Accurate & Fair' },
+                                    { id: 'too_harsh', label: 'Too harsh / Underscored' },
+                                    { id: 'too_generous', label: 'Too generous / Inflated' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSurveyFairness(opt.id)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            textAlign: 'left',
+                                            border: surveyFairness === opt.id ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: surveyFairness === opt.id ? 'rgba(99, 102, 241, 0.3)' : 'rgba(255, 255, 255, 0.03)',
+                                            color: surveyFairness === opt.id ? '#ffffff' : '#94a3b8',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                            type="text"
+                            value={surveyNotes}
+                            onChange={(e) => setSurveyNotes(e.target.value)}
+                            placeholder="Optional: Any notes on audio, questions, or echo issues?"
+                            style={{
+                                flex: 1,
+                                background: 'rgba(15, 23, 42, 0.6)',
+                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                borderRadius: '6px',
+                                padding: '8px 12px',
+                                fontSize: '12px',
+                                color: '#f3f4f6',
+                            }}
+                        />
+                    </div>
+                </div>
 
                 {/* ── Quick Stats ── */}
                 <div className="ai-result-stats-row">
@@ -440,16 +677,22 @@ function InterviewResults({
                                                     <div className="ai-result-q-tags">
                                                         {q.strength && <span className="ai-result-q-tag ai-result-q-tag--strength">✓ {q.strength}</span>}
                                                         {q.gap && <span className="ai-result-q-tag ai-result-q-tag--gap">△ {q.gap}</span>}
+                                                        {q.isFallbackModel && <span className="ai-result-q-tag" style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#c7d2fe', borderColor: 'rgba(99, 102, 241, 0.3)' }}>Scored by fallback model</span>}
+                                                        {q.isRescoredWithFinalModel && <span className="ai-result-q-tag" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#86efac', borderColor: 'rgba(34, 197, 94, 0.3)' }}>Re-scored by final scorer</span>}
                                                     </div>
                                                 </div>
                                                 <div className="ai-result-analysis-score" style={{
-                                                    color: (q.isSkipped || q.status === 'unanswered' || q.scoreEstimate == null)
+                                                    color: (q.isSkipped || q.status === 'unanswered' || q.status === 'estimated' || q.isEstimated || (q.scoreEstimate == null && q.score == null))
                                                         ? '#a1a1aa'
-                                                        : (q.scoreEstimate || 0) >= 7 ? '#22c55e' : (q.scoreEstimate || 0) >= 5 ? '#f59e0b' : '#ef4444'
+                                                        : (q.scoreEstimate || q.score || 0) >= 7 ? '#22c55e' : (q.scoreEstimate || q.score || 0) >= 5 ? '#f59e0b' : '#ef4444'
                                                 }}>
-                                                    {(q.isSkipped || q.status === 'unanswered' || q.scoreEstimate == null)
+                                                    {(q.isSkipped || q.status === 'unanswered')
                                                         ? 'Skipped'
-                                                        : `${q.scoreEstimate || '—'}/10`}
+                                                        : (q.status === 'estimated' || q.isEstimated)
+                                                        ? 'Estimated'
+                                                        : (q.status === 'not_scored' || (q.scoreEstimate == null && q.score == null))
+                                                        ? 'Not scored'
+                                                        : `${q.scoreEstimate || q.score || '—'}/10`}
                                                 </div>
                                             </div>
                                         ))}
@@ -574,7 +817,7 @@ function InterviewResults({
                                             const roleLabel = isInterviewerMsg
                                                 ? interviewer.name
                                                 : isFeedbackMsg
-                                                    ? `Feedback${msg.score ? ` · ${msg.score}%` : ''}`
+                                                    ? `Feedback${(msg.isEstimated || msg.status === 'estimated') ? ' · estimated' : msg.score != null ? ` · ${msg.score}%` : ' · not scored'}`
                                                     : 'You';
                                             return (
                                                 <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>

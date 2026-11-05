@@ -135,5 +135,88 @@ describe('Voice Service Unit Tests', () => {
       expect(typeof isDeepgramAvailable({ deepgram: 'sk-secret-key-123' })).toBe('boolean');
     });
   });
+
+  describe('Byte-Budget LRU Audio Cache Eviction', () => {
+    it('evicts oldest entries when total bytes exceed max budget', () => {
+      const MAX_BYTES = 1000;
+      let currentBytes = 0;
+      const cache = new Map<string, { buffer: Buffer; _byteSize: number }>();
+
+      function putAudio(key: string, sizeBytes: number) {
+        if (cache.has(key)) {
+          currentBytes -= cache.get(key)!._byteSize;
+          cache.delete(key);
+        }
+        while (currentBytes + sizeBytes > MAX_BYTES && cache.size > 0) {
+          const oldestKey = cache.keys().next().value!;
+          currentBytes -= cache.get(oldestKey)!._byteSize;
+          cache.delete(oldestKey);
+        }
+        currentBytes += sizeBytes;
+        cache.set(key, { buffer: Buffer.alloc(sizeBytes), _byteSize: sizeBytes });
+      }
+
+      putAudio('audio1', 400);
+      putAudio('audio2', 400);
+      expect(currentBytes).toBe(800);
+      expect(cache.size).toBe(2);
+
+      // Adding 400 bytes exceeds 1000 bytes budget: audio1 (oldest) must be evicted
+      putAudio('audio3', 400);
+      expect(currentBytes).toBe(800);
+      expect(cache.has('audio1')).toBe(false);
+      expect(cache.has('audio2')).toBe(true);
+      expect(cache.has('audio3')).toBe(true);
+    });
+  });
+
+  describe('Circuit Breaker Half-Open Fail-Fast', () => {
+    it('trips immediately on failed half-open probe without waiting for extra failures', () => {
+      const stats = {
+        failCount: 2,
+        isHardFailure: true,
+        isHalfOpen: false,
+        lastFail: Date.now() - (16 * 60 * 1000), // cooldown elapsed
+      };
+
+      const CIRCUIT_BREAKER_COOLDOWN_MS = 15 * 60 * 1000;
+      function checkCooldown() {
+        const inCooldown = Date.now() - stats.lastFail < CIRCUIT_BREAKER_COOLDOWN_MS;
+        if (!inCooldown && (stats.isHardFailure || stats.failCount > 0)) {
+          stats.isHalfOpen = true;
+          return false; // allow probe
+        }
+        return inCooldown;
+      }
+
+      function handleProbeResult(success: boolean) {
+        if (success) {
+          stats.isHalfOpen = false;
+          stats.isHardFailure = false;
+          stats.failCount = 0;
+        } else {
+          const wasHalfOpen = stats.isHalfOpen;
+          stats.isHalfOpen = false;
+          stats.lastFail = Date.now();
+          if (wasHalfOpen || stats.failCount >= 1) {
+            stats.isHardFailure = true;
+            stats.failCount = Math.max(stats.failCount + 1, 2);
+          }
+        }
+      }
+
+      expect(checkCooldown()).toBe(false);
+      expect(stats.isHalfOpen).toBe(true);
+
+      // Probe fails: fail-fast!
+      handleProbeResult(false);
+      expect(stats.isHardFailure).toBe(true);
+      expect(stats.failCount).toBeGreaterThanOrEqual(2);
+      expect(stats.isHalfOpen).toBe(false);
+
+      // Subsequent call must be in cooldown
+      expect(checkCooldown()).toBe(true);
+    });
+  });
 });
 

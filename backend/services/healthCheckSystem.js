@@ -194,6 +194,24 @@ class HealthCheckSystem {
         };
       }
     }, { critical: false, timeout: 1000 });
+
+    // Quota Guard Zero-Cost Degradation Monitoring
+    this.registerCheck('quota-guard', async () => {
+      try {
+        const { quotaGuard } = await import('./quotaGuard.js');
+        const status = quotaGuard.getStatus();
+        return {
+          healthy: status.mode !== 'waitlist',
+          message: `Quota Guard mode: ${status.mode} (${status.utilizationPct}% utilized)`,
+          details: status,
+        };
+      } catch (error) {
+        return {
+          healthy: true,
+          message: `Quota guard check skipped: ${error.message}`,
+        };
+      }
+    }, { critical: false, timeout: 1000 });
   }
 
   /**

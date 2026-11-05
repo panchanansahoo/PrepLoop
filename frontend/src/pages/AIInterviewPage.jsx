@@ -143,7 +143,7 @@ export default function AIInterviewPage() {
         cameraError, showEndConfirm, awaitingAnswer, isOnline, lifecycleState, sessionError,
         customQuestionSet, questionSetLoading, questionSetError, questionSetAccessError, questionSetPasscode, candidateEmail, candidateName, submissionStatus, resumeParseError,
         answerReview,
-        interviewerMood, realisticJitter, whiteboardSnapshot, realismScore,
+        interviewerMood, realisticJitter, whiteboardSnapshot, realismScore, isStillListening,
     } = state;
 
     const {
@@ -663,6 +663,10 @@ export default function AIInterviewPage() {
                             ) : !isOnline ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(239, 68, 68, 0.9)' }}>
                                     <Wifi size={12} /> Connection lost — we'll retry when you're back online
+                                </div>
+                            ) : isStillListening ? (
+                                <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(99, 102, 241, 0.88)', backdropFilter: 'blur(8px)', boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)' }}>
+                                    <Mic size={12} className="ai-spin-slow" /> I'm still listening — take your time
                                 </div>
                             ) : awaitingAnswer ? (
                                 <div className="ai-vc-status-pill ai-vc-status-pill--thinking" style={{ background: 'rgba(34, 197, 94, 0.9)' }}>

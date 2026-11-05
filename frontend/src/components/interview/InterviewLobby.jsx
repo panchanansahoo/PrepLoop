@@ -1139,6 +1139,9 @@ function InterviewLobby({
                                 </button>
                             )}
                         </div>
+                        <div style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
+                            🔒 <strong>Candidate Privacy:</strong> Your browser’s speech service may process your voice. Transcripts are sent to AI providers with emails, phone numbers and self-introduced names removed on a best-effort basis. We don’t store audio.
+                        </div>
                     </div>
                 </div>
             </div>

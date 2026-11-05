@@ -21,7 +21,8 @@ export default function SimpleVoiceTest() {
     const testTTS = async () => {
         try {
             setStatus('Testing TTS...');
-            const res = await fetch('http://localhost:5000/api/voice/tts', {
+            const apiBase = import.meta.env.VITE_API_URL || '';
+            const res = await fetch(`${apiBase}/api/voice/tts`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -94,7 +95,8 @@ export default function SimpleVoiceTest() {
                 formData.append('mimeType', 'audio/webm');
 
                 try {
-                    const res = await fetch('http://localhost:5000/api/voice/stt-chunk', {
+                    const apiBase = import.meta.env.VITE_API_URL || '';
+                    const res = await fetch(`${apiBase}/api/voice/stt-chunk`, {
                         method: 'POST',
                         body: formData
                     });

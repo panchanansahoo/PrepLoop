@@ -273,10 +273,10 @@ export const PACING_MODES = {
         label: 'Realistic (Timed)',
         badge: 'Interview Mode',
         description: 'Standard interview pacing closer to real-time company interview conditions.',
-        nudgeMs: 12_000,
-        checkInMs: 25_000,
-        autoAdvanceMs: 40_000,
-        postSpeechSubmitMs: 3_500,
+        nudgeMs: 20_000,
+        checkInMs: 40_000,
+        autoAdvanceMs: 70_000,
+        postSpeechSubmitMs: 5_000,
         fillerExtensionMs: 20_000,
         needAMomentMs: 30_000,
         maxNeedAMoment: 2,
@@ -305,6 +305,12 @@ export function detectTerminalFiller(transcript) {
 }
 
 // ── Lightweight Telemetry Logger ───────────────────────────────────
+export const interviewTelemetryLog = [];
+
+export function clearInterviewTelemetryLog() {
+    interviewTelemetryLog.length = 0;
+}
+
 export function logInterviewTelemetry(event, payload = {}) {
     try {
         const telemetryRecord = {
@@ -312,6 +318,10 @@ export function logInterviewTelemetry(event, payload = {}) {
             timestamp: Date.now(),
             ...payload,
         };
+        interviewTelemetryLog.push(telemetryRecord);
+        if (interviewTelemetryLog.length > 500) {
+            interviewTelemetryLog.shift();
+        }
         if (typeof window !== 'undefined' && window.localStorage?.getItem('debugTelemetry') === 'true') {
             console.info('[Telemetry:InterviewTiming]', telemetryRecord);
         }
@@ -321,4 +331,89 @@ export function logInterviewTelemetry(event, payload = {}) {
     } catch {
         /* Telemetry must never crash the UI */
     }
+}
+
+export function getInterviewTelemetrySummary() {
+    const latencyEvents = interviewTelemetryLog.filter(e => e.event === 'last_speech_to_first_audio_latency');
+    const latencies = latencyEvents.map(e => e.latencyMs).filter(n => typeof n === 'number' && Number.isFinite(n)).sort((a, b) => a - b);
+    const p50 = latencies.length ? latencies[Math.floor(latencies.length * 0.5)] : null;
+    const p95 = latencies.length ? latencies[Math.floor(latencies.length * 0.95)] : null;
+    const latestResumeEvent = [...interviewTelemetryLog].reverse().find(e => e.event === 'turn_resume_rate');
+    return {
+        samples: latencies.length,
+        p50,
+        p95,
+        min: latencies[0] ?? null,
+        max: latencies[latencies.length - 1] ?? null,
+        resumeRate: latestResumeEvent?.resumeRate ?? 0,
+        resumedTurns: latestResumeEvent?.resumedTurns ?? 0,
+        totalTurns: latestResumeEvent?.totalTurns ?? 0,
+        allEvents: [...interviewTelemetryLog],
+        turnTimelines: [...turnTimelines],
+    };
+}
+
+
+// ── Per-Turn Timeline Recorder & Filler Word Detector ─────────────────
+export const turnTimelines = [];
+
+export function clearTurnTimelines() {
+    turnTimelines.length = 0;
+}
+
+export function recordTurnEvent(turnIndex, eventName, metadata = {}) {
+    const now = Date.now();
+    let turnObj = turnTimelines.find(t => t.turnIndex === turnIndex);
+    if (!turnObj) {
+        turnObj = { turnIndex, startedAt: now, events: [] };
+        turnTimelines.push(turnObj);
+        if (turnTimelines.length > 50) turnTimelines.shift();
+    }
+    const prevEvent = turnObj.events[turnObj.events.length - 1];
+    turnObj.events.push({
+        name: eventName,
+        timestamp: now,
+        deltaFromPrevMs: prevEvent ? now - prevEvent.timestamp : 0,
+        deltaFromStartMs: now - turnObj.startedAt,
+        ...metadata,
+    });
+}
+
+export function isTrailingFiller(text = '') {
+    const trimmed = String(text || '').trim();
+    return /(?:\b(?:um|uh|uhh|umm|so|like|well|you know|and|or|but|i mean|basically|actually)\b[.?!,\s]*$|\.{2,}$)/i.test(trimmed);
+}
+
+// ── Semantic Silence & Turn-Taking Threshold Engine ────────────────
+// Scales required silence duration based on interview stage and word count.
+// Technical / coding questions require larger silence windows (2.8s - 4.0s) so candidates
+// can pause mid-thought (e.g. "...uses a hash map [pause] and the complexity is...")
+// without getting prematurely cut off.
+export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0, text = '', candidatePacingOffset = 0 } = {}) {
+    const trimmed = String(text || '').trim();
+    const hasDefinitiveEnding = /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer|done)[.?!]*$/i.test(trimmed);
+
+    if (hasDefinitiveEnding) {
+        return 1500;
+    }
+
+    const fillerBonus = isTrailingFiller(trimmed) ? 1200 : 0;
+    const baseOffset = Number.isFinite(candidatePacingOffset) ? candidatePacingOffset : 0;
+    // Clamp individual pacing offset to [-300ms, +500ms]
+    const clampedOffset = Math.max(-300, Math.min(500, baseOffset));
+
+    const isTechnical = /tech|dsa|coding|system[-_\s]?design/i.test(stage || '');
+    const isBehavioral = /behavioral|hr/i.test(stage || '');
+
+    let threshold = 2000;
+    if (isTechnical) {
+        threshold = wordCount < 15 ? 2500 : 2000;
+    } else if (isBehavioral) {
+        threshold = wordCount < 12 ? 2200 : 1800;
+    } else {
+        threshold = wordCount < 10 ? 2200 : 1800;
+    }
+
+    // Hard clamp between 1500ms min and 3600ms max so deliberate speakers + trailing fillers never hit 5s+
+    return Math.min(3600, Math.max(1500, threshold + fillerBonus + clampedOffset));
 }

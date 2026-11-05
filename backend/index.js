@@ -295,6 +295,17 @@ async function initializeServer() {
 
     // Error handler middleware
     app.use(errorHandler);
+
+    // Verify AI models on startup
+    const { verifyGroqModelsOnStartup, verifyGeminiModelOnStartup } = await import('./routes/company-interview/helpers.js');
+    await Promise.allSettled([
+      verifyGroqModelsOnStartup().catch((err) => {
+        console.warn('[Server Startup] Groq model pre-flight check bypassed:', err.message);
+      }),
+      verifyGeminiModelOnStartup().catch((err) => {
+        console.warn('[Server Startup] Gemini model pre-flight check bypassed:', err.message);
+      }),
+    ]);
   } catch (error) {
     console.error('❌ Failed to initialize server:', error.message);
     console.error(error.stack);

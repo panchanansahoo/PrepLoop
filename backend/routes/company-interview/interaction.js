@@ -17,8 +17,37 @@ import nvidiaVoiceService from '../../services/nvidiaVoiceService.js';
 import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, truncateConversationHistory, deterministicScore, deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, FRESHER_HR_CLOSINGS, FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, getStaticInterviewClosing, _getFresherTechnicalQuestion, getFresherTechnicalAIPrompt, _getFresherHRQuestion, _getFresherHRAIPrompt, getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, getAdaptiveDifficultyPrompt, buildInterviewMemoryPrompt, buildFocusSignal, generateFresherHRQuestion, generateFresherTechnicalQuestion, generateFresherScriptedQuestion } from './helpers.js';
 import { computeNextMood, getMoodProfile, getMicroReaction, MOODS } from '../../services/interviewerMoodEngine.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
+import { callFastReply, callTurnScoring } from '../../services/llmRouter.js';
+import quotaGuard from '../../services/quotaGuard.js';
 
 const router = express.Router();
+
+export const scoreDistributionStats = {
+  totalScores: 0,
+  buckets: { '<50': 0, '50-64': 0, '65-79': 0, '80-89': 0, '>=90': 0 },
+  sum: 0,
+  min: 100,
+  max: 0,
+};
+
+export function recordTurnScore(score) {
+  if (typeof score !== 'number' || isNaN(score)) return;
+  scoreDistributionStats.totalScores++;
+  scoreDistributionStats.sum += score;
+  scoreDistributionStats.min = Math.min(scoreDistributionStats.min, score);
+  scoreDistributionStats.max = Math.max(scoreDistributionStats.max, score);
+
+  if (score < 50) scoreDistributionStats.buckets['<50']++;
+  else if (score < 65) scoreDistributionStats.buckets['50-64']++;
+  else if (score < 80) scoreDistributionStats.buckets['65-79']++;
+  else if (score < 90) scoreDistributionStats.buckets['80-89']++;
+  else scoreDistributionStats.buckets['>=90']++;
+
+  const avg = Math.round(scoreDistributionStats.sum / scoreDistributionStats.totalScores);
+  if (scoreDistributionStats.totalScores % 5 === 0) {
+    console.log(`[Score Calibration] N=${scoreDistributionStats.totalScores} Avg=${avg} Min=${scoreDistributionStats.min} Max=${scoreDistributionStats.max} Buckets:`, JSON.stringify(scoreDistributionStats.buckets));
+  }
+}
 
 // ─── Follow-up with realistic interviewer behavior ───
 router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res) => {
@@ -718,7 +747,7 @@ Evaluate this code as part of your response:
 - Suggest an optimized version if applicable
 Include your evaluation in "codeFeedback" in the JSON response.` : '';
 
-    const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company, stage);
+      const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company, stage);
     const memoryPrompt = buildInterviewMemoryPrompt(conversationHistory, previousQuestion, userAnswer);
     const feedbackPrompt = buildAnswerFeedbackPrompt();
 
@@ -793,6 +822,13 @@ NATURAL SPEECH CONSTRAINTS (STRICT):
 - Prefer concrete, topic-specific follow-ups tied to the current stage (e.g., OOP/DBMS/OS/networking for Technical; STAR context for Behavioral).
 ` + focusPrompt + feedbackPrompt + `
 
+SCORING CALIBRATION RUBRIC (0-100 scale, USE FULL RANGE, DO NOT CLUSTER AROUND 70):
+* 90-100: Exceptional, accurate response demonstrating thorough understanding, edge cases, trade-offs, and clear communication.
+* 75-89: Solid, competent response that answers the core problem correctly with minor omissions.
+* 55-74: Partial answer, vague explanations, or missing key trade-offs and edge cases.
+* 30-54: Weak, incorrect, or heavily confused understanding of fundamental concepts.
+* 0-29: Off-topic, blank, or completely non-functional response.
+
 Respond as JSON:
 {
   "feedback": "Internal evaluation of their answer (2 sentences)",
@@ -820,16 +856,19 @@ Respond as JSON:
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages,
           response_format: { type: 'json_object' },
           temperature: 0.75,
-          max_tokens: 500,
+          max_tokens: 1000,
         }),
       timeoutMs: 30000,
       maxRetries: 2,
       baseDelayMs: 250,
     });
+
+    const llmDurationMs = Date.now() - requestStartTime;
+    console.log(`[Interview Latency] Q${safeQuestionNumber} LLM: ${llmDurationMs}ms (model: ${process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'})`);
 
     const rawContent = completion.choices[0].message.content;
     const result = safeJsonParse(rawContent);
@@ -846,6 +885,7 @@ Respond as JSON:
     const resolvedScore = Number.isFinite(parsedScore)
       ? Math.max(0, Math.min(100, Math.round(parsedScore)))
       : 75;
+    recordTurnScore(resolvedScore);
 
     const allScores = Array.isArray(cumulativeScores) && cumulativeScores.length > 0
       ? cumulativeScores
@@ -1017,7 +1057,7 @@ router.post('/hint', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
           messages: [
             {
               role: 'system',
@@ -1070,7 +1110,7 @@ router.post('/rephrase', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -1118,7 +1158,7 @@ router.post('/nudge', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -1169,7 +1209,7 @@ router.post('/copilot-suggest', optionalAuth, async (req, res) => {
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -1243,7 +1283,7 @@ router.post('/clarify', customInterviewLimiter, optionalAuth, async (req, res) =
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -1329,7 +1369,7 @@ router.post('/code-review-live', customInterviewLimiter, optionalAuth, async (re
     const completion = await aiCallWithRetry({
       operation: () =>
         createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
+          model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
           messages: [
             {
               role: 'system',
@@ -1368,5 +1408,235 @@ Respond in JSON:
   }
 });
 
+
+// ─── Fast Spoken Reply (Ultra-Low Latency Conversational Turn) ───
+router.post('/fast-reply', customInterviewLimiter, optionalAuth, async (req, res) => {
+  const startTime = Date.now();
+  const clientAbortController = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      clientAbortController.abort();
+    }
+  });
+
+  const {
+    company = 'Tech Company',
+    role = 'Software Engineer',
+    stage: rawStage = 'Technical',
+    interviewMode,
+    interviewType,
+    previousQuestion = '',
+    userAnswer = '',
+    questionNumber = 2,
+    totalQuestions = 8,
+    _experienceLevel = 'fresher',
+    lastScore,
+    averageScore,
+    cumulativeScores,
+    conversationHistory = [],
+    runningSummary = '',
+  } = req.body || {};
+
+  const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
+  const adaptivePrompt = getAdaptiveDifficultyPrompt(lastScore, averageScore, cumulativeScores, company, stage);
+  const parsedQuestionNumber = Number(questionNumber);
+  const safeQuestionNumber = Number.isFinite(parsedQuestionNumber) && parsedQuestionNumber >= 1
+    ? Math.floor(parsedQuestionNumber)
+    : 2;
+  const parsedTotalQuestions = Number(totalQuestions);
+  const safeTotalQuestions = Number.isFinite(parsedTotalQuestions) && parsedTotalQuestions >= 1
+    ? Math.min(20, Math.floor(parsedTotalQuestions))
+    : 8;
+
+  const isLastQuestion = safeQuestionNumber >= safeTotalQuestions;
+
+  if (isLastQuestion) {
+    const closingRemark = "That is all the formal questions I have for you today. Thank you so much for your time!";
+    const wrapUpSequence = [
+      "That is all the formal questions I have for you today.",
+      `Do you have any questions for me about the role, the team, or engineering at ${company}?`,
+      "Thank you so much for your time today. We'll be in touch within a week with our decision.",
+    ];
+    return res.json({
+      microReaction: "Thank you for walking me through that.",
+      followUpQuestion: "",
+      closingRemark,
+      closingSequence: wrapUpSequence,
+      complete: true,
+      thinkTime: 0,
+      latencyMs: Date.now() - startTime,
+    });
+  }
+
+  try {
+    if (clientAbortController.signal.aborted || res.writableEnded) return;
+
+    const reply = await callFastReply({
+      previousQuestion,
+      userAnswer,
+      company,
+      role,
+      stage,
+      questionNumber: safeQuestionNumber,
+      totalQuestions: safeTotalQuestions,
+      adaptivePrompt,
+      history: conversationHistory,
+      runningSummary,
+      signal: clientAbortController.signal,
+      userId: req.user?.id || null,
+      ip: req.ip || null,
+    });
+
+    if (clientAbortController.signal.aborted || res.writableEnded) return;
+    return res.json(reply);
+  } catch (err) {
+    if (clientAbortController.signal.aborted || res.writableEnded) return;
+    console.warn('[Fast Reply] Router exception, using fallback:', err.message?.substring(0, 100));
+
+    const fallbackTransitions = [
+      'Got it, thanks for walking me through that.',
+      'Understood, that makes sense.',
+      'I see where you are going with that.',
+      'Fair enough, that gives me good context.',
+    ];
+    const microReaction = deterministicPick(fallbackTransitions, safeQuestionNumber);
+    const followUpFallback = 'Could you explain the key trade-offs and edge cases with that approach?';
+
+    return res.json({
+      microReaction,
+      followUpQuestion: followUpFallback,
+      complete: false,
+      thinkTime: 45,
+      latencyMs: Date.now() - startTime,
+      modelUsed: 'deterministic-fallback',
+      provider: 'deterministic-fallback',
+    });
+  }
+});
+
+// ─── Asynchronous Turn Evaluation & Rubric Scoring ───
+router.post('/evaluate-turn', customInterviewLimiter, optionalAuth, async (req, res) => {
+  const startTime = Date.now();
+  const clientAbortController = new AbortController();
+  res.on('close', () => {
+    if (!res.writableEnded) {
+      clientAbortController.abort();
+    }
+  });
+
+  const {
+    company = 'Tech Company',
+    role = 'Software Engineer',
+    stage: rawStage = 'Technical',
+    previousQuestion = '',
+    userAnswer = '',
+    code = '',
+    codeLanguage = '',
+    questionNumber = 2,
+    questionDifficulty = '',
+    interviewerMood: clientMood = MOODS.NEUTRAL,
+    sessionId = null,
+  } = req.body || {};
+
+  const userCapCheck = quotaGuard.checkUserCap({
+    userId: req.user?.id || null,
+    ip: req.ip || null,
+  });
+  if (!userCapCheck.allowed) {
+    return res.status(429).json({
+      error: userCapCheck.reason,
+      code: 'DAILY_CAP_REACHED',
+      turnsRemaining: 0,
+    });
+  }
+
+  const stage = resolveInterviewStage(rawStage);
+  const safeQuestionNumber = Math.max(1, Number(questionNumber) || 2);
+
+  let difficultyTag = String(questionDifficulty || '').toLowerCase().trim();
+  if (!['easy', 'medium', 'hard', 'staff_architectural'].includes(difficultyTag)) {
+    if (/staff|principal|lead|architect/i.test(role) || stage === 'System Design') {
+      difficultyTag = 'staff_architectural';
+    } else if (safeQuestionNumber <= 1 || stage === 'HR') {
+      difficultyTag = 'easy';
+    } else if (safeQuestionNumber >= 4 || stage === 'DSA / Coding') {
+      difficultyTag = 'hard';
+    } else {
+      difficultyTag = 'medium';
+    }
+  }
+
+  try {
+    if (clientAbortController.signal.aborted || res.writableEnded) {
+      console.log(`[Async Turn Eval] Turn Q${safeQuestionNumber} aborted before processing. Discarding.`);
+      return;
+    }
+
+    const evalResult = await callTurnScoring({
+      previousQuestion,
+      userAnswer,
+      code,
+      codeLanguage,
+      company,
+      role,
+      stage,
+      questionNumber: safeQuestionNumber,
+      difficultyTag,
+      sessionId,
+      signal: clientAbortController.signal,
+      userId: req.user?.id || null,
+      ip: req.ip || null,
+    });
+
+    if (clientAbortController.signal.aborted || res.writableEnded) return;
+
+    if (!evalResult?.turnRecorded) {
+      quotaGuard.recordUserTurn({
+        userId: req.user?.id || null,
+        ip: req.ip || null,
+      });
+    }
+
+    recordTurnScore(evalResult.score);
+
+    const moodResult = computeNextMood(clientMood, {
+      score: evalResult.score,
+      wordCount: (userAnswer || '').split(/\s+/).filter(Boolean).length,
+    });
+
+    return res.json({
+      ...evalResult,
+      interviewerMood: moodResult.nextMood,
+      questionDifficulty: difficultyTag,
+      scoreDistribution: scoreDistributionStats,
+    });
+  } catch (err) {
+    if (clientAbortController.signal.aborted || res.writableEnded) return;
+    console.warn('[Async Turn Eval] Error, using heuristic evaluation:', err.message?.substring(0, 100));
+    quotaGuard.recordUserTurn({
+      userId: req.user?.id || null,
+      ip: req.ip || null,
+    });
+    const words = (userAnswer || '').split(/\s+/).filter(Boolean).length;
+    let fallbackScore = 70;
+    if (words > 35) fallbackScore = 80;
+    else if (words < 15) fallbackScore = 50;
+
+    recordTurnScore(fallbackScore);
+    return res.json({
+      score: fallbackScore,
+      dimensions: { correctness: 3, depth: 3, communication: 3, rawWeighted: 3.0 },
+      evalModelUsed: 'heuristic-fallback',
+      evalProvider: 'heuristic-fallback',
+      isFallbackModel: true,
+      questionDifficulty: difficultyTag,
+      feedback: 'Answer recorded.',
+      strengths: ['Good communication'],
+      improvements: ['Elaborate with more concrete examples'],
+      interviewerReaction: 'neutral',
+      latencyMs: Date.now() - startTime,
+    });
+  }
+});
 
 export default router;

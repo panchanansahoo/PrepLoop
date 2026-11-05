@@ -93,6 +93,8 @@ export class CircuitBreakerOpenError extends Error {
 export const breakers = {
   gemini: new CircuitBreaker('gemini', { failureThreshold: 5, resetTimeout: 60000 }),
   groq: new CircuitBreaker('groq', { failureThreshold: 5, resetTimeout: 30000 }),
+  cerebras: new CircuitBreaker('cerebras', { failureThreshold: 5, resetTimeout: 30000 }),
+  openrouter: new CircuitBreaker('openrouter', { failureThreshold: 5, resetTimeout: 30000 }),
   elevenLabs: new CircuitBreaker('elevenLabs', { failureThreshold: 3, resetTimeout: 60000 }),
   razorpay: new CircuitBreaker('razorpay', { failureThreshold: 3, resetTimeout: 30000 }),
 };

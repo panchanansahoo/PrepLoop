@@ -12,6 +12,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import useAudioVisualizer from "./useAudioVisualizer";
 import {
   getModeConfig,
+  getSemanticSilenceThreshold,
   detectTerminalFiller,
   logInterviewTelemetry,
 } from "../pages/aiInterviewTiming";
@@ -26,7 +27,7 @@ const BACKCHANNEL_MIN_MS = 8_000; // min speech duration before backchannel
 const BACKCHANNEL_GAP_MS = 12_000; // min gap between backchannel clips
 
 const SILENCE_AFTER_SPEECH_MAX_MS = 6_000;
-const TOTAL_SILENCE_AUTO_SUBMIT_MS = 15_000;
+const TOTAL_SILENCE_AUTO_SUBMIT_MS = 35_000;
 
 // Silence thresholds: LONGER answers get MORE pause time (user is mid-thought)
 const SILENCE_SHORT = 7000;
@@ -38,10 +39,10 @@ const MAX_TRANSCRIPT_LENGTH = 10_000;
 const TTS_RETRY_DELAYS_MS = [500, 1000, 2000]; // Exponential backoff for TTS retries
 const TTS_PLAYBACK_GUARD_MS = 30000;
 
-// Interrupt detection
-const INTERRUPT_LEVEL = 0.12;
-const INTERRUPT_DURATION = 400;
-const INTERRUPT_GRACE_PERIOD_MS = 1200; // Ignore interrupts during the first 1.2s of playback to prevent mic/speaker feedback false-positives
+// Interrupt detection (calibrated for natural conversational barge-in without echo false-positives)
+const INTERRUPT_LEVEL = 0.08;
+const INTERRUPT_DURATION = 250; // Sustained speech for 250ms triggers clean barge-in
+const INTERRUPT_GRACE_PERIOD_MS = 1200; // Ignore interrupts during the first 1.2s of playback
 
 // Endpoints
 const RAW_API_BASE_URL = import.meta.env.VITE_API_URL || undefined;
@@ -130,16 +131,16 @@ export function getAdaptiveSilenceMs(textLength, text = "") {
   const trimmed = typeof text === "string" ? text.trim() : "";
   if (trimmed) {
     // If ending with terminal punctuation or clear conclusive phrase: fast turn-around
-    if (/[.!?]$/.test(trimmed) || /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer)$/i.test(trimmed)) {
+    if (/[.!?]$/.test(trimmed) || /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer|done)$/i.test(trimmed)) {
       return 4000;
     }
     // If ending with a connector word (mid-thought pause), allow candidate more time
-    if (/\b(?:and|so|because|like|which|but|or|then|also)\s*$/i.test(trimmed)) {
+    if (/\b(?:and|so|because|like|which|but|or|then|also|specifically|for example|for instance)\s*$/i.test(trimmed)) {
       return 7000;
     }
-    // Substantial answer without trailing connector: quick wrap-up
+    // Substantial answer without trailing connector: allow 5000ms pause (not 2800ms)
     if (textLength >= 120) {
-      return 2800;
+      return 5000;
     }
   }
 
@@ -304,6 +305,46 @@ function playBrowserSpeechFallback(
   });
 }
 
+function playBlobAudio(blob, { onStart, signal } = {}) {
+  if (!blob) return Promise.resolve();
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    let settled = false;
+
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      try {
+        audio.pause();
+      } catch {
+        /* empty */
+      }
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+
+    audio.onended = cleanup;
+    audio.onerror = cleanup;
+    if (signal) {
+      signal.addEventListener("abort", cleanup, { once: true });
+    }
+
+    const timer = setTimeout(cleanup, TTS_PLAYBACK_GUARD_MS);
+
+    audio
+      .play()
+      .then(() => {
+        onStart?.();
+      })
+      .catch(() => {
+        clearTimeout(timer);
+        cleanup();
+      });
+  });
+}
+
 export function shouldTreatTtsResponseAsFallback({
   contentType = "",
   blobSize = 0,
@@ -323,6 +364,11 @@ export function useVoiceAI({
   getAuthHeaders = null,
   isPaused = false,
   pacingMode = "realistic",
+  stage = "Technical",
+  candidatePacingOffset = 0,
+  onResumeSpeech = null,
+  onSpeculativeCandidateAnswer = null,
+  onAbortSpeculative = null,
 } = {}) {
   const [state, setState] = useState("idle");
   const [transcript, setTranscript] = useState("");
@@ -338,11 +384,33 @@ export function useVoiceAI({
   const [micWarning, setMicWarning] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const isSubmittingRef = useRef(false);
+  const stageRef = useRef(stage);
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
+  const candidatePacingOffsetRef = useRef(candidatePacingOffset);
+  useEffect(() => {
+    candidatePacingOffsetRef.current = candidatePacingOffset;
+  }, [candidatePacingOffset]);
+  const lastSubmittedAnswerRef = useRef("");
+  const lastSubmittedAtRef = useRef(0);
+  const lastSpeechDetectedAtRef = useRef(0);
+  const hasPreWarmedThisTurnRef = useRef(false);
+  const checkResumeWindowRef = useRef(null);
+  const startRef = useRef(null);
+
   const deadMicDurationRef = useRef(0);
   const pacingModeRef = useRef(pacingMode);
   useEffect(() => {
     pacingModeRef.current = pacingMode;
   }, [pacingMode]);
+
+  const onSpeculativeCandidateAnswerRef = useRef(onSpeculativeCandidateAnswer);
+  const onAbortSpeculativeRef = useRef(onAbortSpeculative);
+  useEffect(() => {
+    onSpeculativeCandidateAnswerRef.current = onSpeculativeCandidateAnswer;
+    onAbortSpeculativeRef.current = onAbortSpeculative;
+  }, [onSpeculativeCandidateAnswer, onAbortSpeculative]);
 
   const transcriptListener = onTranscriptUpdate || onTranscript;
   const inputLevelRef = useRef(0);
@@ -365,6 +433,25 @@ export function useVoiceAI({
   const processRecorderOnStopRef = useRef(false);
 
   const ttsAbortRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const currentGainNodeRef = useRef(null);
+  const currentSourceNodeRef = useRef(null);
+  const pinnedTtsProviderRef = useRef(null); // 'neural' | 'browser-speech'
+  const consecutiveCloudTtsFailuresRef = useRef(0);
+  const currentBackchannelAudioRef = useRef(null);
+  const isBackchannelPlayingRef = useRef(false);
+
+  const getAudioContext = useCallback(() => {
+    if (typeof window === "undefined") return null;
+    if (!audioCtxRef.current) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) audioCtxRef.current = new AudioCtx();
+    }
+    if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume().catch(() => {});
+    }
+    return audioCtxRef.current;
+  }, []);
   const ttsCacheRef = useRef(new Map());
 
   const backchannelRef = useRef(null);
@@ -426,7 +513,23 @@ export function useVoiceAI({
 
   useEffect(() => {
     inputLevelRef.current = inputLevel;
-  }, [inputLevel]);
+    // Acoustic speech detection threshold with dynamic barge-in guard:
+    // If outputLevel > 0.04 (speaker audio playing), candidate must vocalize above speaker echo envelope
+    const vadSpeechThreshold = outputLevel > 0.04
+      ? Math.max(INTERRUPT_LEVEL, outputLevel * 0.70 + 0.05)
+      : INTERRUPT_LEVEL; // 0.08
+
+    if (stateRef.current === "listening" && inputLevel > vadSpeechThreshold) {
+      lastSpeechDetectedAtRef.current = Date.now();
+      if (!hasPreWarmedThisTurnRef.current) {
+        hasPreWarmedThisTurnRef.current = true;
+        authFetch("/api/voice/pre-warm", { method: "POST" }).catch(() => {});
+      }
+    }
+    if (lastSubmittedAtRef.current && (Date.now() - lastSubmittedAtRef.current < 2000) && inputLevel > vadSpeechThreshold) {
+      checkResumeWindowRef.current?.();
+    }
+  }, [inputLevel, outputLevel]);
 
   // Mic Problem Detection: 8s near-zero RMS while listening and no speech
   useEffect(() => {
@@ -480,6 +583,64 @@ export function useVoiceAI({
       .catch(() => {});
   }, [personaGender]);
 
+  const playImmediateBackchannel = useCallback((clipKey = 'mmhmm') => {
+    const clips = backchannelRef.current;
+    if (!clips || !clips[clipKey]) return;
+    try {
+      if (currentBackchannelAudioRef.current) {
+        try { currentBackchannelAudioRef.current.pause(); } catch {}
+      }
+      const audio = new Audio(clips[clipKey]);
+      audio.volume = 0.85;
+      currentBackchannelAudioRef.current = audio;
+      isBackchannelPlayingRef.current = true;
+      const markDone = () => {
+        if (currentBackchannelAudioRef.current === audio) {
+          currentBackchannelAudioRef.current = null;
+          isBackchannelPlayingRef.current = false;
+        }
+      };
+      audio.addEventListener('ended', markDone, { once: true });
+      audio.addEventListener('error', markDone, { once: true });
+      audio.play().catch(markDone);
+    } catch {
+      isBackchannelPlayingRef.current = false;
+      currentBackchannelAudioRef.current = null;
+    }
+  }, []);
+
+  const stopImmediateBackchannel = useCallback(() => {
+    if (currentBackchannelAudioRef.current) {
+      try {
+        currentBackchannelAudioRef.current.pause();
+        currentBackchannelAudioRef.current.src = "";
+      } catch {}
+      currentBackchannelAudioRef.current = null;
+    }
+    isBackchannelPlayingRef.current = false;
+  }, []);
+
+  const waitForBackchannel = useCallback(async () => {
+    if (!isBackchannelPlayingRef.current || !currentBackchannelAudioRef.current) return;
+    await new Promise((resolve) => {
+      const a = currentBackchannelAudioRef.current;
+      if (!a || a.ended || a.paused) return resolve();
+      const cleanup = () => {
+        a.removeEventListener('ended', cleanup);
+        a.removeEventListener('error', cleanup);
+        resolve();
+      };
+      a.addEventListener('ended', cleanup, { once: true });
+      a.addEventListener('error', cleanup, { once: true });
+      setTimeout(cleanup, 900);
+    });
+  }, []);
+
+  const resetVoicePinning = useCallback(() => {
+    pinnedTtsProviderRef.current = null;
+    consecutiveCloudTtsFailuresRef.current = 0;
+  }, []);
+
   const clearSilenceTimer = () => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -510,6 +671,7 @@ export function useVoiceAI({
       afterSpeechSilenceRef.current = null;
     }
     setSilenceCountdown(0);
+    onAbortSpeculativeRef.current?.();
   };
 
   const playBackchannel = useCallback(() => {
@@ -552,6 +714,53 @@ export function useVoiceAI({
     };
     scheduleNext();
   }, [playBackchannel]);
+
+  const checkResumeWindow = useCallback((interimSpeech = "") => {
+    const now = Date.now();
+    if (lastSubmittedAtRef.current && (now - lastSubmittedAtRef.current) < 2000) {
+      const prevAnswer = lastSubmittedAnswerRef.current;
+      console.log("[useVoiceAI] Candidate resumed speech within 2s resume window! Aborting submit & stopping audio.");
+      lastSubmittedAtRef.current = 0;
+      lastSubmittedAnswerRef.current = "";
+      lastSpeechDetectedAtRef.current = now;
+
+      // 1. Immediately cancel & stop any AI TTS audio that may have started
+      if (ttsAbortRef.current) {
+        ttsAbortRef.current.abort();
+        ttsAbortRef.current = null;
+      }
+      if (audioRef.current) {
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        } catch { /* no-op */ }
+        audioRef.current = null;
+      }
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      // 2. Restore candidate speech buffer
+      finalTextRef.current = prevAnswer;
+      const restored = (prevAnswer + (interimSpeech ? " " + interimSpeech : "")).trim();
+      setTranscript(restored);
+      setVoiceState("listening");
+      setState("listening");
+      stateRef.current = "listening";
+      isSubmittingRef.current = false;
+
+      // 3. Restart browser speech recognition if it was stopped
+      if (!activeRef.current) {
+        startRef.current?.();
+      }
+
+      // 4. Notify session hook to cancel follow-up call, stop speakSequence, and hold question counter
+      onResumeSpeech?.(prevAnswer);
+      return true;
+    }
+    return false;
+  }, [onResumeSpeech]);
+  checkResumeWindowRef.current = checkResumeWindow;
 
   const submitAnswer = useCallback(async (force = false, meta = {}) => {
     if (isSubmittingRef.current) return;
@@ -621,6 +830,8 @@ export function useVoiceAI({
 
     // Save the answer text BEFORE clearing any refs/state
     const savedAnswer = answer;
+    lastSubmittedAnswerRef.current = savedAnswer;
+    lastSubmittedAtRef.current = Date.now();
 
     setState("processing");
     stateRef.current = "processing";
@@ -630,8 +841,10 @@ export function useVoiceAI({
     finalTextRef.current = "";
     interimRef.current = "";
 
+    const lastSpeechAt = lastSpeechDetectedAtRef.current || Date.now();
+    const enrichedMeta = { ...meta, lastSpeechAt };
     try {
-      onAnswer?.(savedAnswer, meta);
+      onAnswer?.(savedAnswer, enrichedMeta);
     } catch {
       /* no-op */
     } finally {
@@ -650,8 +863,43 @@ export function useVoiceAI({
     (delayMs) => {
       clearAfterSpeechSilence();
       const startedAt = Date.now();
+      let speculativeTriggered = false;
       const tick = () => {
-        const remainingMs = Math.max(0, delayMs - (Date.now() - startedAt));
+        let remainingMs = Math.max(0, delayMs - (Date.now() - startedAt));
+
+        // VAD-assisted semantic turn-taking:
+        // Web Speech API rarely outputs punctuation (.!?).
+        // If candidate has spoken a substantive response (>= 6 words),
+        // does not end on a hanging conjunction/preposition,
+        // and microphone acoustic energy is quiet (< 0.02) for >= 1600ms, trigger snappy submission!
+        const currentText = (finalTextRef.current + " " + (interimRef.current || "")).trim();
+        const wordCount = currentText ? currentText.split(/\s+/).filter(Boolean).length : 0;
+        const endsWithHangingWord = /\b(?:and|so|because|like|which|but|or|then|also|specifically|for example|for instance|if|when|where|while|since|with|to|from|about)\s*$/i.test(currentText);
+        const silenceElapsedMs = Date.now() - startedAt;
+
+        // Speculative Fast-Reply: Trigger prefetch after 800-1000ms of quiet silence
+        if (
+          !speculativeTriggered &&
+          silenceElapsedMs >= 800 &&
+          wordCount >= 6 &&
+          !endsWithHangingWord &&
+          (inputLevelRef.current || 0) < 0.02
+        ) {
+          speculativeTriggered = true;
+          onSpeculativeCandidateAnswerRef.current?.(currentText);
+        }
+
+        const requiredSilenceMs = getSemanticSilenceThreshold({
+          stage: stageRef.current,
+          wordCount,
+          text: currentText,
+          candidatePacingOffset: candidatePacingOffsetRef.current,
+        });
+
+        if (!endsWithHangingWord && silenceElapsedMs >= requiredSilenceMs && (inputLevelRef.current || 0) < 0.02) {
+          remainingMs = 0;
+        }
+
         setSilenceCountdown(Math.ceil(remainingMs / 1000));
         if (remainingMs <= 0) {
           afterSpeechSilenceRef.current = null;
@@ -670,6 +918,11 @@ export function useVoiceAI({
           if (isPausedRef.current) {
             // Interview is paused — reschedule instead of auto-submitting
             afterSpeechSilenceRef.current = setTimeout(tick, 500);
+            return;
+          }
+          if (inputLevelRef.current > 0.05) {
+            // Candidate is actively speaking into mic; grant an extra second to avoid cut-off
+            afterSpeechSilenceRef.current = setTimeout(tick, 1000);
             return;
           }
           if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
@@ -731,7 +984,7 @@ export function useVoiceAI({
 
     try {
       const existingStream = streamRef.current;
-      const stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = existingStream || await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
       if (voiceSessionEpochRef.current !== sessionEpoch || !activeRef.current) {
         if (!existingStream) stream.getTracks().forEach((track) => track.stop());
         return;
@@ -1041,10 +1294,17 @@ export function useVoiceAI({
             clearTotalSilenceTimer();
             maxWaitRef.current = setTimeout(submitAnswer, MAX_ANSWER_WAIT_MS);
             totalSilenceTimerRef.current = setTimeout(() => {
-              console.log(
-                "[useVoiceAI] 15 seconds of total silence (no speech detected), auto-submitting",
-              );
-              submitAnswer();
+              const currentTotal = (finalTextRef.current + " " + (interimRef.current || "")).trim();
+              if (currentTotal.length >= MIN_ANSWER_LENGTH) {
+                console.log(
+                  "[useVoiceAI] Total silence timeout with speech detected, submitting answer",
+                );
+                submitAnswer();
+              } else {
+                console.log(
+                  "[useVoiceAI] Candidate is still thinking (no speech yet), waiting...",
+                );
+              }
             }, TOTAL_SILENCE_AUTO_SUBMIT_MS);
           };
 
@@ -1056,11 +1316,13 @@ export function useVoiceAI({
           recognition.onspeechstart = () => {
             if (recognitionEpochRef.current !== epoch) return;
             noSpeechCountRef.current = 0;
+            lastSpeechDetectedAtRef.current = Date.now();
             console.log("[useVoiceAI] ✓ Speech detected by browser (epoch", epoch, ")");
           };
 
           recognition.onresult = (event) => {
             if (!activeRef.current || recognitionEpochRef.current !== epoch) return;
+            lastSpeechDetectedAtRef.current = Date.now();
             let interim = "";
             let finalText = "";
             for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -1259,6 +1521,7 @@ export function useVoiceAI({
       activeRef.current = false;
     }
   }, [submitAnswer, startBackchannelSchedule, scheduleAfterSpeechSilence, startWhisperFallback]);
+  startRef.current = start;
 
   const stop = useCallback(() => {
     voiceSessionEpochRef.current += 1;
@@ -1318,9 +1581,37 @@ export function useVoiceAI({
       ttsAbortRef.current.abort();
       ttsAbortRef.current = null;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
+
+    // Smooth 80-100ms fade-out to prevent speaker pop / harsh cut
+    if (currentGainNodeRef.current && audioCtxRef.current) {
+      try {
+        const ctx = audioCtxRef.current;
+        const gain = currentGainNodeRef.current.gain;
+        gain.cancelScheduledValues(ctx.currentTime);
+        gain.setValueAtTime(gain.value, ctx.currentTime);
+        gain.linearRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+        setTimeout(() => {
+          try { currentSourceNodeRef.current?.stop(); } catch {}
+          currentSourceNodeRef.current = null;
+          currentGainNodeRef.current = null;
+        }, 85);
+      } catch {}
+    } else if (audioRef.current) {
+      const a = audioRef.current;
+      const initialVol = a.volume || 1.0;
+      let step = 0;
+      const fadeTimer = setInterval(() => {
+        step++;
+        a.volume = Math.max(0, initialVol * (1 - step / 6));
+        if (step >= 6) {
+          clearInterval(fadeTimer);
+          try { a.pause(); a.src = ""; } catch {}
+        }
+      }, 15);
+    }
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
     setOutputAudioEl(null);
     setInterruptDetected(false);
@@ -1360,7 +1651,12 @@ export function useVoiceAI({
     }
 
     const level = inputLevel;
-    const isLoud = level > 0.04 || inputBars.some((b) => b > 0.12);
+    // Dynamic acoustic barge-in threshold:
+    // If outputLevel > 0.04 (speaker playing audio into room), candidate must vocalize above speaker echo envelope
+    const dynamicThreshold = outputLevel > 0.04
+      ? Math.max(INTERRUPT_LEVEL, outputLevel * 0.70 + 0.05)
+      : INTERRUPT_LEVEL;
+    const isLoud = level > dynamicThreshold;
     if (isLoud) {
       if (!interruptTimerRef.current) {
         interruptTimerRef.current = setTimeout(() => {
@@ -1433,6 +1729,226 @@ export function useVoiceAI({
       return voices.find((v) => v.lang.startsWith("en")) || voices[0] || null;
     },
     [personaGender],
+  );
+
+  const speakGaplessSequence = useCallback(
+    async (segments, { onStart, onEnd } = {}) => {
+      if (!segments || segments.length === 0) {
+        onEnd?.();
+        return;
+      }
+      const cleanSegments = segments.filter(s => s && String(s).trim().length > 0);
+      if (cleanSegments.length === 0) {
+        onEnd?.();
+        return;
+      }
+
+      if (ttsAbortRef.current) ttsAbortRef.current.abort();
+      const controller = new AbortController();
+      ttsAbortRef.current = controller;
+
+      // Pinned session voice: if locked into browser speech fallback after repeated cloud failures, stay on it
+      if (pinnedTtsProviderRef.current === 'browser-speech') {
+        setState("speaking");
+        onStart?.();
+        for (const seg of cleanSegments) {
+          if (controller.signal.aborted) break;
+          await playBrowserSpeechFallback(seg, {
+            voice: pickBrowserVoice(personaGender),
+            gender: personaGender,
+            controller,
+            guardMs: TTS_PLAYBACK_GUARD_MS,
+          });
+        }
+        setState("idle");
+        onEnd?.();
+        return;
+      }
+
+      setState("loading");
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        try { await ctx.resume(); } catch {}
+      }
+
+      try {
+        // Concurrently fetch audio blobs with 1-shot retry for transient 429/network errors
+        const blobPromises = cleanSegments.map(async (text) => {
+          const cacheKey = `${personaGender}:${voicePersona}:${text.trim().slice(0, 200)}`;
+          if (ttsCacheRef.current.has(cacheKey)) {
+            const cached = await ttsCacheRef.current.get(cacheKey);
+            ttsCacheRef.current.delete(cacheKey);
+            if (cached?.blob && !shouldTreatTtsResponseAsFallback({ contentType: cached.contentType, blobSize: cached.blob?.size })) {
+              return cached.blob;
+            }
+          }
+          const ttsRequest = withVoiceRequestId(
+            resolveAuthHeaders({ "Content-Type": "application/json" }),
+            "voice-tts"
+          );
+          let res = await authFetch(TTS_ENDPOINT, {
+            method: "POST",
+            headers: ttsRequest.headers,
+            body: JSON.stringify({
+              text,
+              persona: voicePersona,
+              gender: personaGender,
+            }),
+            signal: controller.signal,
+          });
+
+          // Retry once on transient 429 or 5xx
+          if (!res.ok && (res.status === 429 || res.status >= 500)) {
+            await new Promise((r) => setTimeout(r, 350));
+            res = await authFetch(TTS_ENDPOINT, {
+              method: "POST",
+              headers: ttsRequest.headers,
+              body: JSON.stringify({
+                text,
+                persona: voicePersona,
+                gender: personaGender,
+              }),
+              signal: controller.signal,
+            });
+          }
+
+          if (!res.ok) throw new Error(`TTS HTTP ${res.status}`);
+          const b = await res.blob();
+          if (shouldTreatTtsResponseAsFallback({ contentType: res.headers.get("content-type"), blobSize: b?.size })) {
+            throw new Error("Invalid TTS audio blob");
+          }
+          return b;
+        });
+
+        const blobs = await Promise.all(blobPromises);
+        if (controller.signal.aborted) return;
+
+        // Reset failure counter on successful cloud audio retrieval
+        consecutiveCloudTtsFailuresRef.current = 0;
+        pinnedTtsProviderRef.current = 'neural';
+
+        // Safari / Web Audio decoding with clean HTML Audio fallback
+        let audioBuffers = null;
+        if (ctx) {
+          try {
+            audioBuffers = await Promise.all(
+              blobs.map(async (b) => {
+                const ab = await b.arrayBuffer();
+                return await ctx.decodeAudioData(ab);
+              })
+            );
+          } catch (decodeErr) {
+            console.warn("[useVoiceAI] Web Audio decode failed (Safari or unsupported codec), falling back to HTML Audio:", decodeErr.message);
+            audioBuffers = null;
+          }
+        }
+
+        // If Web Audio decoding is unavailable or failed, smoothly play through HTML Audio
+        if (!audioBuffers) {
+          setState("speaking");
+          setVoiceState("asking");
+          speakingStartedAtRef.current = Date.now();
+          for (const b of blobs) {
+            if (controller.signal.aborted) break;
+            await playBlobAudio(b, { onStart, signal: controller.signal });
+          }
+          onEnd?.();
+          return;
+        }
+
+        // Schedule gapless Web Audio graph with volume normalization & crossfades
+        let schedTime = ctx.currentTime + 0.04;
+        const gainNodes = [];
+        const sourceNodes = [];
+        let totalDuration = 0;
+
+        for (let i = 0; i < audioBuffers.length; i++) {
+          const buf = audioBuffers[i];
+          const src = ctx.createBufferSource();
+          src.buffer = buf;
+          const gain = ctx.createGain();
+
+          let peak = 0;
+          for (let ch = 0; ch < buf.numberOfChannels; ch++) {
+            const chanData = buf.getChannelData(ch);
+            for (let s = 0; s < chanData.length; s += 20) {
+              const a = Math.abs(chanData[s]);
+              if (a > peak) peak = a;
+            }
+          }
+          const normGain = Math.min(1.0, 0.95 / Math.max(0.1, peak));
+
+          const fadeMs = 0.02;
+          gain.gain.setValueAtTime(0.001, schedTime);
+          gain.gain.linearRampToValueAtTime(normGain, schedTime + fadeMs);
+          const segEnd = schedTime + buf.duration;
+          gain.gain.setValueAtTime(normGain, segEnd - fadeMs);
+          gain.gain.linearRampToValueAtTime(0.001, segEnd);
+
+          src.connect(gain);
+          gain.connect(ctx.destination);
+          src.start(schedTime);
+
+          gainNodes.push(gain);
+          sourceNodes.push(src);
+
+          schedTime = segEnd - fadeMs;
+          totalDuration = schedTime - ctx.currentTime;
+        }
+
+        currentGainNodeRef.current = gainNodes[0];
+        currentSourceNodeRef.current = sourceNodes[0];
+
+        setState("speaking");
+        setVoiceState("asking");
+        speakingStartedAtRef.current = Date.now();
+        onStart?.();
+
+        await new Promise((resolve) => {
+          const checkTimer = setTimeout(() => {
+            resolve();
+          }, Math.max(100, Math.ceil(totalDuration * 1000) + 50));
+          controller.signal.addEventListener("abort", () => {
+            clearTimeout(checkTimer);
+            resolve();
+          });
+        }).finally(() => {
+          // Release AudioBufferSourceNodes and GainNodes to prevent memory leaks across long sessions
+          sourceNodes.forEach((src) => { try { src.disconnect(); } catch {} });
+          gainNodes.forEach((gain) => { try { gain.disconnect(); } catch {} });
+          sourceNodes.length = 0;
+          gainNodes.length = 0;
+          audioBuffers.length = 0;
+        });
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        consecutiveCloudTtsFailuresRef.current++;
+        console.warn(`[useVoiceAI] Cloud TTS error (attempt ${consecutiveCloudTtsFailuresRef.current}):`, err.message);
+        // Only pin to browser speech after repeated failures (>= 2 consecutive)
+        if (consecutiveCloudTtsFailuresRef.current >= 2) {
+          pinnedTtsProviderRef.current = 'browser-speech';
+        }
+        analyticsRef.current.ttsFallbacks++;
+        setConnectionHealth("fallback");
+        setState("speaking");
+        onStart?.();
+        for (const seg of cleanSegments) {
+          if (controller.signal.aborted) break;
+          await playBrowserSpeechFallback(seg, {
+            voice: pickBrowserVoice(personaGender),
+            gender: personaGender,
+            controller,
+            guardMs: TTS_PLAYBACK_GUARD_MS,
+          });
+        }
+      } finally {
+        setState("idle");
+        currentGainNodeRef.current = null;
+        currentSourceNodeRef.current = null;
+        onEnd?.();
+      }
+    },
+    [getAudioContext, personaGender, voicePersona, resolveAuthHeaders, pickBrowserVoice]
   );
 
   const speak = useCallback(
@@ -1903,6 +2419,11 @@ export function useVoiceAI({
     hasPendingTranscription: Boolean(pendingWhisperBlobRef.current),
     interrupt,
     speak,
+    speakGaplessSequence,
+    playImmediateBackchannel,
+    stopImmediateBackchannel,
+    waitForBackchannel,
+    resetVoicePinning,
     prefetch,
     cleanup,
     audioRef,

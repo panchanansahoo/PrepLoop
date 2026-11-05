@@ -1,10 +1,13 @@
 import express from 'express';
 import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { groq, safeJsonParse, createGroqChatCompletion } from './helpers.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
+import { callInterviewReport, callTurnScoring, ROUTER_MODELS } from '../../services/llmRouter.js';
+import { quotaGuard } from '../../services/quotaGuard.js';
+import { deferredJobQueue } from '../../services/deferredJobQueue.js';
+import { createLogger } from '../../utils/structuredLogger.js';
 
+const logger = createLogger('interview-evaluation');
 const router = express.Router();
 
 // ─── Evaluate overall interview session ───
@@ -119,6 +122,12 @@ function extractInterviewQaPairs(conversation = []) {
       latestPair.strengths = Array.isArray(message.strengths) ? message.strengths : [];
       latestPair.improvements = Array.isArray(message.improvements) ? message.improvements : [];
       latestPair.feedback = message.content;
+      latestPair.evalProvider = message.evalProvider || (message.evalModelUsed?.includes('gemini') ? 'gemini' : (message.evalModelUsed?.includes('openrouter') ? 'openrouter' : 'groq'));
+      latestPair.evalModelUsed = message.evalModelUsed || null;
+      latestPair.isFallbackModel = message.isFallbackModel === true || latestPair.evalProvider !== 'groq';
+      latestPair.isEstimated = message.isEstimated === true || message.status === 'estimated' || message.evalModelUsed === 'heuristic-estimated';
+      latestPair.status = message.status || (latestPair.isEstimated ? 'estimated' : 'scored');
+      latestPair.isUnscored = message.isUnscored === true || message.status === 'not_scored' || (message.score === null && !latestPair.isEstimated);
     }
   }
 
@@ -161,6 +170,29 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
   const questionBreakdown = qaPairs.map((qa, index) => {
     const answer = String(qa.answer || '').trim();
     const category = detectQuestionCategory(qa.questionMeta, stage, qa.question);
+
+    const isEstimatedTurn = qa.isEstimated === true || qa.status === 'estimated' || (qa.inlineScore === null && !qa.isUnscored);
+
+    if (qa.isUnscored || isEstimatedTurn) {
+      return {
+        questionNumber: index + 1,
+        question: qa.question?.substring(0, 300),
+        candidateAnswer: answer.substring(0, 600),
+        score: null, // Numerical score is null: estimated turns are excluded from numeric averages
+        status: isEstimatedTurn ? 'estimated' : 'not_scored',
+        isEstimated: isEstimatedTurn,
+        category,
+        feedback: qa.feedback || (isEstimatedTurn ? 'Estimated answer recording (AI evaluation temporarily unavailable).' : 'Not scored (evaluation timed out).'),
+        strengths: qa.strengths?.length ? qa.strengths : [],
+        improvements: qa.improvements?.length ? qa.improvements : [],
+        idealAnswerPoints: defaultIdealAnswerPoints(category),
+        questionSource: qa.questionSource,
+        questionMeta: qa.questionMeta,
+        evalProvider: qa.evalProvider || (isEstimatedTurn ? 'heuristic-estimated' : null),
+        evalModelUsed: qa.evalModelUsed || (isEstimatedTurn ? 'heuristic-estimated' : null),
+        isFallbackModel: qa.isFallbackModel ?? true,
+      };
+    }
     
     // Use evaluateFresherAnswer if inlineScore and sessionScore are missing
     let fallbackScore = 0;
@@ -200,6 +232,8 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
       question: qa.question?.substring(0, 300),
       candidateAnswer: answer.substring(0, 600),
       score: heuristicsScore,
+      status: 'scored',
+      isEstimated: false,
       category,
       feedback,
       strengths,
@@ -207,15 +241,40 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
       idealAnswerPoints: defaultIdealAnswerPoints(category),
       questionSource: qa.questionSource,
       questionMeta: qa.questionMeta,
+      evalProvider: qa.evalProvider || 'groq',
+      evalModelUsed: qa.evalModelUsed || null,
+      isFallbackModel: qa.isFallbackModel === true || qa.evalProvider !== 'groq',
+      isRescoredWithFinalModel: qa.isRescoredWithFinalModel === true,
     };
   });
 
-  const overallScore = averageScore(questionBreakdown.map(item => item.score)) ?? averageScore(sessionScores) ?? 70;
+  const scoredItems = questionBreakdown.filter(item =>
+    typeof item.score === 'number' && Number.isFinite(item.score) && !item.isEstimated && item.status !== 'estimated'
+  );
+  const scoredSessionScores = (sessionScores || []).filter(s => typeof s === 'number' && Number.isFinite(s));
+  const overallScore = scoredItems.length > 0
+    ? averageScore(scoredItems.map(item => item.score))
+    : (scoredSessionScores.length > 0 ? averageScore(scoredSessionScores) : null);
 
   const categoryBuckets = {
     technicalSkills: [],
-    communication: questionBreakdown.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 6 : -4))),
+    communication: scoredItems.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 6 : -4))),
     problemSolving: [],
+    cultureFit: [],
+  };
+
+  for (const question of questionBreakdown) {
+    if (question.isEstimated || question.status === 'estimated' || typeof question.score !== 'number') continue;
+    if (['technical', 'coding', 'system-design'].includes(question.category)) {
+      categoryBuckets.technicalSkills.push(question.score);
+      categoryBuckets.problemSolving.push(Math.min(100, question.score + (question.category === 'coding' ? 4 : 0)));
+    }
+
+    if (['behavioral', 'hr'].includes(question.category)) {
+      categoryBuckets.cultureFit.push(question.score);
+      categoryBuckets.communication.push(Math.min(100, question.score + 4));
+    }
+  }
     cultureFit: [],
   };
 
@@ -338,7 +397,7 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
 
   const overallScore = clampScore(
     report.overallScore,
-    averageScore(questionBreakdown.map(item => item.score)) ?? averageScore(sessionScores) ?? 70
+    averageScore(questionBreakdown.filter(item => typeof item.score === 'number').map(item => item.score)) ?? averageScore(sessionScores) ?? 70
   );
 
   const strengths = Array.isArray(report.strengths) && report.strengths.length > 0
@@ -349,13 +408,17 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
     ? report.improvements
     : collectTopItems(questionBreakdown.map(item => item.improvements), 4);
 
-  const recommendation = report.recommendation || report.recommendations?.[0]?.action || improvements[0] || 'Review the weaker answers and make them more specific.';
-  const verdict = report.verdict || (overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance');
-  const verdictEmoji = report.verdictEmoji || (overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎');
+  const isEstimatedSession = overallScore == null;
+  const verdict = isEstimatedSession ? 'Estimated Assessment' : report.verdict || (overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance');
+  const verdictEmoji = isEstimatedSession ? '📊' : report.verdictEmoji || (overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎');
 
   return {
     ...report,
     overallScore,
+    isEstimated: isEstimatedSession,
+    status: isEstimatedSession ? 'estimated' : (report.status || 'completed'),
+    hasMixedScorers: report.hasMixedScorers === true,
+    scorerTransitionTurn: report.scorerTransitionTurn || null,
     summary: report.summary || `You completed ${questionBreakdown.length} questions for the ${role || 'role'} at ${company || 'the company'}, with the clearest strengths in ${strengths.slice(0, 2).join(' and ') || 'communication and structure'}.`,
     verdict,
     verdictEmoji,
@@ -383,127 +446,122 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
   };
 }
 
-async function generateInterviewReport({ company, role, stage, conversation, sessionScores = [], speechHistory = [] }) {
-  const qaPairs = extractInterviewQaPairs(conversation);
-  const fallbackReport = buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory });
+async function maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId }) {
+  if (!Array.isArray(qaPairs) || qaPairs.length < 2) return { hasMixedScorers: false };
 
-  if (!groq || qaPairs.length === 0) {
+  const scoredTurns = qaPairs.filter(qa => !qa.isEstimated && !qa.isUnscored && qa.inlineScore != null && qa.evalProvider);
+  if (scoredTurns.length < 2) return { hasMixedScorers: false };
+
+  const finalTurn = scoredTurns[scoredTurns.length - 1];
+  const finalProvider = finalTurn.evalProvider;
+  const finalModel = finalTurn.evalModelUsed;
+
+  const discordantTurns = scoredTurns.filter(qa => qa.evalProvider !== finalProvider && qa.evalProvider !== 'heuristic-estimated');
+  if (discordantTurns.length === 0) {
+    return { hasMixedScorers: false, finalProvider, finalModel };
+  }
+
+  const transitionTurn = scoredTurns.findIndex(qa => qa.evalProvider === finalProvider) + 1;
+  logger.info(`[Evaluation] Mid-session cascade detected: Turns 1-${transitionTurn - 1} scored by ${discordantTurns[0].evalProvider}, final scorer is ${finalProvider}.`);
+
+  const tokensNeeded = discordantTurns.length * 350;
+  const budgetCheck = quotaGuard.canUseModel(finalModel || ROUTER_MODELS.GEMINI_FLASH, tokensNeeded);
+
+  if (budgetCheck.allowed) {
+    logger.info(`[Evaluation] Budget allows re-scoring ${discordantTurns.length} earlier turns with final scorer ${finalModel || finalProvider}...`);
+    for (const qa of discordantTurns) {
+      try {
+        const rescored = await callTurnScoring({
+          previousQuestion: qa.question,
+          userAnswer: qa.answer,
+          stage: qa.stage || 'Technical',
+          sessionId,
+        });
+        if (rescored && rescored.score != null && !rescored.isEstimated) {
+          qa.inlineScore = rescored.score;
+          qa.evalProvider = rescored.evalProvider;
+          qa.evalModelUsed = rescored.evalModelUsed;
+          qa.isRescoredWithFinalModel = true;
+          qa.feedback = rescored.feedback;
+        }
+      } catch (err) {
+        logger.warn(`[Evaluation] Re-scoring turn Q${qa.questionNumber} skipped:`, err.message);
+      }
+    }
+  } else {
+    logger.info(`[Evaluation] Budget tight; enqueuing deferred re-scoring for discordant turns.`);
+    for (const qa of discordantTurns) {
+      deferredJobQueue.enqueueScoreTurn({
+        sessionId,
+        questionNumber: qa.questionNumber,
+        previousQuestion: qa.question,
+        userAnswer: qa.answer,
+      });
+    }
+  }
+
+  return {
+    hasMixedScorers: true,
+    transitionTurn,
+    discordantCount: discordantTurns.length,
+    finalProvider,
+    finalModel,
+  };
+}
+
+async function generateInterviewReport({ company, role, stage, conversation, sessionScores = [], speechHistory = [], sessionId = null }) {
+  const qaPairs = extractInterviewQaPairs(conversation);
+  const cascadeInfo = await maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId });
+  const fallbackReport = buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory });
+  fallbackReport.hasMixedScorers = cascadeInfo.hasMixedScorers;
+  fallbackReport.scorerTransitionTurn = cascadeInfo.transitionTurn || null;
+
+  if (qaPairs.length === 0) {
     return normalizeInterviewReport(
       { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
       { company, role, stage, qaPairs, sessionScores, speechHistory }
     );
   }
-
-  const qaText = qaPairs.map((qa, index) => {
-    const tags = Array.isArray(qa.questionMeta?.tags) ? qa.questionMeta.tags.join(', ') : 'none';
-    return [
-      `Question ${index + 1}`,
-      `Source: ${qa.questionSource || 'ai'}`,
-      `Difficulty: ${qa.questionMeta?.difficulty || 'unknown'}`,
-      `Tags: ${tags}`,
-      `Question: ${qa.question?.substring(0, 400) || 'N/A'}`,
-      `Candidate Answer: ${String(qa.answer || '').substring(0, 900) || 'No answer provided'}`,
-      `Inline Score: ${qa.inlineScore ?? sessionScores[index] ?? 'N/A'}`,
-      `Inline Strengths: ${(qa.strengths || []).join('; ') || 'N/A'}`,
-      `Inline Improvements: ${(qa.improvements || []).join('; ') || 'N/A'}`
-    ].join('\n');
-  }).join('\n\n');
 
   try {
-    const completion = await aiCallWithRetry({
-      operation: () =>
-        createGroqChatCompletion({
-          model: 'openai/gpt-oss-120b',
-          messages: [
-            {
-              role: 'system',
-              content: `You are a senior interview panel creating the final report for a ${stage} interview at ${company} for the ${role} role.
-Evaluate the candidate fairly for their experience level. Ground every judgment in the ACTUAL question-answer pairs provided. Do not invent strengths or weaknesses that are not supported by the transcript.
-
-Return valid JSON with this shape:
-{
-  "overallScore": 0-100,
-  "summary": "3-4 sentence accurate summary tied to what the candidate actually said",
-  "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance",
-  "verdictEmoji": "🌟 or 👍 or 🤔 or 👎",
-  "strengths": ["Specific strength 1", "Specific strength 2", "Specific strength 3"],
-  "improvements": ["Specific improvement 1", "Specific improvement 2", "Specific improvement 3"],
-  "recommendation": "One practical next recommendation",
-  "questionBreakdown": [
-    {
-      "questionNumber": 1,
-      "question": "The original question",
-      "score": 0-100,
-      "category": "technical|behavioral|system-design|hr|coding",
-      "feedback": "2-3 sentence explanation tied to this specific answer",
-      "strengths": ["Specific strength"],
-      "improvements": ["Specific improvement"],
-      "idealAnswerPoints": ["Point they should have covered", "Another point"]
-    }
-  ],
-  "categoryScores": {
-    "technicalSkills": 0-100,
-    "communication": 0-100,
-    "problemSolving": 0-100,
-    "cultureFit": 0-100
-  },
-  "recommendations": [
-    { "area": "Area name", "action": "Specific actionable next step" }
-  ],
-  "companyFitScore": 0-100,
-  "companyFitNotes": "1-2 sentences on fit for this company/role",
-  "suggestedTopics": [
-    { "topic": "Topic", "priority": "high|medium|low", "reason": "Why this topic matters based on the transcript" }
-  ],
-  "practiceQuestions": [
-    "Five targeted practice questions based on weak areas"
-  ],
-  "studyPlan": [
-    { "day": "Day 1-2", "focus": "Focus area", "tasks": ["Task 1", "Task 2"] }
-  ]
-}`
-            },
-            {
-              role: 'user',
-              content: `Analyze this interview using only the evidence below:\n\n${qaText}`
-            }
-          ],
-          response_format: { type: 'json_object' },
-          temperature: 0.3
-        }),
-      timeoutMs: 45000,
-      maxRetries: 2,
-      baseDelayMs: 250,
+    const reportData = await callInterviewReport({
+      company,
+      role,
+      stage,
+      qaPairs,
+      sessionScores,
+      speechHistory,
+      sessionId,
     });
 
-    const parsed = safeJsonParse(completion.choices?.[0]?.message?.content || '');
-    if (!parsed) throw new Error('Failed to parse interview report');
-    return normalizeInterviewReport(
-      {
-        ...fallbackReport,
-        ...parsed,
-        aiGenerated: true,
-        analysisMode: 'ai',
-        questionBreakdown: parsed.questionBreakdown || fallbackReport.questionBreakdown,
-        categoryScores: parsed.categoryScores || parsed.detailedBreakdown || fallbackReport.categoryScores,
-        detailedBreakdown: parsed.detailedBreakdown || parsed.categoryScores || fallbackReport.detailedBreakdown,
-        strengths: parsed.strengths || fallbackReport.strengths,
-        improvements: parsed.improvements || fallbackReport.improvements,
-        recommendation: parsed.recommendation || fallbackReport.recommendation,
-        recommendations: parsed.recommendations || fallbackReport.recommendations,
-        suggestedTopics: parsed.suggestedTopics || fallbackReport.suggestedTopics,
-        practiceQuestions: parsed.practiceQuestions || fallbackReport.practiceQuestions,
-        studyPlan: parsed.studyPlan || fallbackReport.studyPlan,
-      },
-      { company, role, stage, qaPairs, sessionScores, speechHistory }
-    );
+    if (reportData?.isDeferred) {
+      return normalizeInterviewReport(
+        { ...fallbackReport, aiGenerated: false, analysisMode: 'deferred', jobId: reportData.jobId },
+        { company, role, stage, qaPairs, sessionScores, speechHistory }
+      );
+    }
+
+    if (reportData) {
+      return normalizeInterviewReport(
+        {
+          ...fallbackReport,
+          ...reportData,
+          aiGenerated: true,
+          analysisMode: 'ai',
+          reportModelUsed: reportData.reportModelUsed,
+          reportProvider: reportData.reportProvider,
+        },
+        { company, role, stage, qaPairs, sessionScores, speechHistory }
+      );
+    }
   } catch (error) {
     console.error('Interview report generation error:', error.message);
-    return normalizeInterviewReport(
-      { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
-      { company, role, stage, qaPairs, sessionScores, speechHistory }
-    );
   }
+
+  return normalizeInterviewReport(
+    { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
+    { company, role, stage, qaPairs, sessionScores, speechHistory }
+  );
 }
 
 router.post('/evaluate', optionalAuth, async (req, res) => {

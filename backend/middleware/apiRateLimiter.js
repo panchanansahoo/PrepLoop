@@ -67,6 +67,26 @@ export const expensiveFeatureLimiter = rateLimit({
   skip: isDevOrLocal,
 });
 
+export const voiceTtsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { error: 'Too many voice synthesis requests. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isDevOrLocal,
+});
+
+export const voiceSttLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { error: 'Too many transcription requests. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isDevOrLocal,
+});
+
 export const analyticsLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,

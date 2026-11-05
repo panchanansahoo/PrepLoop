@@ -11,7 +11,7 @@ import path from 'path';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
 import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
-import { expensiveFeatureLimiter } from '../middleware/apiRateLimiter.js';
+import { voiceTtsLimiter, voiceSttLimiter } from '../middleware/apiRateLimiter.js';
 import { usageQuota } from '../middleware/usageQuota.js';
 import nvidiaVoiceService from '../services/nvidiaVoiceService.js';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
@@ -121,11 +121,21 @@ router.get('/nvidia/status', optionalAuth, (req, res) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PRE-WARM TTS CONNECTION — Keeps HTTP keep-alive socket hot while candidate speaks
+// POST /api/voice/pre-warm
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/pre-warm', optionalAuth, (req, res) => {
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Keep-Alive', 'timeout=60');
+    return res.json({ ok: true, warm: true, timestamp: Date.now() });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // TTS — Buffered (primary endpoint, used by useVoiceInterview)
 // POST /api/voice/tts
 // Chain: Kokoro (local) → Groq Orpheus → Google TTS → { fallback: true }
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text, provider } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
@@ -176,7 +186,7 @@ router.post('/tts', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
     }
 });
 
-router.post('/tts-fast', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts-fast', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text } = req.body;
     const persona = sanitizePersona(req.body.persona);
     const gender  = sanitizeGender(req.body.gender);
@@ -225,7 +235,7 @@ router.post('/tts-fast', expensiveFeatureLimiter, optionalAuth, usageQuota('voic
 // Previously used ElevenLabs streaming; now uses the same buffered chain
 // so existing frontend callers continue to work without code changes.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/tts-stream', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
+router.post('/tts-stream', voiceTtsLimiter, optionalAuth, usageQuota('voice'), async (req, res) => {
     const { text } = req.body;
     const persona  = sanitizePersona(req.body.persona);
     const language = sanitizeLanguage(req.body.language);
@@ -405,7 +415,7 @@ router.get('/tts-health', authenticateToken, (req, res) => {
 // STT FILE — File-based STT (powered by Groq Whisper)
 // POST /api/voice/stt
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
+router.post('/stt', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
     const filePath = req.file?.path;
 
     try {
@@ -442,7 +452,7 @@ router.post('/stt', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), 
 // STT CHUNK — Realtime chunk/blob STT (used by voice tests and non-Chromium fallback)
 // POST /api/voice/stt-chunk
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/stt-chunk', expensiveFeatureLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
+router.post('/stt-chunk', voiceSttLimiter, optionalAuth, usageQuota('voice'), upload.single('audio'), async (req, res) => {
     const filePath = req.file?.path;
 
     try {

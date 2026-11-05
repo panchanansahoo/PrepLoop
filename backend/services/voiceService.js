@@ -49,14 +49,15 @@ const providers = {
 
 // Provider performance tracking
 const providerStats = {
-    elevenlabs: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
-    openai: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
-    edge: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
-    kokoro: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
-    groq: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0 },
+    elevenlabs: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0, isHardFailure: false, isHalfOpen: false },
+    openai: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0, isHardFailure: false, isHalfOpen: false },
+    edge: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0, isHardFailure: false, isHalfOpen: false },
+    kokoro: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0, isHardFailure: false, isHalfOpen: false },
+    groq: { successCount: 0, failCount: 0, avgLatency: 0, lastFail: 0, isHardFailure: false, isHalfOpen: false },
 };
 
 const PROVIDER_COOLDOWN_MS = 60000; // 1 minute cooldown after failures
+const CIRCUIT_BREAKER_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes circuit breaker for hard errors (403, repeated failures)
 
 const groq = providers.groq ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
@@ -202,9 +203,23 @@ export function getAvailableProviders() {
     };
 }
 
-// ── LRU TTS in-memory audio cache ──
+// ── LRU TTS in-memory audio cache with Byte Budget ──
 const ttsAudioCache = new Map();
 const MAX_TTS_CACHE_ITEMS = 150;
+const MAX_TTS_CACHE_BYTES = 30 * 1024 * 1024; // 30 MB maximum memory budget for uncompressed audio
+let currentCacheBytes = 0;
+
+/**
+ * Inspect in-memory TTS audio cache metrics
+ */
+export function getTtsCacheStats() {
+    return {
+        itemCount: ttsAudioCache.size,
+        currentBytes: currentCacheBytes,
+        maxBytes: MAX_TTS_CACHE_BYTES,
+        maxItems: MAX_TTS_CACHE_ITEMS,
+    };
+}
 
 /**
  * Normalizes text for speech synthesis:
@@ -277,32 +292,59 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     if (!cleanText) throw new Error('Text is required for TTS');
 
     const g = normalizeGender(gender);
-    const cacheKey = `${persona}:${g}:${cleanText.substring(0, 300)}`;
+    const textHash = crypto.createHash('sha256').update(cleanText).digest('hex');
+    const cacheKey = `${persona}:${g}:${textHash}`;
 
-    // ⚡ Fast path: Return cached synthesized audio buffer (0ms latency)
+    // ⚡ Fast path: Return cached synthesized audio buffer (0ms latency, refresh LRU)
     if (ttsAudioCache.has(cacheKey)) {
         console.log(`[TTS] ⚡ Cache hit for: "${cleanText.substring(0, 35)}..."`);
-        return ttsAudioCache.get(cacheKey);
+        const cached = ttsAudioCache.get(cacheKey);
+        ttsAudioCache.delete(cacheKey);
+        ttsAudioCache.set(cacheKey, cached);
+        return cached;
     }
 
-    // Helper to check if provider is in cooldown
+    // Helper to check if provider is in cooldown with fail-fast half-open probe state
     const isInCooldown = (provider) => {
         const stats = providerStats[provider];
         if (!stats) return false;
-        return Date.now() - stats.lastFail < PROVIDER_COOLDOWN_MS;
+        const cooldown = (stats.isHardFailure || stats.failCount >= 2)
+            ? CIRCUIT_BREAKER_COOLDOWN_MS
+            : PROVIDER_COOLDOWN_MS;
+        const inCooldown = Date.now() - stats.lastFail < cooldown;
+        if (!inCooldown && (stats.isHardFailure || stats.failCount > 0)) {
+            // Half-open transition: cooldown has expired, probe with exactly one request.
+            // Retain failure flags so if probe fails, it trips fail-fast without waiting!
+            stats.isHalfOpen = true;
+            return false;
+        }
+        return inCooldown;
     };
 
     // Helper to update provider stats
-    const updateStats = (provider, success, latency = 0) => {
+    const updateStats = (provider, success, latency = 0, isHard = false) => {
         const stats = providerStats[provider];
         if (!stats) return;
         
         if (success) {
             stats.successCount++;
+            stats.isHardFailure = false;
+            stats.isHalfOpen = false;
+            stats.failCount = 0;
             stats.avgLatency = (stats.avgLatency * (stats.successCount - 1) + latency) / stats.successCount;
         } else {
-            stats.failCount++;
+            const wasHalfOpen = stats.isHalfOpen;
+            stats.isHalfOpen = false;
             stats.lastFail = Date.now();
+
+            // Fail-fast on half-open probe failure or hard error: re-trip immediately into full 15m cooldown
+            if (wasHalfOpen || isHard || stats.failCount >= 1) {
+                stats.isHardFailure = true;
+                stats.failCount = Math.max(stats.failCount + 1, 2);
+                console.warn(`[TTS] ⚡ Circuit breaker re-tripped for ${provider} (half-open probe failed or hard error: ${isHard ? 'hard' : 'probe'}) — 15m cooldown applied`);
+            } else {
+                stats.failCount++;
+            }
         }
     };
 
@@ -322,7 +364,8 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         } catch (err) {
             const errMsg = (err && err.message) ? err.message : (typeof err === 'string' ? err : JSON.stringify(err));
             console.warn(`[TTS] ✗ ${name} failed:`, errMsg?.substring(0, 150));
-            updateStats(name, false);
+            const isHard = /403|forbidden|401|unauthorized|429|too many requests|500|502|503|504|timeout|etimedout|esockettimedout/i.test(errMsg);
+            updateStats(name, false, 0, isHard);
         }
         return null;
     };
@@ -348,7 +391,10 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     }
 
     // Groq Orpheus — cloud TTS (free tier, fast ~600ms)
-    if (!result && providers.groq && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
+    // NOTE (Zero-Cost Token Guard): Orpheus on Groq shares your Groq API limits.
+    // Keep it for interview questions only, not backchannels or short interjections (<= 4 words).
+    const isQuestionOrLongText = cleanText.trim().endsWith('?') || cleanText.length > 50 || cleanText.split(/\s+/).filter(Boolean).length > 4;
+    if (!result && providers.groq && isQuestionOrLongText && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         result = await tryProvider('groq', () => groqOrpheusTTS(cleanText, persona, g));
     }
 
@@ -363,11 +409,28 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     }
 
     if (result && result.audio) {
-        // Enforce max cache size (LRU eviction of oldest element)
-        if (ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) {
+        const audioBuffer = result.audio;
+        const entryBytes = Buffer.isBuffer(audioBuffer)
+            ? audioBuffer.length
+            : (typeof audioBuffer === 'string' ? Buffer.byteLength(audioBuffer) : 0);
+
+        // Deduct existing entry bytes if updating key
+        if (ttsAudioCache.has(cacheKey)) {
+            const oldEntry = ttsAudioCache.get(cacheKey);
+            currentCacheBytes -= (oldEntry?._byteSize || 0);
+            ttsAudioCache.delete(cacheKey);
+        }
+
+        // Enforce both total MB byte budget and max item count (LRU eviction)
+        while ((currentCacheBytes + entryBytes > MAX_TTS_CACHE_BYTES || ttsAudioCache.size >= MAX_TTS_CACHE_ITEMS) && ttsAudioCache.size > 0) {
             const oldestKey = ttsAudioCache.keys().next().value;
+            const oldestEntry = ttsAudioCache.get(oldestKey);
+            currentCacheBytes -= (oldestEntry?._byteSize || 0);
             ttsAudioCache.delete(oldestKey);
         }
+
+        currentCacheBytes = Math.max(0, currentCacheBytes + entryBytes);
+        result._byteSize = entryBytes;
         ttsAudioCache.set(cacheKey, result);
         return result;
     }
@@ -424,8 +487,8 @@ export async function generateBackchannelClips(persona = 'friendly', gender = 'f
     const results = {};
     for (const [key, text] of Object.entries(clips)) {
         try {
-            // Use the top-level textToSpeech so backchannels match the main interview voice perfectly
-            const result = await textToSpeech(text, persona, null, 'en', gender);
+            // Use Edge TTS (free Azure Neural) or local fallback so backchannels never consume Groq Orpheus limits
+            const result = await textToSpeech(text, persona, 'edge', 'en', gender);
             if (result && !result.fallback && result.audio) {
                 results[key] = `data:${result.contentType};base64,${result.audio.toString('base64')}`;
             }
@@ -463,16 +526,106 @@ function chunkText(text, maxLength) {
     return chunks;
 }
 
+/**
+ * Trims leading and trailing silence from 16-bit PCM WAV buffers.
+ * Eliminates 100-300ms of dead air produced by models like Orpheus and Kokoro.
+ * Keeps a small safety margin (default 15ms) to preserve the onset of plosive consonants.
+ */
+export function trimWavSilence(buffer, threshold = 350, marginMs = 15) {
+    if (!buffer || buffer.length <= 44) return buffer;
+    if (buffer.toString('ascii', 0, 4) !== 'RIFF' || buffer.toString('ascii', 8, 12) !== 'WAVE') {
+        return buffer;
+    }
+
+    let dataOffset = 12;
+    let dataLength = 0;
+    while (dataOffset < buffer.length - 8) {
+        const chunkId = buffer.toString('ascii', dataOffset, dataOffset + 4);
+        const chunkSize = buffer.readUInt32LE(dataOffset + 4);
+        if (chunkId === 'data') {
+            dataOffset += 8;
+            dataLength = chunkSize;
+            break;
+        }
+        dataOffset += 8 + chunkSize;
+    }
+
+    if (dataLength === 0 || dataOffset >= buffer.length) {
+        dataOffset = 44;
+    }
+
+    const sampleRate = buffer.readUInt32LE(24) || 24000;
+    const channels = buffer.readUInt16LE(22) || 1;
+    const bitsPerSample = buffer.readUInt16LE(34) || 16;
+    if (bitsPerSample !== 16) return buffer;
+
+    const bytesPerSample = 2 * channels;
+    const totalSamples = Math.floor((buffer.length - dataOffset) / bytesPerSample);
+    if (totalSamples <= 0) return buffer;
+
+    const marginSamples = Math.floor((sampleRate * marginMs) / 1000);
+
+    let firstSample = 0;
+    for (let i = 0; i < totalSamples; i++) {
+        let maxAmp = 0;
+        for (let ch = 0; ch < channels; ch++) {
+            const bytePos = dataOffset + (i * bytesPerSample) + (ch * 2);
+            if (bytePos + 1 < buffer.length) {
+                const amp = Math.abs(buffer.readInt16LE(bytePos));
+                if (amp > maxAmp) maxAmp = amp;
+            }
+        }
+        if (maxAmp > threshold) {
+            firstSample = Math.max(0, i - marginSamples);
+            break;
+        }
+    }
+
+    let lastSample = totalSamples - 1;
+    for (let i = totalSamples - 1; i >= firstSample; i--) {
+        let maxAmp = 0;
+        for (let ch = 0; ch < channels; ch++) {
+            const bytePos = dataOffset + (i * bytesPerSample) + (ch * 2);
+            if (bytePos + 1 < buffer.length) {
+                const amp = Math.abs(buffer.readInt16LE(bytePos));
+                if (amp > maxAmp) maxAmp = amp;
+            }
+        }
+        if (maxAmp > threshold) {
+            lastSample = Math.min(totalSamples - 1, i + marginSamples);
+            break;
+        }
+    }
+
+    if (firstSample === 0 && lastSample === totalSamples - 1) {
+        return buffer;
+    }
+
+    const startByte = dataOffset + (firstSample * bytesPerSample);
+    const endByte = dataOffset + ((lastSample + 1) * bytesPerSample);
+    const trimmedPcm = buffer.subarray(startByte, Math.min(buffer.length, endByte));
+
+    const header = Buffer.from(buffer.subarray(0, dataOffset));
+    const out = Buffer.concat([header, trimmedPcm]);
+    out.writeUInt32LE(out.length - 8, 4);
+    if (dataOffset >= 44) {
+        out.writeUInt32LE(trimmedPcm.length, dataOffset - 4);
+    }
+
+    return out;
+}
+
 function combineWavContent(buffers) {
     if (!buffers || buffers.length === 0) return Buffer.alloc(0);
-    if (buffers.length === 1) return buffers[0];
-    const header    = Buffer.from(buffers[0].subarray(0, 44));
-    const pcmData   = buffers.map(b => b.length > 44 ? b.subarray(44) : Buffer.alloc(0));
+    const trimmedBuffers = buffers.map(b => trimWavSilence(b));
+    if (trimmedBuffers.length === 1) return trimmedBuffers[0];
+    const header    = Buffer.from(trimmedBuffers[0].subarray(0, 44));
+    const pcmData   = trimmedBuffers.map(b => b.length > 44 ? b.subarray(44) : Buffer.alloc(0));
     const combined  = Buffer.concat(pcmData);
     const out       = Buffer.concat([header, combined]);
     out.writeUInt32LE(out.length - 8, 4);
     out.writeUInt32LE(combined.length, 40);
-    return out;
+    return trimWavSilence(out);
 }
 
 async function elevenLabsTTS(text, persona, gender = 'female') {
@@ -715,7 +868,7 @@ async function kokoroTTS(text, persona, gender = 'female') {
         if (wavBuffer.length < 100) throw new Error('Kokoro returned empty audio');
 
         console.log(`[Kokoro] Generated ${(audio.audio.length / audio.sampling_rate).toFixed(1)}s audio in ${latency}ms (voice: ${voice}, chars: ${text.length})`);
-        return { audio: wavBuffer, contentType: 'audio/wav', provider: 'kokoro', voice };
+        return { audio: trimWavSilence(wavBuffer), contentType: 'audio/wav', provider: 'kokoro', voice };
     } catch (err) {
         console.warn('[Kokoro] Generation failed:', err.message?.substring(0, 120));
         return null; // Fall through to next provider
