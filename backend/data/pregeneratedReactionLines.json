@@ -1,0 +1,50 @@
+[
+  { "id": "rec_01", "type": "strong_complete", "text": "Right, that makes total sense." },
+  { "id": "rec_02", "type": "strong_complete", "text": "Nice, good thinking on that trade-off." },
+  { "id": "rec_03", "type": "strong_complete", "text": "Solid approach, that is very clear." },
+  { "id": "rec_04", "type": "strong_complete", "text": "Spot on, good catch on that edge case." },
+  { "id": "rec_05", "type": "strong_complete", "text": "Fair enough, clear reasoning there." },
+  { "id": "rec_06", "type": "strong_complete", "text": "Interesting, that is a neat way to handle it." },
+  { "id": "rec_07", "type": "strong_complete", "text": "Right on, that handles scale well." },
+  { "id": "rec_08", "type": "strong_complete", "text": "Exactly, that aligns with how we build it." },
+
+  { "id": "rec_09", "type": "partial", "text": "Okay, I see where you are going with that." },
+  { "id": "rec_10", "type": "partial", "text": "Got it, thanks for walking me through that." },
+  { "id": "rec_11", "type": "partial", "text": "Right, okay, let us explore that deeper." },
+  { "id": "rec_12", "type": "partial", "text": "Fair enough, that gives me good context." },
+  { "id": "rec_13", "type": "partial", "text": "Understood, let us dig into that a bit more." },
+  { "id": "rec_14", "type": "partial", "text": "Gotcha, that makes sense so far." },
+  { "id": "rec_15", "type": "partial", "text": "Okay, let us look closer at that piece." },
+  { "id": "rec_16", "type": "partial", "text": "Interesting, let us probe that one step further." },
+
+  { "id": "rec_17", "type": "wrong", "text": "Okay, let us think about that from another angle." },
+  { "id": "rec_18", "type": "wrong", "text": "Fair enough, let us look at that scenario together." },
+  { "id": "rec_19", "type": "wrong", "text": "Alright, let us step back for a moment." },
+  { "id": "rec_20", "type": "wrong", "text": "Understood, let us test that assumption." },
+  { "id": "rec_21", "type": "wrong", "text": "Okay, let us explore what happens in that case." },
+
+  { "id": "rec_22", "type": "dont_know", "text": "Totally fine, no worries at all." },
+  { "id": "rec_23", "type": "dont_know", "text": "That is completely okay, let us break it down." },
+  { "id": "rec_24", "type": "dont_know", "text": "No problem, we can take a simpler angle." },
+  { "id": "rec_25", "type": "dont_know", "text": "Fair enough, let us look at a smaller case." },
+  { "id": "rec_26", "type": "dont_know", "text": "That is fine, honesty is always appreciated." },
+
+  { "id": "rec_27", "type": "off_topic", "text": "Right, let us steer back to the main question." },
+  { "id": "rec_28", "type": "off_topic", "text": "Understood, let us narrow that down to the core issue." },
+  { "id": "rec_29", "type": "off_topic", "text": "Got it, let us keep our focus on the primary design." },
+  { "id": "rec_30", "type": "off_topic", "text": "Fair enough, let us zoom in on the main component." },
+
+  { "id": "rec_31", "type": "clarification", "text": "Sure thing, happy to clarify that." },
+  { "id": "rec_32", "type": "clarification", "text": "Great question, let me rephrase it for you." },
+  { "id": "rec_33", "type": "clarification", "text": "Absolutely, here is what I meant by that." },
+
+  { "id": "rec_34", "type": "stuck_silence", "text": "Take your time, here is a quick hint to get started." },
+  { "id": "rec_35", "type": "stuck_silence", "text": "No rush at all, think about the data structure first." },
+  { "id": "rec_36", "type": "stuck_silence", "text": "Feel free to talk out loud through your thought process." },
+
+  { "id": "rec_37", "type": "backchannel", "text": "Mm-hmm." },
+  { "id": "rec_38", "type": "backchannel", "text": "I see." },
+  { "id": "rec_39", "type": "backchannel", "text": "Right." },
+  { "id": "rec_40", "type": "backchannel", "text": "Got it." }
+]
+

@@ -33,11 +33,26 @@ function InterviewResults({
     const [resultTab, setResultTab] = useState('overview');
     const [expandedMoment, setExpandedMoment] = useState(null);
     const [actionMessage, setActionMessage] = useState('');
+    const [surveySoundHuman, setSurveySoundHuman] = useState(null);
+    const [surveyListened, setSurveyListened] = useState(null);
     const [surveyCutOff, setSurveyCutOff] = useState(null);
     const [surveyPacing, setSurveyPacing] = useState(null);
     const [surveyFairness, setSurveyFairness] = useState(null);
     const [surveyNotes, setSurveyNotes] = useState('');
     const [surveyCopied, setSurveyCopied] = useState(false);
+    const [turnFlags, setTurnFlags] = useState({});
+
+    const handleToggleTurnFlag = (turnIdx, flag) => {
+        setTurnFlags(prev => {
+            const next = { ...prev };
+            if (next[turnIdx] === flag) {
+                delete next[turnIdx];
+            } else {
+                next[turnIdx] = flag;
+            }
+            return next;
+        });
+    };
 
     const a = analysisResult; // shorthand
     // Enrichment fields from backend intelligence
@@ -84,20 +99,52 @@ function InterviewResults({
 
     const handleCopyPilotPacket = async () => {
         const telemetry = getInterviewTelemetrySummary();
+
+        // Calculate quote verified & fallback rate
+        const interviewerTurns = ensureArray(conversation).filter(m => m.role === 'interviewer');
+        const totalInterviewerTurns = interviewerTurns.length;
+        const quoteVerifiedTurns = interviewerTurns.filter(m => m.quoteVerified === true).length;
+        const fallbackTurns = interviewerTurns.filter(m => m.quoteVerified === false).length;
+        const quoteVerifiedRatePct = totalInterviewerTurns > 0 ? ((quoteVerifiedTurns / totalInterviewerTurns) * 100).toFixed(1) : '0.0';
+        const fallbackRatePct = totalInterviewerTurns > 0 ? ((fallbackTurns / totalInterviewerTurns) * 100).toFixed(1) : '0.0';
+        const isFallbackRateHigh = Number(fallbackRatePct) > 20.0;
+
+        // Recursive PII sanitizer: removes transcripts, texts, emails, usernames, keys, tokens
+        const sanitizeTelemetry = (obj) => {
+            if (!obj || typeof obj !== 'object') return obj;
+            if (Array.isArray(obj)) return obj.map(sanitizeTelemetry);
+            const clean = {};
+            for (const [k, v] of Object.entries(obj)) {
+                if (/transcript|content|text|userAnswer|email|key|token|user_id|userId|password|secret|code|rawText/i.test(k)) {
+                    continue; // strip PII / raw text
+                }
+                clean[k] = sanitizeTelemetry(v);
+            }
+            return clean;
+        };
+
         const pilotPacket = {
             timestamp: new Date().toISOString(),
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
             browser: /chrome/i.test(navigator?.userAgent || '') ? 'Chrome' : /safari/i.test(navigator?.userAgent || '') && !/chrome/i.test(navigator?.userAgent || '') ? 'Safari' : 'Other',
             survey: {
+                didInterviewerSoundHuman: surveySoundHuman || 'Not answered',
+                didFollowUpsShowItListened: surveyListened || 'Not answered',
                 didItCutYouOff: surveyCutOff || 'Not answered',
                 didItFeelSlow: surveyPacing || 'Not answered',
                 wasScoreFair: surveyFairness || 'Not answered',
+                targetAchieved: surveySoundHuman === 'natural' && surveyListened === 'yes',
                 candidateNotes: surveyNotes || 'None',
             },
             telemetrySummary: {
                 totalTurns: telemetry.totalTurns || (conversation || []).filter(m => m.role === 'candidate').length,
                 resumeRatePct: telemetry.resumeRate,
                 resumedTurns: telemetry.resumedTurns,
+                quoteVerifiedCount: quoteVerifiedTurns,
+                quoteVerifiedRatePct: `${quoteVerifiedRatePct}%`,
+                genericFallbackCount: fallbackTurns,
+                fallbackRatePct: `${fallbackRatePct}%`,
+                fallbackRateAlert: isFallbackRateHigh ? 'WARNING: Fallback rate >20%. Prompt evidence quote extraction needs tuning.' : 'OK (<=20%)',
                 lastSpeechToAudioLatency: {
                     samples: telemetry.samples,
                     p50Ms: telemetry.p50,
@@ -112,13 +159,19 @@ function InterviewResults({
                 overallScore: a?.overallScore,
                 categories: categories.map(c => ({ name: c.name, score: c.score })),
             },
-            fullTelemetryLog: telemetry.allEvents,
-            turnTimelines: telemetry.turnTimelines || [],
+            sanitizedTelemetryEvents: sanitizeTelemetry(telemetry.allEvents || []),
+            turnTimelines: sanitizeTelemetry(telemetry.turnTimelines || []),
+            turnFeedbackFlags: {
+                totalTurnFlagsGiven: Object.keys(turnFlags).length,
+                soundedRoboticCount: Object.values(turnFlags).filter(f => f === 'sounded_robotic').length,
+                didNotListenCount: Object.values(turnFlags).filter(f => f === 'didnt_listen').length,
+                flagsByTurn: turnFlags,
+            },
         };
 
         try {
             await navigator.clipboard.writeText(JSON.stringify(pilotPacket, null, 2));
-            showActionMessage('✓ Pilot telemetry & survey copied to clipboard! Share with team.');
+            showActionMessage(isFallbackRateHigh ? '⚠️ Copied! Note: Fallback rate >20% flagged in packet.' : '✓ Pilot telemetry & survey copied to clipboard! Share with team.');
             setSurveyCopied(true);
         } catch {
             showActionMessage('Telemetry logged to developer console.');
@@ -359,6 +412,9 @@ function InterviewResults({
                             <MessageSquare size={18} style={{ color: '#a78bfa' }} />
                             <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600, color: '#f3f4f6' }}>Candidate Experience Pilot Survey</h3>
                             <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: 'rgba(167, 139, 250, 0.2)', color: '#c4b5fd', fontWeight: 500 }}>Live Pilot Metric</span>
+                            <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '12px', background: surveySoundHuman === 'natural' && surveyListened === 'yes' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(99, 102, 241, 0.18)', color: surveySoundHuman === 'natural' && surveyListened === 'yes' ? '#86efac' : '#a5b4fc', fontWeight: 500, border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                                {surveySoundHuman === 'natural' && surveyListened === 'yes' ? '✓ Target Met' : 'Target: ≥70% Natural & Yes'}
+                            </span>
                         </div>
                         <button
                             type="button"
@@ -383,10 +439,70 @@ function InterviewResults({
                         </button>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '14px' }}>
-                        {/* Q1: Cut-off */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                        {/* Q1: Human Voice Quality (Target: Natural) */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: surveySoundHuman === 'natural' ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>1. Did the interviewer sound human?</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {[
+                                    { id: 'natural', label: 'Natural & Conversational (Target)' },
+                                    { id: 'okay', label: 'Okay / Acceptable' },
+                                    { id: 'robotic', label: 'Robotic / Stiff' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSurveySoundHuman(opt.id)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            textAlign: 'left',
+                                            border: surveySoundHuman === opt.id ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: surveySoundHuman === opt.id ? (opt.id === 'natural' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(99, 102, 241, 0.3)') : 'rgba(255, 255, 255, 0.03)',
+                                            color: surveySoundHuman === opt.id ? '#ffffff' : '#94a3b8',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Q2: Follow-up Relevance (Target: Yes) */}
+                        <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: surveyListened === 'yes' ? '1px solid rgba(34, 197, 94, 0.35)' : '1px solid rgba(255, 255, 255, 0.05)' }}>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>2. Did follow-ups show it listened?</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {[
+                                    { id: 'yes', label: 'Yes, referenced what I said (Target)' },
+                                    { id: 'somewhat', label: 'Somewhat / Partial' },
+                                    { id: 'no', label: 'No, felt generic or scripted' },
+                                ].map(opt => (
+                                    <button
+                                        key={opt.id}
+                                        type="button"
+                                        onClick={() => setSurveyListened(opt.id)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: '6px',
+                                            fontSize: '11px',
+                                            textAlign: 'left',
+                                            border: surveyListened === opt.id ? '1px solid #818cf8' : '1px solid rgba(255, 255, 255, 0.1)',
+                                            background: surveyListened === opt.id ? (opt.id === 'yes' ? 'rgba(34, 197, 94, 0.25)' : 'rgba(99, 102, 241, 0.3)') : 'rgba(255, 255, 255, 0.03)',
+                                            color: surveyListened === opt.id ? '#ffffff' : '#94a3b8',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Q3: Cut-off */}
                         <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>1. Did the interviewer cut you off?</div>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>3. Did the interviewer cut you off?</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {[
                                     { id: 'never', label: 'Never / Natural pauses' },
@@ -414,9 +530,9 @@ function InterviewResults({
                             </div>
                         </div>
 
-                        {/* Q2: Latency */}
+                        {/* Q4: Latency */}
                         <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>2. Did the interviewer feel slow?</div>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>4. Did the interviewer feel slow?</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {[
                                     { id: 'snappy', label: 'Snappy & responsive' },
@@ -444,9 +560,9 @@ function InterviewResults({
                             </div>
                         </div>
 
-                        {/* Q3: Fairness */}
+                        {/* Q5: Fairness */}
                         <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: '12px', borderRadius: '8px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>3. Was the score and feedback fair?</div>
+                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', marginBottom: '8px' }}>5. Was the score and feedback fair?</div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 {[
                                     { id: 'fair', label: 'Accurate & Fair' },
@@ -819,13 +935,108 @@ function InterviewResults({
                                                 : isFeedbackMsg
                                                     ? `Feedback${(msg.isEstimated || msg.status === 'estimated') ? ' · estimated' : msg.score != null ? ` · ${msg.score}%` : ' · not scored'}`
                                                     : 'You';
+
+                                            // Candidate's previous response that prompted this interviewer message
+                                            const candidateTurn = isInterviewerMsg
+                                                ? ensureArray(conversation)
+                                                    .slice(0, i)
+                                                    .reverse()
+                                                    .find(m => m.role === 'candidate' || m.role === 'user')
+                                                : null;
+                                            const candidateSnippet = candidateTurn ? (candidateTurn.content || candidateTurn.text || '') : '';
+                                            const interviewerTurnNumber = isInterviewerMsg
+                                                ? ensureArray(conversation)
+                                                    .slice(0, i + 1)
+                                                    .filter(m => m.role === 'interviewer').length
+                                                : null;
+
                                             return (
                                                 <div key={i} className={`ai-result-transcript-msg ai-result-transcript-msg--${msg.role}`}>
                                                     <div className="ai-result-transcript-role">
                                                         <RoleIcon size={12} />
                                                         {roleLabel}
+                                                        {isInterviewerMsg && interviewerTurnNumber && (
+                                                            <span style={{ marginLeft: 6, fontSize: 11, padding: '1px 6px', borderRadius: 4, background: 'rgba(99,102,241,0.15)', color: '#c7d2fe', fontWeight: 600 }}>
+                                                                Turn #{interviewerTurnNumber}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="ai-result-transcript-text">{msg.content || msg.text}</div>
+                                                    {isInterviewerMsg && candidateSnippet && (
+                                                        <div style={{
+                                                            marginTop: 6,
+                                                            padding: '6px 10px',
+                                                            borderRadius: 6,
+                                                            background: 'rgba(255, 255, 255, 0.03)',
+                                                            borderLeft: '2px solid rgba(255, 255, 255, 0.15)',
+                                                            fontSize: 11,
+                                                            color: '#cbd5e1',
+                                                            fontStyle: 'italic',
+                                                            lineHeight: 1.4,
+                                                        }}>
+                                                            <span style={{ color: '#94a3b8', fontStyle: 'normal', fontWeight: 600 }}>Candidate snippet: </span>
+                                                            "{candidateSnippet.length > 120 ? `${candidateSnippet.substring(0, 120)}...` : candidateSnippet}"
+                                                        </div>
+                                                    )}
+                                                    {isInterviewerMsg && (
+                                                        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                                                            {msg.answerType && (
+                                                                <span style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}>
+                                                                    Type: {msg.answerType}
+                                                                </span>
+                                                            )}
+                                                            {msg.voiceSource && (
+                                                                <span style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}>
+                                                                    Voice: {msg.voiceSource}
+                                                                </span>
+                                                            )}
+                                                            {msg.replyGapMs != null && (
+                                                                <span style={{ padding: '2px 6px', borderRadius: 4, background: 'rgba(255,255,255,0.06)', color: '#94a3b8' }}>
+                                                                    Gap: {msg.replyGapMs}ms
+                                                                </span>
+                                                            )}
+                                                            {msg.quoteVerified != null && (
+                                                                <span style={{ padding: '2px 6px', borderRadius: 4, background: msg.quoteVerified ? 'rgba(34,197,94,0.1)' : 'rgba(255,255,255,0.06)', color: msg.quoteVerified ? '#86efac' : '#94a3b8' }}>
+                                                                    {msg.quoteVerified ? '✓ Quote verified' : 'Generic follow-up'}
+                                                                </span>
+                                                            )}
+                                                            <div style={{ display: 'inline-flex', gap: 6, marginLeft: 'auto', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: 10, color: '#64748b' }}>Rate turn #{interviewerTurnNumber}:</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleToggleTurnFlag(i, 'sounded_robotic')}
+                                                                    style={{
+                                                                        padding: '3px 8px',
+                                                                        borderRadius: 6,
+                                                                        border: '1px solid',
+                                                                        borderColor: turnFlags[i] === 'sounded_robotic' ? '#f87171' : 'rgba(255,255,255,0.12)',
+                                                                        background: turnFlags[i] === 'sounded_robotic' ? 'rgba(239,68,68,0.2)' : 'transparent',
+                                                                        color: turnFlags[i] === 'sounded_robotic' ? '#fca5a5' : '#94a3b8',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: 11,
+                                                                    }}
+                                                                >
+                                                                    🤖 Sounded robotic
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleToggleTurnFlag(i, 'didnt_listen')}
+                                                                    style={{
+                                                                        padding: '3px 8px',
+                                                                        borderRadius: 6,
+                                                                        border: '1px solid',
+                                                                        borderColor: turnFlags[i] === 'didnt_listen' ? '#f59e0b' : 'rgba(255,255,255,0.12)',
+                                                                        background: turnFlags[i] === 'didnt_listen' ? 'rgba(245,158,11,0.2)' : 'transparent',
+                                                                        color: turnFlags[i] === 'didnt_listen' ? '#fcd34d' : '#94a3b8',
+                                                                        cursor: 'pointer',
+                                                                        fontSize: 11,
+                                                                    }}
+                                                                >
+                                                                    🙉 Didn't listen
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
                                                     {isFeedbackMsg && msg.hint && (
                                                         <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.5, color: '#a5b4fc' }}>
                                                             Hint: {msg.hint}

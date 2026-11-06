@@ -19,6 +19,7 @@ import { computeNextMood, getMoodProfile, getMicroReaction, MOODS } from '../../
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 import { callFastReply, callTurnScoring } from '../../services/llmRouter.js';
 import quotaGuard from '../../services/quotaGuard.js';
+import { correctSttTechnicalTerms, stripFillersForLlm, getGenericFollowUp } from '../../utils/technicalPronunciation.js';
 
 const router = express.Router();
 
@@ -1471,9 +1472,12 @@ router.post('/fast-reply', customInterviewLimiter, optionalAuth, async (req, res
   try {
     if (clientAbortController.signal.aborted || res.writableEnded) return;
 
+    const isTechnical = !/hr|behavioral|cultural/i.test(stage || '');
+    const cleanedUserAnswer = stripFillersForLlm(correctSttTechnicalTerms(userAnswer || '', { isTechnical }));
+
     const reply = await callFastReply({
       previousQuestion,
-      userAnswer,
+      userAnswer: cleanedUserAnswer || userAnswer,
       company,
       role,
       stage,
@@ -1500,9 +1504,12 @@ router.post('/fast-reply', customInterviewLimiter, optionalAuth, async (req, res
       'Fair enough, that gives me good context.',
     ];
     const microReaction = deterministicPick(fallbackTransitions, safeQuestionNumber);
-    const followUpFallback = 'Could you explain the key trade-offs and edge cases with that approach?';
+    const followUpFallback = getGenericFollowUp(safeQuestionNumber);
 
     return res.json({
+      answerType: !userAnswer || String(userAnswer).trim().length < 15 ? 'stuck_silence' : 'partial',
+      evidenceQuote: '',
+      quoteVerified: false,
       microReaction,
       followUpQuestion: followUpFallback,
       complete: false,
@@ -1572,9 +1579,12 @@ router.post('/evaluate-turn', customInterviewLimiter, optionalAuth, async (req, 
       return;
     }
 
+    const isTechnical = !/hr|behavioral|cultural/i.test(stage || '');
+    const cleanedUserAnswer = stripFillersForLlm(correctSttTechnicalTerms(userAnswer || '', { isTechnical }));
+
     const evalResult = await callTurnScoring({
       previousQuestion,
-      userAnswer,
+      userAnswer: cleanedUserAnswer || userAnswer,
       code,
       codeLanguage,
       company,

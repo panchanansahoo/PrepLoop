@@ -8,7 +8,11 @@ import os from 'os';
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { optionalAuth, authenticateToken } from '../middleware/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { voiceTtsLimiter, voiceSttLimiter } from '../middleware/apiRateLimiter.js';
@@ -392,6 +396,39 @@ router.get('/backchannel-clips', optionalAuth, async (req, res) => {
         console.error('[voice/backchannel-clips] Error:', error.message?.substring(0, 150));
         res.json({ available: false, clips: {} });
     }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATIC REACTION CLIPS — Zero-cost pre-recorded interviewer reactions & backchannels
+// GET /api/voice/static-reactions
+// GET /api/voice/static-reaction/:id
+// ─────────────────────────────────────────────────────────────────────────────
+router.get('/static-reactions', optionalAuth, (req, res) => {
+    try {
+        const reactionsPath = path.resolve(__dirname, '../data/pregeneratedReactionLines.json');
+        if (!fs.existsSync(reactionsPath)) {
+            return res.json({ available: false, clips: [] });
+        }
+        const clips = JSON.parse(fs.readFileSync(reactionsPath, 'utf8'));
+        res.set('Cache-Control', 'public, max-age=86400, immutable');
+        return res.json({ available: true, clips });
+    } catch (err) {
+        return res.status(500).json({ error: 'Failed to load static reactions' });
+    }
+});
+
+router.get('/static-reaction/:id', optionalAuth, (req, res) => {
+    const id = String(req.params.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    const audioPath = path.resolve(__dirname, `../data/static-reactions/${id}.mp3`);
+    if (!fs.existsSync(audioPath)) {
+        return res.status(404).json({ error: 'Clip not found' });
+    }
+    res.set({
+        'Content-Type': 'audio/mpeg',
+        'Cache-Control': 'public, max-age=86400, immutable',
+    });
+    const stream = fs.createReadStream(audioPath);
+    stream.pipe(res);
 });
 
 

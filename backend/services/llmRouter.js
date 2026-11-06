@@ -10,7 +10,6 @@
  *  3. Provider Verification:
  *     - Groq: gpt-oss-20b (fast reply & scoring) and gpt-oss-120b (reports).
  *     - Google AI Studio: gemini-3.5-flash-lite without thinking token overhead.
- *     - Cerebras: Llama 3.1 8b if CEREBRAS_API_KEY is configured.
  *     - OpenRouter: meta-llama/llama-3.1-8b-instruct:free & meta-llama/llama-3.3-70b-instruct:free.
  *  4. Free-Tier PII Sanitization:
  *     - Anonymizes candidate names, emails, phone numbers, and sensitive resume snippets before
@@ -32,6 +31,7 @@ import {
   stripReasoningTokens,
 } from './openRouterService.js';
 import { clampToTwoSentences, deterministicPick, safeJsonParse } from '../routes/company-interview/helpers.js';
+import { verifyEvidenceQuote, stripAttributionPhrase, getGenericFollowUp } from '../utils/technicalPronunciation.js';
 
 const logger = createLogger('llm-router');
 
@@ -40,17 +40,37 @@ export const ROUTER_MODELS = {
   GROQ_20B: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
   GROQ_120B: process.env.GROQ_MODEL || 'openai/gpt-oss-120b',
   GEMINI_FLASH: process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite',
-  CEREBRAS_8B: process.env.CEREBRAS_MODEL || 'llama3.1-8b',
   OPENROUTER_8B: OPENROUTER_MODELS.LLAMA_8B_FREE,
   OPENROUTER_70B: OPENROUTER_MODELS.LLAMA_70B_FREE,
 };
 
-// Telemetry metrics for parsing and truncation
+// Telemetry metrics for parsing, truncation, and fast-reply latency distribution
 export const routerMetrics = {
   jsonParseSuccessCount: 0,
   jsonParseFailureCount: 0,
   truncationCount: 0,
+  fastReplyLatencies: [],
 };
+
+export function recordFastReplyLatency(latencyMs) {
+  if (typeof latencyMs === 'number' && latencyMs > 0) {
+    routerMetrics.fastReplyLatencies.push(latencyMs);
+    if (routerMetrics.fastReplyLatencies.length > 500) {
+      routerMetrics.fastReplyLatencies.shift();
+    }
+  }
+}
+
+export function getFastReplyLatencyStats() {
+  const l = routerMetrics.fastReplyLatencies;
+  if (!l || l.length === 0) return { p50: 0, p95: 0, count: 0 };
+  const sorted = [...l].sort((a, b) => a - b);
+  return {
+    p50: sorted[Math.floor(sorted.length * 0.5)],
+    p95: sorted[Math.floor(sorted.length * 0.95)],
+    count: sorted.length,
+  };
+}
 
 // Google AI Studio client (dynamic import to remain safe across environments)
 let geminiClient = null;
@@ -351,55 +371,6 @@ async function executeGroqCompletion(options = {}, estimatedTokens = 400) {
   };
 }
 
-async function executeCerebrasCompletion(options = {}, estimatedTokens = 350) {
-  const apiKey = process.env.CEREBRAS_API_KEY;
-  if (!apiKey || apiKey.includes('placeholder')) {
-    throw new Error('Cerebras API key not configured');
-  }
-
-  const model = options.model || ROUTER_MODELS.CEREBRAS_8B;
-  const check = quotaGuard.canUseProvider('cerebras', estimatedTokens);
-  if (!check.allowed) throw new Error(`Cerebras quota blocked: ${check.reason}`);
-
-  const { signal, userId = null, ip = null, ...params } = options;
-  const res = await fetch('https://api.cerebras.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey.trim()}`,
-    },
-    body: JSON.stringify({ ...params, model }),
-    signal,
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Cerebras HTTP ${res.status}: ${errText.substring(0, 150)}`);
-  }
-
-  const data = await res.json();
-  const rawText = data.choices?.[0]?.message?.content || '';
-  const cleanContent = stripReasoningTokens(rawText);
-
-  quotaGuard.recordUsage({
-    provider: 'cerebras',
-    model,
-    promptTokens: data.usage?.prompt_tokens,
-    completionTokens: data.usage?.completion_tokens,
-    totalTokens: data.usage?.total_tokens,
-    userId,
-    ip,
-  });
-
-  return {
-    content: cleanContent,
-    rawText,
-    modelUsed: model,
-    provider: 'cerebras',
-    usage: data.usage,
-  };
-}
-
 async function executeGeminiCompletion(prompt, systemInstruction = '', maxTokens = 260, estimatedTokens = 400, { userId = null, ip = null } = {}) {
   const modelName = ROUTER_MODELS.GEMINI_FLASH;
   const check = quotaGuard.canUseModel(modelName, estimatedTokens);
@@ -512,9 +483,103 @@ const FALLBACK_FOLLOW_UPS = [
   'How would you measure the performance and latency impact in production?',
 ];
 
+// ── Answer Classification Types (Part A Section 3) ──
+export const VALID_ANSWER_TYPES = [
+  'strong_complete',
+  'partial',
+  'wrong',
+  'dont_know',
+  'off_topic',
+  'clarification',
+  'stuck_silence',
+];
+
+export function detectDeterministicAnswerType(userAnswer = '', previousQuestion = '') {
+  const text = String(userAnswer || '').trim();
+  if (
+    !text ||
+    text.length < 5 ||
+    /^(\.|\?|-|uh|um|umm|\s)+$/i.test(text) ||
+    /^(?:i am|i'm|uh|um)\s*[.\s]*(?:uh|um|umm)*$/i.test(text)
+  ) {
+    return 'stuck_silence';
+  }
+  const lower = text.toLowerCase();
+  // Clarification
+  if (
+    /^(?:could you|can you|can we|are we|do you mean|what do you mean|would you|repeat)\b/i.test(lower) ||
+    (lower.endsWith('?') && lower.length < 90 && !lower.includes('because'))
+  ) {
+    return 'clarification';
+  }
+  // Don't know
+  if (
+    /\b(?:i don'?t know|not sure|no idea|haven'?t used|don'?t remember|can'?t recall|no clue)\b/i.test(lower)
+  ) {
+    return 'dont_know';
+  }
+  // Off-topic personal stories / unrelated hobbies
+  if (
+    /\b(?:hiking|crypto|bitcoin|ethereum|laptop battery|professor was|vacation|weather)\b/i.test(lower) &&
+    !/\b(?:algorithm|database|cache|redis|postgres|query|index|latency|throughput|tree|graph)\b/i.test(lower)
+  ) {
+    return 'off_topic';
+  }
+  // Wrong technical claims
+  if (
+    /\b(?:unsorted.*o\(1\)|o\(1\).*unsorted|hash map.*ascending sorted|get requests are never idempotent|delete messages immediately as soon as one consumer reads|udp is used when packet ordering is required)\b/i.test(lower)
+  ) {
+    return 'wrong';
+  }
+  // Strong complete: mentions multiple concepts, trade-offs, eviction, mitigation, or patterns
+  if (
+    /\b(?:eviction|ttl|circuit breaker|two-phase commit|saga pattern|compensating|token bucket|lua scripts|median-of-three|partitioned.*customer id)\b/i.test(lower) ||
+    (text.length > 120 && /\b(?:trade-offs?|mitigate|consistency|latency|worst case)\b/i.test(lower))
+  ) {
+    return 'strong_complete';
+  }
+  return 'partial';
+}
+
+export function normalizeAnswerType(val, userAnswer = '', previousQuestion = '') {
+  const norm = String(val || '').toLowerCase().trim();
+  if (VALID_ANSWER_TYPES.includes(norm)) return norm;
+  return detectDeterministicAnswerType(userAnswer, previousQuestion);
+}
+
+function processFastReplyParsed(parsed, rawUserAnswer, startTime, completion, currentMode, safeQuestionNumber = 0, previousQuestion = '') {
+  routerMetrics.jsonParseSuccessCount++;
+  const answerType = normalizeAnswerType(parsed?.answerType, rawUserAnswer, previousQuestion);
+  const rawQuote = parsed?.evidenceQuote ? String(parsed.evidenceQuote).trim() : '';
+  const verification = verifyEvidenceQuote(rawQuote, rawUserAnswer);
+
+  let followUp = clampToTwoSentences(String(parsed?.followUpQuestion || '').trim());
+  if (!verification.verified && followUp) {
+    // Drop unverified attribution (e.g. "As you said, X...", "You mentioned [something], ...")
+    followUp = stripAttributionPhrase(followUp, safeQuestionNumber);
+  }
+
+  const latencyMs = Date.now() - startTime;
+  recordFastReplyLatency(latencyMs);
+
+  return {
+    answerType,
+    evidenceQuote: verification.quote,
+    quoteVerified: verification.verified,
+    microReaction: parsed?.microReaction || 'Got it, makes sense.',
+    followUpQuestion: followUp || getGenericFollowUp(safeQuestionNumber),
+    complete: false,
+    thinkTime: 40,
+    latencyMs,
+    modelUsed: completion?.modelUsed || 'unknown',
+    provider: completion?.provider || 'unknown',
+    mode: currentMode,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. FAST REPLY ROUTER
-// Groq 20b -> Cerebras -> Google AI Studio -> OpenRouter 8b:free -> deterministic
+// Groq 20b -> Google AI Studio -> OpenRouter 8b:free -> deterministic
 // ─────────────────────────────────────────────────────────────────────────────
 export async function callFastReply({
   previousQuestion = '',
@@ -539,13 +604,18 @@ export async function callFastReply({
   // Transparently notify the candidate so it does not feel like the AI stopped listening.
   if (currentMode === DEGRADATION_MODES.WAITLIST || currentMode === DEGRADATION_MODES.MINIMAL) {
     const microReaction = deterministicPick(FALLBACK_MICRO_REACTIONS, safeQuestionNumber);
-    const followUpQuestion = deterministicPick(FALLBACK_FOLLOW_UPS, safeQuestionNumber);
+    const followUpQuestion = getGenericFollowUp(safeQuestionNumber);
+    const latencyMs = Date.now() - startTime;
+    recordFastReplyLatency(latencyMs);
     return {
+      answerType: detectDeterministicAnswerType(userAnswer, previousQuestion),
+      evidenceQuote: '',
+      quoteVerified: false,
       microReaction,
       followUpQuestion,
       complete: false,
       thinkTime: 30,
-      latencyMs: Date.now() - startTime,
+      latencyMs,
       modelUsed: 'scripted-minimal',
       provider: 'deterministic-fallback',
       mode: currentMode,
@@ -557,19 +627,38 @@ export async function callFastReply({
   // Token-saving context: only last 2 turns + summary
   const historySnippet = buildTokenSavingHistory(history, runningSummary);
 
-  const systemContent = `You are an expert interviewer at ${company} conducting a ${stage} interview for ${role}.
-Candidate Answer to previous question: "${userAnswer ? String(userAnswer).substring(0, 800) : ''}"
-Previous Question was: "${previousQuestion}"
+  const fastReplySystemPrompt = `You are an expert interviewer at ${company} conducting a ${stage} interview for ${role}.
+Always respond strictly with a valid JSON object matching the requested schema. Do not output anything outside JSON.`;
+
+  const fastReplyUserPrompt = `Previous Question was: "${previousQuestion}"
+Candidate Answer: "${userAnswer ? String(userAnswer).substring(0, 800) : ''}"
 ${historySnippet ? `\n${historySnippet}\n` : ''}
 ${adaptivePrompt}
 
-CRITICAL RULES:
-1. STRICT LENGTH: The follow-up question MUST be 1 or 2 sentences MAX (~15-25 words).
-2. Micro-reaction: 3 to 6 words max (e.g. "Makes total sense.", "Clear trade-off there.").
-3. Respond in JSON with ONLY two fields:
+STEP 1 — CLASSIFY CANDIDATE'S ANSWER (into exact answerType):
+- strong_complete: Correct, insightful, explains trade-offs or failure mitigations.
+- partial: Right direction or conceptual core, missing depth or edge case.
+- wrong: Incorrect technical premise or flawed claim (e.g. claiming linear search is O(1) or hash maps are sorted). Action: Provide a neutral conceptual nudge without being judgmental. NEVER say "wrong", "incorrect", or reveal scores.
+- dont_know: Candidate says "I don't know", "not sure", or passes. Action: Reassure warmly, offer a simpler angle or move on.
+- off_topic: Rambling or tangential personal story unrelated to the question. Action: Gently redirect back to the core question.
+- clarification: Candidate asks a clarifying question or asks to repeat. Action: Answer or repeat clearly without penalty.
+- stuck_silence: Very short (<5 words), blank, or stuck after extended silence. Action: Offer a gentle starting hint.
+
+STEP 2 — SPOKEN STYLE & PROSODY RULES:
+1. Speak like a friendly senior engineer in a call, not like a document.
+2. STRICT LENGTH: The follow-up question MUST be 1 or 2 sentences MAX (12-25 words).
+3. Micro-reaction: 2 to 5 words max. Vary openers (e.g. "Okay,", "Right,", "Interesting,", "Fair enough,"). Never repeat the same opener consecutively.
+4. EVIDENCE REFERENCE: The follow-up MUST reference one specific thing the candidate said (e.g. "You mentioned a hash map, what happens on collisions?").
+5. TOPIC LIMIT: Maximum 2 follow-ups on the same topic, then pivot to the next topic or high-level architecture. Never re-ask something already covered in history.
+6. Tone: End with a single clear question mark '?'. Use contractions ("that's", "let's", "we've"). No markdown, bullets, or symbols. Spell out symbols ("O of n" for O(n)).
+7. "evidenceQuote" RULE: MUST be a 2 to 5 word VERBATIM exact snippet from Candidate Answer (or empty string if none). Do NOT paraphrase.
+
+Respond strictly in valid JSON format:
 {
-  "microReaction": "Crisp 3-6 word spoken reaction.",
-  "followUpQuestion": "Conversational follow-up question (1-2 sentences MAX)."
+  "answerType": "strong_complete|partial|wrong|dont_know|off_topic|clarification|stuck_silence",
+  "evidenceQuote": "Exact 2-5 word snippet copied verbatim from Candidate Answer (or empty string)",
+  "microReaction": "Crisp 2-5 word natural reaction.",
+  "followUpQuestion": "Spoken follow-up referencing candidate's answer (12-25 words, 1-2 sentences MAX)."
 }`;
 
   // 1. Try Groq 20b
@@ -579,10 +668,13 @@ CRITICAL RULES:
         executeGroqCompletion(
           {
             model: ROUTER_MODELS.GROQ_20B,
-            messages: [{ role: 'system', content: systemContent }],
+            messages: [
+              { role: 'system', content: fastReplySystemPrompt },
+              { role: 'user', content: fastReplyUserPrompt },
+            ],
             response_format: { type: 'json_object' },
             temperature: 0.65,
-            max_tokens: 320,
+            max_tokens: 300,
             signal,
           },
           300
@@ -594,18 +686,7 @@ CRITICAL RULES:
 
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      routerMetrics.jsonParseSuccessCount++;
-      const followUp = clampToTwoSentences(String(parsed.followUpQuestion || '').trim());
-      return {
-        microReaction: parsed.microReaction || 'Got it, makes sense.',
-        followUpQuestion: followUp || 'Can you explain the key trade-offs with that approach?',
-        complete: false,
-        thinkTime: 40,
-        latencyMs: Date.now() - startTime,
-        modelUsed: completion.modelUsed,
-        provider: completion.provider,
-        mode: currentMode,
-      };
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -613,62 +694,17 @@ CRITICAL RULES:
     quotaGuard.markProviderFailing('groq');
   }
 
-  // 2. Try Cerebras (Llama 3.1 8b) if key is configured
-  if (process.env.CEREBRAS_API_KEY) {
-    try {
-      const completion = await executeCerebrasCompletion(
-        {
-          model: ROUTER_MODELS.CEREBRAS_8B,
-          messages: [{ role: 'system', content: systemContent }],
-          response_format: { type: 'json_object' },
-          max_tokens: 150,
-          signal,
-        },
-        300
-      );
-      const parsed = safeJsonParse(completion.content);
-      if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-        routerMetrics.jsonParseSuccessCount++;
-        const followUp = clampToTwoSentences(String(parsed.followUpQuestion || '').trim());
-        return {
-          microReaction: parsed.microReaction || 'Got it, makes sense.',
-          followUpQuestion: followUp || 'Can you explain the trade-offs on that?',
-          complete: false,
-          thinkTime: 40,
-          latencyMs: Date.now() - startTime,
-          modelUsed: completion.modelUsed,
-          provider: completion.provider,
-          mode: currentMode,
-        };
-      }
-    } catch (err) {
-      logger.warn('[Fast Reply] Cerebras failed:', err.message?.substring(0, 100));
-      quotaGuard.markProviderFailing('cerebras');
-    }
-  }
-
-  // 3. Try Google AI Studio (Gemini 3.5 Flash Lite)
+  // 2. Try Google AI Studio (Gemini 3.5 Flash Lite)
   try {
     const completion = await executeGeminiCompletion(
-      `Candidate Answer: "${userAnswer ? String(userAnswer).substring(0, 800) : ''}"\nPrevious Question: "${previousQuestion}"`,
-      systemContent,
-      150,
+      fastReplyUserPrompt,
+      fastReplySystemPrompt,
+      300,
       300
     );
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      routerMetrics.jsonParseSuccessCount++;
-      const followUp = clampToTwoSentences(String(parsed.followUpQuestion || '').trim());
-      return {
-        microReaction: parsed.microReaction || 'Got it, makes sense.',
-        followUpQuestion: followUp || 'Can you walk me through your thinking on that?',
-        complete: false,
-        thinkTime: 40,
-        latencyMs: Date.now() - startTime,
-        modelUsed: completion.modelUsed,
-        provider: completion.provider,
-        mode: currentMode,
-      };
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -681,27 +717,19 @@ CRITICAL RULES:
     const completion = await executeOpenRouterCompletion(
       {
         model: ROUTER_MODELS.OPENROUTER_8B,
-        messages: [{ role: 'system', content: systemContent }],
+        messages: [
+          { role: 'system', content: fastReplySystemPrompt },
+          { role: 'user', content: fastReplyUserPrompt },
+        ],
         temperature: 0.65,
-        max_tokens: 150,
+        max_tokens: 300,
         signal,
       },
       300
     );
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      routerMetrics.jsonParseSuccessCount++;
-      const followUp = clampToTwoSentences(String(parsed.followUpQuestion || '').trim());
-      return {
-        microReaction: parsed.microReaction || 'Got it, makes sense.',
-        followUpQuestion: followUp || 'Can you walk me through your thinking on that?',
-        complete: false,
-        thinkTime: 40,
-        latencyMs: Date.now() - startTime,
-        modelUsed: completion.modelUsed,
-        provider: completion.provider,
-        mode: currentMode,
-      };
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -711,13 +739,18 @@ CRITICAL RULES:
 
   // 5. Deterministic fallback question (instant 0ms)
   const microReaction = deterministicPick(FALLBACK_MICRO_REACTIONS, safeQuestionNumber);
-  const followUpQuestion = deterministicPick(FALLBACK_FOLLOW_UPS, safeQuestionNumber);
+  const followUpQuestion = getGenericFollowUp(safeQuestionNumber);
+  const latencyMs = Date.now() - startTime;
+  recordFastReplyLatency(latencyMs);
   return {
+    answerType: detectDeterministicAnswerType(userAnswer, previousQuestion),
+    evidenceQuote: '',
+    quoteVerified: false,
     microReaction,
     followUpQuestion,
     complete: false,
     thinkTime: 40,
-    latencyMs: Date.now() - startTime,
+    latencyMs,
     modelUsed: 'deterministic-fallback',
     provider: 'deterministic-fallback',
     mode: currentMode,
@@ -783,12 +816,21 @@ export async function callTurnScoring({
     };
   }
 
-  // Expanded max_tokens headroom (260 tokens) prevents JSON truncation when models wrap answers
+  // Expanded max_tokens headroom (280 tokens) prevents JSON truncation when models wrap answers
   const prompt = `You are a calibrated technical & behavioral evaluator at ${company} scoring a live spoken turn for ${role} (${stage}).
 Difficulty: ${difficultyTag} (easy | medium | hard | staff_architectural)
 Question: "${previousQuestion}"
 Candidate Spoken Answer: "${String(userAnswer || '').substring(0, 1000)}"
 ${code ? `Submitted Code (${codeLanguage}):\n${String(code).substring(0, 600)}\n` : ''}
+
+EVALUATION PRINCIPLES:
+1. Judge technical content, problem solving, and engineering reasoning ONLY.
+2. Do NOT evaluate or penalize candidate accent, vocal fluency, English proficiency, filler words, or pauses.
+3. Weight by difficulty (${difficultyTag}):
+   - easy: foundational correctness and basic clarity
+   - medium: trade-offs, edge cases, and complexity
+   - hard / staff: architectural trade-offs, concurrency, scaling, and fault tolerance
+4. Include a short direct evidence quote from candidate's answer supporting the evaluation.
 
 Rate across 3 dimensions on a 1.0 - 5.0 scale (0.5 increments):
 - correctness (1.0 - 5.0): accuracy and complexity
@@ -798,6 +840,7 @@ Rate across 3 dimensions on a 1.0 - 5.0 scale (0.5 increments):
 Respond as compact JSON:
 {
   "dimensions": { "correctness": 1.0-5.0, "depth": 1.0-5.0, "communication": 1.0-5.0 },
+  "evidenceQuote": "Short candidate quote justifying this rating",
   "feedback": "Crisp 1-2 sentence evaluation",
   "strengths": ["Specific strength"],
   "improvements": ["Specific improvement"],
@@ -973,6 +1016,7 @@ Respond as compact JSON:
     isFallbackModel: isFallback,
     isCascadeMidSession: isCascade,
     originalScorer: pinnedScorer?.provider || providerUsed,
+    evidenceQuote: parsed?.evidenceQuote ? String(parsed.evidenceQuote).trim() : null,
     feedback: parsed?.feedback || 'Answer recorded.',
     strengths: Array.isArray(parsed?.strengths) ? parsed.strengths : ['Structured response'],
     improvements: Array.isArray(parsed?.improvements) ? parsed.improvements : [],
@@ -1169,4 +1213,5 @@ export default {
   sanitizePromptForFreeTier,
   ROUTER_MODELS,
   routerMetrics,
+  getFastReplyLatencyStats,
 };

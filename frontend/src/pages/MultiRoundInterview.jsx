@@ -453,7 +453,7 @@ export default function MultiRoundInterview() {
                         color: 'var(--border)', display: 'flex',
                         alignItems: 'center', justifyContent: 'center', gap: 4
                     }}>
-                        🔒 Your interview data is private and never shared
+                        🔒 Transcripts are processed securely by browser speech recognition and AI inference providers (Groq/Gemini). PII is redacted and audio is not stored.
                     </div>
                 </div>
             </div>

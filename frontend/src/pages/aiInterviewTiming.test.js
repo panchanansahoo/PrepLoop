@@ -14,36 +14,36 @@ import {
 
 describe('aiInterviewTiming', () => {
     describe('getThinkingDelayMs', () => {
-        it('returns 200ms baseline for empty input', () => {
+        it('returns 400-900ms conversational gap for empty input', () => {
             for (const input of ['', undefined, null]) {
                 const r = getThinkingDelayMs(input);
-                // base 200 + ±30% jitter, clamped to min 200 → [200, 260]
-                expect(r).toBeGreaterThanOrEqual(200);
-                expect(r).toBeLessThanOrEqual(260);
+                // Bounded 400-900ms conversational gap (Part B Section 3)
+                expect(r).toBeGreaterThanOrEqual(400);
+                expect(r).toBeLessThanOrEqual(500);
             }
         });
 
-        it('scales linearly with text length', () => {
-            const short = getThinkingDelayMs('hello');   // 5 chars → 200 + 7.5 = 207.5 base
-            const medium = getThinkingDelayMs('a'.repeat(100)); // 200 + 150 = 350 base
-            expect(short).toBeLessThan(medium);
+        it('scales linearly with text length within 400-900ms bound', () => {
+            const short = getThinkingDelayMs('hello', { deterministic: true });
+            const medium = getThinkingDelayMs('a'.repeat(200), { deterministic: true });
+            expect(short).toBeLessThanOrEqual(medium);
+            expect(short).toBeGreaterThanOrEqual(400);
+            expect(medium).toBeLessThanOrEqual(900);
         });
 
-        it('caps at 800ms for very long answers', () => {
+        it('caps at 900ms for very long answers', () => {
             const result1 = getThinkingDelayMs('a'.repeat(1000));
             const result2 = getThinkingDelayMs('a'.repeat(5000));
-            // base caps at 800, ±30% jitter → [560, 1040], clamped to [200, 1000] → [560, 1000]
-            expect(result1).toBeGreaterThanOrEqual(560);
-            expect(result1).toBeLessThanOrEqual(1000);
-            expect(result2).toBeGreaterThanOrEqual(560);
-            expect(result2).toBeLessThanOrEqual(1000);
+            expect(result1).toBeGreaterThanOrEqual(400);
+            expect(result1).toBeLessThanOrEqual(900);
+            expect(result2).toBeGreaterThanOrEqual(400);
+            expect(result2).toBeLessThanOrEqual(900);
         });
 
-        it('handles whitespace-only input as empty', () => {
+        it('handles whitespace-only input as empty within [400, 500]ms', () => {
             const result = getThinkingDelayMs('   ');
-            // trimmed length is 0, same as empty → [200, 260]
-            expect(result).toBeGreaterThanOrEqual(200);
-            expect(result).toBeLessThanOrEqual(260);
+            expect(result).toBeGreaterThanOrEqual(400);
+            expect(result).toBeLessThanOrEqual(500);
         });
     });
 

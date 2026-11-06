@@ -24,15 +24,15 @@ function stableDelayJitter(str) {
 
 export function getThinkingDelayMs(text = '', options = {}) {
     const length = String(text || '').trim().length;
-    const base = Math.min(800, 200 + length * 1.5);
-    // Bounded ±10% jitter to avoid predictable timing while ensuring
-    // longer answers strictly receive at least as much or more delay than shorter ones.
-    const jitterRatio = typeof options?.jitterRatio === 'number' ? options.jitterRatio : 0.1;
+    // Bounded 400ms - 900ms natural conversational pause after confirmed speech silence (Part B Section 3)
+    // Instant replies (<400ms) feel robotic; over 2s feels broken.
+    const base = Math.min(850, 420 + length * 0.8);
+    const jitterRatio = typeof options?.jitterRatio === 'number' ? options.jitterRatio : 0.08;
     const rand = typeof options?.random === 'number'
         ? options.random
         : (options?.deterministic ? stableDelayJitter(text) : Math.random());
     const jitter = base * jitterRatio * (rand * 2 - 1);
-    return Math.round(Math.min(1000, Math.max(200, base + jitter)));
+    return Math.round(Math.min(900, Math.max(400, base + jitter)));
 }
 
 // ── Interviewer Reaction ────────────────────────────────────────────
@@ -273,10 +273,10 @@ export const PACING_MODES = {
         label: 'Realistic (Timed)',
         badge: 'Interview Mode',
         description: 'Standard interview pacing closer to real-time company interview conditions.',
-        nudgeMs: 20_000,
-        checkInMs: 40_000,
-        autoAdvanceMs: 70_000,
-        postSpeechSubmitMs: 5_000,
+        nudgeMs: 12_000,
+        checkInMs: 25_000,
+        autoAdvanceMs: 40_000,
+        postSpeechSubmitMs: 3_500,
         fillerExtensionMs: 20_000,
         needAMomentMs: 30_000,
         maxNeedAMoment: 2,
@@ -384,19 +384,44 @@ export function isTrailingFiller(text = '') {
     return /(?:\b(?:um|uh|uhh|umm|so|like|well|you know|and|or|but|i mean|basically|actually)\b[.?!,\s]*$|\.{2,}$)/i.test(trimmed);
 }
 
+// ── Turn-Taking State Analysis (Part A Section 2) ───────────────────
+// Detects whether a spoken candidate turn is clearly finished vs unfinished.
+// Unfinished: trailing "and", "so", "because", trailing prepositions, or incomplete half-sentence.
+// Finished: complete clause with terminal punctuation or explicit "that's it" / "that's all".
+export const UNFINISHED_CONNECTOR_REGEX = /\b(?:and|so|because|or|but|like|which|then|specifically|for example|for instance|if|when|where|while|since|with|to|from|about)\s*[,.]*$/i;
+export const DEFINITIVE_ENDING_REGEX = /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer|done)[.?!]*$/i;
+
+export function isUnfinishedTurn(text = '') {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return true;
+    if (UNFINISHED_CONNECTOR_REGEX.test(trimmed)) return true;
+    // Trailing comma or open clause indicator
+    if (/,\s*$/.test(trimmed) || /\.{2,}$/.test(trimmed)) return true;
+    return false;
+}
+
+export function isFinishedTurn(text = '') {
+    const trimmed = String(text || '').trim();
+    if (!trimmed) return false;
+    if (DEFINITIVE_ENDING_REGEX.test(trimmed)) return true;
+    // Complete clause ending with terminal punctuation and without a hanging connector
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    const hasPunctuation = /[.!?]$/.test(trimmed);
+    return hasPunctuation && words.length >= 4 && !isUnfinishedTurn(trimmed);
+}
+
 // ── Semantic Silence & Turn-Taking Threshold Engine ────────────────
 // Scales required silence duration based on interview stage and word count.
-// Technical / coding questions require larger silence windows (2.8s - 4.0s) so candidates
-// can pause mid-thought (e.g. "...uses a hash map [pause] and the complexity is...")
-// without getting prematurely cut off.
+// Uses adaptive silence (1.5s - 3.6s cap), the filler allowance, and the 2s resume window.
 export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0, text = '', candidatePacingOffset = 0 } = {}) {
     const trimmed = String(text || '').trim();
-    const hasDefinitiveEnding = /(?:that's all|that is all|i'm done|i am done|that's it|my approach|concludes my answer|done)[.?!]*$/i.test(trimmed);
 
-    if (hasDefinitiveEnding) {
+    // Definitively finished turns trigger immediate snappy 1500ms submission
+    if (isFinishedTurn(trimmed)) {
         return 1500;
     }
 
+    const unfinishedBonus = isUnfinishedTurn(trimmed) ? 1000 : 0;
     const fillerBonus = isTrailingFiller(trimmed) ? 1200 : 0;
     const baseOffset = Number.isFinite(candidatePacingOffset) ? candidatePacingOffset : 0;
     // Clamp individual pacing offset to [-300ms, +500ms]
@@ -414,6 +439,6 @@ export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0
         threshold = wordCount < 10 ? 2200 : 1800;
     }
 
-    // Hard clamp between 1500ms min and 3600ms max so deliberate speakers + trailing fillers never hit 5s+
-    return Math.min(3600, Math.max(1500, threshold + fillerBonus + clampedOffset));
+    // Hard clamp between 1500ms min and 3600ms max so deliberate speakers + trailing fillers never hit >3.6s
+    return Math.min(3600, Math.max(1500, threshold + Math.max(fillerBonus, unfinishedBonus) + clampedOffset));
 }

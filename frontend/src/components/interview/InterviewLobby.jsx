@@ -1140,7 +1140,7 @@ function InterviewLobby({
                             )}
                         </div>
                         <div style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
-                            🔒 <strong>Candidate Privacy:</strong> Your browser’s speech service may process your voice. Transcripts are sent to AI providers with emails, phone numbers and self-introduced names removed on a best-effort basis. We don’t store audio.
+                            🔒 <strong>Candidate Privacy:</strong> Speech recognition is processed by your browser's speech service. Transcripts are sent to third-party AI inference providers (Groq, Google AI Studio, OpenRouter) with emails, phone numbers, and full names redacted. Audio recordings are never stored.
                         </div>
                     </div>
                 </div>

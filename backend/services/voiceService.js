@@ -14,6 +14,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { EdgeTTS } from 'node-edge-tts';
+import { respellForTts } from '../utils/technicalPronunciation.js';
 
 // ─── __dirname for ESM ───
 const __filename = fileURLToPath(import.meta.url);
@@ -170,6 +171,22 @@ const KOKORO_VOICES = {
 
 
 
+// ── Pre-generated Static Reaction Audio Clips ──
+const staticReactionsMap = new Map();
+try {
+    const staticReactionsPath = path.resolve(__dirname, '../data/pregeneratedReactionLines.json');
+    if (fs.existsSync(staticReactionsPath)) {
+        const lines = JSON.parse(fs.readFileSync(staticReactionsPath, 'utf8'));
+        for (const item of lines) {
+            const key = item.text.toLowerCase().replace(/[^a-z0-9]/g, '');
+            staticReactionsMap.set(key, item.id);
+        }
+    }
+} catch (e) {
+    console.warn('[voiceService] Failed to load static reactions index:', e.message);
+}
+
+// Helper to normalize gender
 function normalizeGender(gender) {
     const n = String(gender || '').trim().toLowerCase();
     return (n === 'male' || n === 'man') ? 'male' : 'female';
@@ -197,7 +214,7 @@ export function getAvailableProviders() {
             groq: providers.groq,
         },
         recommended: {
-            tts: providers.elevenlabs ? 'elevenlabs' : providers.openai ? 'openai' : providers.groq ? 'groq' : providers.edge ? 'edge' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
+            tts: providers.edge ? 'edge' : providers.groq ? 'groq' : (providers.kokoro && !_kokoroInitFailed) ? 'kokoro' : 'browser',
             stt: 'browser',
         }
     };
@@ -228,7 +245,7 @@ export function getTtsCacheStats() {
  * - Expands equality / comparison symbols
  * - Removes emojis and URLs so speech engines don't stumble
  */
-export function cleanTextForSpeech(text) {
+export function cleanTextForSpeech(text, options = {}) {
     if (!text || typeof text !== 'string') return '';
     let clean = text;
 
@@ -272,6 +289,9 @@ export function cleanTextForSpeech(text) {
     // URLs
     clean = clean.replace(/https?:\/\/\S+/gi, '');
 
+    // Phonetic technical respellings (per provider awareness: Orpheus vs Edge)
+    clean = respellForTts(clean, { provider: options?.provider || 'edge' });
+
     // Emojis and miscellaneous non-verbal symbols
     clean = clean.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
 
@@ -285,10 +305,10 @@ export function cleanTextForSpeech(text) {
  * When fallback: true is returned, the frontend should use browser speechSynthesis.
  * Intelligent provider selection based on availability and performance.
  */
-export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, _language = 'en', gender = 'female') {
+export async function textToSpeech(text, persona = 'friendly', preferredProvider = null, _language = 'en', gender = 'female', options = {}) {
     if (!text || String(text).trim().length === 0) throw new Error('Text is required for TTS');
 
-    const cleanText = cleanTextForSpeech(String(text));
+    const cleanText = cleanTextForSpeech(String(text), { provider: preferredProvider });
     if (!cleanText) throw new Error('Text is required for TTS');
 
     const g = normalizeGender(gender);
@@ -302,6 +322,26 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         ttsAudioCache.delete(cacheKey);
         ttsAudioCache.set(cacheKey, cached);
         return cached;
+    }
+
+    // ⚡ Pre-generated reaction clip fast path: Zero API quota, instant disk audio
+    // Only serve when matching the pinned pilot female neural persona and not in browser fallback mode
+    const normTextKey = cleanText.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const canUseStaticClips = g === 'female' && preferredProvider !== 'browser' && !options?.skipStaticClips;
+    if (canUseStaticClips && staticReactionsMap.has(normTextKey)) {
+        const clipId = staticReactionsMap.get(normTextKey);
+        const clipPath = path.resolve(__dirname, `../data/static-reactions/${clipId}.mp3`);
+        if (fs.existsSync(clipPath)) {
+            try {
+                const clipBuffer = fs.readFileSync(clipPath);
+                console.log(`[TTS] ⚡ Static reaction clip hit: "${cleanText.substring(0, 35)}..." (${clipId})`);
+                const entry = { audio: clipBuffer, contentType: 'audio/mpeg', provider: 'static-reaction-clip', voice: 'pinned-neural' };
+                ttsAudioCache.set(cacheKey, entry);
+                return entry;
+            } catch {
+                /* fall through to live synthesis */
+            }
+        }
     }
 
     // Helper to check if provider is in cooldown with fail-fast half-open probe state
@@ -390,17 +430,15 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
         result = await tryProvider('openai', () => openAITTS(cleanText, persona, g));
     }
 
-    // Groq Orpheus — cloud TTS (free tier, fast ~600ms)
-    // NOTE (Zero-Cost Token Guard): Orpheus on Groq shares your Groq API limits.
-    // Keep it for interview questions only, not backchannels or short interjections (<= 4 words).
+    // Edge TTS — Free, High Quality Azure Neural voices (Voice-matched to 40 static clips in en-US-AriaNeural)
+    if (!result && providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
+        result = await tryProvider('edge', () => edgeNeuralTTS(cleanText, persona, g));
+    }
+
+    // Groq Orpheus — cloud TTS (fallback or when explicitly requested via preferredProvider)
     const isQuestionOrLongText = cleanText.trim().endsWith('?') || cleanText.length > 50 || cleanText.split(/\s+/).filter(Boolean).length > 4;
     if (!result && providers.groq && isQuestionOrLongText && (!preferredProvider || preferredProvider === 'groq' || preferredProvider === 'groq-orpheus') && !isInCooldown('groq')) {
         result = await tryProvider('groq', () => groqOrpheusTTS(cleanText, persona, g));
-    }
-
-    // Edge TTS — Free, High Quality Azure Neural voices
-    if (!result && providers.edge && (!preferredProvider || preferredProvider === 'edge') && !isInCooldown('edge')) {
-        result = await tryProvider('edge', () => edgeNeuralTTS(cleanText, persona, g));
     }
 
     // Kokoro — local, free, CPU-only (may fail on constrained servers)
@@ -690,14 +728,14 @@ async function openAITTS(text, persona, gender = 'female') {
 }
 
 async function edgeNeuralTTS(text, persona, gender = 'female') {
-    // Premium Azure Neural voices — selected for natural, warm interview tone
+    // Premium Azure Neural voices — pinned to en-US-AriaNeural for 100% voice consistency with static clips
     const edgeVoices = {
         female: {
-            friendly:   'en-US-JennyMultilingualNeural',  // Best quality, warm
+            friendly:   'en-US-AriaNeural',               // Voice-matched to static clips
             analytical: 'en-US-AriaNeural',               // Clear, professional
             formal:     'en-GB-SoniaNeural',              // British, authoritative
-            casual:     'en-US-JennyNeural',              // Natural, conversational
-            default:    'en-US-JennyMultilingualNeural',
+            casual:     'en-US-AriaNeural',               // Natural, conversational
+            default:    'en-US-AriaNeural',
         },
         male: {
             friendly:   'en-US-GuyNeural',                // Warm, natural
@@ -719,12 +757,13 @@ async function edgeNeuralTTS(text, persona, gender = 'female') {
     const sentences = text.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
     
     if (sentences.length <= 1) {
-        // Short text — single synthesis with warm prosody
+        // Short text — single synthesis with warm prosody (slower 0.95x for questions, normal for reactions)
+        const isQuestion = text.trim().endsWith('?');
         const tts = new EdgeTTS({
             voice,
             lang: 'en-US',
-            rate: baseRate,
-            pitch: basePitch,
+            rate: isQuestion ? '-5%' : baseRate,
+            pitch: isQuestion ? '+4Hz' : basePitch,
             outputFormat: 'audio-24khz-96kbitrate-mono-mp3'
         });
         

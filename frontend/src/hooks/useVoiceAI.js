@@ -395,6 +395,7 @@ export function useVoiceAI({
   const lastSubmittedAnswerRef = useRef("");
   const lastSubmittedAtRef = useRef(0);
   const lastSpeechDetectedAtRef = useRef(0);
+  const lastConfidenceRef = useRef(0.98);
   const hasPreWarmedThisTurnRef = useRef(false);
   const checkResumeWindowRef = useRef(null);
   const startRef = useRef(null);
@@ -842,7 +843,12 @@ export function useVoiceAI({
     interimRef.current = "";
 
     const lastSpeechAt = lastSpeechDetectedAtRef.current || Date.now();
-    const enrichedMeta = { ...meta, lastSpeechAt };
+    const enrichedMeta = {
+      ...meta,
+      lastSpeechAt,
+      sttSource: connectionMode === "whisper" ? "groq-whisper" : "browser-stt",
+      confidence: lastConfidenceRef.current || 0.98,
+    };
     try {
       onAnswer?.(savedAnswer, enrichedMeta);
     } catch {
@@ -1327,6 +1333,9 @@ export function useVoiceAI({
             let finalText = "";
             for (let i = event.resultIndex; i < event.results.length; ++i) {
               const result = event.results[i];
+              if (result[0]?.confidence) {
+                lastConfidenceRef.current = result[0].confidence;
+              }
               if (result.isFinal) {
                 finalText += result[0].transcript;
               } else if (result[0]?.transcript) {

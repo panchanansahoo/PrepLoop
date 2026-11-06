@@ -1,20 +1,15 @@
-import {Shield, Lock, Eye, Database} from 'lucide-react';
-
+import { Shield, Lock, Eye, Database } from 'lucide-react';
 
 export default function PrivacyPolicy() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-bg-primary)', color: 'var(--color-text-primary)', position: 'relative' }}>
-
-
       <div className="container" style={{ paddingTop: '120px', paddingBottom: '80px', position: 'relative', zIndex: 10, maxWidth: '800px' }}>
-
         <div style={{ textAlign: 'center', marginBottom: '60px' }}>
           <h1 style={{ fontSize: '48px', marginBottom: '16px', fontWeight: 'bold' }}>Privacy <span className="text-gradient">Policy</span></h1>
           <p style={{ color: 'var(--zinc-400)', fontSize: '16px' }}>Last Updated: February 2026</p>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-
           <section style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.03))', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
               <Shield size={24} color="#a78bfa" />
@@ -38,7 +33,7 @@ export default function PrivacyPolicy() {
               </li>
               <li style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '8px' }}>
                 <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '4px' }}>Performance Data</strong>
-                Code submissions, mock interview recordings (audio/text), and progress metrics to provide personalized AI feedback.
+                Code submissions, mock interview responses, and progress metrics to provide personalized AI feedback.
               </li>
               <li style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.02))', padding: '16px', borderRadius: '8px' }}>
                 <strong style={{ color: 'var(--color-text-primary)', display: 'block', marginBottom: '4px' }}>Usage Data</strong>
@@ -78,14 +73,37 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
+          <section style={{ background: 'var(--color-bg-secondary, rgba(255,255,255,0.03))', padding: '32px', borderRadius: '16px', border: '1px solid var(--zinc-800)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+              <Shield size={24} color="#38bdf8" />
+              <h2 style={{ fontSize: '24px', margin: 0 }}>5. Speech Recognition & AI Inference Services</h2>
+            </div>
+            <p style={{ color: 'var(--zinc-400)', lineHeight: '1.7', marginBottom: '14px' }}>
+              To provide real-time interactive voice interviews, data is processed in transit by specific external providers:
+            </p>
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px', color: 'var(--zinc-400)', margin: 0 }}>
+              <li style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+                <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Browser Speech Recognition (STT)</strong>
+                Voice transcription relies on the browser's native Web Speech API (such as Google Speech Services on Chrome or Apple Speech on Safari). Browser vendors receive audio stream packets to perform transcription. PrepLoop does not retain or store your raw microphone audio recordings.
+              </li>
+              <li style={{ background: 'rgba(167, 139, 250, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(167, 139, 250, 0.15)' }}>
+                <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px' }}>Third-Party AI Inference Partners</strong>
+                Cleaned transcripts and technical questions are sent to cloud AI providers (Groq, Google AI Studio, and OpenRouter) strictly for fast follow-ups and rubric scoring.
+              </li>
+              <li style={{ background: 'rgba(52, 211, 153, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.15)' }}>
+                <strong style={{ color: '#34d399', display: 'block', marginBottom: '4px' }}>Automated PII Stripping & No Model Training</strong>
+                Personal identifiers (emails, phone numbers, and full names) are scrubbed before payload transmission. Your interview answers are not used to train public foundation models.
+              </li>
+            </ul>
+          </section>
+
           <section style={{ borderTop: '1px solid var(--zinc-800)', paddingTop: '32px', marginTop: '16px' }}>
-            <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>5. Contact Us</h2>
+            <h2 style={{ fontSize: '24px', marginBottom: '16px' }}>6. Contact Us</h2>
             <p style={{ color: 'var(--zinc-400)', lineHeight: '1.7' }}>
               If you have any questions about this Privacy Policy, please contact us at: <br />
               <a href="mailto:support@preploop.me" style={{ color: '#a78bfa', textDecoration: 'none' }}>support@preploop.me</a>
             </p>
           </section>
-
         </div>
       </div>
     </div>

@@ -30,6 +30,7 @@ import {
   formatTime,
 } from "../pages/aiInterviewConfig";
 import { CODE_DELIMITER_MARKER } from "../pages/aiInterviewRuntime";
+import { correctSttTechnicalTerms, stripFillersForLlm, respellForTts } from "../utils/technicalPronunciation";
 
 export const INTERVIEW_LIFECYCLE = {
   IDLE: "idle",
@@ -121,6 +122,7 @@ export function useInterviewSession(options = {}) {
   const silenceCheckInTimerRef = useRef(null);
   const silenceAutoAdvanceTimerRef = useRef(null);
   const wrapUpTimerRef = useRef(null);
+  const recentOpenersRef = useRef([]);
   const { user: _user, getAuthHeaders } = useAuth();
 
   const [phase, setPhase] = useState("lobby");
@@ -2116,10 +2118,15 @@ export function useInterviewSession(options = {}) {
       const isSkippedQuestion = isAutoSkip === true && !providedAnswer;
       const skipReason = meta?.reason || (isAutoSkip ? "silence_timeout" : "user_skipped");
 
+      const rawAnswer = answer;
+      const cleanAnswerForLlm = stripFillersForLlm(correctSttTechnicalTerms(answer));
       const currentCode = stateRefs.current.code.trim();
       const fullAnswer = currentCode
-        ? `${answer}\n\n${CODE_DELIMITER_MARKER}\n${currentCode}`
-        : answer;
+        ? `${rawAnswer}\n\n${CODE_DELIMITER_MARKER}\n${currentCode}`
+        : rawAnswer;
+      const fullAnswerForLlm = currentCode
+        ? `${cleanAnswerForLlm}\n\n${CODE_DELIMITER_MARKER}\n${currentCode}`
+        : cleanAnswerForLlm;
 
       setConversation((prev) => [
         ...prev,
@@ -2128,7 +2135,11 @@ export function useInterviewSession(options = {}) {
           turnId,
           content: isSkippedQuestion
             ? (skipReason === "user_skipped" ? "[Question skipped by candidate]" : "[No response - question timed out]")
-            : (answer || "[Code submitted]"),
+            : (rawAnswer || "[Code submitted]"),
+          finalText: rawAnswer || "",
+          cleanContent: cleanAnswerForLlm,
+          sttSource: meta?.sttSource || (voiceOnlyInterview || isListeningRef.current ? "browser-stt" : "typed"),
+          confidence: meta?.confidence ?? (rawAnswer ? 0.98 : null),
           question: currentQuestion,
           questionNumber: questionIndexRef.current,
           questionId: currentQuestionIdRef.current,
@@ -2180,7 +2191,8 @@ export function useInterviewSession(options = {}) {
 
         const followUpPayload = {
           previousQuestion: currentQuestion,
-          userAnswer: fullAnswer,
+          userAnswer: fullAnswerForLlm || fullAnswer,
+          rawUserAnswer: fullAnswer,
           questionNumber: questionIndexRef.current + 1,
           totalQuestions,
           company: resolvedCompany,
@@ -2193,7 +2205,7 @@ export function useInterviewSession(options = {}) {
             .slice(-12)
             .map((m) => ({
               role: m.role === "interviewer" ? "interviewer" : "candidate",
-              content: m.content,
+              content: m.cleanContent || m.content,
             })),
           code: code.trim() || undefined,
           codeLanguage: language,
@@ -2512,19 +2524,55 @@ export function useInterviewSession(options = {}) {
         } else {
           setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
           setLoading(false);
-          const speechAnchor = lastSpeechDetectedAtRef.current || sttEndedAtRef.current || Date.now();
+
+          // Pacing & Latency Budget (Item 1):
+          // Measure elapsed time since speech pause was confirmed (sttEndedAtRef).
+          // If the reply is ready in 500ms and target gap is 700ms, wait ONLY remaining 200ms.
+          // If elapsed >= target gap, wait 0ms — never stack delay on top of LLM time to prevent blowing 3.5s p95!
+          const pauseConfirmedTime = sttEndedAtRef.current || Date.now();
+          const naturalTargetGapMs = getThinkingDelayMs(fullAnswer, { deterministic: true });
+          const elapsedSinceConfirmedPause = Date.now() - pauseConfirmedTime;
+          const remainingDelayMs = Math.max(0, naturalTargetGapMs - elapsedSinceConfirmedPause);
+          if (remainingDelayMs > 0) {
+            await new Promise((r) => setTimeout(r, remainingDelayMs));
+          }
+          const actualReplyGapMs = Date.now() - pauseConfirmedTime;
+          const speechAnchor = lastSpeechDetectedAtRef.current || pauseConfirmedTime;
           const lastSpeechToFirstAudioLatencyMs = Date.now() - speechAnchor;
+
           // Don't log a latency sample for turns cancelled by resume
           if (!speakSequenceCancelledRef.current && lastSpeechToFirstAudioLatencyMs > 0) {
-            console.log(`[Interview Latency] Q${questionIndexRef.current} last-speech to first-audio: ${lastSpeechToFirstAudioLatencyMs}ms`);
-            logInterviewTelemetry("last_speech_to_first_audio_latency", { latencyMs: lastSpeechToFirstAudioLatencyMs, questionIndex: questionIndexRef.current });
+            console.log(`[Interview Latency] Q${questionIndexRef.current} last-speech to first-audio: ${lastSpeechToFirstAudioLatencyMs}ms (reply gap: ${actualReplyGapMs}ms)`);
+            logInterviewTelemetry("last_speech_to_first_audio_latency", { latencyMs: lastSpeechToFirstAudioLatencyMs, replyGapMs: actualReplyGapMs, questionIndex: questionIndexRef.current });
           }
 
-          // Micro-reaction spoken BEFORE the next question with 400ms pause (Phase 1B)
+          // Opener variation guard (Part B Section 2: Vary openers, don't repeat within 3 turns)
+          const CANDIDATE_OPENERS = ['Okay,', 'Right,', 'Interesting,', 'Fair enough,', 'Got it,', 'Understood,'];
+          let finalMicroToSpeak = microToSpeak;
+          const currentOpener = CANDIDATE_OPENERS.find((op) => finalMicroToSpeak.toLowerCase().startsWith(op.slice(0, -1).toLowerCase()));
+          if (currentOpener && recentOpenersRef.current.includes(currentOpener.toLowerCase())) {
+            const available = CANDIDATE_OPENERS.filter((op) => !recentOpenersRef.current.includes(op.toLowerCase()));
+            const replacement = available[Math.floor(Math.random() * available.length)] || CANDIDATE_OPENERS[0];
+            finalMicroToSpeak = finalMicroToSpeak.replace(new RegExp(`^${currentOpener.slice(0, -1)}[,\\s]*`, 'i'), replacement + ' ');
+            recentOpenersRef.current.push(replacement.toLowerCase());
+          } else if (currentOpener) {
+            recentOpenersRef.current.push(currentOpener.toLowerCase());
+          }
+          if (recentOpenersRef.current.length > 3) recentOpenersRef.current.shift();
+
+          // Soften delivery for hard moments (Part B Section 4)
+          const isHardMoment = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'stuck_silence' || feedbackScore < 55;
+          const interPhrasePauseMs = isHardMoment ? 650 : 450;
+
+          // Voice consistency (Item 2): Determine voice source
+          const isBrowserVoice = voiceAI.pinnedTtsProvider === 'browser-speech';
+          const voiceSource = isBrowserVoice ? 'browser' : (data?.modelUsed === 'orpheus' ? 'orpheus' : 'edge');
+
+          // Micro-reaction spoken BEFORE the next question with clause pause
           speakSequenceCancelledRef.current = false;
           await voiceAI.waitForBackchannel?.();
           if (speakSequenceCancelledRef.current) return;
-          await speakSequence([microToSpeak, continueQ], { pauseMs: 400 });
+          await speakSequence([finalMicroToSpeak, continueQ], { pauseMs: interPhrasePauseMs });
           turnsSinceLastBackchannelRef.current += 1;
 
           // If speech was resumed during audio playback, DO NOT advance question counter or commit new question!
@@ -2539,8 +2587,30 @@ export function useInterviewSession(options = {}) {
           submittedQuestionKeyRef.current = null;
           setConversation((prev) => [
             ...prev,
-            { role: "interviewer", content: continueQ, turnId, timestamp: Date.now() },
+            {
+              role: "interviewer",
+              content: continueQ,
+              turnId,
+              timestamp: Date.now(),
+              answerType: data?.answerType,
+              quoteVerified: Boolean(data?.quoteVerified),
+              evidenceQuote: data?.evidenceQuote || '',
+              voiceSource,
+              replyGapMs: actualReplyGapMs,
+              turnIndex: questionIndexRef.current,
+            },
           ]);
+
+          logInterviewTelemetry("spoken_turn_telemetry", {
+            turnIndex: questionIndexRef.current,
+            answerType: data?.answerType,
+            quoteVerified: Boolean(data?.quoteVerified),
+            evidenceQuote: data?.evidenceQuote || '',
+            voiceSource,
+            replyGapMs: actualReplyGapMs,
+            latencyMs: lastSpeechToFirstAudioLatencyMs,
+          });
+
           setInterviewerStatus("");
           handoffToCandidate();
         }

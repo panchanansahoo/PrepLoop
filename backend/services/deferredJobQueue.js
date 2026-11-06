@@ -208,15 +208,18 @@ class DeferredJobQueue {
 
       // Update Supabase and session records for delivery
       if (supabaseAdmin) {
-        await supabaseAdmin
-          .from('deferred_interview_jobs')
-          .update({
-            status: JOB_STATUS.COMPLETED,
-            result: job.result,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', jobId)
-          .catch(() => {});
+        try {
+          await supabaseAdmin
+            .from('deferred_interview_jobs')
+            .update({
+              status: JOB_STATUS.COMPLETED,
+              result: job.result,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', jobId);
+        } catch (dbErr) {
+          logger.warn('[DeferredQueue] Supabase status update skipped:', dbErr?.message);
+        }
       }
     } catch (err) {
       logger.warn(`[DeferredQueue] Job ${jobId} failed attempt ${job.attempts}:`, err.message);
@@ -228,15 +231,18 @@ class DeferredJobQueue {
         job.status = JOB_STATUS.FAILED;
         job.updatedAt = Date.now();
         if (supabaseAdmin) {
-          supabaseAdmin
-            .from('deferred_interview_jobs')
-            .update({
-              status: JOB_STATUS.FAILED,
-              error: err.message,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', jobId)
-            .catch(() => {});
+          try {
+            await supabaseAdmin
+              .from('deferred_interview_jobs')
+              .update({
+                status: JOB_STATUS.FAILED,
+                error: err.message,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', jobId);
+          } catch {
+            // Silently ignore DB errors in background cleanup
+          }
         }
       }
     } finally {
