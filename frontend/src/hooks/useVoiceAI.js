@@ -439,6 +439,7 @@ export function useVoiceAI({
   const currentSourceNodeRef = useRef(null);
   const pinnedTtsProviderRef = useRef(null); // 'neural' | 'browser-speech'
   const consecutiveCloudTtsFailuresRef = useRef(0);
+  const hasAnnouncedVoiceFallbackRef = useRef(false);
   const currentBackchannelAudioRef = useRef(null);
   const isBackchannelPlayingRef = useRef(false);
 
@@ -1760,9 +1761,16 @@ export function useVoiceAI({
       if (pinnedTtsProviderRef.current === 'browser-speech') {
         setState("speaking");
         onStart?.();
+        let isFirstSegment = true;
         for (const seg of cleanSegments) {
           if (controller.signal.aborted) break;
-          await playBrowserSpeechFallback(seg, {
+          let textToSpeak = seg;
+          if (isFirstSegment && !hasAnnouncedVoiceFallbackRef.current) {
+            hasAnnouncedVoiceFallbackRef.current = true;
+            textToSpeak = `Quick note, I've switched to device audio for stability. ${seg}`;
+          }
+          isFirstSegment = false;
+          await playBrowserSpeechFallback(textToSpeak, {
             voice: pickBrowserVoice(personaGender),
             gender: personaGender,
             controller,
@@ -1941,9 +1949,16 @@ export function useVoiceAI({
         setConnectionHealth("fallback");
         setState("speaking");
         onStart?.();
+        let isFirstSegment = true;
         for (const seg of cleanSegments) {
           if (controller.signal.aborted) break;
-          await playBrowserSpeechFallback(seg, {
+          let textToSpeak = seg;
+          if (isFirstSegment && !hasAnnouncedVoiceFallbackRef.current) {
+            hasAnnouncedVoiceFallbackRef.current = true;
+            textToSpeak = `Quick note, I've switched to device audio for stability. ${seg}`;
+          }
+          isFirstSegment = false;
+          await playBrowserSpeechFallback(textToSpeak, {
             voice: pickBrowserVoice(personaGender),
             gender: personaGender,
             controller,
@@ -2135,7 +2150,12 @@ export function useVoiceAI({
           if (!isFallback) analyticsRef.current.ttsFallbacks++;
           setConnectionHealth("fallback");
           console.info("[useVoiceAI] TTS fallback → browser speechSynthesis");
-          await playBrowserSpeechFallback(spokenText, {
+          let textToSpeak = spokenText;
+          if (!hasAnnouncedVoiceFallbackRef.current) {
+            hasAnnouncedVoiceFallbackRef.current = true;
+            textToSpeak = `Quick note, I've switched to device audio for stability. ${spokenText}`;
+          }
+          await playBrowserSpeechFallback(textToSpeak, {
             voice: pickBrowserVoice(personaGender),
             gender: personaGender,
             controller,

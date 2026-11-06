@@ -175,10 +175,120 @@ describe('Hand-Labeled 30-Turn Pilot Answer Classification & Safety Verification
       expected: 'stuck_silence',
       userAnswer: 'I am... uhm',
     },
+
+    // 31-38: Subtle Partial Answers (8 turns)
+    {
+      id: 31,
+      expected: 'partial',
+      userAnswer: 'I would generate a unique UUID for each request on the client side.',
+    },
+    {
+      id: 32,
+      expected: 'partial',
+      userAnswer: "I'd look at the memory usage metrics in Grafana or Datadog.",
+    },
+    {
+      id: 33,
+      expected: 'partial',
+      userAnswer: 'You could use Redis sorted sets to store player scores.',
+    },
+    {
+      id: 34,
+      expected: 'partial',
+      userAnswer: 'We can wrap the inventory update in a database transaction.',
+    },
+    {
+      id: 35,
+      expected: 'partial',
+      userAnswer: 'Use setTimeout and clearTimeout to delay the execution.',
+    },
+    {
+      id: 36,
+      expected: 'partial',
+      userAnswer: 'We can use a distributed lock.',
+    },
+    {
+      id: 37,
+      expected: 'partial',
+      userAnswer: 'It uses an SSL certificate to encrypt all the traffic.',
+    },
+    {
+      id: 38,
+      expected: 'partial',
+      userAnswer: 'I would use limit and offset in the SQL query.',
+    },
+
+    // 39-42: Wrong Answers / Misconceptions (4 turns)
+    {
+      id: 39,
+      expected: 'wrong',
+      userAnswer: 'Yes, Node.js automatically distributes JavaScript execution threads across all available CPU cores.',
+    },
+    {
+      id: 40,
+      expected: 'wrong',
+      userAnswer: 'Adding more secondary indexes always speeds up database INSERT and UPDATE queries.',
+    },
+    {
+      id: 41,
+      expected: 'wrong',
+      userAnswer: 'Java memory model guarantees thread-safe atomic writes for all 64-bit primitive variables automatically.',
+    },
+    {
+      id: 42,
+      expected: 'wrong',
+      userAnswer: 'Redis is strictly volatile RAM-only and cannot write snapshots or write-ahead logs to disk.',
+    },
+
+    // 43-45: Don't Know / Candidate Gaps (3 turns)
+    {
+      id: 43,
+      expected: 'dont_know',
+      userAnswer: "I have heard the term consistent hashing, but I haven't implemented it and don't know the math behind virtual nodes.",
+    },
+    {
+      id: 44,
+      expected: 'dont_know',
+      userAnswer: "I'm not familiar with Paxos internals, I've only read high-level summaries.",
+    },
+    {
+      id: 45,
+      expected: 'dont_know',
+      userAnswer: "I honestly don't know the exact trade-offs between those two storage engine architectures.",
+    },
+
+    // 46-48: Strong & Complete (3 turns)
+    {
+      id: 46,
+      expected: 'strong_complete',
+      userAnswer: "I'd use Base62 encoding on an auto-incrementing ID or distributed snowflake ID to generate 7-character hashes. Cache hot URLs in Redis with LRU eviction to serve reads from RAM, and store mappings in Postgres partitioned by short_code hash with a read replica pool.",
+    },
+    {
+      id: 47,
+      expected: 'strong_complete',
+      userAnswer: 'We can use mutex locking / singleflight so only one worker thread fetches from the DB on cache miss while others wait, or implement probabilistic early expiration (XFetch algorithm) to refresh the cache before it expires.',
+    },
+    {
+      id: 48,
+      expected: 'strong_complete',
+      userAnswer: 'We use Avro or Protobuf with a central Confluent Schema Registry enforcing backward compatibility. Producers register schema versions, and consumers gracefully ignore unknown new fields without failing deserialization.',
+    },
+
+    // 49-50: Clarification (2 turns)
+    {
+      id: 49,
+      expected: 'clarification',
+      userAnswer: 'Should this rate limiter be enforced per IP address, per authenticated user ID, or across global endpoints?',
+    },
+    {
+      id: 50,
+      expected: 'clarification',
+      userAnswer: 'Does the string consist only of standard ASCII characters, or can it contain arbitrary Unicode symbols?',
+    },
   ];
 
-  it('contains exactly 30 hand-labeled calibration turns across all 7 types', () => {
-    expect(HAND_LABELED_TURNS.length).toBe(30);
+  it('contains exactly 50 hand-labeled calibration turns across all 7 types', () => {
+    expect(HAND_LABELED_TURNS.length).toBe(50);
     const types = new Set(HAND_LABELED_TURNS.map((t) => t.expected));
     expect(types.size).toBe(7);
     for (const valid of VALID_ANSWER_TYPES) {

@@ -228,12 +228,164 @@ export const BENCHMARK_TURNS = [
     userAnswer: 'I am... uhm',
     expected: 'stuck_silence',
   },
+
+  // 31-38: Subtle Partial Answers (8 turns)
+  // Crucial test cases: Candidates name a tool or concept, but provide NO depth, trade-offs, or implementation details.
+  // Must NOT be classified as strong_complete, otherwise interviewer skips probing!
+  {
+    id: 31,
+    humanRelabeled: true,
+    previousQuestion: 'How would you handle duplicate order submissions from clients with flaky network connections?',
+    userAnswer: 'I would generate a unique UUID for each request on the client side.',
+    expected: 'partial',
+  },
+  {
+    id: 32,
+    humanRelabeled: true,
+    previousQuestion: 'How do you detect memory leaks in a long-running Node.js service?',
+    userAnswer: "I'd look at the memory usage metrics in Grafana or Datadog.",
+    expected: 'partial',
+  },
+  {
+    id: 33,
+    humanRelabeled: true,
+    previousQuestion: 'How would you design a leaderboard system for a mobile game with 10 million daily active players?',
+    userAnswer: 'You could use Redis sorted sets to store player scores.',
+    expected: 'partial',
+  },
+  {
+    id: 34,
+    humanRelabeled: true,
+    previousQuestion: 'How do you design a database schema for an e-commerce inventory system to prevent negative stock during flash sales?',
+    userAnswer: 'We can wrap the inventory update in a database transaction.',
+    expected: 'partial',
+  },
+  {
+    id: 35,
+    humanRelabeled: true,
+    previousQuestion: 'How would you implement a debounce function in JavaScript from scratch?',
+    userAnswer: 'Use setTimeout and clearTimeout to delay the execution.',
+    expected: 'partial',
+  },
+  {
+    id: 36,
+    humanRelabeled: true,
+    previousQuestion: 'How would you implement mutual exclusion for critical sections across distributed server pods?',
+    userAnswer: 'We can use a distributed lock.',
+    expected: 'partial',
+  },
+  {
+    id: 37,
+    humanRelabeled: true,
+    previousQuestion: 'How does HTTPS encrypt client-server communication?',
+    userAnswer: 'It uses an SSL certificate to encrypt all the traffic.',
+    expected: 'partial',
+  },
+  {
+    id: 38,
+    humanRelabeled: true,
+    previousQuestion: 'How do you design an efficient pagination API for a feed with billions of rows?',
+    userAnswer: 'I would use limit and offset in the SQL query.',
+    expected: 'partial',
+  },
+
+  // 39-42: Wrong Answers / Misconceptions (4 turns)
+  {
+    id: 39,
+    humanRelabeled: true,
+    previousQuestion: 'Can an asynchronous Node.js application take advantage of multiple CPU cores out of the box on a single process?',
+    userAnswer: 'Yes, Node.js automatically distributes JavaScript execution threads across all available CPU cores.',
+    expected: 'wrong',
+  },
+  {
+    id: 40,
+    humanRelabeled: true,
+    previousQuestion: 'How does database indexing impact write performance in relational databases?',
+    userAnswer: 'Adding more secondary indexes always speeds up database INSERT and UPDATE queries.',
+    expected: 'wrong',
+  },
+  {
+    id: 41,
+    humanRelabeled: true,
+    previousQuestion: 'What happens when two threads in Java write to a non-volatile primitive variable simultaneously without synchronization?',
+    userAnswer: 'Java memory model guarantees thread-safe atomic writes for all 64-bit primitive variables automatically.',
+    expected: 'wrong',
+  },
+  {
+    id: 42,
+    humanRelabeled: true,
+    previousQuestion: 'How does Redis persist data to disk, and is Redis purely an in-memory database with zero persistence?',
+    userAnswer: 'Redis is strictly volatile RAM-only and cannot write snapshots or write-ahead logs to disk.',
+    expected: 'wrong',
+  },
+
+  // 43-45: Don't Know / Candidate Gaps (3 turns)
+  {
+    id: 43,
+    humanRelabeled: true,
+    previousQuestion: 'Can you explain how consistent hashing with virtual nodes handles node addition and removal?',
+    userAnswer: "I have heard the term consistent hashing, but I haven't implemented it and don't know the math behind virtual nodes.",
+    expected: 'dont_know',
+  },
+  {
+    id: 44,
+    humanRelabeled: true,
+    previousQuestion: 'How does the Paxos consensus algorithm achieve agreement in the presence of message loss?',
+    userAnswer: "I'm not familiar with Paxos internals, I've only read high-level summaries.",
+    expected: 'dont_know',
+  },
+  {
+    id: 45,
+    humanRelabeled: true,
+    previousQuestion: 'What is the difference between B-Trees and LSM-Trees in terms of read vs write amplification?',
+    userAnswer: "I honestly don't know the exact trade-offs between those two storage engine architectures.",
+    expected: 'dont_know',
+  },
+
+  // 46-48: Strong & Complete (3 turns)
+  {
+    id: 46,
+    humanRelabeled: true,
+    previousQuestion: 'How would you design a URL shortener service that handles 10,000 writes and 100,000 reads per second?',
+    userAnswer: "I'd use Base62 encoding on an auto-incrementing ID or distributed snowflake ID to generate 7-character hashes. Cache hot URLs in Redis with LRU eviction to serve reads from RAM, and store mappings in Postgres partitioned by short_code hash with a read replica pool.",
+    expected: 'strong_complete',
+  },
+  {
+    id: 47,
+    humanRelabeled: true,
+    previousQuestion: 'How would you prevent the Thundering Herd problem when a hot cache key expires?',
+    userAnswer: 'We can use mutex locking / singleflight so only one worker thread fetches from the DB on cache miss while others wait, or implement probabilistic early expiration (XFetch algorithm) to refresh the cache before it expires.',
+    expected: 'strong_complete',
+  },
+  {
+    id: 48,
+    humanRelabeled: true,
+    previousQuestion: 'How do you handle schema evolution in event-driven microservices using Kafka?',
+    userAnswer: 'We use Avro or Protobuf with a central Confluent Schema Registry enforcing backward compatibility. Producers register schema versions, and consumers gracefully ignore unknown new fields without failing deserialization.',
+    expected: 'strong_complete',
+  },
+
+  // 49-50: Clarification (2 turns)
+  {
+    id: 49,
+    humanRelabeled: true,
+    previousQuestion: 'Design a rate limiter for our public API.',
+    userAnswer: 'Should this rate limiter be enforced per IP address, per authenticated user ID, or across global endpoints?',
+    expected: 'clarification',
+  },
+  {
+    id: 50,
+    humanRelabeled: true,
+    previousQuestion: 'Find the longest substring without repeating characters in a given string.',
+    userAnswer: 'Does the string consist only of standard ASCII characters, or can it contain arbitrary Unicode symbols?',
+    expected: 'clarification',
+  },
 ];
 
 async function runEvaluation() {
   console.log('========================================================================');
-  console.log('🚀 LIVE BENCHMARK: 30-Turn Hand-Labeled Answer Classification Accuracy');
-  console.log('Includes 10 human-relabeled turns with real engineering prompt contexts');
+  console.log('🚀 LIVE BENCHMARK: 50-Turn Hand-Labeled Answer Classification Accuracy');
+  console.log('Includes 30 human-relabeled turns with subtle partials & edge cases');
   console.log('========================================================================\n');
 
   let correctCount = 0;
@@ -247,12 +399,16 @@ async function runEvaluation() {
     expectedWrongPredictedPartial: 0,
     expectedPartialPredictedWrong: 0,
   };
+  const partialVsStrong = {
+    expectedPartialPredictedStrong: 0,
+    expectedStrongPredictedPartial: 0,
+  };
 
   const results = [];
 
   for (let i = 0; i < BENCHMARK_TURNS.length; i++) {
     const turn = BENCHMARK_TURNS[i];
-    process.stdout.write(`[${i + 1}/30] Evaluating Turn #${turn.id} (${turn.expected})... `);
+    process.stdout.write(`[${i + 1}/${BENCHMARK_TURNS.length}] Evaluating Turn #${turn.id} (${turn.expected})... `);
 
     const startTime = Date.now();
     try {
@@ -290,6 +446,12 @@ async function runEvaluation() {
         wrongVsPartial.expectedWrongPredictedPartial++;
       } else if (turn.expected === 'partial' && reply.answerType === 'wrong') {
         wrongVsPartial.expectedPartialPredictedWrong++;
+      }
+
+      if (turn.expected === 'partial' && reply.answerType === 'strong_complete') {
+        partialVsStrong.expectedPartialPredictedStrong++;
+      } else if (turn.expected === 'strong_complete' && reply.answerType === 'partial') {
+        partialVsStrong.expectedStrongPredictedPartial++;
       }
 
       results.push({
@@ -334,9 +496,11 @@ async function runEvaluation() {
   console.log(`Technical Quote Verified: ${contentQuoteVerifiedPct}% (${technicalVerifiedCount}/${technicalContentTurnsCount})`);
   console.log(`Technical Fallback Rate:  ${contentFallbackRatePct}% (${technicalFallbackCount}/${technicalContentTurnsCount})`);
   console.log('------------------------------------------------------------------------');
-  console.log('🎯 Wrong vs Partial Calibration:');
-  console.log(`  - Expected "wrong" but classified as "partial":   ${wrongVsPartial.expectedWrongPredictedPartial}`);
-  console.log(`  - Expected "partial" but classified as "wrong":   ${wrongVsPartial.expectedPartialPredictedWrong}`);
+  console.log('🎯 Wrong vs Partial & Subtle Partial Risk Tracking:');
+  console.log(`  - Expected "wrong" but classified as "partial":            ${wrongVsPartial.expectedWrongPredictedPartial}`);
+  console.log(`  - Expected "partial" but classified as "wrong":            ${wrongVsPartial.expectedPartialPredictedWrong}`);
+  console.log(`  - Expected "partial" but classified as "strong_complete":  ${partialVsStrong.expectedPartialPredictedStrong} (Critical: skips follow-up probe)`);
+  console.log(`  - Expected "strong_complete" classified as "partial":      ${partialVsStrong.expectedStrongPredictedPartial}`);
   console.log('------------------------------------------------------------------------');
   console.log('Confusion Pairs Breakdown:');
   for (const [pair, count] of Object.entries(confusionMatrix)) {

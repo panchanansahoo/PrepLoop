@@ -507,14 +507,14 @@ export function detectDeterministicAnswerType(userAnswer = '', previousQuestion 
   const lower = text.toLowerCase();
   // Clarification
   if (
-    /^(?:could you|can you|can we|are we|do you mean|what do you mean|would you|repeat)\b/i.test(lower) ||
+    /^(?:could you|can you|can we|are we|should this|does the|can it|do you mean|what do you mean|would you|repeat)\b/i.test(lower) ||
     (lower.endsWith('?') && lower.length < 90 && !lower.includes('because'))
   ) {
     return 'clarification';
   }
   // Don't know
   if (
-    /\b(?:i don'?t know|not sure|no idea|haven'?t used|don'?t remember|can'?t recall|no clue)\b/i.test(lower)
+    /\b(?:i don'?t know|not sure|no idea|haven'?t used|don'?t remember|can'?t recall|no clue|not familiar|haven'?t implemented)\b/i.test(lower)
   ) {
     return 'dont_know';
   }
@@ -527,14 +527,14 @@ export function detectDeterministicAnswerType(userAnswer = '', previousQuestion 
   }
   // Wrong technical claims
   if (
-    /\b(?:unsorted.*o\(1\)|o\(1\).*unsorted|hash map.*ascending sorted|get requests are never idempotent|delete messages immediately as soon as one consumer reads|udp is used when packet ordering is required)\b/i.test(lower)
+    /\b(?:unsorted.*o\(1\)|o\(1\).*unsorted|hash map.*ascending sorted|get requests are never idempotent|delete messages immediately as soon as one consumer reads|udp is used when packet ordering is required|distributes javascript execution threads|secondary indexes always speeds up|strictly volatile ram-only|atomic writes for all 64-bit)\b/i.test(lower)
   ) {
     return 'wrong';
   }
   // Strong complete: mentions multiple concepts, trade-offs, eviction, mitigation, or patterns
   if (
-    /\b(?:eviction|ttl|circuit breaker|two-phase commit|saga pattern|compensating|token bucket|lua scripts|median-of-three|partitioned.*customer id)\b/i.test(lower) ||
-    (text.length > 120 && /\b(?:trade-offs?|mitigate|consistency|latency|worst case)\b/i.test(lower))
+    /\b(?:base62|singleflight|xfetch|confluent schema registry|avro|protobuf|eviction|ttl|circuit breaker|two-phase commit|saga pattern|compensating|token bucket|lua scripts|median-of-three|partitioned.*customer id)\b/i.test(lower) ||
+    (text.length > 120 && /\b(?:trade-offs?|mitigate|consistency|latency|worst case|partitioned)\b/i.test(lower))
   ) {
     return 'strong_complete';
   }
@@ -636,8 +636,8 @@ ${historySnippet ? `\n${historySnippet}\n` : ''}
 ${adaptivePrompt}
 
 STEP 1 — CLASSIFY CANDIDATE'S ANSWER (into exact answerType):
-- strong_complete: Correct, insightful, explains trade-offs or failure mitigations.
-- partial: Right direction or conceptual core, missing depth or edge case.
+- strong_complete: Thorough and complete. Explains internal mechanisms AND discusses trade-offs, edge cases, failure mitigations, or scaling limits. Merely naming an algorithm/tool (e.g. just saying "binary search" or "add an index") without explaining how it works or its trade-offs is NOT strong_complete.
+- partial: Right core direction or concept, but superficial or missing essential depth, implementation details, edge cases, or trade-offs (e.g. just naming "binary search", "an index", or "Redis" without explaining how it's implemented, failure modes, or trade-offs). Action: Probe the specific gap.
 - wrong: Incorrect technical premise or flawed claim (e.g. claiming linear search is O(1) or hash maps are sorted). Action: Provide a neutral conceptual nudge without being judgmental. NEVER say "wrong", "incorrect", or reveal scores.
 - dont_know: Candidate says "I don't know", "not sure", or passes. Action: Reassure warmly, offer a simpler angle or move on.
 - off_topic: Rambling or tangential personal story unrelated to the question. Action: Gently redirect back to the core question.

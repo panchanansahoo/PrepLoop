@@ -84,15 +84,15 @@ export default function PrivacyPolicy() {
             <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '12px', color: 'var(--zinc-400)', margin: 0 }}>
               <li style={{ background: 'rgba(56, 189, 248, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
                 <strong style={{ color: '#38bdf8', display: 'block', marginBottom: '4px' }}>Browser Speech Recognition (STT)</strong>
-                Voice transcription relies on the browser's native Web Speech API (such as Google Speech Services on Chrome or Apple Speech on Safari). Browser vendors receive audio stream packets to perform transcription. PrepLoop does not retain or store your raw microphone audio recordings.
+                Voice transcription relies on your browser's native Web Speech API, where Google (on Chrome) or Apple (on Safari) processes the spoken voice. We don't store audio.
               </li>
               <li style={{ background: 'rgba(167, 139, 250, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(167, 139, 250, 0.15)' }}>
                 <strong style={{ color: '#a78bfa', display: 'block', marginBottom: '4px' }}>Third-Party AI Inference Partners</strong>
-                Cleaned transcripts and technical questions are sent to cloud AI providers (Groq, Google AI Studio, and OpenRouter) strictly for fast follow-ups and rubric scoring.
+                Transcripts are sent to third-party AI inference providers (including Groq, Google AI Studio, and OpenRouter) with emails, phone numbers, and self-introduced names removed on a best-effort basis. Providers’ own data policies apply.
               </li>
               <li style={{ background: 'rgba(52, 211, 153, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(52, 211, 153, 0.15)' }}>
-                <strong style={{ color: '#34d399', display: 'block', marginBottom: '4px' }}>Automated PII Stripping & No Model Training</strong>
-                Personal identifiers (emails, phone numbers, and full names) are scrubbed before payload transmission. Your interview answers are not used to train public foundation models.
+                <strong style={{ color: '#34d399', display: 'block', marginBottom: '4px' }}>Testing Pilot Notice</strong>
+                During evaluation pilots, technical performance data, latency metrics, and anonymized transcripts are collected to evaluate voice responsiveness and scoring accuracy with explicit candidate consent.
               </li>
             </ul>
           </section>

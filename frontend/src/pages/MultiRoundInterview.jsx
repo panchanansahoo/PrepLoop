@@ -453,7 +453,7 @@ export default function MultiRoundInterview() {
                         color: 'var(--border)', display: 'flex',
                         alignItems: 'center', justifyContent: 'center', gap: 4
                     }}>
-                        🔒 Transcripts are processed securely by browser speech recognition and AI inference providers (Groq/Gemini). PII is redacted and audio is not stored.
+                        🔒 We don’t store audio. Transcripts are sent to AI providers with personal identifiers removed on a best-effort basis. Providers’ own data policies apply.
                     </div>
                 </div>
             </div>
