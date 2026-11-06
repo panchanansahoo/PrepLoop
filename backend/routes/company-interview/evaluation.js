@@ -275,20 +275,6 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
       categoryBuckets.communication.push(Math.min(100, question.score + 4));
     }
   }
-    cultureFit: [],
-  };
-
-  for (const question of questionBreakdown) {
-    if (['technical', 'coding', 'system-design'].includes(question.category)) {
-      categoryBuckets.technicalSkills.push(question.score);
-      categoryBuckets.problemSolving.push(Math.min(100, question.score + (question.category === 'coding' ? 4 : 0)));
-    }
-
-    if (['behavioral', 'hr'].includes(question.category)) {
-      categoryBuckets.cultureFit.push(question.score);
-      categoryBuckets.communication.push(Math.min(100, question.score + 4));
-    }
-  }
 
   const categoryScores = {
     technicalSkills: averageScore(categoryBuckets.technicalSkills) ?? Math.max(55, overallScore - 3),
@@ -408,9 +394,10 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
     ? report.improvements
     : collectTopItems(questionBreakdown.map(item => item.improvements), 4);
 
-  const isEstimatedSession = overallScore == null;
+  const isEstimatedSession = overallScore === null || overallScore === undefined;
   const verdict = isEstimatedSession ? 'Estimated Assessment' : report.verdict || (overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance');
   const verdictEmoji = isEstimatedSession ? '📊' : report.verdictEmoji || (overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎');
+  const recommendation = report.recommendation || (improvements[0] ? `Focus on ${improvements[0].toLowerCase()} before your next mock.` : 'Rework your weakest answers with more technical depth and concrete metrics.');
 
   return {
     ...report,
@@ -449,7 +436,7 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
 async function maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId }) {
   if (!Array.isArray(qaPairs) || qaPairs.length < 2) return { hasMixedScorers: false };
 
-  const scoredTurns = qaPairs.filter(qa => !qa.isEstimated && !qa.isUnscored && qa.inlineScore != null && qa.evalProvider);
+  const scoredTurns = qaPairs.filter(qa => !qa.isEstimated && !qa.isUnscored && qa.inlineScore !== null && qa.inlineScore !== undefined && qa.evalProvider);
   if (scoredTurns.length < 2) return { hasMixedScorers: false };
 
   const finalTurn = scoredTurns[scoredTurns.length - 1];
@@ -477,7 +464,7 @@ async function maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId }) {
           stage: qa.stage || 'Technical',
           sessionId,
         });
-        if (rescored && rescored.score != null && !rescored.isEstimated) {
+        if (rescored && rescored.score !== null && rescored.score !== undefined && !rescored.isEstimated) {
           qa.inlineScore = rescored.score;
           qa.evalProvider = rescored.evalProvider;
           qa.evalModelUsed = rescored.evalModelUsed;

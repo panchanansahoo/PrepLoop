@@ -412,7 +412,7 @@ router.get('/static-reactions', optionalAuth, (req, res) => {
         const clips = JSON.parse(fs.readFileSync(reactionsPath, 'utf8'));
         res.set('Cache-Control', 'public, max-age=86400, immutable');
         return res.json({ available: true, clips });
-    } catch (err) {
+    } catch (_err) {
         return res.status(500).json({ error: 'Failed to load static reactions' });
     }
 });

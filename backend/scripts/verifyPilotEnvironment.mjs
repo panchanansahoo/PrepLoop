@@ -112,12 +112,12 @@ async function runEnvironmentAudit() {
   } else {
     try {
       const t0 = Date.now();
-      const { data: quotaRows, error: quotaErr } = await supabaseAdmin
+      const { error: quotaErr } = await supabaseAdmin
         .from('quota_daily_usage')
         .select('date_key, total_tokens_used')
         .limit(1);
 
-      const { data: jobRows, error: jobErr } = await supabaseAdmin
+      const { error: jobErr } = await supabaseAdmin
         .from('deferred_interview_jobs')
         .select('id, status')
         .limit(1);

@@ -389,8 +389,6 @@ async function runEvaluation() {
   console.log('========================================================================\n');
 
   let correctCount = 0;
-  let quoteVerifiedCount = 0;
-  let genericFallbackCount = 0;
   let technicalContentTurnsCount = 0;
   let technicalVerifiedCount = 0;
   let technicalFallbackCount = 0;
@@ -426,7 +424,6 @@ async function runEvaluation() {
       const elapsed = Date.now() - startTime;
       const isMatch = reply.answerType === turn.expected;
       if (isMatch) correctCount++;
-      if (reply.quoteVerified) quoteVerifiedCount++;
 
       const isTechnicalContent = ['strong_complete', 'partial', 'wrong'].includes(turn.expected);
       if (isTechnicalContent) {
@@ -483,7 +480,6 @@ async function runEvaluation() {
   }
 
   const accuracyPct = ((correctCount / BENCHMARK_TURNS.length) * 100).toFixed(1);
-  const overallQuoteVerifiedPct = ((quoteVerifiedCount / BENCHMARK_TURNS.length) * 100).toFixed(1);
   const contentQuoteVerifiedPct = technicalContentTurnsCount > 0 ? ((technicalVerifiedCount / technicalContentTurnsCount) * 100).toFixed(1) : '0.0';
   const contentFallbackRatePct = technicalContentTurnsCount > 0 ? ((technicalFallbackCount / technicalContentTurnsCount) * 100).toFixed(1) : '0.0';
 

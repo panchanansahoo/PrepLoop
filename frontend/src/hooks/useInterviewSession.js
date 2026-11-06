@@ -2138,7 +2138,7 @@ export function useInterviewSession(options = {}) {
             : (rawAnswer || "[Code submitted]"),
           finalText: rawAnswer || "",
           cleanContent: cleanAnswerForLlm,
-          sttSource: meta?.sttSource || (voiceOnlyInterview || isListeningRef.current ? "browser-stt" : "typed"),
+          sttSource: meta?.sttSource || (isListeningRef.current ? "browser-stt" : "typed"),
           confidence: meta?.confidence ?? (rawAnswer ? 0.98 : null),
           question: currentQuestion,
           questionNumber: questionIndexRef.current,

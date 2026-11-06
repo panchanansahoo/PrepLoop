@@ -77,7 +77,7 @@ const STT_TECHNICAL_CORRECTIONS = [
  * Correct STT misrecognitions for technical terms.
  * Safe against math/geometry context (e.g. radius of a circle).
  */
-export function correctSttTechnicalTerms(text, options = {}) {
+export function correctSttTechnicalTerms(text, _options = {}) {
   if (!text || typeof text !== 'string') return '';
   const isGeometry = GEOMETRY_KEYWORDS.test(text);
 

@@ -476,13 +476,6 @@ const FALLBACK_MICRO_REACTIONS = [
   'Got it, clear direction.',
 ];
 
-const FALLBACK_FOLLOW_UPS = [
-  'Could you explain the key trade-offs and edge cases with that approach?',
-  'How would you handle failure recovery or unexpected spikes with this design?',
-  'What alternative approaches did you consider before settling on this one?',
-  'How would you measure the performance and latency impact in production?',
-];
-
 // ── Answer Classification Types (Part A Section 3) ──
 export const VALID_ANSWER_TYPES = [
   'strong_complete',
@@ -494,7 +487,7 @@ export const VALID_ANSWER_TYPES = [
   'stuck_silence',
 ];
 
-export function detectDeterministicAnswerType(userAnswer = '', previousQuestion = '') {
+export function detectDeterministicAnswerType(userAnswer = '', _previousQuestion = '') {
   const text = String(userAnswer || '').trim();
   if (
     !text ||
@@ -852,7 +845,7 @@ Respond as compact JSON:
   let providerUsed = 'groq';
 
   // One-Scorer-Per-Session: Check in-memory map first, then restore from Supabase if container restarted
-  let pinnedScorer = sessionId ? (getSessionScorer(sessionId) || await loadSessionScorer(sessionId)) : null;
+  const pinnedScorer = sessionId ? (getSessionScorer(sessionId) || await loadSessionScorer(sessionId)) : null;
   // Load spread across sessions: distributes new sessions 50/50 between Groq 20b and Gemini Flash Lite
   const preferredProvider = pinnedScorer?.provider || selectInitialScorer(sessionId);
 

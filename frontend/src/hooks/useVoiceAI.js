@@ -1788,6 +1788,8 @@ export function useVoiceAI({
         try { await ctx.resume(); } catch {}
       }
 
+      let playedSegmentCount = 0;
+
       try {
         // Concurrently fetch audio blobs with 1-shot retry for transient 429/network errors
         const blobPromises = cleanSegments.map(async (text) => {
@@ -1836,8 +1838,6 @@ export function useVoiceAI({
           }
           return b;
         });
-
-        let playedSegmentCount = 0;
 
         // Helper to decode blob into Web Audio buffer
         const decodeBlob = async (b) => {
