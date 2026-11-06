@@ -107,12 +107,6 @@ export const MODEL_BUDGETS = {
     maxTokensPerDay: Number(process.env.OPENROUTER_70B_DAILY_LIMIT) || 30_000,
     maxRequestsPerMinute: 18,
   },
-  'nvidia/nemotron-3.5-lightning:free': {
-    provider: 'openrouter',
-    label: 'OpenRouter Nemotron 3.5 Lightning (Free)',
-    maxTokensPerDay: Number(process.env.OPENROUTER_70B_DAILY_LIMIT) || 50_000,
-    maxRequestsPerMinute: 20,
-  },
 };
 
 export const PROVIDER_BUDGETS = {
@@ -558,18 +552,17 @@ class QuotaGuard {
   canUseModel(model, estimatedTokens = 400) {
     this._checkRollover();
     const budget = MODEL_BUDGETS[model];
-    const providerKey = budget?.provider || (model.includes('/') ? 'openrouter' : null);
-    const combinedKey = providerKey ? `${providerKey}:${model}` : model;
+    if (!budget) return { allowed: true };
 
+    const providerKey = budget.provider;
+    const combinedKey = `${providerKey}:${model}`;
     if (
-      (providerKey && this.isProviderFailing(providerKey)) ||
+      this.isProviderFailing(providerKey) ||
       this.isProviderFailing(model) ||
       this.isProviderFailing(combinedKey)
     ) {
       return { allowed: false, reason: `${model} is currently in failure cooldown` };
     }
-
-    if (!budget) return { allowed: true };
 
     const serverState = this.serverRateLimitState[combinedKey] || this.serverRateLimitState[model];
     if (serverState && typeof serverState.remainingTokens === 'number' && serverState.remainingTokens < estimatedTokens) {
