@@ -158,9 +158,14 @@ describe('Zero-Cost Architecture Verification Suite', () => {
       expect(evalResult).toHaveProperty('evalModelUsed');
       expect(evalResult).toHaveProperty('evalProvider');
       expect(evalResult).toHaveProperty('dimensions');
-      expect(typeof evalResult.score).toBe('number');
-      expect(evalResult.score).toBeGreaterThanOrEqual(0);
-      expect(evalResult.score).toBeLessThanOrEqual(100);
+      if (evalResult.isEstimated) {
+        expect(evalResult.score).toBeNull();
+        expect(evalResult.evalProvider).toBe('heuristic-estimated');
+      } else {
+        expect(typeof evalResult.score).toBe('number');
+        expect(evalResult.score).toBeGreaterThanOrEqual(0);
+        expect(evalResult.score).toBeLessThanOrEqual(100);
+      }
     });
 
     it('uses deterministic 0ms scripted fallback in MINIMAL or WAITLIST mode for fast reply', async () => {

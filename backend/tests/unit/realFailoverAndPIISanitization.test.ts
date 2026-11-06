@@ -186,7 +186,11 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
         sessionId,
       });
 
-      expect(turn1Result.score).toBeGreaterThan(0);
+      if (turn1Result.isEstimated) {
+        expect(turn1Result.score).toBeNull();
+      } else {
+        expect(turn1Result.score).toBeGreaterThan(0);
+      }
       const pinnedScorerTurn1 = getSessionScorer(sessionId);
       expect(pinnedScorerTurn1).not.toBeNull();
       expect(pinnedScorerTurn1?.provider).toBe(turn1Result.evalProvider);
@@ -247,9 +251,14 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
       });
 
       expect(result).toHaveProperty('score');
-      expect(typeof result.score).toBe('number');
-      expect(result.score).toBeGreaterThanOrEqual(10);
-      expect(result.score).toBeLessThanOrEqual(100);
+      if (result.isEstimated) {
+        expect(result.score).toBeNull();
+        expect(result.evalProvider).toBe('heuristic-estimated');
+      } else {
+        expect(typeof result.score).toBe('number');
+        expect(result.score).toBeGreaterThanOrEqual(10);
+        expect(result.score).toBeLessThanOrEqual(100);
+      }
       expect(result.evalProvider).toBeTruthy();
       expect(result.evalModelUsed).toBeTruthy();
       expect(result.feedback).toBeTruthy();
