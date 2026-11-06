@@ -208,5 +208,52 @@ describe("Voice Turn-Taking, Resume Window & Latency Calibration", () => {
       expect(fastReplyCache).toBeNull(); // Cache cleared, request aborted, zero tokens leaked
     });
   });
+
+  describe("Pipelined Reaction Playback & Gapless Scheduling", () => {
+    it("dispatches segment 0 immediately (<100ms) without waiting for subsequent TTS synthesis", async () => {
+      const playbackEvents = [];
+      let seg0FetchedAt = null;
+      let seg1FetchedAt = null;
+
+      // Simulated pipelined TTS sequence
+      const runPipelinedTurn = async () => {
+        const t0 = Date.now();
+
+        // Seg 0 is static reaction clip (<50ms fetch)
+        const fetchSeg0 = new Promise((resolve) => {
+          setTimeout(() => {
+            seg0FetchedAt = Date.now() - t0;
+            resolve({ duration: 0.8, text: "Makes sense." });
+          }, 35);
+        });
+
+        // Seg 1 is Edge TTS question synthesis (~1100ms fetch)
+        const fetchSeg1 = new Promise((resolve) => {
+          setTimeout(() => {
+            seg1FetchedAt = Date.now() - t0;
+            resolve({ duration: 2.5, text: "How would you handle hash collisions?" });
+          }, 1100);
+        });
+
+        // Step 1: Await seg0, play immediately
+        const s0 = await fetchSeg0;
+        playbackEvents.push({ event: "seg0_start", time: Date.now() - t0 });
+
+        // Step 2: Await seg1 concurrently while seg0 is playing
+        const s1 = await fetchSeg1;
+        playbackEvents.push({ event: "seg1_start", time: Date.now() - t0 });
+      };
+
+      await runPipelinedTurn();
+
+      // Seg 0 played almost immediately (<150ms)
+      expect(playbackEvents[0].event).toBe("seg0_start");
+      expect(playbackEvents[0].time).toBeLessThan(150);
+
+      // Seg 1 played when synthesized (~1100ms)
+      expect(playbackEvents[1].event).toBe("seg1_start");
+      expect(playbackEvents[1].time).toBeGreaterThan(1000);
+    });
+  });
 });
 

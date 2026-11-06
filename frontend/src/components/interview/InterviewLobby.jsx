@@ -1140,7 +1140,7 @@ function InterviewLobby({
                                                 style={{ marginTop: '2px', accentColor: '#6366f1', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
                                             />
                                             <span>
-                                                <strong>Testing Pilot Consent:</strong> I understand this session is part of a testing pilot and my feedback helps improve the system. Technical responses and speech metrics are recorded for testing.
+                                                <strong>Testing Pilot Consent:</strong> I understand this session is part of a testing pilot and my feedback helps improve the system. This session's screen and audio will be recorded by the tester for evaluation only (retained for up to 14 days and permanently deleted after analysis).
                                             </span>
                                         </label>
                                     </div>

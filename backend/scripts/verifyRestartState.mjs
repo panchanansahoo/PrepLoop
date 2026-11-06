@@ -12,7 +12,8 @@ async function verify() {
 
   const status = quotaGuard.getStatus();
   console.log(`- Total Tokens Loaded Today: ${status.totalTokensToday}`);
-  console.log(`- Pending Deferred Jobs in Queue: ${deferredJobQueue.getQueueLength()}`);
+  const stats = deferredJobQueue.getStats();
+  console.log(`- Pending Deferred Jobs in Queue: ${stats.pendingCount}`);
 
   if (sessionId) {
     const scorer = await loadSessionScorer(sessionId);
@@ -33,3 +34,4 @@ async function verify() {
 }
 
 verify().catch((e) => { console.error(e); process.exit(1); });
+

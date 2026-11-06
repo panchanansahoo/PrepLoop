@@ -1837,50 +1837,61 @@ export function useVoiceAI({
           return b;
         });
 
-        const blobs = await Promise.all(blobPromises);
+        let playedSegmentCount = 0;
+
+        // Helper to decode blob into Web Audio buffer
+        const decodeBlob = async (b) => {
+          if (!ctx) return null;
+          const ab = await b.arrayBuffer();
+          return await ctx.decodeAudioData(ab);
+        };
+
+        // Pipelined step 1: Retrieve segment 0 immediately (typically static clip or cached in <50ms)
+        const blob0 = await blobPromises[0];
         if (controller.signal.aborted) return;
 
         // Reset failure counter on successful cloud audio retrieval
         consecutiveCloudTtsFailuresRef.current = 0;
         pinnedTtsProviderRef.current = 'neural';
 
-        // Safari / Web Audio decoding with clean HTML Audio fallback
-        let audioBuffers = null;
-        if (ctx) {
+        let buf0 = null;
+        let useWebAudio = Boolean(ctx);
+        if (useWebAudio) {
           try {
-            audioBuffers = await Promise.all(
-              blobs.map(async (b) => {
-                const ab = await b.arrayBuffer();
-                return await ctx.decodeAudioData(ab);
-              })
-            );
+            buf0 = await decodeBlob(blob0);
           } catch (decodeErr) {
             console.warn("[useVoiceAI] Web Audio decode failed (Safari or unsupported codec), falling back to HTML Audio:", decodeErr.message);
-            audioBuffers = null;
+            useWebAudio = false;
+            buf0 = null;
           }
         }
 
-        // If Web Audio decoding is unavailable or failed, smoothly play through HTML Audio
-        if (!audioBuffers) {
+        // Pipelined HTML Audio fallback if Web Audio is unavailable or decode threw
+        if (!useWebAudio || !buf0) {
           setState("speaking");
           setVoiceState("asking");
           speakingStartedAtRef.current = Date.now();
-          for (const b of blobs) {
+          playedSegmentCount = 1;
+          await playBlobAudio(blob0, { onStart, signal: controller.signal });
+
+          for (let i = 1; i < blobPromises.length; i++) {
             if (controller.signal.aborted) break;
-            await playBlobAudio(b, { onStart, signal: controller.signal });
+            const nextBlob = await blobPromises[i];
+            if (controller.signal.aborted) break;
+            playedSegmentCount = i + 1;
+            await playBlobAudio(nextBlob, { signal: controller.signal });
           }
           onEnd?.();
           return;
         }
 
-        // Schedule gapless Web Audio graph with volume normalization & crossfades
-        let schedTime = ctx.currentTime + 0.04;
+        // Pipelined Web Audio scheduling:
+        // Schedule segment 0 immediately at ctx.currentTime + 0.04 so candidate hears audio in <100ms
         const gainNodes = [];
         const sourceNodes = [];
-        let totalDuration = 0;
+        const fadeMs = 0.02;
 
-        for (let i = 0; i < audioBuffers.length; i++) {
-          const buf = audioBuffers[i];
+        const scheduleBuffer = (buf, startTime) => {
           const src = ctx.createBufferSource();
           src.buffer = buf;
           const gain = ctx.createGain();
@@ -1895,23 +1906,37 @@ export function useVoiceAI({
           }
           const normGain = Math.min(1.0, 0.95 / Math.max(0.1, peak));
 
-          const fadeMs = 0.02;
-          gain.gain.setValueAtTime(0.001, schedTime);
-          gain.gain.linearRampToValueAtTime(normGain, schedTime + fadeMs);
-          const segEnd = schedTime + buf.duration;
+          gain.gain.setValueAtTime(0.001, startTime);
+          gain.gain.linearRampToValueAtTime(normGain, startTime + fadeMs);
+          const segEnd = startTime + buf.duration;
           gain.gain.setValueAtTime(normGain, segEnd - fadeMs);
           gain.gain.linearRampToValueAtTime(0.001, segEnd);
 
           src.connect(gain);
           gain.connect(ctx.destination);
-          src.start(schedTime);
+          src.start(startTime);
 
           gainNodes.push(gain);
           sourceNodes.push(src);
 
-          schedTime = segEnd - fadeMs;
-          totalDuration = schedTime - ctx.currentTime;
-        }
+          return segEnd;
+        };
+
+        const abortAudioGraph = () => {
+          sourceNodes.forEach((src) => {
+            try { src.stop(); } catch {}
+            try { src.disconnect(); } catch {}
+          });
+          gainNodes.forEach((gain) => {
+            try { gain.disconnect(); } catch {}
+          });
+        };
+        controller.signal.addEventListener("abort", abortAudioGraph);
+
+        let schedTime = ctx.currentTime + 0.04;
+        let segEnd = scheduleBuffer(buf0, schedTime);
+        schedTime = segEnd - fadeMs;
+        playedSegmentCount = 1;
 
         currentGainNodeRef.current = gainNodes[0];
         currentSourceNodeRef.current = sourceNodes[0];
@@ -1921,21 +1946,45 @@ export function useVoiceAI({
         speakingStartedAtRef.current = Date.now();
         onStart?.();
 
+        // While segment 0 plays, asynchronously pipeline and crossfade subsequent segments
+        for (let i = 1; i < blobPromises.length; i++) {
+          if (controller.signal.aborted) break;
+          const nextBlob = await blobPromises[i];
+          if (controller.signal.aborted) break;
+          const nextBuf = await decodeBlob(nextBlob);
+          if (controller.signal.aborted || !nextBuf) break;
+
+          // Crossfade: start at schedTime if still in future, or immediately (+20ms) if segment 0 completed
+          const targetStart = Math.max(schedTime, ctx.currentTime + 0.02);
+          segEnd = scheduleBuffer(nextBuf, targetStart);
+          schedTime = segEnd - fadeMs;
+          playedSegmentCount = i + 1;
+
+          const currIdx = gainNodes.length - 1;
+          const leadDelay = Math.max(0, Math.round((targetStart - ctx.currentTime) * 1000));
+          setTimeout(() => {
+            if (!controller.signal.aborted && gainNodes[currIdx]) {
+              currentGainNodeRef.current = gainNodes[currIdx];
+              currentSourceNodeRef.current = sourceNodes[currIdx];
+            }
+          }, leadDelay);
+        }
+
+        // Await completion of all scheduled audio
+        const remainingSec = Math.max(0, schedTime - ctx.currentTime);
         await new Promise((resolve) => {
           const checkTimer = setTimeout(() => {
             resolve();
-          }, Math.max(100, Math.ceil(totalDuration * 1000) + 50));
+          }, Math.max(100, Math.ceil(remainingSec * 1000) + 50));
           controller.signal.addEventListener("abort", () => {
             clearTimeout(checkTimer);
             resolve();
           });
         }).finally(() => {
-          // Release AudioBufferSourceNodes and GainNodes to prevent memory leaks across long sessions
-          sourceNodes.forEach((src) => { try { src.disconnect(); } catch {} });
-          gainNodes.forEach((gain) => { try { gain.disconnect(); } catch {} });
+          controller.signal.removeEventListener("abort", abortAudioGraph);
+          abortAudioGraph();
           sourceNodes.length = 0;
           gainNodes.length = 0;
-          audioBuffers.length = 0;
         });
       } catch (err) {
         if (controller.signal.aborted) return;
@@ -1948,9 +1997,12 @@ export function useVoiceAI({
         analyticsRef.current.ttsFallbacks++;
         setConnectionHealth("fallback");
         setState("speaking");
-        onStart?.();
+        if (playedSegmentCount === 0) {
+          onStart?.();
+        }
+        const segmentsToSpeak = cleanSegments.slice(playedSegmentCount);
         let isFirstSegment = true;
-        for (const seg of cleanSegments) {
+        for (const seg of segmentsToSpeak) {
           if (controller.signal.aborted) break;
           let textToSpeak = seg;
           if (isFirstSegment && !hasAnnouncedVoiceFallbackRef.current) {

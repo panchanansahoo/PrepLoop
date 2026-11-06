@@ -15,7 +15,7 @@ async function seed() {
     ip: '10.0.0.42',
   });
 
-  const job = deferredJobQueue.enqueueJob('score_turn', {
+  const job = deferredJobQueue.enqueueScoreTurn({
     sessionId: testSessionId,
     userId: 'host_kill_candidate',
     questionNumber: 2,
@@ -36,3 +36,4 @@ async function seed() {
 }
 
 seed().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+
