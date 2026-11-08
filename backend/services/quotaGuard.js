@@ -700,7 +700,7 @@ class QuotaGuard {
       reserveBufferActive: utilizationPct >= (1.0 - RESERVE_BUFFER_RATIO) * 100,
       speculationAllowed: this.isSpeculationAllowed(),
       maxHistoryTurns: this.getMaxHistoryTurns(),
-      candidateDataNotice: 'Candidate Privacy: Your browser’s speech service may process your voice. Transcripts are sent to AI providers with emails, phone numbers and self-introduced names removed on a best-effort basis. We don’t store audio.',
+      candidateDataNotice: 'Candidate Privacy: Audio is never stored. Transcripts are anonymized before AI evaluation.',
       models: modelStats,
       serverRateLimitState: this.serverRateLimitState,
       userCapConfig: {

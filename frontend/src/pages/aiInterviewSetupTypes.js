@@ -1,4 +1,4 @@
-import { Code2, MessageSquare } from 'lucide-react';
+import { Code2, MessageSquare, Users } from 'lucide-react';
 
 export const INTERVIEW_SETUP_TYPES = [
   {
@@ -14,5 +14,12 @@ export const INTERVIEW_SETUP_TYPES = [
     description: 'Core technical skills, data structures, algorithms, and system design concepts.',
     icon: Code2,
     iconClassName: 'ai-setup-experience-icon--experienced',
+  },
+  {
+    id: 'peer',
+    title: 'Peer 1-on-1 Round',
+    description: 'Collaborative live coding & interview practice with another peer in real-time.',
+    icon: Users,
+    iconClassName: 'ai-setup-experience-icon--peer',
   },
 ];

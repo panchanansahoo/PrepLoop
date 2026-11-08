@@ -142,17 +142,64 @@ export function useInterviewSession(options = {}) {
   }, []);
   const [lifecycleState, setLifecycleState] = useState(INTERVIEW_LIFECYCLE.IDLE);
   const lifecycleStateRef = useRef(INTERVIEW_LIFECYCLE.IDLE);
-  const [interviewType, setInterviewType] = useState("technical");
-  const [realtimeMode, setRealtimeMode] = useState(false);
-  const [interviewerGender, setInterviewerGender] = useState(
-    readStoredInterviewerGender,
-  );
-
   // ─── Custom Admin Question Set / Candidate Token State ───
   const searchParams =
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search)
       : null;
+
+  const multiRoundCtx = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("multiRoundContext");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const initialCompany = useMemo(() => {
+    const fromParam = searchParams?.get("company");
+    if (fromParam) return fromParam;
+    if (multiRoundCtx?.company) return multiRoundCtx.company;
+    return "";
+  }, [searchParams, multiRoundCtx]);
+
+  const initialRole = useMemo(() => {
+    const fromParam = searchParams?.get("role");
+    if (fromParam) return fromParam;
+    if (multiRoundCtx?.role) return multiRoundCtx.role;
+    return "";
+  }, [searchParams, multiRoundCtx]);
+
+  const initialExperience = useMemo(() => {
+    const diff = searchParams?.get("difficulty") || multiRoundCtx?.difficulty;
+    if (diff) {
+      return String(diff).toLowerCase() === "easy" ? "fresher" : "experienced";
+    }
+    const exp = searchParams?.get("experience");
+    if (exp) return String(exp).toLowerCase();
+    return "fresher";
+  }, [searchParams, multiRoundCtx]);
+
+  const initialInterviewType = useMemo(() => {
+    const stage = searchParams?.get("stage") || multiRoundCtx?.stage;
+    if (stage) {
+      const s = String(stage).toLowerCase();
+      if (s.includes("hr") || s.includes("behavioral")) return "hr";
+      if (s.includes("peer")) return "peer";
+      return "technical";
+    }
+    const t = searchParams?.get("type") || searchParams?.get("interviewType");
+    if (t) return String(t).toLowerCase();
+    return "technical";
+  }, [searchParams, multiRoundCtx]);
+
+  const [interviewType, setInterviewType] = useState(initialInterviewType);
+  const [realtimeMode, setRealtimeMode] = useState(false);
+  const [interviewerGender, setInterviewerGender] = useState(
+    readStoredInterviewerGender,
+  );
   const initialQuestionSetCode =
     options?.token ||
     options?.questionSetCode ||
@@ -1008,9 +1055,9 @@ export function useInterviewSession(options = {}) {
   }, [questionIndex]);
 
   const [setupStep, setSetupStep] = useState(0);
-  const [experienceLevel, setExperienceLevel] = useState("fresher");
-  const [targetRole, setTargetRole] = useState("");
-  const [targetCompany, setTargetCompany] = useState("");
+  const [experienceLevel, setExperienceLevel] = useState(initialExperience);
+  const [targetRole, setTargetRole] = useState(initialRole);
+  const [targetCompany, setTargetCompany] = useState(initialCompany);
   const [companySearch, setCompanySearch] = useState("");
   const [companyTab, setCompanyTab] = useState("all");
   const [resumeFile, setResumeFile] = useState(null);

@@ -715,7 +715,7 @@ export default function Home() {
   return (
     <div style={{
       position: 'relative',
-      overflowX: 'hidden',
+      overflowX: 'clip',
       background: 'var(--bg-primary)',
       color: 'var(--text-primary)',
       minHeight: '100vh',

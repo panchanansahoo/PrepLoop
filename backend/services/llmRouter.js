@@ -855,6 +855,7 @@ Respond as compact JSON:
 
   for (const candidate of candidateProviders) {
     if (parsed) break;
+    if (quotaGuard.isProviderFailing(candidate)) continue;
 
     // 1. Groq 20b
     if (candidate === 'groq') {

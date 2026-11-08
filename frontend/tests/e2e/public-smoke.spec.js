@@ -35,7 +35,8 @@ test('opens the AI interview lobby without boot errors', async ({ page }) => {
   expect(uncaughtErrors).toEqual([]);
 });
 
-test('completes the AI interview UI flow with mocked interview services', async ({ page }) => {
+test('completes the AI interview UI flow with mocked interview services', async ({ page, context }) => {
+  await context.grantPermissions(['microphone', 'camera']);
   await page.route('**/api/company-interview/start', async (route) => {
     await route.fulfill({
       status: 200,
@@ -87,6 +88,10 @@ test('completes the AI interview UI flow with mocked interview services', async 
 
   for (let step = 0; step < 5; step += 1) {
     await page.getByRole('button', { name: /^Next/i }).click();
+  }
+  const consentCheckbox = page.locator('input[type="checkbox"]');
+  if (await consentCheckbox.count() > 0) {
+    await consentCheckbox.check();
   }
   await page.getByRole('button', { name: /Start Interview/i }).click();
 

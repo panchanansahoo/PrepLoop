@@ -281,7 +281,6 @@ function InterviewLobby({
     const navigate = useNavigate();
     const { user } = useAuth();
     const [speakerCheckStatus, setSpeakerCheckStatus] = React.useState('not_checked');
-    const [pilotConsent, setPilotConsent] = React.useState(false);
 
     const handleTestSpeaker = useCallback(() => {
         setSpeakerCheckStatus('testing');
@@ -1124,48 +1123,26 @@ function InterviewLobby({
                                     Next <ArrowRight size={16} />
                                 </button>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '12px' }}>
-                                    <div style={{
-                                        padding: '12px 14px',
-                                        borderRadius: '8px',
-                                        background: 'rgba(99, 102, 241, 0.08)',
-                                        border: '1px solid rgba(99, 102, 241, 0.25)',
-                                        textAlign: 'left',
-                                    }}>
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer', fontSize: '12px', color: '#e2e8f0', lineHeight: '1.4' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={pilotConsent}
-                                                onChange={(e) => setPilotConsent(e.target.checked)}
-                                                style={{ marginTop: '2px', accentColor: '#6366f1', width: '16px', height: '16px', cursor: 'pointer', flexShrink: 0 }}
-                                            />
-                                            <span>
-                                                <strong>Testing Pilot Consent:</strong> I understand this session is part of a testing pilot and my feedback helps improve the system. This session's screen and audio will be recorded by the tester for evaluation only (retained for up to 14 days and permanently deleted after analysis).
-                                            </span>
-                                        </label>
-                                    </div>
-                                    <button
-                                        className="ai-wizard-nav-btn ai-wizard-nav-btn--next ai-setup-start-btn"
-                                        onClick={onStartInterview}
-                                        disabled={loading || !pilotConsent}
-                                        title={!pilotConsent ? 'Please check the testing pilot consent box to begin' : undefined}
-                                        style={{ opacity: (!pilotConsent && !loading) ? 0.6 : 1 }}
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <Sparkles size={18} className="ai-setup-spin" />
-                                                Connecting...
-                                            </>
-                                        ) : (
-                                            <>Start Interview <ArrowRight size={16} /></>
-                                        )}
-                                    </button>
-                                </div>
+                                <button
+                                    className="ai-wizard-nav-btn ai-wizard-nav-btn--next ai-setup-start-btn"
+                                    onClick={onStartInterview}
+                                    disabled={loading}
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Sparkles size={18} className="ai-setup-spin" />
+                                            Connecting...
+                                        </>
+                                    ) : (
+                                        <>Start Interview <ArrowRight size={16} /></>
+                                    )}
+                                </button>
                             )}
                         </div>
-                        <div style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
-                            🔒 <strong>Candidate Privacy:</strong> We don’t store audio. Transcripts are sent to AI providers with emails, phone numbers and self-introduced names removed on a best-effort basis. Providers’ own data policies apply. Voice recognition is processed by Google (Chrome) or Apple (Safari).
-                        </div>
+                    </div>
+
+                    <div className="ai-setup-privacy" style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
+                        🔒 <strong>Privacy:</strong> Audio is never stored. Transcripts are anonymized before AI evaluation.
                     </div>
                 </div>
             </div>
