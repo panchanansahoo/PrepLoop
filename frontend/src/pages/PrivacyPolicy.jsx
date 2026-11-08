@@ -94,6 +94,10 @@ export default function PrivacyPolicy() {
                 <strong style={{ color: '#34d399', display: 'block', marginBottom: '4px' }}>Testing Pilot Notice</strong>
                 During evaluation pilots, technical performance data, latency metrics, and anonymized transcripts are collected to evaluate voice responsiveness and scoring accuracy with explicit candidate consent.
               </li>
+              <li style={{ background: 'rgba(244, 114, 182, 0.05)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(244, 114, 182, 0.15)' }}>
+                <strong style={{ color: '#f472b6', display: 'block', marginBottom: '4px' }}>Data Retention &amp; 14-Day Automatic Deletion</strong>
+                Interview session recordings, audio snippets, and pilot evaluation files are retained for a maximum of 14 days and then automatically deleted from our servers.
+              </li>
             </ul>
           </section>
 

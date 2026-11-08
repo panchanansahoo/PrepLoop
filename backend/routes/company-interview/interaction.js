@@ -1483,6 +1483,7 @@ router.post('/fast-reply', customInterviewLimiter, optionalAuth, async (req, res
       stage,
       questionNumber: safeQuestionNumber,
       totalQuestions: safeTotalQuestions,
+      topicFollowUpCount: Number(req.body?.topicFollowUpCount) || 0,
       adaptivePrompt,
       history: conversationHistory,
       runningSummary,

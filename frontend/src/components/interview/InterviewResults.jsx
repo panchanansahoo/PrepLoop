@@ -309,13 +309,15 @@ function InterviewResults({
                                         ? 'Estimated'
                                         : a?.analysisUnavailable || a?.overallScore == null
                                         ? 'Not scored'
+                                        : a?.status === 'partially_scored' || a?.verdict === 'Partially Scored'
+                                        ? '/10 (Partially scored)'
                                         : '/10'}
                                 </span>
                             </div>
                         </div>
                         <div className="ai-result-verdict" style={{ background: `${a?.performanceColor}18`, color: a?.performanceColor, borderColor: `${a?.performanceColor}40` }}>
                             {a?.isDeferred || a?.reportStatus === 'pending' ? <Timer size={14} /> : a?.overallScore >= 7 ? <Trophy size={14} /> : a?.overallScore >= 5 ? <TrendingUp size={14} /> : <AlertTriangle size={14} />}
-                            {a?.isDeferred || a?.reportStatus === 'pending' ? 'Report Pending' : a?.isEstimated ? 'Estimated Assessment' : benchmarkTier ? `${benchmarkTier.emoji || ''} ${benchmarkTier.label}` : (a?.performanceLabel || 'Analyzing...')}
+                            {a?.isDeferred || a?.reportStatus === 'pending' ? 'Report Pending' : a?.isEstimated ? 'Estimated Assessment' : a?.status === 'partially_scored' || a?.verdict === 'Partially Scored' ? '⚖️ Partially Scored' : benchmarkTier ? `${benchmarkTier.emoji || ''} ${benchmarkTier.label}` : (a?.performanceLabel || 'Analyzing...')}
                         </div>
                         {benchmarkTier?.description && (
                             <div className="ai-results-ai-badge" style={{ marginTop: 4, fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>

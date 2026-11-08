@@ -166,23 +166,25 @@ function defaultIdealAnswerPoints(category) {
   }
 }
 
-function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
+export function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
   const questionBreakdown = qaPairs.map((qa, index) => {
     const answer = String(qa.answer || '').trim();
     const category = detectQuestionCategory(qa.questionMeta, stage, qa.question);
 
-    const isEstimatedTurn = qa.isEstimated === true || qa.status === 'estimated' || (qa.inlineScore === null && !qa.isUnscored);
+    const isSkippedTurn = qa.isSkipped === true || qa.status === 'skipped' || qa.submissionType === 'voluntary_skip';
+    const isEstimatedTurn = !isSkippedTurn && (qa.isEstimated === true || qa.status === 'estimated' || (qa.inlineScore === null && !qa.isUnscored));
 
-    if (qa.isUnscored || isEstimatedTurn) {
+    if (qa.isUnscored || isEstimatedTurn || isSkippedTurn) {
       return {
         questionNumber: index + 1,
         question: qa.question?.substring(0, 300),
         candidateAnswer: answer.substring(0, 600),
-        score: null, // Numerical score is null: estimated turns are excluded from numeric averages
-        status: isEstimatedTurn ? 'estimated' : 'not_scored',
+        score: null, // Numerical score is null: estimated and skipped turns are excluded from numeric averages
+        status: isSkippedTurn ? 'skipped' : (isEstimatedTurn ? 'estimated' : 'not_scored'),
         isEstimated: isEstimatedTurn,
+        isSkipped: isSkippedTurn,
         category,
-        feedback: qa.feedback || (isEstimatedTurn ? 'Estimated answer recording (AI evaluation temporarily unavailable).' : 'Not scored (evaluation timed out).'),
+        feedback: qa.feedback || (isSkippedTurn ? 'Question skipped by candidate (not scored).' : (isEstimatedTurn ? 'Estimated answer recording (AI evaluation temporarily unavailable).' : 'Not scored (evaluation timed out).')),
         strengths: qa.strengths?.length ? qa.strengths : [],
         improvements: qa.improvements?.length ? qa.improvements : [],
         idealAnswerPoints: defaultIdealAnswerPoints(category),
@@ -249,7 +251,7 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
   });
 
   const scoredItems = questionBreakdown.filter(item =>
-    typeof item.score === 'number' && Number.isFinite(item.score) && !item.isEstimated && item.status !== 'estimated'
+    typeof item.score === 'number' && Number.isFinite(item.score) && !item.isEstimated && item.status !== 'estimated' && !item.isSkipped && item.status !== 'skipped'
   );
   const scoredSessionScores = (sessionScores || []).filter(s => typeof s === 'number' && Number.isFinite(s));
   const overallScore = scoredItems.length > 0
@@ -264,7 +266,7 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
   };
 
   for (const question of questionBreakdown) {
-    if (question.isEstimated || question.status === 'estimated' || typeof question.score !== 'number') continue;
+    if (question.isEstimated || question.status === 'estimated' || question.isSkipped || question.status === 'skipped' || typeof question.score !== 'number') continue;
     if (['technical', 'coding', 'system-design'].includes(question.category)) {
       categoryBuckets.technicalSkills.push(question.score);
       categoryBuckets.problemSolving.push(Math.min(100, question.score + (question.category === 'coding' ? 4 : 0)));
@@ -291,24 +293,52 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, match => match.toUpperCase());
 
-  const verdict = overallScore >= 85
-    ? 'Strong Hire'
-    : overallScore >= 70
-      ? 'Would Advance'
-      : overallScore >= 55
-        ? 'Borderline'
-        : 'Would Not Advance';
+  const skippedCount = questionBreakdown.filter(item => item.isSkipped || item.status === 'skipped').length;
+  const isPartiallyScored = skippedCount >= 2;
+  const isEstimatedSession = overallScore === null || overallScore === undefined;
 
-  const verdictEmoji = overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎';
+  let verdict = 'Would Not Advance';
+  let verdictEmoji = '👎';
+  let sessionStatus = 'completed';
+
+  if (isEstimatedSession) {
+    verdict = 'Estimated Assessment';
+    verdictEmoji = '📊';
+    sessionStatus = 'estimated';
+  } else if (isPartiallyScored) {
+    verdict = 'Partially Scored';
+    verdictEmoji = '⚖️';
+    sessionStatus = 'partially_scored';
+  } else {
+    verdict = overallScore >= 85
+      ? 'Strong Hire'
+      : overallScore >= 70
+        ? 'Would Advance'
+        : overallScore >= 55
+          ? 'Borderline'
+          : 'Would Not Advance';
+    verdictEmoji = overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎';
+  }
+
+  let summary = `You completed ${qaPairs.length} ${stage || 'interview'} questions for the ${role || 'role'} at ${company || 'the company'}. The clearest pattern was ${strengths[0] || 'solid baseline communication'}, while the biggest gap was ${improvements[0] || 'adding more depth to answers'}.`;
+  if (isPartiallyScored) {
+    summary = `You completed ${scoredItems.length} of ${qaPairs.length} questions (${skippedCount} questions skipped) for the ${role || 'role'} at ${company || 'the company'}. This session is partially scored based on answered questions only. The clearest pattern in your answered questions was ${strengths[0] || 'solid baseline communication'}.`;
+  }
+
+  let recommendation = `Prioritize ${weakestCategoryLabel.toLowerCase()} practice in your next mock session and make each answer more specific.`;
+  if (isPartiallyScored) {
+    recommendation = `Practice answering full sets of questions under timed conditions to build familiarity and confidence.`;
+  }
 
   return {
     overallScore,
-    summary: `You completed ${qaPairs.length} ${stage || 'interview'} questions for the ${role || 'role'} at ${company || 'the company'}. The clearest pattern was ${strengths[0] || 'solid baseline communication'}, while the biggest gap was ${improvements[0] || 'adding more depth to answers'}.`,
+    summary,
     verdict,
     verdictEmoji,
+    status: sessionStatus,
     strengths,
     improvements,
-    recommendation: `Prioritize ${weakestCategoryLabel.toLowerCase()} practice in your next mock session and make each answer more specific.`,
+    recommendation,
     questionBreakdown,
     categoryScores,
     detailedBreakdown: categoryScores,
@@ -343,20 +373,31 @@ function buildDeterministicInterviewReport({ company, role, stage, qaPairs, sess
   };
 }
 
-function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
+export function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, sessionScores = [], speechHistory = [] }) {
   const report = rawReport || {};
   const baseQuestionBreakdown = Array.isArray(report.questionBreakdown) ? report.questionBreakdown : [];
 
   const questionBreakdown = (baseQuestionBreakdown.length > 0 ? baseQuestionBreakdown : buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory }).questionBreakdown)
     .map((item, index) => {
       const qa = qaPairs[index] || {};
+      const isSkippedTurn = qa.isSkipped === true || qa.status === 'skipped' || item.isSkipped === true || item.status === 'skipped' || qa.submissionType === 'voluntary_skip';
+      const isEstimatedTurn = !isSkippedTurn && (qa.isEstimated === true || qa.status === 'estimated' || item.isEstimated === true || item.status === 'estimated' || (qa.inlineScore === null && !qa.isUnscored));
+
+      let score = null;
+      if (!isSkippedTurn && !isEstimatedTurn) {
+        score = clampScore(item.score, clampScore(qa.inlineScore ?? sessionScores[index], 70));
+      }
+
       return {
         ...item,
         questionNumber: item.questionNumber || index + 1,
         question: item.question || qa.question?.substring(0, 300) || `Question ${index + 1}`,
-        score: clampScore(item.score, clampScore(qa.inlineScore ?? sessionScores[index], 70)),
+        score,
+        status: isSkippedTurn ? 'skipped' : (isEstimatedTurn ? 'estimated' : (score !== null ? 'scored' : 'not_scored')),
+        isSkipped: isSkippedTurn,
+        isEstimated: isEstimatedTurn,
         category: item.category || detectQuestionCategory(qa.questionMeta, stage, qa.question),
-        feedback: item.feedback || qa.feedback || 'The answer addressed part of the question, but more specificity would strengthen it.',
+        feedback: item.feedback || qa.feedback || (isSkippedTurn ? 'Question skipped by candidate (not scored).' : (isEstimatedTurn ? 'Estimated answer recording (AI evaluation temporarily unavailable).' : 'The answer addressed part of the question, but more specificity would strengthen it.')),
         strengths: Array.isArray(item.strengths) && item.strengths.length > 0 ? item.strengths : (qa.strengths || []),
         improvements: Array.isArray(item.improvements) && item.improvements.length > 0 ? item.improvements : (qa.improvements || []),
         idealAnswerPoints: Array.isArray(item.idealAnswerPoints) && item.idealAnswerPoints.length > 0 ? item.idealAnswerPoints : defaultIdealAnswerPoints(item.category || detectQuestionCategory(qa.questionMeta, stage, qa.question)),
@@ -366,11 +407,15 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
       };
     });
 
+  const scoredItems = questionBreakdown.filter(item =>
+    typeof item.score === 'number' && Number.isFinite(item.score) && !item.isEstimated && item.status !== 'estimated' && !item.isSkipped && item.status !== 'skipped'
+  );
+
   const derivedCategoryScores = {
-    technicalSkills: averageScore(questionBreakdown.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 70,
-    communication: averageScore(questionBreakdown.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 5 : -3)))) ?? averageScore(sessionScores) ?? 70,
-    problemSolving: averageScore(questionBreakdown.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => Math.min(100, item.score + 3))) ?? averageScore(sessionScores) ?? 68,
-    cultureFit: averageScore(questionBreakdown.filter(item => ['behavioral', 'hr'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 72,
+    technicalSkills: averageScore(scoredItems.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 70,
+    communication: averageScore(scoredItems.map(item => Math.min(100, item.score + (item.candidateAnswer?.length > 120 ? 5 : -3)))) ?? averageScore(sessionScores) ?? 70,
+    problemSolving: averageScore(scoredItems.filter(item => ['technical', 'coding', 'system-design'].includes(item.category)).map(item => Math.min(100, item.score + 3))) ?? averageScore(sessionScores) ?? 68,
+    cultureFit: averageScore(scoredItems.filter(item => ['behavioral', 'hr'].includes(item.category)).map(item => item.score)) ?? averageScore(sessionScores) ?? 72,
   };
 
   const categoryScores = report.categoryScores || report.detailedBreakdown || derivedCategoryScores;
@@ -381,10 +426,12 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
     cultureFit: clampScore(categoryScores.cultureFit, derivedCategoryScores.cultureFit),
   };
 
-  const overallScore = clampScore(
-    report.overallScore,
-    averageScore(questionBreakdown.filter(item => typeof item.score === 'number').map(item => item.score)) ?? averageScore(sessionScores) ?? 70
-  );
+  const overallScore = scoredItems.length > 0
+    ? clampScore(
+        report.overallScore,
+        averageScore(scoredItems.map(item => item.score)) ?? averageScore(sessionScores) ?? 70
+      )
+    : null;
 
   const strengths = Array.isArray(report.strengths) && report.strengths.length > 0
     ? report.strengths
@@ -394,19 +441,49 @@ function normalizeInterviewReport(rawReport, { company, role, stage, qaPairs, se
     ? report.improvements
     : collectTopItems(questionBreakdown.map(item => item.improvements), 4);
 
+  const skippedCount = questionBreakdown.filter(item => item.isSkipped || item.status === 'skipped').length;
+  const isPartiallyScored = skippedCount >= 2;
   const isEstimatedSession = overallScore === null || overallScore === undefined;
-  const verdict = isEstimatedSession ? 'Estimated Assessment' : report.verdict || (overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance');
-  const verdictEmoji = isEstimatedSession ? '📊' : report.verdictEmoji || (overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎');
-  const recommendation = report.recommendation || (improvements[0] ? `Focus on ${improvements[0].toLowerCase()} before your next mock.` : 'Rework your weakest answers with more technical depth and concrete metrics.');
+
+  let verdict = report.verdict;
+  let verdictEmoji = report.verdictEmoji;
+  let sessionStatus = report.status || 'completed';
+
+  if (isEstimatedSession) {
+    verdict = 'Estimated Assessment';
+    verdictEmoji = '📊';
+    sessionStatus = 'estimated';
+  } else if (isPartiallyScored) {
+    verdict = 'Partially Scored';
+    verdictEmoji = '⚖️';
+    sessionStatus = 'partially_scored';
+  } else if (!verdict) {
+    verdict = overallScore >= 85 ? 'Strong Hire' : overallScore >= 70 ? 'Would Advance' : overallScore >= 55 ? 'Borderline' : 'Would Not Advance';
+    verdictEmoji = overallScore >= 85 ? '🌟' : overallScore >= 70 ? '👍' : overallScore >= 55 ? '🤔' : '👎';
+  }
+
+  let summary = report.summary;
+  if (isPartiallyScored) {
+    summary = `You completed ${scoredItems.length} of ${questionBreakdown.length} questions (${skippedCount} questions skipped) for the ${role || 'role'} at ${company || 'the company'}. This session is partially scored based on answered questions only. The clearest pattern in your answered questions was ${strengths[0] || 'communication and structure'}.`;
+  } else if (!summary) {
+    summary = `You completed ${questionBreakdown.length} questions for the ${role || 'role'} at ${company || 'the company'}, with the clearest strengths in ${strengths.slice(0, 2).join(' and ') || 'communication and structure'}.`;
+  }
+
+  let recommendation = report.recommendation;
+  if (isPartiallyScored) {
+    recommendation = `Practice answering full sets of questions under timed conditions to build familiarity and confidence.`;
+  } else if (!recommendation) {
+    recommendation = improvements[0] ? `Focus on ${improvements[0].toLowerCase()} before your next mock.` : 'Rework your weakest answers with more technical depth and concrete metrics.';
+  }
 
   return {
     ...report,
     overallScore,
     isEstimated: isEstimatedSession,
-    status: isEstimatedSession ? 'estimated' : (report.status || 'completed'),
+    status: sessionStatus,
     hasMixedScorers: report.hasMixedScorers === true,
     scorerTransitionTurn: report.scorerTransitionTurn || null,
-    summary: report.summary || `You completed ${questionBreakdown.length} questions for the ${role || 'role'} at ${company || 'the company'}, with the clearest strengths in ${strengths.slice(0, 2).join(' and ') || 'communication and structure'}.`,
+    summary,
     verdict,
     verdictEmoji,
     strengths,

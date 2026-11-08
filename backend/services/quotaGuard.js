@@ -75,13 +75,13 @@ export function parseGroqDurationMs(durationStr) {
   return Math.round(totalMs);
 }
 
-// Model-specific limits (separate tracking for Groq 120b vs 20b)
+// Model-specific limits matching real dashboard tiers
 export const MODEL_BUDGETS = {
   'openai/gpt-oss-20b': {
     provider: 'groq',
     label: 'Groq 20b (Fast Reply & Turn Scoring)',
     maxTokensPerDay: Number(process.env.GROQ_20B_DAILY_TOKEN_LIMIT) || 120_000,
-    maxRequestsPerMinute: 28,
+    maxRequestsPerMinute: 30, // Real Groq dashboard limit is 30 RPM
   },
   'openai/gpt-oss-120b': {
     provider: 'groq',
@@ -93,19 +93,25 @@ export const MODEL_BUDGETS = {
     provider: 'gemini',
     label: 'Google AI Studio (Gemini 3.5 Flash Lite)',
     maxTokensPerDay: Number(process.env.GEMINI_DAILY_TOKEN_LIMIT) || 50_000,
-    maxRequestsPerMinute: 12,
+    maxRequestsPerMinute: 15, // Real Google AI Studio limit is 15 RPM
   },
   'meta-llama/llama-3.1-8b-instruct:free': {
     provider: 'openrouter',
     label: 'OpenRouter 8b:free',
     maxTokensPerDay: Number(process.env.OPENROUTER_8B_DAILY_LIMIT) || 30_000,
-    maxRequestsPerMinute: 18,
+    maxRequestsPerMinute: 20, // Real OpenRouter free limit is 20 RPM
   },
   'meta-llama/llama-3.3-70b-instruct:free': {
     provider: 'openrouter',
     label: 'OpenRouter 70b:free',
     maxTokensPerDay: Number(process.env.OPENROUTER_70B_DAILY_LIMIT) || 30_000,
-    maxRequestsPerMinute: 18,
+    maxRequestsPerMinute: 20, // Real OpenRouter free limit is 20 RPM
+  },
+  'nvidia/nemotron-3.5-lightning:free': {
+    provider: 'openrouter',
+    label: 'OpenRouter Nemotron:free',
+    maxTokensPerDay: Number(process.env.OPENROUTER_NEMOTRON_DAILY_LIMIT) || 40_000,
+    maxRequestsPerMinute: 20, // Real OpenRouter free limit is 20 RPM
   },
 };
 
@@ -113,22 +119,17 @@ export const PROVIDER_BUDGETS = {
   groq: {
     label: 'Groq Free Tier',
     maxTokensPerDay: Number(process.env.GROQ_DAILY_TOKEN_LIMIT) || 150_000,
-    maxRequestsPerMinute: 28,
+    maxRequestsPerMinute: 30,
   },
   gemini: {
     label: 'Google AI Studio',
     maxTokensPerDay: Number(process.env.GEMINI_DAILY_TOKEN_LIMIT) || 50_000,
-    maxRequestsPerMinute: 12,
-  },
-  cerebras: {
-    label: 'Cerebras Free Tier',
-    maxTokensPerDay: Number(process.env.CEREBRAS_DAILY_TOKEN_LIMIT) || 50_000,
-    maxRequestsPerMinute: 28,
+    maxRequestsPerMinute: 15,
   },
   openrouter: {
     label: 'OpenRouter Free Models',
     maxTokensPerDay: Number(process.env.OPENROUTER_DAILY_TOKEN_LIMIT) || 40_000,
-    maxRequestsPerMinute: 18,
+    maxRequestsPerMinute: 20,
   },
 };
 
@@ -555,6 +556,11 @@ class QuotaGuard {
     if (!budget) return { allowed: true };
 
     const providerKey = budget.provider;
+    const providerCheck = this.canUseProvider(providerKey, estimatedTokens);
+    if (!providerCheck.allowed) {
+      return providerCheck;
+    }
+
     const combinedKey = `${providerKey}:${model}`;
     if (
       this.isProviderFailing(providerKey) ||
@@ -700,7 +706,7 @@ class QuotaGuard {
       reserveBufferActive: utilizationPct >= (1.0 - RESERVE_BUFFER_RATIO) * 100,
       speculationAllowed: this.isSpeculationAllowed(),
       maxHistoryTurns: this.getMaxHistoryTurns(),
-      candidateDataNotice: 'Candidate Privacy: Audio is never stored. Transcripts are anonymized before AI evaluation.',
+      candidateDataNotice: 'Candidate Privacy: Speech processed via browser speech vendors or Groq Whisper. AI evaluation uses best-effort redaction. Session recordings deleted after 14 days.',
       models: modelStats,
       serverRateLimitState: this.serverRateLimitState,
       userCapConfig: {

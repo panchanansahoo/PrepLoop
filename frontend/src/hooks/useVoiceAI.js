@@ -369,6 +369,7 @@ export function useVoiceAI({
   onResumeSpeech = null,
   onSpeculativeCandidateAnswer = null,
   onAbortSpeculative = null,
+  isCodingRound = false,
 } = {}) {
   const [state, setState] = useState("idle");
   const [transcript, setTranscript] = useState("");
@@ -388,6 +389,10 @@ export function useVoiceAI({
   useEffect(() => {
     stageRef.current = stage;
   }, [stage]);
+  const isCodingRoundRef = useRef(isCodingRound);
+  useEffect(() => {
+    isCodingRoundRef.current = isCodingRound;
+  }, [isCodingRound]);
   const candidatePacingOffsetRef = useRef(candidatePacingOffset);
   useEffect(() => {
     candidatePacingOffsetRef.current = candidatePacingOffset;
@@ -751,9 +756,13 @@ export function useVoiceAI({
       stateRef.current = "listening";
       isSubmittingRef.current = false;
 
-      // 3. Restart browser speech recognition if it was stopped
+      // 3. Restart browser speech recognition or whisper recorder if it was stopped
       if (!activeRef.current) {
-        startRef.current?.();
+        if (connectionMode === "whisper") {
+          startWhisperFallback();
+        } else {
+          startRef.current?.();
+        }
       }
 
       // 4. Notify session hook to cancel follow-up call, stop speakSequence, and hold question counter
@@ -858,8 +867,10 @@ export function useVoiceAI({
       isSubmittingRef.current = false;
     }
 
-    setTranscript("");
-    setInterimText("");
+    // Do NOT clear transcript/interimText here.
+    // The submitted answer stays visible in captions while the AI loads its response.
+    // The next call to start() already resets them (lines 1177-1180) so there is
+    // never a blank-caption gap between answer submission and the AI speaking.
     activeRef.current = false;
     setState("idle");
     stateRef.current = "idle";
@@ -933,6 +944,11 @@ export function useVoiceAI({
             return;
           }
           if (finalTextRef.current.trim().length >= MIN_ANSWER_LENGTH) {
+            if (isCodingRoundRef.current) {
+              // Coding rounds: speech is saved to transcript, but auto-submit waits for "Run", "Submit", or long idle
+              setTranscript(finalTextRef.current);
+              return;
+            }
             submitAnswer();
           }
           return;
@@ -1022,11 +1038,20 @@ export function useVoiceAI({
         if (level > 0.04) {
           whisperHasSpoken = true;
           whisperSilenceMs = 0;
+          setSilenceCountdown(0);
+          onAbortSpeculativeRef.current?.();
         } else if (whisperHasSpoken) {
           whisperSilenceMs += 300;
-          const postSpeechMs = getModeConfig(pacingModeRef.current).postSpeechSubmitMs;
-          if (whisperSilenceMs >= postSpeechMs) {
+          const requiredSilenceMs = getSemanticSilenceThreshold({
+            stage: stageRef.current,
+            wordCount: 15,
+            candidatePacingOffset: candidatePacingOffsetRef.current,
+          });
+          const remainingSec = Math.max(0, Math.ceil((requiredSilenceMs - whisperSilenceMs) / 1000));
+          setSilenceCountdown(remainingSec);
+          if (whisperSilenceMs >= requiredSilenceMs) {
             clearInterval(whisperSilenceInterval);
+            setSilenceCountdown(0);
             console.log("[useVoiceAI] Whisper auto-submitting after user speech pause");
             submitAnswer();
           }
@@ -1324,6 +1349,10 @@ export function useVoiceAI({
             if (recognitionEpochRef.current !== epoch) return;
             noSpeechCountRef.current = 0;
             lastSpeechDetectedAtRef.current = Date.now();
+            clearTotalSilenceTimer();
+            clearAfterSpeechSilence();
+            clearSilenceTimer();
+            onAbortSpeculativeRef.current?.();
             console.log("[useVoiceAI] ✓ Speech detected by browser (epoch", epoch, ")");
           };
 
@@ -1345,6 +1374,10 @@ export function useVoiceAI({
             }
             if (interim || finalText) {
               networkErrorCountRef.current = 0;
+              clearTotalSilenceTimer();
+              clearAfterSpeechSilence();
+              clearSilenceTimer();
+              onAbortSpeculativeRef.current?.();
               console.log("[useVoiceAI] Speech result:", { interim, finalText });
             }
             if (finalText) {
@@ -1612,13 +1645,15 @@ export function useVoiceAI({
       let step = 0;
       const fadeTimer = setInterval(() => {
         step++;
-        a.volume = Math.max(0, initialVol * (1 - step / 6));
-        if (step >= 6) {
+        a.volume = Math.max(0, initialVol * (1 - step / 4));
+        if (step >= 4) {
           clearInterval(fadeTimer);
-          try { a.pause(); a.src = ""; } catch {}
+          try { a.pause(); a.currentTime = 0; a.src = ""; } catch {}
         }
-      }, 15);
+      }, 20); // 4 * 20ms = 80ms fade
     }
+
+    stopImmediateBackchannel();
 
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();

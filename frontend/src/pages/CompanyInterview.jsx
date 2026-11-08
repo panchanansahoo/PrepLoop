@@ -1804,8 +1804,11 @@ export default function CompanyInterview() {
     useEffect(() => {
         if (phase !== 'interview') return;
         const handleKeyDown = (e) => {
-            // Don't capture if user is typing in an input/textarea
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // Disable hotkeys when focus is inside a text input, textarea, or code editor
+            const tag = (e.target?.tagName || '').toLowerCase();
+            const role = e.target?.getAttribute?.('role') || '';
+            const isEditable = e.target?.isContentEditable;
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || isEditable || role === 'textbox' || role === 'code' || e.target?.closest?.('.monaco-editor')) return;
 
             if (e.code === 'Space' && !e.shiftKey && !e.ctrlKey && config.format === 'voice') {
                 e.preventDefault();

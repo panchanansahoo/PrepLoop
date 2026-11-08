@@ -2,11 +2,11 @@ import { memo, useCallback, useState } from 'react';
 import {
     Mic, MicOff, Video, VideoOff, Volume2, VolumeX,
     Play, Pause, Captions, CaptionsOff, MessageSquare,
-    Bookmark, Phone, Keyboard, HelpCircle,
+    Bookmark, Phone, Keyboard, HelpCircle, RotateCcw, SkipForward,
 } from 'lucide-react';
 
 /**
- * InterviewControls — Floating controls bar for the video call.
+ * InterviewControls - Floating controls bar for the video call.
  *
  * Extracted to prevent re-renders from high-frequency state updates
  * (voice visualization, timer ticks) from touching the control buttons.
@@ -25,15 +25,21 @@ function InterviewControls({
     onAskQuestion,
     awaitingAnswer,
     voiceOnly = false,
+    onRepeatQuestion,
+    onSkipQuestion,
 }) {
     const [questionText, setQuestionText] = useState('');
     const [askOpen, setAskOpen] = useState(false);
+    const [showSkipConfirm, setShowSkipConfirm] = useState(false);
     const handleAskSubmit = useCallback(() => {
         if (!questionText.trim()) return;
         onAskQuestion(questionText);
         setQuestionText('');
         setAskOpen(false);
     }, [questionText, onAskQuestion]);
+    const handleSkipClick = () => {
+        setShowSkipConfirm(true);
+    };
     return (
         <div className="ai-vc-controls">
             <div className="ai-vc-controls-group">
@@ -141,6 +147,31 @@ function InterviewControls({
 
             <div className="ai-vc-controls-divider" />
 
+            {/* Accessibility / Escape Hatches: Repeat and Skip */}
+            <div className="ai-vc-controls-group">
+                <button
+                    className="ai-vc-ctrl"
+                    onClick={onRepeatQuestion}
+                    title="Repeat question (Shortcut: R)"
+                    aria-label="Repeat the current question"
+                >
+                    <RotateCcw size={18} />
+                    <span className="ai-vc-ctrl-label">Repeat</span>
+                </button>
+
+                <button
+                    className="ai-vc-ctrl"
+                    onClick={handleSkipClick}
+                    title="Skip question (Shortcut: Esc)"
+                    aria-label="Skip to the next question"
+                >
+                    <SkipForward size={18} />
+                    <span className="ai-vc-ctrl-label">Skip</span>
+                </button>
+            </div>
+
+            <div className="ai-vc-controls-divider" />
+
             {/* Keyboard Shortcuts */}
             <button
                 className="ai-vc-ctrl"
@@ -175,6 +206,64 @@ function InterviewControls({
                 <Phone size={18} style={{ transform: 'rotate(135deg)' }} />
                 <span className="ai-vc-ctrl-label">End</span>
             </button>
+            {showSkipConfirm && (
+                <div className="ai-vc-skip-confirm" role="dialog" aria-modal="true" aria-labelledby="skip-confirm-title" style={{
+                    position: 'absolute',
+                    bottom: '72px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#1f2937',
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)',
+                    zIndex: 50,
+                    minWidth: '260px',
+                }}>
+                    <span id="skip-confirm-title" style={{ fontSize: '13px', color: '#f3f4f6', fontWeight: 500 }}>
+                        Skip this question? It will not be scored.
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        <button
+                            type="button"
+                            onClick={() => setShowSkipConfirm(false)}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                borderRadius: '4px',
+                                background: 'transparent',
+                                border: '1px solid #4b5563',
+                                color: '#9ca3af',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setShowSkipConfirm(false);
+                                onSkipQuestion?.();
+                            }}
+                            style={{
+                                padding: '4px 10px',
+                                fontSize: '12px',
+                                borderRadius: '4px',
+                                background: '#ef4444',
+                                border: 'none',
+                                color: '#ffffff',
+                                fontWeight: 500,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Yes, skip
+                        </button>
+                    </div>
+                </div>
+            )}
             {askOpen && (
                 <div className="ai-vc-ask-input">
                     <input

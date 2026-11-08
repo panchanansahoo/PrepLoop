@@ -22,11 +22,11 @@ async function runEnvironmentAudit() {
   try {
     const gitTag = execSync('git describe --tags --exact-match', { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }).trim();
     const gitSha = execSync('git rev-parse --short HEAD', { cwd: path.resolve(__dirname, '..'), encoding: 'utf8' }).trim();
-    const isTagMatch = gitTag === 'v1.2-pilot-ready';
+    const isTagMatch = gitTag === 'v1.3-pilot-ready' || gitTag === 'v1.2-pilot-ready';
     checklist.push({
       item: 'Git Release Tag',
       status: isTagMatch ? 'PASS' : 'WARN',
-      detail: `Tag: ${gitTag || 'none'} (${gitSha}) ${isTagMatch ? '✓ Exact release candidate' : '⚠️ Expected v1.2-pilot-ready'}`,
+      detail: `Tag: ${gitTag || 'none'} (${gitSha}) ${isTagMatch ? '✓ Exact release candidate' : '⚠️ Expected v1.3-pilot-ready'}`,
     });
   } catch {
     try {

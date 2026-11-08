@@ -548,9 +548,9 @@ function InterviewLobby({
                                 </span>
                             </div>
 
-                            <p style={{ color: 'rgba(255,255,255,.55)', fontSize: '12px', lineHeight: 1.5, margin: '12px 0 0' }}>
-                                Your answers are processed as speech and the transcript and interview result are saved for the interviewer to review. PrepLoop does not save raw microphone recordings.
-                            </p>
+                            <div style={{ color: 'rgba(255,255,255,.65)', fontSize: '11px', lineHeight: 1.5, margin: '14px 0 0', padding: '10px 12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px' }}>
+                                🔒 <strong>Privacy &amp; Data Notice:</strong> Speech is processed using your browser's speech recognition vendor (Google/Apple/Microsoft) or Groq Whisper. Interview analysis is performed by AI providers (Groq / Google Gemini) with best-effort PII redaction. Any session audio and temporary artifacts are automatically deleted after 14 days.
+                            </div>
 
                             <button
                                 className="ai-setup-nav-btn ai-setup-nav-btn--next"
@@ -1142,7 +1142,7 @@ function InterviewLobby({
                     </div>
 
                     <div className="ai-setup-privacy" style={{ marginTop: '14px', fontSize: '11px', color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: '1.4' }}>
-                        🔒 <strong>Privacy:</strong> Audio is never stored. Transcripts are anonymized before AI evaluation.
+                        🔒 <strong>Privacy:</strong> Speech processed via browser speech vendors or Groq Whisper. AI evaluation (Groq / Gemini) uses best-effort redaction. Session recordings deleted after 14 days.
                     </div>
                 </div>
             </div>

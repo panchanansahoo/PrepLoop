@@ -300,8 +300,11 @@ export default function AIInterviewPage() {
     useEffect(() => {
         if (phase !== 'interview') return;
         const handler = (e) => {
-            const tag = document.activeElement?.tagName;
-            if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+            // Disable hotkeys when focus is inside a text input, textarea, or code editor
+            const tag = (e.target?.tagName || '').toLowerCase();
+            const role = e.target?.getAttribute?.('role') || '';
+            const isEditable = e.target?.isContentEditable;
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || isEditable || role === 'textbox' || role === 'code') return;
             if (document.activeElement?.classList?.contains('inputarea')) return;
             if (e.key === '?' || (e.key.toLowerCase() === 'h' && e.shiftKey)) {
                 setKeyboardHelpOpen(prev => !prev);
@@ -770,6 +773,7 @@ export default function AIInterviewPage() {
                         conversation={conversation} interviewerName={INTERVIEWER.name}
                         silenceCountdown={voiceAI.silenceCountdown}
                         connectionMode={voiceAI.connectionMode}
+                        inputLevel={voiceAI.inputLevel}
                     />
 
                     <InterviewControls
@@ -786,6 +790,8 @@ export default function AIInterviewPage() {
                         onAskQuestion={handleAskQuestion}
                         awaitingAnswer={awaitingAnswer}
                         voiceOnly={voiceOnlyInterview}
+                        onRepeatQuestion={repeatCurrentQuestion}
+                        onSkipQuestion={skipCurrentQuestion}
                     />
                 </div>
 

@@ -540,7 +540,146 @@ export function normalizeAnswerType(val, userAnswer = '', previousQuestion = '')
   return detectDeterministicAnswerType(userAnswer, previousQuestion);
 }
 
-function processFastReplyParsed(parsed, rawUserAnswer, startTime, completion, currentMode, safeQuestionNumber = 0, previousQuestion = '') {
+export function decideNextTurnAction({
+  topicFollowUpCount = 0,
+  answerType = 'partial',
+  isLastQuestion = false,
+  tradeOffsCovered = false,
+} = {}) {
+  if (isLastQuestion) {
+    return {
+      action: 'complete',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: false,
+      neutralReaction: false,
+    };
+  }
+
+  // Skipped turns: advance immediately, do not score
+  if (answerType === 'skipped') {
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: true,
+      neutralReaction: false,
+    };
+  }
+
+  // Clarification: answer or repeat question, never scored, never counts as follow-up
+  if (answerType === 'clarification') {
+    return {
+      action: 'clarification_response',
+      nextTopicFollowUpCount: topicFollowUpCount, // unchanged
+      needsRedirect: false,
+      noScore: true,
+      neutralReaction: false,
+    };
+  }
+
+  // dont_know and off_topic: gentle redirect then move on; reaction must be neutral
+  if (answerType === 'dont_know' || answerType === 'off_topic') {
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: true,
+      noScore: false,
+      neutralReaction: true,
+    };
+  }
+
+  // wrong: neutral hint, one follow-up within cap (cap = 1)
+  if (answerType === 'wrong') {
+    if (topicFollowUpCount < 1) {
+      return {
+        action: 'follow_up',
+        nextTopicFollowUpCount: topicFollowUpCount + 1,
+        needsRedirect: false,
+        noScore: false,
+        neutralReaction: true, // reaction must be neutral for wrong answers
+      };
+    }
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: false,
+      neutralReaction: true,
+    };
+  }
+
+  // stuck_silence: one hint follow-up, then move on
+  if (answerType === 'stuck_silence') {
+    if (topicFollowUpCount < 1) {
+      return {
+        action: 'follow_up',
+        nextTopicFollowUpCount: topicFollowUpCount + 1,
+        needsRedirect: false,
+        noScore: false,
+        neutralReaction: false,
+      };
+    }
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: false,
+      neutralReaction: false,
+    };
+  }
+
+  // strong_complete: at most 1 follow-up; skip entirely if trade-offs already covered
+  if (answerType === 'strong_complete') {
+    const cap = tradeOffsCovered ? 0 : 1;
+    if (topicFollowUpCount < cap) {
+      return {
+        action: 'follow_up',
+        nextTopicFollowUpCount: topicFollowUpCount + 1,
+        needsRedirect: false,
+        noScore: false,
+        neutralReaction: false,
+      };
+    }
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: false,
+      neutralReaction: false,
+    };
+  }
+
+  // partial: up to 2 follow-ups
+  if (answerType === 'partial') {
+    if (topicFollowUpCount < 2) {
+      return {
+        action: 'follow_up',
+        nextTopicFollowUpCount: topicFollowUpCount + 1,
+        needsRedirect: false,
+        noScore: false,
+        neutralReaction: false,
+      };
+    }
+    return {
+      action: 'next_question',
+      nextTopicFollowUpCount: 0,
+      needsRedirect: false,
+      noScore: false,
+      neutralReaction: false,
+    };
+  }
+
+  return {
+    action: 'next_question',
+    nextTopicFollowUpCount: 0,
+    needsRedirect: false,
+    noScore: false,
+    neutralReaction: false,
+  };
+}
+
+function processFastReplyParsed(parsed, rawUserAnswer, startTime, completion, currentMode, safeQuestionNumber = 0, previousQuestion = '', topicFollowUpCount = 0, isLastQuestion = false) {
   routerMetrics.jsonParseSuccessCount++;
   const answerType = normalizeAnswerType(parsed?.answerType, rawUserAnswer, previousQuestion);
   const rawQuote = parsed?.evidenceQuote ? String(parsed.evidenceQuote).trim() : '';
@@ -552,6 +691,12 @@ function processFastReplyParsed(parsed, rawUserAnswer, startTime, completion, cu
     followUp = stripAttributionPhrase(followUp, safeQuestionNumber);
   }
 
+  const decision = decideNextTurnAction({
+    topicFollowUpCount,
+    answerType,
+    isLastQuestion,
+  });
+
   const latencyMs = Date.now() - startTime;
   recordFastReplyLatency(latencyMs);
 
@@ -560,8 +705,10 @@ function processFastReplyParsed(parsed, rawUserAnswer, startTime, completion, cu
     evidenceQuote: verification.quote,
     quoteVerified: verification.verified,
     microReaction: parsed?.microReaction || 'Got it, makes sense.',
-    followUpQuestion: followUp || getGenericFollowUp(safeQuestionNumber),
-    complete: false,
+    followUpQuestion: isLastQuestion ? '' : (followUp || getGenericFollowUp(safeQuestionNumber)),
+    nextAction: decision.action,
+    topicFollowUpCount: decision.nextTopicFollowUpCount,
+    complete: isLastQuestion || decision.action === 'complete',
     thinkTime: 40,
     latencyMs,
     modelUsed: completion?.modelUsed || 'unknown',
@@ -581,7 +728,8 @@ export async function callFastReply({
   role = 'Software Engineer',
   stage = 'Technical',
   questionNumber = 2,
-  _totalQuestions = 8,
+  totalQuestions = 8,
+  topicFollowUpCount = 0,
   adaptivePrompt = '',
   history = [],
   runningSummary = '',
@@ -591,22 +739,32 @@ export async function callFastReply({
 }) {
   const startTime = Date.now();
   const safeQuestionNumber = Math.max(1, Number(questionNumber) || 2);
+  const safeTotalQuestions = Math.max(1, Number(totalQuestions) || 8);
+  const safeTopicFollowUpCount = Math.max(0, Number(topicFollowUpCount) || 0);
+  const isLastQuestion = safeQuestionNumber >= safeTotalQuestions;
   const currentMode = quotaGuard.getCurrentMode({ isNewSession: false });
 
   // In WAITLIST or MINIMAL mode, trigger instant deterministic scripted question (0ms)
   // Transparently notify the candidate so it does not feel like the AI stopped listening.
   if (currentMode === DEGRADATION_MODES.WAITLIST || currentMode === DEGRADATION_MODES.MINIMAL) {
     const microReaction = deterministicPick(FALLBACK_MICRO_REACTIONS, safeQuestionNumber);
-    const followUpQuestion = getGenericFollowUp(safeQuestionNumber);
+    const followUpQuestion = isLastQuestion ? '' : getGenericFollowUp(safeQuestionNumber);
     const latencyMs = Date.now() - startTime;
     recordFastReplyLatency(latencyMs);
+    const decision = decideNextTurnAction({
+      topicFollowUpCount: safeTopicFollowUpCount,
+      answerType: detectDeterministicAnswerType(userAnswer, previousQuestion),
+      isLastQuestion,
+    });
     return {
       answerType: detectDeterministicAnswerType(userAnswer, previousQuestion),
       evidenceQuote: '',
       quoteVerified: false,
       microReaction,
       followUpQuestion,
-      complete: false,
+      nextAction: decision.action,
+      topicFollowUpCount: decision.nextTopicFollowUpCount,
+      complete: isLastQuestion || decision.action === 'complete',
       thinkTime: 30,
       latencyMs,
       modelUsed: 'scripted-minimal',
@@ -642,7 +800,12 @@ STEP 2 — SPOKEN STYLE & PROSODY RULES:
 2. STRICT LENGTH: The follow-up question MUST be 1 or 2 sentences MAX (12-25 words).
 3. Micro-reaction: 2 to 5 words max. Vary openers (e.g. "Okay,", "Right,", "Interesting,", "Fair enough,"). Never repeat the same opener consecutively.
 4. EVIDENCE REFERENCE: The follow-up MUST reference one specific thing the candidate said (e.g. "You mentioned a hash map, what happens on collisions?").
-5. TOPIC LIMIT: Maximum 2 follow-ups on the same topic, then pivot to the next topic or high-level architecture. Never re-ask something already covered in history.
+5. TOPIC LIMIT & TURN DECISION RULES:
+   - Current follow-ups on this topic: ${safeTopicFollowUpCount}/2.
+   - If follow-ups on this topic are under 2 and the answer type is partial or strong_complete, ask a follow-up probing deeper on this topic.
+   - Otherwise (or if follow-ups on this topic reach 2), pivot smoothly to the next planned question or topic.
+   - For dont_know or off_topic, move on to the next planned question after one gentle redirect.
+   - On the last question (${safeQuestionNumber}/${safeTotalQuestions}), complete: true triggers closing.
 6. Tone: End with a single clear question mark '?'. Use contractions ("that's", "let's", "we've"). No markdown, bullets, or symbols. Spell out symbols ("O of n" for O(n)).
 7. "evidenceQuote" RULE: MUST be a 2 to 5 word VERBATIM exact snippet from Candidate Answer (or empty string if none). Do NOT paraphrase.
 
@@ -679,7 +842,7 @@ Respond strictly in valid JSON format:
 
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion, safeTopicFollowUpCount, isLastQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -697,7 +860,7 @@ Respond strictly in valid JSON format:
     );
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion, safeTopicFollowUpCount, isLastQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -722,7 +885,7 @@ Respond strictly in valid JSON format:
     );
     const parsed = safeJsonParse(completion.content);
     if (parsed && (parsed.followUpQuestion || parsed.microReaction)) {
-      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion);
+      return processFastReplyParsed(parsed, userAnswer, startTime, completion, currentMode, safeQuestionNumber, previousQuestion, safeTopicFollowUpCount, isLastQuestion);
     }
     routerMetrics.jsonParseFailureCount++;
   } catch (err) {
@@ -731,8 +894,13 @@ Respond strictly in valid JSON format:
   }
 
   // 5. Deterministic fallback question (instant 0ms)
+  const decision = decideNextTurnAction({
+    topicFollowUpCount: safeTopicFollowUpCount,
+    answerType: detectDeterministicAnswerType(userAnswer, previousQuestion),
+    isLastQuestion,
+  });
   const microReaction = deterministicPick(FALLBACK_MICRO_REACTIONS, safeQuestionNumber);
-  const followUpQuestion = getGenericFollowUp(safeQuestionNumber);
+  const followUpQuestion = isLastQuestion ? '' : getGenericFollowUp(safeQuestionNumber);
   const latencyMs = Date.now() - startTime;
   recordFastReplyLatency(latencyMs);
   return {
@@ -741,7 +909,9 @@ Respond strictly in valid JSON format:
     quoteVerified: false,
     microReaction,
     followUpQuestion,
-    complete: false,
+    nextAction: decision.action,
+    topicFollowUpCount: decision.nextTopicFollowUpCount,
+    complete: isLastQuestion || decision.action === 'complete',
     thinkTime: 40,
     latencyMs,
     modelUsed: 'deterministic-fallback',
@@ -1067,20 +1237,27 @@ export async function callInterviewReport({
     .map((qa, i) => {
       const q = String(qa.question || '').substring(0, 150);
       const a = String(qa.answer || '').substring(0, 300);
-      const s = qa.inlineScore ?? sessionScores[i] ?? 'N/A';
-      return `Q${i + 1} [Score: ${s}]: "${q}"\nCandidate: "${a}"`;
+      const isSkipped = qa.isSkipped === true || qa.status === 'skipped' || qa.submissionType === 'voluntary_skip';
+      const isEst = !isSkipped && (qa.isEstimated === true || qa.status === 'estimated');
+      const s = isSkipped ? 'Skipped (Unscored)' : (isEst ? 'Estimated (Unscored)' : (qa.inlineScore ?? sessionScores[i] ?? 'N/A'));
+      return `Q${i + 1} [Score: ${s}]: "${q}"\nCandidate: "${a || (isSkipped ? '(Question skipped by candidate)' : '(No response)')}"`;
     })
     .join('\n\n');
 
   const systemPrompt = `You are a calibrated senior interview panelist at ${company} generating the final interview evaluation report for ${role} (${stage}).
 Ground every judgment in the actual transcript quotes provided.
 
+IMPORTANT RULES FOR UNANSWERED / SKIPPED QUESTIONS:
+1. Any question marked as 'Skipped (Unscored)' or 'Estimated (Unscored)' MUST be excluded from numeric score calculations and averages.
+2. NEVER describe the candidate as weak, unprepared, or lacking technical knowledge solely because a question was skipped. Base strengths and areas for growth entirely on the questions the candidate actually answered.
+3. If 2 or more questions are skipped, verdict MUST be 'Partially Scored' (verdictEmoji: '⚖️').
+
 Return valid JSON with this shape:
 {
   "overallScore": 0-100,
   "summary": "3-4 sentence evaluation summary tied to candidate speech",
-  "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance",
-  "verdictEmoji": "🌟 or 👍 or 🤔 or 👎",
+  "verdict": "Strong Hire / Would Advance / Borderline / Would Not Advance / Partially Scored",
+  "verdictEmoji": "🌟 or 👍 or 🤔 or 👎 or ⚖️",
   "strengths": ["Strength 1", "Strength 2", "Strength 3"],
   "improvements": ["Improvement 1", "Improvement 2"],
   "recommendation": "One practical next recommendation",

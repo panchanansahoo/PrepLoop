@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { quotaGuard, DEGRADATION_MODES, DEFAULT_DAILY_TOKEN_BUDGET, MAX_USER_DAILY_INTERVIEWS, MAX_USER_DAILY_TURNS, MAX_IP_DAILY_TURNS, MAX_GUEST_DAILY_TURNS } from '../../services/quotaGuard.js';
 import { deferredJobQueue, JOB_STATUS } from '../../services/deferredJobQueue.js';
-import { buildTokenSavingHistory, callFastReply, callTurnScoring, ROUTER_MODELS } from '../../services/llmRouter.js';
+import { buildTokenSavingHistory, callFastReply, callTurnScoring, ROUTER_MODELS, decideNextTurnAction } from '../../services/llmRouter.js';
+import { normalizeInterviewReport } from '../../routes/company-interview/evaluation.js';
 import { EdgeTTS } from 'node-edge-tts';
 
 describe('Zero-Cost Architecture Verification Suite', () => {
@@ -229,6 +230,106 @@ describe('Zero-Cost Architecture Verification Suite', () => {
         lang: 'en-US',
       });
       expect(tts).toBeDefined();
+    });
+  });
+
+  describe('6. Turn-Routing Decision Rules (decideNextTurnAction)', () => {
+    it('handles wrong answers with neutral hint within follow-up cap of 1', () => {
+      const res0 = decideNextTurnAction({ answerType: 'wrong', topicFollowUpCount: 0 });
+      expect(res0.action).toBe('follow_up');
+      expect(res0.nextTopicFollowUpCount).toBe(1);
+      expect(res0.neutralReaction).toBe(true);
+
+      const res1 = decideNextTurnAction({ answerType: 'wrong', topicFollowUpCount: 1 });
+      expect(res1.action).toBe('next_question');
+      expect(res1.nextTopicFollowUpCount).toBe(0);
+      expect(res1.neutralReaction).toBe(true);
+    });
+
+    it('handles clarification answers with no scoring and no follow-up count change', () => {
+      const res = decideNextTurnAction({ answerType: 'clarification', topicFollowUpCount: 1 });
+      expect(res.action).toBe('clarification_response');
+      expect(res.nextTopicFollowUpCount).toBe(1);
+      expect(res.noScore).toBe(true);
+    });
+
+    it('handles stuck_silence with a hint then moves on', () => {
+      const res0 = decideNextTurnAction({ answerType: 'stuck_silence', topicFollowUpCount: 0 });
+      expect(res0.action).toBe('follow_up');
+      expect(res0.nextTopicFollowUpCount).toBe(1);
+
+      const res1 = decideNextTurnAction({ answerType: 'stuck_silence', topicFollowUpCount: 1 });
+      expect(res1.action).toBe('next_question');
+      expect(res1.nextTopicFollowUpCount).toBe(0);
+    });
+
+    it('caps strong_complete to 1 follow-up, or 0 if trade-offs are already covered', () => {
+      const resNoTradeoffs = decideNextTurnAction({ answerType: 'strong_complete', topicFollowUpCount: 0, tradeOffsCovered: false });
+      expect(resNoTradeoffs.action).toBe('follow_up');
+      expect(resNoTradeoffs.nextTopicFollowUpCount).toBe(1);
+
+      const resWithTradeoffs = decideNextTurnAction({ answerType: 'strong_complete', topicFollowUpCount: 0, tradeOffsCovered: true });
+      expect(resWithTradeoffs.action).toBe('next_question');
+      expect(resWithTradeoffs.nextTopicFollowUpCount).toBe(0);
+    });
+
+    it('allows partial answers up to two follow-ups', () => {
+      const res0 = decideNextTurnAction({ answerType: 'partial', topicFollowUpCount: 0 });
+      expect(res0.action).toBe('follow_up');
+      expect(res0.nextTopicFollowUpCount).toBe(1);
+
+      const res1 = decideNextTurnAction({ answerType: 'partial', topicFollowUpCount: 1 });
+      expect(res1.action).toBe('follow_up');
+      expect(res1.nextTopicFollowUpCount).toBe(2);
+
+      const res2 = decideNextTurnAction({ answerType: 'partial', topicFollowUpCount: 2 });
+      expect(res2.action).toBe('next_question');
+      expect(res2.nextTopicFollowUpCount).toBe(0);
+    });
+
+    it('handles skipped turns immediately without scoring', () => {
+      const res = decideNextTurnAction({ answerType: 'skipped' });
+      expect(res.action).toBe('next_question');
+      expect(res.noScore).toBe(true);
+    });
+  });
+
+  describe('7. Skipped and Unscored Turns in Evaluation Report', () => {
+    it('excludes skipped turns from denominator and labels session as partially scored when 2+ skips occur', () => {
+      const qaPairs = [
+        { question: 'Q1', answer: 'Solid answer on Redis cache with LRU eviction.', inlineScore: 85, strengths: ['Clear eviction policy'] },
+        { question: 'Q2', answer: 'Another good answer on DB indexing.', inlineScore: 80, strengths: ['Good index trade-offs'] },
+        { question: 'Q3', answer: '', status: 'skipped', isSkipped: true },
+        { question: 'Q4', answer: '', status: 'skipped', isSkipped: true },
+      ];
+
+      const report = normalizeInterviewReport({}, {
+        company: 'Google',
+        role: 'SWE',
+        stage: 'Technical',
+        qaPairs,
+        sessionScores: [85, 80, null, null],
+      });
+
+      // 1. Session status and verdict
+      expect(report.status).toBe('partially_scored');
+      expect(report.verdict).toBe('Partially Scored');
+      expect(report.verdictEmoji).toBe('⚖️');
+
+      // 2. Denominator excludes skipped turns (only Q1 & Q2 scored: (85+80)/2 = 83)
+      expect(report.overallScore).toBe(83);
+      expect(report.questionBreakdown[2].score).toBeNull();
+      expect(report.questionBreakdown[2].isSkipped).toBe(true);
+      expect(report.questionBreakdown[2].status).toBe('skipped');
+      expect(report.questionBreakdown[3].score).toBeNull();
+      expect(report.questionBreakdown[3].isSkipped).toBe(true);
+
+      // 3. Summary does NOT call candidate weak because of skips
+      expect(report.summary).toContain('2 of 4 questions');
+      expect(report.summary).toContain('partially scored based on answered questions only');
+      expect(report.summary).not.toContain('weak');
+      expect(report.summary).not.toContain('failed');
+      expect(report.recommendation).toContain('Practice answering full sets of questions');
     });
   });
 });

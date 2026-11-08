@@ -364,6 +364,10 @@ export function useInterviewSession(options = {}) {
   // Holds the latest voice answer text so sendAnswer can read it synchronously
   // even before React re-renders stateRefs.current.transcript.
   const pendingVoiceAnswerRef = useRef("");
+  const topicFollowUpCountRef = useRef(0);
+  const emptyTranscriptCountRef = useRef(0);
+  const handleEmptyTranscriptRef = useRef(null);
+  const limitChimePlayedRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -402,10 +406,13 @@ export function useInterviewSession(options = {}) {
   const turnsSinceLastBackchannelRef = useRef(3);
   const [isStillListening, setIsStillListening] = useState(false);
 
+  const isCodingRound = /dsa|coding|oa/i.test(STAGE_API_MAP[interviewType] || interviewType || "") || activeTab === "code";
+
   const voiceAI = useVoiceAI({
     pacingMode,
     stage: STAGE_API_MAP[interviewType] || "Technical",
     candidatePacingOffset,
+    isCodingRound,
     onResumeSpeech: useCallback((previousAnswer) => {
       console.log("[Interview] Speech resumed in 2s resume window! Aborting pending follow-up and stopping audio.");
       resumedTurnsCountRef.current += 1;
@@ -483,6 +490,7 @@ export function useInterviewSession(options = {}) {
       setConsecutiveSilentQuestions((prev) => (isSilentAnswer ? prev + 1 : 0));
 
       if (completeAnswer && !isSilentAnswer) {
+        emptyTranscriptCountRef.current = 0;
         setAnswerReview(false);
         if (sendAnswerRef.current) {
           sendAnswerRef.current(false, completeAnswer, meta);
@@ -493,7 +501,10 @@ export function useInterviewSession(options = {}) {
           sendAnswerRef.current(true, null, meta);
         }
       } else {
-        setAnswerReview(Boolean(completeAnswer));
+        // Failure handling: STT returned an empty transcript.
+        // Don't advance turn. Prompt user to repeat or type.
+        setAnswerReview(false);
+        handleEmptyTranscriptRef.current?.();
       }
     }, []),
     onTranscriptUpdate: useCallback((partial) => {
@@ -821,7 +832,7 @@ export function useInterviewSession(options = {}) {
         }, 150);
       }
 
-      // Snappy handoff: 350ms settles audio pipeline without awkward dead silence
+      // Snappy handoff: 300ms settles audio pipeline without echo
       setTimeout(() => {
         if (!isListeningRef.current && !isSendingRef.current && phaseRef.current === "interview" && !isPausedRef.current) {
           startVoiceRecording();
@@ -833,9 +844,37 @@ export function useInterviewSession(options = {}) {
             }
           }, 800);
         }
-      }, 350);
+      }, 300);
     }
   }, [setTranscript, startVoiceRecording, speakerMuted]);
+
+  const handleEmptyTranscript = useCallback(async () => {
+    if (phaseRef.current !== "interview" || isPausedRef.current) return;
+    emptyTranscriptCountRef.current += 1;
+    const count = emptyTranscriptCountRef.current;
+    if (count === 1) {
+      const promptText = "I didn't catch that, could you repeat?";
+      setInterviewerStatus(promptText);
+      await speakInterviewerText(promptText);
+      setInterviewerStatus("");
+      handoffToCandidate();
+    } else if (count === 2) {
+      const promptText = "I still couldn't catch that. Feel free to type your answer in the chat box if your microphone isn't working.";
+      setInterviewerStatus(promptText);
+      setChatOpen(true);
+      await speakInterviewerText(promptText);
+      setInterviewerStatus("");
+      handoffToCandidate();
+    } else {
+      // Empty-transcript loop ends with "Session paused, tap to resume"
+      emptyTranscriptCountRef.current = 0;
+      setIsPaused(true);
+      isPausedRef.current = true;
+      voiceHookRef.current?.stopVoiceRecording?.();
+      setInterviewerStatus("Session paused, tap to resume");
+    }
+  }, [speakInterviewerText, handoffToCandidate]);
+  handleEmptyTranscriptRef.current = handleEmptyTranscript;
 
   // Once speech is actively detected or transcribed, dismiss the 'Your turn' cue smoothly
   useEffect(() => {
@@ -1545,6 +1584,7 @@ export function useInterviewSession(options = {}) {
   useEffect(() => {
     setQuestionElapsed(0);
     countdownWarnedRef.current = false;
+    limitChimePlayedRef.current = false;
   }, [questionIndex]);
 
   useEffect(() => {
@@ -1563,11 +1603,16 @@ export function useInterviewSession(options = {}) {
       sendAnswerRef.current &&
       !isSendingRef.current
     ) {
-      // If candidate is actively speaking into mic, grant wrap-up grace period up to 25s
+      // Time limit: play a soft chime and let candidate finish their sentence before advancing
+      if (!limitChimePlayedRef.current) {
+        limitChimePlayedRef.current = true;
+        playWarningChime(speakerMuted);
+        setInterviewerStatus("Time limit reached — please wrap up your thought");
+      }
+      // If candidate is actively speaking into mic, grant wrap-up grace period to finish sentence
       const isSpeaking = voiceAI.inputActive || (voiceAI.inputLevel && voiceAI.inputLevel > 0.05);
-      const hardCeiling = limit + 25;
+      const hardCeiling = limit + 20;
       if (isSpeaking && questionElapsed < hardCeiling) {
-        setInterviewerStatus("Time is up — please wrap up your thought");
         return;
       }
       console.info(
@@ -1578,7 +1623,7 @@ export function useInterviewSession(options = {}) {
         clearTimeout(silenceStageTimerRef.current);
       sendAnswerRef.current(true);
     }
-  }, [questionElapsed, phase, isPaused, interviewType, questionIndex, voiceAI]);
+  }, [questionElapsed, phase, isPaused, interviewType, questionIndex, voiceAI, speakerMuted]);
 
   useEffect(() => {
     if (phase === "summary") generateAnalysis();
@@ -2242,6 +2287,7 @@ export function useInterviewSession(options = {}) {
           rawUserAnswer: fullAnswer,
           questionNumber: questionIndexRef.current + 1,
           totalQuestions,
+          topicFollowUpCount: topicFollowUpCountRef.current,
           company: resolvedCompany,
           role: resolvedRole,
           stage: resolvedStage,
@@ -2528,7 +2574,7 @@ export function useInterviewSession(options = {}) {
         };
         const reactionPool = feedbackScore >= 80 ? microReactions.high : feedbackScore >= 55 ? microReactions.mid : microReactions.low;
         const spokenMicroReaction = reactionPool[questionIndexRef.current % reactionPool.length];
-        const microToSpeak = data.microReaction || spokenMicroReaction;
+        const microToSpeak = meta?.stuckNotice || data.microReaction || spokenMicroReaction;
 
         if (!isInterviewOver) {
           // Concurrent prefetch: pipeline the next question in the background
@@ -2569,7 +2615,19 @@ export function useInterviewSession(options = {}) {
           await speakInterviewerText(earlyEndText);
           setTimeout(() => endInterview(), 1500);
         } else {
-          setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
+          const isNeutralTurn = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'off_topic';
+          if (isNeutralTurn) {
+            setInterviewerStatus("Noted");
+            const neutralReactions = [
+              "Understood, let's look at the next part.",
+              "Okay, let's move forward.",
+              "Alright, let's take a look at this next question.",
+              "Fair enough, let's continue."
+            ];
+            finalMicroToSpeak = neutralReactions[questionIndexRef.current % neutralReactions.length];
+          } else {
+            setInterviewerStatus(`${reaction.emoji} ${reaction.text}`);
+          }
           setLoading(false);
 
           // Pacing & Latency Budget (Item 1):
@@ -2594,18 +2652,19 @@ export function useInterviewSession(options = {}) {
           }
 
           // Opener variation guard (Part B Section 2: Vary openers, don't repeat within 3 turns)
-          const CANDIDATE_OPENERS = ['Okay,', 'Right,', 'Interesting,', 'Fair enough,', 'Got it,', 'Understood,'];
-          let finalMicroToSpeak = microToSpeak;
-          const currentOpener = CANDIDATE_OPENERS.find((op) => finalMicroToSpeak.toLowerCase().startsWith(op.slice(0, -1).toLowerCase()));
-          if (currentOpener && recentOpenersRef.current.includes(currentOpener.toLowerCase())) {
-            const available = CANDIDATE_OPENERS.filter((op) => !recentOpenersRef.current.includes(op.toLowerCase()));
-            const replacement = available[Math.floor(Math.random() * available.length)] || CANDIDATE_OPENERS[0];
-            finalMicroToSpeak = finalMicroToSpeak.replace(new RegExp(`^${currentOpener.slice(0, -1)}[,\\s]*`, 'i'), replacement + ' ');
-            recentOpenersRef.current.push(replacement.toLowerCase());
-          } else if (currentOpener) {
-            recentOpenersRef.current.push(currentOpener.toLowerCase());
+          if (!isNeutralTurn) {
+            const CANDIDATE_OPENERS = ['Okay,', 'Right,', 'Interesting,', 'Fair enough,', 'Got it,', 'Understood,'];
+            const currentOpener = CANDIDATE_OPENERS.find((op) => finalMicroToSpeak.toLowerCase().startsWith(op.slice(0, -1).toLowerCase()));
+            if (currentOpener && recentOpenersRef.current.includes(currentOpener.toLowerCase())) {
+              const available = CANDIDATE_OPENERS.filter((op) => !recentOpenersRef.current.includes(op.toLowerCase()));
+              const replacement = available[Math.floor(Math.random() * available.length)] || CANDIDATE_OPENERS[0];
+              finalMicroToSpeak = finalMicroToSpeak.replace(new RegExp(`^${currentOpener.slice(0, -1)}[,\\s]*`, 'i'), replacement + ' ');
+              recentOpenersRef.current.push(replacement.toLowerCase());
+            } else if (currentOpener) {
+              recentOpenersRef.current.push(currentOpener.toLowerCase());
+            }
+            if (recentOpenersRef.current.length > 3) recentOpenersRef.current.shift();
           }
-          if (recentOpenersRef.current.length > 3) recentOpenersRef.current.shift();
 
           // Soften delivery for hard moments (Part B Section 4)
           const isHardMoment = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'stuck_silence' || feedbackScore < 55;
@@ -2615,17 +2674,34 @@ export function useInterviewSession(options = {}) {
           const isBrowserVoice = voiceAI.pinnedTtsProvider === 'browser-speech';
           const voiceSource = isBrowserVoice ? 'browser' : (data?.modelUsed === 'orpheus' ? 'orpheus' : 'edge');
 
-          // Micro-reaction spoken BEFORE the next question with clause pause
+          // Rule 10: Exactly ONE reaction per turn.
+          // If a static backchannel clip fired this turn (turnsSinceLastBackchannelRef === 0),
+          // do NOT speak the micro-reaction line — speak ONLY the question.
+          const playedStaticClipThisTurn = turnsSinceLastBackchannelRef.current === 0;
+          const sequenceToSpeak = (!playedStaticClipThisTurn && finalMicroToSpeak)
+            ? [finalMicroToSpeak, continueQ]
+            : [continueQ];
+
           speakSequenceCancelledRef.current = false;
           await voiceAI.waitForBackchannel?.();
           if (speakSequenceCancelledRef.current) return;
-          await speakSequence([finalMicroToSpeak, continueQ], { pauseMs: interPhrasePauseMs });
+          await speakSequence(sequenceToSpeak, { pauseMs: interPhrasePauseMs });
           turnsSinceLastBackchannelRef.current += 1;
 
           // If speech was resumed during audio playback, DO NOT advance question counter or commit new question!
           if (speakSequenceCancelledRef.current) {
             console.log("[Interview] Audio playback cancelled by candidate speech resumption. Retaining current question and counter.");
             return;
+          }
+
+          if (
+            data?.nextAction === 'follow_up' ||
+            (topicFollowUpCountRef.current < 2 &&
+              (data?.answerType === 'partial' || data?.answerType === 'strong_complete'))
+          ) {
+            topicFollowUpCountRef.current += 1;
+          } else {
+            topicFollowUpCountRef.current = 0;
           }
 
           setCurrentQuestion(continueQ);
@@ -2751,6 +2827,11 @@ export function useInterviewSession(options = {}) {
 
   /* old stopSilenceHandling replaced below */
 
+  const lastActivityTimestampRef = useRef(Date.now());
+  useEffect(() => {
+    lastActivityTimestampRef.current = Date.now();
+  }, [code, userInput]);
+
   const hasRecentSpeech = useCallback(() => {
     const hasTranscript =
       stateRefs.current.transcript.trim().length > 0 ||
@@ -2758,7 +2839,9 @@ export function useInterviewSession(options = {}) {
       (voiceAI.transcript || "").trim().length > 0;
     // 5-second window: natural pauses between thoughts are 3-5 seconds
     const recentAudio = Date.now() - lastSpeechTimestampRef.current < 5000;
-    return hasTranscript || recentAudio;
+    // Typing or code edits don't count as silence (active within last 15s)
+    const recentActivity = Date.now() - lastActivityTimestampRef.current < 15000;
+    return hasTranscript || recentAudio || recentActivity;
   }, [voiceAI.interimText, voiceAI.transcript]);
 
   // Latest interview context for the hint endpoint. Kept in a ref so the
@@ -2852,15 +2935,18 @@ export function useInterviewSession(options = {}) {
     if (phase !== "interview" || aiSpeaking) return;
 
     const modeConfig = getModeConfig(pacingMode);
+    const isTechnicalStage = /tech|dsa|coding|system[-_\s]?design/i.test(interviewType || stageLabel || "");
+    const autoAdvanceMs = isTechnicalStage ? 60000 : modeConfig.autoAdvanceMs;
+    const nudgeMs = isTechnicalStage ? 30000 : modeConfig.nudgeMs;
 
-    // 1. Nudge timer
+    // 1. Nudge timer (hint offered before auto-advance)
     silenceNudgeTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || hasRecentSpeech()) return;
       setSilenceStage(1);
       setInterviewerStatus(getSilencePrompt(interviewType, 0));
       logInterviewTelemetry("nudge_shown", { questionIndex, mode: pacingMode });
       requestHint();
-    }, modeConfig.nudgeMs);
+    }, nudgeMs);
 
     // 2. Interactive check-in timer
     silenceCheckInTimerRef.current = setTimeout(() => {
@@ -2868,19 +2954,29 @@ export function useInterviewSession(options = {}) {
       setSilenceStage(2);
       setCheckInActive(true);
       logInterviewTelemetry("checkin_shown", { questionIndex, mode: pacingMode });
-    }, modeConfig.checkInMs);
+    }, Math.min(nudgeMs + 15000, autoAdvanceMs - 10000));
 
-    // 3. Graceful auto-advance timer
+    // 3. Graceful auto-advance timer (~60s for technical after hint)
     silenceAutoAdvanceTimerRef.current = setTimeout(() => {
       if (!isListeningRef.current || isSendingRef.current) return;
+      if (hasRecentSpeech()) {
+        // Active typing, coding, or speech detected — reschedule
+        startSilenceHandling();
+        return;
+      }
       const currentText = (stateRefs.current.transcript || "").trim();
       logInterviewTelemetry("silence_timeout", { questionIndex, mode: pacingMode, hasPartial: Boolean(currentText) });
       if (currentText.length >= 2) {
-        sendAnswerRef.current?.(false, currentText, { submissionType: "timeout_partial", reason: "silence_timeout" });
+        sendAnswerRef.current?.(false, currentText, { submissionType: "timeout_partial", answerType: "partial", reason: "silence_timeout" });
       } else {
-        sendAnswerRef.current?.(true, null, { submissionType: "timeout_empty", reason: "silence_timeout" });
+        sendAnswerRef.current?.(true, null, {
+          submissionType: "timeout_empty",
+          answerType: "stuck_silence",
+          reason: "silence_timeout",
+          stuckNotice: "Let's move on.",
+        });
       }
-    }, modeConfig.autoAdvanceMs);
+    }, autoAdvanceMs);
 
     // 4. Soft wrap-up warning timer (at 150s of answering)
     wrapUpTimerRef.current = setTimeout(() => {
@@ -2918,7 +3014,11 @@ export function useInterviewSession(options = {}) {
       if (currentText.length >= 2) {
         sendAnswerRef.current?.(false, currentText, { submissionType: "timeout_partial", reason: "silence_timeout" });
       } else {
-        sendAnswerRef.current?.(true, null, { submissionType: "timeout_empty", reason: "silence_timeout" });
+        sendAnswerRef.current?.(true, null, {
+          submissionType: "timeout_empty",
+          reason: "silence_timeout",
+          stuckNotice: "Let's move on.",
+        });
       }
     }, modeConfig.needAMomentMs + 10000);
 
@@ -2946,7 +3046,12 @@ export function useInterviewSession(options = {}) {
   const skipCurrentQuestion = useCallback(() => {
     logInterviewTelemetry("user_skip", { questionIndex });
     stopSilenceHandling();
-    sendAnswerRef.current?.(true, null, { submissionType: "voluntary_skip", reason: "user_skipped" });
+    sendAnswerRef.current?.(true, null, {
+      submissionType: "voluntary_skip",
+      answerType: "skipped",
+      reason: "user_skipped",
+      noScore: true,
+    });
   }, [questionIndex, stopSilenceHandling]);
 
   const handleDoneAnswering = useCallback(() => {

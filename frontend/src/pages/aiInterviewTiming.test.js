@@ -10,6 +10,8 @@ import {
     getQuestionTimeLimit,
     getSilencePrompt,
     QUESTION_TIME_LIMITS,
+    decideNextTurnAction,
+    PACING_MODES,
 } from './aiInterviewTiming';
 
 describe('aiInterviewTiming', () => {
@@ -241,6 +243,112 @@ describe('aiInterviewTiming', () => {
             });
             expect(clamped).toBe(3600);
             expect(clamped).toBeLessThanOrEqual(3600);
+        });
+    });
+
+    describe('Turn Routing Decision Engine (Follow-up vs Next Question)', () => {
+        it('asks follow-up if topic follow-ups are under 2 and answer type is partial', () => {
+            const decision0 = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'partial' });
+            expect(decision0.action).toBe('follow_up');
+            expect(decision0.nextTopicFollowUpCount).toBe(1);
+
+            const decision1 = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'partial' });
+            expect(decision1.action).toBe('follow_up');
+            expect(decision1.nextTopicFollowUpCount).toBe(2);
+        });
+
+        it('asks follow-up only on the first strong_complete (cap = 1)', () => {
+            const decision0 = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'strong_complete' });
+            expect(decision0.action).toBe('follow_up');
+            expect(decision0.nextTopicFollowUpCount).toBe(1);
+
+            const decision1 = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'strong_complete' });
+            expect(decision1.action).toBe('next_question');
+            expect(decision1.nextTopicFollowUpCount).toBe(0);
+        });
+
+        it('moves to next planned question when 2 follow-ups on the topic have already occurred (partial)', () => {
+            const decision = decideNextTurnAction({ topicFollowUpCount: 2, answerType: 'partial' });
+            expect(decision.action).toBe('next_question');
+            expect(decision.nextTopicFollowUpCount).toBe(0);
+        });
+
+        it('moves on after one gentle redirect for dont_know', () => {
+            const decision = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'dont_know' });
+            expect(decision.action).toBe('next_question');
+            expect(decision.nextTopicFollowUpCount).toBe(0);
+            expect(decision.needsRedirect).toBe(true);
+        });
+
+        it('moves on after one gentle redirect for off_topic', () => {
+            const decision = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'off_topic' });
+            expect(decision.action).toBe('next_question');
+            expect(decision.nextTopicFollowUpCount).toBe(0);
+            expect(decision.needsRedirect).toBe(true);
+        });
+
+        it('triggers closing and report on the last question with complete: true', () => {
+            const decision = decideNextTurnAction({
+                topicFollowUpCount: 0,
+                answerType: 'strong_complete',
+                isLastQuestion: true,
+            });
+            expect(decision.action).toBe('complete');
+            expect(decision.nextTopicFollowUpCount).toBe(0);
+        });
+
+        it('wrong: gives one neutral-hint follow-up then moves on', () => {
+            const first = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'wrong' });
+            expect(first.action).toBe('follow_up');
+            expect(first.nextTopicFollowUpCount).toBe(1);
+            expect(first.neutralReaction).toBe(true);
+
+            const second = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'wrong' });
+            expect(second.action).toBe('next_question');
+            expect(second.neutralReaction).toBe(true);
+        });
+
+        it('clarification: returns clarification_response, noScore, does not increment counter', () => {
+            const result = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'clarification' });
+            expect(result.action).toBe('clarification_response');
+            expect(result.noScore).toBe(true);
+            expect(result.nextTopicFollowUpCount).toBe(1); // unchanged
+        });
+
+        it('stuck_silence: gives one hint follow-up then moves on', () => {
+            const hint = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'stuck_silence' });
+            expect(hint.action).toBe('follow_up');
+            expect(hint.nextTopicFollowUpCount).toBe(1);
+
+            const advance = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'stuck_silence' });
+            expect(advance.action).toBe('next_question');
+        });
+
+        it('skipped: advances immediately, marks noScore', () => {
+            const result = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'skipped' });
+            expect(result.action).toBe('next_question');
+            expect(result.noScore).toBe(true);
+            expect(result.nextTopicFollowUpCount).toBe(0);
+        });
+
+        it('strong_complete: at most 1 follow-up, 0 when tradeOffsCovered', () => {
+            const first = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'strong_complete' });
+            expect(first.action).toBe('follow_up');
+            expect(first.nextTopicFollowUpCount).toBe(1);
+
+            const done = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'strong_complete' });
+            expect(done.action).toBe('next_question');
+
+            const covered = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'strong_complete', tradeOffsCovered: true });
+            expect(covered.action).toBe('next_question');
+            expect(covered.nextTopicFollowUpCount).toBe(0);
+        });
+    });
+
+    describe('Pacing Modes Configuration', () => {
+        it('configures realistic mode with ~20s nudge hint and ~45s auto-advance', () => {
+            expect(PACING_MODES.realistic.nudgeMs).toBe(20000);
+            expect(PACING_MODES.realistic.autoAdvanceMs).toBe(45000);
         });
     });
 });

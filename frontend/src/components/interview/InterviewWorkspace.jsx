@@ -70,8 +70,11 @@ function InterviewWorkspace({
     // Keyboard shortcuts for candidates (Space = Done, R = Repeat, N = More time, Esc = Skip)
     useEffect(() => {
         const handleKeyDown = (e) => {
-            const tag = e.target?.tagName?.toLowerCase();
-            if (tag === 'input' || tag === 'textarea' || e.target?.isContentEditable || e.target?.closest?.('.monaco-editor')) {
+            // Disable hotkeys when focus is inside a text input, textarea, or code editor
+            const tag = (e.target?.tagName || '').toLowerCase();
+            const role = e.target?.getAttribute?.('role') || '';
+            const isEditable = e.target?.isContentEditable;
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || isEditable || role === 'textbox' || role === 'code' || e.target?.closest?.('.monaco-editor')) {
                 return;
             }
 

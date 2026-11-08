@@ -273,9 +273,9 @@ export const PACING_MODES = {
         label: 'Realistic (Timed)',
         badge: 'Interview Mode',
         description: 'Standard interview pacing closer to real-time company interview conditions.',
-        nudgeMs: 12_000,
-        checkInMs: 25_000,
-        autoAdvanceMs: 40_000,
+        nudgeMs: 20_000,          // ~20s real silence -> offer hint
+        checkInMs: 32_000,
+        autoAdvanceMs: 45_000,     // ~45s real silence -> "Let's move on" and advance
         postSpeechSubmitMs: 3_500,
         fillerExtensionMs: 20_000,
         needAMomentMs: 30_000,
@@ -287,6 +287,159 @@ export const PACING_MODES = {
 
 export function getModeConfig(mode = 'realistic') {
     return PACING_MODES[mode] || PACING_MODES.realistic;
+}
+
+// ── Turn Routing Decision Engine ───────────────────────────────────
+// Decides whether to ask a follow-up vs move to the next planned question.
+//
+// Follow-up caps per answerType:
+//   strong_complete   → 1 follow-up (0 if tradeOffsCovered=true)
+//   partial           → up to 2 follow-ups
+//   wrong             → 1 neutral-hint follow-up
+//   stuck_silence     → 1 hint follow-up, then next_question
+//   clarification     → clarification_response (not scored, no follow-up count)
+//   dont_know         → next_question after gentle redirect (no score change)
+//   off_topic         → next_question after gentle redirect
+//   skipped           → next_question, not scored
+//   isLastQuestion    → complete
+export function decideNextTurnAction({
+    topicFollowUpCount = 0,
+    answerType = 'partial',
+    isLastQuestion = false,
+    tradeOffsCovered = false,
+} = {}) {
+    if (isLastQuestion) {
+        return {
+            action: 'complete',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: false,
+        };
+    }
+
+    // Skipped turns: advance immediately, do not score
+    if (answerType === 'skipped') {
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: true,
+            neutralReaction: false,
+        };
+    }
+
+    // Clarification: answer or repeat question, never scored, never counts as follow-up
+    if (answerType === 'clarification') {
+        return {
+            action: 'clarification_response',
+            nextTopicFollowUpCount: topicFollowUpCount, // unchanged
+            needsRedirect: false,
+            noScore: true,
+            neutralReaction: false,
+        };
+    }
+
+    // dont_know and off_topic: gentle redirect then move on; reaction must be neutral
+    if (answerType === 'dont_know' || answerType === 'off_topic') {
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: true,
+            noScore: false,
+            neutralReaction: true,
+        };
+    }
+
+    // wrong: neutral hint, one follow-up within cap (cap = 1)
+    if (answerType === 'wrong') {
+        if (topicFollowUpCount < 1) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: false,
+                noScore: false,
+                neutralReaction: true, // reaction must be neutral for wrong answers
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: true,
+        };
+    }
+
+    // stuck_silence: one hint follow-up, then move on
+    if (answerType === 'stuck_silence') {
+        if (topicFollowUpCount < 1) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: false,
+                noScore: false,
+                neutralReaction: false,
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: false,
+        };
+    }
+
+    // strong_complete: at most 1 follow-up; skip entirely if trade-offs already covered
+    if (answerType === 'strong_complete') {
+        const cap = tradeOffsCovered ? 0 : 1;
+        if (topicFollowUpCount < cap) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: false,
+                noScore: false,
+                neutralReaction: false,
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: false,
+        };
+    }
+
+    // partial: up to 2 follow-ups
+    if (answerType === 'partial') {
+        if (topicFollowUpCount < 2) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: false,
+                noScore: false,
+                neutralReaction: false,
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: false,
+        };
+    }
+
+    // Fallback: unrecognized answerType → move to next question
+    return {
+        action: 'next_question',
+        nextTopicFollowUpCount: 0,
+        needsRedirect: false,
+        noScore: false,
+        neutralReaction: false,
+    };
 }
 
 // ── Terminal Filler Phrase Engine ──────────────────────────────────
