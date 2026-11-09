@@ -23,18 +23,31 @@ const BULLET_START_REGEX = /^[•\-*▪▸►–\u2022\u2023\u25E6\u2043\u2219]\
 /**
  * Splits plain resume text into identified section text blocks
  */
-export function splitIntoSections(rawText) {
+export function splitIntoSections(rawText, customMappings = {}) {
   const lines = String(rawText || '').split('\n').map(l => l.trim());
   const sections = {};
   let currentSection = 'header';
   sections[currentSection] = [];
+
+  const normalizedCustom = {};
+  if (customMappings && typeof customMappings === 'object') {
+    for (const [k, v] of Object.entries(customMappings)) {
+      if (k && v) {
+        normalizedCustom[k.trim().toLowerCase()] = String(v).toLowerCase();
+      }
+    }
+  }
 
   for (const line of lines) {
     if (!line) continue;
 
     // Check if line is a section heading
     let matchedKey = null;
-    if (line.length < 40 && !line.includes('.') && !BULLET_START_REGEX.test(line)) {
+    const cleanLine = line.replace(/[:\-#_]/g, '').trim().toLowerCase();
+
+    if (normalizedCustom[cleanLine]) {
+      matchedKey = normalizedCustom[cleanLine];
+    } else if (line.length < 40 && !line.includes('.') && !BULLET_START_REGEX.test(line)) {
       for (const h of SECTION_HEADERS) {
         if (h.regex.test(line.replace(/[:\-#_]/g, '').trim())) {
           matchedKey = h.key;
@@ -271,8 +284,8 @@ export function calculateParseConfidence(sections, parsed) {
 /**
  * Main Heuristic Section Splitter Entrypoint
  */
-export function parseResumeHeuristic(rawText) {
-  const sections = splitIntoSections(rawText);
+export function parseResumeHeuristic(rawText, customMappings = {}) {
+  const sections = splitIntoSections(rawText, customMappings);
 
   const experience = parseExperienceLines(sections.experience || []);
   const education = parseEducationLines(sections.education || []);
@@ -302,11 +315,34 @@ export function parseResumeHeuristic(rawText) {
 
   const confidence = calculateParseConfidence(sections, parsedJson);
 
+  // Identify candidate unrecognized headings for interactive 0-token user mapping
+  const candidateHeadings = [];
+  const lines = String(rawText || '').split('\n').map(l => l.trim());
+  const cleanCustom = Object.keys(customMappings || {}).map(k => k.trim().toLowerCase());
+
+  for (const line of lines) {
+    if (!line || line.length > 40 || line.length < 3) continue;
+    if (BULLET_START_REGEX.test(line) || DATE_RANGE_REGEX.test(line) || line.includes('@') || line.includes('|')) continue;
+
+    const clean = line.replace(/[:\-#_]/g, '').trim();
+    const isStandard = SECTION_HEADERS.some(h => h.regex.test(clean));
+    const isCustom = cleanCustom.includes(clean.toLowerCase());
+
+    if (!isStandard && !isCustom && !/[.!?]$/.test(clean)) {
+      if (clean === clean.toUpperCase() || /^[A-Z][A-Za-z0-9\s&/'-]+$/.test(clean)) {
+        if (!candidateHeadings.includes(clean) && candidateHeadings.length < 8) {
+          candidateHeadings.push(clean);
+        }
+      }
+    }
+  }
+
   return {
     success: confidence >= 0.80,
     confidence: Math.round(confidence * 100) / 100,
     data: parsedJson,
-    sectionsDetected: Object.keys(sections).filter(k => k !== 'header'),
+    sectionsDetected: Object.keys(sections).filter(k => k !== 'header' && sections[k]?.length > 0),
+    unrecognizedHeadings: candidateHeadings,
     tokensUsed: 0,
     source: confidence >= 0.80 ? 'heuristic' : 'llm_fallback_needed',
   };

@@ -6,7 +6,7 @@ import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { downloadResumeDocx } from '../utils/docxExport';
-import { Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2, Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic, Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers, Plus, Minus } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2, Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic, Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers, Sliders, Plus, Minus } from 'lucide-react';
 
 // ── Animated circular gauge ──
 /* eslint-disable-next-line no-unused-vars */
@@ -123,6 +123,10 @@ export default function ResumeAnalyzer() {
   const [activeTab, setActiveTab] = useState('overview');
   const [mode, setMode] = useState('landing'); // 'landing' | 'enhance' | 'create' | 'preview'
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+  const [manualHeading, setManualHeading] = useState('');
+  const [manualTarget, setManualTarget] = useState('experience');
+  const [manualSuccessMsg, setManualSuccessMsg] = useState('');
+  const [customSectionMappings, setCustomSectionMappings] = useState({});
   const [generating, setGenerating] = useState(false);
   const [generatedResume, setGeneratedResume] = useState(null);
   const [createFormData, setCreateFormData] = useState({
@@ -200,7 +204,7 @@ export default function ResumeAnalyzer() {
     }, 50);
   };
 
-  const handleScanSections = async () => {
+  const handleScanSections = async (overrideMappings = null) => {
     if (!resumeText && !fileName) {
       setError('Please paste your resume text or upload a file.');
       return;
@@ -209,12 +213,17 @@ export default function ResumeAnalyzer() {
     setError('');
     setScannedPdfWarning(null);
 
+    const activeMappings = overrideMappings !== null ? overrideMappings : customSectionMappings;
+
     try {
       let res;
       if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
         const formData = new FormData();
         formData.append('resume', fileInputRef.current._file);
         if (jobDescription) formData.append('jobDescription', jobDescription);
+        if (activeMappings && Object.keys(activeMappings).length > 0) {
+          formData.append('customSectionMappings', JSON.stringify(activeMappings));
+        }
         const headers = buildAuthHeaders(user);
         delete headers['Content-Type'];
         res = await fetch(buildResumeApiUrl('/api/resume/parse-sections'), {
@@ -225,7 +234,11 @@ export default function ResumeAnalyzer() {
       } else {
         res = await authFetch(buildResumeApiUrl('/api/resume/parse-sections'), {
           method: 'POST',
-          body: JSON.stringify({ resumeText, jobDescription }),
+          body: JSON.stringify({
+            resumeText,
+            jobDescription,
+            customSectionMappings: activeMappings,
+          }),
         });
       }
 
@@ -246,6 +259,30 @@ export default function ResumeAnalyzer() {
     } finally {
       setParsingSections(false);
     }
+  };
+
+  const handleManualMapSection = async (headingOverride = null, targetOverride = null) => {
+    const heading = (headingOverride || manualHeading || '').trim();
+    const target = (targetOverride || manualTarget || 'experience').trim().toLowerCase();
+    if (!heading) return;
+
+    const nextMappings = {
+      ...customSectionMappings,
+      [heading]: target,
+    };
+    setCustomSectionMappings(nextMappings);
+    setManualHeading('');
+    setManualSuccessMsg(`Mapped "${heading}" to ${target.toUpperCase()} (0 Tokens). Sections re-parsed!`);
+    setTimeout(() => setManualSuccessMsg(''), 4000);
+    await handleScanSections(nextMappings);
+  };
+
+  const handleResetManualMappings = async () => {
+    setCustomSectionMappings({});
+    setManualHeading('');
+    setManualSuccessMsg('Section mappings reset to default heuristics.');
+    setTimeout(() => setManualSuccessMsg(''), 4000);
+    await handleScanSections({});
   };
 
   const handleDrop = useCallback((e) => {
@@ -277,6 +314,9 @@ export default function ResumeAnalyzer() {
         const formData = new FormData();
         formData.append('resume', fileInputRef.current._file);
         if (jobDescription) formData.append('jobDescription', jobDescription);
+        if (customSectionMappings && Object.keys(customSectionMappings).length > 0) {
+          formData.append('customSectionMappings', JSON.stringify(customSectionMappings));
+        }
         const headers = buildAuthHeaders(user);
         delete headers['Content-Type'];
         res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
@@ -287,7 +327,11 @@ export default function ResumeAnalyzer() {
       } else {
         res = await authFetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
-          body: JSON.stringify({ resumeText, jobDescription }),
+          body: JSON.stringify({
+            resumeText,
+            jobDescription,
+            customSectionMappings,
+          }),
         });
       }
 
@@ -319,9 +363,35 @@ export default function ResumeAnalyzer() {
           : [])
       : (result?.analysis?.keywordMatch?.technical || []);
 
+    const companyNames = [
+      ...(Array.isArray(activeResumeJson?.experience) ? activeResumeJson.experience.map(e => e.company) : []),
+      ...(Array.isArray(activeProfile?.companies) ? activeProfile.companies : [])
+    ].filter(Boolean);
+
+    const schoolNames = [
+      ...(Array.isArray(activeResumeJson?.education) ? activeResumeJson.education.map(e => e.institution || e.school) : []),
+      ...(Array.isArray(activeProfile?.institutions) ? activeProfile.institutions : [])
+    ].filter(Boolean);
+
+    const sanitizeProjectOneLiner = (str) => {
+      if (!str || typeof str !== 'string') return '';
+      let s = str
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+        .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '')
+        .replace(/https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.(?:com|org|edu|io|net|dev|me|app)\b/gi, '');
+
+      for (const ent of [...companyNames, ...schoolNames]) {
+        if (ent && typeof ent === 'string' && ent.trim().length > 2) {
+          s = s.replace(new RegExp(`\\b${ent.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '');
+        }
+      }
+      return s.replace(/\s{2,}/g, ' ').trim();
+    };
+
     const projects = (activeResumeJson?.projects?.map(p => p.name || p.title) || activeProfile?.projectHighlights || [])
       .filter(Boolean)
-      .map(p => String(p).trim().slice(0, 80));
+      .map(p => sanitizeProjectOneLiner(String(p)).slice(0, 80))
+      .filter(p => p.length > 3);
 
     // Strip candidate personal names to strictly eliminate PII leakage before handoff
     let roleHeadline = activeProfile?.candidateHeadline || activeResumeJson?.experience?.[0]?.title || 'Software Engineering Candidate';
@@ -335,6 +405,8 @@ export default function ResumeAnalyzer() {
       candidateHeadline: roleHeadline.slice(0, 60),
       coreSkills: (activeProfile?.coreSkills?.length ? activeProfile.coreSkills : extractedSkills).slice(0, 6),
       projectHighlights: projects.slice(0, 3),
+      companies: companyNames.slice(0, 5),
+      institutions: schoolNames.slice(0, 5),
       likelyQuestionAreas: focusSkills
         ? focusSkills.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3)
         : (activeProfile?.likelyQuestionAreas || extractedSkills).slice(0, 3),
@@ -1209,6 +1281,136 @@ export default function ResumeAnalyzer() {
                     <div>Certifications / Licenses: <strong>{parsedData.resumeJson?.certifications?.length || 0}</strong></div>
                   </div>
                 </div>
+              </div>
+
+              {/* Manual Section Mapping Fallback (0 Tokens) */}
+              <div style={{
+                padding: '18px 20px', borderRadius: 14,
+                background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                display: 'flex', flexDirection: 'column', gap: 12,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Sliders size={16} color="#a78bfa" />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                      Map Unrecognized Section Heading (0 LLM Tokens)
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Free manual override · Instant local regex re-parsing
+                  </span>
+                </div>
+
+                {/* Detected Unrecognized Headings Pills */}
+                {parsedData.unrecognizedHeadings?.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)' }}>
+                      Tap an unrecognized heading detected in your resume to map it:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {parsedData.unrecognizedHeadings.map((hd, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setManualHeading(hd);
+                            setManualTarget('experience');
+                          }}
+                          style={{
+                            fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 8,
+                            background: manualHeading === hd ? 'rgba(167,139,250,0.25)' : 'rgba(255,255,255,0.05)',
+                            color: manualHeading === hd ? '#c084fc' : 'var(--text-secondary)',
+                            border: manualHeading === hd ? '1px solid #a855f7' : '1px solid var(--border)',
+                            cursor: 'pointer', transition: 'all 0.15s ease',
+                          }}
+                        >
+                          + {hd}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mapping Inputs */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder='e.g., "WHAT I&apos;VE DONE" or custom title'
+                    value={manualHeading}
+                    onChange={(e) => setManualHeading(e.target.value)}
+                    style={{
+                      flex: '1 1 200px', padding: '9px 12px', background: 'var(--bg-card)',
+                      border: '1px solid var(--border-light)', borderRadius: 8,
+                      color: 'var(--text-primary)', fontSize: 12, outline: 'none',
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>maps to</span>
+                  <select
+                    value={manualTarget}
+                    onChange={(e) => setManualTarget(e.target.value)}
+                    style={{
+                      padding: '9px 12px', background: 'var(--bg-card)',
+                      border: '1px solid var(--border-light)', borderRadius: 8,
+                      color: 'var(--text-primary)', fontSize: 12, outline: 'none', cursor: 'pointer',
+                    }}
+                  >
+                    <option value="experience">Experience (Work History)</option>
+                    <option value="skills">Skills &amp; Technologies</option>
+                    <option value="education">Education</option>
+                    <option value="projects">Projects</option>
+                    <option value="summary">Summary / Objective</option>
+                    <option value="certifications">Certifications</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => handleManualMapSection()}
+                    disabled={!manualHeading.trim() || parsingSections}
+                    style={{
+                      padding: '9px 16px', borderRadius: 8, border: 'none',
+                      background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
+                      color: '#fff', fontSize: 12, fontWeight: 700,
+                      cursor: manualHeading.trim() && !parsingSections ? 'pointer' : 'not-allowed',
+                      opacity: manualHeading.trim() && !parsingSections ? 1 : 0.5,
+                    }}
+                  >
+                    {parsingSections ? 'Re-parsing...' : 'Map Heading (0 Tokens)'}
+                  </button>
+
+                  {Object.keys(customSectionMappings).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleResetManualMappings}
+                      style={{
+                        padding: '9px 12px', borderRadius: 8, background: 'transparent',
+                        border: '1px solid var(--border)', color: 'var(--text-muted)',
+                        fontSize: 12, cursor: 'pointer',
+                      }}
+                    >
+                      Reset Mappings
+                    </button>
+                  )}
+                </div>
+
+                {/* Active mappings feedback */}
+                {manualSuccessMsg && (
+                  <div style={{ fontSize: 11, color: '#6ee7b7', fontWeight: 600 }}>
+                    ✓ {manualSuccessMsg}
+                  </div>
+                )}
+
+                {Object.keys(customSectionMappings).length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-muted)' }}>
+                    <span>Active custom mappings:</span>
+                    {Object.entries(customSectionMappings).map(([k, v]) => (
+                      <span key={k} style={{
+                        padding: '2px 8px', borderRadius: 6, background: 'rgba(110,231,183,0.1)',
+                        color: '#6ee7b7', border: '1px solid rgba(110,231,183,0.2)',
+                      }}>
+                        &quot;{k}&quot; &rarr; {v}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Optional Job Description Input */}

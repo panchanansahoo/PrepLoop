@@ -341,11 +341,23 @@ router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploade
       });
     }
 
+    // Extract optional user-defined custom section mappings (0-token manual correction)
+    let customMappings = {};
+    if (req.body.customSectionMappings) {
+      try {
+        customMappings = typeof req.body.customSectionMappings === 'string'
+          ? JSON.parse(req.body.customSectionMappings)
+          : req.body.customSectionMappings;
+      } catch {
+        customMappings = {};
+      }
+    }
+
     // Server-side best-effort PII redaction before any external processing
     const { redactedText, piiMap } = redactResumeText(resumeText);
 
     // Heuristic section splitting (0-token path)
-    const heuristicParse = parseResumeHeuristic(redactedText);
+    const heuristicParse = parseResumeHeuristic(redactedText, customMappings);
     const canonicalResumeJson = rehydrateResumeJson(heuristicParse.data, piiMap);
 
     // Layer 1 deterministic checks (free, instant, 0 LLM tokens)
@@ -1062,11 +1074,23 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
       });
     }
 
+    // Extract optional user-defined custom section mappings (0-token manual correction)
+    let customMappings = {};
+    if (req.body.customSectionMappings) {
+      try {
+        customMappings = typeof req.body.customSectionMappings === 'string'
+          ? JSON.parse(req.body.customSectionMappings)
+          : req.body.customSectionMappings;
+      } catch {
+        customMappings = {};
+      }
+    }
+
     // Server-side PII redaction
     const { redactedText, piiMap } = redactResumeText(rawText);
 
     // Heuristic section splitting
-    const heuristicParse = parseResumeHeuristic(redactedText);
+    const heuristicParse = parseResumeHeuristic(redactedText, customMappings);
     const canonicalJson = rehydrateResumeJson(heuristicParse.data, piiMap);
 
     // Layer 1 deterministic checks
@@ -1088,6 +1112,8 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
       confidence: heuristicParse.confidence,
       source: heuristicParse.source,
       sectionsDetected: heuristicParse.sectionsDetected,
+      unrecognizedHeadings: heuristicParse.unrecognizedHeadings || [],
+      customSectionMappings: customMappings,
       resumeJson: canonicalJson,
       deterministic,
       pageCount: pageCount || 1,

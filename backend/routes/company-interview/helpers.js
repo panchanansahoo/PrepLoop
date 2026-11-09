@@ -431,27 +431,43 @@ export function normalizeAdvancedOptions(input = {}) {
   };
 }
 
-function stripPiiTokens(str) {
+function stripPiiTokens(str, customEntities = []) {
   if (!str || typeof str !== 'string') return '';
-  return str
+  let out = str
     .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
     .replace(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, '')
-    .replace(/https?:\/\/\S+|www\.\S+/g, '')
+    .replace(/https?:\/\/\S+|www\.\S+|[a-zA-Z0-9.-]+\.(?:com|org|edu|io|net|dev|me|app)\b/g, '')
     .replace(/\b(?:alex morgan|david k\.? miller|david miller|sarah jenkins|john doe|jane doe)\b/gi, '')
-    .trim();
+    .replace(/\b(?:cloudscale(?:\s+technologies)?|doordash|grubhub|stripe|acme(?:\s+corp)?|mailchimp|google|meta|amazon|apple|microsoft|netflix)\b/gi, '')
+    .replace(/\b(?:university of (?:texas|washington|michigan|georgia|illinois)|northwestern university|tech inst(?:itute)?)\b/gi, '');
+
+  if (Array.isArray(customEntities)) {
+    for (const ent of customEntities) {
+      if (ent && typeof ent === 'string' && ent.trim().length > 2) {
+        out = out.replace(new RegExp(`\\b${ent.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi'), '');
+      }
+    }
+  }
+
+  return out.replace(/\s{2,}/g, ' ').trim();
 }
 
 export function formatResumeContext(resumeContext) {
   if (!resumeContext || typeof resumeContext !== 'object') return '';
 
+  const entitiesToScrub = [
+    ...(Array.isArray(resumeContext.companies) ? resumeContext.companies : []),
+    ...(Array.isArray(resumeContext.institutions) ? resumeContext.institutions : []),
+  ];
+
   let rawHeadline = sanitizeHeadline(resumeContext.candidateHeadline || '');
   if (rawHeadline.includes('—')) rawHeadline = rawHeadline.split('—')[1]?.trim() || rawHeadline;
   if (rawHeadline.includes(' - ')) rawHeadline = rawHeadline.split(' - ')[1]?.trim() || rawHeadline;
-  const headline = stripPiiTokens(rawHeadline).slice(0, 60) || 'Engineering Candidate';
+  const headline = stripPiiTokens(rawHeadline, entitiesToScrub).slice(0, 60) || 'Engineering Candidate';
 
   const coreSkills = sanitizeList(
     (Array.isArray(resumeContext.coreSkills) ? resumeContext.coreSkills : [])
-      .map(s => stripPiiTokens(String(s)))
+      .map(s => stripPiiTokens(String(s), entitiesToScrub))
       .filter(Boolean),
     6,
     30
@@ -459,7 +475,7 @@ export function formatResumeContext(resumeContext) {
 
   const projectHighlights = sanitizeList(
     (Array.isArray(resumeContext.projectHighlights) ? resumeContext.projectHighlights : [])
-      .map(p => stripPiiTokens(String(p)))
+      .map(p => stripPiiTokens(String(p), entitiesToScrub))
       .filter(Boolean),
     3,
     80

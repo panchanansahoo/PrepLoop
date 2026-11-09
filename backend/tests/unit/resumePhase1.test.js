@@ -245,37 +245,47 @@ Tools: Docker, Git, AWS, Redis`;
   });
 
   describe('6. Resume-to-Interview Handoff Privacy & Grounding', () => {
-    it('asserts interview persona prompt contains no email, phone, personal name, or raw text', () => {
+    it('asserts interview persona prompt contains no email, phone, personal name, company names, school names, URLs, or raw text', () => {
       const sensitiveResumeContext = {
-        candidateHeadline: 'Sarah Jenkins — Senior Cloud Engineer',
+        candidateHeadline: 'Sarah Jenkins — Senior Cloud Engineer at CloudScale Technologies',
         email: 'sarah.jenkins@example.com',
         phone: '+1 (312) 555-0199',
         linkedin: 'https://linkedin.com/in/sarahjenkins',
+        companies: ['CloudScale Technologies', 'DoorDash'],
+        institutions: ['University of Texas', 'Northwestern University'],
         coreSkills: ['Kubernetes', 'Go', 'AWS', 'sarah.jenkins@example.com'],
         projectHighlights: [
-          'Enterprise Payment Gateway: Handled $10M transactions at sarah.jenkins@example.com / (312) 555-0199',
-          'Distributed Telemetry Collector: Built OpenTelemetry exporter in Go'
+          'Enterprise Payment Gateway at CloudScale Technologies: Handled $10M transactions at https://github.com/sarah/telemetry',
+          'Alumni Portal for University of Texas: Built full-stack system at sarahjenkins.dev'
         ],
         likelyQuestionAreas: ['Kubernetes', 'Go'],
-        summary: 'Cloud engineer with 6 years experience. Contact: sarah.jenkins@example.com or (312) 555-0199.',
+        summary: 'Cloud engineer with 6 years experience at DoorDash and CloudScale Technologies. Contact: sarah.jenkins@example.com.',
         resumeText: 'Full unredacted resume text for Sarah Jenkins containing confidential employer IP and phone 312-555-0199.'
       };
 
       const promptContext = formatResumeContext(sensitiveResumeContext);
       const personaPrompt = getInterviewerPersona('Google', 'Cloud Engineer', 'technical', 'medium', 1, 8, {}, sensitiveResumeContext, 'experienced');
 
-      // 1. Assert zero PII in formatted prompt
+      // 1. Assert zero PII, company names, schools, or URLs in formatted prompt
       expect(promptContext).not.toContain('sarah.jenkins@example.com');
       expect(promptContext).not.toContain('555-0199');
       expect(promptContext).not.toContain('312');
       expect(promptContext).not.toContain('linkedin.com');
+      expect(promptContext).not.toContain('github.com');
+      expect(promptContext).not.toContain('sarahjenkins.dev');
       expect(promptContext).not.toContain('Sarah Jenkins');
+      expect(promptContext).not.toContain('CloudScale Technologies');
+      expect(promptContext).not.toContain('University of Texas');
+      expect(promptContext).not.toContain('DoorDash');
       expect(promptContext).not.toContain('Full unredacted resume text');
 
       expect(personaPrompt).not.toContain('sarah.jenkins@example.com');
       expect(personaPrompt).not.toContain('555-0199');
       expect(personaPrompt).not.toContain('linkedin.com');
+      expect(personaPrompt).not.toContain('github.com');
       expect(personaPrompt).not.toContain('Sarah Jenkins');
+      expect(personaPrompt).not.toContain('CloudScale');
+      expect(personaPrompt).not.toContain('University of Texas');
 
       // 2. Assert neutral grounding and verbatim project guidance
       expect(promptContext).toContain('Walk me through how that project worked and what trade-offs came up.');
@@ -284,6 +294,38 @@ Tools: Docker, Git, AWS, Redis`;
 
       // 3. Assert scoring boundary
       expect(promptContext).toContain('Scores must depend ONLY on the candidate\'s live spoken answers');
+    });
+  });
+
+  describe('7. Section Splitter & Manual Heading Mapping (Colloquial Fallback)', () => {
+    const colloquialResume = `Samira Khan
+samira.khan@example.com | (312) 555-1219 | Chicago, IL
+
+WHAT I'VE DONE
+Software Engineer at Grubhub | 2021-01 – Present
+• Optimized order routing algorithm, improving driver dispatch efficiency by 14%.
+
+TECHNICAL TOOLKIT
+Python, Django, PostgreSQL, Docker, AWS ECS`;
+
+    it('flags colloquial headings as candidate unrecognized headings', () => {
+      const initial = parseResumeHeuristic(colloquialResume);
+      expect(initial.confidence).toBeLessThan(0.80);
+      expect(initial.unrecognizedHeadings).toContain("WHAT I'VE DONE");
+    });
+
+    it('resolves colloquial headings when user manually maps to standard sections with 0 tokens', () => {
+      const manualMapped = parseResumeHeuristic(colloquialResume, {
+        "WHAT I'VE DONE": 'experience',
+        "TECHNICAL TOOLKIT": 'skills'
+      });
+
+      expect(manualMapped.sectionsDetected).toContain('experience');
+      expect(manualMapped.sectionsDetected).toContain('skills');
+      expect(manualMapped.data.experience.length).toBeGreaterThan(0);
+      expect(manualMapped.data.experience[0].company).toContain('Grubhub');
+      expect(manualMapped.data.experience[0].bullets[0]).toContain('Optimized order routing algorithm');
+      expect(manualMapped.tokensUsed).toBe(0);
     });
   });
 
