@@ -401,7 +401,9 @@ const RESUME_GENERATION_PROMPT = `You are an expert resume writer and ATS optimi
 1. Rewrite the professional summary to be compelling, concise (2-3 lines), and naturally keyword-rich
 2. Transform work experience into powerful bullet points using the PAR (Problem → Action → Result) format
 3. Start every bullet point with a strong ACTION VERB (Led, Built, Designed, Spearheaded, Orchestrated, etc.)
-4. Add quantified metrics where possible (%, $, numbers) — if the user didn't provide exact numbers, use realistic estimates with "~" prefix
+4. PRESERVE FACTUAL INTEGRITY: DO NOT invent metrics, numbers, percentages, company names, tools, degrees, or credentials that the candidate did not mention.
+   - If candidate provided metrics, polish and preserve them faithfully.
+   - If a bullet lacks quantification, keep it honest or add a candidate placeholder like "[add: % metric]" — NEVER fabricate numbers or estimates.
 5. Structure education properly with degree, institution, dates, and relevant coursework/honors
 6. Organize skills into categories (Languages, Frameworks, Tools, Databases, etc.)
 7. Add a Projects section if relevant info is present
@@ -459,7 +461,7 @@ const RESUME_GENERATION_PROMPT = `You are an expert resume writer and ATS optimi
 - If a field has no relevant input, use an empty array or empty string
 - Every experience bullet MUST start with a past-tense action verb
 - Experience bullets should be 1-2 lines, not paragraphs
-- Be creative with realistic metrics if the user gave vague descriptions
+- Under NO circumstances invent companies, degrees, dates, tools, or fake metrics (~10%, $5M). Keep factual details strictly grounded in the candidate's input.
 - Skills should be real, industry-standard technology names
 - Response must be valid JSON only — no markdown, no explanation`;
 
@@ -656,6 +658,38 @@ ${formatAwards(awards)}
           certifications: buildAwards(),
           atsScore: 55
         };
+      }
+    }
+
+    // Strictly enforce read-only core credentials on generated output
+    if (generatedResume) {
+      generatedResume.fullName = fullName;
+      generatedResume.email = email;
+      if (phone) generatedResume.phone = phone;
+      if (location) generatedResume.location = location;
+      if (linkedin) generatedResume.linkedin = linkedin;
+
+      const userEdu = buildEducation();
+      if (userEdu.length > 0 && Array.isArray(generatedResume.education)) {
+        generatedResume.education = generatedResume.education.map((e, idx) => ({
+          ...e,
+          institution: userEdu[idx]?.institution || e.institution,
+          degree: userEdu[idx]?.degree || e.degree,
+          graduationDate: userEdu[idx]?.graduationDate || e.graduationDate,
+          location: userEdu[idx]?.location || e.location,
+        }));
+      }
+
+      const userExp = buildExperience();
+      if (userExp.length > 0 && Array.isArray(generatedResume.experience)) {
+        generatedResume.experience = generatedResume.experience.map((e, idx) => ({
+          ...e,
+          company: userExp[idx]?.company || e.company,
+          title: userExp[idx]?.title || e.title,
+          startDate: userExp[idx]?.startDate || e.startDate,
+          endDate: userExp[idx]?.endDate || e.endDate,
+          location: userExp[idx]?.location || e.location,
+        }));
       }
     }
 
