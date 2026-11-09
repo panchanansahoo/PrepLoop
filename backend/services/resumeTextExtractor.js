@@ -76,3 +76,4 @@ export async function extractResumeText(fileBuffer, mimeType = '', filename = ''
     characterCount: extractedText.length,
   };
 }
+

@@ -8,16 +8,16 @@
  */
 
 const SECTION_HEADERS = [
-  { key: 'summary', regex: /^(?:professional\s+summary|summary|profile|about\s+me|objective)\b/i },
-  { key: 'experience', regex: /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history)\b/i },
-  { key: 'education', regex: /^(?:education|academic\s+background|academic\s+qualifications|degrees)\b/i },
-  { key: 'skills', regex: /^(?:technical\s+skills|core\s+competencies|skills\s*(?:&|and)\s*tools|skills|key\s+skills)\b/i },
-  { key: 'projects', regex: /^(?:projects|key\s+projects|selected\s+projects|technical\s+projects)\b/i },
-  { key: 'certifications', regex: /^(?:certifications|licenses|certifications\s*(?:&|and)\s*licenses|certificates)\b/i },
+  { key: 'summary', regex: /^(?:(?:professional|executive|career)?\s*summary|profile|about\s+me|objective)\b/i },
+  { key: 'experience', regex: /^(?:(?:work|professional|career|relevant|research)?\s*experience|employment\s+history|career\s+history)\b/i },
+  { key: 'education', regex: /^(?:education|academic\s+(?:background|qualifications)|degrees)\b/i },
+  { key: 'skills', regex: /^(?:(?:technical|core|key|design|executive|professional|areas\s+of)?\s*(?:skills|competencies|expertise|proficiencies|toolkit)|skills\s*(?:&|and)\s*(?:tools|proficiencies))\b/i },
+  { key: 'projects', regex: /^(?:(?:key|selected|technical|academic)?\s*projects)\b/i },
+  { key: 'certifications', regex: /^(?:(?:licenses\s*(?:&|and)\s*)?certifications|certifications\s*(?:&|and)\s*licenses|certificates|licenses)\b/i },
   { key: 'additional', regex: /^(?:awards|honors|volunteering|publications|leadership|extracurricular)\b/i },
 ];
 
-const DATE_RANGE_REGEX = /(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\b(?:19|20)\d{2}\b(?:\s*[-–—to]+\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\b(?:19|20)\d{2}\b|present|current))?/i;
+const DATE_RANGE_REGEX = /(?:\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\b(?:19|20)\d{2}(?:-\d{2})?\b(?:\s*[-–—to]+\s*(?:(?:(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+)?\b(?:19|20)\d{2}(?:-\d{2})?\b|present|current))?/i;
 const BULLET_START_REGEX = /^[•\-*▪▸►–\u2022\u2023\u25E6\u2043\u2219]\s*/;
 
 /**
@@ -168,25 +168,104 @@ function parseSkillsLines(lines = []) {
 }
 
 /**
+ * Parses raw text lines of a projects block into structured project objects
+ */
+function parseProjectsLines(lines = []) {
+  const entries = [];
+  let currentEntry = null;
+
+  for (const line of lines) {
+    if (!line) continue;
+    const isBullet = BULLET_START_REGEX.test(line);
+    const dateMatch = line.match(DATE_RANGE_REGEX);
+
+    if (dateMatch && !isBullet && line.length < 100) {
+      if (currentEntry) entries.push(currentEntry);
+      const dateStr = dateMatch[0];
+      const withoutDate = line.replace(dateStr, '').replace(/[-–|]/g, ' ').trim();
+      currentEntry = {
+        name: withoutDate || 'Project',
+        role: '',
+        tech: [],
+        link: '',
+        dates: dateStr,
+        bullets: [],
+      };
+    } else if (isBullet && currentEntry) {
+      currentEntry.bullets.push(line.replace(BULLET_START_REGEX, '').trim());
+    } else if (currentEntry) {
+      if (currentEntry.bullets.length > 0 && line.length > 20) {
+        currentEntry.bullets.push(line);
+      }
+    } else if (!isBullet && line.length > 3 && line.length < 80) {
+      if (currentEntry) entries.push(currentEntry);
+      currentEntry = {
+        name: line,
+        role: '',
+        tech: [],
+        link: '',
+        dates: '',
+        bullets: [],
+      };
+    }
+  }
+
+  if (currentEntry) entries.push(currentEntry);
+  return entries;
+}
+
+/**
+ * Parses raw text lines of certifications block into structured certification objects
+ */
+function parseCertificationsLines(lines = []) {
+  const certs = [];
+  for (const line of lines) {
+    if (!line) continue;
+    const clean = line.replace(BULLET_START_REGEX, '').trim();
+    if (clean.length > 3) {
+      const parts = clean.split(/[-–|]/).map(p => p.trim());
+      certs.push({
+        name: parts[0] || clean,
+        issuer: parts[1] || '',
+        date: clean.match(DATE_RANGE_REGEX)?.[0] || '',
+      });
+    }
+  }
+  return certs;
+}
+
+/**
  * Computes heuristic parse confidence (0.0 to 1.0)
  */
 export function calculateParseConfidence(sections, parsed) {
   let score = 0;
 
-  // Check section presence
-  if (sections.experience && sections.experience.length > 0) score += 0.35;
+  // Work experience or projects (crucial for students/freshers)
+  const hasExp = Boolean(sections.experience && sections.experience.length > 0);
+  const hasProjects = Boolean(sections.projects && sections.projects.length > 0);
+
+  if (hasExp) {
+    score += 0.35;
+    if (hasProjects) score += 0.05; // Bonus for having both
+  } else if (hasProjects) {
+    score += 0.35; // Projects substitute for experience for fresh graduates
+  }
+
   if (sections.education && sections.education.length > 0) score += 0.25;
   if (sections.skills && sections.skills.length > 0) score += 0.20;
   if (sections.summary && sections.summary.length > 0) score += 0.10;
-  if (sections.projects && sections.projects.length > 0) score += 0.10;
+  if (sections.certifications && sections.certifications.length > 0) score += 0.05;
 
-  // Verify that experience entries have bullets and titles
-  if (parsed.experience && parsed.experience.length > 0) {
+  // Verify that experience or projects entries have actual bullets
+  if (hasExp && parsed.experience && parsed.experience.length > 0) {
     const hasBullets = parsed.experience.some(e => e.bullets && e.bullets.length > 0);
+    if (!hasBullets) score -= 0.15;
+  } else if (hasProjects && parsed.projects && parsed.projects.length > 0) {
+    const hasBullets = parsed.projects.some(p => p.bullets && p.bullets.length > 0);
     if (!hasBullets) score -= 0.15;
   }
 
-  return Math.max(0, Math.min(1.0, score));
+  return Math.max(0, Math.min(1.0, Math.round(score * 100) / 100));
 }
 
 /**
@@ -198,6 +277,8 @@ export function parseResumeHeuristic(rawText) {
   const experience = parseExperienceLines(sections.experience || []);
   const education = parseEducationLines(sections.education || []);
   const skills = parseSkillsLines(sections.skills || []);
+  const projects = parseProjectsLines(sections.projects || []);
+  const certifications = parseCertificationsLines(sections.certifications || []);
 
   const parsedJson = {
     title: 'Parsed Resume',
@@ -214,8 +295,8 @@ export function parseResumeHeuristic(rawText) {
     skills,
     experience,
     education,
-    projects: [],
-    certifications: [],
+    projects,
+    certifications,
     additional: [],
   };
 

@@ -101,3 +101,4 @@ export function validateAndNormalizeResumeJson(raw = {}) {
     data: result.data,
   };
 }
+

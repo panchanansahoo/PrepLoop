@@ -8,6 +8,10 @@
  * 3. Restores personal details deterministically in code into the canonical ResumeJSON.
  */
 
+const HAS_EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
+const HAS_PHONE_REGEX = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/;
+const HAS_URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:linkedin\.com\/in\/[\w-]+|github\.com\/[\w-]+|[a-zA-Z0-9-]+\.(?:com|org|dev|me|io|net)(?:\/[^\s,]*)?)/i;
+
 const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
 const PHONE_REGEX = /(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g;
 const URL_REGEX = /(?:https?:\/\/)?(?:www\.)?(?:linkedin\.com\/in\/[\w-]+|github\.com\/[\w-]+|[a-zA-Z0-9-]+\.(?:com|org|dev|me|io|net)(?:\/[^\s,]*)?)/gi;
@@ -20,7 +24,24 @@ const HEADER_IGNORE_PATTERNS = [
   /^contact\s+information$/i,
   /^page\s+\d+/i,
   /^confidential$/i,
+  /^(?:work\s+experience|professional\s+experience|experience|employment\s+history|career\s+history)$/i,
+  /^(?:academic\s+background|education|qualifications|academic\s+qualifications)$/i,
+  /^(?:technical\s+skills|core\s+competencies|core\s+skills|skills|areas\s+of\s+expertise|expertise|toolkit)$/i,
+  /^(?:professional\s+summary|executive\s+summary|summary|profile|about\s+me|objective)$/i,
+  /^(?:certifications|licenses|projects|publications|awards|honors)$/i,
 ];
+
+/**
+ * Checks if a candidate token/phrase is name-like (2 to 4 capitalized words)
+ */
+function isNameLikePhrase(phrase) {
+  if (!phrase || phrase.length > 50) return false;
+  // Strip trailing professional credentials (e.g. ", CPA", ", RN, BSN", ", Esq.", ", Ph.D.")
+  const clean = phrase.replace(/,\s*(?:CPA|RN|BSN|MD|PHD|ESQ|PE|PMP|MBA|MS|BS|BA|MA|DO|[A-Z]{2,4})(?:,\s*[A-Z]{2,4})*$/i, '').trim();
+  const words = clean.split(/\s+/);
+  if (words.length < 2 || words.length > 4) return false;
+  return words.every(w => /^[A-Z][a-zA-Z.'-]*$/.test(w));
+}
 
 /**
  * Heuristic name extractor from top of resume text (scans top 10 lines)
@@ -32,23 +53,29 @@ export function extractCandidateName(rawText) {
     .filter(Boolean);
 
   for (const line of lines.slice(0, 10)) {
-    // Skip obvious header words
+    // Skip obvious header words and known section titles
     if (HEADER_IGNORE_PATTERNS.some(pat => pat.test(line))) continue;
 
+    // Check if line is a compound header with delimiters (e.g. "Jason Tyler | jason@email.com | 555-1234")
+    if (line.includes('|') || line.includes('•')) {
+      const firstPart = line.split(/[|•]/)[0].trim();
+      if (isNameLikePhrase(firstPart)) {
+        return firstPart;
+      }
+      continue;
+    }
+
     // Skip lines with emails, phone numbers, or URLs
-    if (EMAIL_REGEX.test(line) || PHONE_REGEX.test(line) || URL_REGEX.test(line)) continue;
+    if (HAS_EMAIL_REGEX.test(line) || HAS_PHONE_REGEX.test(line) || HAS_URL_REGEX.test(line)) continue;
 
     // Skip lines that look like addresses or locations ('New York, NY 10001')
-    if (/\b(?:street|st\.|ave|road|rd|blvd|lane|drive|dr|apt|suite|box|zip)\b/i.test(line)) continue;
+    if (/\b\d+\s+.*?\b(?:street|st\.|ave|avenue|road|rd\.|blvd|lane|drive|way|court|ct\.|apt|suite|box)\b/i.test(line)) continue;
+    if (/\b(?:apt|suite|box|p\.o\.\s*box|zip\s*code)\b/i.test(line)) continue;
     if (/\b[A-Z]{2}\s+\d{5}\b/.test(line)) continue;
 
-    // Candidate name pattern: 2 to 4 capitalized words, allowing hyphens/periods (e.g. "Jane Doe", "J. Robert Oppenheimer", "Maria Garcia-Lopez")
-    const words = line.split(/\s+/);
-    if (words.length >= 2 && words.length <= 4) {
-      const isNameLike = words.every(w => /^[A-Z][a-zA-Z.'-]*(?:,[A-Z]+)?$/.test(w));
-      if (isNameLike && line.length < 50) {
-        return line;
-      }
+    // Check if line itself matches candidate name pattern
+    if (isNameLikePhrase(line)) {
+      return line;
     }
   }
 
@@ -145,3 +172,4 @@ export function rehydrateResumeJson(resumeJson, piiMap) {
 
   return copy;
 }
+

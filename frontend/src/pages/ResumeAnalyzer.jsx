@@ -100,6 +100,7 @@ export default function ResumeAnalyzer() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const fileInputRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const FORM_LABELS = {
     linkedInUrl: 'LinkedIn URL',
@@ -108,6 +109,11 @@ export default function ResumeAnalyzer() {
   const [resumeText, setResumeText] = useState('');
   const [fileName, setFileName] = useState('');
   const [analyzing, setAnalyzing] = useState(false);
+  const [parsingSections, setParsingSections] = useState(false);
+  const [parseStep, setParseStep] = useState('upload'); // 'upload' | 'check-sections'
+  const [parsedData, setParsedData] = useState(null);
+  const [scannedPdfWarning, setScannedPdfWarning] = useState(null);
+  const [jobDescription, setJobDescription] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [_history, setHistory] = useState([]);
@@ -166,6 +172,7 @@ export default function ResumeAnalyzer() {
     }
     setFileName(file.name);
     setError('');
+    setScannedPdfWarning(null);
 
     if (file.type === 'text/plain' || file.name.endsWith('.txt')) {
       const reader = new FileReader();
@@ -177,6 +184,68 @@ export default function ResumeAnalyzer() {
       fileInputRef.current._file = file;
     }
   }, []);
+
+  const handleSwitchToPaste = () => {
+    setFileName('');
+    setResumeText('');
+    setScannedPdfWarning(null);
+    setError('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+      fileInputRef.current._file = null;
+    }
+    setTimeout(() => {
+      textareaRef.current?.focus();
+    }, 50);
+  };
+
+  const handleScanSections = async () => {
+    if (!resumeText && !fileName) {
+      setError('Please paste your resume text or upload a file.');
+      return;
+    }
+    setParsingSections(true);
+    setError('');
+    setScannedPdfWarning(null);
+
+    try {
+      let res;
+      if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
+        const formData = new FormData();
+        formData.append('resume', fileInputRef.current._file);
+        if (jobDescription) formData.append('jobDescription', jobDescription);
+        const headers = buildAuthHeaders(user);
+        delete headers['Content-Type'];
+        res = await fetch(buildResumeApiUrl('/api/resume/parse-sections'), {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+      } else {
+        res = await authFetch(buildResumeApiUrl('/api/resume/parse-sections'), {
+          method: 'POST',
+          body: JSON.stringify({ resumeText, jobDescription }),
+        });
+      }
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === 'SCANNED_PDF_DETECTED' || data.canPaste) {
+          setScannedPdfWarning(data.message || 'Scanned / image-only document detected (<50 characters). Please paste your resume text directly.');
+          setError('');
+          return;
+        }
+        throw new Error(data.error || 'Failed to scan resume sections');
+      }
+
+      setParsedData(data);
+      setParseStep('check-sections');
+    } catch (err) {
+      setError(err.message || 'Failed to scan resume sections. Please try again.');
+    } finally {
+      setParsingSections(false);
+    }
+  };
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -196,6 +265,7 @@ export default function ResumeAnalyzer() {
     }
     setAnalyzing(true);
     setError('');
+    setScannedPdfWarning(null);
     setResult(null);
     setActiveTab('overview');
 
@@ -205,6 +275,7 @@ export default function ResumeAnalyzer() {
       if (resumeText === '__FILE_UPLOAD__' && fileInputRef.current?._file) {
         const formData = new FormData();
         formData.append('resume', fileInputRef.current._file);
+        if (jobDescription) formData.append('jobDescription', jobDescription);
         const headers = buildAuthHeaders(user);
         delete headers['Content-Type'];
         res = await fetch(buildResumeApiUrl('/api/resume/analyze'), {
@@ -215,17 +286,22 @@ export default function ResumeAnalyzer() {
       } else {
         res = await authFetch(buildResumeApiUrl('/api/resume/analyze'), {
           method: 'POST',
-          body: JSON.stringify({ resumeText }),
+          body: JSON.stringify({ resumeText, jobDescription }),
         });
       }
 
+      const data = await res.json();
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Analysis failed');
+        if (data.error === 'SCANNED_PDF_DETECTED' || data.canPaste) {
+          setScannedPdfWarning(data.message || 'Scanned / image-only document detected (<50 characters). Please paste your resume text directly.');
+          setError('');
+          return;
+        }
+        throw new Error(data.error || 'Analysis failed');
       }
 
-      const data = await res.json();
       setResult(data);
+      setParseStep('results');
       fetchHistory();
     } catch (err) {
       setError(err.message || 'Failed to analyze resume. Please try again.');
@@ -260,6 +336,10 @@ export default function ResumeAnalyzer() {
     setResumeText('');
     setFileName('');
     setError('');
+    setParseStep('upload');
+    setParsedData(null);
+    setScannedPdfWarning(null);
+    setJobDescription('');
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
       fileInputRef.current._file = null;
@@ -390,9 +470,11 @@ export default function ResumeAnalyzer() {
   };
 
   const analysis = result?.analysis;
+  const deterministicReport = result?.deterministic || parsedData?.deterministic;
   const tabs = [
     { id: 'overview', label: 'Overview' },
     { id: 'ats', label: 'ATS Analysis' },
+    { id: 'diagnostics', label: 'ATS Diagnostics (Layer 1)' },
     { id: 'matching', label: 'Job Matching' },
     { id: 'suggestions', label: 'Suggestions' },
   ];
@@ -684,7 +766,7 @@ export default function ResumeAnalyzer() {
           </button>
         {/* ── Main Content ── */}
         <div>
-          {!result ? (
+          {!result && parseStep === 'upload' && (
             /* ── Upload Section ── */
             <div style={{
               background: 'var(--bg-card)', borderRadius: 20, padding: 32,
@@ -694,6 +776,33 @@ export default function ResumeAnalyzer() {
                 <Upload size={20} color="#a78bfa" />
                 Upload Your Resume
               </h2>
+
+              {/* Scanned PDF Warning Alert Banner */}
+              {scannedPdfWarning && (
+                <div style={{
+                  marginBottom: 20, padding: '16px 20px', borderRadius: 14,
+                  background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                  color: '#fbbf24', display: 'flex', flexDirection: 'column', gap: 10,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: 14 }}>
+                    <AlertTriangle size={18} /> Scanned / Image-Only Document Detected
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                    {scannedPdfWarning}
+                  </div>
+                  <button
+                    onClick={handleSwitchToPaste}
+                    style={{
+                      alignSelf: 'flex-start', padding: '8px 16px', borderRadius: 10,
+                      background: '#f59e0b', color: '#000', fontWeight: 700, fontSize: 12,
+                      border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    <FileText size={14} /> Switch to Paste Text Mode
+                  </button>
+                </div>
+              )}
 
               {/* Drop zone */}
               <div
@@ -752,8 +861,9 @@ export default function ResumeAnalyzer() {
 
               {/* Text input */}
               <textarea
+                ref={textareaRef}
                 value={resumeText === '__FILE_UPLOAD__' ? '' : resumeText}
-                onChange={(e) => { setResumeText(e.target.value); setFileName(''); }}
+                onChange={(e) => { setResumeText(e.target.value); setFileName(''); setScannedPdfWarning(null); }}
                 placeholder="Paste your resume content here..."
                 rows={8}
                 style={{
@@ -779,33 +889,64 @@ export default function ResumeAnalyzer() {
                 </div>
               )}
 
-              {/* Analyze button */}
-              <button
-                onClick={analyzeResume}
-                disabled={analyzing || (!resumeText && !fileName)}
-                style={{
-                  width: '100%', marginTop: 20, padding: '14px 24px',
-                  borderRadius: 14, border: 'none', cursor: analyzing ? 'wait' : 'pointer',
-                  background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                  color: 'var(--text-primary)', fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  opacity: analyzing || (!resumeText && !fileName) ? 0.5 : 1,
-                  transition: 'all 0.3s',
-                  boxShadow: '0 4px 24px rgba(139,92,246,0.25)',
-                }}
-              >
-                {analyzing ? (
-                  <>
-                    <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                    Analyzing with AI...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={18} />
-                    Analyze Resume
-                  </>
-                )}
-              </button>
+              {/* Action Buttons: Check Sections & Analyze */}
+              <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleScanSections}
+                  disabled={parsingSections || analyzing || (!resumeText && !fileName)}
+                  style={{
+                    flex: '1 1 240px', padding: '14px 20px',
+                    borderRadius: 14, border: '1px solid rgba(139,92,246,0.35)',
+                    cursor: parsingSections ? 'wait' : 'pointer',
+                    background: 'rgba(139,92,246,0.12)',
+                    color: '#c084fc', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    opacity: parsingSections || analyzing || (!resumeText && !fileName) ? 0.5 : 1,
+                    transition: 'all 0.3s',
+                  }}
+                >
+                  {parsingSections ? (
+                    <>
+                      <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                      Scanning Sections (0 Tokens)...
+                    </>
+                  ) : (
+                    <>
+                      <Layers size={18} />
+                      Check Your Sections (0 Tokens)
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={analyzeResume}
+                  disabled={analyzing || parsingSections || (!resumeText && !fileName)}
+                  style={{
+                    flex: '1 1 240px', padding: '14px 24px',
+                    borderRadius: 14, border: 'none', cursor: analyzing ? 'wait' : 'pointer',
+                    background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
+                    color: 'var(--text-primary)', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    opacity: analyzing || parsingSections || (!resumeText && !fileName) ? 0.5 : 1,
+                    transition: 'all 0.3s',
+                    boxShadow: '0 4px 24px rgba(139,92,246,0.25)',
+                  }}
+                >
+                  {analyzing ? (
+                    <>
+                      <Loader2 size={18} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                      Analyzing with AI...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={18} />
+                      Analyze Resume
+                    </>
+                  )}
+                </button>
+              </div>
 
               {/* Features grid */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: 12, marginTop: 24 }}>
@@ -839,7 +980,258 @@ export default function ResumeAnalyzer() {
                 })}
               </div>
             </div>
-          ) : (
+          )}
+
+          {!result && parseStep === 'check-sections' && parsedData && (
+            /* ── "Check Your Sections" Interactive Preview ── */
+            <div style={{
+              background: 'var(--bg-card)', borderRadius: 20, padding: 32,
+              border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 24,
+            }}>
+              {/* Header with confidence badge */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                <div>
+                  <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-primary)' }}>
+                    <Layers size={22} color="#a78bfa" />
+                    Check Your Sections
+                  </h2>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                    Verify the detected sections and structure before running full ATS scoring.
+                  </p>
+                </div>
+
+                <div>
+                  {parsedData.confidence >= 0.8 ? (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                      background: 'rgba(110,231,183,0.12)', color: '#6ee7b7', border: '1px solid rgba(110,231,183,0.25)',
+                    }}>
+                      <CheckCircle2 size={14} /> High Confidence ({Math.round(parsedData.confidence * 100)}%) · 0 LLM Tokens
+                    </span>
+                  ) : (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                      background: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)',
+                    }}>
+                      <AlertTriangle size={14} /> Review Recommended ({Math.round(parsedData.confidence * 100)}%) · Heuristic Fallback
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Fair Hiring Notice for Career Breaks */}
+              {parsedData.deterministic?.careerGaps?.length > 0 && (
+                <div style={{
+                  padding: '14px 18px', borderRadius: 14,
+                  background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 10, background: 'rgba(99,102,241,0.15)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <Shield size={18} color="#818cf8" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                        Career Break Detected: {parsedData.deterministic.careerGaps[0].durationMonths} Months ({parsedData.deterministic.careerGaps[0].start} – {parsedData.deterministic.careerGaps[0].end})
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                        In accordance with PrepLoop's fair hiring standards, career breaks are evaluated neutrally with zero point penalty.
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{
+                    padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                    background: 'rgba(110,231,183,0.12)', color: '#6ee7b7', border: '1px solid rgba(110,231,183,0.25)',
+                  }}>
+                    0 Score Penalty
+                  </span>
+                </div>
+              )}
+
+              {/* Section Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 14 }}>
+                {/* Contact Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Contact Information</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#6ee7b7' }}>✓ Extracted</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div><strong>Name:</strong> {parsedData.resumeJson?.contact?.fullName || fileName || 'Candidate'}</div>
+                    <div><strong>Email:</strong> {parsedData.resumeJson?.contact?.email || 'Extracted via redaction map'}</div>
+                    {parsedData.resumeJson?.contact?.phone && <div><strong>Phone:</strong> {parsedData.resumeJson.contact.phone}</div>}
+                    {parsedData.resumeJson?.contact?.location && <div><strong>Location:</strong> {parsedData.resumeJson.contact.location}</div>}
+                  </div>
+                </div>
+
+                {/* Summary Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Professional Summary</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: parsedData.resumeJson?.summary ? '#6ee7b7' : '#fbbf24' }}>
+                      {parsedData.resumeJson?.summary ? '✓ Present' : 'Optional'}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5, maxHeight: 65, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {parsedData.resumeJson?.summary || 'No separate summary section detected. Summary is recommended but optional.'}
+                  </div>
+                </div>
+
+                {/* Experience Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Work Experience</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: parsedData.resumeJson?.experience?.length ? '#6ee7b7' : '#fbbf24' }}>
+                      {parsedData.resumeJson?.experience?.length || 0} Roles
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {parsedData.resumeJson?.experience?.length ? (
+                      parsedData.resumeJson.experience.slice(0, 3).map((exp, i) => (
+                        <div key={i} style={{ borderBottom: i < 2 && i < parsedData.resumeJson.experience.length - 1 ? '1px solid var(--border-light)' : 'none', paddingBottom: 4 }}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{exp.title} {exp.company ? `at ${exp.company}` : ''}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{exp.startDate} – {exp.endDate} · {exp.bullets?.length || 0} bullets</div>
+                        </div>
+                      ))
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No formal experience detected (Standard for students/graduates)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Education Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Education</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: parsedData.resumeJson?.education?.length ? '#6ee7b7' : '#fbbf24' }}>
+                      {parsedData.resumeJson?.education?.length || 0} Degrees
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {parsedData.resumeJson?.education?.length ? (
+                      parsedData.resumeJson.education.map((edu, i) => (
+                        <div key={i}>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{edu.degree || 'Degree'}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{edu.institution} {edu.graduationDate ? `(${edu.graduationDate})` : ''}</div>
+                        </div>
+                      ))
+                    ) : (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>No education entries detected</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Skills Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Skills & Tools</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#6ee7b7' }}>
+                      {parsedData.resumeJson?.skills?.reduce((acc, g) => acc + (g.items?.length || 0), 0) || 0} Skills
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {parsedData.resumeJson?.skills?.map((g, i) => (
+                      <span key={i} style={{
+                        fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6,
+                        background: 'rgba(139,92,246,0.1)', color: '#c084fc', border: '1px solid rgba(139,92,246,0.2)',
+                      }}>
+                        {g.group}: {g.items?.length || 0}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Projects & Certifications Card */}
+                <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>Projects & Certifications</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#818cf8' }}>
+                      {(parsedData.resumeJson?.projects?.length || 0) + (parsedData.resumeJson?.certifications?.length || 0)} Found
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    <div>Projects: <strong>{parsedData.resumeJson?.projects?.length || 0}</strong></div>
+                    <div>Certifications / Licenses: <strong>{parsedData.resumeJson?.certifications?.length || 0}</strong></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Optional Job Description Input */}
+              <div style={{
+                padding: '18px 20px', borderRadius: 14, background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>
+                    Target Job Description (Optional)
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                    Unlocks targeted keyword alignment & gap analysis
+                  </span>
+                </div>
+                <textarea
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  placeholder="Paste target job description to verify keyword match, required skills, and ATS alignment..."
+                  rows={3}
+                  style={{
+                    width: '100%', padding: '12px 14px', background: 'var(--bg-card)',
+                    border: '1px solid var(--border-light)', borderRadius: 10,
+                    color: 'var(--text-primary)', fontSize: 13, fontFamily: 'inherit',
+                    resize: 'vertical', outline: 'none', lineHeight: 1.5,
+                  }}
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setParseStep('upload')}
+                  style={{
+                    padding: '12px 20px', borderRadius: 12,
+                    background: 'var(--bg-secondary)', border: '1px solid var(--border)',
+                    color: 'var(--text-secondary)', fontSize: 13, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                >
+                  <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to Edit
+                </button>
+
+                <button
+                  type="button"
+                  onClick={analyzeResume}
+                  disabled={analyzing}
+                  style={{
+                    padding: '12px 28px', borderRadius: 12, border: 'none',
+                    background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
+                    color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                    cursor: analyzing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                    boxShadow: '0 4px 20px rgba(108,92,231,0.3)', opacity: analyzing ? 0.6 : 1,
+                  }}
+                >
+                  {analyzing ? (
+                    <>
+                      <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                      Analyzing with ATS Rubric...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      Confirm Sections & Run ATS Analysis
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {result && (
             /* ── Results Section ── */
             <div>
               {/* Header Card */}
@@ -880,7 +1272,7 @@ export default function ResumeAnalyzer() {
               {/* Score Metric Cards */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 16 }}>
                 {[
-                  { label: 'ATS Score', value: `${analysis.atsScore}%`, icon: Eye, color: '#fbbf24' },
+                  { label: 'ATS-Readiness Score', value: `${analysis.atsScore}%`, icon: Eye, color: '#fbbf24' },
                   { label: 'Job Match', value: analysis.keywordMatch?.industryFit || 'N/A', icon: Briefcase, color: 'var(--info-main, #60a5fa)' },
                   { label: 'Suggestions', value: String(analysis.suggestions?.length || 0), icon: Sparkles, color: '#a78bfa' },
                   { label: 'Score Boost', value: `+${Math.min(100 - analysis.atsScore, 25)}%`, icon: TrendingUp, color: '#6ee7b7' },
@@ -1096,6 +1488,189 @@ export default function ResumeAnalyzer() {
                         <p>Section analysis not available. Try running a new analysis.</p>
                       </div>
                     )}
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'diagnostics' && (
+                  <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: 28, border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-primary, #c084fc)', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <Shield size={18} /> Layer 1 Deterministic Quality Report
+                        </h3>
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>
+                          Rule-based, code-level ATS verification without hallucinations or arbitrary scoring.
+                        </p>
+                      </div>
+                      <span style={{
+                        padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 700,
+                        background: 'rgba(110,231,183,0.12)', color: '#6ee7b7', border: '1px solid rgba(110,231,183,0.25)',
+                      }}>
+                        ✓ 100% Deterministic Engine
+                      </span>
+                    </div>
+
+                    {/* Metric Cards Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12, marginBottom: 24 }}>
+                      {/* Page Budget Card */}
+                      <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>PAGE BUDGET & LENGTH</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: deterministicReport?.pageBudget?.withinBudget ? '#6ee7b7' : '#fb923c' }}>
+                          {deterministicReport?.pageBudget?.realPageCount || 1} / {deterministicReport?.pageBudget?.budget || 1} Page
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          {deterministicReport?.pageBudget?.verdict || 'Optimal page budget for experience level'}
+                        </div>
+                      </div>
+
+                      {/* Action Verbs Card */}
+                      <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>ACTION VERB DENSITY</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#818cf8' }}>
+                          {deterministicReport?.bulletStats?.actionVerbCount || 0} Verbs
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          {deterministicReport?.bulletStats?.bulletsWithActionVerbs || 0} of {deterministicReport?.bulletStats?.totalBullets || 0} bullets start with action verbs
+                        </div>
+                      </div>
+
+                      {/* Passive Phrasing Card */}
+                      <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>PASSIVE VOICE PHRASING</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: (deterministicReport?.bulletStats?.passiveVoiceCount || 0) === 0 ? '#6ee7b7' : '#fbbf24' }}>
+                          {deterministicReport?.bulletStats?.passiveVoiceCount || 0} Found
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          {(deterministicReport?.bulletStats?.passiveVoiceCount || 0) === 0 ? 'Clean active voice tone' : 'Replace passive phrasing with direct impact verbs'}
+                        </div>
+                      </div>
+
+                      {/* Career Gap Card */}
+                      <div style={{ padding: '16px 18px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginBottom: 6 }}>CAREER BREAK IMPACT</div>
+                        <div style={{ fontSize: 24, fontWeight: 800, color: '#6ee7b7' }}>
+                          0 Pts Penalty
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          Fair hiring standard — career breaks treated neutrally
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Detailed Breakdowns */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                      {/* Action Verbs Found */}
+                      <div style={{ padding: '18px 20px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                        <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <Sparkles size={14} color="#818cf8" /> Strong Action Verbs Identified ({deterministicReport?.bulletStats?.actionVerbsFound?.length || 0})
+                        </h4>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {deterministicReport?.bulletStats?.actionVerbsFound?.length ? (
+                            deterministicReport.bulletStats.actionVerbsFound.map((v, i) => (
+                              <span key={i} style={{
+                                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                                background: 'rgba(99,102,241,0.12)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)',
+                              }}>
+                                {v}
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                              No standard action verbs identified. Start bullets with verbs like 'Led', 'Built', 'Architected', 'Optimized'.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Passive Phrasing Warnings */}
+                      {deterministicReport?.bulletStats?.passivePhrasesFound?.length > 0 && (
+                        <div style={{ padding: '18px 20px', borderRadius: 14, background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                          <h4 style={{ fontSize: 13, fontWeight: 700, color: '#fbbf24', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <AlertTriangle size={14} /> Passive Phrasing Detected
+                          </h4>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                            Replace weak passive phrases with ownership-driven action verbs:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {deterministicReport.bulletStats.passivePhrasesFound.map((p, i) => (
+                              <span key={i} style={{
+                                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                                background: 'rgba(251,191,36,0.12)', color: '#fbbf24', border: '1px solid rgba(251,191,36,0.25)',
+                              }}>
+                                "{p}"
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Cliché Buzzwords */}
+                      {deterministicReport?.buzzwordsFound?.length > 0 && (
+                        <div style={{ padding: '18px 20px', borderRadius: 14, background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                          <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--error-main, #f87171)', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <AlertTriangle size={14} /> Cliché Buzzwords Detected
+                          </h4>
+                          <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                            Replace overused clichés with concrete metrics and achievements:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {deterministicReport.buzzwordsFound.map((b, i) => (
+                              <span key={i} style={{
+                                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                                background: 'rgba(248,113,113,0.12)', color: 'var(--error-main, #f87171)', border: '1px solid rgba(248,113,113,0.25)',
+                              }}>
+                                "{b}"
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Career Gaps List */}
+                      {deterministicReport?.careerGaps?.length > 0 && (
+                        <div style={{ padding: '18px 20px', borderRadius: 14, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                          <h4 style={{ fontSize: 13, fontWeight: 700, color: '#818cf8', margin: '0 0 8px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Shield size={14} /> Career Breaks Handled ({deterministicReport.careerGaps.length})
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {deterministicReport.careerGaps.map((gap, i) => (
+                              <div key={i} style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                • Break of <strong>{gap.durationMonths} months</strong> ({gap.start} to {gap.end}) — Evaluated neutrally with 0 point score penalty.
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Job Description Alignment */}
+                      {deterministicReport?.keywordMatch?.hasJd && (
+                        <div style={{ padding: '18px 20px', borderRadius: 14, background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
+                          <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)', margin: '0 0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <Target size={14} color="#6ee7b7" /> Target Job Description Alignment ({Math.round(deterministicReport.keywordMatch.matchRatio * 100)}% Match)
+                          </h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            <div>
+                              <div style={{ fontSize: 11, color: '#6ee7b7', fontWeight: 600, marginBottom: 6 }}>MATCHED JOB KEYWORDS:</div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                {deterministicReport.keywordMatch.matchedKeywords?.map((k, i) => (
+                                  <KeywordTag key={i} label={k} type="technical" />
+                                ))}
+                              </div>
+                            </div>
+                            {deterministicReport.keywordMatch.missingKeywords?.length > 0 && (
+                              <div>
+                                <div style={{ fontSize: 11, color: 'var(--error-main, #f87171)', fontWeight: 600, marginBottom: 6 }}>MISSING JOB KEYWORDS:</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                  {deterministicReport.keywordMatch.missingKeywords.map((k, i) => (
+                                    <KeywordTag key={i} label={k} type="missing" />
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

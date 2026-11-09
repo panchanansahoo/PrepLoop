@@ -359,7 +359,13 @@ router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploade
         if (!parsed) {
           analysisData = buildStaticAnalysis(resumeText);
           resumeProfile = buildFallbackResumeProfile(resumeText, analysisData);
-          return res.json({ analysis: analysisData, resumeText, resumeProfile });
+          return res.json({
+            analysis: analysisData,
+            resumeText,
+            resumeProfile,
+            deterministic: deterministicAnalysis,
+            resumeJson: canonicalResumeJson,
+          });
         }
 
         // Validate and sanitize the AI response
@@ -411,7 +417,9 @@ router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploade
       analysis: analysisData,
       id: analysis.id,
       resumeText,
-      resumeProfile
+      resumeProfile,
+      deterministic: deterministicAnalysis,
+      resumeJson: canonicalResumeJson,
     });
   } catch (error) {
     console.error('Resume analysis error:', error);
