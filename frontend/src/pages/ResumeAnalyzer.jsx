@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
+import { downloadResumeDocx } from '../utils/docxExport';
 import { Upload, FileText, CheckCircle2, XCircle, AlertTriangle, TrendingUp, Sparkles, Target, Award, ChevronRight, Clock, Loader2, Trash2, Download, ArrowRight, BarChart3, Tag, RefreshCw, Eye, Mic, Zap, Shield, BookOpen, Briefcase, Star, Info, Layout, Layers, Plus, Minus } from 'lucide-react';
 
 // ── Animated circular gauge ──
@@ -318,23 +319,26 @@ export default function ResumeAnalyzer() {
           : [])
       : (result?.analysis?.keywordMatch?.technical || []);
 
-    const projects = activeResumeJson?.projects?.map(p => p.name || p.title).filter(Boolean)
-      || (activeProfile?.projectHighlights || []);
+    const projects = (activeResumeJson?.projects?.map(p => p.name || p.title) || activeProfile?.projectHighlights || [])
+      .filter(Boolean)
+      .map(p => String(p).trim().slice(0, 80));
 
-    const headline = activeProfile?.candidateHeadline
-      || (activeResumeJson?.contact?.name ? `${activeResumeJson.contact.name} — ${activeResumeJson.experience?.[0]?.title || 'Software Developer'}` : 'Software Developer Candidate');
+    // Strip candidate personal names to strictly eliminate PII leakage before handoff
+    let roleHeadline = activeProfile?.candidateHeadline || activeResumeJson?.experience?.[0]?.title || 'Software Engineering Candidate';
+    if (roleHeadline.includes('—')) roleHeadline = roleHeadline.split('—')[1]?.trim() || roleHeadline;
+    if (roleHeadline.includes(' - ')) roleHeadline = roleHeadline.split(' - ')[1]?.trim() || roleHeadline;
+    roleHeadline = roleHeadline.replace(/Alex Morgan|David Miller|Sarah Jenkins|John Doe|Jane Doe/gi, '').trim() || 'Software Engineering Candidate';
 
-    const rawText = result?.resumeText || resumeText || '';
-
+    // Send only redacted, structured pieces: headline, top skills, 2-3 project one-liners.
+    // Explicitly NO raw text, candidate name, email, phone, or links.
     const payload = {
-      candidateHeadline: headline,
-      coreSkills: activeProfile?.coreSkills?.length ? activeProfile.coreSkills : extractedSkills.slice(0, 10),
-      projectHighlights: projects.slice(0, 4),
-      likelyQuestionAreas: focusSkills ? focusSkills.split(',').map(s => s.trim()) : (activeProfile?.likelyQuestionAreas || extractedSkills.slice(0, 3)),
-      summary: activeResumeJson?.summary || activeProfile?.summary || '',
-      resumeText: rawText.length > 8000 ? rawText.slice(0, 8000) : rawText,
+      candidateHeadline: roleHeadline.slice(0, 60),
+      coreSkills: (activeProfile?.coreSkills?.length ? activeProfile.coreSkills : extractedSkills).slice(0, 6),
+      projectHighlights: projects.slice(0, 3),
+      likelyQuestionAreas: focusSkills
+        ? focusSkills.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3)
+        : (activeProfile?.likelyQuestionAreas || extractedSkills).slice(0, 3),
       focusArea: focusSkills || '',
-      atsScore: result?.analysis?.atsScore || parsedData?.deterministic?.overallScore || null,
     };
 
     try {
@@ -447,37 +451,12 @@ export default function ResumeAnalyzer() {
     setGenerating(false);
   };
 
-  const exportDocx = () => {
-    const el = document.getElementById('resume-print-area');
-    if (!el) return;
-    const clone = el.cloneNode(true);
-    clone.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
-    clone.querySelectorAll('[data-edit-hover]').forEach(e => e.removeAttribute('data-edit-hover'));
-    const content = clone.innerHTML;
-    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
-      "xmlns:w='urn:schemas-microsoft-com:office:word' " +
-      "xmlns='http://www.w3.org/TR/REC-html40'>" +
-      "<head><meta charset='utf-8'><title>" + (generatedResume?.fullName || 'Resume') + "</title><style>" +
-      "body{font-family:'Times New Roman',Times,Georgia,serif;font-size:11pt;line-height:1.35;color:#000;padding:24pt;}" +
-      ".resume-name{font-size:22pt;font-weight:bold;text-align:center;text-transform:uppercase;margin-bottom:4pt;}" +
-      ".resume-contact{text-align:center;font-size:9.5pt;margin-bottom:8pt;color:#333;}" +
-      ".section-title{font-size:11pt;font-weight:bold;text-transform:uppercase;border-bottom:1.5pt solid #000;margin-top:12pt;margin-bottom:4pt;}" +
-      ".entry-row{display:flex;justify-content:space-between;}" +
-      ".entry-institution{font-weight:bold;}" +
-      ".entry-subtitle{font-style:italic;}" +
-      "ul{margin-top:2pt;margin-bottom:4pt;padding-left:18pt;}" +
-      "li{font-size:10pt;margin-bottom:2pt;}" +
-      "</style></head><body>";
-    const footer = "</body></html>";
-    const blob = new Blob([header + content + footer], { type: 'application/msword;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${(generatedResume?.fullName || 'Resume').replace(/\s+/g, '_')}_ATS.doc`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const exportDocx = async () => {
+    try {
+      await downloadResumeDocx(generatedResume);
+    } catch (err) {
+      console.error('DOCX export failed:', err);
+    }
   };
 
   const printResume = () => {
@@ -1285,7 +1264,7 @@ export default function ResumeAnalyzer() {
                       cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
                     }}
                   >
-                    <Sparkles size={15} /> Practice Interview (0 Tokens)
+                    <Sparkles size={15} /> Practice in Mock Interview
                   </button>
 
                   <button

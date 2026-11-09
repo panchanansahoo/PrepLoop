@@ -4,6 +4,7 @@ import { extractCandidateName, redactResumeText, rehydrateResumeJson } from '../
 import { splitIntoSections, parseResumeHeuristic, calculateParseConfidence } from '../../services/resumeSectionSplitter.js';
 import { runDeterministicChecks } from '../../services/resumeDeterministicEngine.js';
 import { extractResumeText } from '../../services/resumeTextExtractor.js';
+import { formatResumeContext, getInterviewerPersona } from '../../routes/company-interview/helpers.js';
 
 describe('Phase 1: Resume Pipeline Core Services', () => {
 
@@ -240,6 +241,49 @@ Tools: Docker, Git, AWS, Redis`;
 
       expect(result.text).toBe('Short text');
       expect(result.wordCount).toBe(2);
+    });
+  });
+
+  describe('6. Resume-to-Interview Handoff Privacy & Grounding', () => {
+    it('asserts interview persona prompt contains no email, phone, personal name, or raw text', () => {
+      const sensitiveResumeContext = {
+        candidateHeadline: 'Sarah Jenkins — Senior Cloud Engineer',
+        email: 'sarah.jenkins@example.com',
+        phone: '+1 (312) 555-0199',
+        linkedin: 'https://linkedin.com/in/sarahjenkins',
+        coreSkills: ['Kubernetes', 'Go', 'AWS', 'sarah.jenkins@example.com'],
+        projectHighlights: [
+          'Enterprise Payment Gateway: Handled $10M transactions at sarah.jenkins@example.com / (312) 555-0199',
+          'Distributed Telemetry Collector: Built OpenTelemetry exporter in Go'
+        ],
+        likelyQuestionAreas: ['Kubernetes', 'Go'],
+        summary: 'Cloud engineer with 6 years experience. Contact: sarah.jenkins@example.com or (312) 555-0199.',
+        resumeText: 'Full unredacted resume text for Sarah Jenkins containing confidential employer IP and phone 312-555-0199.'
+      };
+
+      const promptContext = formatResumeContext(sensitiveResumeContext);
+      const personaPrompt = getInterviewerPersona('Google', 'Cloud Engineer', 'technical', 'medium', 1, 8, {}, sensitiveResumeContext, 'experienced');
+
+      // 1. Assert zero PII in formatted prompt
+      expect(promptContext).not.toContain('sarah.jenkins@example.com');
+      expect(promptContext).not.toContain('555-0199');
+      expect(promptContext).not.toContain('312');
+      expect(promptContext).not.toContain('linkedin.com');
+      expect(promptContext).not.toContain('Sarah Jenkins');
+      expect(promptContext).not.toContain('Full unredacted resume text');
+
+      expect(personaPrompt).not.toContain('sarah.jenkins@example.com');
+      expect(personaPrompt).not.toContain('555-0199');
+      expect(personaPrompt).not.toContain('linkedin.com');
+      expect(personaPrompt).not.toContain('Sarah Jenkins');
+
+      // 2. Assert neutral grounding and verbatim project guidance
+      expect(promptContext).toContain('Walk me through how that project worked and what trade-offs came up.');
+      expect(promptContext).toContain('Quote project names verbatim from the resume');
+      expect(promptContext).not.toContain('how you architected that');
+
+      // 3. Assert scoring boundary
+      expect(promptContext).toContain('Scores must depend ONLY on the candidate\'s live spoken answers');
     });
   });
 

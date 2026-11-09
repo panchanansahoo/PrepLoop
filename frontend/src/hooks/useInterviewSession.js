@@ -1969,18 +1969,23 @@ export function useInterviewSession(options = {}) {
       } else if (activeResumeContext) {
         resumeCtx = {
           candidateHeadline: activeResumeContext.candidateHeadline || `${experienceLevel === "experienced" ? "Experienced" : "Fresher"} ${resolvedRole}`,
-          summary: activeResumeContext.summary || "Candidate resume context loaded from ATS analyzer.",
           coreSkills: Array.isArray(activeResumeContext.coreSkills) && activeResumeContext.coreSkills.length > 0
-            ? activeResumeContext.coreSkills.slice(0, 12)
-            : inferredSkills,
+            ? activeResumeContext.coreSkills.slice(0, 6)
+            : inferredSkills.slice(0, 6),
           projectHighlights: Array.isArray(activeResumeContext.projectHighlights) && activeResumeContext.projectHighlights.length > 0
-            ? activeResumeContext.projectHighlights.slice(0, 4)
-            : [`Projects from analyzed resume`],
+            ? activeResumeContext.projectHighlights.slice(0, 3)
+            : [`Key project from resume`],
           likelyQuestionAreas: Array.isArray(activeResumeContext.likelyQuestionAreas) && activeResumeContext.likelyQuestionAreas.length > 0
-            ? activeResumeContext.likelyQuestionAreas.slice(0, 4)
+            ? activeResumeContext.likelyQuestionAreas.slice(0, 3)
             : [resolvedStage, ...inferredSkills.slice(0, 2)],
-          resumeText: activeResumeContext.resumeText || "",
         };
+      }
+
+      // Explicitly delete resume handoff context from sessionStorage once the interview starts
+      try {
+        sessionStorage.removeItem("preploop_resume_context");
+      } catch {
+        /* ignore storage error */
       }
 
       setActiveResumeContext(resumeCtx);

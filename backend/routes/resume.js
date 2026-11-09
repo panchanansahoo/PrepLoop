@@ -653,8 +653,11 @@ ${formatAwards(awards)}
 
     let generatedResume;
 
-    if (!groq) {
-      // Static fallback when AI is unavailable
+    // Zero-token pilot ring-fencing: guarantees no LLM tokens spent during interview pilot
+    const PILOT_FREEZE_RESUME_GENERATION = true;
+
+    if (PILOT_FREEZE_RESUME_GENERATION || !groq) {
+      // Static deterministic builder: 0 LLM tokens consumed during pilot freeze
       generatedResume = {
         fullName,
         email,
@@ -668,7 +671,7 @@ ${formatAwards(awards)}
         experience: buildExperience(),
         projects: buildProjects(),
         certifications: buildAwards(),
-        atsScore: 65
+        atsScore: 75
       };
     } else {
       try {
@@ -750,14 +753,34 @@ ${formatAwards(awards)}
 
       const userExp = buildExperience();
       if (userExp.length > 0 && Array.isArray(generatedResume.experience)) {
-        generatedResume.experience = generatedResume.experience.map((e, idx) => ({
-          ...e,
-          company: userExp[idx]?.company || e.company,
-          title: userExp[idx]?.title || e.title,
-          startDate: userExp[idx]?.startDate || e.startDate,
-          endDate: userExp[idx]?.endDate || e.endDate,
-          location: userExp[idx]?.location || e.location,
-        }));
+        generatedResume.experience = generatedResume.experience.map((e, idx) => {
+          const originalBullets = userExp[idx]?.bullets || [];
+          const originalContext = originalBullets.join('. ');
+          const safeBullets = (e.bullets || []).map((b, bIdx) => {
+            const origBullet = originalBullets[bIdx] || originalContext;
+            const verification = verifyAISuggestion({
+              originalText: origBullet,
+              entryContextText: originalContext,
+              generatedText: b,
+              fullResumeText: rawInput,
+            });
+            if (!verification.allowed) {
+              console.warn(`[Fabrication Guard] Rejected generated bullet: "${b}" (${verification.reason}) -> Reverting to original.`);
+              return origBullet || b;
+            }
+            return b;
+          });
+
+          return {
+            ...e,
+            company: userExp[idx]?.company || e.company,
+            title: userExp[idx]?.title || e.title,
+            startDate: userExp[idx]?.startDate || e.startDate,
+            endDate: userExp[idx]?.endDate || e.endDate,
+            location: userExp[idx]?.location || e.location,
+            bullets: safeBullets,
+          };
+        });
       }
     }
 
