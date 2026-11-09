@@ -8,6 +8,13 @@ import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware
 import { sanitizeDocumentForPrompt, fenceUntrustedContent } from '../utils/promptInjectionGuard.js';
 import multer from 'multer';
 
+import { extractResumeText } from '../services/resumeTextExtractor.js';
+import { redactResumeText, rehydrateResumeJson } from '../services/resumeRedactor.js';
+import { parseResumeHeuristic } from '../services/resumeSectionSplitter.js';
+import { runDeterministicChecks } from '../services/resumeDeterministicEngine.js';
+import { verifyAISuggestion, enforceReadOnlyCore, buildResumeVocabulary } from '../services/resumeFabricationGuard.js';
+import { validateAndNormalizeResumeJson } from '../schemas/resumeSchema.js';
+
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
 
@@ -282,22 +289,40 @@ function buildStaticAnalysis(resumeText) {
 router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploader.single('resume'), requireValidFileSignature(['pdf', 'docx', 'doc', 'text']), async (req, res) => {
   try {
     let resumeText = req.body.resumeText;
+    let pageCount = null;
+    let isScanned = false;
     
     if (req.file) {
-      if (req.file.mimetype === 'application/pdf') {
-        const data = await pdf(req.file.buffer);
-        resumeText = data.text;
-      } else {
-        resumeText = req.file.buffer.toString('utf-8');
-      }
+      const extracted = await extractResumeText(req.file.buffer, req.file.mimetype, req.file.originalname);
+      resumeText = extracted.text;
+      pageCount = extracted.pageCount;
+      isScanned = extracted.isScanned;
     }
 
-    if (!resumeText) {
-      return res.status(400).json({ error: 'Resume text is required' });
+    if (isScanned || !resumeText || resumeText.replace(/\s+/g, '').length < 50) {
+      return res.status(400).json({
+        error: 'SCANNED_PDF_DETECTED',
+        message: 'This document appears to be an image-only scan or has insufficient extractable text (<50 characters). Please paste your resume text directly.',
+        canPaste: true,
+      });
     }
+
+    // Server-side best-effort PII redaction before any external processing
+    const { redactedText, piiMap } = redactResumeText(resumeText);
+
+    // Heuristic section splitting (0-token path)
+    const heuristicParse = parseResumeHeuristic(redactedText);
+    const canonicalResumeJson = rehydrateResumeJson(heuristicParse.data, piiMap);
+
+    // Layer 1 deterministic checks (free, instant, 0 LLM tokens)
+    const deterministicAnalysis = runDeterministicChecks({
+      resumeJson: canonicalResumeJson,
+      pageCount: pageCount || 1,
+      jobDescription: req.body.jobDescription || '',
+    });
 
     // Sanitize resume text to neutralize prompt injection patterns
-    const safeResumeText = sanitizeDocumentForPrompt(resumeText, 8000);
+    const safeResumeText = sanitizeDocumentForPrompt(redactedText, 8000);
     const fencedResume = fenceUntrustedContent(safeResumeText, 'candidate_resume', 8000);
 
     let analysisData;
@@ -910,6 +935,85 @@ router.post('/import-linkedin', authenticateToken, uploadEndpointsLimiter, resum
   } catch (error) {
     console.error('LinkedIn import error:', error);
     res.status(500).json({ error: 'Failed to import LinkedIn data' });
+  }
+});
+
+/**
+ * Phase 1 Endpoint: Section Splitter & "Check Your Sections" (0 LLM Tokens)
+ */
+router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resumeUploader.single('resume'), requireValidFileSignature(['pdf', 'docx', 'doc', 'text']), async (req, res) => {
+  try {
+    let rawText = req.body.resumeText || '';
+    let pageCount = null;
+    let isScanned = false;
+
+    if (req.file) {
+      const extracted = await extractResumeText(req.file.buffer, req.file.mimetype, req.file.originalname);
+      rawText = extracted.text;
+      pageCount = extracted.pageCount;
+      isScanned = extracted.isScanned;
+    }
+
+    if (isScanned || !rawText || rawText.replace(/\s+/g, '').length < 50) {
+      return res.status(400).json({
+        error: 'SCANNED_PDF_DETECTED',
+        message: 'This document appears to be an image-only scan or has insufficient extractable text (<50 characters). Please paste your resume text directly.',
+        canPaste: true,
+      });
+    }
+
+    // Server-side PII redaction
+    const { redactedText, piiMap } = redactResumeText(rawText);
+
+    // Heuristic section splitting
+    const heuristicParse = parseResumeHeuristic(redactedText);
+    const canonicalJson = rehydrateResumeJson(heuristicParse.data, piiMap);
+
+    // Layer 1 deterministic checks
+    const deterministic = runDeterministicChecks({
+      resumeJson: canonicalJson,
+      pageCount: pageCount || 1,
+      jobDescription: req.body.jobDescription || '',
+    });
+
+    res.json({
+      success: true,
+      confidence: heuristicParse.confidence,
+      source: heuristicParse.source,
+      sectionsDetected: heuristicParse.sectionsDetected,
+      resumeJson: canonicalJson,
+      deterministic,
+      pageCount: pageCount || 1,
+    });
+  } catch (error) {
+    console.error('Section parse error:', error);
+    res.status(500).json({ error: 'Failed to parse resume sections' });
+  }
+});
+
+/**
+ * Phase 1 Endpoint: Universal Code-Level Fabrication Guard
+ */
+router.post('/verify-rewrite', authenticateToken, async (req, res) => {
+  try {
+    const { originalText, entryContextText, generatedText, fullResumeText } = req.body;
+
+    if (!generatedText) {
+      return res.status(400).json({ error: 'generatedText is required' });
+    }
+
+    const vocab = buildResumeVocabulary(fullResumeText || originalText || '');
+    const verification = verifyAISuggestion({
+      originalText: originalText || '',
+      entryContextText: entryContextText || '',
+      generatedText: generatedText || '',
+      resumeVocabularySet: vocab,
+    });
+
+    res.json(verification);
+  } catch (error) {
+    console.error('Verify rewrite error:', error);
+    res.status(500).json({ error: 'Failed to verify rewrite' });
   }
 });
 
