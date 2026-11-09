@@ -251,6 +251,8 @@ function InterviewLobby({
     companySearch, setCompanySearch,
     companyTab, setCompanyTab,
     resumeFile,
+    activeResumeContext = null,
+    onClearResumeContext = () => {},
     loading,
     savedSession,
     interviewer,
@@ -894,6 +896,35 @@ function InterviewLobby({
                                                     <p className="ai-setup-drop-text" style={{ color: '#22c55e' }}>{resumeFile.name}</p>
                                                     <p className="ai-setup-drop-hint">Click to replace</p>
                                                 </>
+                                            ) : activeResumeContext ? (
+                                                <>
+                                                    <CheckCircle size={28} className="ai-setup-drop-icon" style={{ color: '#38bdf8' }} />
+                                                    <p className="ai-setup-drop-text" style={{ color: '#38bdf8' }}>
+                                                        {activeResumeContext.candidateHeadline || 'Linked Resume Profile Active'}
+                                                    </p>
+                                                    <p className="ai-setup-drop-hint">
+                                                        Linked from ATS Analyzer {activeResumeContext.coreSkills?.length ? `(${activeResumeContext.coreSkills.slice(0, 3).join(', ')})` : ''} • Click to replace with new file
+                                                    </p>
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onClearResumeContext();
+                                                        }}
+                                                        style={{
+                                                            marginTop: 6,
+                                                            padding: '3px 10px',
+                                                            borderRadius: 6,
+                                                            border: '1px solid rgba(255,255,255,0.15)',
+                                                            background: 'rgba(255,255,255,0.08)',
+                                                            color: '#94a3b8',
+                                                            fontSize: 11,
+                                                            cursor: 'pointer',
+                                                        }}
+                                                    >
+                                                        Remove linked resume
+                                                    </button>
+                                                </>
                                             ) : (
                                                 <>
                                                     <FileText size={28} className="ai-setup-drop-icon" />
@@ -1060,7 +1091,7 @@ function InterviewLobby({
                                     <div className="ai-wizard-review-row">
                                         <span className="ai-wizard-review-label">Resume</span>
                                         <span className="ai-wizard-review-value">
-                                            {resumeFile ? resumeFile.name : '—  Not uploaded'}
+                                            {resumeFile ? resumeFile.name : (activeResumeContext ? (activeResumeContext.candidateHeadline || 'Linked ATS Resume Profile') : '—  Not uploaded')}
                                         </span>
                                     </div>
                                     <div className="ai-wizard-review-row">

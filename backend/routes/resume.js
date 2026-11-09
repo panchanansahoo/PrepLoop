@@ -149,7 +149,41 @@ For each detected section, provide:
 
 Respond ONLY with valid JSON. No markdown, no explanation.`;
 
-function buildFallbackResumeProfile(resumeText, analysisData = {}) {
+function buildFallbackResumeProfile(resumeText, analysisData = {}, resumeJson = null) {
+  if (resumeJson && typeof resumeJson === 'object') {
+    const skills = Array.isArray(resumeJson.skills) ? resumeJson.skills : [];
+    const exp = Array.isArray(resumeJson.experience) ? resumeJson.experience : [];
+    const projs = Array.isArray(resumeJson.projects) ? resumeJson.projects : [];
+    const candidateName = resumeJson.contact?.name || '';
+    const topRole = exp[0]?.title || projs[0]?.title || 'Software Engineering Candidate';
+    const candidateHeadline = candidateName ? `${candidateName} — ${topRole}` : topRole;
+
+    const highlights = [
+      ...projs.map(p => p.title || p.name).filter(Boolean),
+      ...exp.map(e => `${e.title || 'Role'} at ${e.company || 'Company'}`).filter(Boolean),
+    ].slice(0, 4);
+
+    const coreSkills = skills.length > 0
+      ? skills.slice(0, 10)
+      : [
+          ...(analysisData?.keywordMatch?.technical || []),
+          ...(analysisData?.keywordMatch?.soft || []),
+        ].slice(0, 8);
+
+    const likelyAreas = coreSkills.slice(0, 4);
+    if (highlights.length > 0 && !likelyAreas.includes('Project Architecture')) {
+      likelyAreas.push(`Deep dive: ${highlights[0]}`);
+    }
+
+    return {
+      candidateHeadline,
+      coreSkills,
+      projectHighlights: highlights.length > 0 ? highlights : ['Personal and academic projects'],
+      likelyQuestionAreas: likelyAreas,
+      summary: resumeJson.summary || (highlights.length > 0 ? `Highlights: ${highlights.join('; ')}` : 'Resume profile derived from parsed sections.'),
+    };
+  }
+
   const lines = String(resumeText || '')
     .split('\n')
     .map(line => line.trim())
@@ -390,7 +424,7 @@ router.post('/analyze', authenticateToken, uploadEndpointsLimiter, resumeUploade
         analysisData = buildStaticAnalysis(resumeText);
       }
 
-      resumeProfile = analysisData.interviewProfile || buildFallbackResumeProfile(resumeText, analysisData);
+      resumeProfile = analysisData.interviewProfile || buildFallbackResumeProfile(resumeText, analysisData, canonicalResumeJson);
     }
 
     // Fix #7: store truncated text to avoid storing huge PII blobs
@@ -434,11 +468,14 @@ const RESUME_GENERATION_PROMPT = `You are an expert resume writer and ATS optimi
 1. Rewrite the professional summary to be compelling, concise (2-3 lines), and naturally keyword-rich
 2. Transform work experience into powerful bullet points using the PAR (Problem → Action → Result) format
 3. Start every bullet point with a strong ACTION VERB (Led, Built, Designed, Spearheaded, Orchestrated, etc.)
-4. Add quantified metrics where possible (%, $, numbers) — if the user didn't provide exact numbers, use realistic estimates with "~" prefix
-5. Structure education properly with degree, institution, dates, and relevant coursework/honors
-6. Organize skills into categories (Languages, Frameworks, Tools, Databases, etc.)
-7. Add a Projects section if relevant info is present
-8. Ensure the resume would score 80+ on ATS systems
+4. PRESERVE FACTUAL INTEGRITY: DO NOT invent metrics, numbers, percentages, company names, tools, degrees, or credentials that the candidate did not mention.
+   - If candidate provided metrics, polish and preserve them faithfully.
+   - If a bullet lacks quantification, keep it honest or add a candidate placeholder like "[add: % metric]" — NEVER fabricate numbers or estimates.
+5. Keep all core factual credentials (degrees, schools, dates, companies, certs) strictly factual and unaltered from candidate input.
+6. Structure education properly with degree, institution, dates, and relevant coursework/honors
+7. Organize skills into categories (Languages, Frameworks, Tools, Databases, etc.)
+8. Add a Projects section if relevant info is present
+9. Ensure the resume would score 80+ on ATS systems
 
 ## RESPONSE FORMAT (strict JSON):
 {
@@ -492,7 +529,7 @@ const RESUME_GENERATION_PROMPT = `You are an expert resume writer and ATS optimi
 - If a field has no relevant input, use an empty array or empty string
 - Every experience bullet MUST start with a past-tense action verb
 - Experience bullets should be 1-2 lines, not paragraphs
-- Be creative with realistic metrics if the user gave vague descriptions
+- Under NO circumstances invent companies, degrees, dates, tools, or fake metrics (~10%, $5M). Keep factual details strictly grounded in the candidate's input.
 - Skills should be real, industry-standard technology names
 - Response must be valid JSON only — no markdown, no explanation`;
 
@@ -689,6 +726,38 @@ ${formatAwards(awards)}
           certifications: buildAwards(),
           atsScore: 55
         };
+      }
+    }
+
+    // Strictly enforce read-only core credentials on generated output
+    if (generatedResume) {
+      generatedResume.fullName = fullName;
+      generatedResume.email = email;
+      if (phone) generatedResume.phone = phone;
+      if (location) generatedResume.location = location;
+      if (linkedin) generatedResume.linkedin = linkedin;
+
+      const userEdu = buildEducation();
+      if (userEdu.length > 0 && Array.isArray(generatedResume.education)) {
+        generatedResume.education = generatedResume.education.map((e, idx) => ({
+          ...e,
+          institution: userEdu[idx]?.institution || e.institution,
+          degree: userEdu[idx]?.degree || e.degree,
+          graduationDate: userEdu[idx]?.graduationDate || e.graduationDate,
+          location: userEdu[idx]?.location || e.location,
+        }));
+      }
+
+      const userExp = buildExperience();
+      if (userExp.length > 0 && Array.isArray(generatedResume.experience)) {
+        generatedResume.experience = generatedResume.experience.map((e, idx) => ({
+          ...e,
+          company: userExp[idx]?.company || e.company,
+          title: userExp[idx]?.title || e.title,
+          startDate: userExp[idx]?.startDate || e.startDate,
+          endDate: userExp[idx]?.endDate || e.endDate,
+          location: userExp[idx]?.location || e.location,
+        }));
       }
     }
 
@@ -984,6 +1053,13 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
       jobDescription: req.body.jobDescription || '',
     });
 
+    const resumeProfile = buildFallbackResumeProfile(rawText, {
+      keywordMatch: {
+        technical: Array.isArray(canonicalJson.skills) ? canonicalJson.skills : [],
+        soft: [],
+      },
+    }, canonicalJson);
+
     res.json({
       success: true,
       confidence: heuristicParse.confidence,
@@ -992,6 +1068,8 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
       resumeJson: canonicalJson,
       deterministic,
       pageCount: pageCount || 1,
+      resumeProfile,
+      rawResumeText: rawText,
     });
   } catch (error) {
     console.error('Section parse error:', error);

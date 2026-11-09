@@ -616,3 +616,4 @@ export async function runEmpiricalBenchmark() {
 if (process.argv[1]?.endsWith('runResumeSectionSplitterBenchmark.mjs')) {
   runEmpiricalBenchmark();
 }
+

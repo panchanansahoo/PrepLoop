@@ -309,6 +309,44 @@ export default function ResumeAnalyzer() {
     setAnalyzing(false);
   };
 
+  const handleLaunchInterview = (focusSkills = '') => {
+    const activeResumeJson = result?.resumeJson || parsedData?.resumeJson || null;
+    const activeProfile = result?.resumeProfile || parsedData?.resumeProfile || null;
+    const extractedSkills = activeResumeJson?.skills
+      ? (Array.isArray(activeResumeJson.skills)
+          ? activeResumeJson.skills.flatMap(s => typeof s === 'string' ? s : (s.items || [])).filter(Boolean)
+          : [])
+      : (result?.analysis?.keywordMatch?.technical || []);
+
+    const projects = activeResumeJson?.projects?.map(p => p.name || p.title).filter(Boolean)
+      || (activeProfile?.projectHighlights || []);
+
+    const headline = activeProfile?.candidateHeadline
+      || (activeResumeJson?.contact?.name ? `${activeResumeJson.contact.name} — ${activeResumeJson.experience?.[0]?.title || 'Software Developer'}` : 'Software Developer Candidate');
+
+    const rawText = result?.resumeText || resumeText || '';
+
+    const payload = {
+      candidateHeadline: headline,
+      coreSkills: activeProfile?.coreSkills?.length ? activeProfile.coreSkills : extractedSkills.slice(0, 10),
+      projectHighlights: projects.slice(0, 4),
+      likelyQuestionAreas: focusSkills ? focusSkills.split(',').map(s => s.trim()) : (activeProfile?.likelyQuestionAreas || extractedSkills.slice(0, 3)),
+      summary: activeResumeJson?.summary || activeProfile?.summary || '',
+      resumeText: rawText.length > 8000 ? rawText.slice(0, 8000) : rawText,
+      focusArea: focusSkills || '',
+      atsScore: result?.analysis?.atsScore || parsedData?.deterministic?.overallScore || null,
+    };
+
+    try {
+      sessionStorage.setItem('preploop_resume_context', JSON.stringify(payload));
+    } catch (e) {
+      console.warn('Failed to store resume context in sessionStorage:', e);
+    }
+
+    const query = focusSkills ? `?focus=${encodeURIComponent(focusSkills)}&fromResume=1` : '?fromResume=1';
+    navigate(`/ai-interview${query}`);
+  };
+
   const _loadAnalysis = async (id) => {
     try {
       const res = await authFetch(buildResumeApiUrl(`/api/resume/${id}`));
@@ -391,7 +429,7 @@ export default function ResumeAnalyzer() {
     setGenerating(true);
     setError('');
     try {
-      const res = await authFetch('/api/resume/generate', {
+      const res = await authFetch(buildResumeApiUrl('/api/resume/generate'), {
         method: 'POST',
         body: JSON.stringify({ ...createFormData, template: selectedTemplate }),
       });
@@ -407,6 +445,39 @@ export default function ResumeAnalyzer() {
       setError(err.message || 'Failed to generate resume.');
     }
     setGenerating(false);
+  };
+
+  const exportDocx = () => {
+    const el = document.getElementById('resume-print-area');
+    if (!el) return;
+    const clone = el.cloneNode(true);
+    clone.querySelectorAll('[contenteditable]').forEach(e => e.removeAttribute('contenteditable'));
+    clone.querySelectorAll('[data-edit-hover]').forEach(e => e.removeAttribute('data-edit-hover'));
+    const content = clone.innerHTML;
+    const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' " +
+      "xmlns:w='urn:schemas-microsoft-com:office:word' " +
+      "xmlns='http://www.w3.org/TR/REC-html40'>" +
+      "<head><meta charset='utf-8'><title>" + (generatedResume?.fullName || 'Resume') + "</title><style>" +
+      "body{font-family:'Times New Roman',Times,Georgia,serif;font-size:11pt;line-height:1.35;color:#000;padding:24pt;}" +
+      ".resume-name{font-size:22pt;font-weight:bold;text-align:center;text-transform:uppercase;margin-bottom:4pt;}" +
+      ".resume-contact{text-align:center;font-size:9.5pt;margin-bottom:8pt;color:#333;}" +
+      ".section-title{font-size:11pt;font-weight:bold;text-transform:uppercase;border-bottom:1.5pt solid #000;margin-top:12pt;margin-bottom:4pt;}" +
+      ".entry-row{display:flex;justify-content:space-between;}" +
+      ".entry-institution{font-weight:bold;}" +
+      ".entry-subtitle{font-style:italic;}" +
+      "ul{margin-top:2pt;margin-bottom:4pt;padding-left:18pt;}" +
+      "li{font-size:10pt;margin-bottom:2pt;}" +
+      "</style></head><body>";
+    const footer = "</body></html>";
+    const blob = new Blob([header + content + footer], { type: 'application/msword;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(generatedResume?.fullName || 'Resume').replace(/\s+/g, '_')}_ATS.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const printResume = () => {
@@ -1189,7 +1260,7 @@ export default function ResumeAnalyzer() {
               </div>
 
               {/* Action buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 12 }}>
                 <button
                   type="button"
                   onClick={() => setParseStep('upload')}
@@ -1203,30 +1274,45 @@ export default function ResumeAnalyzer() {
                   <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to Edit
                 </button>
 
-                <button
-                  type="button"
-                  onClick={analyzeResume}
-                  disabled={analyzing}
-                  style={{
-                    padding: '12px 28px', borderRadius: 12, border: 'none',
-                    background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
-                    color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
-                    cursor: analyzing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
-                    boxShadow: '0 4px 20px rgba(108,92,231,0.3)', opacity: analyzing ? 0.6 : 1,
-                  }}
-                >
-                  {analyzing ? (
-                    <>
-                      <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-                      Analyzing with ATS Rubric...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      Confirm Sections & Run ATS Analysis
-                    </>
-                  )}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => handleLaunchInterview()}
+                    style={{
+                      padding: '12px 22px', borderRadius: 12,
+                      background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)',
+                      color: '#38bdf8', fontSize: 13, fontWeight: 700, fontFamily: 'inherit',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7,
+                    }}
+                  >
+                    <Sparkles size={15} /> Practice Interview (0 Tokens)
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={analyzeResume}
+                    disabled={analyzing}
+                    style={{
+                      padding: '12px 28px', borderRadius: 12, border: 'none',
+                      background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',
+                      color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: 'inherit',
+                      cursor: analyzing ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: 8,
+                      boxShadow: '0 4px 20px rgba(108,92,231,0.3)', opacity: analyzing ? 0.6 : 1,
+                    }}
+                  >
+                    {analyzing ? (
+                      <>
+                        <Loader2 size={16} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                        Analyzing with ATS Rubric...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        Confirm Sections & Run ATS Analysis
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1430,7 +1516,7 @@ export default function ResumeAnalyzer() {
                             type="button"
                             onClick={() => {
                               const targetSkills = (analysis.keywordMatch?.missing?.length > 0 ? analysis.keywordMatch.missing : analysis.weaknesses || []).slice(0, 3).join(', ');
-                              navigate(`/ai-interview?focus=${encodeURIComponent(targetSkills)}`);
+                              handleLaunchInterview(targetSkills);
                             }}
                             style={{
                               padding: '7px 16px',
@@ -1743,7 +1829,7 @@ export default function ResumeAnalyzer() {
                               type="button"
                               onClick={() => {
                                 const targetSkills = analysis.keywordMatch.missing.slice(0, 3).join(', ');
-                                navigate(`/ai-interview?focus=${encodeURIComponent(targetSkills)}`);
+                                handleLaunchInterview(targetSkills);
                               }}
                               style={{
                                 padding: '6px 14px',
@@ -2294,6 +2380,15 @@ export default function ResumeAnalyzer() {
                   </span>
                 </div>
               )}
+              <button onClick={exportDocx} style={{
+                padding: '9px 18px', borderRadius: 10,
+                background: 'var(--bg-tertiary)', border: '1px solid var(--border-light)',
+                color: 'var(--text-primary)', fontSize: 12, fontWeight: 700,
+                cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <Download size={14} /> Download DOCX
+              </button>
+
               <button onClick={printResume} style={{
                 padding: '9px 20px', borderRadius: 10,
                 background: 'linear-gradient(135deg, #6c5ce7, #a855f7)',

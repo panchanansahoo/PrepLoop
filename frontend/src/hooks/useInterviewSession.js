@@ -1100,8 +1100,24 @@ export function useInterviewSession(options = {}) {
   const [companySearch, setCompanySearch] = useState("");
   const [companyTab, setCompanyTab] = useState("all");
   const [resumeFile, setResumeFile] = useState(null);
-  const [activeResumeContext, setActiveResumeContext] = useState(null);
+  const [activeResumeContext, setActiveResumeContext] = useState(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = sessionStorage.getItem("preploop_resume_context");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  });
   const [resumeParseError, setResumeParseError] = useState(null);
+
+  const clearResumeContext = useCallback(() => {
+    setActiveResumeContext(null);
+    setResumeFile(null);
+    try {
+      sessionStorage.removeItem("preploop_resume_context");
+    } catch {}
+  }, []);
 
   const abortSpeculative = useCallback(() => {
     if (speculativeAbortControllerRef.current) {
@@ -1950,6 +1966,21 @@ export function useInterviewSession(options = {}) {
             console.warn("[Interview] Resume parsing failed; using metadata fallback:", resumeError.message);
           }
         }
+      } else if (activeResumeContext) {
+        resumeCtx = {
+          candidateHeadline: activeResumeContext.candidateHeadline || `${experienceLevel === "experienced" ? "Experienced" : "Fresher"} ${resolvedRole}`,
+          summary: activeResumeContext.summary || "Candidate resume context loaded from ATS analyzer.",
+          coreSkills: Array.isArray(activeResumeContext.coreSkills) && activeResumeContext.coreSkills.length > 0
+            ? activeResumeContext.coreSkills.slice(0, 12)
+            : inferredSkills,
+          projectHighlights: Array.isArray(activeResumeContext.projectHighlights) && activeResumeContext.projectHighlights.length > 0
+            ? activeResumeContext.projectHighlights.slice(0, 4)
+            : [`Projects from analyzed resume`],
+          likelyQuestionAreas: Array.isArray(activeResumeContext.likelyQuestionAreas) && activeResumeContext.likelyQuestionAreas.length > 0
+            ? activeResumeContext.likelyQuestionAreas.slice(0, 4)
+            : [resolvedStage, ...inferredSkills.slice(0, 2)],
+          resumeText: activeResumeContext.resumeText || "",
+        };
       }
 
       setActiveResumeContext(resumeCtx);
@@ -3464,6 +3495,7 @@ export function useInterviewSession(options = {}) {
       setCompanyTab,
       setResumeFile,
       setActiveResumeContext,
+      clearResumeContext,
       setResumeParseError,
       setResultTab,
       setAnalysisResult,

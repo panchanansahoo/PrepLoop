@@ -138,7 +138,7 @@ export default function AIInterviewPage() {
         userInput, interviewerStatus, notes, savedSession,
         pacingMode, needAMomentCount, maxNeedAMoment, checkInActive, wrapUpWarning,
         setupStep, experienceLevel, targetRole, targetCompany, companySearch,
-        companyTab, resumeFile, analysisResult,
+        companyTab, resumeFile, activeResumeContext, analysisResult,
         captionsOn, workspacePanelOpen, workspaceDropdownOpen,
         cameraError, showEndConfirm, awaitingAnswer, isOnline, lifecycleState, sessionError,
         customQuestionSet, questionSetLoading, questionSetError, questionSetAccessError, questionSetPasscode, candidateEmail, candidateName, submissionStatus, resumeParseError,
@@ -160,7 +160,7 @@ export default function AIInterviewPage() {
         setBookmarked, setSpeakerMuted,
         setChatOpen, setConversation, setUserInput,
         setSetupStep, setExperienceLevel, setTargetRole, setTargetCompany,
-        setCompanySearch, setCompanyTab, setResumeFile, setResumeParseError,
+        setCompanySearch, setCompanyTab, setResumeFile, clearResumeContext, setResumeParseError,
         setAnalysisResult,
         setInterviewerMood, setRealisticJitter, setWhiteboardSnapshot,
         setCaptionsOn, setWorkspacePanelOpen, setWorkspaceDropdownOpen,
@@ -405,6 +405,8 @@ export default function AIInterviewPage() {
                 companySearch={companySearch} setCompanySearch={setCompanySearch}
                 companyTab={companyTab} setCompanyTab={setCompanyTab}
                 resumeFile={resumeFile}
+                activeResumeContext={activeResumeContext}
+                onClearResumeContext={clearResumeContext}
                 realtimeMode={realtimeMode} setRealtimeMode={setRealtimeMode}
                 loading={loading}
                 savedSession={savedSession}
