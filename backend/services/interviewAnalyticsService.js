@@ -63,6 +63,7 @@ export class InterviewAnalyticsService {
         performanceTrends: this.calculatePerformanceTrends(interviews),
         skillGaps: this.analyzeSkillGaps(interviews),
         improvementTracking: this.calculateImprovementTracking(interviews),
+        skillDeltas: this.calculateSkillDeltas(interviews),
 
         // Comparative analysis
         percentileRanking: this.calculatePercentileRanking(interviews),
@@ -307,6 +308,53 @@ export class InterviewAnalyticsService {
     return {
       percentage,
       trend: improvement > 5 ? 'improving' : improvement < -5 ? 'declining' : 'stable'
+    };
+  }
+
+  static calculateSkillDeltas(interviews = []) {
+    const valid = [...interviews]
+      .filter(i => i.status === 'completed' || i.interview_score !== null)
+      .sort((a, b) => new Date(b.started_at || b.completed_at || 0) - new Date(a.started_at || a.completed_at || 0));
+
+    if (valid.length < 2) {
+      return {
+        hasComparison: false,
+        overallDelta: 0,
+        skills: {
+          communication: { current: null, previous: null, delta: 0, trend: 'neutral' },
+          problemSolving: { current: null, previous: null, delta: 0, trend: 'neutral' },
+          technicalDepth: { current: null, previous: null, delta: 0, trend: 'neutral' },
+        },
+      };
+    }
+
+    const latest = valid[0];
+    const previous = valid[1];
+
+    const calcDelta = (cur, prev) => {
+      const c = Number(cur);
+      const p = Number(prev);
+      if (!Number.isFinite(c) || !Number.isFinite(p)) {
+        return { current: Number.isFinite(c) ? c : null, previous: Number.isFinite(p) ? p : null, delta: 0, trend: 'neutral' };
+      }
+      const delta = Math.round(c - p);
+      const trend = delta > 3 ? 'improving' : delta < -3 ? 'declining' : 'stable';
+      return { current: c, previous: p, delta, trend };
+    };
+
+    const overallDelta = Math.round((Number(latest.interview_score) || 0) - (Number(previous.interview_score) || 0));
+
+    return {
+      hasComparison: true,
+      overallDelta,
+      overallTrend: overallDelta > 3 ? 'improving' : overallDelta < -3 ? 'declining' : 'stable',
+      latestSessionId: latest.id,
+      previousSessionId: previous.id,
+      skills: {
+        communication: calcDelta(latest.communication_clarity_score, previous.communication_clarity_score),
+        problemSolving: calcDelta(latest.problem_solving_score, previous.problem_solving_score),
+        technicalDepth: calcDelta(latest.technical_depth_score, previous.technical_depth_score),
+      },
     };
   }
 

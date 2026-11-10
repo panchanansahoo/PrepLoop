@@ -587,7 +587,9 @@ export function useVoiceAI({
         }
         backchannelRef.current = clips;
       })
-      .catch(() => {});
+      .catch((error) => {
+        console.warn('[useVoiceAI] Failed to load backchannel audio clips:', error?.message || error);
+      });
   }, [personaGender]);
 
   const playImmediateBackchannel = useCallback((clipKey = 'mmhmm') => {

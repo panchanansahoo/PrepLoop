@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
+import ToastContext from '../context/ToastContext';
 import {Mic, Clock, SkipForward, CheckCircle} from 'lucide-react';
 import RealtimeFeedback from './RealtimeFeedback';
 
@@ -9,6 +10,27 @@ import { authFetch } from '../utils/authFetch';
  * Features: Video/Audio support, Real-time feedback, Progress tracking
  */
 export default function ModernInterviewContainer() {
+  const toastCtx = useContext(ToastContext);
+
+  const notifyError = (title, message) => {
+    if (toastCtx?.showToast) {
+      toastCtx.showToast({
+        type: 'error',
+        title,
+        description: message,
+        duration: 5000,
+      });
+    } else if (typeof window !== 'undefined' && typeof window.toast === 'function') {
+      window.toast({
+        status: 'error',
+        title,
+        description: message,
+        duration: 5000,
+      });
+    } else {
+      console.error(`[Interview Error] ${title}: ${message}`);
+    }
+  };
   const FORM_LABELS = {
     answer: 'Your Answer',
   };
@@ -58,7 +80,7 @@ export default function ModernInterviewContainer() {
       }
     } catch (error) {
       console.error('Error starting interview:', error);
-      alert('Failed to start interview');
+      notifyError('Failed to Start Interview', error?.message || 'Could not start the interview session.');
     }
   };
 
@@ -96,7 +118,7 @@ export default function ModernInterviewContainer() {
       setIsRecording(true);
     } catch (error) {
       console.error('Error accessing microphone:', error);
-      alert('Please allow microphone access');
+      notifyError('Microphone Access Required', 'Please allow microphone access in your browser to record your answer.');
     }
   };
 
@@ -124,13 +146,14 @@ export default function ModernInterviewContainer() {
       setRealtimeFeedback(feedback);
     } catch (error) {
       console.error('Error getting feedback:', error);
+      notifyError('Feedback Notice', error?.message || 'Could not retrieve real-time feedback for this response.');
     }
   };
 
   // Submit answer and move to next
   const submitAnswer = async () => {
     if (!currentAnswer.trim()) {
-      alert('Please provide an answer');
+      notifyError('Answer Required', 'Please provide an answer before submitting.');
       return;
     }
 
@@ -159,6 +182,7 @@ export default function ModernInterviewContainer() {
       setTimer(0);
     } catch (error) {
       console.error('Error getting next question:', error);
+      notifyError('Question Load Error', 'Could not load the next question. Concluding interview.');
       completeInterview();
     }
   };
@@ -180,6 +204,7 @@ export default function ModernInterviewContainer() {
       setInterviewState('completed');
     } catch (error) {
       console.error('Error completing interview:', error);
+      notifyError('Completion Error', error?.message || 'Failed to complete interview analysis.');
     }
   };
 

@@ -85,7 +85,75 @@ const OTHER_TECHNICAL_QUESTIONS = [
   "What is the difference between local and global variables in Python?"
 ];
 
-const sessions = new Map();
+export const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+export const COMPLETED_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
+export const MAX_SESSIONS = 500;
+
+export const sessions = new Map();
+
+/**
+ * Remove stale or expired sessions
+ */
+export const cleanupStaleSessions = () => {
+  const now = Date.now();
+  for (const [id, session] of sessions.entries()) {
+    const isCompleted = session.phase === 'complete';
+    const expired = isCompleted
+      ? (session.completedAtMs && now - session.completedAtMs > COMPLETED_SESSION_TTL_MS)
+      : (session.lastAccessedAt && now - session.lastAccessedAt > SESSION_TTL_MS);
+    if (expired) {
+      sessions.delete(id);
+    }
+  }
+};
+
+/**
+ * Periodic cleanup timer (unref'd to prevent keeping Node process open)
+ */
+const cleanupInterval = setInterval(cleanupStaleSessions, 5 * 60 * 1000);
+cleanupInterval.unref();
+
+/**
+ * Safe retrieval, LRU recency update, and TTL check for a session
+ */
+export const getActiveSession = (sessionId) => {
+  if (!sessionId || !sessions.has(sessionId)) {
+    return null;
+  }
+  const session = sessions.get(sessionId);
+  const now = Date.now();
+
+  const isCompleted = session.phase === 'complete';
+  const expired = isCompleted
+    ? (session.completedAtMs && now - session.completedAtMs > COMPLETED_SESSION_TTL_MS)
+    : (session.lastAccessedAt && now - session.lastAccessedAt > SESSION_TTL_MS);
+
+  if (expired) {
+    sessions.delete(sessionId);
+    return null;
+  }
+
+  // Update recency and move to end of Map for LRU ordering
+  session.lastAccessedAt = now;
+  sessions.delete(sessionId);
+  sessions.set(sessionId, session);
+  return session;
+};
+
+/**
+ * Store a new session with capacity-bound LRU eviction
+ */
+export const storeSession = (sessionId, sessionData) => {
+  cleanupStaleSessions();
+  if (sessions.size >= MAX_SESSIONS) {
+    const oldestKey = sessions.keys().next().value;
+    if (oldestKey) {
+      sessions.delete(oldestKey);
+    }
+  }
+  sessionData.lastAccessedAt = sessionData.lastAccessedAt || Date.now();
+  sessions.set(sessionId, sessionData);
+};
 
 router.post('/start', authenticateToken, (req, res) => {
   try {
@@ -97,7 +165,7 @@ router.post('/start', authenticateToken, (req, res) => {
 
     const sessionId = `${req.user.id}-${Date.now()}`;
     
-    sessions.set(sessionId, {
+    storeSession(sessionId, {
       userId: req.user.id,
       interviewerName: interviewerName || "NAME",
       role: role || "role with company",
@@ -108,7 +176,9 @@ router.post('/start', authenticateToken, (req, res) => {
       currentQuestionIndex: 0,
       askedQuestions: [FIXED_INTRO_QUESTIONS[0]],
       responses: [],
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
+      createdAtMs: Date.now(),
+      lastAccessedAt: Date.now()
     });
 
     const greeting = `Good afternoon, my name is ${interviewerName || "NAME"}, I work as an ${role || "role with company"}, and I'll be conducting your ${roundName || "round name"} discussion today. We'll mainly talk about your background, your interests, and see how you fit with our organisation.`;
@@ -131,15 +201,14 @@ router.post('/answer', authenticateToken, (req, res) => {
   try {
     const { sessionId, answer } = req.body;
 
-    if (!sessionId || !sessions.has(sessionId)) {
+    const session = getActiveSession(sessionId);
+    if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
     if (!answer || typeof answer !== 'string' || !answer.trim()) {
       return res.status(400).json({ error: 'Answer must be a non-empty string' });
     }
-
-    const session = sessions.get(sessionId);
 
     if (session.userId !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized' });
@@ -259,6 +328,7 @@ router.post('/answer', authenticateToken, (req, res) => {
       // All technical questions done
       session.phase = 'complete';
       session.completedAt = new Date().toISOString();
+      session.completedAtMs = Date.now();
       
       return res.json({
         complete: true,
@@ -286,11 +356,10 @@ router.get('/session/:sessionId', authenticateToken, (req, res) => {
   try {
     const { sessionId } = req.params;
 
-    if (!sessions.has(sessionId)) {
+    const session = getActiveSession(sessionId);
+    if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
-
-    const session = sessions.get(sessionId);
 
     if (session.userId !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized' });
@@ -308,6 +377,24 @@ router.get('/session/:sessionId', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Error fetching session:', error);
     res.status(500).json({ error: 'Failed to fetch session' });
+  }
+});
+
+router.delete('/session/:sessionId', authenticateToken, (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = sessions.get(sessionId);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    if (session.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    sessions.delete(sessionId);
+    res.json({ success: true, message: 'Session deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting session:', error);
+    res.status(500).json({ error: 'Failed to delete session' });
   }
 });
 

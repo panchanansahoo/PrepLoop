@@ -363,6 +363,22 @@ export const generateAIQuestion = async (type, difficulty, previousQuestions = [
   if (!groq) return null;
 
   try {
+    const MAX_PREV_QUESTIONS = 10;
+    const MAX_PREV_QUESTION_LEN = 300;
+
+    const safePrevious = (Array.isArray(previousQuestions) ? previousQuestions.slice(-MAX_PREV_QUESTIONS) : [])
+      .map(q => {
+        const text = typeof q === 'object' && q !== null
+          ? (q.question || q.text || '')
+          : (typeof q === 'string' ? q : '');
+        return String(text)
+          .replace(/[\r\n\t]/g, ' ')
+          .replace(/["\\]/g, '')
+          .trim()
+          .slice(0, MAX_PREV_QUESTION_LEN);
+      })
+      .filter(Boolean);
+
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
         model: 'llama-3.3-70b-versatile',
@@ -371,8 +387,7 @@ export const generateAIQuestion = async (type, difficulty, previousQuestions = [
             role: 'system',
             content: `You are an expert technical interviewer. Generate a unique ${difficulty} ${type} interview question suitable for a STUDENT or RECENT GRADUATE.
           The candidate may have limited professional experience — frame questions around college projects, internships, coursework, or learning.
-          Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.
-          Avoid repeating these previously asked questions: ${JSON.stringify(previousQuestions)}.
+          Also provide a brief "context" or hint for the interviewer (or candidate) to understand what to focus on.${safePrevious.length > 0 ? `\n          Avoid repeating these previously asked questions: ${JSON.stringify(safePrevious)}.` : ''}
           
           Format as JSON with "question" and "context" fields. Respond ONLY with valid JSON.`
           },

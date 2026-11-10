@@ -69,10 +69,11 @@ router.get('/stats', async (req, res) => {
       .from('resume_analyses')
       .select('*', { count: 'exact', head: true });
 
-    // Users by subscription tier
+    // Users by subscription tier (capped with .limit() to prevent full table scan on admin stats load)
     const { data: tierData } = await supabaseAdmin
       .from('profiles')
-      .select('subscription_tier');
+      .select('subscription_tier')
+      .limit(10000);
     
     const tierBreakdown = {};
     (tierData || []).forEach(p => {
@@ -85,7 +86,8 @@ router.get('/stats', async (req, res) => {
       .from('profiles')
       .select('created_at')
       .gte('created_at', monthAgo)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(5000);
 
     const growthData = {};
     (recentUsers || []).forEach(u => {
@@ -122,7 +124,9 @@ router.get('/stats', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const { search, role, tier, page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
     let query = supabaseAdmin
       .from('profiles')
@@ -134,7 +138,7 @@ router.get('/users', async (req, res) => {
 
     query = query
       .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit, 10) - 1);
+      .range(offset, offset + parsedLimit - 1);
 
     const { data: users, count, error } = await query;
 
@@ -160,8 +164,8 @@ router.get('/users', async (req, res) => {
     res.json({
       users: usersWithEmail,
       total: count || 0,
-      page: parseInt(page, 10),
-      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+      page: parsedPage,
+      totalPages: Math.ceil((count || 0) / parsedLimit),
     });
   } catch (error) {
     console.error('Admin users error:', error);
@@ -252,28 +256,30 @@ router.delete('/users/:id', async (req, res) => {
 router.get('/content', async (req, res) => {
   try {
     const { type = 'posts', page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
     if (type === 'posts') {
       const { data: posts, count, error } = await supabaseAdmin
         .from('community_posts')
         .select('id, title, content, tags, likes, replies, created_at, user_id, profiles(full_name)', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(offset, offset + parseInt(limit, 10) - 1);
+        .range(offset, offset + parsedLimit - 1);
 
       if (error) throw error;
 
-      res.json({ items: posts || [], total: count || 0, type: 'posts' });
+      res.json({ items: posts || [], total: count || 0, type: 'posts', page: parsedPage, totalPages: Math.ceil((count || 0) / parsedLimit) });
     } else if (type === 'replies') {
       const { data: replies, count, error } = await supabaseAdmin
         .from('community_replies')
         .select('id, content, likes, created_at, user_id, post_id, profiles(full_name)', { count: 'exact' })
         .order('created_at', { ascending: false })
-        .range(offset, offset + parseInt(limit, 10) - 1);
+        .range(offset, offset + parsedLimit - 1);
 
       if (error) throw error;
 
-      res.json({ items: replies || [], total: count || 0, type: 'replies' });
+      res.json({ items: replies || [], total: count || 0, type: 'replies', page: parsedPage, totalPages: Math.ceil((count || 0) / parsedLimit) });
     } else {
       res.status(400).json({ error: 'Invalid content type. Use "posts" or "replies"' });
     }
@@ -411,14 +417,16 @@ router.post('/question-sets', async (req, res) => {
 router.get('/question-sets', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
     const { data, count, error } = await supabaseAdmin
       .from('admin_question_sets')
       .select('id, title, description, share_code, interview_type, difficulty, requires_login, is_active, questions, settings, passcode_hash, expires_at, max_attempts, attempts_started, allowed_emails, created_at, updated_at', { count: 'exact' })
       .eq('admin_id', req.user.id)
       .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit, 10) - 1);
+      .range(offset, offset + parsedLimit - 1);
 
     if (error) throw error;
 
@@ -455,8 +463,8 @@ router.get('/question-sets', async (req, res) => {
     res.json({
       questionSets: setsWithCounts,
       total: count || 0,
-      page: parseInt(page, 10),
-      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+      page: parsedPage,
+      totalPages: Math.ceil((count || 0) / parsedLimit),
     });
   } catch (error) {
     console.error('List question sets error:', error);
@@ -632,7 +640,9 @@ router.delete('/question-sets/:id', async (req, res) => {
 router.get('/question-sets/:id/submissions', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
-    const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
 
     // Verify ownership
     const { data: existing, error: fetchError } = await supabaseAdmin
@@ -651,7 +661,7 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
       .select('id, user_id, user_name, user_email, responses, scores, overall_score, duration, completed_at, created_at', { count: 'exact' })
       .eq('question_set_id', req.params.id)
       .order('completed_at', { ascending: false })
-      .range(offset, offset + parseInt(limit, 10) - 1);
+      .range(offset, offset + parsedLimit - 1);
 
     if (error) throw error;
 
@@ -659,8 +669,8 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
       questionSetTitle: existing.title,
       submissions: submissions || [],
       total: count || 0,
-      page: parseInt(page, 10),
-      totalPages: Math.ceil((count || 0) / parseInt(limit, 10)),
+      page: parsedPage,
+      totalPages: Math.ceil((count || 0) / parsedLimit),
     });
   } catch (error) {
     console.error('Get submissions error:', error);

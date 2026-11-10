@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 
 import { authFetch } from '../utils/authFetch';
 import {
@@ -39,7 +38,6 @@ const MODES = [
 ];
 
 export default function TimedPractice() {
-    const { _user } = useAuth();
     const [phase, setPhase] = useState('select'); // select | active | results
     const [selectedMode, setSelectedMode] = useState(null);
     const [session, setSession] = useState(null);
@@ -222,7 +220,7 @@ export default function TimedPractice() {
                         </button>
                     </div>
 
-                    <Link to={`/editor/${q.id}`} target="_blank" className="tp-open-editor">
+                    <Link to={`/dsa-editor/${q.id}`} target="_blank" className="tp-open-editor">
                         Open in Editor →
                     </Link>
                 </div>

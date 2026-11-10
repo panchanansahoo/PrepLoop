@@ -734,4 +734,31 @@ class QuotaGuard {
 }
 
 export const quotaGuard = new QuotaGuard();
+
+/**
+ * Express middleware to enforce daily quota limits on AI routes.
+ */
+export function createQuotaMiddleware(options = {}) {
+  return function quotaMiddleware(req, res, next) {
+    const userId = req.user?.id || req.user?.userId || null;
+    const ip = req.ip || req.connection?.remoteAddress || '127.0.0.1';
+    const isNewSession = Boolean(req.body?.isNewSession || options.isNewSession);
+
+    const capCheck = quotaGuard.checkUserCap({ userId, ip });
+    if (!capCheck.allowed) {
+      const isTurnExhausted = capCheck.turnsRemaining === 0;
+      return res.status(429).json({
+        error: isTurnExhausted ? 'Daily AI turn quota reached' : 'Daily interview quota reached',
+        code: isTurnExhausted ? 'TURN_QUOTA_EXCEEDED' : 'QUOTA_EXCEEDED',
+        reason: capCheck.reason,
+        mode: quotaGuard.getCurrentMode({ isNewSession }),
+        cap: capCheck,
+      });
+    }
+
+    req.quotaMode = quotaGuard.getCurrentMode({ isNewSession });
+    next();
+  };
+}
+
 export default quotaGuard;

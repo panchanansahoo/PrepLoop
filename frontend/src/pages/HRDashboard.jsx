@@ -43,8 +43,14 @@ export default function HRDashboard() {
       navigate('/hr/login');
       return;
     }
-    setHrUser(JSON.parse(user));
-    loadAll();
+    try {
+      setHrUser(JSON.parse(user));
+      loadAll();
+    } catch {
+      localStorage.removeItem('hr_user');
+      localStorage.removeItem('hr_token');
+      navigate('/hr/login');
+    }
   }, []);
 
   const loadAll = async () => {

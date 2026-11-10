@@ -350,7 +350,7 @@ router.get('/public/:slug', async (req, res) => {
       .maybeSingle();
 
     if (siteError || !site) {
-      // Fallback: check profiles table by custom_url, id, or slugified full_name
+      // Fallback: check profiles table by exact custom_url or UUID lookup
       let { data: userProfile } = await supabaseAdmin
         .from('profiles')
         .select('*')
@@ -361,11 +361,6 @@ router.get('/public/:slug', async (req, res) => {
       if (!userProfile && isUUID) {
         const byId = await supabaseAdmin.from('profiles').select('*').eq('id', slug).maybeSingle();
         if (byId.data) userProfile = byId.data;
-      }
-
-      if (!userProfile) {
-        const byName = await supabaseAdmin.from('profiles').select('*').ilike('full_name', slug.replace(/[-_]+/g, ' ').trim()).maybeSingle();
-        if (byName.data) userProfile = byName.data;
       }
 
       if (userProfile) {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateAndNormalizeResumeJson } from '../../schemas/resumeSchema.js';
 import { extractCandidateName, redactResumeText, rehydrateResumeJson } from '../../services/resumeRedactor.js';
-import { splitIntoSections, parseResumeHeuristic, calculateParseConfidence } from '../../services/resumeSectionSplitter.js';
+import { parseResumeHeuristic } from '../../services/resumeSectionSplitter.js';
 import { runDeterministicChecks } from '../../services/resumeDeterministicEngine.js';
 import { extractResumeText } from '../../services/resumeTextExtractor.js';
 import { formatResumeContext, getInterviewerPersona } from '../../routes/company-interview/helpers.js';

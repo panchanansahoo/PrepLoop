@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
 
 import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
@@ -20,7 +19,6 @@ const PRESET_TAGS = [
 ];
 
 export default function NotesBookmarks() {
-    const { _user } = useAuth();
     const API_BASE_URL = import.meta.env.VITE_API_URL || '';
     const buildNotesApiUrl = (path) => buildApiUrl(path, { rawBaseUrl: API_BASE_URL, apiPrefix: '/api' });
     const [bookmarks, setBookmarks] = useState([]);
@@ -35,7 +33,7 @@ export default function NotesBookmarks() {
     const [newBookmark, setNewBookmark] = useState({ title: '', type: 'custom', tags: [], note: '' });
 
     // Fetch bookmarks
-    const fetchBookmarks = async () => {
+    const fetchBookmarks = useCallback(async () => {
         try {
             const params = new URLSearchParams();
             if (typeFilter !== 'all') params.append('type', typeFilter);
@@ -52,9 +50,11 @@ export default function NotesBookmarks() {
             setBookmarks(saved);
         }
         setLoading(false);
-    };
+    }, [typeFilter, search, tagFilter]);
 
-    useEffect(() => { fetchBookmarks(); }, [typeFilter, tagFilter]);
+    useEffect(() => {
+        fetchBookmarks();
+    }, [fetchBookmarks]);
 
     // Add bookmark
     const addBookmark = async () => {

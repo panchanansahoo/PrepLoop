@@ -21,18 +21,40 @@ router.use(authenticateToken, requireEmployerOrAdmin);
  */
 router.get('/candidates', authenticateToken, async (req, res) => {
   try {
-    const { data: candidates, error } = await supabaseAdmin
+    let { data: candidates, error } = await supabaseAdmin
       .from('mock_interviews')
       .select(`
         id,
         user_id,
-        role,
-        score,
-        created_at,
+        interview_type,
+        overall_score,
+        completed_at,
+        started_at,
         profiles!mock_interviews_user_id_fkey(full_name, email, skills, designation)
       `)
-      .order('created_at', { ascending: false })
+      .order('completed_at', { ascending: false, nullsFirst: false })
       .limit(50);
+
+    // Fallback if the foreign key relation constraint name is not explicitly defined in some environments
+    if (error && error.message && error.message.includes('mock_interviews_user_id_fkey')) {
+      const fallback = await supabaseAdmin
+        .from('mock_interviews')
+        .select(`
+          id,
+          user_id,
+          interview_type,
+          overall_score,
+          completed_at,
+          started_at,
+          profiles(full_name, email, skills, designation)
+        `)
+        .order('completed_at', { ascending: false, nullsFirst: false })
+        .limit(50);
+      if (!fallback.error) {
+        candidates = fallback.data;
+        error = null;
+      }
+    }
 
     if (error) {
       logger.warn('Failed to query candidate pipeline, returning empty list', { error: error.message });
@@ -45,9 +67,9 @@ router.get('/candidates', authenticateToken, async (req, res) => {
       name: c.profiles?.full_name || 'Anonymous Candidate',
       email: c.profiles?.email || null,
       skills: c.profiles?.skills || [],
-      roleApplied: c.role || 'Software Engineer',
-      overallScore: c.score || 75,
-      completedAt: c.created_at,
+      roleApplied: c.interview_type || c.role || 'Software Engineer',
+      overallScore: c.overall_score ?? c.score ?? 75,
+      completedAt: c.completed_at || c.started_at || c.created_at || null,
     }));
 
     return res.json({ success: true, count: formatted.length, candidates: formatted });

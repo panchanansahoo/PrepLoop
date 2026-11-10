@@ -21,24 +21,38 @@ export default function BlogPost() {
     }, [blog?.content]);
 
     useEffect(() => {
-        fetchBlog();
-    }, [slug]);
+        const controller = new AbortController();
 
-    const fetchBlog = async () => {
-        try {
-            const response = await fetch(`${API_URL}/api/blog/${slug}`);
-            if (response.ok) {
-                const data = await response.json();
-                setBlog(data);
-            } else {
-                // Handle 404
+        const fetchBlog = async () => {
+            setLoading(true);
+            try {
+                const response = await fetch(`${API_URL}/api/blog/${slug}`, {
+                    signal: controller.signal
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setBlog(data);
+                } else {
+                    setBlog(null);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error fetching blog:', error);
+                    setBlog(null);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
-        } catch (error) {
-            console.error('Error fetching blog:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+
+        fetchBlog();
+
+        return () => {
+            controller.abort();
+        };
+    }, [slug]);
 
     if (loading) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading...</div>;
     if (!blog) return <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Blog not found.</div>;

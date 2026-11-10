@@ -13,7 +13,6 @@
  */
 
 const INSECURE_JWT_DEFAULT = 'preploop-jwt-secret-key';
-const PRODUCTION_ENV = process.env.NODE_ENV === 'production';
 
 // Common placeholder patterns that indicate a value was never configured
 const PLACEHOLDER_PATTERNS = [
@@ -46,6 +45,7 @@ const PLACEHOLDER_PATTERNS = [
  * @returns {string[]} Array of validation error messages (empty if valid)
  */
 export function getProductionEnvValidationErrors() {
+  const isProduction = process.env.NODE_ENV === 'production';
   const errors = [];
 
   // Check Supabase configuration
@@ -63,18 +63,22 @@ export function getProductionEnvValidationErrors() {
 
   // Database and HR configuration checks
   if (process.env.HR_AUTH_ENABLED === 'true' && !process.env.DATABASE_URL) {
-    errors.push('❌ DATABASE_URL is required when HR_AUTH_ENABLED=true for HR portal queries.');
+    if (isProduction) {
+      errors.push('❌ DATABASE_URL is required when HR_AUTH_ENABLED=true for HR portal queries.');
+    } else {
+      console.warn('⚠️  DATABASE_URL is not configured while HR_AUTH_ENABLED=true. Direct PostgreSQL features will be disabled in development.');
+    }
   }
 
   if (process.env.DATABASE_URL) {
     const isPlaceholderDb = PLACEHOLDER_PATTERNS.some(p => p.test(process.env.DATABASE_URL));
-    if (isPlaceholderDb && PRODUCTION_ENV) {
+    if (isPlaceholderDb && isProduction) {
       errors.push('🔒 SECURITY FAILURE: DATABASE_URL contains a placeholder value in production.');
     }
   }
 
   // Security check: reject insecure JWT defaults in production
-  if (PRODUCTION_ENV) {
+  if (isProduction) {
     const jwtSecret = process.env.JWT_SECRET || INSECURE_JWT_DEFAULT;
     
     if (jwtSecret === INSECURE_JWT_DEFAULT) {

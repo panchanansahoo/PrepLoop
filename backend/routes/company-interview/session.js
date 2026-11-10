@@ -15,6 +15,7 @@ import { _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.
 import { customInterviewLimiter } from '../../middleware/apiRateLimiter.js';
 import { isInterviewLinkExpired, verifyInterviewPasscode, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
+import { redactTranscriptTurns } from '../../services/resumeRedactor.js';
 import { quotaGuard, DEGRADATION_MODES } from '../../services/quotaGuard.js';
 import { getSessionScorer } from '../../services/llmRouter.js';
 import { groq, createGroqChatCompletion, _safeDeleteUploadFile, _MAX_HISTORY_TURNS, _truncateConversationHistory, _deterministicScore, _deterministicPick, safeJsonParse, _UPLOAD_DIR, _upload, _COMPANY_CATEGORIES, _getCompanyCategory, _PERSONA_PROFILES, _DEFAULT_ADVANCED_OPTIONS, _INTERVIEW_RUNTIME_MODES, normalizeInterviewRuntimeMode, buildInterviewRuntime, _STAGE_ALIASES, resolveInterviewStage, resolveResumeInterviewModeForExperience, normalizeAdvancedOptions, _formatResumeContext, FRESHER_INTERVIEW_TOTAL_QUESTIONS, _HR_CLOSING_MESSAGE, _STATIC_INTERVIEW_QUESTIONS, _STATIC_INTERVIEW_CLOSINGS, _FRESHER_HR_FIXED, _FRESHER_HR_TOPICS, _FRESHER_HR_CLOSINGS, _FRESHER_TECHNICAL_FIXED, _FRESHER_TECHNICAL_TOPICS, getStaticInterviewQuestions, getStaticInterviewQuestion, _getStaticInterviewClosing, getFresherTechnicalQuestion, getFresherHRQuestion, _getFresherTechnicalAIPrompt, _getFresherHRAIPrompt, _getFresherHRClosing, _INTERVIEWER_NAMES, _pickFallbackInterviewerName, _getResumeProjectPrompt, _getTopSkillPrompt, _buildHrResponseSnippet, _getFresherScriptedQuestion, _getFresherQuestionTopic, _getFresherFallbackQuestion, _isFinalNoAnswer, getInterviewerPersona, _getCompanyChallengeProfile, _getAdaptiveDifficultyPrompt, _buildInterviewMemoryPrompt, _buildFocusSignal, generateInterviewerName } from './helpers.js';
@@ -805,7 +806,7 @@ router.post('/save-session', optionalAuth, async (req, res) => {
       difficulty_level: difficulty || 'medium',
       company_focus: company || 'General',
       duration_minutes: durationMinutes,
-      transcript: safeConversation,
+      transcript: redactTranscriptTurns(safeConversation),
       performance_metrics: metricsPayload,
       interview_score: numericScore,
       status: 'completed',

@@ -111,6 +111,20 @@ export default function LiveCodingCopilot() {
   // ── Results ──
   const [report, setReport] = useState(null);
 
+  const handleSubmit = useCallback(() => {
+    setTimerActive(false);
+    const scores = runFullAnalysis(code, language);
+    setLiveScores(scores);
+    const finalReport = buildFeedbackReport(scores, SCORING_RUBRICS.liveCoding);
+    setReport(finalReport);
+    setPhase('results');
+  }, [code, language]);
+
+  const handleSubmitRef = useRef(handleSubmit);
+  useEffect(() => {
+    handleSubmitRef.current = handleSubmit;
+  }, [handleSubmit]);
+
   // Timer
   useEffect(() => {
     if (!timerActive) return;
@@ -118,7 +132,9 @@ export default function LiveCodingCopilot() {
       setTimer(prev => {
         if (prev >= totalTime) {
           setTimerActive(false);
-          handleSubmit();
+          if (handleSubmitRef.current) {
+            handleSubmitRef.current();
+          }
           return prev;
         }
         return prev + 1;
@@ -164,15 +180,6 @@ export default function LiveCodingCopilot() {
       }
     }, 1500);
   }, [language]);
-
-  const handleSubmit = useCallback(() => {
-    setTimerActive(false);
-    const scores = runFullAnalysis(code, language);
-    setLiveScores(scores);
-    const finalReport = buildFeedbackReport(scores, SCORING_RUBRICS.liveCoding);
-    setReport(finalReport);
-    setPhase('results');
-  }, [code, language]);
 
   const timerProgress = (timer / totalTime) * 100;
   const timerColor = timerProgress < 60 ? '#22c55e' : timerProgress < 85 ? '#f59e0b' : '#ef4444';

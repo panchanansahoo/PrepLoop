@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { authFetch } from '../utils/authFetch';
 import {CheckCircle, Circle, Zap, BookOpen, Target, Award} from 'lucide-react';
 
 /**
@@ -6,9 +8,11 @@ import {CheckCircle, Circle, Zap, BookOpen, Target, Award} from 'lucide-react';
  * Shows recommended learning sequence based on interview performance
  */
 export default function LearningPath() {
+  const navigate = useNavigate();
   const [learningPath, setLearningPath] = useState(null);
   const [selectedPath, setSelectedPath] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [expandedTopic, setExpandedTopic] = useState(null);
 
   useEffect(() => {
@@ -18,22 +22,38 @@ export default function LearningPath() {
   const fetchLearningPath = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/ai/learning-path/personalized');
+      setError(null);
+      const response = await authFetch('/api/ai/learning-path/personalized');
+      if (!response.ok) {
+        throw new Error(`Failed to load learning path: ${response.status}`);
+      }
       const data = await response.json();
       setLearningPath(data);
       if (data.paths && data.paths.length > 0) {
         setSelectedPath(data.paths[0]);
       }
-    } catch (error) {
-      console.error('Error fetching learning path:', error);
+    } catch (err) {
+      console.error('Error fetching learning path:', err);
+      setError(err.message || 'Error fetching learning path');
     } finally {
       setLoading(false);
     }
   };
 
   const startTopic = (topicId) => {
-    // Navigate to learning module
-    window.location.href = `/learn/${topicId}`;
+    if (!topicId) return;
+    const pathType = String(selectedPath?.type || selectedPath?.id || '').toLowerCase();
+    if (pathType.includes('dsa')) {
+      navigate(`/dsa-path/${topicId}`);
+    } else if (pathType.includes('tech')) {
+      navigate(`/technical-path/${topicId}`);
+    } else if (pathType.includes('hr')) {
+      navigate(`/hr-path/${topicId}`);
+    } else if (pathType.includes('system') || pathType.includes('design')) {
+      navigate(`/system-design/${topicId}`);
+    } else {
+      navigate(`/learning-path/${topicId}`);
+    }
   };
 
   const _getProgressColor = (progress) => {
@@ -56,6 +76,23 @@ export default function LearningPath() {
     );
   }
 
+  if (error && !learningPath) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
+        <div className="p-6 bg-red-50 border border-red-200 rounded-xl max-w-md w-full shadow-sm">
+          <p className="text-red-700 font-semibold text-lg mb-2">Unable to Load Learning Path</p>
+          <p className="text-sm text-red-600 mb-6">{error}</p>
+          <button
+            onClick={fetchLearningPath}
+            className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
       <div className="max-w-7xl mx-auto">
@@ -70,7 +107,7 @@ export default function LearningPath() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             {learningPath.paths.map((path, idx) => (
               <button
-                key={idx}
+                key={path.id || `path-${idx}`}
                 onClick={() => setSelectedPath(path)}
                 className={`p-6 rounded-lg border-2 transition-all text-left ${
                   selectedPath?.id === path.id
@@ -151,7 +188,7 @@ export default function LearningPath() {
 
             {selectedPath.modules.map((module, moduleIdx) => (
               <div
-                key={moduleIdx}
+                key={module.id || `module-${moduleIdx}`}
                 className="bg-white rounded-lg shadow-md overflow-hidden"
               >
                 {/* Module Header */}
@@ -227,7 +264,7 @@ export default function LearningPath() {
                       <div className="space-y-3 mb-6">
                         {module.lessons_list.map((lesson, lessonIdx) => (
                           <div
-                            key={lessonIdx}
+                            key={lesson.id || `lesson-${lessonIdx}`}
                             className="flex items-start gap-4 p-4 bg-white rounded-lg border border-gray-200"
                           >
                             <div className="flex-shrink-0 mt-1">
@@ -246,7 +283,10 @@ export default function LearningPath() {
                               </div>
                             </div>
                             {!lesson.completed && (
-                              <button className="flex-shrink-0 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-semibold transition-all whitespace-nowrap">
+                              <button
+                                onClick={() => startTopic(lesson.id || module.id)}
+                                className="flex-shrink-0 px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-semibold transition-all whitespace-nowrap"
+                              >
                                 Start
                               </button>
                             )}
@@ -290,7 +330,7 @@ export default function LearningPath() {
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {learningPath.recommendations.map((rec, idx) => (
-                <div key={idx} className="bg-white rounded-lg p-4 border-l-4 border-indigo-600">
+                <div key={rec.id || rec.title || `rec-${idx}`} className="bg-white rounded-lg p-4 border-l-4 border-indigo-600">
                   <p className="font-semibold text-gray-900 mb-1">{rec.title}</p>
                   <p className="text-gray-700 text-sm mb-3">{rec.description}</p>
                   <button className="text-indigo-600 hover:text-indigo-700 text-sm font-semibold">

@@ -89,7 +89,7 @@ For Python, write classical \`class Solution:\` with \`def functionName(self, ..
 Return the output ONLY as a minified valid JSON object containing exactly 4 keys: "python", "javascript", "cpp", "java", where each value is a raw string of the raw code.
 Do NOT include any extra text. Make sure the JSON is totally valid.
 
-Problem Title: ${problem?.title || ''}
+Problem Title: ${String(problem?.title || '').substring(0, 200)}
 Problem Description:
 ${String(problem?.description || '').substring(0, 1500)}
 `;
@@ -293,7 +293,7 @@ router.get('/problems/:id/explore', optionalAuth, async (req, res) => {
   }
 });
 
-router.get('/problems/:id/solution', optionalAuth, async (req, res) => {
+router.get('/problems/:id/solution', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
     const canonicalProblemId = await resolveProblemId(id);

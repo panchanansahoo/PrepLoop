@@ -4,6 +4,16 @@ const isDevOrLocal = (req) => process.env.NODE_ENV === 'development' || req.ip =
 
 
 // Critical endpoints rate limiting
+export const feedbackStreamLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { error: 'Too many streaming feedback requests. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: isDevOrLocal,
+});
+
 export const aiEndpointsLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   max: 20,

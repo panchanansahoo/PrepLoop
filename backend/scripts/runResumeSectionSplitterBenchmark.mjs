@@ -519,7 +519,7 @@ Python, Django, PostgreSQL, Docker, AWS ECS`
   }
 ];
 
-export async function runEmpiricalBenchmark() {
+export function runEmpiricalBenchmark() {
   console.log('========================================================================');
   console.log('🔬 20-RESUME EMPIRICAL SECTION SPLITTER & DETERMINISTIC BENCHMARK');
   console.log('========================================================================\n');
@@ -645,6 +645,7 @@ export async function runEmpiricalBenchmark() {
   return {
     total: TEST_CORPUS.length,
     heuristicSuccessCount,
+    llmFallbackNeededCount,
     heuristicPassRate,
     scannedDetectedCount,
     avgConfidence,

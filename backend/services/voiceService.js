@@ -478,16 +478,24 @@ export async function textToSpeech(text, persona = 'friendly', preferredProvider
     return { fallback: true };
 }
 
+export const WHISPER_DOMAIN_VOCABULARY_PROMPT = "Technical interview discussing Kubernetes, K8s, Redis, Kafka, BigQuery, gRPC, PostgreSQL, Postgres, MySQL, NoSQL, DynamoDB, MongoDB, Elasticsearch, GraphQL, Docker, kubectl, Terraform, CI/CD, NGINX, WebSockets, REST API, OAuth2, JWT, PyTorch, PySpark, TensorFlow, microservices, AWS Lambda, Next.js, TypeScript, ACID, CAP theorem, B-tree, idempotency, consistent hashing, rate limiting, sharding, O(1), O(n), O(log n), N+1.";
+
 /**
  * Speech-to-Text from audio file
  * Primary STT is handled client-side via Web Speech API.
  * When client-side STT is unavailable (Firefox, Safari, Mobile), this server endpoint
  * transcribes using Groq Whisper (large-v3-turbo) for ultra-fast, 99% accuracy.
  */
-export async function speechToText(filePath, _preferredProvider = null) {
+export async function speechToText(filePath, _preferredProvider = null, options = {}) {
     if (providers.groq && groq && filePath) {
         try {
-            const res = await _groqWhisperSTT(filePath);
+            const resolvedOptions = typeof options === 'string' ? { prompt: options } : (options || {});
+            const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION === 'true' ||
+                                    process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION === 'true' ||
+                                    process.env.FEATURE_STT_CORRECTION === '1';
+            const effectivePrompt = resolvedOptions.prompt || (isFeatureEnabled ? WHISPER_DOMAIN_VOCABULARY_PROMPT : null);
+
+            const res = await _groqWhisperSTT(filePath, { ...resolvedOptions, prompt: effectivePrompt });
             if (!res.text?.trim()) {
                 throw new Error('Groq Whisper returned an empty transcript');
             }
@@ -924,17 +932,28 @@ async function kokoroTTS(text, persona, gender = 'female') {
 // Deepgram API calls have been removed to achieve zero recurring cost.
 
 
-async function _groqWhisperSTT(_filePath) {
+async function _groqWhisperSTT(_filePath, options = {}) {
     const safeFilePath = resolveSafeAudioPath(_filePath);
+    const resolvedOptions = typeof options === 'string' ? { prompt: options } : (options || {});
+    const isFeatureEnabled = process.env.FEATURE_STT_CORRECTION === 'true' ||
+                            process.env.FEATURE_AI_INTERVIEW_STT_CORRECTION === 'true' ||
+                            process.env.FEATURE_STT_CORRECTION === '1';
+    const prompt = resolvedOptions.prompt || (isFeatureEnabled ? WHISPER_DOMAIN_VOCABULARY_PROMPT : null);
 
     const GROQ_WHISPER_TIMEOUT_MS = 15_000; // 15s max for Whisper STT
-    const transcription = await groq.audio.transcriptions.create({
+    const requestParams = {
         model:           'whisper-large-v3-turbo',
         file:            fs.createReadStream(safeFilePath),
         response_format: 'json',
         language:        'en',
         temperature:     0,
-    }, { timeout: GROQ_WHISPER_TIMEOUT_MS });
+    };
+
+    if (prompt && typeof prompt === 'string' && prompt.trim()) {
+        requestParams.prompt = prompt.trim();
+    }
+
+    const transcription = await groq.audio.transcriptions.create(requestParams, { timeout: GROQ_WHISPER_TIMEOUT_MS });
 
     return {
         text:     transcription.text || '',

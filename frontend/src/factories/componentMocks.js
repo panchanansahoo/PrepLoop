@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 /**
  * Factory for creating mock component props
  */

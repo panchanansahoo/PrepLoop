@@ -40,7 +40,9 @@ export default function History() {
     try {
       const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
       if (Array.isArray(local) && local.length > 0) {
-        localSessions = local.map((item, idx) => ({
+        // Cap localSessions to last 50 entries
+        const cappedLocal = local.slice(-50);
+        localSessions = cappedLocal.map((item, idx) => ({
           id: item.id || `local_interview_${idx}`,
           type: 'interview',
           title: item.company && item.role ? `${item.company} ${item.role} Interview` : 'AI Interview',
@@ -50,7 +52,9 @@ export default function History() {
           duration: item.duration ? `${Math.max(1, Math.round(item.duration / 60))} min` : '15 min'
         }));
       }
-    } catch { /* empty */ }
+    } catch (err) {
+      console.error('Failed to parse local interview history:', err);
+    }
 
     const seen = new Set();
     const combined = [];
@@ -59,10 +63,11 @@ export default function History() {
       if (key && !seen.has(key)) {
         seen.add(key);
         combined.push(s);
+        if (combined.length >= 100) break;
       }
     }
 
-    setSessions(combined);
+    setSessions(combined.slice(0, 100));
     setLoading(false);
   };
 

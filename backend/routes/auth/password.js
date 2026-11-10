@@ -132,12 +132,16 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       }
     }
 
+    const isLocalIp = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+    const isLocalHost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
+    const isLocalDev = process.env.NODE_ENV === 'development' && (isLocalHost || isLocalIp);
+
     return res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
-      ...(process.env.NODE_ENV !== 'production' && {
+      emailSent: Boolean(emailSent),
+      ...(isLocalDev && {
         resetLink,
         devResetLink: resetLink,
-        emailSent,
         mailError: mailErrorMessage,
       }),
     });
@@ -147,7 +151,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   }
 });
 
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', forgotPasswordLimiter, async (req, res) => {
   const { accessToken, newPassword } = req.body;
   if (!accessToken || !newPassword) {
     return res.status(400).json({ error: 'Access token and new password are required' });
@@ -166,7 +170,9 @@ router.post('/reset-password', async (req, res) => {
       password: newPassword
     });
     if (error) {
-      return res.status(400).json({ error: error.message });
+      return res.status(400).json({
+        error: process.env.NODE_ENV === 'production' ? 'Failed to update password' : error.message
+      });
     }
     res.json({ message: 'Password reset successfully. You can now log in.' });
   } catch (error) {

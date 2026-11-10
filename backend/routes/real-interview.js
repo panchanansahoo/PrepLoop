@@ -127,6 +127,10 @@ router.post('/book', authenticateToken, async (req, res) => {
 // Get user's booked interviews
 router.get('/my-bookings', authenticateToken, async (req, res) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (page - 1) * limit;
+
     const { data, error } = await supabaseAdmin
       .from('real_interviews')
       .select(`
@@ -135,7 +139,8 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
         slot:interview_slots(slot_date, start_time, end_time)
       `)
       .eq('user_id', req.user.id)
-      .order('scheduled_at', { ascending: false });
+      .order('scheduled_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
     res.json(data || []);
@@ -154,25 +159,37 @@ router.get('/my-bookings', authenticateToken, async (req, res) => {
 router.put('/cancel/:id', authenticateToken, async (req, res) => {
   try {
     const interviewId = req.params.id;
-
-    // Get the interview
-    const { data: interview, error: fetchError } = await supabaseAdmin
-      .from('real_interviews')
-      .select('slot_id')
-      .eq('id', interviewId)
-      .eq('user_id', req.user.id)
-      .eq('status', 'scheduled')
-      .single();
-
-    if (fetchError || !interview) {
-      return res.status(404).json({ error: 'Interview not found or cannot be cancelled' });
+    if (!interviewId) {
+      return res.status(400).json({ error: 'Interview ID is required' });
     }
 
-    // Update interview status
-    await supabaseAdmin
+    // Explicit ownership & status pre-check
+    const { data: interview, error: fetchError } = await supabaseAdmin
+      .from('real_interviews')
+      .select('id, slot_id, user_id, status')
+      .eq('id', interviewId)
+      .maybeSingle();
+
+    if (fetchError || !interview) {
+      return res.status(404).json({ error: 'Interview not found' });
+    }
+
+    if (interview.user_id !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized to cancel this interview' });
+    }
+
+    if (interview.status !== 'scheduled') {
+      return res.status(400).json({ error: 'Only scheduled interviews can be cancelled' });
+    }
+
+    // Scoped update write strictly guarded by id and user_id
+    const { error: updateError } = await supabaseAdmin
       .from('real_interviews')
       .update({ status: 'cancelled' })
-      .eq('id', interviewId);
+      .eq('id', interviewId)
+      .eq('user_id', req.user.id);
+
+    if (updateError) throw updateError;
 
     // Free up the slot
     if (interview.slot_id) {

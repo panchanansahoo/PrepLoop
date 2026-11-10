@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { usageQuota } from '../middleware/usageQuota.js';
+import { createQuotaMiddleware } from '../services/quotaGuard.js';
 
 const router = express.Router();
 
@@ -152,7 +153,7 @@ router.post('/code-feedback', authenticateToken, usageQuota('ai'), async (req, r
   }
 });
 
-router.post('/mock-interview', authenticateToken, usageQuota('ai'), async (req, res) => {
+router.post('/mock-interview', authenticateToken, usageQuota('ai'), createQuotaMiddleware(), async (req, res) => {
   const { interviewType, difficulty, userResponse } = req.body;
 
   try {
@@ -270,10 +271,18 @@ router.post('/explain', authenticateToken, usageQuota('ai'), async (req, res) =>
 });
 
 // ─── Playground AI Assistant ───
+export const MAX_PLAYGROUND_CODE_LENGTH = 50000;
+export const MAX_PLAYGROUND_PROMPT_LENGTH = 2000;
+export const MAX_HISTORY_CONTENT_LENGTH = 4000;
+
 router.post('/playground-assist', authenticateToken, usageQuota('ai'), async (req, res) => {
   const { code, language, mode, prompt, history } = req.body;
 
-  if (!code && mode !== 'ask') {
+  const safeCode = typeof code === 'string' ? code.slice(0, MAX_PLAYGROUND_CODE_LENGTH) : '';
+  const safePrompt = typeof prompt === 'string' ? prompt.slice(0, MAX_PLAYGROUND_PROMPT_LENGTH) : '';
+  const safeLanguage = typeof language === 'string' ? language.slice(0, 50) : 'plaintext';
+
+  if (!safeCode && mode !== 'ask') {
     return res.status(400).json({ error: 'Code is required for this action' });
   }
 
@@ -291,20 +300,22 @@ router.post('/playground-assist', authenticateToken, usageQuota('ai'), async (re
 
   let userContent;
   if (mode === 'ask') {
-    userContent = prompt ? `${prompt}\n\nCode (${language}):\n\`\`\`${language}\n${code || '(no code provided)'}\n\`\`\`` : `Help me with this ${language} code:\n\`\`\`${language}\n${code}\n\`\`\``;
+    userContent = safePrompt ? `${safePrompt}\n\nCode (${safeLanguage}):\n\`\`\`${safeLanguage}\n${safeCode || '(no code provided)'}\n\`\`\`` : `Help me with this ${safeLanguage} code:\n\`\`\`${safeLanguage}\n${safeCode}\n\`\`\``;
   } else {
-    const extra = prompt ? `\nUser note: ${prompt}` : '';
-    userContent = `Language: ${language}\n\nCode:\n\`\`\`${language}\n${code}\n\`\`\`${extra}`;
+    const extra = safePrompt ? `\nUser note: ${safePrompt}` : '';
+    userContent = `Language: ${safeLanguage}\n\nCode:\n\`\`\`${safeLanguage}\n${safeCode}\n\`\`\`${extra}`;
   }
 
   // Build messages array with optional conversation history
   const messages = [{ role: 'system', content: systemContent }];
 
   if (history && Array.isArray(history)) {
-    // Include last 6 messages for context
+    // Include last 6 messages for context with length-capped content
     const recentHistory = history.slice(-6).map(msg => ({
-      role: msg.role === 'user' ? 'user' : 'assistant',
-      content: msg.content,
+      role: msg?.role === 'user' ? 'user' : 'assistant',
+      content: typeof msg?.content === 'string'
+        ? msg.content.slice(0, MAX_HISTORY_CONTENT_LENGTH)
+        : String(msg?.content || '').slice(0, MAX_HISTORY_CONTENT_LENGTH),
     }));
     messages.push(...recentHistory);
   }

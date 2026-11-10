@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { quotaGuard, MAX_USER_DAILY_TURNS, MAX_USER_DAILY_INTERVIEWS } from '../../services/quotaGuard.js';
+import { quotaGuard, createQuotaMiddleware, MAX_USER_DAILY_TURNS, MAX_USER_DAILY_INTERVIEWS } from '../../services/quotaGuard.js';
 import { callTurnScoring } from '../../services/llmRouter.js';
 
 describe('Daily Turn Limits & Interview Allowance Bug Fixes', () => {
@@ -102,6 +102,43 @@ describe('Daily Turn Limits & Interview Allowance Bug Fixes', () => {
 
       const capCheckAfter = quotaGuard.checkUserCap({ userId, ip });
       expect(capCheckAfter.interviewsRemaining).toBe(MAX_USER_DAILY_INTERVIEWS - 1);
+    });
+  });
+
+  describe('3. createQuotaMiddleware Route Enforcement (Track 3.2)', () => {
+    it('allows requests through when within quota limits', () => {
+      const middleware = createQuotaMiddleware();
+      const req = { user: { id: 'usr_mw_1' }, ip: '10.0.0.1', body: {} };
+      let nextCalled = false;
+      const res = {};
+      middleware(req, res, () => { nextCalled = true; });
+      expect(nextCalled).toBe(true);
+      expect(req.quotaMode).toBeDefined();
+    });
+
+    it('returns 429 when turns quota is exceeded', () => {
+      const userId = 'usr_mw_exhausted';
+      const ip = '10.0.0.2';
+      for (let i = 0; i < MAX_USER_DAILY_TURNS; i++) {
+        quotaGuard.recordUserTurn({ userId, ip });
+      }
+
+      const middleware = createQuotaMiddleware();
+      const req = { user: { id: userId }, ip, body: {} };
+      let statusCode = null;
+      let jsonPayload = null;
+      const res = {
+        status: (code) => {
+          statusCode = code;
+          return {
+            json: (payload) => { jsonPayload = payload; },
+          };
+        },
+      };
+
+      middleware(req, res, () => {});
+      expect(statusCode).toBe(429);
+      expect(jsonPayload?.code).toBe('TURN_QUOTA_EXCEEDED');
     });
   });
 });

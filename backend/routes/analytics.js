@@ -1,6 +1,7 @@
 import express from 'express';
 import { createLogger } from '../utils/structuredLogger.js';
 import { analyticsLimiter } from '../middleware/apiRateLimiter.js';
+import { optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 const logger = createLogger('analytics');
@@ -12,7 +13,7 @@ const ALLOWED_EVENTS = new Set([
   'interview_completed',
 ]);
 
-router.post('/track', analyticsLimiter, (req, res) => {
+router.post('/track', optionalAuth, analyticsLimiter, (req, res) => {
   const event = req.body;
   if (!event || typeof event.name !== 'string' || !ALLOWED_EVENTS.has(event.name)) {
     return res.status(400).json({ error: 'Unsupported analytics event' });
@@ -33,7 +34,12 @@ router.post('/track', analyticsLimiter, (req, res) => {
     return res.status(400).json({ error: 'Analytics property is too long' });
   }
 
-  logger.info(`Analytics event: ${event.name}`, properties);
+  const userId = req.user?.id || (typeof req.body.userId === 'string' ? req.body.userId : null);
+  if (userId) {
+    properties.user_id = userId;
+  }
+
+  logger.info(`Analytics event: ${event.name}`, { ...properties, ...(userId ? { userId } : {}) });
   res.status(200).json({ success: true });
 });
 

@@ -686,7 +686,7 @@ export default function ProblemDescriptionPanel({
                     return (
                       <button
                         key={rp.id}
-                        onClick={() => navigate && navigate(`/editor/${rp.id}`)}
+                        onClick={() => navigate && navigate(`/dsa-editor/${rp.id}`)}
                         style={{
                           padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
                           background: 'rgba(255,255,255,0.02)', textAlign: 'left',

@@ -58,7 +58,6 @@ export function runDeterministicChecks({ resumeJson, pageCount = 1, jobDescripti
   const education = resumeJson.education || [];
   const skills = resumeJson.skills || [];
   const projects = resumeJson.projects || [];
-  const summary = resumeJson.summary || '';
 
   // 1. Contact Information Hygiene
   const hasEmail = Boolean(contact.email && contact.email.includes('@'));

@@ -40,5 +40,19 @@ describe('InterviewGroundingServiceV2 Grounding & RAG Bridge', () => {
     expect(Array.isArray(fallback.retrievedQuestions)).toBe(true);
     expect(fallback.retrievedQuestions.length).toBeGreaterThan(0);
   });
+
+  it('supports multi-category retrieval for mixed rounds (Track 1.2)', async () => {
+    const service = new InterviewGroundingServiceV2();
+    const context = await service.fetchContext({
+      company: 'google',
+      role: 'SDE',
+      stage: 'technical',
+      interviewType: 'mixed',
+      limit: 5,
+    });
+
+    expect(Array.isArray(context.retrievedQuestions)).toBe(true);
+    expect(context.retrievedQuestions.length).toBeGreaterThan(0);
+  });
 });
 

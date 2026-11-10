@@ -4,6 +4,9 @@ import { authenticateToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_SECONDS_PER_DAY = 86400;
+
 // Update activity time
 router.post('/update', authenticateToken, async (req, res) => {
     try {
@@ -14,10 +17,27 @@ router.post('/update', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Missing date or seconds' });
         }
 
-        // Fix #6: validate seconds is a non-negative integer
+        // Validate date format YYYY-MM-DD
+        if (typeof date !== 'string' || !DATE_REGEX.test(date)) {
+            return res.status(400).json({ error: 'date must be in YYYY-MM-DD format' });
+        }
+
+        // Validate real calendar date
+        const parsedDate = new Date(`${date}T00:00:00Z`);
+        if (isNaN(parsedDate.getTime()) || !parsedDate.toISOString().startsWith(date)) {
+            return res.status(400).json({ error: 'Invalid calendar date' });
+        }
+
+        // Reject future dates beyond today
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (date > todayStr) {
+            return res.status(400).json({ error: 'date cannot be in the future' });
+        }
+
+        // Validate seconds is a non-negative integer bounded by 24h
         const safeSeconds = Math.floor(Number(seconds));
-        if (!Number.isFinite(safeSeconds) || safeSeconds < 0) {
-            return res.status(400).json({ error: 'seconds must be a non-negative number' });
+        if (!Number.isFinite(safeSeconds) || safeSeconds < 0 || safeSeconds > MAX_SECONDS_PER_DAY) {
+            return res.status(400).json({ error: 'seconds must be a non-negative number up to 86400' });
         }
 
         const { data, error } = await supabaseAdmin
@@ -43,7 +63,7 @@ router.post('/update', authenticateToken, async (req, res) => {
         res.json({ success: true, data });
     } catch (error) {
         console.error('Error updating activity:', error);
-        res.status(500).json({ error: error.message || 'Internal server error' });
+        res.status(500).json({ error: 'Failed to update activity' });
     }
 });
 

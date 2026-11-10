@@ -1247,6 +1247,12 @@ export class InterviewSimulatorService {
           span.setAttribute('interview.followup.next_action', String(followUpRules?.nextAction || 'followup_clarify'));
           span.setAttribute('interview.score.trend', String(scoreTrend?.trend || 'stable'));
           span.setAttribute('interview.score.volatility', String(scoreTrend?.volatility || 'stable'));
+          span.setAttribute('interview.followup.branch_reason', String(followUpRules?.branchReason || ''));
+          span.setAttribute('interview.followup.momentum', String(followUpRules?.momentum || 'neutral'));
+          span.setAttribute('interview.followup.recovery_detected', Boolean(followUpRules?.recoveryDetected));
+          if (followUpRules?.phrasing) {
+            span.setAttribute('interview.followup.recovery_phrase', String(followUpRules.phrasing));
+          }
           return { currentScores: scores, adaptiveUpdate: adaptive, adaptiveFollowUp: followUpRules, scoreHistory };
         }
       );

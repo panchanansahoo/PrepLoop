@@ -103,6 +103,13 @@ const SimpleVoiceTest = lazyWithRecovery(() => import('./pages/SimpleVoiceTest')
 const CommunityHub = lazyWithRecovery(() => import('./pages/CommunityHub'));
 const ImprovementPlanPage = lazyWithRecovery(() => import('./pages/ImprovementPlanPage'));
 const PublicPortfolioPage = lazyWithRecovery(() => import('./pages/PublicPortfolioPage'));
+const PortfolioCreator = lazyWithRecovery(() => import('./pages/PortfolioCreator'));
+const CompanyTrack = lazyWithRecovery(() => import('./pages/CompanyTrack'));
+const LearningHub = lazyWithRecovery(() => import('./pages/LearningHub'));
+const RealInterview = lazyWithRecovery(() => import('./pages/RealInterview'));
+const NotesBookmarks = lazyWithRecovery(() => import('./pages/NotesBookmarks'));
+const TimedPractice = lazyWithRecovery(() => import('./pages/TimedPractice'));
+const LiveCodingCopilot = lazyWithRecovery(() => import('./pages/LiveCodingCopilot'));
 const NotFound = lazyWithRecovery(() => import('./pages/NotFound'));
 
 function PrivateRoute({ children }) {
@@ -114,6 +121,15 @@ function AdminRoute({ children }) {
   const { user, isAdmin } = useAuth();
   if (!user) return <Navigate to="/login" />;
   if (!isAdmin) return <Navigate to="/dashboard" />;
+  return children;
+}
+
+function HRRoute({ children }) {
+  const hrToken = localStorage.getItem('hr_token');
+  const hrUser = localStorage.getItem('hr_user');
+  if (!hrToken && !hrUser) {
+    return <Navigate to="/hr/login" replace />;
+  }
   return children;
 }
 
@@ -168,29 +184,28 @@ function AppContent() {
     }
   }, [location.pathname]);
 
-  // Reset mobile sidebar state when leaving mobile viewport.
+  // Handle mobile sidebar state and manage background scroll lock across resize and drawer changes.
   useEffect(() => {
+    const syncOverflow = () => {
+      const isMobileViewport = window.innerWidth <= 768;
+      if (mobileSidebarOpen && isMobileViewport) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+
     const handleResize = () => {
       if (window.innerWidth > 768) {
         setMobileSidebarOpen(false);
       }
+      syncOverflow();
     };
 
+    syncOverflow();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Prevent background scroll when mobile sidebar drawer is open.
-  useEffect(() => {
-    const isMobileViewport = window.innerWidth <= 768;
-
-    if (mobileSidebarOpen && isMobileViewport) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-
     return () => {
+      window.removeEventListener('resize', handleResize);
       document.body.style.overflow = '';
     };
   }, [mobileSidebarOpen]);
@@ -282,6 +297,10 @@ function AppContent() {
                   path="/problem/:id"
                   element={<ProblemRedirect />}
                 />
+                <Route
+                  path="/editor/:id"
+                  element={<ProblemRedirect />}
+                />
 
                 <Route path="/problems" element={<ProblemExplorer />} />
                 <Route path="/quiz-arena" element={<QuizArena />} />
@@ -328,7 +347,14 @@ function AppContent() {
 
                 <Route path="/playground" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
 
-                <Route path="/live-coding" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
+                <Route path="/live-coding" element={<LiveCodingCopilot />} />
+                <Route path="/portfolio-creator" element={<PortfolioCreator />} />
+                <Route path="/company-track" element={<CompanyTrack />} />
+                <Route path="/company-track/:id" element={<CompanyTrack />} />
+                <Route path="/learning-hub" element={<LearningHub />} />
+                <Route path="/real-interview" element={<RealInterview />} />
+                <Route path="/notes-bookmarks" element={<NotesBookmarks />} />
+                <Route path="/timed-practice" element={<TimedPractice />} />
 
                 <Route path="/debugging-interview" element={<DebuggingInterview />} />
                 <Route path="/code-review-interview" element={<CodeReviewInterview />} />
@@ -360,7 +386,7 @@ function AppContent() {
 
                 <Route path="/dashboard/history" element={<PrivateRoute><History /></PrivateRoute>} />
                 <Route path="/hr/login" element={<HRLogin />} />
-                <Route path="/hr/dashboard" element={<PrivateRoute><HRDashboard /></PrivateRoute>} />
+                <Route path="/hr/dashboard" element={<HRRoute><HRDashboard /></HRRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/library" element={<AdminRoute><AdminLibrary /></AdminRoute>} />
                 <Route path="/u/:slug" element={<PublicPortfolioPage />} />

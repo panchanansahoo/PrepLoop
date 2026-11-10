@@ -1,6 +1,7 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useState } from 'react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './AuthContext';
 import apiClient from '../utils/apiClient';
 
@@ -31,7 +32,11 @@ function Harness() {
       </button>
       <button
         type="button"
-        onClick={() => run(() => signup(' New@Example.com ', 'SignupTest123!', ' New User '))}
+        onClick={() =>
+          run(() =>
+            signup(' NEW@Example.com ', 'SignupTest123!', ' New User ')
+          )
+        }
       >
         signup
       </button>
@@ -44,6 +49,10 @@ describe('AuthContext auth flows', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it('logs in with a normalized email and stores the bare API payload', async () => {
@@ -96,5 +105,30 @@ describe('AuthContext auth flows', () => {
       { skipAuthRefresh: true, skipRetry: true }
     );
     expect(localStorage.getItem('token')).toBeNull();
+  });
+
+  it('strips access_token and token from user object before persisting to localStorage (E6)', async () => {
+    apiClient.post.mockResolvedValueOnce({
+      token: 'jwt-header-token',
+      user: { id: 'user-3', email: 'strip@example.com', access_token: 'secret-token', token: 'inner-token' },
+    });
+
+    render(
+      <AuthProvider>
+        <Harness />
+      </AuthProvider>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'login' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('result')).toHaveTextContent('strip@example.com:jwt-header-token');
+    });
+
+    expect(localStorage.getItem('token')).toBe('jwt-header-token');
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    expect(storedUser.email).toBe('strip@example.com');
+    expect(storedUser.access_token).toBeUndefined();
+    expect(storedUser.token).toBeUndefined();
   });
 });

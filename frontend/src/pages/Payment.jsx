@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import { useState, useEffect } from 'react';
 import './Payment.css';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {Shield, Lock, CheckCircle2, ArrowLeft, Zap, Check, Code2} from 'lucide-react';
@@ -51,13 +51,20 @@ async function parseJsonSafely(response) {
 // Load Razorpay checkout script dynamically
 function loadRazorpayScript() {
     return new Promise((resolve) => {
-        if (document.getElementById('razorpay-script')) {
-            resolve(true);
+        const existing = document.getElementById('razorpay-script');
+        if (existing) {
+            if (window.Razorpay) {
+                resolve(true);
+                return;
+            }
+            existing.addEventListener('load', () => resolve(true), { once: true });
+            existing.addEventListener('error', () => resolve(false), { once: true });
             return;
         }
         const script = document.createElement('script');
         script.id = 'razorpay-script';
         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.async = true;
         script.onload = () => resolve(true);
         script.onerror = () => resolve(false);
         document.body.appendChild(script);
@@ -74,6 +81,15 @@ export default function Payment() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [paymentData, setPaymentData] = useState(null);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        return () => {
+            const script = document.getElementById('razorpay-script') || document.querySelector('script[src*="checkout.razorpay.com"]');
+            if (script) {
+                script.remove();
+            }
+        };
+    }, []);
 
     const plans = {
         pro: {

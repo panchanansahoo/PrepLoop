@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -54,9 +54,14 @@ export default function CoinWallet() {
   const [redeemBusyId, setRedeemBusyId] = useState('');
   const [redeemFeedback, setRedeemFeedback] = useState({ type: '', text: '' });
 
+  const fetchRedeemOptionsRef = useRef(fetchRedeemOptions);
   useEffect(() => {
-    fetchRedeemOptions();
+    fetchRedeemOptionsRef.current = fetchRedeemOptions;
   }, [fetchRedeemOptions]);
+
+  useEffect(() => {
+    fetchRedeemOptionsRef.current?.();
+  }, []);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

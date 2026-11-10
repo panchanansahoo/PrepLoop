@@ -1,3 +1,4 @@
+import React from 'react';
 import {CheckCircle2, Eye, EyeOff, List, Sparkles, Layout, Map} from 'lucide-react';
 
 export function ProblemExplorerViewControls({

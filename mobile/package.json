@@ -13,7 +13,7 @@
         "prebuild:clean": "expo prebuild --platform android --clean --no-install",
         "ios": "expo run:ios",
         "web": "expo start --web",
-        "lint": "eslint src --ext .js,.jsx",
+        "lint": "eslint src --ext .js,.jsx,.ts,.tsx --max-warnings 0",
         "lint:fix": "eslint src --ext .js,.jsx --fix",
         "test": "node --test src/api/__tests__/*.test.js",
         "test:e2e": "maestro test e2e/flows/",

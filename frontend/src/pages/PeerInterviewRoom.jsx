@@ -40,6 +40,7 @@ export default function PeerInterviewRoom() {
   // Timer
   const [secondsElapsed, setSecondsElapsed] = useState(0);
 
+  const copyTimeoutRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
@@ -78,10 +79,13 @@ export default function PeerInterviewRoom() {
     }
   }, [remoteStream]);
 
-  // Elapsed timer
+  // Elapsed timer & timeout cleanup
   useEffect(() => {
     const timer = setInterval(() => setSecondsElapsed((s) => s + 1), 1000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
   }, []);
 
   const formatTimer = (totalSeconds) => {
@@ -94,7 +98,8 @@ export default function PeerInterviewRoom() {
     const url = window.location.href;
     navigator.clipboard.writeText(url);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   const handleSendChat = (e) => {

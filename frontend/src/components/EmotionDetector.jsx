@@ -20,19 +20,32 @@ export default function EmotionDetector({ videoRef, enabled = true, onMetricsUpd
     const metricsHistoryRef = useRef([]);
     const intervalRef = useRef(null);
     const scriptLoadedRef = useRef(false);
+    const injectedScriptsRef = useRef(new Set());
 
     // ── Load MediaPipe scripts from CDN ──
     const loadScript = useCallback((src) => {
         return new Promise((resolve, reject) => {
-            if (document.querySelector(`script[src="${src}"]`)) {
-                resolve();
+            const existing = document.querySelector(`script[src="${src}"]`);
+            if (existing) {
+                if (existing.dataset.loaded === 'true' || window.FaceMesh) {
+                    resolve();
+                } else {
+                    existing.addEventListener('load', resolve, { once: true });
+                    existing.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)), { once: true });
+                }
                 return;
             }
             const script = document.createElement('script');
             script.src = src;
             script.crossOrigin = 'anonymous';
-            script.onload = resolve;
+            script.dataset.loaded = 'false';
+            script.dataset.injectedBy = 'EmotionDetector';
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve();
+            };
             script.onerror = () => reject(new Error(`Failed to load ${src}`));
+            injectedScriptsRef.current.add(script);
             document.head.appendChild(script);
         });
     }, []);
@@ -202,6 +215,20 @@ export default function EmotionDetector({ videoRef, enabled = true, onMetricsUpd
             cancelled = true;
             cameraRef.current?.stop();
             faceMeshRef.current?.close();
+            // Clean up any injected scripts to prevent duplicate tags accumulating on re-mount
+            injectedScriptsRef.current.forEach((script) => {
+                if (script.remove) {
+                    script.remove();
+                } else if (script.parentNode) {
+                    script.parentNode.removeChild(script);
+                }
+            });
+            injectedScriptsRef.current.clear();
+            const mediaPipeScripts = document.querySelectorAll('script[src*="mediapipe"], script[data-injected-by="EmotionDetector"]');
+            mediaPipeScripts.forEach((s) => {
+                if (s.remove) s.remove();
+                else if (s.parentNode) s.parentNode.removeChild(s);
+            });
         };
     }, [enabled, videoRef, loadScript, analyzeFace]);
 

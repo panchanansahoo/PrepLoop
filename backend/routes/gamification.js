@@ -7,6 +7,8 @@ import { createLogger } from '../utils/structuredLogger.js';
 const router = express.Router();
 const logger = createLogger('gamification-routes');
 
+export const STREAK_FREEZE_COIN_COST = Number.parseInt(process.env.STREAK_FREEZE_COST || '50', 10);
+
 /**
  * GET /api/gamification/status
  * Get current streak, frozen tokens, and unlocked badges
@@ -45,7 +47,7 @@ router.post('/activity', authenticateToken, asyncHandler(async (req, res) => {
 router.post('/buy-freeze', authenticateToken, asyncHandler(async (req, res) => {
   try {
     const userId = req.user.id;
-    const result = await GamificationService.purchaseStreakFreeze(userId, 50);
+    const result = await GamificationService.purchaseStreakFreeze(userId, STREAK_FREEZE_COIN_COST);
     if (!result.success) {
       return res.status(400).json({ error: result.error });
     }

@@ -30,4 +30,5 @@ CREATE TABLE IF NOT EXISTS public.challenge_submissions (
 
 CREATE INDEX IF NOT EXISTS idx_challenges_active ON public.community_challenges(is_active, year, week_number);
 CREATE INDEX IF NOT EXISTS idx_submissions_user ON public.challenge_submissions(user_id, challenge_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_submissions_challenge_user ON public.challenge_submissions(challenge_id, user_id) WHERE challenge_id IS NOT NULL;
 

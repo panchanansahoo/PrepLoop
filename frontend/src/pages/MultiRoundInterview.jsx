@@ -1,4 +1,4 @@
-import React, { useState, _useRef, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useCallback, useMemo } from 'react';
 import { Play, ChevronRight, Trophy, Star, BarChart3, CheckCircle, Clock, ArrowRight, RotateCcw, Zap, Code2, Users, Brain, Briefcase, Award, Target } from 'lucide-react';
 import { COMPANIES, ROLES, DIFFICULTIES } from '../data/companyPrepMeta';
 import { useAuth } from '../context/AuthContext';
@@ -66,14 +66,14 @@ export default function MultiRoundInterview() {
     const [phase, setPhase] = useState('setup'); // setup | transition | active | report
     const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
     const [roundResults, setRoundResults] = useState([]); // {roundId, score, strengths, improvements, conversation}
-    const saveIdempotencyKeyRef = React.useRef(
+    const saveIdempotencyKeyRef = useRef(
         `multi-round-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
     );
 
     const companyObj = COMPANIES.find(c => c.id === company) || COMPANIES[0];
     const activeRounds = ROUND_TYPES.filter(r => selectedRounds.includes(r.id));
 
-    const _getAuthHeaders = () => {
+    const getAuthHeaders = () => {
         return buildAuthHeaders(user);
     };
 
@@ -159,7 +159,10 @@ export default function MultiRoundInterview() {
         try {
             await authFetch(`${API_URL}/api/company-interview/save-session`, {
                 method: "POST",
-                headers: { "Idempotency-Key": localSessionId },
+                headers: {
+                    ...getAuthHeaders(),
+                    "Idempotency-Key": localSessionId,
+                },
                 body: JSON.stringify({
                     sessionId: localSessionId,
                     type: "multi-round",

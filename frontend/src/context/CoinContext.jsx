@@ -1,86 +1,148 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { buildAuthHeaders } from '../utils/authHeaders';
+import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 
 const CoinContext = createContext();
 
 export function CoinProvider({ children }) {
   const { user } = useAuth();
+  const userId = user?.id || null;
   const [coins, setCoins] = useState(0);
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [history, setHistory] = useState([]);
   const [redeemOptions, setRedeemOptions] = useState([]);
 
-  // Fix #9: memoize getHeaders so useCallback deps are stable
+  const isMountedRef = useRef(true);
+  const activeControllersRef = useRef(new Set());
+
+  const createManagedSignal = useCallback((externalSignal) => {
+    const controller = new AbortController();
+    activeControllersRef.current.add(controller);
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
+
+    return controller;
+  }, []);
+
+  const releaseController = useCallback((controller) => {
+    if (controller) {
+      activeControllersRef.current.delete(controller);
+    }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // M9: Abort all in-flight requests across all call sites on unmount to prevent setting state after unmount
+      for (const ctrl of activeControllersRef.current) {
+        try {
+          ctrl.abort();
+        } catch {}
+      }
+      activeControllersRef.current.clear();
+    };
+  }, []);
+
+  // Memoize getHeaders with userId so callback references remain stable
   const getHeaders = useCallback(() => {
     return buildAuthHeaders(user);
-  }, [user]);
+  }, [userId]);
 
-  const refreshBalance = useCallback(async () => {
-    if (!user) return;
+  const refreshBalance = useCallback(async (signal) => {
+    if (!userId) return;
+    const ctrl = createManagedSignal(signal);
     try {
-      const res = await fetch(`${API_URL}/api/coins/balance`, { headers: getHeaders() });
-      if (res.ok) {
-        const data = await res.json();
-        setCoins(data.coins || 0);
-      }
-    } catch (err) {
-      console.error('Failed to fetch coin balance:', err);
-    }
-  }, [user, getHeaders]);
-
-  const earnCoins = useCallback(async (amount = 5, description = 'Problem solved') => {
-    if (!user) return null;
-    setLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/coins/earn`, {
-        method: 'POST',
+      const res = await authFetch(`${API_URL}/api/coins/balance`, {
         headers: getHeaders(),
-        body: JSON.stringify({ amount, description }),
+        signal: ctrl.signal,
       });
       if (res.ok) {
         const data = await res.json();
-        setCoins(data.coins);
+        if (isMountedRef.current) {
+          setCoins(data.coins || 0);
+        }
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.error('Failed to fetch coin balance:', err);
+    } finally {
+      releaseController(ctrl);
+    }
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
+
+  const earnCoins = useCallback(async (amount = 5, description = 'Problem solved', signal) => {
+    if (!userId) return null;
+    if (isMountedRef.current) setLoading(true);
+    const ctrl = createManagedSignal(signal);
+    try {
+      const res = await authFetch(`${API_URL}/api/coins/earn`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ amount, description }),
+        signal: ctrl.signal,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (isMountedRef.current) {
+          setCoins(data.coins);
+        }
         return data;
       }
       return null;
     } catch (err) {
+      if (err.name === 'AbortError') return null;
       console.error('Failed to earn coins:', err);
       return null;
     } finally {
-      setLoading(false);
+      releaseController(ctrl);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [user, getHeaders]);
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  const spendCoins = useCallback(async (amount = 5, description = 'AI assistant query') => {
-    if (!user) return null;
-    setLoading(true);
+  const spendCoins = useCallback(async (amount = 5, description = 'AI assistant query', signal) => {
+    if (!userId) return null;
+    if (isMountedRef.current) setLoading(true);
+    const ctrl = createManagedSignal(signal);
     try {
-      const res = await fetch(`${API_URL}/api/coins/spend`, {
+      const res = await authFetch(`${API_URL}/api/coins/spend`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ amount, description }),
+        signal: ctrl.signal,
       });
       const data = await res.json();
       if (res.ok) {
-        setCoins(data.coins);
+        if (isMountedRef.current) {
+          setCoins(data.coins);
+        }
         return { success: true, ...data };
       }
       return { success: false, ...data };
     } catch (err) {
+      if (err.name === 'AbortError') return { success: false, aborted: true };
       console.error('Failed to spend coins:', err);
       return { success: false, error: err.message };
     } finally {
-      setLoading(false);
+      releaseController(ctrl);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [user, getHeaders]);
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  const fetchCoinHistory = useCallback(async ({ page = 1, limit = 20, type = '', search = '' } = {}) => {
-    if (!user) return { items: [] };
+  const fetchCoinHistory = useCallback(async ({ page = 1, limit = 20, type = '', search = '', signal } = {}) => {
+    if (!userId) return { items: [] };
 
-    setHistoryLoading(true);
+    if (isMountedRef.current) setHistoryLoading(true);
+    const ctrl = createManagedSignal(signal);
     try {
       const params = new URLSearchParams({
         page: String(page),
@@ -91,8 +153,9 @@ export function CoinProvider({ children }) {
       if (type) params.set('type', type);
       if (search) params.set('q', search);
 
-      const res = await fetch(`${API_URL}/api/coins/history?${params.toString()}`, {
+      const res = await authFetch(`${API_URL}/api/coins/history?${params.toString()}`, {
         headers: getHeaders(),
+        signal: ctrl.signal,
       });
 
       const data = await res.json();
@@ -104,45 +167,58 @@ export function CoinProvider({ children }) {
         ? { items: data, page: 1, limit: data.length, total: data.length, hasMore: false }
         : data;
 
-      setHistory(payload.items || []);
+      if (isMountedRef.current) {
+        setHistory(payload.items || []);
+      }
       return payload;
     } catch (err) {
+      if (err.name === 'AbortError') return { items: [], aborted: true };
       console.error('Failed to fetch coin history:', err);
       return { items: [], error: err.message || 'Failed to load coin history' };
     } finally {
-      setHistoryLoading(false);
+      releaseController(ctrl);
+      if (isMountedRef.current) setHistoryLoading(false);
     }
-  }, [user]);
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  const fetchRedeemOptions = useCallback(async () => {
-    if (!user) return [];
+  const fetchRedeemOptions = useCallback(async (signal) => {
+    if (!userId) return [];
 
+    const ctrl = createManagedSignal(signal);
     try {
-      const res = await fetch(`${API_URL}/api/coins/redeem-options`, {
+      const res = await authFetch(`${API_URL}/api/coins/redeem-options`, {
         headers: getHeaders(),
+        signal: ctrl.signal,
       });
 
       const data = await res.json();
       if (!res.ok) return [];
 
       const options = data?.options || [];
-      setRedeemOptions(options);
+      if (isMountedRef.current) {
+        setRedeemOptions(options);
+      }
       return options;
     } catch (err) {
+      if (err.name === 'AbortError') return [];
       console.error('Failed to fetch redeem options:', err);
       return [];
+    } finally {
+      releaseController(ctrl);
     }
-  }, [user]);
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  const redeemCoins = useCallback(async ({ optionId, quantity = 1, description = '' }) => {
-    if (!user) return { success: false, error: 'Not authenticated' };
+  const redeemCoins = useCallback(async ({ optionId, quantity = 1, description = '', signal } = {}) => {
+    if (!userId) return { success: false, error: 'Not authenticated' };
 
-    setLoading(true);
+    if (isMountedRef.current) setLoading(true);
+    const ctrl = createManagedSignal(signal);
     try {
-      const res = await fetch(`${API_URL}/api/coins/redeem`, {
+      const res = await authFetch(`${API_URL}/api/coins/redeem`, {
         method: 'POST',
         headers: getHeaders(),
         body: JSON.stringify({ optionId, quantity, description }),
+        signal: ctrl.signal,
       });
 
       const data = await res.json();
@@ -150,30 +226,40 @@ export function CoinProvider({ children }) {
         return { success: false, ...data };
       }
 
-      setCoins(data.coins);
+      if (isMountedRef.current) {
+        setCoins(data.coins);
+      }
       return { success: true, ...data };
     } catch (err) {
+      if (err.name === 'AbortError') return { success: false, aborted: true };
       console.error('Failed to redeem coins:', err);
       return { success: false, error: err.message || 'Failed to redeem coins' };
     } finally {
-      setLoading(false);
+      releaseController(ctrl);
+      if (isMountedRef.current) setLoading(false);
     }
-  }, [user]);
+  }, [userId, getHeaders, createManagedSignal, releaseController]);
 
-  // Fetch balance on mount and user change
+  // Fetch balance and redeem options on mount and user change with AbortController and debouncing
   useEffect(() => {
-    refreshBalance();
-  }, [refreshBalance]);
-
-  useEffect(() => {
-    if (!user) {
+    if (!userId) {
+      setCoins(0);
       setHistory([]);
       setRedeemOptions([]);
       return;
     }
 
-    fetchRedeemOptions();
-  }, [user, fetchRedeemOptions]);
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      refreshBalance(controller.signal);
+      fetchRedeemOptions(controller.signal);
+    }, 50);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [userId, refreshBalance, fetchRedeemOptions]);
 
   return (
     <CoinContext.Provider value={{
@@ -186,6 +272,7 @@ export function CoinProvider({ children }) {
       spendCoins,
       redeemCoins,
       refreshBalance,
+      fetchBalance: refreshBalance,
       fetchCoinHistory,
       fetchRedeemOptions,
     }}>

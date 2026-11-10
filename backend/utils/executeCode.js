@@ -1,4 +1,4 @@
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -18,24 +18,30 @@ const SANDBOX_ENV = Object.freeze({
 
 const SANDBOX_MAX_BUFFER = 5 * 1024 * 1024; // 5MB max output
 
-const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
-const COMPILED_CACHE_MAX_ENTRIES = 50;
-const COMPILED_BINARY_CACHE = new Map();
+export const COMPILED_CACHE_TTL_MS = 5 * 60 * 1000;
+export const COMPILED_CACHE_MAX_ENTRIES = 50;
+export const COMPILED_BINARY_CACHE = new Map();
+export const COMPILED_CACHE_DIR = path.join(os.tmpdir(), 'preploop_compiled_cache');
+try {
+    if (!fs.existsSync(COMPILED_CACHE_DIR)) {
+        fs.mkdirSync(COMPILED_CACHE_DIR, { recursive: true });
+    }
+} catch { }
 
-const createCompiledCacheKey = (language, code) => {
+export const createCompiledCacheKey = (language, code) => {
     const hash = crypto.createHash('sha256').update(`${language}\n${code}`).digest('hex').slice(0, 32);
     return hash;
 };
 
-const isCacheableCompiledLanguage = (language) => language === 'c' || language === 'cpp';
+export const isCacheableCompiledLanguage = (language) => language === 'c' || language === 'cpp';
 
-const sweepCompiledCache = () => {
+export const sweepCompiledCache = (force = false) => {
     const now = Date.now();
     for (const [key, entry] of COMPILED_BINARY_CACHE.entries()) {
-        const expired = now - entry.createdAt > COMPILED_CACHE_TTL_MS;
+        const expired = force || (now - entry.createdAt > COMPILED_CACHE_TTL_MS);
         const missing = !fs.existsSync(entry.binaryPath);
         if (expired || missing) {
-            if (expired && fs.existsSync(entry.binaryPath)) {
+            if (fs.existsSync(entry.binaryPath)) {
                 try { fs.unlinkSync(entry.binaryPath); } catch { }
             }
             COMPILED_BINARY_CACHE.delete(key);
@@ -98,40 +104,47 @@ const normalizeLanguage = (language = '') => {
     return LANGUAGE_ALIASES[normalized] || normalized;
 };
 
+const JAVA_CLASS_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
 const LANG_CONFIG = {
     python: {
         ext: '.py',
         commands: ['python3', 'python', 'py'],
-        run: (file, cmd) => `${cmd} "${file}"`,
+        run: (file, cmd) => ({ command: cmd, args: [file] }),
     },
     javascript: {
         ext: '.js',
         commands: ['node'],
-        run: (file, cmd) => `${cmd} "${file}"`,
+        run: (file, cmd) => ({ command: cmd, args: [file] }),
     },
     c: {
         ext: '.c',
         commands: ['gcc', 'clang', 'C:\\Program Files\\LLVM\\bin\\clang.exe'],
-        compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
-        run: (file, cmd, out) => `"${out}"`,
+        compile: (file, out, cmd) => ({ command: cmd, args: ['-o', out, file] }),
+        run: (file, cmd, out) => ({ command: out, args: [] }),
     },
     cpp: {
         ext: '.cpp',
         commands: ['g++', 'clang++', 'C:\\Program Files\\LLVM\\bin\\clang++.exe'],
-        compile: (file, out, cmd) => `${cmd} -o "${out}" "${file}"`,
-        run: (file, cmd, out) => `"${out}"`,
+        compile: (file, out, cmd) => ({ command: cmd, args: ['-o', out, file] }),
+        run: (file, cmd, out) => ({ command: out, args: [] }),
     },
     java: {
         ext: '.java',
         commands: ['javac'],
         preprocess: (code) => {
-            const match = code.match(/public\s+class\s+(\w+)/);
-            return match ? match[1] : 'Main';
+            const match = code.match(/public\s+class\s+([^\s{]+)/);
+            if (!match) return 'Main';
+            const candidate = match[1].replace(/;.*$/, '').trim();
+            return candidate && JAVA_CLASS_NAME_PATTERN.test(candidate) ? candidate : 'Main';
         },
-        compile: (file, out, cmd, _className) => `${cmd} "${file}"`,
+        compile: (file, out, cmd, _className) => ({ command: cmd, args: [file] }),
         run: (file, cmd, out, className) => {
             const dir = path.dirname(file);
-            return `java -cp "${dir}" ${className}`;
+            return {
+                command: 'java',
+                args: ['-cp', dir, className],
+            };
         },
     },
 };
@@ -147,6 +160,23 @@ const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
 
 export function executeCode(code, language, input = '') {
     const startTime = Date.now();
+
+    if (typeof code !== 'string') {
+        return {
+            success: false, output: '',
+            error: 'Code must be a string',
+            executionTime: 0, compileTime: 0, runTime: 0,
+        };
+    }
+
+    if (code.length > 100000) {
+        return {
+            success: false, output: '',
+            error: 'Code is too large. Limit is 100000 characters.',
+            executionTime: 0, compileTime: 0, runTime: 0,
+        };
+    }
+
     const requestedLanguage = normalizeLanguage(language);
     const normalizedLanguage = requestedLanguage === 'typescript' ? 'javascript' : requestedLanguage;
 
@@ -249,6 +279,7 @@ export function executeCode(code, language, input = '') {
 
         // Compile if needed
         if (langConfig.compile) {
+            sweepCompiledCache();
             const cacheable = isCacheableCompiledLanguage(normalizedLanguage);
             const cacheKey = cacheable ? createCompiledCacheKey(normalizedLanguage, code) : null;
             const cachedEntry = cacheKey ? COMPILED_BINARY_CACHE.get(cacheKey) : null;
@@ -259,11 +290,12 @@ export function executeCode(code, language, input = '') {
             } else {
                 const compileStart = Date.now();
                 const compileTarget = cacheable
-                    ? path.join(tmpDir, `playground_cache_${cacheKey}${process.platform === 'win32' ? '.exe' : ''}`)
+                    ? path.join(COMPILED_CACHE_DIR, `playground_cache_${cacheKey}${process.platform === 'win32' ? '.exe' : ''}`)
                     : compiledOutFile;
 
                 try {
-                    execSync(langConfig.compile(tmpFile, compileTarget, availableCmd, className), {
+                    const compileExec = langConfig.compile(tmpFile, compileTarget, availableCmd, className);
+                    execFileSync(compileExec.command, compileExec.args, {
                         stdio: 'pipe', timeout: 5000, shell: false, cwd: tmpDir,
                         env: SANDBOX_ENV,           // SECURITY: sanitized env
                         maxBuffer: SANDBOX_MAX_BUFFER,
@@ -286,10 +318,10 @@ export function executeCode(code, language, input = '') {
         const executablePath = fs.existsSync(finalExecutablePath)
             ? finalExecutablePath
             : (fs.existsSync(compiledOutFile) ? compiledOutFile : (fs.existsSync(outFile + '.exe') ? outFile + '.exe' : outFile));
-        const runCmd = langConfig.run(tmpFile, availableCmd, executablePath, className);
+        const runExec = langConfig.run(tmpFile, availableCmd, executablePath, className);
         const runStart = Date.now();
         try {
-            const result = execSync(runCmd, {
+            const result = execFileSync(runExec.command, runExec.args, {
                 stdio: 'pipe', timeout: 3000, shell: false, input: input || '', cwd: tmpDir,
                 env: SANDBOX_ENV,           // SECURITY: sanitized env
                 maxBuffer: SANDBOX_MAX_BUFFER,

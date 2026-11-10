@@ -10,6 +10,7 @@ import '../config/env.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { createLogger } from '../utils/structuredLogger.js';
+import { invalidateCache } from '../middleware/apiCache.js';
 
 const router = express.Router();
 const logger = createLogger('payment');
@@ -422,6 +423,8 @@ router.post('/verify', authenticateToken, async (req, res) => {
             return res.status(500).json({ error: 'Payment verified but failed to upgrade plan' });
         }
 
+        invalidateCache('/api/user');
+        invalidateCache('/api/payment');
         res.json({
             success: true,
             message: `Successfully upgraded to ${paymentRecord.plan} plan`,
@@ -515,6 +518,8 @@ router.post('/webhook', async (req, res) => {
                         throw updateProfileError;
                     }
                 } else {
+                    invalidateCache('/api/user');
+                    invalidateCache('/api/payment');
                     logger.info('Webhook: Payment captured, user upgraded', { paymentId: payment.id, plan: existing.plan });
                 }
             }

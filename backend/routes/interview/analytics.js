@@ -18,7 +18,10 @@ export async function getInterviewAnalytics(req, res) {
     res.json(buildInterviewAnalytics(interviews || []));
   } catch (error) {
     console.error('Error fetching analytics:', error);
-    res.status(500).json({ error: 'Failed to fetch analytics', message: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch analytics',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 }
 
@@ -106,7 +109,10 @@ export async function getInterviewRecommendations(req, res) {
     res.json({ recommendations });
   } catch (error) {
     console.error('Error fetching recommendations:', error);
-    res.status(500).json({ error: 'Failed to fetch recommendations', message: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch recommendations',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 }
 

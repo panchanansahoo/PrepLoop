@@ -34,7 +34,9 @@ export default function CareerRoadmapPage() {
   const [completedMilestones, setCompletedMilestones] = useState(() => {
     try {
       const saved = localStorage.getItem('preploop_roadmap_completed');
-      return saved ? JSON.parse(saved) : {};
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
     } catch {
       return {};
     }
@@ -45,24 +47,28 @@ export default function CareerRoadmapPage() {
   const [isRegenerating, setIsRegenerating] = useState(false);
 
   const fetchRoadmap = async (role = targetRole, company = targetCompany) => {
+    const safeRole = typeof role === 'string' ? role.trim().slice(0, 100) : 'Full Stack Engineer';
+    const safeCompany = typeof company === 'string' ? company.trim().slice(0, 100) : 'Google';
+
     try {
       setLoading(true);
       setError(null);
       const res = await apiClient.post('/api/career/roadmap', {
-        targetRole: role,
-        targetCompany: company,
+        targetRole: safeRole,
+        targetCompany: safeCompany,
       });
-      if (res.data?.success && res.data?.roadmap) {
-        setRoadmap(res.data.roadmap);
+      const payload = (res?.success && res?.roadmap) ? res : (res?.data || res);
+      if (payload?.success && payload?.roadmap) {
+        setRoadmap(payload.roadmap);
       } else {
-        throw new Error(res.data?.error || 'Failed to load roadmap');
+        throw new Error(payload?.error || 'Failed to load roadmap');
       }
     } catch (err) {
       console.warn('Roadmap API fallback to default mock', err);
       // Fallback structured roadmap if API is offline
       setRoadmap({
-        targetRole: role,
-        targetCompany: company,
+        targetRole: safeRole,
+        targetCompany: safeCompany,
         readinessScore: 68,
         domainScores: {
           dsa: 75,
@@ -170,6 +176,7 @@ export default function CareerRoadmapPage() {
               value={targetRole}
               onChange={(e) => setTargetRole(e.target.value)}
               placeholder="Target Role"
+              maxLength={100}
               className={`px-3 py-1.5 text-xs rounded-lg border outline-none font-medium ${
                 isLight ? 'bg-white border-slate-300' : 'bg-zinc-900 border-zinc-700 text-white'
               }`}
@@ -179,6 +186,7 @@ export default function CareerRoadmapPage() {
               value={targetCompany}
               onChange={(e) => setTargetCompany(e.target.value)}
               placeholder="Target Company"
+              maxLength={100}
               className={`px-3 py-1.5 text-xs rounded-lg border outline-none font-medium ${
                 isLight ? 'bg-white border-slate-300' : 'bg-zinc-900 border-zinc-700 text-white'
               }`}

@@ -51,11 +51,23 @@ export function recordTurnScore(score) {
 }
 
 // ─── Follow-up with realistic interviewer behavior ───
+export const MAX_FOLLOW_UP_HISTORY_ENTRIES = 50;
+
 router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res) => {
   const requestStartTime = Date.now();
-  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, sessionScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: rawQuestionSetCode, token, attemptId, interviewerMood: clientMood = MOODS.NEUTRAL, wasRescued = false, rescueCount = 0 } = req.body || {};
+  const { company, role, stage: rawStage, interviewMode, interviewRuntimeMode, interviewType, difficulty, previousQuestion, userAnswer, conversationHistory: rawConversationHistory, questionNumber = 2, totalQuestions = 8, lastScore, averageScore, cumulativeScores, sessionScores, code, codeLanguage, useRealQuestions = false, questionBankIds, currentQuestionId, advancedOptions, resumeContext, experienceLevel = 'fresher', questionSource, allQuestions: providedQuestions, questionSetCode: rawQuestionSetCode, token, attemptId, interviewerMood: clientMood = MOODS.NEUTRAL, wasRescued = false, rescueCount = 0 } = req.body || {};
   const _questionSetCode = token || rawQuestionSetCode;
   let allQuestions = providedQuestions;
+
+  // N8: Cap conversationHistory element count and string lengths early to prevent memory exhaustion
+  const conversationHistory = Array.isArray(rawConversationHistory)
+    ? rawConversationHistory.slice(-MAX_FOLLOW_UP_HISTORY_ENTRIES).map(item => ({
+        ...item,
+        content: typeof item?.content === 'string'
+          ? item.content.slice(0, 4000)
+          : String(item?.content || '').slice(0, 4000),
+      }))
+    : [];
   const stage = resolveInterviewStage(rawStage, interviewMode, interviewType);
   const resolvedRuntimeMode = normalizeInterviewRuntimeMode(interviewRuntimeMode);
   const runtime = buildInterviewRuntime(resolvedRuntimeMode);

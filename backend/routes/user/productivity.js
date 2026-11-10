@@ -17,12 +17,16 @@ router.get("/todos", authenticateToken, async (req, res) => {
 router.post("/todos", authenticateToken, async (req, res) => {
   try {
     const { text, priority, category, dueDate, subtasks } = req.body;
-    if (!text || !text.trim()) {
+    if (!text || typeof text !== 'string' || !text.trim()) {
       return res.status(400).json({ error: "Todo text is required" });
     }
 
+    if (text.trim().length > 500) {
+      return res.status(400).json({ error: "Todo text must not exceed 500 characters" });
+    }
+
     const todo = await ProductivityService.createTodo(req.user.id, {
-      text,
+      text: text.trim().slice(0, 500),
       priority,
       category,
       dueDate,
@@ -37,6 +41,15 @@ router.post("/todos", authenticateToken, async (req, res) => {
 
 router.put("/todos/:id", authenticateToken, async (req, res) => {
   try {
+    if (req.body.text !== undefined) {
+      if (typeof req.body.text !== 'string' || !req.body.text.trim()) {
+        return res.status(400).json({ error: "Todo text cannot be empty" });
+      }
+      if (req.body.text.trim().length > 500) {
+        return res.status(400).json({ error: "Todo text must not exceed 500 characters" });
+      }
+    }
+
     const todo = await ProductivityService.updateTodo(req.user.id, req.params.id, req.body);
     res.json({ todo });
   } catch (error) {

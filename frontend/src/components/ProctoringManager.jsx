@@ -44,6 +44,10 @@ export default function ProctoringManager({
     useEffect(() => {
         if (!enabled || !isActive) return;
 
+        let blurTimer = null;
+        let lastBlurTime = 0;
+        const BLUR_COOLDOWN_MS = 2000;
+
         const handleVisibilityChange = () => {
             if (document.hidden) {
                 tabSwitchCountRef.current++;
@@ -51,16 +55,33 @@ export default function ProctoringManager({
             }
         };
 
+        // Debounce / 2s cooldown: only flag window_blur violation after 2s debounce and enforce 2s cooldown
         const handleWindowBlur = () => {
-            logViolation('window_blur', 'Window lost focus');
+            const now = Date.now();
+            if (now - lastBlurTime < BLUR_COOLDOWN_MS) return;
+            if (blurTimer) clearTimeout(blurTimer);
+            blurTimer = setTimeout(() => {
+                lastBlurTime = Date.now();
+                logViolation('window_blur', 'Window lost focus for more than 2 seconds');
+            }, 2000);
+        };
+
+        const handleWindowFocus = () => {
+            if (blurTimer) {
+                clearTimeout(blurTimer);
+                blurTimer = null;
+            }
         };
 
         document.addEventListener('visibilitychange', handleVisibilityChange);
         window.addEventListener('blur', handleWindowBlur);
+        window.addEventListener('focus', handleWindowFocus);
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('blur', handleWindowBlur);
+            window.removeEventListener('focus', handleWindowFocus);
+            if (blurTimer) clearTimeout(blurTimer);
             clearTimeout(alertTimeoutRef.current);
         };
     }, [enabled, isActive, logViolation]);

@@ -1,5 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import sanitizeHtml from 'sanitize-html';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 import { createLogger } from '../utils/structuredLogger.js';
@@ -17,14 +18,44 @@ const communityMutationLimiter = rateLimit({
   keyGenerator: (req) => req.user?.id || req.ip,
 });
 
-const DANGEROUS_XSS_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>|javascript:|on\w+\s*=|data:text\/html/gi;
+// L4: Rate limiting for community feed to prevent unauthenticated scraping & unlimited polling
+const communityFeedLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: { error: 'Too many requests. Please wait a moment before refreshing the feed.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+});
 
 function sanitizeCommunityText(str = '') {
   if (typeof str !== 'string') return '';
-  return str.replace(DANGEROUS_XSS_REGEX, '').trim();
+  return sanitizeHtml(str, {
+    allowedTags: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote'],
+    allowedAttributes: {
+      a: ['href', 'target', 'rel'],
+    },
+    transformTags: {
+      a: sanitizeHtml.simpleTransform('a', { rel: 'noopener noreferrer' }),
+    },
+  }).trim();
 }
 
-router.get('/posts', optionalAuth, async (req, res) => {
+router.get('/stats', communityFeedLimiter, async (req, res) => {
+  try {
+    const { count, error } = await supabaseAdmin
+      .from('profiles')
+      .select('id', { count: 'exact', head: true });
+
+    if (error) throw error;
+    res.json({ memberCount: typeof count === 'number' ? count : 0 });
+  } catch (error) {
+    console.warn('Error fetching community stats:', error?.message || error);
+    res.json({ memberCount: 0 });
+  }
+});
+
+router.get('/posts', communityFeedLimiter, optionalAuth, async (req, res) => {
   try {
     const { filter = 'trending' } = req.query;
 
@@ -32,6 +63,7 @@ router.get('/posts', optionalAuth, async (req, res) => {
       .from('community_posts')
       .select(`
         *,
+        community_replies(count),
         profiles!community_posts_user_id_fkey(full_name)
       `)
       .limit(50);
@@ -47,23 +79,6 @@ router.get('/posts', optionalAuth, async (req, res) => {
     const { data, error } = await query;
     if (error) throw error;
 
-    const postIds = (data || []).map((post) => post.id).filter((id) => id !== undefined && id !== null);
-    let replyCountMap = new Map();
-
-    if (postIds.length > 0) {
-      const { data: replyRows, error: replyError } = await supabaseAdmin
-        .from('community_replies')
-        .select('post_id')
-        .in('post_id', postIds);
-
-      if (replyError) throw replyError;
-
-      replyCountMap = (replyRows || []).reduce((acc, row) => {
-        acc.set(row.post_id, (acc.get(row.post_id) || 0) + 1);
-        return acc;
-      }, new Map());
-    }
-
     const posts = (data || []).map(p => ({
       id: p.id,
       user_id: p.user_id,
@@ -74,7 +89,7 @@ router.get('/posts', optionalAuth, async (req, res) => {
       created_at: p.created_at,
       updated_at: p.updated_at,
       author_name: p.profiles?.full_name || 'Anonymous',
-      reply_count: replyCountMap.get(p.id) ?? p.replies ?? 0,
+      reply_count: p.community_replies?.[0]?.count ?? (typeof p.replies === 'number' ? p.replies : 0),
     }));
 
     res.json({ posts });
@@ -337,7 +352,8 @@ router.get('/posts/:id/replies', async (req, res) => {
       .from('community_replies')
       .select('*, profiles(full_name)')
       .eq('post_id', id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(100);
 
     if (error) throw error;
 

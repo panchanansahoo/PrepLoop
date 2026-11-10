@@ -5,8 +5,6 @@ import {
   tokenizeWords,
   buildResumeVocabulary,
   hasStrongLeadershipVerb,
-  hasMildExecutionVerb,
-  hasSupportingVerb,
   verifyAISuggestion,
   enforceReadOnlyCore,
 } from '../../services/resumeFabricationGuard.js';

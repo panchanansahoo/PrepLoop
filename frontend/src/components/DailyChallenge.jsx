@@ -48,7 +48,7 @@ const DailyChallenge = ({ challengeData = null }) => {
 
     const renderQuestionRow = (q, idx, isSql = false) => {
         const hasNumericInternalId = /^\d+$/.test(String(q.internalId ?? ''));
-        const route = hasNumericInternalId ? `${isSql ? '/sql-editor' : '/editor'}/${q.internalId}` : null;
+        const route = hasNumericInternalId ? `${isSql ? '/sql-editor' : '/dsa-editor'}/${q.internalId}` : null;
         const Wrapper = route ? Link : 'a';
         const wrapperProps = route
             ? { to: route }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
 import { authFetch } from '../utils/authFetch';
 import { API_URL } from '../config/api.js';
 import { Flame, Crown, User, ArrowRight, X, BookOpen, MessageSquare, Brain, Grid3X3, TrendingUp, Zap, ChevronRight, Clock, Bookmark, Code } from 'lucide-react';
@@ -10,50 +9,71 @@ export default function Dashboard() {
   const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [_showBanner,_setShowBannerr] = useState(true);
+  const [_showBanner, _setShowBannerr] = useState(true);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    let isMounted = true;
 
-  const fetchDashboardData = async () => {
-    try {
-      // Mock data for initial render to prevent layout shift if API is slow or fails
-      // In a real scenario, we'd handle loading states more gracefully or use a skeleton
-      const mockData = {
-        stats: {
-          mock_interviews_completed: 12,
-          avg_score: 8.5,
-          problems_solved: 45
-        },
-        streak: 5,
-        recentActivity: [
-          { type: 'interview', detail: 'Technical Interview: Arrays & Hashing', timestamp: new Date().toISOString() },
-          { type: 'submission', detail: 'Two Sum - Passed', timestamp: new Date(Date.now() - 86400000).toISOString() },
-          { type: 'interview', detail: 'Behavioral - Leadership', timestamp: new Date(Date.now() - 172800000).toISOString() }
-        ],
-        progress: { stats: { easy_solved: 25, medium_solved: 15, hard_solved: 5 } }
-      };
-
+    const fetchDashboardData = async () => {
       try {
-        const [dashboardRes, progressRes] = await Promise.all([
-          axios.get('/api/user/dashboard'),
-          axios.get('/api/dsa/progress')
-        ]);
-        setData({
-          ...dashboardRes.data,
-          progress: progressRes.data
-        });
-      } catch (err) {
-        console.warn("API Failed, using mock data", err);
-        setData(mockData);
+        // Mock data for initial render to prevent layout shift if API is slow or fails
+        const mockData = {
+          stats: {
+            mock_interviews_completed: 12,
+            avg_score: 8.5,
+            problems_solved: 45
+          },
+          streak: 5,
+          recentActivity: [
+            { type: 'interview', detail: 'Technical Interview: Arrays & Hashing', timestamp: new Date().toISOString() },
+            { type: 'submission', detail: 'Two Sum - Passed', timestamp: new Date(Date.now() - 86400000).toISOString() },
+            { type: 'interview', detail: 'Behavioral - Leadership', timestamp: new Date(Date.now() - 172800000).toISOString() }
+          ],
+          progress: { stats: { easy_solved: 25, medium_solved: 15, hard_solved: 5 } }
+        };
+
+        try {
+          const [dashboardRes, progressRes] = await Promise.all([
+            authFetch(`${API_URL}/api/user/dashboard`),
+            authFetch(`${API_URL}/api/dsa/progress`)
+          ]);
+
+          if (!dashboardRes.ok || !progressRes.ok) {
+            throw new Error(`API returned ${dashboardRes.status} / ${progressRes.status}`);
+          }
+
+          const [dashboardData, progressData] = await Promise.all([
+            dashboardRes.json(),
+            progressRes.json()
+          ]);
+
+          if (isMounted) {
+            setData({
+              ...dashboardData,
+              progress: progressData
+            });
+          }
+        } catch (err) {
+          console.warn("API Failed, using mock data", err);
+          if (isMounted) {
+            setData(mockData);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard:', error);
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error('Error fetching dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchDashboardData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id]);
 
   if (loading) {
     return (
@@ -146,7 +166,7 @@ export default function Dashboard() {
                     </div>
                     <div className="activity-details">
                       <div className="activity-title">{activity.title || activity.detail}</div>
-                      <div className="activity-meta">{new Date(activity.timestamp).toLocaleDateString()} • {activity.type === 'interview' ? 'Mock Interview' : 'Code Practice'}</div>
+                      <div className="activity-meta">{new Date(activity.timestamp).toLocaleDateString()} â€¢ {activity.type === 'interview' ? 'Mock Interview' : 'Code Practice'}</div>
                     </div>
                     <ChevronRight size={16} className="text-muted" />
                   </div>

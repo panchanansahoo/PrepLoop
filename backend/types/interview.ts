@@ -47,9 +47,12 @@ export interface RollingScoresResult {
 }
 
 export interface AdaptiveDifficultyResult {
-  changed: boolean;
-  previousDifficulty: string;
-  newDifficulty: string;
+  changed?: boolean;
+  previousDifficulty?: string;
+  newDifficulty?: string;
+  difficulty?: string;
+  direction?: string;
+  recommendedDifficulty?: string;
   reason: string;
 }
 
@@ -93,17 +96,44 @@ export interface StarAnalysis {
   hasResult: boolean;
 }
 
+export type PerformanceMomentum = 'positive' | 'neutral' | 'negative';
+
+export type FollowUpAction =
+  | 'affirm_recovery'
+  | 'star_completion'
+  | 'volatility_scaffold'
+  | 'targeted_correction'
+  | 'confidence_rebuild'
+  | 'depth_probe'
+  | 'deepen'
+  | string;
+
+export type FollowUpBranchReason =
+  | 'genuine_recovery_detected'
+  | 'high_quality_answer'
+  | 'volatile_score_pattern'
+  | 'missed_core_concepts'
+  | 'low_confidence_signal'
+  | 'shallow_explanation'
+  | string;
+
 export interface FollowUpDecision {
   answerQuality: 'strong' | 'medium' | 'weak';
   missedConcepts: string[];
   confidence: 'high' | 'medium' | 'low';
   depth: 'deep' | 'shallow';
-  branchReason: string;
-  nextAction: string;
+  branchReason: FollowUpBranchReason | string;
+  nextAction: FollowUpAction | string;
   improvementArc: string;
   codeSignals: CodeSignals | null;
   starAnalysis: StarAnalysis | null;
   scoreTrend: ScoreTrendAnalysis;
+  adaptiveDifficulty?: AdaptiveDifficultyResult;
+  momentum: PerformanceMomentum;
+  momentumDelta: number;
+  recoveryDetected: boolean;
+  recoveryPhrase?: string;
+  phrasing?: string;
 }
 
 export interface FollowUpBranchInput {
@@ -111,16 +141,60 @@ export interface FollowUpBranchInput {
     score?: number;
     nextFocus?: string[];
     metrics?: Record<string, any>;
+    candidateStuck?: boolean;
   };
   interviewContext?: {
     previousScore?: number;
     interviewType?: string;
     missingAreas?: string[];
+    currentDifficulty?: string;
+    difficulty?: string;
+    previousDifficulty?: string;
+    lastScoredDifficulty?: string;
+    topic?: string;
+    currentTopic?: string;
+    previousTopic?: string;
+    lastInterviewerTopic?: string;
+    turns?: number;
+    turnNumber?: number;
+    stuckCount?: number;
+    isSkipped?: boolean;
+    isClarification?: boolean;
+    answerType?: string;
+    turnType?: string;
+    sessionId?: string;
+    sessionSeed?: number;
+    hasPriorScore?: boolean;
+    adaptiveFollowUp?: any;
+    adaptiveDifficulty?: any;
+    [key: string]: any;
   };
   candidateResponse?: string;
   candidateCode?: string;
   scoreHistory?: ScoreHistoryEntry[];
   scoreTrend?: ScoreTrendAnalysis | null;
+  turnIndex?: number;
+  turnNumber?: number;
+  sessionSeed?: number | string;
+  phraseIndex?: number;
+  forceEnabled?: boolean;
+  options?: {
+    forceEnabled?: boolean;
+    phraseIndex?: number;
+    [key: string]: any;
+  };
+  isSkipped?: boolean;
+  isClarification?: boolean;
+  answerType?: string;
+  turnType?: string;
+  difficultyTier?: DifficultyTier | string;
+  currentDifficulty?: DifficultyTier | string;
+  previousDifficultyTier?: DifficultyTier | string;
+  previousDifficulty?: DifficultyTier | string;
+  topic?: string;
+  previousTopic?: string;
+  previousScore?: number;
+  hasPreviousTurn?: boolean;
 }
 
 export interface InterviewSession {
@@ -154,3 +228,49 @@ export interface PeerInterviewRoom {
   completedAt?: string;
   createdAt: string;
 }
+
+export type DifficultyTier = 'easy' | 'medium' | 'hard' | 'staff_architectural';
+
+export type ScaffoldingAction = 'NONE' | 'BREAKDOWN_QUESTION' | 'PROGRESSIVE_HINT';
+
+export interface StageHistoryEntry {
+  stage: string;
+  atTurn: number;
+  reason: string;
+}
+
+export interface InterviewStateMachineState {
+  interviewType: string;
+  difficulty: string;
+  companyFocus: string | null;
+  totalQuestions: number | null;
+  turns: number;
+  stagePlan: Array<{ key: string; label: string }>;
+  stageIndex: number;
+  stage: string;
+  stageLabel: string;
+  transitionReason: string;
+  stageHistory: StageHistoryEntry[];
+  consecutiveLowScores: number;
+  consecutiveHighScores: number;
+  lastScoredDifficulty?: string | null;
+  scaffoldingActive: boolean;
+  scaffoldingAction: ScaffoldingAction;
+  skipChallenge: boolean;
+  shouldExtendTechnical: boolean;
+  extendedTurnsCount: number;
+  isTerminated: boolean;
+}
+
+export interface StateMachineAdvanceOptions {
+  score?: number | null;
+  difficultyTier?: DifficultyTier | string;
+  difficulty?: string;
+  isSkipped?: boolean;
+  isClarification?: boolean;
+  answerType?: string;
+  turnType?: 'scored' | 'clarification' | 'skipped' | 'unscored' | string;
+  isUnscored?: boolean;
+  forceEnabled?: boolean;
+}
+

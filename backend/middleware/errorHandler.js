@@ -92,11 +92,19 @@ export const errorHandler = (err, req, res, _next) => {
     ? errorCode
     : ErrorCodes.INTERNAL_ERROR;
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isInternalServerError = (error.statusCode || 500) >= 500;
+  const isOperational = Boolean(err.isOperational || error.isOperational);
+
+  const safeMessage = (isProduction && isInternalServerError && !isOperational)
+    ? 'Internal server error'
+    : (error.message || 'Internal server error');
+
   // Standardized error response with backward compatibility
   const response = {
     success: false,
-    error: error.message || 'Internal server error',
-    message: error.message || 'Internal server error',
+    error: safeMessage,
+    message: safeMessage,
     code: responseCode,
     requestId
   };

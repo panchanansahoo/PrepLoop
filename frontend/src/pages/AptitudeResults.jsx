@@ -39,8 +39,12 @@ export default function AptitudeResults() {
     const byDifficulty = useMemo(() => {
         const result = { easy: { total: 0, correct: 0 }, medium: { total: 0, correct: 0 }, hard: { total: 0, correct: 0 } };
         questions.forEach(q => {
-            result[q.difficulty].total++;
-            if (answers[q.id] === q.correctAnswer) result[q.difficulty].correct++;
+            const rawDiff = typeof q?.difficulty === 'string' ? q.difficulty.toLowerCase().trim() : 'medium';
+            const diffKey = result[rawDiff] ? rawDiff : 'medium';
+            result[diffKey].total++;
+            if (answers && answers[q.id] === q.correctAnswer) {
+                result[diffKey].correct++;
+            }
         });
         return result;
     }, [questions, answers]);

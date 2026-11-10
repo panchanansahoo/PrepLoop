@@ -46,6 +46,7 @@ export default function Profile() {
   const [linkedinImporting, setLinkedinImporting] = useState(false);
   const [resumeImporting, setResumeImporting] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const isMountedRef = useRef(true);
   const hasAutofilledFromResumeRef = useRef(false);
   const avatarInputRef = useRef(null);
   const linkedinInputRef = useRef(null);
@@ -56,61 +57,85 @@ export default function Profile() {
   const [themeSaving, setThemeSaving] = useState(false);
   const [toastExiting, setToastExiting] = useState(false);
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const fetchProfile = useCallback(async () => {
     try {
       const res = await authFetch('/api/user/profile');
       if (res.ok) {
         const data = await res.json();
         const normalized = normalizeProfileData(data);
-        setProfile((prev) => ({
-          ...prev,
-          ...normalized
-        }));
-        if (normalized.githubUsername) {
-          setGithubUsername(normalized.githubUsername);
+        if (isMountedRef.current) {
+          setProfile((prev) => ({
+            ...prev,
+            ...normalized
+          }));
+          if (normalized.githubUsername) {
+            setGithubUsername(normalized.githubUsername);
+          }
         }
       }
     } catch (err) {
       console.error(err);
     }
-  }, [user]);
+  }, [user?.id]);
 
   const fetchLatestResumeSnapshot = useCallback(async () => {
     try {
       const res = await authFetch('/api/resume/latest');
       if (!res.ok) return;
       const data = await res.json();
-      setResumeSnapshot(data?.resumeProfile || null);
-    } catch (err) {
-      console.error(err);
-    }
-  }, [user]);
-
-  const fetchJobMatches = useCallback(async () => {
-    setJobMatchesLoading(true);
-    try {
-      const res = await authFetch('/api/jobs/skill-match');
-      if (res.ok) {
-        const data = await res.json();
-        setJobMatches((data.jobs || []).slice(0, 3).map(j => ({
-          id: j.id,
-          title: j.title,
-          company: j.company,
-          matchScore: j.matchScore ?? 50,
-          description: j.description,
-          apply_link: j.apply_link,
-        })));
+      if (isMountedRef.current) {
+        setResumeSnapshot(data?.resumeProfile || null);
       }
     } catch (err) {
       console.error(err);
     }
-    setJobMatchesLoading(false);
-  }, [user]);
+  }, [user?.id]);
+
+  const fetchJobMatches = useCallback(async (signal) => {
+    if (!isMountedRef.current) return;
+    setJobMatchesLoading(true);
+    try {
+      const res = await authFetch('/api/jobs/skill-match', { signal });
+      if (res.ok) {
+        const data = await res.json();
+        if (isMountedRef.current) {
+          setJobMatches((data.jobs || []).slice(0, 3).map(j => ({
+            id: j.id,
+            title: j.title,
+            company: j.company,
+            matchScore: j.matchScore ?? 50,
+            description: j.description,
+            apply_link: j.apply_link,
+          })));
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error(err);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setJobMatchesLoading(false);
+      }
+    }
+  }, [user?.id]);
 
   useEffect(() => {
+    const controller = new AbortController();
     fetchProfile();
     fetchLatestResumeSnapshot();
-    fetchJobMatches();
+    fetchJobMatches(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
   }, [fetchProfile, fetchLatestResumeSnapshot, fetchJobMatches]);
 
   useEffect(() => {

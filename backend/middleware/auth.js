@@ -177,7 +177,7 @@ export const authenticateToken = async (req, res, next) => {
     return res.status(401).json({
       error: 'Invalid or expired token',
       code: 'INVALID_TOKEN',
-      details: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.message : 'Authentication failed. Please log in again.',
     });
   }
 };

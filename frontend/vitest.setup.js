@@ -1,6 +1,10 @@
+import React from 'react';
 import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, vi } from 'vitest';
+
+globalThis.React = React;
 
 // Automatically clean up DOM after each test run
 afterEach(() => {

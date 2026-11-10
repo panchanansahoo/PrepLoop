@@ -3,6 +3,7 @@ import { authFetch } from "../utils/authFetch";
 import { useVoiceAI } from "./useVoiceAI";
 import useInterviewIntelligence from "./useInterviewIntelligence";
 import { useAuth } from "../context/AuthContext";
+import { buildAuthHeaders } from "../utils/authHeaders";
 import {
   getThinkingDelayMs,
   getInterviewerReaction,
@@ -123,7 +124,13 @@ export function useInterviewSession(options = {}) {
   const silenceAutoAdvanceTimerRef = useRef(null);
   const wrapUpTimerRef = useRef(null);
   const recentOpenersRef = useRef([]);
-  const { user: _user, getAuthHeaders } = useAuth();
+  const { user: _user, getAuthHeaders: authHeadersFn } = useAuth();
+  const getAuthHeaders = useCallback((extra = {}) => {
+    if (typeof authHeadersFn === 'function') {
+      return authHeadersFn(extra);
+    }
+    return buildAuthHeaders(_user);
+  }, [authHeadersFn, _user]);
 
   const [phase, setPhase] = useState("lobby");
   const [isOnline, setIsOnline] = useState(
@@ -985,20 +992,26 @@ export function useInterviewSession(options = {}) {
   useEffect(() => {
     if (phase !== "interview" || conversation.length === 0) return;
     try {
+      // AI6: Cap checkpoint conversation to the most recent 50 turns to prevent localStorage bloat and quota exhaustion
+      const MAX_CHECKPOINT_TURNS = 50;
+      const checkpointConversation = conversation.length > MAX_CHECKPOINT_TURNS
+        ? conversation.slice(-MAX_CHECKPOINT_TURNS)
+        : conversation;
+
       window.localStorage.setItem(
         AI_INTERVIEW_SESSION_KEY,
         JSON.stringify({
-          conversation,
-          pendingTranscript: transcript,
+          conversation: checkpointConversation,
+          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
           questionIndex,
           currentQuestion,
           elapsed,
           totalQuestions,
           interviewType,
           interviewerGender,
-          code,
+          code: typeof code === 'string' ? code.slice(0, 50000) : code,
           language,
-          notes,
+          notes: typeof notes === 'string' ? notes.slice(0, 10000) : notes,
           sessionKey: checkpointKeyRef.current,
           timestamp: Date.now(),
         }),
@@ -1006,17 +1019,17 @@ export function useInterviewSession(options = {}) {
 
       if (_user?.id && checkpointKeyRef.current) {
         const payload = {
-          conversation,
-          pendingTranscript: transcript,
+          conversation: checkpointConversation,
+          pendingTranscript: typeof transcript === 'string' ? transcript.slice(0, 2000) : transcript,
           questionIndex,
           currentQuestion,
           elapsed,
           totalQuestions,
           interviewType,
           interviewerGender,
-          code,
+          code: typeof code === 'string' ? code.slice(0, 50000) : code,
           language,
-          notes,
+          notes: typeof notes === 'string' ? notes.slice(0, 10000) : notes,
           timestamp: Date.now(),
         };
         const version = checkpointVersionRef.current + 1;
@@ -1029,7 +1042,11 @@ export function useInterviewSession(options = {}) {
           }).catch(() => {});
         }, 750);
       }
-    } catch { /* empty */ }
+    } catch (err) {
+      if (err?.name === "QuotaExceededError") {
+        console.warn("LocalStorage quota exceeded while saving interview checkpoint:", err);
+      }
+    }
   }, [
     conversation,
     phase,
@@ -2651,6 +2668,7 @@ export function useInterviewSession(options = {}) {
           await speakInterviewerText(earlyEndText);
           setTimeout(() => endInterview(), 1500);
         } else {
+          let finalMicroToSpeak = microToSpeak;
           const isNeutralTurn = data?.answerType === 'wrong' || data?.answerType === 'dont_know' || data?.answerType === 'off_topic';
           if (isNeutralTurn) {
             setInterviewerStatus("Noted");

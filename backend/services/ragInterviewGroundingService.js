@@ -194,7 +194,34 @@ export class InterviewGroundingService {
     const normalizedDifficulty = normalizeDifficulty(difficulty);
     const normalizedResumeContext = normalizeResumeContext(resumeContext);
 
-    let results = await getFilteredQuestions(company, role, normalizedStage, normalizedDifficulty);
+    const isMultiCategory =
+      interviewType === 'mixed' ||
+      interviewType === 'hybrid' ||
+      interviewType === 'full_stack' ||
+      interviewType === 'general';
+
+    let results = [];
+    if (isMultiCategory) {
+      const primaryLimit = Math.max(1, Math.ceil(safeLimit * 0.6));
+      const secondaryLimit = Math.max(1, safeLimit - primaryLimit);
+      const [techQuestions, behavioralQuestions] = await Promise.all([
+        getFilteredQuestions(company, role, 'Technical', normalizedDifficulty),
+        getFilteredQuestions(company, role, 'Behavioral', normalizedDifficulty),
+      ]);
+      const combined = [
+        ...techQuestions.slice(0, primaryLimit),
+        ...behavioralQuestions.slice(0, secondaryLimit),
+      ];
+      const seen = new Set();
+      results = combined.filter((q) => {
+        const key = q.id || q.question;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    } else {
+      results = await getFilteredQuestions(company, role, normalizedStage, normalizedDifficulty);
+    }
 
     if (results.length === 0) {
       // Relax stage and difficulty if the initial query is too strict.

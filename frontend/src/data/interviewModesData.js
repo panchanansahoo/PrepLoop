@@ -466,7 +466,7 @@ function UserProfile({ userId }) {
   };
 
   return (
-    <div onClick={() => window.location.href = '/users/' + userId}>
+    <div onClick={() => window.location.href = '/u/' + userId}>
       <img src={user?.avatar} />
       <h2>{user?.name}</h2>
       <p>Joined: {user && formatDate(user.joinedAt)}</p>

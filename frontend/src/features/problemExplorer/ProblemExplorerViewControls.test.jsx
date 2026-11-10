@@ -1,5 +1,7 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import React from 'react';
+import '@testing-library/jest-dom/vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { ProblemExplorerViewControls } from './ProblemExplorerViewControls';
 
 const STUDY_PLANS = [
@@ -28,6 +30,10 @@ function renderControls(overrides = {}) {
 }
 
 describe('ProblemExplorerViewControls', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   it('switches between view mode tabs and clears active plan', () => {
     const props = renderControls({ viewMode: 'patterns' });
 

@@ -28,7 +28,24 @@ export function apiCacheMiddleware(options = {}) {
 
   return (req, res, next) => {
     try {
-      if (req.method !== 'GET') return next();
+      if (req.method !== 'GET') {
+        // Automatic cache invalidation on successful mutations (POST, PUT, PATCH, DELETE)
+        const mutatingMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+        if (mutatingMethods.has(req.method)) {
+          if (typeof res.on === 'function') {
+            res.on('finish', () => {
+              if (res.statusCode >= 200 && res.statusCode < 400) {
+                const rawUrl = req.originalUrl || req.url || '';
+                const basePath = rawUrl.split('?')[0];
+                if (basePath) {
+                  invalidateCache(basePath);
+                }
+              }
+            });
+          }
+        }
+        return next();
+      }
       // This middleware runs before route authentication. Never cache requests
       // carrying credentials because the cache cannot safely identify the user.
       if (req.headers.authorization || req.headers.cookie) return next();
@@ -92,9 +109,23 @@ export function apiCacheMiddleware(options = {}) {
 }
 
 export function invalidateCache(pattern) {
-  // Invalidate local cache entries
+  if (!pattern || typeof pattern !== 'string') return;
+  const cleanPattern = pattern.trim().replace(/\/+$/, '');
+
+  // Invalidate local L1 cache entries using path-boundary matching
   for (const key of Array.from(cache.keys())) {
-    if (key.includes(pattern)) {
+    // Key format is `METHOD:scope:url`
+    const colonIdx = key.indexOf(':anon:');
+    const url = colonIdx !== -1 ? key.slice(colonIdx + 6) : key;
+    const urlPath = url.split('?')[0].replace(/\/+$/, '');
+
+    // Match exact path, path with query params, or direct subpaths (e.g., /api/user/profile/settings)
+    // Avoid false substring matches (e.g. /api/user/profile-picture must NOT match /api/user/profile)
+    const isExactMatch = urlPath === cleanPattern;
+    const isSubPathMatch = urlPath.startsWith(`${cleanPattern}/`);
+    const isParamMatch = url.startsWith(`${cleanPattern}?`);
+
+    if (isExactMatch || isSubPathMatch || isParamMatch) {
       cache.delete(key);
       cacheTimestamps.delete(key);
     }
@@ -102,7 +133,7 @@ export function invalidateCache(pattern) {
 
   // Invalidate shared cache (best-effort)
   try {
-    void cacheManager.deletePattern(pattern);
+    void cacheManager.deletePattern(`*${cleanPattern}*`);
   } catch (e) {
     logger.debug('Shared cache invalidation failed (non-fatal)', { pattern, err: e.message });
   }

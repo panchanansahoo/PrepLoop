@@ -36,24 +36,39 @@ export default function DailyChallengesPage() {
     const [submitFeedback, setSubmitFeedback] = useState(null);
 
     useEffect(() => {
-        apiClient.get('/api/community/challenges/current')
+        const controller = new AbortController();
+
+        apiClient.get('/api/community/challenges/current', { signal: controller.signal })
             .then(res => {
-                if (res.data?.challenges) {
-                    setLiveChallenges(res.data.challenges);
-                    if (res.data.challenges[0]) {
-                        setSelectedChallenge(res.data.challenges[0]);
-                        setCodeSolution(res.data.challenges[0].starter_code?.javascript || '// Write solution here');
+                if (controller.signal.aborted) return;
+                const challenges = res?.challenges || res?.data?.challenges;
+                if (challenges) {
+                    setLiveChallenges(challenges);
+                    if (challenges[0]) {
+                        setSelectedChallenge(challenges[0]);
+                        setCodeSolution(challenges[0].starter_code?.javascript || '// Write solution here');
                     }
                 }
             })
-            .catch(() => {});
+            .catch(err => {
+                if (controller.signal.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+            });
 
-        apiClient.get('/api/community/challenges/leaderboard')
+        apiClient.get('/api/community/challenges/leaderboard', { signal: controller.signal })
             .then(res => {
-                if (res.data?.leaderboard) setLeaderboard(res.data.leaderboard);
-                if (res.data?.userStanding) setUserStanding(res.data.userStanding);
+                if (controller.signal.aborted) return;
+                const leaderboard = res?.leaderboard || res?.data?.leaderboard;
+                const userStanding = res?.userStanding || res?.data?.userStanding;
+                if (leaderboard) setLeaderboard(leaderboard);
+                if (userStanding) setUserStanding(userStanding);
             })
-            .catch(() => {});
+            .catch(err => {
+                if (controller.signal.aborted || err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+            });
+
+        return () => {
+            controller.abort();
+        };
     }, []);
 
     const handleSubmitSolution = async () => {
@@ -65,12 +80,13 @@ export default function DailyChallengesPage() {
                 code: codeSolution,
                 language: 'javascript',
             });
-            if (res.data?.success) {
+            const payload = (res?.success !== undefined) ? res : (res?.data || res);
+            if (payload?.success) {
                 setSubmitFeedback({
                     success: true,
-                    message: `🎉 Challenge passed! +${res.data.pointsAwarded} Coins & XP awarded! Weekly score: ${res.data.weeklyScore}`,
+                    message: `🎉 Challenge passed! +${payload.pointsAwarded ?? res?.data?.pointsAwarded ?? 0} Coins & XP awarded! Weekly score: ${payload.weeklyScore ?? res?.data?.weeklyScore ?? 0}`,
                 });
-                if (res.data.standing) setUserStanding(res.data.standing);
+                if (payload.standing) setUserStanding(payload.standing);
             }
         } catch (err) {
             setSubmitFeedback({
@@ -604,7 +620,7 @@ function QuestionRow({ q, idx, isLight }) {
 
     // Determine internal route based on type
     const internalRoute = q.internalId
-        ? (q.type === 'sql' ? `/sql-editor/${q.internalId}` : `/editor/${q.internalId}`)
+        ? (q.type === 'sql' ? `/sql-editor/${q.internalId}` : `/dsa-editor/${q.internalId}`)
         : null;
 
     const sharedStyle = {

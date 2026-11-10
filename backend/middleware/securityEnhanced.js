@@ -50,17 +50,56 @@ const trackIPActivity = (ip, action, _severity = 'low') => {
   return record;
 };
 
+export const CODE_AND_INTERVIEW_ROUTE_PREFIXES = [
+  '/api/code',
+  '/api/practice',
+  '/api/interview',
+  '/api/interview-enhanced',
+  '/api/interview-suite',
+  '/api/company-interview',
+  '/api/companyInterview',
+  '/api/fresher-interview',
+  '/api/peer-interview',
+  '/api/peerInterview',
+  '/api/real-interview',
+  '/api/system-design',
+  '/api/submissions',
+  '/api/dsa',
+  '/api/playground',
+  '/code',
+  '/practice',
+  '/interview',
+  '/submissions',
+];
+
+export const isCodeOrInterviewRoute = (req, customSkipRoutes = []) => {
+  const target = req.originalUrl || req.url || req.path || '';
+  const allPrefixes = [...CODE_AND_INTERVIEW_ROUTE_PREFIXES, ...customSkipRoutes];
+  return allPrefixes.some(prefix => target.startsWith(prefix) || target.includes(prefix));
+};
+
 // Check for suspicious patterns in request
-const detectSuspiciousPatterns = (req) => {
+export const detectSuspiciousPatterns = (req, customSkipRoutes = []) => {
   // SECURITY (M4): Limit the size of stringified request data before
   // regex testing to prevent ReDoS attacks on very large payloads
   const MAX_CHECK_LENGTH = 10240; // 10KB
-  const rawCheckString = JSON.stringify({
-    url: req.originalUrl,
-    query: req.query,
-    body: req.body,
-    headers: req.headers,
-  });
+  const isCodeRoute = isCodeOrInterviewRoute(req, customSkipRoutes);
+
+  // For coding practice and technical interview routes, user submissions legitimately
+  // contain SQL queries or JavaScript handlers. Do not inspect request body on these routes
+  // to prevent false-positive auto-blocking of legitimate candidates/students.
+  const payloadToInspect = isCodeRoute
+    ? {
+        url: req.originalUrl || req.url,
+        query: req.query,
+      }
+    : {
+        url: req.originalUrl || req.url,
+        query: req.query,
+        body: req.body,
+      };
+
+  const rawCheckString = JSON.stringify(payloadToInspect);
   const checkString = rawCheckString.length > MAX_CHECK_LENGTH 
     ? rawCheckString.slice(0, MAX_CHECK_LENGTH) 
     : rawCheckString;
@@ -92,10 +131,11 @@ const checkRateLimit = (ip) => {
   return recentRequests.length;
 };
 
-export const enhancedSecurity = () => {
+export const enhancedSecurity = (options = {}) => {
+  const customSkipRoutes = Array.isArray(options.skipBodyRoutes) ? options.skipBodyRoutes : [];
   return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
-    const requestId = req.requestId || res.locals.requestId;
+    const ip = req.ip || req.connection?.remoteAddress || req.socket?.remoteAddress;
+    const requestId = req.requestId || res?.locals?.requestId || 'unknown';
 
     // Check if IP is blocked
     const ipRecord = suspiciousIPs.get(ip);
@@ -121,7 +161,7 @@ export const enhancedSecurity = () => {
     }
 
     // Detect suspicious patterns
-    const suspiciousPattern = detectSuspiciousPatterns(req);
+    const suspiciousPattern = detectSuspiciousPatterns(req, customSkipRoutes);
     if (suspiciousPattern) {
       trackIPActivity(ip, 'suspicious_pattern', 'high');
       logger.error('Suspicious pattern detected', { 
@@ -218,4 +258,11 @@ export const unblockIP = (ip) => {
   return false;
 };
 
-export default { enhancedSecurity, getSecurityStats, unblockIP };
+export const resetSecurityState = () => {
+  suspiciousIPs.clear();
+  requestPatterns.clear();
+};
+
+export { suspiciousIPs, requestPatterns, THRESHOLDS, trackIPActivity };
+
+export default { enhancedSecurity, getSecurityStats, unblockIP, resetSecurityState };

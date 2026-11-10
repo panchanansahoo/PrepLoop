@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
+import { invalidateCache } from "../../middleware/apiCache.js";
 import { requireValidFileSignature, uploadEndpointsLimiter } from "../../middleware/uploadProtection.js";
 import {
   getOrCreateUserProfile,
@@ -71,6 +72,8 @@ router.put("/profile", authenticateToken, async (req, res) => {
       return res.status(401).json({ error: "User not authenticated" });
     }
     const responsePayload = await updateUserProfile(req.user.id, req.user, req.body);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
+    invalidateCache('/api/user/portfolio');
     return res.json(responsePayload);
   } catch (error) {
     console.error("Error updating profile:", error);
@@ -91,6 +94,8 @@ router.post("/profile/avatar", authenticateToken, uploadEndpointsLimiter, upload
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
     const response = await uploadUserAvatar(req.user.id, req.user, req.file);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
+    invalidateCache('/api/user/portfolio');
     return res.json(response);
   } catch (error) {
     console.error("Avatar upload error:", error);
@@ -106,6 +111,8 @@ router.post("/profile/claim-url", authenticateToken, async (req, res) => {
   try {
     if (!req.user?.id) return res.status(401).json({ error: "User not authenticated" });
     const response = await claimUserCustomUrl(req.user.id, req.user, req.body?.custom_url);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
+    invalidateCache('/api/user/portfolio');
     return res.json(response);
   } catch (error) {
     console.error("Claim URL error:", error);
@@ -138,6 +145,8 @@ router.get("/settings", authenticateToken, async (req, res) => {
 router.put("/settings", authenticateToken, async (req, res) => {
   try {
     const result = await updateUserSettings(req.user.id, req.body);
+    invalidateCache(`/api/user/settings/${req.user.id}`);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
     return res.json(result);
   } catch (error) {
     console.error("Error updating settings:", error);
@@ -153,6 +162,8 @@ router.put("/settings", authenticateToken, async (req, res) => {
 router.post("/preferences", authenticateToken, async (req, res) => {
   try {
     const result = await updateUserPreferences(req.user.id, req.body);
+    invalidateCache(`/api/user/preferences/${req.user.id}`);
+    invalidateCache(`/api/user/profile/${req.user.id}`);
     return res.json(result);
   } catch (error) {
     console.error("Error saving preferences:", error);

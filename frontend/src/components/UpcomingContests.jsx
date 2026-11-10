@@ -107,8 +107,11 @@ export default function UpcomingContests({ contests: contestsFromDashboard }) {
             setContests(sorted);
             setCachedContests(sorted);
             setLastRefresh(Date.now());
-        } catch { /* silent */ }
-        finally { setLoading(false); }
+        } catch (err) {
+            console.warn('Failed to fetch upcoming contests:', err);
+        } finally {
+            setLoading(false);
+        }
     }, []);
 
     useEffect(() => {

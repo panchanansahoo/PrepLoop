@@ -210,10 +210,12 @@ router.get('/books', async (req, res) => {
     }
 
     // Pagination
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
     query = query
       .order('created_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + parsedLimit - 1);
 
     const { data, error, count } = await query;
 
@@ -226,9 +228,9 @@ router.get('/books', async (req, res) => {
       books: data,
       pagination: {
         total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / parseInt(limit))
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil((count || 0) / parsedLimit)
       }
     });
   } catch (error) {
@@ -393,10 +395,12 @@ router.get('/shelf', authenticateToken, async (req, res) => {
       query = query.eq('status', status);
     }
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = Math.max(0, (parsedPage - 1) * parsedLimit);
     query = query
       .order('updated_at', { ascending: false })
-      .range(offset, offset + parseInt(limit) - 1);
+      .range(offset, offset + parsedLimit - 1);
 
     const { data, error, count } = await query;
 
@@ -409,9 +413,9 @@ router.get('/shelf', authenticateToken, async (req, res) => {
       books: data,
       pagination: {
         total: count,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(count / parseInt(limit))
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages: Math.ceil((count || 0) / parsedLimit)
       }
     });
   } catch (error) {

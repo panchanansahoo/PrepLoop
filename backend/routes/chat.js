@@ -118,8 +118,12 @@ router.post('/message', authenticateToken, async (req, res) => {
   let degraded = false;
   try {
     const { message } = req.body;
-    if (!message || !message.trim()) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required and must be a non-empty string' });
+    }
+
+    if (message.trim().length > 4000) {
+      return res.status(400).json({ error: 'Message is too long. Limit is 4000 characters.' });
     }
 
     let spendResult = { ok: true, newBalance: null };

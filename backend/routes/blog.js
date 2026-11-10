@@ -316,30 +316,69 @@ router.post('/parse-eml', authenticateToken, requireAdmin, uploadEndpointsLimite
 
 router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabaseAdmin
+    const { category } = req.query;
+    let query = supabaseAdmin
       .from('blogs')
       .select('*, author:author_id(id, full_name, avatar_url)')
-      .eq('is_published', true)
-      .order('created_at', { ascending: false });
+      .eq('is_published', true);
+
+    if (category && typeof category === 'string' && category.trim().toLowerCase() !== 'all') {
+      query = query.eq('category', category.trim());
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(50);
+
     if (error) throw error;
-    res.json(data);
+    res.json(data || []);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Failed to fetch blogs:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { title, content, category, cover_image } = req.body;
-    const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Date.now();
+    const { title, content, category, cover_image } = req.body || {};
+
+    if (!title || typeof title !== 'string' || !title.trim()) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+    if (title.trim().length > 200) {
+      return res.status(400).json({ error: 'Title is too long (maximum 200 characters)' });
+    }
+    if (!content || typeof content !== 'string' || !content.trim()) {
+      return res.status(400).json({ error: 'Content is required' });
+    }
+    if (content.length > 500000) {
+      return res.status(400).json({ error: 'Content is too long (maximum 500,000 characters)' });
+    }
+
+    const safeTitle = title.trim().slice(0, 200);
+    const safeContent = content.slice(0, 500000);
+    const safeCategory = typeof category === 'string' ? category.trim().slice(0, 50) : 'General';
+    const safeCoverImage = typeof cover_image === 'string' ? cover_image.trim().slice(0, 2000) : null;
+
+    const slug = safeTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) + '-' + Date.now();
+
     const { data, error } = await supabaseAdmin
       .from('blogs')
-      .insert({ title, slug, content, author_id: req.user.id, category, cover_image })
+      .insert({
+        title: safeTitle,
+        slug,
+        content: safeContent,
+        author_id: req.user.id,
+        category: safeCategory,
+        cover_image: safeCoverImage
+      })
       .select().single();
+
     if (error) throw error;
     res.status(201).json(data);
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Failed to create blog:', error);
+    res.status(400).json({ error: 'Failed to create blog post' });
   }
 });
 

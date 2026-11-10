@@ -24,6 +24,9 @@ const requireHR = (req, res, next) => {
   next();
 };
 
+const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
+
 // HR creates available time slots
 router.post('/slots', authenticateToken, requireHR, async (req, res) => {
   try {
@@ -34,11 +37,38 @@ router.post('/slots', authenticateToken, requireHR, async (req, res) => {
       return res.status(400).json({ error: 'At least one slot is required' });
     }
 
+    if (slots.length > 50) {
+      return res.status(400).json({ error: 'Maximum 50 slots allowed per request' });
+    }
+
+    for (let i = 0; i < slots.length; i++) {
+      const s = slots[i];
+      if (!s || typeof s !== 'object') {
+        return res.status(400).json({ error: `Slot at index ${i} must be an object` });
+      }
+
+      const dateStr = String(s.date || '').trim();
+      const startTime = String(s.startTime || '').trim();
+      const endTime = String(s.endTime || '').trim();
+
+      if (!DATE_REGEX.test(dateStr) || isNaN(Date.parse(dateStr))) {
+        return res.status(400).json({ error: `Invalid ISO date format at slot ${i}. Expected YYYY-MM-DD` });
+      }
+
+      if (!TIME_REGEX.test(startTime) || !TIME_REGEX.test(endTime)) {
+        return res.status(400).json({ error: `Invalid time format at slot ${i}. Expected HH:MM` });
+      }
+
+      if (!(startTime < endTime) || startTime >= endTime) {
+        return res.status(400).json({ error: `startTime must be before endTime (startTime < endTime) at slot ${i}` });
+      }
+    }
+
     const records = slots.map(s => ({
       hr_id: req.user.id,
-      slot_date: s.date,
-      start_time: s.startTime,
-      end_time: s.endTime,
+      slot_date: String(s.date).trim(),
+      start_time: String(s.startTime).trim(),
+      end_time: String(s.endTime).trim(),
       is_booked: false,
     }));
 

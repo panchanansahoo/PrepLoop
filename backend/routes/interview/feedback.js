@@ -3,10 +3,14 @@ import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authenticateToken } from '../../middleware/auth.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { groq } from './helpers.js';
+import { feedbackStreamLimiter, aiEndpointsLimiter } from '../../middleware/apiRateLimiter.js';
 
 const router = express.Router();
 
-router.post('/:id/feedback', authenticateToken, async (req, res) => {
+const MAX_FEEDBACK_ANSWER_LENGTH = 1000;
+const MAX_FEEDBACK_QUESTION_LENGTH = 500;
+
+router.post('/:id/feedback', authenticateToken, aiEndpointsLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { questionIndex, answerText, audioTranscript } = req.body;
@@ -15,12 +19,18 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
       return res.status(503).json({ error: 'AI feedback unavailable' });
     }
 
-    let question = req.body?.questionText || req.body?.question;
-    const responseText = answerText || audioTranscript || '';
+    const rawResponse = answerText || audioTranscript || '';
+    if (!rawResponse || (typeof rawResponse !== 'string' && typeof rawResponse !== 'number')) {
+      return res.status(400).json({ error: 'Invalid question or response' });
+    }
 
+    // AI1: Cap responseText before sending to AI to prevent unbounded payloads
+    const responseText = String(rawResponse).trim().slice(0, MAX_FEEDBACK_ANSWER_LENGTH);
     if (!responseText) {
       return res.status(400).json({ error: 'Invalid question or response' });
     }
+
+    let question = req.body?.questionText || req.body?.question;
 
     if (!question && id !== '0') {
       try {
@@ -39,9 +49,13 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
       }
     }
 
-    if (!question) {
-      question = `Technical Interview Question #${(Number(questionIndex) || 0) + 1}`;
-    }
+    const questionTitle = typeof question === 'object' && question !== null
+      ? (question.question || question.text || `Technical Interview Question #${(Number(questionIndex) || 0) + 1}`)
+      : (question || `Technical Interview Question #${(Number(questionIndex) || 0) + 1}`);
+    const questionContext = typeof question === 'object' && question !== null && question.context
+      ? String(question.context).slice(0, MAX_FEEDBACK_QUESTION_LENGTH)
+      : '';
+    const safeQuestion = String(questionTitle).slice(0, MAX_FEEDBACK_QUESTION_LENGTH);
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
@@ -57,7 +71,7 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
           },
           {
             role: 'user',
-            content: `Question: "${question.question}"\nContext: ${question.context}\nCandidate's Answer: "${responseText}"`
+            content: `Question: "${safeQuestion}"\n${questionContext ? `Context: ${questionContext}\n` : ''}Candidate's Answer: "${responseText}"`
           }
         ],
         response_format: { type: 'json_object' }
@@ -81,7 +95,7 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
         interview_id: id,
         user_id: req.user.id,
         question_index: questionIndex,
-        answer_text: responseText.substring(0, 1000),
+        answer_text: responseText,
         feedback_content: feedback,
         created_at: new Date().toISOString()
       });
@@ -91,15 +105,25 @@ router.post('/:id/feedback', authenticateToken, async (req, res) => {
     res.json({ feedback });
   } catch (error) {
     console.error('Error generating feedback:', error);
-    res.status(500).json({ error: 'Failed to generate feedback', message: error.message });
+    res.status(500).json({
+      error: 'Failed to generate feedback',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
 // SSE Streaming feedback endpoint for real-time AI responses
-router.post('/:id/feedback/stream', authenticateToken, async (req, res) => {
+// AI5: Rate limiter applied to prevent unlimited parallel stream consumption
+router.post('/:id/feedback/stream', authenticateToken, feedbackStreamLimiter, async (req, res) => {
   const { questionIndex = 0, answerText, audioTranscript } = req.body;
-  const responseText = answerText || audioTranscript || '';
+  const rawResponse = answerText || audioTranscript || '';
 
+  if (!rawResponse || (typeof rawResponse !== 'string' && typeof rawResponse !== 'number')) {
+    return res.status(400).json({ error: 'Invalid question or response' });
+  }
+
+  // AI1: Cap responseText before sending to AI streaming endpoint
+  const responseText = String(rawResponse).trim().slice(0, MAX_FEEDBACK_ANSWER_LENGTH);
   if (!responseText) {
     return res.status(400).json({ error: 'Invalid question or response' });
   }
@@ -108,7 +132,12 @@ router.post('/:id/feedback/stream', authenticateToken, async (req, res) => {
     return res.status(503).json({ error: 'AI streaming feedback unavailable' });
   }
 
-  const question = req.body?.questionText || req.body?.question || `Question #${Number(questionIndex) + 1}`;
+  const rawQuestion = req.body?.questionText || req.body?.question || `Question #${Number(questionIndex) + 1}`;
+  const safeQuestion = String(
+    typeof rawQuestion === 'object' && rawQuestion !== null
+      ? (rawQuestion.question || rawQuestion.text || 'Interview Question')
+      : rawQuestion
+  ).slice(0, MAX_FEEDBACK_QUESTION_LENGTH);
 
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
@@ -128,7 +157,7 @@ router.post('/:id/feedback/stream', authenticateToken, async (req, res) => {
         },
         {
           role: 'user',
-          content: `Question: "${typeof question === 'string' ? question : (question.question || 'Interview Question')}"\nCandidate's Answer: "${responseText}"`
+          content: `Question: "${safeQuestion}"\nCandidate's Answer: "${responseText}"`
         }
       ],
       stream: true,
@@ -172,7 +201,10 @@ router.get('/:id/feedback', authenticateToken, async (req, res) => {
     res.json({ feedbacks: feedbacks || [] });
   } catch (error) {
     console.error('Error fetching feedback history:', error);
-    res.status(500).json({ error: 'Failed to fetch feedback', message: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch feedback',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 

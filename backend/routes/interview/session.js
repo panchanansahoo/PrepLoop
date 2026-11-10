@@ -89,7 +89,10 @@ router.post('/start', authenticateToken, async (req, res) => {
       }
     }
     console.error('Error starting interview:', error);
-    res.status(500).json({ error: 'Failed to start interview', message: error.message });
+    res.status(500).json({
+      error: 'Failed to start interview',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
@@ -116,9 +119,25 @@ router.post('/next-question', authenticateToken, async (req, res) => {
       });
     }
 
-    const safeResponses = Array.isArray(previousResponses) ? previousResponses : [];
+    // AI2: Cap history length and sanitize question content to prevent prompt injection and unbounded prompt growth
+    const MAX_PREV_QUESTIONS = 10;
+    const MAX_QUESTION_LEN = 300;
+
+    const safeResponses = Array.isArray(previousResponses)
+      ? previousResponses.slice(-MAX_PREV_QUESTIONS)
+      : [];
+
     const previousQuestions = safeResponses
-      .map(r => r?.question?.question)
+      .map(r => {
+        const text = typeof r?.question === 'object' && r?.question !== null
+          ? (r.question.question || r.question.text || '')
+          : (typeof r?.question === 'string' ? r.question : (typeof r === 'string' ? r : ''));
+        return String(text)
+          .replace(/[\r\n\t]/g, ' ')
+          .replace(/["\\]/g, '')
+          .trim()
+          .slice(0, MAX_QUESTION_LEN);
+      })
       .filter(Boolean);
 
     const aiQuestion = await generateAIQuestion(type, difficulty, previousQuestions);
@@ -132,7 +151,10 @@ router.post('/next-question', authenticateToken, async (req, res) => {
     }
   } catch (error) {
     console.error('Error getting next question:', error);
-    res.status(500).json({ error: 'Failed to get next question', message: error.message });
+    res.status(500).json({
+      error: 'Failed to get next question',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
@@ -164,13 +186,43 @@ router.post('/complete', authenticateToken, async (req, res) => {
       });
     }
 
+    // AI4: Validate duration (non-negative, finite integer, capped at 86400 seconds / 24 hours)
+    const parsedDuration = Number(duration);
+    const sanitizedDuration = Number.isFinite(parsedDuration)
+      ? Math.min(86400, Math.max(0, Math.round(parsedDuration)))
+      : 0;
+
+    // AI3: Cap responses array size and sanitize/truncate entries
+    const MAX_RESPONSES = 25;
+    const MAX_RESPONSE_ANSWER_LENGTH = 1000;
+    const MAX_RESPONSE_QUESTION_LENGTH = 300;
+
+    const safeResponses = responses.slice(0, MAX_RESPONSES).map(r => {
+      if (!r || typeof r !== 'object') return { question: 'Unknown', answer: '' };
+      const qText = typeof r.question === 'object' && r.question !== null
+        ? (r.question.question || r.question.text || 'Unknown')
+        : (typeof r.question === 'string' ? r.question : 'Unknown');
+      const aText = typeof r.answer === 'string' ? r.answer : (typeof r.response === 'string' ? r.response : '');
+
+      return {
+        ...r,
+        question: typeof r.question === 'object' && r.question !== null
+          ? { ...r.question, question: String(qText).slice(0, MAX_RESPONSE_QUESTION_LENGTH) }
+          : String(qText).slice(0, MAX_RESPONSE_QUESTION_LENGTH),
+        answer: String(aText).slice(0, MAX_RESPONSE_ANSWER_LENGTH),
+        response: String(aText).slice(0, MAX_RESPONSE_ANSWER_LENGTH),
+      };
+    });
+
     let scores;
 
-    if (groq && responses && responses.length > 0) {
+    if (groq && safeResponses.length > 0) {
       try {
-        const responseSummary = responses.map((r, i) =>
-          `Q${i + 1}: ${r.question?.question || r.question || 'Unknown'}\nA: ${r.answer || r.response || '(no response)'}`
-        ).join('\n\n');
+        const responseSummary = safeResponses.map((r, i) => {
+          const q = typeof r.question === 'object' && r.question !== null ? (r.question.question || 'Unknown') : r.question;
+          const a = r.answer || '(no response)';
+          return `Q${i + 1}: ${q}\nA: ${a}`;
+        }).join('\n\n');
 
         const completion = await aiCallWithRetry({
           operation: () => groq.chat.completions.create({
@@ -218,8 +270,8 @@ router.post('/complete', authenticateToken, async (req, res) => {
     }
 
     if (!scores) {
-      const totalResponses = (responses || []).length;
-      const answeredResponses = (responses || []).filter(r =>
+      const totalResponses = safeResponses.length;
+      const answeredResponses = safeResponses.filter(r =>
         (r.answer || r.response || '').trim().length > 20
       );
       const avgLength = answeredResponses.length > 0
@@ -246,9 +298,9 @@ router.post('/complete', authenticateToken, async (req, res) => {
         user_id: req.user.id,
         interview_type: type,
         difficulty,
-        duration,
-        questions: (responses || []).map(r => r.question),
-        responses,
+        duration: sanitizedDuration,
+        questions: safeResponses.map(r => r.question),
+        responses: safeResponses,
         overall_score: scores.overall,
         communication_score: scores.communication,
         technical_score: scores.technical,
@@ -266,25 +318,33 @@ router.post('/complete', authenticateToken, async (req, res) => {
     });
   } catch (error) {
     console.error('Error completing interview:', error);
-    res.status(500).json({ error: 'Failed to complete interview', message: error.message });
+    res.status(500).json({
+      error: 'Failed to complete interview',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
 router.get('/history', authenticateToken, async (req, res) => {
   try {
+    const requestedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? Math.min(50, requestedLimit)
+      : 20;
+
     const { data: mockData } = await supabaseAdmin
       .from('mock_interviews')
       .select('id, interview_type, difficulty, duration, overall_score, completed_at, company, role')
       .eq('user_id', req.user.id)
       .order('completed_at', { ascending: false })
-      .limit(20);
+      .limit(limit);
 
     const { data: sessData } = await supabaseAdmin
       .from('interview_sessions')
       .select('id, session_id, interview_type, difficulty_level, company_focus, interview_score, performance_metrics, completed_at, created_at')
       .eq('user_id', req.user.id)
       .order('completed_at', { ascending: false })
-      .limit(20);
+      .limit(limit);
 
     let interviews = [];
     if (sessData && sessData.length > 0) {
@@ -320,19 +380,28 @@ router.get('/history', authenticateToken, async (req, res) => {
         company: m.company || 'General',
         role: m.role || 'Software Engineer'
       }));
-      interviews = [...interviews, ...mockMapped].sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+      interviews = [...interviews, ...mockMapped];
     }
 
-    res.json({ interviews });
+    // AI7: Sort merged results and apply final limit cap so result does not exceed limit (e.g. 20)
+    interviews.sort((a, b) => new Date(b.completed_at || 0) - new Date(a.completed_at || 0));
+    const cappedInterviews = interviews.slice(0, limit);
+
+    res.json({ interviews: cappedInterviews });
   } catch (error) {
     console.error('Error fetching interview history:', error);
-    res.status(500).json({ error: 'Failed to fetch history', message: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch history',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
 router.get('/sessions', authenticateToken, async (req, res) => {
   const userId = req.user?.id;
   const { limit = 20, offset = 0 } = req.query;
+  const parsedLimit = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+  const parsedOffset = Math.max(0, parseInt(offset, 10) || 0);
 
   try {
     let sessions = [];
@@ -341,7 +410,7 @@ router.get('/sessions', authenticateToken, async (req, res) => {
       .select('id, session_id, interview_type, company_focus, difficulty_level, interview_score, performance_metrics, completed_at, created_at')
       .eq('user_id', userId)
       .order('completed_at', { ascending: false })
-      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+      .range(parsedOffset, parsedOffset + parsedLimit - 1);
 
     if (!error && Array.isArray(data) && data.length > 0) {
       sessions = data.map(s => {
@@ -364,10 +433,10 @@ router.get('/sessions', authenticateToken, async (req, res) => {
     } else {
       const { data: mockData } = await supabaseAdmin
         .from('mock_interviews')
-        .select('id, interview_type, difficulty, duration, overall_score, completed_at, created_at')
+        .select('id, interview_type, difficulty, duration, overall_score, completed_at, started_at')
         .eq('user_id', userId)
         .order('completed_at', { ascending: false })
-        .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1);
+        .range(parsedOffset, parsedOffset + parsedLimit - 1);
       sessions = mockData || [];
     }
 
@@ -375,8 +444,8 @@ router.get('/sessions', authenticateToken, async (req, res) => {
       ...s,
       score: s.overall_score ?? s.score ?? null,
       overall_score: s.overall_score ?? s.score ?? null,
-      createdAt: s.completed_at || s.created_at || null,
-      created_at: s.completed_at || s.created_at || null,
+      createdAt: s.completed_at || s.started_at || s.created_at || null,
+      created_at: s.completed_at || s.started_at || s.created_at || null,
     }));
 
     res.json({ sessions: normalized, data: normalized });
@@ -404,7 +473,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
     res.json({ interview: data });
   } catch (error) {
     console.error('Error fetching interview:', error);
-    res.status(500).json({ error: 'Failed to fetch interview', message: error.message });
+    res.status(500).json({
+      error: 'Failed to fetch interview',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 
@@ -428,7 +500,10 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     res.json({ success: true, deleted: true });
   } catch (error) {
     console.error('Delete interview error:', error.message);
-    res.status(500).json({ error: 'Failed to delete interview', message: error.message });
+    res.status(500).json({
+      error: 'Failed to delete interview',
+      ...(process.env.NODE_ENV === 'development' ? { message: error.message } : {})
+    });
   }
 });
 

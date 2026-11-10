@@ -173,3 +173,37 @@ export function rehydrateResumeJson(resumeJson, piiMap) {
   return copy;
 }
 
+/**
+ * Scrub candidate PII (emails, phone numbers, URLs, SSN/card patterns)
+ * from conversation transcripts before persistence or external dispatch.
+ */
+export function redactTranscriptText(rawText) {
+  if (!rawText || typeof rawText !== 'string') return rawText;
+  let text = rawText;
+  text = text.replace(EMAIL_REGEX, '[REDACTED_EMAIL]');
+  text = text.replace(PHONE_REGEX, (match) => {
+    if (/^\d{4}[-–]\d{4}$/.test(match.trim())) return match;
+    return '[REDACTED_PHONE]';
+  });
+  text = text.replace(URL_REGEX, '[REDACTED_LINK]');
+  text = text.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[REDACTED_SSN]');
+  text = text.replace(/\b(?:\d{4}[ -]?){3}\d{4}\b/g, '[REDACTED_CARD]');
+  return text;
+}
+
+/**
+ * Scrub candidate PII from an array of turn objects.
+ */
+export function redactTranscriptTurns(transcript) {
+  if (!Array.isArray(transcript)) return transcript;
+  return transcript.map(turn => {
+    if (!turn || typeof turn !== 'object') return turn;
+    return {
+      ...turn,
+      text: typeof turn.text === 'string' ? redactTranscriptText(turn.text) : turn.text,
+      userAnswer: typeof turn.userAnswer === 'string' ? redactTranscriptText(turn.userAnswer) : turn.userAnswer,
+      candidateResponse: typeof turn.candidateResponse === 'string' ? redactTranscriptText(turn.candidateResponse) : turn.candidateResponse,
+    };
+  });
+}
+

@@ -297,8 +297,8 @@ export function buildDeterministicInterviewReport({ company, role, stage, qaPair
   const isPartiallyScored = skippedCount >= 2;
   const isEstimatedSession = overallScore === null || overallScore === undefined;
 
-  let verdict = 'Would Not Advance';
-  let verdictEmoji = '👎';
+  let verdict;
+  let verdictEmoji;
   let sessionStatus = 'completed';
 
   if (isEstimatedSession) {

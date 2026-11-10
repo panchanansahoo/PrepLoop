@@ -6,12 +6,14 @@ import process from 'node:process';
 export default defineConfig({
   plugins: [
     react(),
-    visualizer({
-      filename: './dist/stats.html',
-      open: false,
-      gzipSize: true,
-      brotliSize: true,
-    })
+    ...(process.env.ANALYZE === 'true' ? [
+      visualizer({
+        filename: './dist/stats.html',
+        open: false,
+        gzipSize: true,
+        brotliSize: true,
+      })
+    ] : [])
   ],
   server: {
     host: true,

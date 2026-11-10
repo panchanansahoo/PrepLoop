@@ -198,7 +198,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [devResetLink, setDevResetLink] = useState(null);
-  const [emailSent, setEmailSent] = useState(true);
+  const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -213,11 +213,17 @@ export default function ForgotPassword() {
       );
       const payload = res?.data || res;
       const link = payload?.resetLink || payload?.devResetLink;
-      if (link) {
+      const isLocalhost = typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      if (import.meta.env.DEV && isLocalhost && link) {
         setDevResetLink(link);
+      } else {
+        setDevResetLink(null);
       }
       if (payload?.emailSent !== undefined) {
-        setEmailSent(payload.emailSent);
+        setEmailSent(Boolean(payload.emailSent));
+      } else {
+        setEmailSent(false);
       }
       setSuccess(true);
     } catch (err) {
@@ -236,7 +242,7 @@ export default function ForgotPassword() {
   const handleTryAnotherEmail = () => {
     setSuccess(false);
     setDevResetLink(null);
-    setEmailSent(true);
+    setEmailSent(false);
     setError('');
   };
 

@@ -1,10 +1,17 @@
-import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { authFetch } from '../utils/authFetch';
 import apiClient from '../utils/apiClient';
+import { mergeAuthHeaders } from '../utils/authHeaders';
 
 const AuthContext = createContext(null);
+
+export function stripAuthToken(userObj) {
+  if (!userObj || typeof userObj !== 'object') return null;
+  const { access_token: _at, token: _t, ...safeUser } = userObj;
+  return safeUser;
+}
 
 function isSafeRetryRequestUrl(requestUrl) {
   try {
@@ -44,6 +51,8 @@ export function AuthProvider({ children }) {
 
   // Fix #9: use a ref so the interceptor always calls the latest refreshSession
   const refreshSessionRef = useRef(null);
+  // Deduplicate in-flight token refresh requests across concurrent calls
+  const refreshPromiseRef = useRef(null);
 
   useEffect(() => {
     let mounted = true;
@@ -69,10 +78,9 @@ export function AuthProvider({ children }) {
                 subscriptionTier: profileData.subscriptionTier || 'free',
                 experienceLevel: profileData.experienceLevel || 'beginner',
                 role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
-                access_token: session.access_token,
               };
               if (mounted) setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(fullUser));
+              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
             } catch (err) {
               console.error('Profile sync error', err);
               const userMetadata = session.user.user_metadata || {};
@@ -84,7 +92,7 @@ export function AuthProvider({ children }) {
                 ...userMetadata
               };
               if (mounted) setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(fullUser));
+              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
             }
             return;
           }
@@ -132,11 +140,10 @@ export function AuthProvider({ children }) {
               email: profileData.email || session.user.email,
               fullName: profileData.fullName,
               role: profileData.role || session.user.app_metadata?.role || session.user.user_metadata?.role || 'user',
-              access_token: session.access_token,
             };
             if (mounted) {
               setUser(fullUser);
-              localStorage.setItem('user', JSON.stringify(fullUser));
+              localStorage.setItem('user', JSON.stringify(stripAuthToken(fullUser)));
             }
           } catch (e) {
             console.error('Profile fetch failed', e);
@@ -175,7 +182,7 @@ export function AuthProvider({ children }) {
     const { token, user } = response;
 
     localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     setUser(user);
 
@@ -221,7 +228,7 @@ export function AuthProvider({ children }) {
 
     if (token) {
       localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(stripAuthToken(user)));
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
     }
@@ -244,45 +251,65 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const refreshSession = async () => {
-    let data = { session: null };
-    let error = null;
-
-    if (supabase) {
-      const result = await supabase.auth.refreshSession();
-      data = result.data;
-      error = result.error;
+  const refreshSession = () => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
     }
 
-    if (!error && data?.session) {
-      const token = data.session.access_token;
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(prev => prev ? { ...prev, access_token: token } : prev);
-      return true;
-    }
+    refreshPromiseRef.current = (async () => {
+      let data = { session: null };
+      let error = null;
 
-    try {
-      const response = await apiClient.post(
-        '/api/auth/refresh',
-        {},
-        { skipAuthRefresh: true, skipRetry: true }
-      );
-      const { token } = response;
-      localStorage.setItem('token', token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      setUser(prev => prev ? { ...prev, access_token: token } : prev);
-      return true;
-    } catch {
-      logout();
-      return false;
-    }
+      try {
+        if (supabase) {
+          const result = await supabase.auth.refreshSession();
+          data = result.data;
+          error = result.error;
+        }
+
+        if (!error && data?.session) {
+          const token = data.session.access_token;
+          localStorage.setItem('token', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(prev => prev ? { ...prev, access_token: token } : prev);
+          return true;
+        }
+
+        try {
+          const response = await apiClient.post(
+            '/api/auth/refresh',
+            {},
+            { skipAuthRefresh: true, skipRetry: true }
+          );
+          const { token } = response;
+          localStorage.setItem('token', token);
+          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          setUser(prev => prev ? { ...prev, access_token: token } : prev);
+          return true;
+        } catch {
+          logout();
+          return false;
+        }
+      } catch (err) {
+        console.error('Refresh session failed:', err);
+        logout();
+        return false;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
   };
 
   // Fix #9: keep ref in sync so the interceptor always has the latest function
   refreshSessionRef.current = refreshSession;
 
   const isAdmin = user?.role === 'admin';
+
+  const getAuthHeaders = useCallback((extraHeaders = {}) => {
+    return mergeAuthHeaders(extraHeaders, user);
+  }, [user]);
 
   // Fix #9: interceptor uses ref — no stale closure
   // Fix #3: skip retry for EMAIL_NOT_VERIFIED 403 responses
@@ -310,7 +337,11 @@ export function AuthProvider({ children }) {
           originalRequest._retry = true;
           const refreshed = await refreshSessionRef.current();
           if (refreshed) {
-            originalRequest.headers['Authorization'] = `Bearer ${localStorage.getItem('token')}`;
+            const freshToken = localStorage.getItem('token');
+            if (freshToken) {
+              originalRequest.headers = originalRequest.headers || {};
+              originalRequest.headers['Authorization'] = `Bearer ${freshToken}`;
+            }
             return axios(originalRequest);
           }
         }
@@ -331,7 +362,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, signup, logout, refreshSession, getAuthHeaders, loginWithGoogle, loginWithGithub, loginWithLinkedin, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

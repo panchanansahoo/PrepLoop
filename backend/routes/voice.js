@@ -18,19 +18,52 @@ import { createLogger } from '../utils/structuredLogger.js';
 import { voiceTtsLimiter, voiceSttLimiter } from '../middleware/apiRateLimiter.js';
 import { usageQuota } from '../middleware/usageQuota.js';
 import nvidiaVoiceService from '../services/nvidiaVoiceService.js';
+import { getRedisClient } from '../config/redis.js';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();
 const logger = createLogger('voice');
 
-// ── Rate limiter for sensitive endpoints (in-memory, per-user) ──
+// ── Rate limiter for sensitive endpoints (Redis cluster-safe with in-memory fallback) ──
+// Rate limit Map not shared across workers — use Redis or document single-process only
+// NOTE: Uses Redis distributed counters across PM2 workers when Redis is active; otherwise defaults to single-process in-memory Map.
 const tokenRateLimits = new Map();
 const TOKEN_RATE_WINDOW_MS = 60_000; // 1 minute
 const TOKEN_RATE_MAX = 10;           // max 10 requests per window
+const MAX_RATE_LIMIT_ENTRIES = 5000; // Hard ceiling to prevent memory leaks or Map exhaustion
 
-function _tokenRateLimit(req, res, next) {
+function pruneStaleRateLimits(now = Date.now()) {
+    for (const [key, val] of tokenRateLimits) {
+        if (now - val.windowStart >= TOKEN_RATE_WINDOW_MS) {
+            tokenRateLimits.delete(key);
+        }
+    }
+}
+
+async function _tokenRateLimit(req, res, next) {
     const userId = req.user?.id || req.ip || 'anon';
     const now = Date.now();
+
+    // 1. Horizontal cluster-safe rate limiting with Redis
+    const redis = getRedisClient();
+    if (redis && redis.isOpen) {
+        try {
+            const windowKey = Math.floor(now / TOKEN_RATE_WINDOW_MS);
+            const redisKey = `ratelimit:voice:token:${userId}:${windowKey}`;
+            const count = await redis.incr(redisKey);
+            if (count === 1) {
+                await redis.expire(redisKey, Math.ceil(TOKEN_RATE_WINDOW_MS / 1000));
+            }
+            if (count > TOKEN_RATE_MAX) {
+                return res.status(429).json({ error: 'Too many token requests. Try again later.' });
+            }
+            return next();
+        } catch (err) {
+            logger.warn('Redis rate limit check failed, falling back to process limiter', { error: err.message });
+        }
+    }
+
+    // 2. Bounded in-process fallback
     const entry = tokenRateLimits.get(userId);
     if (entry && now - entry.windowStart < TOKEN_RATE_WINDOW_MS) {
         if (entry.count >= TOKEN_RATE_MAX) {
@@ -38,24 +71,24 @@ function _tokenRateLimit(req, res, next) {
         }
         entry.count++;
     } else {
-        tokenRateLimits.set(userId, { windowStart: now, count: 1 });
-    }
-    // Periodic cleanup (every 100 entries)
-    if (tokenRateLimits.size > 100) {
-        for (const [key, val] of tokenRateLimits) {
-            if (now - val.windowStart > TOKEN_RATE_WINDOW_MS * 2) tokenRateLimits.delete(key);
+        // Enforce maximum entries ceiling before inserting
+        if (tokenRateLimits.size >= MAX_RATE_LIMIT_ENTRIES) {
+            pruneStaleRateLimits(now);
+            if (tokenRateLimits.size >= MAX_RATE_LIMIT_ENTRIES) {
+                const oldestKey = tokenRateLimits.keys().next().value;
+                if (oldestKey) tokenRateLimits.delete(oldestKey);
+            }
         }
+        tokenRateLimits.set(userId, { windowStart: now, count: 1 });
     }
     next();
 }
 
-// Periodic cleanup of stale rate-limit entries (every 5 minutes)
-setInterval(() => {
-    const now = Date.now();
-    for (const [key, val] of tokenRateLimits) {
-        if (now - val.windowStart > TOKEN_RATE_WINDOW_MS * 2) tokenRateLimits.delete(key);
-    }
-}, 5 * 60 * 1000).unref();
+// Periodic cleanup of stale rate-limit entries (runs every 60 seconds)
+const pruneTimer = setInterval(() => {
+    pruneStaleRateLimits();
+}, TOKEN_RATE_WINDOW_MS);
+if (pruneTimer.unref) pruneTimer.unref();
 
 // ── Input validation for TTS parameters ──
 const VALID_GENDERS = ['female', 'male'];

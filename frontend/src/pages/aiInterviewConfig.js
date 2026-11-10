@@ -186,6 +186,13 @@ export const DEFAULT_INTERVIEWER = {
     female: { name: 'Hannah Chen', role: 'Senior Software Engineer' },
 };
 
+export const INTERVIEWER_PERSONAS = [
+    { id: 'friendly', name: 'Supportive Coach', badge: 'Calm & Guiding', description: 'Patient, encouraging, and provides gentle hints when you are stuck.' },
+    { id: 'tech-lead', name: 'Tech Lead / Architect', badge: 'Standard', description: 'Practical, deep-dive systems focus, probing trade-offs and real-world scale.' },
+    { id: 'pressure', name: 'Stress & Pressure', badge: 'Challenging', description: 'Fast-paced, demanding, and pushes you to justify every choice under scrutiny.' },
+    { id: 'panel', name: 'Cross-Functional Panel', badge: 'Comprehensive', description: 'Balances coding, architectural thinking, and communication clarity.' },
+];
+
 // ── Stage type → backend stage name (single source of truth) ──
 export const STAGE_MAP = {
     'coding': 'DSA / Coding',

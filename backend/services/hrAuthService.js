@@ -1,7 +1,12 @@
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import pool from '../config/db.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
+
+export const MAX_HR_FULL_NAME_LENGTH = 100;
+export const MAX_HR_COMPANY_LENGTH = 150;
+export const MAX_HR_DESIGNATION_LENGTH = 100;
 
 export const getJwtSecret = () => {
   const secret = process.env.JWT_SECRET;
@@ -14,6 +19,22 @@ export const getJwtSecret = () => {
 export class HrAuthService {
   constructor(dbPool = pool) {
     this.pool = dbPool;
+    this.revokedTokens = new Set();
+  }
+
+  revokeToken(tokenOrJti) {
+    if (!tokenOrJti) return false;
+    this.revokedTokens.add(tokenOrJti);
+    return true;
+  }
+
+  isRevoked(tokenOrJti) {
+    if (!tokenOrJti) return false;
+    return this.revokedTokens.has(tokenOrJti);
+  }
+
+  clearRevocations() {
+    this.revokedTokens.clear();
   }
 
   toPublicUser(user) {
@@ -35,8 +56,10 @@ export class HrAuthService {
       userId: user.id,
       email: user.email,
       role: 'hr',
+      ...(user.fullName !== undefined ? { fullName: user.fullName } : {}),
+      jti: user.jti || crypto.randomBytes(16).toString('hex'),
     };
-    return jwt.sign(payload, getJwtSecret(), { expiresIn });
+    return jwt.sign(payload, getJwtSecret(), { algorithm: 'HS256', expiresIn });
   }
 
   verifyToken(token) {
@@ -48,11 +71,17 @@ export class HrAuthService {
     }
 
     try {
-      const decoded = jwt.verify(token, getJwtSecret());
+      const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] });
       if (!decoded || !decoded.userId || (decoded.role !== 'hr' && decoded.role !== 'admin')) {
         const err = new Error('Invalid HR token payload');
         err.statusCode = 403;
         err.code = 'FORBIDDEN';
+        throw err;
+      }
+      if (this.isRevoked(token) || (decoded.jti && this.isRevoked(decoded.jti))) {
+        const err = new Error('Token has been revoked');
+        err.statusCode = 401;
+        err.code = 'REVOKED_TOKEN';
         throw err;
       }
       return {
@@ -86,7 +115,19 @@ export class HrAuthService {
       throw err;
     }
 
+    const trimmedFullName = String(fullName).trim();
+    if (trimmedFullName.length > MAX_HR_FULL_NAME_LENGTH) {
+      const err = new Error(`Full name must not exceed ${MAX_HR_FULL_NAME_LENGTH} characters`);
+      err.statusCode = 400;
+      throw err;
+    }
+
     const trimmedEmail = String(email).trim().toLowerCase();
+    if (trimmedEmail.length > 255) {
+      const err = new Error('Email must not exceed 255 characters');
+      err.statusCode = 400;
+      throw err;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       const err = new Error('Invalid email format');
       err.statusCode = 400;
@@ -95,6 +136,26 @@ export class HrAuthService {
 
     if (password.length < 8) {
       const err = new Error('Password must be at least 8 characters long');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (password.length > 128) {
+      const err = new Error('Password must not exceed 128 characters');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const trimmedCompany = company ? String(company).trim() : null;
+    if (trimmedCompany && trimmedCompany.length > MAX_HR_COMPANY_LENGTH) {
+      const err = new Error(`Company name must not exceed ${MAX_HR_COMPANY_LENGTH} characters`);
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const trimmedDesignation = designation ? String(designation).trim() : null;
+    if (trimmedDesignation && trimmedDesignation.length > MAX_HR_DESIGNATION_LENGTH) {
+      const err = new Error(`Designation must not exceed ${MAX_HR_DESIGNATION_LENGTH} characters`);
       err.statusCode = 400;
       throw err;
     }
@@ -115,11 +176,11 @@ export class HrAuthService {
        VALUES ($1, $2, $3, 'hr', $4, $5, $6, NOW())
        RETURNING id, full_name, email, role, company, designation, experience_years`,
       [
-        fullName.trim(),
+        trimmedFullName,
         trimmedEmail,
         hashedPassword,
-        company ? String(company).trim() : null,
-        designation ? String(designation).trim() : null,
+        trimmedCompany,
+        trimmedDesignation,
         experience ? Number(experience) : null,
       ]
     );
@@ -144,7 +205,7 @@ export class HrAuthService {
       // Non-blocking sync
     }
 
-    const token = this.issueToken(user);
+    const token = this.issueToken({ ...user, fullName: user.full_name });
     return {
       token,
       user: this.toPublicUser(user),
@@ -182,7 +243,7 @@ export class HrAuthService {
       throw err;
     }
 
-    const token = this.issueToken(user);
+    const token = this.issueToken({ ...user, fullName: user.full_name });
     return {
       token,
       user: this.toPublicUser(user),
@@ -194,4 +255,6 @@ export const hrAuthService = new HrAuthService();
 export const registerHR = (payload) => hrAuthService.register(payload);
 export const loginHR = (email, password) => hrAuthService.login(email, password);
 export const verifyHRToken = (token) => hrAuthService.verifyToken(token);
+export const revokeHRToken = (tokenOrJti) => hrAuthService.revokeToken(tokenOrJti);
+export const isHRTokenRevoked = (tokenOrJti) => hrAuthService.isRevoked(tokenOrJti);
 export default hrAuthService;

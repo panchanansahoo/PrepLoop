@@ -9,6 +9,17 @@ const groq = process.env.GROQ_API_KEY ? new Groq({
   apiKey: process.env.GROQ_API_KEY,
 }) : null;
 
+function formatComponents(components) {
+  if (Array.isArray(components)) {
+    const valid = components.filter(c => typeof c === 'string' && c.trim()).map(c => c.trim()).slice(0, 50);
+    return valid.length > 0 ? valid.join(', ') : 'None specified';
+  }
+  if (typeof components === 'string' && components.trim()) {
+    return components.trim().slice(0, 500);
+  }
+  return 'None specified';
+}
+
 const systemDesignTopics = [
   {
     id: 1,
@@ -61,6 +72,7 @@ router.get('/topics/:id', (req, res) => {
 
 router.post('/feedback', authenticateToken, async (req, res) => {
   const { topicId, design, components } = req.body;
+  const componentsText = formatComponents(components);
 
   try {
     const topic = systemDesignTopics.find(t => t.id === parseInt(topicId));
@@ -98,7 +110,7 @@ router.post('/feedback', authenticateToken, async (req, res) => {
           },
           {
             role: 'user',
-            content: `Topic: ${topic.title}\nDescription: ${topic.description}\n\nUser's Design:\n${design}\n\nComponents used: ${components.join(', ')}\n\nProvide feedback.`
+            content: `Topic: ${topic.title}\nDescription: ${topic.description}\n\nUser's Design:\n${design}\n\nComponents used: ${componentsText}\n\nProvide feedback.`
           }
         ],
         response_format: { type: 'json_object' }
@@ -124,6 +136,7 @@ router.post('/feedback', authenticateToken, async (req, res) => {
 
 router.post('/diagram-explain', authenticateToken, async (req, res) => {
   const { diagram, components } = req.body;
+  const componentsText = formatComponents(components);
 
   try {
     if (!groq) {
@@ -142,7 +155,7 @@ router.post('/diagram-explain', authenticateToken, async (req, res) => {
           },
           {
             role: 'user',
-            content: `Explain this system design:\nComponents: ${components.join(', ')}\nDiagram description: ${diagram}`
+            content: `Explain this system design:\nComponents: ${componentsText}\nDiagram description: ${diagram}`
           }
         ]
       }),

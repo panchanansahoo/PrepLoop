@@ -2,7 +2,7 @@ import express from 'express';
 import pool from '../config/db.js';
 import { hrAuthService } from '../services/hrAuthService.js';
 import { hrAuth, requireHRRole } from '../middleware/hrAuth.js';
-import { hrLoginLimiter } from '../middleware/rateLimiter.js';
+import { hrLoginLimiter, hrRegisterLimiter } from '../middleware/rateLimiter.js';
 
 // Retain authenticateToken and requireHR identifiers for security contract compliance
 const authenticateToken = hrAuth;
@@ -11,7 +11,7 @@ const requireHR = requireHRRole;
 const router = express.Router();
 
 // HR Registration
-router.post('/register', async (req, res) => {
+router.post('/register', hrRegisterLimiter, async (req, res) => {
   try {
     const { fullName, email, password, company, designation, experience } = req.body;
     const result = await hrAuthService.register({

@@ -125,24 +125,28 @@ router.get(
 );
 
 /**
- * GET /api/ai/code-review/problem/:problemId
+ * GET /api/ai/code-review/problem/:problemId or /code-review/:problemId/reviews
  * Get all reviews for a specific problem by current user
  */
 router.get(
-  '/code-review/problem/:problemId',
+  ['/code-review/problem/:problemId', '/code-review/:problemId/reviews'],
   authenticateToken,
   validateRequest({ params: problemIdParamSchema }),
   asyncHandler(async (req, res) => {
     try {
       const { problemId } = req.params;
       const userId = req.user.id;
+      const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const offset = (page - 1) * limit;
 
       const { data: reviews, error } = await supabaseAdmin
         .from('code_review_sessions')
         .select('*')
         .eq('problem_id', problemId)
         .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (error) {
         throw error;
@@ -151,6 +155,7 @@ router.get(
       return res.status(200).json({
         success: true,
         data: reviews,
+        reviews,
         count: reviews.length
       });
 
@@ -591,16 +596,19 @@ router.get(
 );
 
 /**
- * GET /api/ai/performance-trends
+ * GET /api/ai/performance-trends or /interview/performance-trends
  * Get user's performance trends across interviews
  */
 router.get(
-  '/performance-trends',
+  ['/performance-trends', '/interview/performance-trends'],
   authenticateToken,
   async (req, res) => {
     try {
       const userId = req.user.id;
       const interviewType = req.query.type; // Optional filter by type
+      const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const offset = (page - 1) * limit;
 
       let query = supabaseAdmin
         .from('interview_performance_trends')
@@ -610,6 +618,10 @@ router.get(
       if (interviewType) {
         query = query.eq('interview_type', interviewType);
       }
+
+      query = query
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
       const { data: trends, error } = await query;
 

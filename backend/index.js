@@ -99,8 +99,6 @@ async function initializeServer() {
 
     // Advanced security middleware
 
-    app.use(enhancedSecurity());
-
     app.use(
       helmet({
         contentSecurityPolicy: {
@@ -139,6 +137,9 @@ async function initializeServer() {
     app.use(express.json({ limit: '10mb' }));
     app.use(express.urlencoded({ extended: true, limit: '10mb' }));
     app.use(requestIdMiddleware); // Add request ID tracing before rate limiting
+
+    // Advanced security middleware (mounted after body parsers so request bodies are inspected)
+    app.use(enhancedSecurity());
     app.use((req, res, next) => {
       const startedAt = Date.now();
       res.on('finish', () => {

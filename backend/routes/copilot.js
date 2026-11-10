@@ -34,8 +34,21 @@ router.post('/ask', authenticateToken, async (req, res) => {
   try {
     const { query, context } = req.body;
 
-    if (!query || query.trim().length < 3) {
+    if (!query || typeof query !== 'string' || query.trim().length < 3) {
       return res.status(400).json({ error: 'Please provide a question (at least 3 characters).' });
+    }
+
+    if (query.trim().length > 2000) {
+      return res.status(400).json({ error: 'Question is too long (maximum 2000 characters).' });
+    }
+
+    if (context !== undefined && context !== null) {
+      if (typeof context !== 'string') {
+        return res.status(400).json({ error: 'Context must be a string.' });
+      }
+      if (context.trim().length > 4000) {
+        return res.status(400).json({ error: 'Context is too long (maximum 4000 characters).' });
+      }
     }
 
     if (!groq) {
@@ -45,9 +58,11 @@ router.post('/ask', authenticateToken, async (req, res) => {
       });
     }
 
-    const userMessage = context 
-      ? `Context: ${context}\n\nQuestion: ${query}`
-      : query;
+    const sanitizedQuery = query.trim().slice(0, 2000);
+    const sanitizedContext = typeof context === 'string' ? context.trim().slice(0, 4000) : '';
+    const userMessage = sanitizedContext 
+      ? `Context: ${sanitizedContext}\n\nQuestion: ${sanitizedQuery}`
+      : sanitizedQuery;
 
     const completion = await aiCallWithRetry({
       operation: () => groq.chat.completions.create({
@@ -68,7 +83,7 @@ router.post('/ask', authenticateToken, async (req, res) => {
 
     res.json({
       response,
-      query,
+      query: sanitizedQuery,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -81,20 +96,41 @@ router.post('/job-fit', authenticateToken, async (req, res) => {
   try {
     const { jobTitle, jobDescription, userProfile } = req.body;
 
-    if (!jobTitle || !jobDescription) {
-      return res.status(400).json({ error: 'Job title and description are required.' });
+    if (!jobTitle || !jobDescription || typeof jobTitle !== 'string' || typeof jobDescription !== 'string') {
+      return res.status(400).json({ error: 'Job title and description are required strings.' });
+    }
+
+    if (jobTitle.trim().length > 200) {
+      return res.status(400).json({ error: 'Job title is too long (maximum 200 characters).' });
+    }
+
+    if (jobDescription.trim().length > 8000) {
+      return res.status(400).json({ error: 'Job description is too long (maximum 8000 characters).' });
+    }
+
+    if (userProfile !== undefined && userProfile !== null) {
+      const profileStr = typeof userProfile === 'string' ? userProfile : JSON.stringify(userProfile);
+      if (profileStr.length > 8000) {
+        return res.status(400).json({ error: 'User profile is too long (maximum 8000 characters).' });
+      }
     }
 
     if (!groq) {
       return res.status(503).json({ error: 'AI service is currently unavailable.' });
     }
 
+    const safeJobTitle = jobTitle.trim().slice(0, 200);
+    const safeJobDescription = jobDescription.trim().slice(0, 8000);
+    const safeUserProfile = userProfile
+      ? (typeof userProfile === 'string' ? userProfile.trim().slice(0, 4000) : JSON.stringify(userProfile).slice(0, 4000))
+      : null;
+
     const prompt = `Analyze this job opportunity for the candidate:
 
-Job Title: ${jobTitle}
-Job Description: ${jobDescription}
+Job Title: ${safeJobTitle}
+Job Description: ${safeJobDescription}
 
-${userProfile ? `Candidate Profile: ${JSON.stringify(userProfile)}` : 'No candidate profile provided.'}
+${safeUserProfile ? `Candidate Profile: ${safeUserProfile}` : 'No candidate profile provided.'}
 
 Provide:
 1. Key skills match (what aligns well)

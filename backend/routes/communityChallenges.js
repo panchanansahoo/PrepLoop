@@ -115,27 +115,55 @@ router.post('/:challengeId/submit', authenticateToken, validateRequest({ body: c
       if (c?.points) points = c.points;
     }
 
-    // Update real-time Redis leaderboard
-    const newWeeklyScore = await LeaderboardService.recordScore(userId, points);
+    // 1. Duplicate check: verify user hasn't already submitted this challenge
+    const dbChallengeId = challengeId.startsWith('c-') ? null : challengeId;
+    if (dbChallengeId) {
+      const { data: existingSub } = await supabaseAdmin
+        .from('challenge_submissions')
+        .select('id')
+        .eq('challenge_id', dbChallengeId)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-    // Reward coins atomically
-    await applyCoinTransaction({
+      if (existingSub) {
+        return res.status(400).json({ error: 'You have already submitted a solution for this challenge' });
+      }
+    }
+
+    // 2. Reward coins atomically with idempotency referenceKey check
+    const referenceKey = `challenge:${challengeId}:${userId}`;
+    const coinResult = await applyCoinTransaction({
       userId,
       amount: points,
       type: 'earn',
       description: `Solved weekly community challenge`,
-      referenceKey: `challenge:${challengeId}:${userId}`,
+      referenceKey,
     });
 
-    // Record submission row in DB
-    await supabaseAdmin.from('challenge_submissions').insert({
-      challenge_id: challengeId.startsWith('c-') ? null : challengeId,
+    // If transaction was previously applied (idempotency triggered), reject duplicate
+    if (coinResult?.handled && coinResult.applied === false) {
+      return res.status(400).json({ error: 'You have already submitted a solution for this challenge' });
+    }
+
+    // 3. Record submission row in DB
+    const { error: insertError } = await supabaseAdmin.from('challenge_submissions').insert({
+      challenge_id: dbChallengeId,
       user_id: userId,
       code,
       language,
       status: 'passed',
       score_awarded: points,
     });
+
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return res.status(400).json({ error: 'You have already submitted a solution for this challenge' });
+      }
+      logger.warn('Failed to insert challenge submission row', { error: insertError.message });
+    }
+
+    // 4. Update real-time Redis leaderboard ONLY AFTER dedup checks succeed
+    const newWeeklyScore = await LeaderboardService.recordScore(userId, points);
 
     const userStanding = await LeaderboardService.getUserStanding(userId);
 

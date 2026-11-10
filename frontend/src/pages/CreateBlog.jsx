@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {ArrowLeft, Image as ImageIcon, Loader, FileText, Mail} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ export default function CreateBlog() {
   const [coverImage, setCoverImage] = useState(''); // URL for now
   const [category, setCategory] = useState({ id: 'general', label: 'General' });
   const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -24,26 +25,21 @@ export default function CreateBlog() {
   const navigate = useNavigate();
   const isAdmin = user?.role === 'admin';
 
-  useEffect(() => {
-    // Check backend connection
-    fetch(`${API_URL}/api/health`)
-      .then(res => {
-        if (!res.ok) console.warn('Backend returned non-OK status');
-      })
-      .catch(err => {
-        console.error('Backend unreachable:', err);
-        alert('Warning: Cannot connect to backend server. Please verify it is running.');
-      });
-
-    if (!user || user.isGuest) {
-      // navigate('/login'); 
-    }
-  }, [user, navigate]);
 
   const handlePublish = async () => {
-    if (!user || user.isGuest) return alert("You must be logged in to post a blog.");
-    if (!isAdmin) return alert('Only admins can publish blog posts.');
-    if (!title || !content || content === '<p></p>') return alert("Title and content are required");
+    setErrorMessage('');
+    if (!user || user.isGuest) {
+      setErrorMessage("You must be logged in to post a blog.");
+      return;
+    }
+    if (!isAdmin) {
+      setErrorMessage('Only admins can publish blog posts.');
+      return;
+    }
+    if (!title || !content || content === '<p></p>') {
+      setErrorMessage("Title and content are required");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -61,11 +57,11 @@ export default function CreateBlog() {
         navigate('/blog');
       } else {
         const err = await response.json();
-        alert(`Error: ${err.error}`);
+        setErrorMessage(err.error || 'Failed to publish blog post');
       }
     } catch (error) {
       console.error(error);
-      alert("Failed to publish");
+      setErrorMessage("Failed to publish blog post");
     } finally {
       setSaving(false);
     }
@@ -79,11 +75,12 @@ export default function CreateBlog() {
     if (!file) return;
 
     if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file.');
+      setErrorMessage('Please select a valid PDF file.');
       return;
     }
 
     setAiLoading(true);
+    setErrorMessage('');
     const formData = new FormData();
     formData.append('pdf', file);
 
@@ -102,7 +99,7 @@ export default function CreateBlog() {
 
       if (editorInstance) {
         if (!data.text || !data.text.trim()) {
-          alert('PDF contains no extractable text.');
+          setErrorMessage('PDF contains no extractable text.');
           return;
         }
 
@@ -117,7 +114,7 @@ export default function CreateBlog() {
           }));
 
         if (blocks.length === 0) {
-          alert('No valid text content found in PDF.');
+          setErrorMessage('No valid text content found in PDF.');
           return;
         }
 
@@ -153,7 +150,7 @@ export default function CreateBlog() {
 
     } catch (error) {
       console.error('PDF Import Error:', error);
-      alert(`Failed to import PDF: ${error.message}`);
+      setErrorMessage(`Failed to import PDF: ${error.message}`);
     } finally {
       setAiLoading(false);
       e.target.value = null;
@@ -165,11 +162,12 @@ export default function CreateBlog() {
     if (!file) return;
 
     if (!file.name.endsWith('.eml')) {
-      alert('Please select a valid EML file.');
+      setErrorMessage('Please select a valid EML file.');
       return;
     }
 
     setAiLoading(true);
+    setErrorMessage('');
     const formData = new FormData();
     formData.append('eml', file);
 
@@ -187,22 +185,15 @@ export default function CreateBlog() {
       const data = await res.json();
 
       // Auto-fill title if empty or user wants to replace
-      if (!title || confirm('Use email subject as blog title?')) {
+      if (!title || (typeof window !== 'undefined' && window.confirm && window.confirm('Use email subject as blog title?'))) {
         setTitle(data.title || title);
       }
 
       if (editorInstance) {
-        // If content is HTML, we might need to use simpler text extraction or tryParseHTML
-        // For now, let's treat it as text blocks like PDF to be safe, 
-        // OR use tryParseHTMLToBlocks if we want to preserve formatting.
-        // Let's try to convert HTML to blocks if it looks like HTML, else text.
-
         let blocks = [];
         if (data.content.trim().startsWith('<')) {
-          // It's likely HTML
           blocks = await editorInstance.tryParseHTMLToBlocks(data.content);
         } else {
-          // Text fallback
           const paragraphs = data.content.split(/\n\s*\n/);
           blocks = paragraphs.map(p => ({
             type: "paragraph",
@@ -212,21 +203,19 @@ export default function CreateBlog() {
 
         if (blocks.length > 0) {
           const currentBlock = editorInstance.getTextCursorPosition().block;
-          // If no cursor, fallback to end logic (simplified here for brevity as we have the fix in previous step logic too)
-          // Actually, use the same safe logic:
           if (currentBlock) {
             editorInstance.insertBlocks(blocks, currentBlock, "after");
           } else {
             editorInstance.replaceBlocks(editorInstance.document, blocks);
           }
         } else {
-          alert('No content found in email.');
+          setErrorMessage('No content found in email.');
         }
       }
 
     } catch (error) {
       console.error('EML Import Error:', error);
-      alert(`Failed to import EML: ${error.message}`);
+      setErrorMessage(`Failed to import EML: ${error.message}`);
     } finally {
       setAiLoading(false);
       e.target.value = null;
@@ -234,10 +223,14 @@ export default function CreateBlog() {
   };
 
   const handleAIDraft = async () => {
-    if (!title) return alert("Please enter a title for the AI to work with.");
+    if (!title) {
+      setErrorMessage("Please enter a title for the AI to work with.");
+      return;
+    }
     if (!editorInstance) return;
 
     setAiLoading(true);
+    setErrorMessage('');
     try {
       // Simulate AI API call
       await new Promise(r => setTimeout(r, 2000));
@@ -270,18 +263,11 @@ export default function CreateBlog() {
         }
       ];
 
-      // This relies on BlockNote's API.
-      // editorInstance.replaceBlocks(editorInstance.document, mockBlocks);
-      // BUT, we need to construct proper Block objects or use insertBlocks.
-      // partial blocks are usually accepted.
-
-      // Let's try inserting at the end or replacing content.
-      // Simplest: replace all
       editorInstance.replaceBlocks(editorInstance.document, mockBlocks);
 
     } catch (e) {
       console.error(e);
-      alert("AI Draft failed");
+      setErrorMessage("AI Draft failed. Please try again.");
     } finally {
       setAiLoading(false);
     }
@@ -415,6 +401,33 @@ export default function CreateBlog() {
 
       {/* Editor Container - Narrow centered column like Notion */}
       <main style={{ flex: 1, width: '100%', maxWidth: '900px', margin: '0 auto', padding: '40px 48px', position: 'relative' }}>
+
+        {errorMessage && (
+          <div
+            role="alert"
+            style={{
+              marginBottom: '24px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#ef4444',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{errorMessage}</span>
+            <button
+              onClick={() => setErrorMessage('')}
+              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px', padding: '0 4px', lineHeight: 1 }}
+              aria-label="Dismiss error"
+            >
+              ×
+            </button>
+          </div>
+        )}
 
         {/* Cover Image */}
         <div className="group" style={{ position: 'relative', marginBottom: '20px' }}>

@@ -16,10 +16,14 @@ import {
 import { executeCode, buildTestWrapper, parseTestResults } from '../utils/executeCode.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { generateMissingTestCases } from '../services/aiService.js';
+import { createLogger } from '../utils/structuredLogger.js';
 
 const router = express.Router();
+const logger = createLogger('practice-routes');
 const PROBLEM_SOLVE_COIN_REWARD = 5;
 const MAX_LINT_CODE_LENGTH = Number.parseInt(process.env.MAX_LINT_CODE_LENGTH || '100000', 10);
+export const MAX_SUBMIT_CODE_LENGTH = Number.parseInt(process.env.MAX_SUBMIT_CODE_LENGTH || '100000', 10);
+export const MAX_BATCH_INPUTS = Number.parseInt(process.env.MAX_BATCH_INPUTS || '20', 10);
 
 const isSchemaMissingError = (error) => {
   const code = String(error?.code || '').toUpperCase();
@@ -635,8 +639,24 @@ const resolveProblemRecord = async (problemIdentifier) => {
 router.post('/submit', authenticateToken, async (req, res) => {
   const { problemId, code, language } = req.body;
 
-  if (!problemId || !code || !language) {
+  if (!problemId || code === undefined || code === null || !language) {
     return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  if (typeof code !== 'string') {
+    return res.status(400).json({ error: 'Code must be a string' });
+  }
+
+  if (!code.trim()) {
+    return res.status(400).json({ error: 'Code is required' });
+  }
+
+  if (typeof language !== 'string' || !language.trim()) {
+    return res.status(400).json({ error: 'Language must be a non-empty string' });
+  }
+
+  if (code.length > MAX_SUBMIT_CODE_LENGTH) {
+    return res.status(400).json({ error: `Code is too large. Limit is ${MAX_SUBMIT_CODE_LENGTH} characters.` });
   }
 
   try {
@@ -856,15 +876,16 @@ router.post('/submit', authenticateToken, async (req, res) => {
       degraded: rewardDegraded,
     });
   } catch (error) {
-    console.error('Submission error:', error);
-    fs.writeFileSync(path.join(process.cwd(), 'submission_error.log'), error.stack || error.message || String(error));
+    // L2 & L5: Log via structuredLogger instead of blocking synchronous fs.writeFileSync to process.cwd()
+    logger.error('Submission error', { error: error.message, stack: error.stack, userId: req.user?.id });
     if (isSchemaMissingError(error) || isProfilesAccessBlocked(error)) {
       return res.status(503).json({
         error: 'Coins/submission feature is temporarily unavailable.',
         degraded: true,
       });
     }
-    res.status(500).json({ error: 'Failed to submit solution: ' + error.message });
+    // L1: Do not leak error.message directly to client (prevents exposing DB schema, paths, or internals)
+    res.status(500).json({ error: 'Failed to submit solution. Please try again later.' });
   }
 });
 
@@ -917,6 +938,13 @@ router.post('/run', authenticateToken, async (req, res) => {
 
   if (!code.trim()) {
     return res.status(400).json({ success: false, error: 'Code is required' });
+  }
+
+  if (code.length > MAX_SUBMIT_CODE_LENGTH) {
+    return res.status(400).json({
+      success: false,
+      error: `Code is too large. Limit is ${MAX_SUBMIT_CODE_LENGTH} characters.`,
+    });
   }
 
   try {
@@ -1055,6 +1083,15 @@ router.post('/execute', optionalAuth, async (req, res) => {
     return res
       .status(400)
       .json({ success: false, output: '', error: 'Code is required', executionTime: 0 });
+  }
+
+  if (code.length > MAX_SUBMIT_CODE_LENGTH) {
+    return res.status(400).json({
+      success: false,
+      output: '',
+      error: `Code is too large. Limit is ${MAX_SUBMIT_CODE_LENGTH} characters.`,
+      executionTime: 0,
+    });
   }
 
   try {
@@ -1437,6 +1474,8 @@ router.get('/companies-list', optionalAuth, (req, res) => {
 router.post('/timed-session', authenticateToken, async (req, res) => {
   try {
     const { difficulty, duration, count } = req.body;
+    const parsedCount = Math.min(50, Math.max(1, parseInt(count, 10) || 5));
+    const parsedDuration = Math.min(180, Math.max(5, parseInt(duration, 10) || 30));
 
     // Fetch random problems matching difficulty
     let query = supabaseAdmin
@@ -1457,12 +1496,12 @@ router.post('/timed-session', authenticateToken, async (req, res) => {
       const j = crypto.randomInt(i + 1);
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
-    const selected = shuffled.slice(0, count || 5);
+    const selected = shuffled.slice(0, parsedCount);
 
     res.json({
       sessionId: `timed_${Date.now()}`,
       problems: selected,
-      duration: duration || 30,
+      duration: parsedDuration,
       startedAt: new Date().toISOString(),
     });
   } catch (error) {
@@ -1475,6 +1514,22 @@ router.post('/execute-batch', optionalAuth, async (req, res) => {
   const { code, language, inputs } = req.body;
   if (!code || !language || !Array.isArray(inputs)) {
     return res.status(400).json({ error: 'Missing required fields or inputs is not an array' });
+  }
+
+  if (typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ error: 'Code must be a non-empty string' });
+  }
+
+  if (typeof language !== 'string' || !language.trim()) {
+    return res.status(400).json({ error: 'Language must be a non-empty string' });
+  }
+
+  if (code.length > MAX_SUBMIT_CODE_LENGTH) {
+    return res.status(400).json({ error: `Code is too large. Limit is ${MAX_SUBMIT_CODE_LENGTH} characters.` });
+  }
+
+  if (inputs.length > MAX_BATCH_INPUTS) {
+    return res.status(400).json({ error: `Batch input size exceeds maximum limit of ${MAX_BATCH_INPUTS}` });
   }
 
   try {

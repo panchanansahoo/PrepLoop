@@ -30,7 +30,7 @@ export const METRIC_REGEX = /(?<![A-Za-z])(?:[$€£]\s*)?\d+(?:,\d{3})*(?:\.\d+
  * - '2.5m' -> '2500000'
  */
 export function normalizeMetricToken(token) {
-  let str = String(token || '').toLowerCase().replace(/[\s,]/g, '').replace(/[$€£]/g, '');
+  const str = String(token || '').toLowerCase().replace(/[\s,]/g, '').replace(/[$€£]/g, '');
 
   const kMatch = str.match(/^(\d+(?:\.\d+)?)k$/);
   if (kMatch) return String(Math.round(parseFloat(kMatch[1]) * 1000));
@@ -289,7 +289,7 @@ export function verifyAISuggestion({
 
   // 5. Outcome Direction & Family Consistency Check
   let origDirection = null;
-  for (const [name, fam] of Object.entries(OUTCOME_FAMILIES)) {
+  for (const fam of Object.values(OUTCOME_FAMILIES)) {
     if (fam.regex.test(origLower)) {
       origDirection = fam.direction;
       break;

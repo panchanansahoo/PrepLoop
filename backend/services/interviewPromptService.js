@@ -44,10 +44,25 @@ const COMPANY_PERSONAS = {
   'zomato': 'Consumer-tech focused. Cares about user experience and real-time systems.',
 };
 
+export const INTERVIEWER_PERSONAS = {
+  friendly: 'Supportive Coach. Encouraging, approachable, and patient. Praises good intuition, scaffolds gently when stuck, and minimizes interview anxiety.',
+  pressure: 'Stress & Pressure Interviewer. Demanding, fast-paced, and skeptical. Challenges assumptions quickly, probes edge cases aggressively, and tests candidate composure under time and cognitive constraints.',
+  panel: 'Cross-functional Panel. Holistic and multi-perspective. Balances engineering depth, product intuition, cross-functional collaboration, and communication clarity.',
+  'tech-lead': 'Principal Systems Architect. Deeply analytical, systems-focused, and pragmatic. Probes production realities, failure domains, concurrency, and trade-offs.',
+};
+
 function getCompanyPersona(companyFocus) {
   if (!companyFocus) return 'Balanced senior engineer. Professional, direct, and encouraging.';
   const key = String(companyFocus).toLowerCase();
   return COMPANY_PERSONAS[key] || `Calibrated to ${companyFocus} interview expectations. Professional and direct.`;
+}
+
+export function resolveInterviewerPersona(companyFocus, personaPreset) {
+  if (personaPreset) {
+    const norm = String(personaPreset).toLowerCase().trim();
+    if (INTERVIEWER_PERSONAS[norm]) return INTERVIEWER_PERSONAS[norm];
+  }
+  return getCompanyPersona(companyFocus);
 }
 
 // ── Natural speech prefixes (30% injection rate) ────────────────────
@@ -159,7 +174,10 @@ export class InterviewPromptService {
 
       // Action-specific prompt modifiers — these change HOW the interviewer asks,
       // not just what metadata is surfaced
-      if (af.nextAction === 'volatility_scaffold') {
+      if (af.nextAction === 'affirm_recovery') {
+        const phraseDirective = (af.phrasing || af.recoveryPhrase) ? ` Acknowledge with: "${af.phrasing || af.recoveryPhrase}".` : '';
+        followUpSignals.push(`ACTION: Affirm the candidate's strong recovery on this topic.${phraseDirective} Do not mention numeric scores. Build forward into the next technical exploration.`);
+      } else if (af.nextAction === 'volatility_scaffold') {
         followUpSignals.push('ACTION: Break the current problem into 2 smaller sub-problems. Ask the candidate to solve step 1 only. Keep it simple and structured.');
       } else if (af.nextAction === 'star_completion') {
         const missingElement = af.starAnalysis?.hasResult === false ? 'the measurable result/impact' :
@@ -193,6 +211,14 @@ export class InterviewPromptService {
           followUpSignals.push(`Score trend: DECLINING (delta=${st.delta}). Reduce complexity and rebuild confidence.`);
         }
       }
+
+      // Adaptive difficulty directives
+      const ad = interviewContext.adaptiveDifficulty || af.adaptiveDifficulty;
+      if (ad && ad.direction === 'step_up') {
+        followUpSignals.push(`ADAPTIVE DIFFICULTY (STEP-UP): Candidate demonstrated mastery. Target ${ad.recommendedDifficulty}. Challenge with edge cases, scale constraints, or deeper trade-offs.`);
+      } else if (ad && ad.direction === 'step_down') {
+        followUpSignals.push(`ADAPTIVE DIFFICULTY (STEP-DOWN): Candidate is struggling or stuck. Target ${ad.recommendedDifficulty}. Scaffold the problem and ask a focused, manageable question.`);
+      }
     }
     const followUpSection = followUpSignals.length > 0
       ? `\nFOLLOW-UP INTELLIGENCE:\n${followUpSignals.map(s => `- ${s}`).join('\n')}`
@@ -207,8 +233,11 @@ export class InterviewPromptService {
       interviewContext.askedTopics || [],
     );
 
-    // ── Interviewer persona based on company focus ────────────────────
-    const persona = getCompanyPersona(interviewContext.companyFocus || null);
+    // ── Interviewer persona based on company focus or preset ──────────
+    const persona = resolveInterviewerPersona(
+      interviewContext.companyFocus || null,
+      interviewContext.interviewerPersona || interviewContext.personaPreset || null
+    );
 
     return `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
 

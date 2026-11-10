@@ -10,37 +10,51 @@ export default function BlogList() {
     const [blogs, setBlogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
+    const [searchQuery, setSearchQuery] = useState('');
     const { user } = useAuth();
     const { theme } = useTheme();
     const isLight = theme === 'light';
     const isAdmin = user?.role === 'admin';
 
     useEffect(() => {
-        fetchBlogs();
-    }, []);
+        const controller = new AbortController();
 
-    const fetchBlogs = async () => {
-        try {
-            const response = await fetch(`${API_URL}/api/blog`);
-            if (response.ok) {
-                const data = await response.json();
-                console.log('Blog API response:', data);
-                setBlogs(data);
-            } else {
-                console.error('Blog API error status:', response.status);
+        const fetchBlogs = async () => {
+            setLoading(true);
+            try {
+                const queryParam = filter && filter !== 'All' ? `?category=${encodeURIComponent(filter)}` : '';
+                const response = await fetch(`${API_URL}/api/blog${queryParam}`, {
+                    signal: controller.signal
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setBlogs(Array.isArray(data) ? data : []);
+                } else {
+                    console.error('Blog API error status:', response.status);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('Error fetching blogs:', error);
+                }
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
-        } catch (error) {
-            console.error('Error fetching blogs:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+
+        fetchBlogs();
+
+        return () => {
+            controller.abort();
+        };
+    }, [filter]);
 
     const categories = ['All', 'System Design', 'DSA', 'AI/ML', 'Career', 'Interview Tips'];
 
-    const filteredBlogs = filter === 'All'
-        ? blogs
-        : blogs.filter(blog => blog.category === filter);
+    const filteredBlogs = searchQuery.trim()
+        ? blogs.filter(blog => (blog.title || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+        : blogs;
 
     return (
         <div style={{ minHeight: '100vh', background: isLight ? '#f8f9fa' : '#030303', color: isLight ? '#1a1a2e' : 'white', position: 'relative' }}>
@@ -91,6 +105,8 @@ export default function BlogList() {
                         <input
                             type="text"
                             placeholder="Search articles..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
                             style={{
                                 background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.03)',
                                 border: isLight ? '1px solid #e0e0e0' : '1px solid var(--zinc-800)',

@@ -11,6 +11,23 @@ import { createPeerRoomSchema, matchPeerRoomSchema, peerRoomParamSchema } from '
 const router = express.Router();
 const logger = createLogger('peer-interview');
 
+export const MAX_CODE_SNAPSHOT_LENGTH = 50000;
+export const MAX_FEEDBACK_NOTES_LENGTH = 5000;
+
+export function sanitizePeerInterviewScores(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
+  const sanitized = {};
+  for (const [key, val] of Object.entries(input)) {
+    if (typeof key === 'string' && key.length <= 30 && /^[a-zA-Z0-9_]+$/.test(key)) {
+      const num = Number(val);
+      if (!isNaN(num) && Number.isFinite(num)) {
+        sanitized[key] = Math.max(0, Math.min(100, Math.round(num * 10) / 10));
+      }
+    }
+  }
+  return sanitized;
+}
+
 function generateRoomCode() {
   return `PREP-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 }
@@ -140,7 +157,7 @@ router.post('/:roomCode/join', authenticateToken, validateRequest({ params: peer
  * POST /api/peer-interview/:roomCode/complete
  * Completes the peer interview with score rubrics and feedback
  */
-router.post('/:roomCode/complete', authenticateToken, async (req, res) => {
+router.post('/:roomCode/complete', authenticateToken, validateRequest({ params: peerRoomParamSchema }), async (req, res) => {
   try {
     const userId = req.user.id;
     const { roomCode } = req.params;
@@ -156,13 +173,22 @@ router.post('/:roomCode/complete', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Peer interview room not found' });
     }
 
+    // Ownership check: must be a participant (interviewer or candidate) or an admin
+    if (room.interviewer_id !== userId && room.candidate_id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'You are not authorized to complete this interview' });
+    }
+
+    const safeCodeSnapshot = typeof codeSnapshot === 'string' ? codeSnapshot.slice(0, MAX_CODE_SNAPSHOT_LENGTH) : '';
+    const safeFeedbackNotes = typeof feedbackNotes === 'string' ? feedbackNotes.slice(0, MAX_FEEDBACK_NOTES_LENGTH) : '';
+    const safeScores = sanitizePeerInterviewScores(scores);
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('peer_interview_rooms')
       .update({
         status: 'completed',
-        scores,
-        feedback_notes: feedbackNotes,
-        code_snapshot: codeSnapshot,
+        scores: safeScores,
+        feedback_notes: safeFeedbackNotes,
+        code_snapshot: safeCodeSnapshot,
         completed_at: new Date().toISOString(),
       })
       .eq('id', room.id)
@@ -173,7 +199,7 @@ router.post('/:roomCode/complete', authenticateToken, async (req, res) => {
       return res.status(500).json({ error: 'Failed to finalize peer interview' });
     }
 
-    logger.info('Peer interview completed', { roomCode, userId, scores });
+    logger.info('Peer interview completed', { roomCode, userId, scores: safeScores });
     try {
       await GamificationService.recordActivity(userId, 'peer_interview');
       if (room.candidate_id && room.candidate_id !== userId) {
@@ -190,7 +216,7 @@ router.post('/:roomCode/complete', authenticateToken, async (req, res) => {
         roomCode,
         interviewerId: room.interviewer_id,
         candidateId: room.candidate_id,
-        scores,
+        scores: safeScores,
         completedAt: updated.completed_at,
       }, userId);
     } catch (webhookErr) {

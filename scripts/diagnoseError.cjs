@@ -7,6 +7,28 @@
 const fs = require('fs');
 const path = require('path');
 
+function resolveProjectRoot() {
+  const dirParent = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(dirParent, 'backend'))) {
+    return dirParent;
+  }
+  const preploopSub = path.join(dirParent, 'PrepLoop');
+  if (fs.existsSync(path.join(preploopSub, 'backend'))) {
+    return preploopSub;
+  }
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, 'backend'))) {
+    return cwd;
+  }
+  const cwdPreploop = path.join(cwd, 'PrepLoop');
+  if (fs.existsSync(path.join(cwdPreploop, 'backend'))) {
+    return cwdPreploop;
+  }
+  return dirParent;
+}
+
+const ROOT = resolveProjectRoot();
+
 console.log('🔍 Running diagnostics...\n');
 
 const checks = [
@@ -24,64 +46,64 @@ const checks = [
   {
     name: 'Backend Directory',
     check: () => ({
-      pass: fs.existsSync('backend'),
-      message: fs.existsSync('backend') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend')),
+      message: fs.existsSync(path.join(ROOT, 'backend')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'Frontend Directory',
     check: () => ({
-      pass: fs.existsSync('frontend'),
-      message: fs.existsSync('frontend') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'frontend')),
+      message: fs.existsSync(path.join(ROOT, 'frontend')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'dbPoolUnified.js',
     check: () => ({
-      pass: fs.existsSync('backend/config/dbPoolUnified.js'),
-      message: fs.existsSync('backend/config/dbPoolUnified.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/config/dbPoolUnified.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/config/dbPoolUnified.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'securityEnhanced.js',
     check: () => ({
-      pass: fs.existsSync('backend/middleware/securityEnhanced.js'),
-      message: fs.existsSync('backend/middleware/securityEnhanced.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/middleware/securityEnhanced.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/middleware/securityEnhanced.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'apiCache.js',
     check: () => ({
-      pass: fs.existsSync('backend/middleware/apiCache.js'),
-      message: fs.existsSync('backend/middleware/apiCache.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/middleware/apiCache.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/middleware/apiCache.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'rateLimiterAdvanced.js',
     check: () => ({
-      pass: fs.existsSync('backend/middleware/rateLimiterAdvanced.js'),
-      message: fs.existsSync('backend/middleware/rateLimiterAdvanced.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/middleware/rateLimiterAdvanced.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/middleware/rateLimiterAdvanced.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'vite.config.optimized.js',
     check: () => ({
-      pass: fs.existsSync('frontend/vite.config.optimized.js'),
-      message: fs.existsSync('frontend/vite.config.optimized.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'frontend/vite.config.optimized.js')),
+      message: fs.existsSync(path.join(ROOT, 'frontend/vite.config.optimized.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'monitoring-enhanced.js',
     check: () => ({
-      pass: fs.existsSync('backend/routes/monitoring-enhanced.js'),
-      message: fs.existsSync('backend/routes/monitoring-enhanced.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/routes/monitoring-enhanced.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/routes/monitoring-enhanced.js')) ? 'Found ✓' : 'Missing ✗'
     })
   },
   {
     name: 'Backend index.js',
     check: () => ({
-      pass: fs.existsSync('backend/index.js'),
-      message: fs.existsSync('backend/index.js') ? 'Found ✓' : 'Missing ✗'
+      pass: fs.existsSync(path.join(ROOT, 'backend/index.js')),
+      message: fs.existsSync(path.join(ROOT, 'backend/index.js')) ? 'Found ✓' : 'Missing ✗'
     })
   }
 ];
@@ -107,7 +129,7 @@ console.log('\n' + '='.repeat(60) + '\n');
 
 if (allPassed) {
   console.log('✅ All checks passed! You can run the implementation script.\n');
-  console.log('Run: node scripts/implementImprovements.js\n');
+  console.log('Run: node scripts/implementImprovements.cjs\n');
 } else {
   console.log('❌ Some checks failed!\n');
   
@@ -125,14 +147,17 @@ if (allPassed) {
 console.log('🔍 Checking implementation script syntax...\n');
 
 try {
-  const scriptPath = path.join(process.cwd(), 'scripts', 'implementImprovements.js');
+  const scriptName = fs.existsSync(path.join(ROOT, 'scripts', 'implementImprovements.cjs'))
+    ? 'implementImprovements.cjs'
+    : 'implementImprovements.js';
+  const scriptPath = path.join(ROOT, 'scripts', scriptName);
   const scriptContent = fs.readFileSync(scriptPath, 'utf8');
   
   // Basic syntax checks
   if (!scriptContent.includes('class ImplementationManager')) {
     console.log('⚠️  Implementation script structure issue detected\n');
   } else {
-    console.log('✓ Implementation script structure looks good\n');
+    console.log(`✓ Implementation script (${scriptName}) structure looks good\n`);
   }
 } catch (error) {
   console.log(`✗ Error reading implementation script: ${error.message}\n`);

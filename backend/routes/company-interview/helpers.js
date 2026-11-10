@@ -12,7 +12,7 @@ import { getRandomQuestionSet as _getRandomQuestionSet, getFilteredQuestions as 
 import { buildInitialVoiceTelemetry as _buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot as _buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
 import { buildAnswerFeedbackPrompt as _buildAnswerFeedbackPrompt, normalizeInterviewFeedback as _normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { evaluateFresherAnswer as _evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
-import { sanitizeHeadline, sanitizeList, sanitizeDocumentForPrompt, fenceUntrustedContent } from '../../utils/promptInjectionGuard.js';
+import { sanitizeHeadline, sanitizeList } from '../../utils/promptInjectionGuard.js';
 import { getCompanyInterviewStyle } from '../../data/companyInterviewStyles.js';
 import {
   createOpenRouterChatCompletion,

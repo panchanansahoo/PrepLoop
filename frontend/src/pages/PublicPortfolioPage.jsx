@@ -66,7 +66,7 @@ function ExperienceItem({ item, index }) {
         )}
         {achievements.length > 0 && (
           <ul className="pp-exp-bullets">
-            {achievements.slice(0, 3).map((a, i) => <li key={i}>{a}</li>)}
+            {achievements.slice(0, 3).map((a, i) => <li key={`ach-${i}-${String(a).slice(0, 24).replace(/\s+/g, '_')}`}>{a}</li>)}
           </ul>
         )}
       </div>
@@ -399,7 +399,7 @@ export default function PublicPortfolioPage() {
               <h2 className="pp-section-title"><Briefcase size={18} /> Experience</h2>
               <div className="pp-exp-timeline">
                 {experience.slice(0, 6).map((item, i) => (
-                  <ExperienceItem key={i} item={item} index={i} />
+                  <ExperienceItem key={item?.id || `exp-${i}-${(item?.company || '').replace(/\s+/g, '_')}`} item={item} index={i} />
                 ))}
               </div>
             </section>
@@ -411,7 +411,7 @@ export default function PublicPortfolioPage() {
               <h2 className="pp-section-title"><GraduationCap size={18} /> Education</h2>
               <div className="pp-edu-list">
                 {education.map((item, i) => (
-                  <EducationItem key={i} item={item} />
+                  <EducationItem key={item?.id || `edu-${i}-${(item?.institute || item?.school || '').replace(/\s+/g, '_')}`} item={item} />
                 ))}
               </div>
             </section>
@@ -435,7 +435,7 @@ export default function PublicPortfolioPage() {
               <h2 className="pp-section-title"><Award size={18} /> Achievements</h2>
               <ul className="pp-achievements-list">
                 {achievements.map((item, i) => (
-                  <li key={i} className="pp-achievement-item">
+                  <li key={`ach-item-${i}-${typeof item === 'string' ? item.slice(0, 20).replace(/\s+/g, '_') : (item?.id || item?.title || i)}`} className="pp-achievement-item">
                     <Award size={14} className="pp-achievement-icon" />
                     <span>{typeof item === 'string' ? item : item?.title || JSON.stringify(item)}</span>
                   </li>

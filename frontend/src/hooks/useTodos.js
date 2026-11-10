@@ -48,7 +48,15 @@ export default function useTodos() {
       try {
         const res = await axios.get(buildTodoApiUrl('/user/todos'));
         if (!cancelled) {
-          setTodos(res.data.todos || []);
+          const serverTodos = res.data.todos || [];
+          setTodos(prev => {
+            const pendingLocal = prev.filter(t => t._localOnly);
+            if (pendingLocal.length === 0) return serverTodos;
+            const unsynced = pendingLocal.filter(
+              local => !serverTodos.some(s => s.text === local.text && s.category === local.category)
+            );
+            return [...serverTodos, ...unsynced];
+          });
           initialLoadDone.current = true;
         }
       } catch (err) {
@@ -100,9 +108,10 @@ export default function useTodos() {
       return newTodo;
     } catch (err) {
       console.error('Failed to add todo:', err);
-      // Optimistic fallback
+      // Optimistic fallback marked as local-only
       const newTodo = {
-        id: Date.now(),
+        id: `local_${Date.now()}`,
+        _localOnly: true,
         text: text.trim(),
         done: false,
         priority: priority || 'medium',
@@ -123,7 +132,7 @@ export default function useTodos() {
     // Optimistic update
     setTodos(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
 
-    if (isLoggedIn) {
+    if (isLoggedIn && !todo._localOnly) {
       try {
         await axios.put(buildTodoApiUrl(`/user/todos/${id}`), { completed: !todo.done });
       } catch (err) {
@@ -136,9 +145,10 @@ export default function useTodos() {
 
   const updateTodo = useCallback(async (id, updates) => {
     // Optimistic update
+    const targetTodo = todos.find(t => t.id === id);
     setTodos(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
 
-    if (isLoggedIn) {
+    if (isLoggedIn && !targetTodo?._localOnly) {
       try {
         const payload = {};
         if (updates.text !== undefined) payload.text = updates.text;
@@ -153,13 +163,14 @@ export default function useTodos() {
         console.error('Failed to update todo:', err);
       }
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, todos]);
 
   const deleteTodo = useCallback(async (id) => {
     const prev = todos;
+    const todoToDelete = prev.find(t => t.id === id);
     setTodos(p => p.filter(t => t.id !== id));
 
-    if (isLoggedIn) {
+    if (isLoggedIn && !todoToDelete?._localOnly) {
       try {
         await axios.delete(buildTodoApiUrl(`/user/todos/${id}`));
       } catch (err) {

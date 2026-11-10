@@ -1,7 +1,85 @@
 import { useState, useEffect, useCallback } from 'react';
 import './AdminDashboard.css';
-import axios from 'axios';
+import { authFetch } from '../utils/authFetch';
 import { buildApiUrl } from '../utils/safeApiUrl';
+
+const adminApi = {
+  get: async (url, config = {}) => {
+    let fullUrl = url;
+    if (config.params) {
+      const searchParams = new URLSearchParams();
+      for (const [key, val] of Object.entries(config.params)) {
+        if (val !== undefined && val !== null && val !== '') {
+          searchParams.append(key, val);
+        }
+      }
+      const qs = searchParams.toString();
+      if (qs) {
+        fullUrl += (fullUrl.includes('?') ? '&' : '?') + qs;
+      }
+    }
+    const res = await authFetch(fullUrl, { method: 'GET' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(data?.error || `Request failed with status ${res.status}`);
+      error.response = { status: res.status, data };
+      throw error;
+    }
+    return { data, status: res.status };
+  },
+  post: async (url, body = {}) => {
+    const res = await authFetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(data?.error || `Request failed with status ${res.status}`);
+      error.response = { status: res.status, data };
+      throw error;
+    }
+    return { data, status: res.status };
+  },
+  put: async (url, body = {}) => {
+    const res = await authFetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(data?.error || `Request failed with status ${res.status}`);
+      error.response = { status: res.status, data };
+      throw error;
+    }
+    return { data, status: res.status };
+  },
+  patch: async (url, body = {}) => {
+    const res = await authFetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(data?.error || `Request failed with status ${res.status}`);
+      error.response = { status: res.status, data };
+      throw error;
+    }
+    return { data, status: res.status };
+  },
+  delete: async (url) => {
+    const res = await authFetch(url, { method: 'DELETE' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const error = new Error(data?.error || `Request failed with status ${res.status}`);
+      error.response = { status: res.status, data };
+      throw error;
+    }
+    return { data, status: res.status };
+  },
+};
 import {
   Users, FileText, BarChart3, Trash2, ShieldCheck, Shield,
   Search, ChevronLeft, ChevronRight, AlertTriangle, TrendingUp,
@@ -105,7 +183,7 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await axios.get('/api/admin/stats');
+      const res = await adminApi.get('/api/admin/stats');
       setStats(res.data);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load stats');
@@ -119,7 +197,7 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await axios.get('/api/admin/users', {
+      const res = await adminApi.get('/api/admin/users', {
         params: {
           page: userPage,
           limit: LIMIT,
@@ -141,7 +219,7 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await axios.get('/api/admin/content', {
+      const res = await adminApi.get('/api/admin/content', {
         params: { type: contentType, page: contentPage, limit: LIMIT }
       });
       setContent(res.data.items);
@@ -158,7 +236,7 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await axios.get('/api/jobs', {
+      const res = await adminApi.get('/api/jobs', {
         params: { page: jobPage, limit: LIMIT, search: jobSearch || undefined, include_inactive: true, source: 'admin' }
       });
       setJobs(res.data.jobs || []);
@@ -175,7 +253,7 @@ export default function AdminDashboard() {
     setLoading(true);
     clearMessages();
     try {
-      const res = await axios.get('/api/admin/question-sets', {
+      const res = await adminApi.get('/api/admin/question-sets', {
         params: {
           page: questionSetPage,
           limit: LIMIT,
@@ -203,7 +281,7 @@ export default function AdminDashboard() {
   const handleRoleChange = async (userId, newRole) => {
     clearMessages();
     try {
-      await axios.put(buildAdminApiUrl(`/admin/users/${userId}/role`), { role: newRole });
+      await adminApi.put(buildAdminApiUrl(`/admin/users/${userId}/role`), { role: newRole });
       setSuccess(`Role updated to ${newRole}`);
       fetchUsers();
     } catch (err) {
@@ -215,7 +293,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete user ${email}? This cannot be undone.`)) return;
     clearMessages();
     try {
-      await axios.delete(`/api/admin/users/${userId}`);
+      await adminApi.delete(`/api/admin/users/${userId}`);
       setSuccess('User deleted');
       fetchUsers();
     } catch (err) {
@@ -227,7 +305,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete this ${type.slice(0, -1)}?`)) return;
     clearMessages();
     try {
-      await axios.delete(`/api/admin/content/${type}/${id}`);
+      await adminApi.delete(`/api/admin/content/${type}/${id}`);
       setSuccess('Content deleted');
       fetchContent();
     } catch (err) {
@@ -273,10 +351,10 @@ export default function AdminDashboard() {
     };
     try {
       if (editingJob) {
-        await axios.put(`/api/jobs/${editingJob.id}`, payload);
+        await adminApi.put(`/api/jobs/${editingJob.id}`, payload);
         setSuccess('Job updated successfully');
       } else {
-        await axios.post('/api/jobs', payload);
+        await adminApi.post('/api/jobs', payload);
         setSuccess('Job created successfully');
       }
       setShowJobModal(false);
@@ -290,7 +368,7 @@ export default function AdminDashboard() {
   const handleToggleJob = async (jobId) => {
     clearMessages();
     try {
-      await axios.patch(`/api/jobs/${jobId}/toggle`);
+      await adminApi.patch(`/api/jobs/${jobId}/toggle`);
       setSuccess('Job status toggled');
       fetchJobs();
     } catch (err) {
@@ -302,7 +380,7 @@ export default function AdminDashboard() {
     if (!window.confirm(`Delete job "${title}"? This cannot be undone.`)) return;
     clearMessages();
     try {
-      await axios.delete(`/api/jobs/${jobId}`);
+      await adminApi.delete(`/api/jobs/${jobId}`);
       setSuccess('Job deleted');
       fetchJobs();
     } catch (err) {
@@ -534,10 +612,10 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       if (editingSet) {
-        await axios.put(`/api/admin/question-sets/${editingSet.id}`, payload);
+        await adminApi.put(`/api/admin/question-sets/${editingSet.id}`, payload);
         setSuccess('Question set updated successfully');
       } else {
-        const res = await axios.post('/api/admin/question-sets', payload);
+        const res = await adminApi.post('/api/admin/question-sets', payload);
         const token = res.data.token || res.data.questionSet.share_code;
         setSuccess(`Question set created! Candidate link: ${window.location.origin}/app?token=${token}`);
       }
@@ -552,7 +630,7 @@ export default function AdminDashboard() {
 
   const handleToggleSetActive = async (qs) => {
     try {
-      await axios.put(`/api/admin/question-sets/${qs.id}`, { isActive: !qs.is_active });
+      await adminApi.put(`/api/admin/question-sets/${qs.id}`, { isActive: !qs.is_active });
       setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, is_active: !s.is_active } : s));
       setSuccess(`Question set ${qs.is_active ? 'deactivated' : 'activated'}`);
     } catch (err) {
@@ -562,7 +640,7 @@ export default function AdminDashboard() {
 
   const handleToggleRequiresLogin = async (qs) => {
     try {
-      await axios.put(`/api/admin/question-sets/${qs.id}`, { requiresLogin: !qs.requires_login });
+      await adminApi.put(`/api/admin/question-sets/${qs.id}`, { requiresLogin: !qs.requires_login });
       setQuestionSets(prev => prev.map(s => s.id === qs.id ? { ...s, requires_login: !s.requires_login } : s));
       setSuccess(`Updated "${qs.title}": ${qs.requires_login ? 'Now accessible via direct link without login' : 'Now requires candidate login'}`);
     } catch (err) {
@@ -573,7 +651,7 @@ export default function AdminDashboard() {
   const handleDeleteQuestionSet = async (id) => {
     if (!window.confirm('Are you sure you want to delete this question set? This will also remove associated submissions.')) return;
     try {
-      await axios.delete(`/api/admin/question-sets/${id}`);
+      await adminApi.delete(`/api/admin/question-sets/${id}`);
       setSuccess('Question set deleted successfully');
       fetchQuestionSets();
     } catch (err) {
@@ -595,7 +673,7 @@ export default function AdminDashboard() {
     setSubmissionsLoading(true);
     setExpandedSubmissionId(null);
     try {
-      const res = await axios.get(`/api/admin/question-sets/${qs.id}/submissions`);
+      const res = await adminApi.get(`/api/admin/question-sets/${qs.id}/submissions`);
       setSubmissionsList(res.data.submissions || []);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load submissions');

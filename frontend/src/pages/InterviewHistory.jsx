@@ -234,13 +234,24 @@ export default function InterviewHistory() {
             console.error('Error fetching sessions:', e);
         }
 
+        const MAX_HISTORY_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+        const isRecent = (s) => {
+            const time = new Date(s.created_at || s.date || s.timestamp || 0).getTime();
+            return !time || (Date.now() - time < MAX_HISTORY_AGE_MS);
+        };
+
         let localSessions = [];
         try {
-            const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
-            if (Array.isArray(local)) {
-                localSessions = local;
+            const raw = localStorage.getItem('preploop_local_interview_history');
+            if (raw) {
+                const local = JSON.parse(raw);
+                if (Array.isArray(local)) {
+                    localSessions = local.filter(isRecent).slice(0, 50);
+                }
             }
-        } catch { /* empty */ }
+        } catch (err) {
+            console.error('Failed to parse local interview history:', err);
+        }
 
         // Merge server and local history without duplicates
         const seen = new Set();
@@ -284,21 +295,32 @@ export default function InterviewHistory() {
         }
 
         try {
-            const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
-            const found = local.find(s => s.id === id || s.session_id === id || s.id === cleanId || s.session_id === cleanId);
-            if (found) {
-                setSelectedSession(found);
+            const raw = localStorage.getItem('preploop_local_interview_history');
+            if (raw) {
+                const local = JSON.parse(raw);
+                if (Array.isArray(local)) {
+                    const found = local.find(s => s.id === id || s.session_id === id || s.id === cleanId || s.session_id === cleanId);
+                    if (found) {
+                        setSelectedSession(found);
+                    }
+                }
             }
-        } catch { /* empty */ }
+        } catch (err) {
+            console.error('Failed to parse local session detail:', err);
+        }
     };
 
     const handleLoadDemoSession = () => {
         try {
             const historyKey = 'preploop_local_interview_history';
-            const existing = JSON.parse(localStorage.getItem(historyKey) || '[]');
-            const updated = [DEMO_INTERVIEW_SESSION, ...existing.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)];
+            const raw = localStorage.getItem(historyKey);
+            const existing = raw ? JSON.parse(raw) : [];
+            const safeExisting = Array.isArray(existing) ? existing : [];
+            const updated = [DEMO_INTERVIEW_SESSION, ...safeExisting.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)].slice(0, 50);
             localStorage.setItem(historyKey, JSON.stringify(updated));
-        } catch { /* empty */ }
+        } catch (err) {
+            console.error('Failed to store demo session in local history:', err);
+        }
         setSessions(prev => [DEMO_INTERVIEW_SESSION, ...prev.filter(s => s.id !== DEMO_INTERVIEW_SESSION.id)]);
         setSelectedSession(DEMO_INTERVIEW_SESSION);
     };
@@ -426,10 +448,15 @@ export default function InterviewHistory() {
 
         // Clean local cache
         try {
-            const local = JSON.parse(localStorage.getItem('preploop_local_interview_history') || '[]');
-            const updated = local.filter(s => s.id !== targetId && s.session_id !== targetId);
-            localStorage.setItem('preploop_local_interview_history', JSON.stringify(updated));
-        } catch { /* empty */ }
+            const raw = localStorage.getItem('preploop_local_interview_history');
+            const local = raw ? JSON.parse(raw) : [];
+            if (Array.isArray(local)) {
+                const updated = local.filter(s => s.id !== targetId && s.session_id !== targetId).slice(0, 50);
+                localStorage.setItem('preploop_local_interview_history', JSON.stringify(updated));
+            }
+        } catch (err) {
+            console.error('Failed to update local interview history after delete:', err);
+        }
 
         // Update in-memory sessions list and close details
         setSessions(prev => prev.filter(s => s.id !== targetId && s.session_id !== targetId));

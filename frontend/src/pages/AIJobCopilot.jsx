@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { buildApiUrl } from '../utils/safeApiUrl';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
+import ReactMarkdown from 'react-markdown';
 import './AIJobCopilot.css';
 
 const TARGET_ROLES = [
@@ -217,10 +218,8 @@ export default function AIJobCopilot() {
                 <Bot size={18} />
                 <strong>AI Copilot Response</strong>
               </div>
-              <div className="copilot-response-content">
-                {aiResponse.split('\n').map((paragraph, idx) => (
-                  <p key={idx}>{paragraph}</p>
-                ))}
+              <div className="copilot-response-content prose dark:prose-invert max-w-none">
+                <ReactMarkdown>{aiResponse}</ReactMarkdown>
               </div>
             </div>
           )}

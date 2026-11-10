@@ -6,7 +6,8 @@ export class ProductivityService {
       .from("user_todos")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: true });
+      .order("created_at", { ascending: true })
+      .limit(200);
 
     if (error) throw error;
 
@@ -24,15 +25,16 @@ export class ProductivityService {
 
   static async createTodo(userId, payload) {
     const { text, priority, category, dueDate, subtasks } = payload;
+    const sanitizedText = String(text || '').trim().slice(0, 500);
     const { data, error } = await supabaseAdmin
       .from("user_todos")
       .insert({
         user_id: userId,
-        text: text.trim(),
+        text: sanitizedText,
         priority: priority || 'medium',
         category: category ? category.charAt(0).toUpperCase() + category.slice(1) : 'Study',
         due_date: dueDate || null,
-        subtasks: subtasks || [],
+        subtasks: Array.isArray(subtasks) ? subtasks.slice(0, 50) : [],
       })
       .select()
       .single();
@@ -53,12 +55,12 @@ export class ProductivityService {
 
   static async updateTodo(userId, id, updates) {
     const patch = { updated_at: new Date().toISOString() };
-    if (updates.text !== undefined) patch.text = updates.text.trim();
-    if (updates.completed !== undefined) patch.completed = updates.completed;
+    if (updates.text !== undefined) patch.text = String(updates.text).trim().slice(0, 500);
+    if (updates.completed !== undefined) patch.completed = Boolean(updates.completed);
     if (updates.priority !== undefined) patch.priority = updates.priority;
     if (updates.category !== undefined) patch.category = updates.category.charAt(0).toUpperCase() + updates.category.slice(1);
     if (updates.dueDate !== undefined) patch.due_date = updates.dueDate;
-    if (updates.subtasks !== undefined) patch.subtasks = updates.subtasks;
+    if (updates.subtasks !== undefined) patch.subtasks = Array.isArray(updates.subtasks) ? updates.subtasks.slice(0, 50) : [];
 
     const { data, error } = await supabaseAdmin
       .from("user_todos")

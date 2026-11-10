@@ -18,7 +18,7 @@ import collaborativeFiltering from '../services/aimlCollaborativeFiltering.js';
 import trendDetection from '../services/aimlTrendDetection.js';
 import resumeMatcher from '../services/aimlResumeJdMatcher.js';
 import { InterviewAnalyticsService } from '../services/interviewAnalyticsService.js';
-import { supabase } from '../db/supabaseClient.js';
+import { supabaseAdmin } from '../db/supabaseClient.js';
 
 const router = express.Router();
 
@@ -32,7 +32,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
     // Get user profile
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -43,7 +43,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
     }
 
     // Get user's job search history
-    const { data: jobs } = await supabase
+    const { data: jobs } = await supabaseAdmin
       .from('jobs')
       .select('*')
       .limit(100);
@@ -96,7 +96,7 @@ router.get('/insights', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /career/insights:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to load career insights' });
   }
 });
 
@@ -134,7 +134,7 @@ router.get('/skill-semantic-matches', expensiveFeatureLimiter, authenticateToken
     });
   } catch (err) {
     console.error('Error in /career/skill-semantic-matches:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to find skill semantic matches' });
   }
 });
 
@@ -164,7 +164,7 @@ router.get('/demand-forecast', expensiveFeatureLimiter, authenticateToken, async
     });
   } catch (err) {
     console.error('Error in /career/demand-forecast:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch demand forecast' });
   }
 });
 
@@ -190,7 +190,7 @@ router.get('/skill-trends', expensiveFeatureLimiter, authenticateToken, async (r
     });
   } catch (err) {
     console.error('Error in /career/skill-trends:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch skill trends' });
   }
 });
 
@@ -203,7 +203,7 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .eq('id', userId)
@@ -212,7 +212,7 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
 
     // Get user's pathway interactions
-    const { data: interactions } = await supabase
+    const { data: interactions } = await supabaseAdmin
       .from('career_user_pathway_interactions')
       .select('*')
       .eq('user_id', userId);
@@ -234,7 +234,7 @@ router.get('/recommended-pathways', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Error in /career/recommended-pathways:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch recommended pathways' });
   }
 });
 
@@ -261,7 +261,7 @@ router.post('/resume-match', expensiveFeatureLimiter, authenticateToken, async (
     });
   } catch (err) {
     console.error('Error in /career/resume-match:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to calculate resume match' });
   }
 });
 
@@ -288,7 +288,7 @@ router.post('/batch-resume-match', expensiveFeatureLimiter, authenticateToken, a
     });
   } catch (err) {
     console.error('Error in /career/batch-resume-match:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to process batch resume match' });
   }
 });
 
@@ -314,7 +314,7 @@ router.post('/resume-insights', expensiveFeatureLimiter, authenticateToken, (req
     });
   } catch (err) {
     console.error('Error in /career/resume-insights:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch resume insights' });
   }
 });
 
@@ -324,7 +324,7 @@ router.post('/resume-insights', expensiveFeatureLimiter, authenticateToken, (req
  */
 router.get('/trending-skills', expensiveFeatureLimiter, authenticateToken, async (req, res) => {
   try {
-    const { data: jobs } = await supabase
+    const { data: jobs } = await supabaseAdmin
       .from('jobs')
       .select('id, title, description, company')
       .order('created_at', { ascending: false })
@@ -338,7 +338,7 @@ router.get('/trending-skills', expensiveFeatureLimiter, authenticateToken, async
     });
   } catch (err) {
     console.error('Error in /career/trending-skills:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to fetch trending skills' });
   }
 });
 
@@ -365,11 +365,11 @@ router.post('/pathway-interaction', authenticateToken, async (req, res) => {
     if (result.success) {
       res.json({ success: true, message: 'Interaction recorded' });
     } else {
-      res.status(500).json({ error: result.error });
+      res.status(500).json({ error: 'Failed to record pathway interaction' });
     }
   } catch (err) {
     console.error('Error in /career/pathway-interaction:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: 'Failed to record pathway interaction' });
   }
 });
 
@@ -383,7 +383,15 @@ router.post('/roadmap', authenticateToken, async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, req.body);
+    const rawRole = req.body?.targetRole;
+    const rawCompany = req.body?.targetCompany;
+    const sanitizedOptions = {
+      ...(req.body && typeof req.body === 'object' ? req.body : {}),
+      targetRole: typeof rawRole === 'string' ? rawRole.trim().slice(0, 100) : undefined,
+      targetCompany: typeof rawCompany === 'string' ? rawCompany.trim().slice(0, 100) : undefined,
+    };
+
+    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, sanitizedOptions);
     res.json({ success: true, roadmap });
   } catch (err) {
     console.error('Error generating career roadmap:', err);
@@ -396,7 +404,15 @@ router.get('/roadmap', authenticateToken, async (req, res) => {
     const userId = req.user?.id;
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, req.query);
+    const rawRole = req.query?.targetRole;
+    const rawCompany = req.query?.targetCompany;
+    const sanitizedOptions = {
+      ...(req.query && typeof req.query === 'object' ? req.query : {}),
+      targetRole: typeof rawRole === 'string' ? rawRole.trim().slice(0, 100) : undefined,
+      targetCompany: typeof rawCompany === 'string' ? rawCompany.trim().slice(0, 100) : undefined,
+    };
+
+    const roadmap = await InterviewAnalyticsService.generatePersonalizedRoadmap(userId, sanitizedOptions);
     res.json({ success: true, roadmap });
   } catch (err) {
     console.error('Error fetching career roadmap:', err);
@@ -417,7 +433,7 @@ router.post('/jd-prep-plan', expensiveFeatureLimiter, authenticateToken, async (
       return res.status(400).json({ error: 'jobDescription is required' });
     }
 
-    const { data: profile } = await supabase
+    const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('skills, experience_summary, bio')
       .eq('id', userId)

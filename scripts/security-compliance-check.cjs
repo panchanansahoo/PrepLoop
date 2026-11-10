@@ -11,7 +11,28 @@
 
 const fs = require('fs');
 const path = require('path');
-const ROOT = path.resolve(__dirname, '..');
+
+function resolveProjectRoot() {
+  const dirParent = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(dirParent, 'backend', 'routes'))) {
+    return dirParent;
+  }
+  const preploopSub = path.join(dirParent, 'PrepLoop');
+  if (fs.existsSync(path.join(preploopSub, 'backend', 'routes'))) {
+    return preploopSub;
+  }
+  const cwd = process.cwd();
+  if (fs.existsSync(path.join(cwd, 'backend', 'routes'))) {
+    return cwd;
+  }
+  const cwdPreploop = path.join(cwd, 'PrepLoop');
+  if (fs.existsSync(path.join(cwdPreploop, 'backend', 'routes'))) {
+    return cwdPreploop;
+  }
+  return dirParent;
+}
+
+const ROOT = resolveProjectRoot();
 
 const PASS = '✅';
 const FAIL = '❌';

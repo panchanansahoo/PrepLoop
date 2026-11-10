@@ -126,20 +126,7 @@ function EventCard({ event }) {
 
 // API_URL imported from '../config/api.js' at top of file
 
-const UPCOMING_EVENTS = [
-  { title: 'Weekly Mock Interview Marathon', month: 'APR', day: '01', time: '7:00 PM IST', type: 'Mock Interview', color: 'var(--accent-primary)', live: false },
-  { title: 'System Design: Design Twitter', month: 'APR', day: '03', time: '8:00 PM IST', type: 'Workshop', color: 'var(--info-main)', live: false },
-  { title: 'DSA Speed Round Challenge', month: 'APR', day: '05', time: '6:30 PM IST', type: 'Contest', color: 'var(--warning-main)', live: false },
-  { title: 'Resume Review AMA', month: 'APR', day: '08', time: '9:00 PM IST', type: 'AMA', color: 'var(--success-main)', live: false },
-];
-
-const LEADERBOARD = [
-  { rank: 1, name: 'CodeNinja42', points: 12840, solved: 482, streak: 45, avatar: '🥇' },
-  { rank: 2, name: 'AlgoQueen', points: 11250, solved: 420, streak: 38, avatar: '🥈' },
-  { rank: 3, name: 'StackMaster', points: 10680, solved: 398, streak: 31, avatar: '🥉' },
-  { rank: 4, name: 'ByteCrusher', points: 9420, solved: 355, streak: 28, avatar: '4️⃣' },
-  { rank: 5, name: 'RecursiveRaj', points: 8900, solved: 340, streak: 22, avatar: '5️⃣' },
-];
+// Real-time leaderboard and events are fetched dynamically via /api/community/challenges/leaderboard and /api/contests/codeforces
 
 function GradientDivider() {
   return (
@@ -155,49 +142,145 @@ function GradientDivider() {
 // ── Main Component ──
 export default function CommunityHub() {
   const [activeSection, setActiveSection] = useState('overview');
-  const [memberCount, _setMemberCount] = useState(5000);
+  const [memberCount, setMemberCount] = useState(null);
   const [discussions, setDiscussions] = useState([]);
   const [studyGroups, setStudyGroups] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
+  const [events, setEvents] = useState([]);
   const [joinedGroups, setJoinedGroups] = useState(new Set());
   const [loading, setLoading] = useState(false);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+  const [eventsLoading, setEventsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    fetchMemberCount(signal);
+
     if (activeSection === 'discussions' || activeSection === 'overview') {
-      fetchDiscussions();
+      fetchDiscussions(signal);
     }
     if (activeSection === 'groups' || activeSection === 'overview') {
-      fetchStudyGroups();
+      fetchStudyGroups(signal);
     }
+    if (activeSection === 'leaderboard' || activeSection === 'overview') {
+      fetchLeaderboard(signal);
+    }
+    if (activeSection === 'events' || activeSection === 'overview') {
+      fetchEvents(signal);
+    }
+
+    return () => {
+      controller.abort();
+    };
   }, [activeSection]);
 
-  const fetchDiscussions = async () => {
+  const fetchMemberCount = async (signal) => {
+    try {
+      const response = await axios.get(`${API_URL}/api/community/stats`, { signal });
+      if (typeof response.data?.memberCount === 'number') {
+        setMemberCount(response.data.memberCount);
+      }
+    } catch (err) {
+      if (!axios.isCancel(err)) {
+        console.warn('Error fetching community stats:', err);
+      }
+    }
+  };
+
+  const fetchDiscussions = async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_URL}/api/community/posts?filter=trending`);
+      const response = await axios.get(`${API_URL}/api/community/posts?filter=trending`, { signal });
       setDiscussions(response.data.posts || []);
     } catch (err) {
-      console.error('Error fetching discussions:', err);
-      setError('Failed to load discussions');
+      if (!axios.isCancel(err)) {
+        console.error('Error fetching discussions:', err);
+        setError('Failed to load discussions');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchStudyGroups = async () => {
+  const fetchStudyGroups = async (signal) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${API_URL}/api/study-groups`);
+      const response = await axios.get(`${API_URL}/api/study-groups`, { signal });
       setStudyGroups(response.data.groups || []);
     } catch (err) {
-      console.error('Error fetching study groups:', err);
-      setError('Failed to load study groups. Please try again later.');
-      setStudyGroups([]); // Safe fallback: empty array instead of mock data
+      if (!axios.isCancel(err)) {
+        console.error('Error fetching study groups:', err);
+        setError('Failed to load study groups. Please try again later.');
+        setStudyGroups([]); // Safe fallback: empty array instead of mock data
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLeaderboard = async (signal) => {
+    setLeaderboardLoading(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/community/challenges/leaderboard?limit=10`, { signal });
+      const raw = response.data?.leaderboard || [];
+      const rankAvatars = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+      const mapped = raw.map((entry, idx) => ({
+        rank: entry.rank || idx + 1,
+        name: entry.name || entry.username || `Coder #${entry.rank || idx + 1}`,
+        points: Number(entry.score || entry.points || 0),
+        solved: Number(entry.solved || entry.problemsSolved || Math.floor(Number(entry.score || 0) / 25)),
+        streak: Number(entry.streak || 1),
+        avatar: rankAvatars[idx] || `${idx + 1}️⃣`,
+      }));
+      setLeaderboard(mapped);
+    } catch (err) {
+      if (!axios.isCancel(err)) {
+        console.warn('Error fetching community leaderboard:', err);
+        setLeaderboard([]);
+      }
+    } finally {
+      setLeaderboardLoading(false);
+    }
+  };
+
+  const fetchEvents = async (signal) => {
+    setEventsLoading(true);
+    try {
+      const response = await axios.get(`${API_URL}/api/contests/codeforces`, { signal });
+      const raw = response.data?.contests || [];
+      if (Array.isArray(raw) && raw.length > 0) {
+        const mapped = raw.slice(0, 6).map((c) => {
+          const d = new Date(c.date || (c.startTimeSeconds ? c.startTimeSeconds * 1000 : Date.now()));
+          const month = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+          const day = String(d.getDate()).padStart(2, '0');
+          const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+          return {
+            title: c.name || 'Competitive Programming Round',
+            month,
+            day,
+            time,
+            type: c.platform || 'Contest',
+            color: 'var(--accent-primary)',
+            live: c.phase === 'CODING' || false,
+          };
+        });
+        setEvents(mapped);
+      } else {
+        setEvents([]);
+      }
+    } catch (err) {
+      if (!axios.isCancel(err)) {
+        console.warn('Error fetching community events:', err);
+        setEvents([]);
+      }
+    } finally {
+      setEventsLoading(false);
     }
   };
 
@@ -386,11 +469,11 @@ export default function CommunityHub() {
             <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>Join Our Discord Community</h2>
           </div>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, maxWidth: 500 }}>
-            Get instant help, join study groups, participate in contests, and connect with 5,000+ engineers preparing for interviews.
+            Get instant help, join study groups, participate in contests, and connect with {memberCount !== null && memberCount > 0 ? `${memberCount.toLocaleString()}+` : 'thousands of'} engineers preparing for interviews.
           </p>
           <div style={{ display: 'flex', gap: 16, marginTop: 12 }}>
             {[
-              { label: `${memberCount.toLocaleString()}+ Members`, icon: Users },
+              { label: memberCount !== null && memberCount > 0 ? `${memberCount.toLocaleString()}+ Members` : 'Community Members', icon: Users },
               { label: 'Active 24/7', icon: Clock },
               { label: 'Free Forever', icon: Heart },
             ].map((stat, i) => {
@@ -630,35 +713,45 @@ export default function CommunityHub() {
               <div>Rank</div><div>Engineer</div><div style={{ textAlign: 'right' }}>Points</div>
               <div style={{ textAlign: 'right' }}>Solved</div><div style={{ textAlign: 'right' }}>Streak</div>
             </div>
-            {LEADERBOARD.map((entry, i) => {
-              const rankColors = ['#fbbf24', '#C0C0C0', '#CD7F32'];
-              const isTop3 = i < 3;
-              return (
-                <div key={i} style={{
-                  display: 'grid', gridTemplateColumns: '50px 1fr 100px 80px 80px',
-                  padding: '14px 18px', alignItems: 'center',
-                  borderBottom: i < LEADERBOARD.length - 1 ? '1px solid var(--bg-tertiary)' : 'none',
-                  background: isTop3 ? `${rankColors[i]}05` : 'transparent',
-                  transition: 'background 0.2s',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = isTop3 ? `${rankColors[i]}05` : 'transparent'}
-                >
-                  <div style={{
-                    fontSize: 18, fontWeight: 800,
-                    color: isTop3 ? rankColors[i] : 'var(--text-muted)',
-                  }}>
-                    {entry.avatar}
+            {leaderboardLoading ? (
+              <div style={{ padding: '32px 18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                Loading live community standings...
+              </div>
+            ) : leaderboard.length === 0 ? (
+              <div style={{ padding: '32px 18px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                No leaderboard entries recorded yet. Complete challenges to appear on the board!
+              </div>
+            ) : (
+              leaderboard.map((entry, i) => {
+                const rankColors = ['#fbbf24', '#C0C0C0', '#CD7F32'];
+                const isTop3 = i < 3;
+                return (
+                  <div key={i} style={{
+                    display: 'grid', gridTemplateColumns: '50px 1fr 100px 80px 80px',
+                    padding: '14px 18px', alignItems: 'center',
+                    borderBottom: i < leaderboard.length - 1 ? '1px solid var(--bg-tertiary)' : 'none',
+                    background: isTop3 ? `${rankColors[i]}05` : 'transparent',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = isTop3 ? `${rankColors[i]}05` : 'transparent'}
+                  >
+                    <div style={{
+                      fontSize: 18, fontWeight: 800,
+                      color: isTop3 ? rankColors[i] : 'var(--text-muted)',
+                    }}>
+                      {entry.avatar}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{entry.name}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--accent-primary)' }}>{entry.points.toLocaleString()}</div>
+                    <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--success-main)' }}>{entry.solved}</div>
+                    <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--warning-main)' }}>{entry.streak}🔥</div>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{entry.name}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--accent-primary)' }}>{entry.points.toLocaleString()}</div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--success-main)' }}>{entry.solved}</div>
-                  <div style={{ textAlign: 'right', fontSize: 14, fontWeight: 700, color: 'var(--warning-main)' }}>{entry.streak}🔥</div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -674,9 +767,19 @@ export default function CommunityHub() {
             <Calendar size={18} color="#c084fc" /> Upcoming Events
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {UPCOMING_EVENTS.map((event, i) => (
-              <EventCard key={i} event={event} />
-            ))}
+            {eventsLoading ? (
+              <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                Loading live community events and contests...
+              </div>
+            ) : events.length === 0 ? (
+              <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                No upcoming live contests or events at this moment. Check back soon!
+              </div>
+            ) : (
+              events.map((event, i) => (
+                <EventCard key={i} event={event} />
+              ))
+            )}
           </div>
           <div style={{
             marginTop: 20, padding: '16px 20px', borderRadius: 14,

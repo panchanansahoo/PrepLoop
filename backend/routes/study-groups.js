@@ -1,8 +1,34 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
+import sanitizeHtml from 'sanitize-html';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { authenticateToken, optionalAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+const isDevOrLocal = (req) => process.env.NODE_ENV === 'development' || req.ip === '::1' || req.ip === '127.0.0.1' || req.ip === '::ffff:127.0.0.1';
+
+// M2: Rate limiting for group creation
+const groupCreationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many study groups created. Please wait before creating more.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  skip: isDevOrLocal,
+});
+
+// M3: Rate limiting for group joins
+const groupJoinLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'Too many group join requests. Please wait a moment.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  skip: isDevOrLocal,
+});
 
 function handleTableNotFoundError(error) {
   if (error?.code === 'PGRST205' || error?.code === '42P01' || error?.message?.includes('does not exist')) {
@@ -73,6 +99,10 @@ function handleTableNotFoundError(error) {
 // Get all study groups
 router.get('/', optionalAuth, async (req, res) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (page - 1) * limit;
+
     const { data, error } = await supabaseAdmin
       .from('study_groups')
       .select(`
@@ -80,7 +110,8 @@ router.get('/', optionalAuth, async (req, res) => {
         profiles!study_groups_creator_id_fkey(full_name)
       `)
       .eq('is_public', true)
-      .order('member_count', { ascending: false });
+      .order('member_count', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
@@ -173,22 +204,48 @@ router.get('/:id', optionalAuth, async (req, res) => {
 });
 
 // Create study group
-router.post('/', authenticateToken, async (req, res) => {
+// M2: Apply rate limiting to group creation
+router.post('/', authenticateToken, groupCreationLimiter, async (req, res) => {
   try {
     const { name, description, emoji, color, tags } = req.body;
 
-    if (!name || name.trim().length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return res.status(400).json({ error: 'Group name is required' });
     }
+
+    const cleanName = sanitizeHtml(name.trim(), { allowedTags: [], allowedAttributes: {} }).slice(0, 255);
+    const cleanDescription = description
+      ? sanitizeHtml(String(description).trim(), { allowedTags: [], allowedAttributes: {} }).slice(0, 1000)
+      : '';
+
+    // M8: Validate and sanitize color (hex only) and emoji (no HTML tags, length <= 10)
+    const safeColor = (typeof color === 'string' && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color.trim()))
+      ? color.trim().toLowerCase()
+      : '#60a5fa';
+
+    const rawEmoji = typeof emoji === 'string'
+      ? sanitizeHtml(emoji, { allowedTags: [], allowedAttributes: {} }).trim()
+      : '';
+    const safeEmoji = (rawEmoji && rawEmoji.length <= 10 && !/[<>]/.test(rawEmoji))
+      ? rawEmoji
+      : '📚';
+
+    // M5: Sanitize tags array items for HTML/XSS
+    const cleanTags = Array.isArray(tags)
+      ? tags
+          .slice(0, 10)
+          .map(t => sanitizeHtml(String(t), { allowedTags: [], allowedAttributes: {} }).trim().slice(0, 50))
+          .filter(t => t.length > 0)
+      : [];
 
     const { data: group, error: groupError } = await supabaseAdmin
       .from('study_groups')
       .insert({
-        name: name.trim().slice(0, 255),
-        description: description?.trim().slice(0, 1000) || '',
-        emoji: emoji || '📚',
-        color: color || '#60a5fa',
-        tags: Array.isArray(tags) ? tags.slice(0, 10) : [],
+        name: cleanName,
+        description: cleanDescription,
+        emoji: safeEmoji,
+        color: safeColor,
+        tags: cleanTags,
         creator_id: req.user.id,
         member_count: 1,
       })
@@ -222,7 +279,8 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Join study group
-router.post('/:id/join', authenticateToken, async (req, res) => {
+// M3: Apply rate limiting to group joins
+router.post('/:id/join', authenticateToken, groupJoinLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -262,6 +320,19 @@ router.post('/:id/join', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
+    // Sync member_count on join
+    const { count: actualCount } = await supabaseAdmin
+      .from('study_group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_id', id);
+
+    if (typeof actualCount === 'number') {
+      await supabaseAdmin
+        .from('study_groups')
+        .update({ member_count: actualCount })
+        .eq('id', id);
+    }
+
     res.json({ success: true });
   } catch (error) {
     const tableError = handleTableNotFoundError(error);
@@ -288,7 +359,19 @@ router.post('/:id/leave', authenticateToken, async (req, res) => {
 
     if (error) throw error;
 
-    res.json({ success: true });
+    // M4: Decrement / re-sync member_count when user leaves so counter does not drift indefinitely
+    const { count: actualCount } = await supabaseAdmin
+      .from('study_group_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('group_id', id);
+
+    const updatedCount = typeof actualCount === 'number' ? Math.max(0, actualCount) : 0;
+    await supabaseAdmin
+      .from('study_groups')
+      .update({ member_count: updatedCount })
+      .eq('id', id);
+
+    res.json({ success: true, member_count: updatedCount });
   } catch (error) {
     const tableError = handleTableNotFoundError(error);
     if (tableError.isTableNotFound) {
@@ -333,6 +416,10 @@ router.get('/:id/members', optionalAuth, async (req, res) => {
       }
     }
 
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const offset = (page - 1) * limit;
+
     const { data, error } = await supabaseAdmin
       .from('study_group_members')
       .select(`
@@ -340,7 +427,8 @@ router.get('/:id/members', optionalAuth, async (req, res) => {
         profiles!study_group_members_user_id_fkey(full_name)
       `)
       .eq('group_id', id)
-      .order('joined_at', { ascending: true });
+      .order('joined_at', { ascending: true })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 

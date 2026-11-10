@@ -241,12 +241,30 @@ export class ImprovementPlanService {
     
     for (let day = 1; day <= days; day++) {
       const weakness = weaknesses[(day - 1) % weaknesses.length];
+      const baseTasks = this._getTasksForArea(weakness.area, weakness.intensity);
+
+      // Spaced repetition progression (SM-2 spaced review cadence)
+      const srsStage = day % 3 === 1 ? 'acquisition' : day % 3 === 2 ? 'retrieval' : 'synthesis';
+      const srsLabel = srsStage === 'acquisition'
+        ? 'Concept Acquisition'
+        : srsStage === 'retrieval'
+          ? 'Spaced Active Retrieval'
+          : 'High-Pressure Synthesis';
+
+      const enrichedTasks = [...baseTasks];
+      if (srsStage === 'retrieval') {
+        enrichedTasks.push('Spaced Retrieval: Explain your core approach out loud without consulting notes.');
+      } else if (srsStage === 'synthesis') {
+        enrichedTasks.push('Timed Challenge: Execute a timed mock drill targeting this gap under 15 minutes.');
+      }
       
       tasks.push({
         day,
         focusArea: weakness.area,
         intensity: weakness.intensity,
-        tasks: this._getTasksForArea(weakness.area, weakness.intensity),
+        srsStage,
+        srsLabel,
+        tasks: enrichedTasks,
         estimatedTime: weakness.intensity === 'high' ? 60 : weakness.intensity === 'medium' ? 45 : 30,
         goal: this._getGoalForArea(weakness.area)
       });

@@ -161,12 +161,25 @@ export default function DSACodeEditor() {
 
   // ─── Fetch DB problem for examples/constraints ───
   useEffect(() => {
-    if (problem && problem.id && !isNaN(parseInt(problem.id))) {
-      authFetch(`${API_URL}/api/dsa/problems/${problem.id}`)
-        .then(r => r.json())
-        .then(data => { if (data.problem) setDbProblem(data.problem); })
-        .catch(() => { });
-    }
+    if (!problem?.id || isNaN(parseInt(problem.id))) return;
+
+    const controller = new AbortController();
+    authFetch(`${API_URL}/api/dsa/problems/${problem.id}`, { signal: controller.signal })
+      .then(r => r.json())
+      .then(data => {
+        if (!controller.signal.aborted && data?.problem) {
+          setDbProblem(data.problem);
+        }
+      })
+      .catch((err) => {
+        if (err?.name !== 'AbortError') {
+          // Ignore network errors or aborted fetches
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
   }, [problem?.id]);
 
   // ─── Merge DB data into problem (examples, description, explanation, constraints) ───

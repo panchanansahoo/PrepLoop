@@ -120,49 +120,59 @@ export async function removeLoginRecord(key) {
 }
 
 export async function checkLoginLockout(email, ip) {
-  const key = `${email.toLowerCase()}:${ip}`;
-  const record = await getLoginRecord(key);
-  if (!record) return { locked: false };
+  if (!email) return { locked: false };
+  const normalizedEmail = email.toLowerCase();
+  const keys = ip ? [`${normalizedEmail}:${ip}`, `account:${normalizedEmail}`] : [`account:${normalizedEmail}`];
 
-  // Auto-expire old lockouts
-  if (record.lockedUntil && Date.now() > record.lockedUntil) {
-    await removeLoginRecord(key);
-    return { locked: false };
-  }
+  for (const key of keys) {
+    const record = await getLoginRecord(key);
+    if (!record) continue;
 
-  // Check if currently locked
-  if (record.lockedUntil && Date.now() < record.lockedUntil) {
-    const remainingMs = record.lockedUntil - Date.now();
-    return { locked: true, remainingMinutes: Math.ceil(remainingMs / 60000) };
-  }
+    // Auto-expire old lockouts
+    if (record.lockedUntil && Date.now() > record.lockedUntil) {
+      await removeLoginRecord(key);
+      continue;
+    }
 
-  // Reset if outside the tracking window
-  if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
-    await removeLoginRecord(key);
-    return { locked: false };
+    // Check if currently locked
+    if (record.lockedUntil && Date.now() < record.lockedUntil) {
+      const remainingMs = record.lockedUntil - Date.now();
+      return { locked: true, remainingMinutes: Math.ceil(remainingMs / 60000) };
+    }
+
+    // Reset if outside the tracking window
+    if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+      await removeLoginRecord(key);
+      continue;
+    }
   }
 
   return { locked: false };
 }
 
 export async function recordFailedLogin(email, ip) {
-  const key = `${email.toLowerCase()}:${ip}`;
-  const existing = await getLoginRecord(key);
-  const record = existing || { count: 0, firstAttempt: Date.now() };
+  if (!email) return;
+  const normalizedEmail = email.toLowerCase();
+  const keys = ip ? [`${normalizedEmail}:${ip}`, `account:${normalizedEmail}`] : [`account:${normalizedEmail}`];
 
-  // Reset if outside the tracking window
-  if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
-    record.count = 0;
-    record.firstAttempt = Date.now();
+  for (const key of keys) {
+    const existing = await getLoginRecord(key);
+    const record = existing || { count: 0, firstAttempt: Date.now() };
+
+    // Reset if outside the tracking window
+    if (Date.now() - record.firstAttempt > LOGIN_ATTEMPT_WINDOW_MS) {
+      record.count = 0;
+      record.firstAttempt = Date.now();
+    }
+
+    record.count += 1;
+
+    if (record.count >= MAX_LOGIN_ATTEMPTS) {
+      record.lockedUntil = Date.now() + LOGIN_ATTEMPT_WINDOW_MS;
+    }
+
+    await setLoginRecord(key, record, LOGIN_ATTEMPT_WINDOW_SEC);
   }
-
-  record.count += 1;
-
-  if (record.count >= MAX_LOGIN_ATTEMPTS) {
-    record.lockedUntil = Date.now() + LOGIN_ATTEMPT_WINDOW_MS;
-  }
-
-  await setLoginRecord(key, record, LOGIN_ATTEMPT_WINDOW_SEC);
 
   // Prune local memory map if large
   if (localLoginAttempts.size > 5000) {
@@ -176,7 +186,11 @@ export async function recordFailedLogin(email, ip) {
 }
 
 export async function clearLoginAttempts(email, ip) {
-  const key = `${email.toLowerCase()}:${ip}`;
-  await removeLoginRecord(key);
+  if (!email) return;
+  const normalizedEmail = email.toLowerCase();
+  if (ip) {
+    await removeLoginRecord(`${normalizedEmail}:${ip}`);
+  }
+  await removeLoginRecord(`account:${normalizedEmail}`);
 }
 

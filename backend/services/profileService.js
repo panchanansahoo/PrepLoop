@@ -4,6 +4,9 @@ import { buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
 import { normalizeProfileUpdatePayload } from '../utils/profilePayload.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { isAdminEmail } from '../middleware/auth.js';
+import { createLogger } from '../utils/structuredLogger.js';
+
+const logger = createLogger('profile-service');
 
 export const PROFILE_COMPLETION_COIN_REWARD = 20;
 
@@ -167,6 +170,23 @@ export const awardProfileCompletionCoins = async (userId, profile) => {
 /**
  * Fetches user profile from cache or database, auto-creating a default record if none exists.
  */
+const syncAdminRole = async (userId, email) => {
+  try {
+    const { error } = await supabaseAdmin
+      .from('profiles')
+      .update({ role: 'admin' })
+      .eq('id', userId);
+    if (error) throw error;
+  } catch (err) {
+    logger.warn('Failed to sync admin role to database profile, invalidating cache', {
+      userId,
+      email,
+      error: err.message,
+    });
+    await cacheManager.delete(`profile:${userId}`).catch(() => {});
+  }
+};
+
 export const getOrCreateUserProfile = async (userContext) => {
   const userId = userContext.id;
   if (!userId) {
@@ -179,7 +199,7 @@ export const getOrCreateUserProfile = async (userContext) => {
   if (profile) {
     if ((userContext.role === 'admin' || isAdminEmail(userContext.email)) && profile.role !== 'admin') {
       profile.role = 'admin';
-      supabaseAdmin.from('profiles').update({ role: 'admin' }).eq('id', userId).catch(() => {});
+      await syncAdminRole(userId, userContext.email);
     }
     cacheManager.set(cacheKey, profile, 60).catch(() => {});
     return buildProfileResponse(userContext, profile);
@@ -214,7 +234,7 @@ export const getOrCreateUserProfile = async (userContext) => {
   if (profile) {
     if ((userContext.role === 'admin' || isAdminEmail(userContext.email)) && profile.role !== 'admin') {
       profile.role = 'admin';
-      supabaseAdmin.from('profiles').update({ role: 'admin' }).eq('id', userId).catch(() => {});
+      await syncAdminRole(userId, userContext.email);
     }
     cacheManager.set(cacheKey, profile, 60).catch(() => {});
     return buildProfileResponse(userContext, profile);

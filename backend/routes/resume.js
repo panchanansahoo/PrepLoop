@@ -12,8 +12,7 @@ import { extractResumeText } from '../services/resumeTextExtractor.js';
 import { redactResumeText, rehydrateResumeJson } from '../services/resumeRedactor.js';
 import { parseResumeHeuristic } from '../services/resumeSectionSplitter.js';
 import { runDeterministicChecks } from '../services/resumeDeterministicEngine.js';
-import { verifyAISuggestion, enforceReadOnlyCore, buildResumeVocabulary } from '../services/resumeFabricationGuard.js';
-import { validateAndNormalizeResumeJson } from '../schemas/resumeSchema.js';
+import { verifyAISuggestion, buildResumeVocabulary } from '../services/resumeFabricationGuard.js';
 
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
@@ -1129,7 +1128,7 @@ router.post('/parse-sections', authenticateToken, uploadEndpointsLimiter, resume
 /**
  * Phase 1 Endpoint: Universal Code-Level Fabrication Guard
  */
-router.post('/verify-rewrite', authenticateToken, async (req, res) => {
+router.post('/verify-rewrite', authenticateToken, (req, res) => {
   try {
     const { originalText, entryContextText, generatedText, fullResumeText } = req.body;
 

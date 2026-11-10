@@ -97,24 +97,27 @@ export function useNotifications(user) {
         try {
             const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/blog`);
             if (res.ok) {
-                const blogs = await res.json();
+                const data = await res.json();
+                const blogs = Array.isArray(data) ? data : (Array.isArray(data?.data) ? data.data : (Array.isArray(data?.blogs) ? data.blogs : []));
                 const now = new Date();
 
-                blogs.forEach(b => {
-                    const blogDate = new Date(b.created_at);
-                    const diffDays = (now - blogDate) / (1000 * 60 * 60 * 24);
-                    if (diffDays <= 7) {
-                        const blogId = `blog-${b.slug || b.id}`;
-                        generatedNotifs.push({
-                            id: blogId,
-                            type: 'blog',
-                            title: `📝 New Article: ${b.title}`,
-                            timeText: blogDate.toLocaleDateString(),
-                            isRead: readIds.includes(blogId),
-                            link: `/blog/${b.slug || b.id}`,
-                        });
-                    }
-                });
+                if (Array.isArray(blogs)) {
+                    blogs.forEach(b => {
+                        const blogDate = new Date(b.created_at);
+                        const diffDays = (now - blogDate) / (1000 * 60 * 60 * 24);
+                        if (diffDays <= 7) {
+                            const blogId = `blog-${b.slug || b.id}`;
+                            generatedNotifs.push({
+                                id: blogId,
+                                type: 'blog',
+                                title: `📝 New Article: ${b.title}`,
+                                timeText: blogDate.toLocaleDateString(),
+                                isRead: readIds.includes(blogId),
+                                link: `/blog/${b.slug || b.id}`,
+                            });
+                        }
+                    });
+                }
             }
         } catch (e) {
             console.error('Failed to fetch blogs for notifications', e);
