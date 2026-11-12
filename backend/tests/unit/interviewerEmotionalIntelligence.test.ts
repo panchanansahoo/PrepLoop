@@ -47,6 +47,22 @@ describe('Interviewer Mood Engine & Emotional Arc (Phase 1A & 1B)', () => {
     expect(nextMood).toBe(MOODS.CURIOUS);
   });
 
+  it('resets interviewer mood to neutral on topic switch', () => {
+    const { nextMood, reason } = computeNextMood(MOODS.IMPATIENT, {
+      topicSwitch: true,
+    });
+    expect(nextMood).toBe(MOODS.NEUTRAL);
+    expect(reason).toBe('topic_switch_reset');
+  });
+
+  it('recovers from impatience to curious on solid score (>=70)', () => {
+    const { nextMood } = computeNextMood(MOODS.IMPATIENT, {
+      score: 75,
+      wordCount: 50,
+    });
+    expect(nextMood).toBe(MOODS.CURIOUS);
+  });
+
   it('generates mood-specific micro-reactions', () => {
     const impressedReaction = getMicroReaction(MOODS.IMPRESSED, { seed: 1 });
     expect(typeof impressedReaction).toBe('string');

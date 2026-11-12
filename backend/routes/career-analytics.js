@@ -10,7 +10,7 @@
  */
 
 import express from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { expensiveFeatureLimiter } from '../middleware/apiRateLimiter.js';
 import skillEmbeddings from '../services/aimlSkillEmbeddings.js';
 import demandForecasting from '../services/aimlDemandForecasting.js';

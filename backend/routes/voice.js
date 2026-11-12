@@ -9,16 +9,16 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { optionalAuth, authenticateToken } from '../middleware/auth.js';
+import { optionalAuth, authenticateToken } from '../middleware/auth.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import voiceService, { groqClient } from '../services/voiceService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { voiceTtsLimiter, voiceSttLimiter } from '../middleware/apiRateLimiter.js';
-import { usageQuota } from '../middleware/usageQuota.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 import nvidiaVoiceService from '../services/nvidiaVoiceService.js';
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.ts';
 // SECURITY: isDeepgramAvailable replaces getDeepgramToken — raw keys never leave the server
 
 const router = express.Router();

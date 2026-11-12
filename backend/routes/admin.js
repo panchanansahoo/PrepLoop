@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import { normalizeInterviewLimits, generateInterviewToken } from '../utils/privateInterviewAccess.js';
 import { createLogger } from '../utils/structuredLogger.js';
 
@@ -675,6 +675,100 @@ router.get('/question-sets/:id/submissions', async (req, res) => {
   } catch (error) {
     console.error('Get submissions error:', error);
     res.status(500).json({ error: 'Failed to fetch submissions' });
+  }
+});
+
+// ─── #11 Interview Telemetry Metrics (7-day dashboard) ───────────
+router.get('/interview-metrics', async (req, res) => {
+  try {
+    const days = Math.min(30, Math.max(1, parseInt(req.query.days, 10) || 7));
+    const sinceDate = new Date(Date.now() - days * 86400000).toISOString();
+
+    // Query interview sessions within timeframe
+    const { data: sessions, error: sessionsError } = await supabaseAdmin
+      .from('interview_sessions')
+      .select('id, status, interview_type, difficulty, interview_score, questions_asked, total_duration_seconds, created_at, completed_at, performance_metrics')
+      .gte('created_at', sinceDate);
+
+    if (sessionsError) throw sessionsError;
+
+    const sessionList = sessions || [];
+    const completedSessions = sessionList.filter(s => s.status === 'completed');
+
+    const totalSessions = sessionList.length;
+    const totalCompleted = completedSessions.length;
+    const completionRate = totalSessions > 0 ? Number((totalCompleted / totalSessions).toFixed(2)) : 0;
+
+    const scores = completedSessions
+      .map(s => Number(s.interview_score))
+      .filter(s => Number.isFinite(s));
+    const averageScore = scores.length > 0
+      ? Number((scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1))
+      : null;
+
+    const durations = completedSessions
+      .map(s => Number(s.total_duration_seconds))
+      .filter(d => Number.isFinite(d) && d > 0);
+    const averageDurationSeconds = durations.length > 0
+      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      : 0;
+
+    // Type distribution
+    const byType = {};
+    for (const s of sessionList) {
+      const type = s.interview_type || 'unspecified';
+      byType[type] = (byType[type] || 0) + 1;
+    }
+
+    // Try fetching recent telemetry events for latency and grounding stats
+    let telemetryEventsCount = 0;
+    let avgTurnLatencyMs = null;
+    let groundingHitRate = null;
+
+    try {
+      const { data: events, error: telemErr } = await supabaseAdmin
+        .from('interview_telemetry_events')
+        .select('event_name, payload, created_at')
+        .gte('created_at', sinceDate)
+        .limit(1000);
+
+      if (!telemErr && Array.isArray(events)) {
+        telemetryEventsCount = events.length;
+        const latencies = events
+          .map(e => Number(e?.payload?.latencyMs))
+          .filter(l => Number.isFinite(l) && l > 0);
+        if (latencies.length > 0) {
+          avgTurnLatencyMs = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+        }
+        const groundingEvents = events.filter(e => typeof e?.payload?.groundingHit === 'boolean');
+        if (groundingEvents.length > 0) {
+          const hits = groundingEvents.filter(e => e.payload.groundingHit).length;
+          groundingHitRate = Number((hits / groundingEvents.length).toFixed(2));
+        }
+      }
+    } catch {
+      // Telemetry table may not yet be provisioned in all environments
+    }
+
+    res.json({
+      success: true,
+      timeframeDays: days,
+      since: sinceDate,
+      summary: {
+        totalSessions,
+        totalCompleted,
+        completionRate,
+        averageScore,
+        averageDurationSeconds,
+        telemetryEventsCount,
+        avgTurnLatencyMs,
+        groundingHitRate,
+      },
+      byType,
+    });
+  } catch (error) {
+    adminLogger.error('Failed to get interview metrics', { error: error.message });
+    res.status(500).json({ error: 'Failed to fetch interview metrics' });
   }
 });
 

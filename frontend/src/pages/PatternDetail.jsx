@@ -4,15 +4,13 @@ import { ArrowLeft, BookOpen, CheckCircle2, Circle, Lightbulb } from 'lucide-rea
 import { useTheme } from '../context/ThemeContext';
 
 import {
-  dsaCatalogPatterns,
   languageCatalogPatterns,
   systemDesignCatalogPatterns,
   webDevCatalogPatterns
 } from '../data/roadmapCatalog';
 import useRoadmapProgress from '../hooks/useRoadmapProgress';
 
-const allPatterns = [
-  ...dsaCatalogPatterns,
+const nonDsaPatterns = [
   ...languageCatalogPatterns,
   ...systemDesignCatalogPatterns,
   ...webDevCatalogPatterns
@@ -31,11 +29,21 @@ export default function PatternDetail() {
   );
 
   useEffect(() => {
-    // Simulate fetching
-    const timer = setTimeout(() => {
-      const found = allPatterns.find(p => p.id === id);
-      // Transform to match expected structure if needed, or just set it
-      // The existing code expects { pattern: ..., problems: ... }
+    let cancelled = false;
+    setLoading(true);
+    const nonDsaFound = nonDsaPatterns.find(p => p.id === id);
+    if (nonDsaFound) {
+      setData({
+        pattern: nonDsaFound,
+        problems: nonDsaFound.problems
+      });
+      setLoading(false);
+      return;
+    }
+
+    import('../data/dsaRoadmapCatalog').then(({ dsaCatalogPatterns }) => {
+      if (cancelled) return;
+      const found = dsaCatalogPatterns.find(p => p.id === id);
       if (found) {
         setData({
           pattern: found,
@@ -43,8 +51,10 @@ export default function PatternDetail() {
         });
       }
       setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [id]);
 
   if (loading) {

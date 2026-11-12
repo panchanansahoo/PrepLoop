@@ -1,5 +1,6 @@
 import RoadmapView from '../features/dashboard/components/RoadmapView';
-import { dsaCatalogPatterns, dsaRoadmapHierarchy, roadmapTrackConfigs } from '../data/roadmapCatalog';
+import { dsaRoadmapHierarchy, roadmapTrackConfigs } from '../data/roadmapCatalog';
+import { dsaCatalogPatterns } from '../data/dsaRoadmapCatalog';
 
 export default function DSAPatterns() {
     return (

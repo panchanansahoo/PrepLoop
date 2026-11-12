@@ -1,10 +1,6 @@
 import assert from 'node:assert/strict';
 import {
   InterviewStateMachineService,
-  normalizeScoreByDifficulty,
-  areDifficultiesComparable,
-  isTurnExcludedFromStreaks,
-  isAdaptivePacingEnabled,
 } from '../services/interviewStateMachine.js';
 
 console.log('--- Starting Empirical Adversarial Stress Test Suite ---');

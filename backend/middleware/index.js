@@ -13,7 +13,7 @@ export {
   getAccessToken,
   getAdminEmails,
   DEFAULT_ADMIN_EMAILS,
-} from './auth.js';
+} from './auth.ts';
 
 export {
   hrAuth,
@@ -80,7 +80,7 @@ export {
 export {
   usageQuota,
   resetUsageQuotaCounters,
-} from './usageQuota.js';
+} from './usageQuota.ts';
 
 // Caching
 export {

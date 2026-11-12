@@ -1,5 +1,5 @@
 import { hrAuthService } from '../services/hrAuthService.js';
-import { getAccessToken } from './auth.js';
+import { getAccessToken } from './auth.ts';
 
 /**
  * HR Authentication Middleware

@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { optionalAuth } from '../../middleware/auth.js';
+import { optionalAuth } from '../../middleware/auth.ts';
 import { customInterviewLimiter, customInterviewSubmissionLimiter } from '../../middleware/apiRateLimiter.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { isInterviewLinkExpired, verifyInterviewInviteeEmail } from '../../utils/privateInterviewAccess.js';

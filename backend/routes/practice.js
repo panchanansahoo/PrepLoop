@@ -6,7 +6,7 @@ import os from 'os';
 import path from 'path';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import crypto from 'crypto';
-import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.ts';
 import {
   all425Problems,
   getAllPatterns,

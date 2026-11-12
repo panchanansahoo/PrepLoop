@@ -149,6 +149,7 @@ export function useInterviewSession(options = {}) {
   }, []);
   const [lifecycleState, setLifecycleState] = useState(INTERVIEW_LIFECYCLE.IDLE);
   const lifecycleStateRef = useRef(INTERVIEW_LIFECYCLE.IDLE);
+  const [reconnectAttempt, setReconnectAttempt] = useState(0);
   // ─── Custom Admin Question Set / Candidate Token State ───
   const searchParams =
     typeof window !== "undefined"
@@ -594,6 +595,18 @@ export function useInterviewSession(options = {}) {
           canRetry: false,
         };
       }
+      if (code === "network" && reconnectAttempt >= 3) {
+        return {
+          type: "network",
+          title: "Connection Lost",
+          message: "Unable to reconnect after 3 attempts. Check your network connection and retry, or continue with typed answers.",
+          actionText: "Retry Connection",
+          actionType: "reconnect",
+          fallbackText: "Type Your Answers",
+          fallbackType: "switch_typed",
+          canRetry: true,
+        };
+      }
       return {
         type: "voice_error",
         title: "Audio Issue",
@@ -616,7 +629,7 @@ export function useInterviewSession(options = {}) {
       };
     }
     return null;
-  }, [isOnline, phase, voiceAI.state, voiceAI.errorMessage, voiceAI.errorCode, voiceAI.hasPendingTranscription, questionSetAccessError]);
+  }, [isOnline, phase, voiceAI.state, voiceAI.errorMessage, voiceAI.errorCode, voiceAI.hasPendingTranscription, questionSetAccessError, reconnectAttempt]);
 
   const reconnectSession = useCallback(() => {
     try {
@@ -643,8 +656,10 @@ export function useInterviewSession(options = {}) {
 
   const handleSessionErrorAction = useCallback((actionType) => {
     if (actionType === "reconnect") {
+      setReconnectAttempt(0);
       reconnectSession();
     } else if (actionType === "retry_mic") {
+      setReconnectAttempt(0);
       voiceAI.resetError?.();
       startVoiceRecording();
     } else if (actionType === "retry_transcription") {
@@ -710,12 +725,53 @@ export function useInterviewSession(options = {}) {
       } else if (voiceAI.state === "error" && (voiceAI.errorCode === "not-allowed" || voiceAI.errorCode === "not-found" || voiceAI.errorCode === "not-supported")) {
         updateLifecycle(INTERVIEW_LIFECYCLE.ERROR, `fatal_voice_error_${voiceAI.errorCode}`);
       } else if (voiceAI.errorCode === "network") {
-        updateLifecycle(INTERVIEW_LIFECYCLE.RECONNECTING, "voice_network_retry");
+        updateLifecycle(
+          reconnectAttempt >= 3 ? INTERVIEW_LIFECYCLE.ERROR : INTERVIEW_LIFECYCLE.RECONNECTING,
+          reconnectAttempt >= 3 ? "reconnect_retries_exhausted" : "voice_network_retry"
+        );
       } else {
         updateLifecycle(INTERVIEW_LIFECYCLE.ACTIVE, "active_interview");
       }
     }
-  }, [phase, isOnline, isPaused, voiceAI.state, voiceAI.errorCode, questionSetAccessError, updateLifecycle]);
+  }, [phase, isOnline, isPaused, voiceAI.state, voiceAI.errorCode, questionSetAccessError, reconnectAttempt, updateLifecycle]);
+
+  // Automatic exponential-backoff reconnect (max 3 retries: 1s, 2s, 4s)
+  useEffect(() => {
+    if (lifecycleState !== INTERVIEW_LIFECYCLE.RECONNECTING) {
+      if (reconnectAttempt !== 0 && phase !== "interview") {
+        setReconnectAttempt(0);
+        return undefined;
+      }
+      if (
+        reconnectAttempt !== 0 &&
+        lifecycleState === INTERVIEW_LIFECYCLE.ACTIVE &&
+        voiceAI.errorCode !== "network"
+      ) {
+        if (voiceAI.state === "listening") {
+          setReconnectAttempt(0);
+          return undefined;
+        }
+        const stabilityTimer = setTimeout(() => {
+          setReconnectAttempt(0);
+        }, 5000);
+        return () => clearTimeout(stabilityTimer);
+      }
+      return undefined;
+    }
+    if (!isOnline || phase !== "interview") {
+      return undefined;
+    }
+    if (reconnectAttempt >= 3) {
+      updateLifecycle(INTERVIEW_LIFECYCLE.ERROR, "reconnect_retries_exhausted");
+      return undefined;
+    }
+    const delayMs = 1000 * Math.pow(2, reconnectAttempt);
+    const timer = setTimeout(() => {
+      setReconnectAttempt((prev) => prev + 1);
+      reconnectSession();
+    }, delayMs);
+    return () => clearTimeout(timer);
+  }, [lifecycleState, isOnline, phase, reconnectAttempt, voiceAI.errorCode, voiceAI.state, reconnectSession, updateLifecycle]);
 
   // Keep the latest phase in a ref so async callbacks (TTS/handoff) see the
   // real phase instead of the value captured by an older render.
@@ -2986,7 +3042,7 @@ export function useInterviewSession(options = {}) {
 
   const startSilenceHandling = useCallback(() => {
     stopSilenceHandling();
-    if (phase !== "interview" || aiSpeaking) return;
+    if (phase !== "interview" || aiSpeaking || awaitingAnswer || loading) return;
 
     const modeConfig = getModeConfig(pacingMode);
     const isTechnicalStage = /tech|dsa|coding|system[-_\s]?design/i.test(interviewType || stageLabel || "");
@@ -3041,6 +3097,8 @@ export function useInterviewSession(options = {}) {
   }, [
     phase,
     aiSpeaking,
+    awaitingAnswer,
+    loading,
     pacingMode,
     interviewType,
     hasRecentSpeech,
@@ -3114,9 +3172,9 @@ export function useInterviewSession(options = {}) {
   }, [stopSilenceHandling, voiceAI]);
 
   useEffect(() => {
-    // Don't nudge or skip while the candidate is composing a typed answer in
-    // the chat panel — that reads as the system talking over them.
-    if (isListening && !transcript.trim() && !userInput.trim() && !aiSpeaking)
+    // Don't nudge or skip while the candidate is composing a typed answer,
+    // or while the AI is responding, loading, or awaiting evaluation.
+    if (isListening && !transcript.trim() && !userInput.trim() && !aiSpeaking && !awaitingAnswer && !loading)
       startSilenceHandling();
     else stopSilenceHandling();
   }, [
@@ -3124,6 +3182,8 @@ export function useInterviewSession(options = {}) {
     transcript,
     userInput,
     aiSpeaking,
+    awaitingAnswer,
+    loading,
     startSilenceHandling,
     stopSilenceHandling,
   ]);

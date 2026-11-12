@@ -14,7 +14,7 @@ function read(relativePath: string): string {
 describe('Security Fixes Regression Unit Tests', () => {
   const hrRoutes = read('routes/hr.js');
   const voiceRoutes = read('routes/voice.js');
-  const authMiddleware = read('middleware/auth.js');
+  const authMiddleware = read('middleware/auth.ts');
 
   it('ensures hr.js has no hardcoded JWT fallback secrets', () => {
     expect(hrRoutes).not.toMatch(/preploop-jwt-secret-key/);

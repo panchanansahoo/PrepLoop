@@ -41,7 +41,6 @@ This repository is organized as a monorepo containing everything needed to run P
 | --------- | ----------- |
 | 🌐 `frontend/` | React + Vite web application |
 | ⚙️ `backend/` | Node.js + Express API server |
-| 🤖 `discord-bot/`| Discord integration and moderation bot |
 | 📖 `docs/` | Architecture and API reference documentation |
 | 🛠 `scripts/` | Utility and smoke-test scripts |
 | 🏢 `Company_Interview/` | Company-specific question datasets |
@@ -121,14 +120,6 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 | `npm run lint` | Runs linters across frontend and backend. |
 | `npm run test` | Runs the full test suite (Vitest/Jest). |
 | `npm run build` | Builds the frontend for production. |
-
-### Discord Bot Commands (`discord-bot/`)
-| Command | Action |
-| ------- | ------ |
-| `npm run discord:install` | Installs bot dependencies. |
-| `npm run discord:dev` | Starts bot in watch mode. |
-| `npm run discord:deploy` | Registers/Deploys slash commands. |
-| `npm run discord:doctor` | Environment and runtime diagnostics. |
 
 ---
 

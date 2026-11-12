@@ -1,7 +1,7 @@
 import express from 'express';
 import { createRequire } from 'module';
 import multer from 'multer';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
 import { sanitizeDocumentForPrompt } from '../utils/promptInjectionGuard.js';
@@ -11,6 +11,7 @@ import { normalizeLinkedinPayload, validateLinkedinUrl, parseLinkedinExportText 
 import { mergePortfolioProfile } from '../services/portfolioProfileNormalizerService.js';
 import { createPortfolioSite, unpublishPortfolioSite } from '../services/portfolioPublishService.js';
 import { createShortLink, reservePortfolioSlug, resolveShortLink } from '../services/portfolioShortLinkService.js';
+import { reviewRealProject } from '../services/codeReviewService.ts';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -504,6 +505,23 @@ router.get('/short-links/:slug/resolve', async (req, res) => {
   } catch (error) {
     console.error('Resolve short link error:', error);
     return res.status(500).json({ error: 'Failed to resolve short link' });
+  }
+});
+
+// POST /api/portfolio/code-review (F2-7: AI-Powered Code Review for Real Projects)
+router.post('/code-review', authenticateToken, async (req, res) => {
+  try {
+    const { repoUrl, code, language } = req.body || {};
+    if (!repoUrl && !code) {
+      return res.status(400).json({ error: 'Provide either a GitHub repoUrl or pasted code' });
+    }
+    const review = await reviewRealProject({ repoUrl, code, language });
+    return res.json(review);
+  } catch (error) {
+    const isClientError = /Invalid GitHub|required/i.test(error.message || '');
+    return res.status(isClientError ? 400 : 500).json({
+      error: error.message || 'Failed to analyze project code',
+    });
   }
 });
 

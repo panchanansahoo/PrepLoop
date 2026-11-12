@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken, optionalAuth } from '../../middleware/auth.js';
-import { LearningPathService } from '../../services/learningPathService.js';
+import { authenticateToken, optionalAuth } from '../../middleware/auth.ts';
+import { LearningPathService } from '../../services/learningPathService.ts';
 
 const router = express.Router();
 

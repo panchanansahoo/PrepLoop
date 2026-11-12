@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ProductivityService } from '../../services/productivityService.js';
+import { ProductivityService } from '../../services/productivityService.ts';
 
 describe('ProductivityService Data Mapping & Formatting', () => {
   it('verifies service exposes core todo and calendar methods', () => {

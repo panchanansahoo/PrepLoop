@@ -29,10 +29,11 @@
         "@blocknote/react": "^0.46.2",
         "@mantine/core": "^8.3.15",
         "@mantine/hooks": "^8.3.15",
+        "@preploop/contracts": "file:../packages/contracts",
         "@react-three/drei": "^9.122.0",
         "@react-three/fiber": "^8.18.0",
         "@supabase/supabase-js": "^2.95.3",
-        "@tiptap/core": "^3.19.0",
+        "@tiptap/core": "^3.30.5",
         "@tiptap/extension-image": "^3.19.0",
         "@tiptap/extension-link": "^3.19.0",
         "@tiptap/extension-placeholder": "^3.19.0",
@@ -54,7 +55,7 @@
         "react-dom": "^18.2.0",
         "react-markdown": "^10.1.0",
         "react-resizable-panels": "^4.11.1",
-        "react-router-dom": "^6.22.0",
+        "react-router-dom": "^7.18.5",
         "react-syntax-highlighter": "^16.1.1",
         "reactflow": "^11.11.4",
         "tailwind-merge": "^3.4.1",
@@ -97,6 +98,8 @@
         "dompurify": "^3.4.17",
         "follow-redirects": "^1.16.1",
         "prosemirror-view": "^1.42.8",
-        "zod": "^4.6.7"
+        "zod": "^4.6.7",
+        "@tiptap/core": "^3.30.5",
+        "@tiptap/pm": "^3.30.5"
     }
 }

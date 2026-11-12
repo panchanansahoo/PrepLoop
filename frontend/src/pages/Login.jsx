@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { LoginRequestSchema } from '@preploop/contracts/auth';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Lock, AlertCircle, ArrowRight, ArrowLeft, Eye, EyeOff, Github, Linkedin, Chrome, Zap, Shield, BarChart3, Cpu } from 'lucide-react';
 import logo from '../assets/logo.svg';
@@ -310,9 +311,14 @@ export default function Login() {
     e.preventDefault();
     if (loading) return;
     setError('');
+    const parsed = LoginRequestSchema.safeParse({ email, password });
+    if (!parsed.success) {
+      setError(parsed.error.issues?.[0]?.message || 'Please enter valid credentials');
+      return;
+    }
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
+      await login(parsed.data.email, parsed.data.password);
       const target = (() => {
         if (!redirectTo) return '/dashboard';
         try {

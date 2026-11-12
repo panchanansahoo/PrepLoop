@@ -118,10 +118,9 @@ jobs:
         run: npm run check:bundle --prefix frontend
 
       - name: Dependency security advisory audit
-        continue-on-error: true
         run: |
-          npm audit --prefix backend || true
-          npm audit --prefix frontend || true
+          npm audit --omit=dev --audit-level=high --prefix backend
+          npm audit --omit=dev --audit-level=high --prefix frontend
 
   dsa-editor-smoke:
     name: DSA Editor Smoke
@@ -191,4 +190,36 @@ jobs:
           if [ -f backend.pid ]; then
             kill "$(cat backend.pid)" || true
           fi
+
+  e2e-smoke:
+    name: Playwright E2E Smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E smoke tests
+        working-directory: frontend
+        run: npx playwright test tests/e2e/public-smoke.spec.js tests/e2e/critical-flows.spec.js --project=chromium
+        env:
+          CI: true
+
 

@@ -1,8 +1,42 @@
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
+
+function execFileAsync(command, args, { input = '', timeout = 3000, cwd, env, maxBuffer = SANDBOX_MAX_BUFFER } = {}) {
+    return new Promise((resolve, reject) => {
+        const child = execFile(
+            command,
+            args,
+            {
+                timeout,
+                shell: false,
+                cwd,
+                env,
+                maxBuffer,
+                encoding: 'buffer',
+            },
+            (error, stdout, stderr) => {
+                if (error) {
+                    error.stdout = stdout;
+                    error.stderr = stderr;
+                    reject(error);
+                    return;
+                }
+                resolve(stdout);
+            }
+        );
+
+        if (child?.stdin) {
+            child.stdin.on('error', () => { /* ignore EPIPE if child exits before reading stdin */ });
+            if (input) {
+                child.stdin.write(input);
+            }
+            child.stdin.end();
+        }
+    });
+}
 
 // SECURITY: Sanitized environment for child processes — only expose PATH
 // This prevents user-submitted code from reading secrets like API keys,
@@ -154,11 +188,11 @@ const LANG_CONFIG = {
  * @param {string} code - The source code to execute
  * @param {string} language - The programming language (python, javascript, c, cpp, java)
  * @param {string} input - Optional stdin input
- * @returns {{ success: boolean, output: string, error?: string, executionTime: number }}
+ * @returns {Promise<{ success: boolean, output: string, error?: string, executionTime: number }>}
  */
 const ALLOWED_LANGUAGES = new Set(['python', 'javascript', 'c', 'cpp', 'java']);
 
-export function executeCode(code, language, input = '') {
+export async function executeCode(code, language, input = '') {
     const startTime = Date.now();
 
     if (typeof code !== 'string') {
@@ -195,14 +229,14 @@ export function executeCode(code, language, input = '') {
         const workspaceDir = createTempWorkspace();
         const tmpFile = path.join(workspaceDir, 'playground.js');
         try {
-            fs.writeFileSync(tmpFile, code, 'utf-8');
+            await fs.promises.writeFile(tmpFile, code, 'utf-8');
             try {
-                const result = execFileSync('node', [
+                const result = await execFileAsync('node', [
                     '--permission',
                     `--allow-fs-read=${workspaceDir}`,
                     tmpFile
                 ], {
-                    stdio: 'pipe', timeout: 3000, shell: false,
+                    timeout: 3000,
                     input: input || '',
                     cwd: workspaceDir,
                     env: SANDBOX_ENV,           // SECURITY: sanitized env
@@ -241,7 +275,7 @@ export function executeCode(code, language, input = '') {
     let availableCmd = null;
     for (const cmd of langConfig.commands) {
         try {
-            execFileSync(cmd, ['--version'], { stdio: 'pipe', timeout: 3000, maxBuffer: SANDBOX_MAX_BUFFER });
+            await execFileAsync(cmd, ['--version'], { timeout: 3000, maxBuffer: SANDBOX_MAX_BUFFER });
             availableCmd = cmd;
             break;
         } catch { /* try next */ }
@@ -270,7 +304,7 @@ export function executeCode(code, language, input = '') {
 
     try {
         const sourceCode = normalizedLanguage === 'python' ? dedentPythonCode(code) : code;
-        fs.writeFileSync(tmpFile, sourceCode, 'utf-8');
+        await fs.promises.writeFile(tmpFile, sourceCode, 'utf-8');
         const outFile = tmpFile.replace(langConfig.ext, '');
         const compiledOutFile = process.platform === 'win32' && langConfig.compile ? `${outFile}.exe` : outFile;
         let compileTime = 0;
@@ -295,8 +329,8 @@ export function executeCode(code, language, input = '') {
 
                 try {
                     const compileExec = langConfig.compile(tmpFile, compileTarget, availableCmd, className);
-                    execFileSync(compileExec.command, compileExec.args, {
-                        stdio: 'pipe', timeout: 5000, shell: false, cwd: tmpDir,
+                    await execFileAsync(compileExec.command, compileExec.args, {
+                        timeout: 5000, cwd: tmpDir,
                         env: SANDBOX_ENV,           // SECURITY: sanitized env
                         maxBuffer: SANDBOX_MAX_BUFFER,
                     });
@@ -321,8 +355,8 @@ export function executeCode(code, language, input = '') {
         const runExec = langConfig.run(tmpFile, availableCmd, executablePath, className);
         const runStart = Date.now();
         try {
-            const result = execFileSync(runExec.command, runExec.args, {
-                stdio: 'pipe', timeout: 3000, shell: false, input: input || '', cwd: tmpDir,
+            const result = await execFileAsync(runExec.command, runExec.args, {
+                timeout: 3000, input: input || '', cwd: tmpDir,
                 env: SANDBOX_ENV,           // SECURITY: sanitized env
                 maxBuffer: SANDBOX_MAX_BUFFER,
             });

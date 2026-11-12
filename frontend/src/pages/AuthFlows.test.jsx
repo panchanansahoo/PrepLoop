@@ -134,10 +134,9 @@ describe('Forgot password page', () => {
     });
   });
 
-  it('shows the reset link in development when email delivery is unavailable', async () => {
+  it('never renders a recovery link returned in the API payload (uniform inbox guidance)', async () => {
     apiClient.post.mockResolvedValueOnce({
       message: 'If an account with that email exists, a password reset link has been sent.',
-      emailSent: false,
       devResetLink: 'http://localhost:5173/reset-password#access_token=test-token',
     });
 
@@ -154,11 +153,8 @@ describe('Forgot password page', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: /Send Reset Link/i }));
 
-    expect(await screen.findByText('Password reset link ready!')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Set New Password Now/i })).toHaveAttribute(
-      'href',
-      'http://localhost:5173/reset-password#access_token=test-token'
-    );
+    expect(await screen.findByText('Check your inbox!')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Set New Password Now/i })).not.toBeInTheDocument();
   });
   it('displays actionable error message when password recovery email service returns 503', async () => {
     apiClient.post.mockRejectedValueOnce({

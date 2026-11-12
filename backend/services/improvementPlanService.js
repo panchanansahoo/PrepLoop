@@ -3,7 +3,7 @@ import { randomUUID, createHash } from 'crypto';
 import { supabaseAdmin } from '../db/index.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.ts';
 import { 
   DIFFICULTY_LEVELS as _DIFFICULTY_LEVELS, 
   ACHIEVEMENTS as _ACHIEVEMENTS, 

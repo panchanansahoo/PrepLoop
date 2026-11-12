@@ -35,6 +35,7 @@
         "test:voice:unit": "node scripts/testVoiceServiceUnit.js",
         "test:interview:state-machine": "node scripts/testInterviewStateMachine.js",
         "test:interview:scoring": "node scripts/testScoringAndFollowUp.js",
+        "validate:scoring": "node scripts/runBlindGradingValidation.js",
         "test:interview:orchestration": "node scripts/testInterviewOrchestration.js",
         "test:interview:grounding": "node scripts/testInterviewGrounding.js",
         "test:interview:feedback": "node scripts/testInterviewFeedback.js",
@@ -72,6 +73,7 @@
     },
     "dependencies": {
         "@google/genai": "^1.50.1",
+        "@preploop/contracts": "file:../packages/contracts",
         "@supabase/supabase-js": "^2.108.2",
         "@upstash/redis": "^1.38.0",
         "ajv": "^8.12.0",
@@ -101,7 +103,8 @@
         "redis": "^5.12.1",
         "sanitize-html": "^2.18.1",
         "winston": "^3.19.0",
-        "ws": "^8.20.0"
+        "ws": "^8.20.0",
+        "zod": "^4.6.7"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

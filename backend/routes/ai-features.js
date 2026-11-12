@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/index.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import {
@@ -13,7 +13,7 @@ import {
   interviewRespondSchema,
 } from '../schemas/requestSchemas.js';
 import { CodeReviewService, InterviewSimulatorService } from '../services/aiService.js';
-import { WebhookDispatcher } from '../services/webhookDispatcher.js';
+import { WebhookDispatcher } from '../services/webhookDispatcher.ts';
 import { InterviewGroundingService } from '../services/ragInterviewGroundingService.js';
 import { createLogger } from '../utils/structuredLogger.js';
 

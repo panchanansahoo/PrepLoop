@@ -1,4 +1,5 @@
 import express from 'express';
+import { LoginRequestSchema } from '@preploop/contracts/auth';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { authLoginLimiter } from '../../middleware/rateLimiter.js';
 import {
@@ -12,16 +13,14 @@ import {
 const router = express.Router();
 
 router.post('/login', authLoginLimiter, async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password || typeof email !== 'string') {
-    return res.status(400).json({ error: 'Email and password are required' });
+  const parsed = LoginRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues?.[0];
+    return res.status(400).json({
+      error: firstIssue?.message || 'Email and password are required',
+    });
   }
-
-  const normalizedEmail = email.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-    return res.status(400).json({ error: 'Please enter a valid email address' });
-  }
+  const { email: normalizedEmail, password } = parsed.data;
 
   // SECURITY: Check account lockout before attempting authentication (multi-tier Redis + local)
   const lockout = await checkLoginLockout(normalizedEmail, req.ip);

@@ -16,6 +16,25 @@ vi.mock('child_process', async (importOriginal) => {
       }
       return actual.execFileSync(cmd, args, options);
     },
+    execFile: (cmd, args, options, callback) => {
+      if (typeof options === 'function') {
+        callback = options;
+        options = {};
+      }
+      if (customExecHandler) {
+        try {
+          const handled = customExecHandler(cmd, args, options);
+          if (handled !== undefined) {
+            queueMicrotask(() => callback?.(null, handled, Buffer.alloc(0)));
+            return { stdin: { on: () => {}, write: () => {}, end: () => {} } };
+          }
+        } catch (err) {
+          queueMicrotask(() => callback?.(err, Buffer.alloc(0), err?.stderr || Buffer.from(err?.message || '')));
+          return { stdin: { on: () => {}, write: () => {}, end: () => {} } };
+        }
+      }
+      return actual.execFile(cmd, args, options, callback);
+    },
   };
 });
 
@@ -73,7 +92,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
   // 1. Stress-Test executeCode.js Binary Caching Across Executions & Temp Deletions
   // =========================================================================
   describe('1. executeCode.js Binary Caching & Temp Workspace Cleanup', () => {
-    it('executes consecutive identical C runs with cache hit, persisting binary beyond tempDir deletion', () => {
+    it('executes consecutive identical C runs with cache hit, persisting binary beyond tempDir deletion', async () => {
       const cSourceCode = `#include <stdio.h>\nint main() { printf("CHALLENGER_C_EXEC_OK\\n"); return 0; }`;
       const expectedCacheKey = createCompiledCacheKey('c', cSourceCode);
       const isWin = process.platform === 'win32';
@@ -111,7 +130,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       };
 
       // --- RUN 1 (Cold Execution: Must Compile and Populate Cache) ---
-      const run1Result = executeCode(cSourceCode, 'c', '');
+      const run1Result = await executeCode(cSourceCode, 'c', '');
 
       expect(run1Result.success).toBe(true);
       expect(run1Result.output).toBe('CHALLENGER_C_EXEC_OK');
@@ -129,7 +148,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       expect(fs.existsSync(run1TempDir)).toBe(false); // Temp dir must be wiped!
 
       // --- RUN 2 (Warm Execution: Must Hit Cache and NOT Recompile) ---
-      const run2Result = executeCode(cSourceCode, 'c', '');
+      const run2Result = await executeCode(cSourceCode, 'c', '');
 
       expect(run2Result.success).toBe(true);
       expect(run2Result.output).toBe('CHALLENGER_C_EXEC_OK');
@@ -153,7 +172,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       expect(keyB.length).toBe(32);
     });
 
-    it('recovers and recompiles gracefully if compiled binary on disk is deleted', () => {
+    it('recovers and recompiles gracefully if compiled binary on disk is deleted', async () => {
       const cSourceCode = `#include <stdio.h>\nint main() { printf("RECOVERY_OK\\n"); return 0; }`;
       const cacheKey = createCompiledCacheKey('c', cSourceCode);
       const isWin = process.platform === 'win32';
@@ -172,7 +191,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       };
 
       // Run 1
-      const res1 = executeCode(cSourceCode, 'c', '');
+      const res1 = await executeCode(cSourceCode, 'c', '');
       expect(res1.success).toBe(true);
       expect(res1.cacheHit).toBe(false);
       expect(compileCount).toBe(1);
@@ -184,7 +203,7 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       expect(COMPILED_BINARY_CACHE.has(cacheKey)).toBe(true);
 
       // Run 2: Cache entry exists in Map, but disk file missing -> must recompile!
-      const res2 = executeCode(cSourceCode, 'c', '');
+      const res2 = await executeCode(cSourceCode, 'c', '');
       expect(res2.success).toBe(true);
       expect(res2.cacheHit).toBe(false); // Recompiled due to missing binary
       expect(compileCount).toBe(2);
@@ -267,10 +286,10 @@ describe('Milestone 2 Challenger Empirical Adversarial Stress Suite', () => {
       try { fs.unlinkSync(freshFile); } catch {}
     });
 
-    it('does not cache non-cacheable languages (javascript)', () => {
+    it('does not cache non-cacheable languages (javascript)', async () => {
       COMPILED_BINARY_CACHE.clear();
       const jsCode = 'console.log("NO_CACHE_JS");';
-      const res = executeCode(jsCode, 'javascript');
+      const res = await executeCode(jsCode, 'javascript');
       expect(res.success).toBe(true);
       expect(res.output).toBe('NO_CACHE_JS');
       expect(res.cacheHit).toBeUndefined();

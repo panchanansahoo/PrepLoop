@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin, optionalAuth } from '../middleware/auth.ts';
 import { aiEndpointsLimiter } from '../middleware/apiRateLimiter.js';
 import { buildCareerOpsHistoryRecord, mapCareerOpsHistoryRow } from '../utils/careerOps.js';
 import { fetchAllIndianJobs } from '../utils/indianJobApis.js';

@@ -130,6 +130,30 @@ const isTokenExpired = (errorMessage?: string): boolean => {
   );
 };
 
+export const verifySupabaseToken = async (token: string): Promise<AuthUser> => {
+  const { data: { user }, error } = await (supabaseAdmin as any).auth.getUser(token);
+  if (error || !user) {
+    const errorMsg = error?.message || '';
+    if (isTokenExpired(errorMsg)) {
+      const err: any = new Error('Token expired');
+      err.code = 'TOKEN_EXPIRED';
+      err.statusCode = 401;
+      throw err;
+    }
+    const err: any = new Error(error?.message || 'Invalid token');
+    err.code = 'INVALID_TOKEN';
+    err.statusCode = 401;
+    throw err;
+  }
+  const role = await resolveUserRole(user.id, user.email);
+  return {
+    id: user.id,
+    email: user.email,
+    role,
+    user_metadata: user.user_metadata || {},
+  };
+};
+
 export const authenticateToken = async (
   req: Request,
   res: Response,
@@ -142,35 +166,24 @@ export const authenticateToken = async (
   }
 
   try {
-    const { data: { user }, error } = await (supabaseAdmin as any).auth.getUser(token);
-
-    if (error || !user) {
-      const errorMsg = error?.message || '';
-      if (isTokenExpired(errorMsg)) {
-        console.warn(`[auth] JWT token expired, instructing client to refresh`);
-        return res.status(401).json({
-          error: 'Token expired',
-          code: 'TOKEN_EXPIRED',
-          details: 'Please refresh your token',
-        });
-      }
-
-      console.warn(`[auth] JWT validation failed for token (403):`, error || 'User not found in token');
-      return res.status(403).json({ error: 'Invalid or expired token', details: error?.message || 'User not found' });
+    req.user = await verifySupabaseToken(token);
+    next();
+  } catch (error: any) {
+    if (error?.code === 'TOKEN_EXPIRED') {
+      console.warn(`[auth] JWT token expired, instructing client to refresh`);
+      return res.status(401).json({
+        error: 'Token expired',
+        code: 'TOKEN_EXPIRED',
+        details: 'Please refresh your token',
+      });
     }
 
-    const role = await resolveUserRole(user.id, user.email);
-
-    req.user = {
-      id: user.id,
-      email: user.email,
-      role,
-      user_metadata: user.user_metadata || {},
-    };
-    next();
-  } catch (error) {
-    console.error('Auth error:', error);
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    console.warn(`[auth] JWT validation failed:`, error?.message);
+    return res.status(401).json({
+      error: 'Invalid or expired token',
+      code: 'INVALID_TOKEN',
+      details: process.env.NODE_ENV === 'development' ? error?.message : 'Authentication failed. Please log in again.',
+    });
   }
 };
 

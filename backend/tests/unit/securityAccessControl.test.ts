@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { requireEmployerOrAdmin } from '../../middleware/auth.js';
+import { requireEmployerOrAdmin } from '../../middleware/auth.ts';
 // @ts-ignore - JavaScript utility
 import { dbOptimizer } from '../../utils/dbOptimizer.js';
 // @ts-ignore - JavaScript utility

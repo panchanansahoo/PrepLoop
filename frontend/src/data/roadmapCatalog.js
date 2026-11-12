@@ -1,4 +1,3 @@
-import { dsaPatternsAll as baseDsaPatterns } from './dsaPatternsData';
 import { languagePatterns as baseLanguagePatterns, languageRoadmapHierarchy } from './languageRoadmapData';
 import { roadmapHierarchy as dsaRoadmapHierarchy } from './roadmapData';
 import { systemDesignPatterns as baseSystemDesignPatterns, systemDesignRoadmapHierarchy } from './systemDesignRoadmapData';
@@ -111,7 +110,7 @@ function decoratePatterns(patterns, config) {
     }));
 }
 
-function buildTrackPatterns(hierarchy, basePatterns, config) {
+export function buildTrackPatterns(hierarchy, basePatterns, config) {
     const explicitPatterns = decoratePatterns(basePatterns, config);
     const explicitIds = new Set(explicitPatterns.map((pattern) => pattern.id));
     const generatedLeafPatterns = collectLeafNodes(hierarchy)
@@ -159,12 +158,6 @@ export const roadmapTrackConfigs = {
         searchPlaceholder: 'Search web development roadmap',
     },
 };
-
-export const dsaCatalogPatterns = buildTrackPatterns(
-    dsaRoadmapHierarchy,
-    baseDsaPatterns,
-    roadmapTrackConfigs.dsa
-);
 
 export const languageCatalogPatterns = buildTrackPatterns(
     languageRoadmapHierarchy,

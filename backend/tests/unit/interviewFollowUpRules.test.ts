@@ -13,7 +13,7 @@ import {
   DONT_KNOW_REGEX,
   CLARIFICATION_REGEX,
   OFF_TOPIC_REGEX,
-} from '../../services/interviewFollowUpRules.js';
+} from '../../services/interviewFollowUpRules.ts';
 import { InterviewPromptService } from '../../services/interviewPromptService.js';
 
 describe('Milestone 3: Recovery Branching & Momentum Tracking Unit Tests', () => {

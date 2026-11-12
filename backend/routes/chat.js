@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { runAgenticChat } from '../services/agenticChatService.js';
 

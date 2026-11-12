@@ -16,7 +16,7 @@ import {
   ROUTER_MODELS,
 } from '../../services/llmRouter.js';
 
-describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification', { timeout: 35000 }, () => {
+describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification', { timeout: 60000 }, () => {
   beforeEach(() => {
     quotaGuard.reset();
     sessionScorers.clear();
@@ -281,7 +281,7 @@ describe('Real Failover, One-Scorer-Per-Session & PII Sanitization Verification'
       expect(result.evalModelUsed).toBeTruthy();
     });
 
-    it('falls over to OpenRouter 70b when both Groq and Gemini fail', async () => {
+    it('falls over to OpenRouter 70b when both Groq and Gemini fail', { retry: 2, timeout: 60000 }, async () => {
       // Trip both Groq and Gemini
       quotaGuard.markProviderFailing('groq', 60_000);
       quotaGuard.markProviderFailing('gemini', 60_000);

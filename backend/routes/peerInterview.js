@@ -1,10 +1,10 @@
 import express from 'express';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { createLogger } from '../utils/structuredLogger.js';
-import { GamificationService } from '../services/gamificationService.js';
-import { WebhookDispatcher } from '../services/webhookDispatcher.js';
+import { GamificationService } from '../services/gamificationService.ts';
+import { WebhookDispatcher } from '../services/webhookDispatcher.ts';
 import { validateRequest } from '../middleware/validation.js';
 import { createPeerRoomSchema, matchPeerRoomSchema, peerRoomParamSchema } from '../schemas/requestSchemas.js';
 

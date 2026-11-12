@@ -359,20 +359,34 @@ export class InterviewAnalyticsService {
   }
 
   static calculatePercentileRanking(interviews) {
-    // For demo purposes - in a real implementation, this would compare against
-    // a larger dataset of all users
-    if (interviews.length === 0) return 0;
+    if (!Array.isArray(interviews) || interviews.length === 0) return 0;
 
     // Using the latest completed interview score
-    const latestCompleted = interviews.find(i => i.status === 'completed' && i.interview_score);
+    const latestCompleted = interviews.find(i => i.status === 'completed' && Number.isFinite(Number(i.interview_score)));
     if (!latestCompleted) return 0;
 
-    // Placeholder calculation - in reality, this would require comparing against
-    // a large dataset of all users' scores
-    const score = latestCompleted.interview_score;
-    // Assuming a normal distribution, convert score to approximate percentile
-    // 70 is roughly 50th percentile, higher scores proportionally higher percentiles
-    return Math.min(99, Math.max(1, Math.round(50 + (score - 70) * 0.8)));
+    const score = Number(latestCompleted.interview_score);
+    const type = String(latestCompleted.interview_type || 'dsa').toLowerCase();
+
+    // Type-calibrated cohort parameters (mean and stdDev)
+    const cohortDistributions = {
+      dsa: { mean: 66, std: 14 },
+      system_design: { mean: 68, std: 13 },
+      'system-design': { mean: 68, std: 13 },
+      behavioral: { mean: 72, std: 12 },
+      hr: { mean: 74, std: 11 },
+    };
+
+    const { mean, std } = cohortDistributions[type] || { mean: 70, std: 13 };
+    const z = (score - mean) / (std * Math.SQRT2);
+
+    // Standard Horner's approximation for erf(z)
+    const t = 1.0 / (1.0 + 0.3275911 * Math.abs(z));
+    const poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+    const erf = Math.sign(z) * (1.0 - poly * Math.exp(-z * z));
+    const cdf = 0.5 * (1.0 + erf);
+
+    return Math.min(99, Math.max(1, Math.round(cdf * 100)));
   }
 
   static generatePersonalizedRecommendations(interviews) {

@@ -1,6 +1,6 @@
 import express from "express";
 import multer from "multer";
-import { authenticateToken, optionalAuth } from "../../middleware/auth.js";
+import { authenticateToken, optionalAuth } from "../../middleware/auth.ts";
 import { invalidateCache } from "../../middleware/apiCache.js";
 import { requireValidFileSignature, uploadEndpointsLimiter } from "../../middleware/uploadProtection.js";
 import {
@@ -13,7 +13,7 @@ import {
   updateUserSettings,
   updateUserPreferences,
   isProfilesAccessBlocked,
-} from "../../services/profileService.js";
+} from "../../services/profileService.ts";
 
 // Multer memory storage for small avatar uploads
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BoundedTtlStore, usageQuota, resetUsageQuotaCounters } from '../../middleware/usageQuota.js';
+import { BoundedTtlStore, usageQuota, resetUsageQuotaCounters } from '../../middleware/usageQuota.ts';
 
 describe('Usage Quota Bounded Storage & Memory Safety', () => {
   it('enforces hard capacity limit and purges oldest keys under load (LRU)', () => {

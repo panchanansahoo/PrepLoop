@@ -276,3 +276,95 @@ DO $$ BEGIN
             USING (auth.uid() = user_id);
     END IF;
 END $$;
+
+
+-- ============================================================================
+-- 5. INTERVIEW SESSIONS & CHECKPOINTS RLS HARDENING
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS public.interview_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    interview_type VARCHAR(50) DEFAULT 'dsa',
+    target_company VARCHAR(100),
+    target_role VARCHAR(100),
+    difficulty VARCHAR(50) DEFAULT 'medium',
+    overall_score NUMERIC(5,2),
+    conversation JSONB DEFAULT '[]'::jsonb,
+    feedback JSONB DEFAULT '{}'::jsonb,
+    status VARCHAR(50) DEFAULT 'completed',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_interview_sessions_user ON public.interview_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS public.interview_session_checkpoints (
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    session_key TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, session_key)
+);
+
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'interview_session_checkpoints' AND column_name = 'session_key'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_interview_checkpoints_session_key ON public.interview_session_checkpoints(session_key, user_id);
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'interview_session_checkpoints' AND column_name = 'updated_at'
+    ) THEN
+        CREATE INDEX IF NOT EXISTS idx_interview_checkpoints_updated ON public.interview_session_checkpoints(user_id, updated_at DESC);
+    END IF;
+END $$;
+
+ALTER TABLE public.interview_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.interview_session_checkpoints ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'interview_sessions' AND policyname = 'Users can view their own interview sessions'
+    ) THEN
+        CREATE POLICY "Users can view their own interview sessions"
+            ON public.interview_sessions
+            FOR SELECT
+            USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'interview_sessions' AND policyname = 'Users can insert their own interview sessions'
+    ) THEN
+        CREATE POLICY "Users can insert their own interview sessions"
+            ON public.interview_sessions
+            FOR INSERT
+            WITH CHECK (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies WHERE tablename = 'interview_sessions' AND policyname = 'Users can update their own interview sessions'
+    ) THEN
+        CREATE POLICY "Users can update their own interview sessions"
+            ON public.interview_sessions
+            FOR UPDATE
+            USING (auth.uid() = user_id);
+    END IF;
+END $$;
+
+DROP POLICY IF EXISTS "Users can manage own interview checkpoints" ON public.interview_session_checkpoints;
+DROP POLICY IF EXISTS "Users can view their own checkpoints" ON public.interview_session_checkpoints;
+DROP POLICY IF EXISTS "Users can insert their own checkpoints" ON public.interview_session_checkpoints;
+
+CREATE POLICY "Users can manage own interview checkpoints"
+    ON public.interview_session_checkpoints
+    FOR ALL
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);

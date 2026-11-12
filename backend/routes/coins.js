@@ -1,7 +1,13 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
+import {
+  claimReferral,
+  completeReferralReward,
+  getReferralSummary,
+  normalizeReferralCode,
+} from '../services/referralService.ts';
 
 const router = express.Router();
 
@@ -36,6 +42,27 @@ const REDEEM_OPTIONS = [
     description: 'Redeem one AI resume review credit.',
     coinCost: 15,
     category: 'career',
+  },
+  {
+    id: 'company_pack_unlock',
+    title: 'Company Question Pack',
+    description: 'Unlock curated company-specific interview question pack.',
+    coinCost: 100,
+    category: 'company',
+  },
+  {
+    id: 'extra_ai_review',
+    title: 'Extra AI Code Review',
+    description: 'Unlock an extra AI-powered real project code review.',
+    coinCost: 60,
+    category: 'code_review',
+  },
+  {
+    id: 'premium_question_set',
+    title: 'Premium Question Set',
+    description: 'Unlock high-frequency senior system design & DSA question set.',
+    coinCost: 80,
+    category: 'premium',
   },
 ];
 
@@ -534,6 +561,80 @@ router.get('/spend-history', authenticateToken, async (req, res) => {
       });
     }
     res.status(500).json({ error: 'Failed to fetch spend history' });
+  }
+});
+
+// ─── G3-2: Referral & Coin Economy ───────────────────────────────────────────
+router.get('/referral', authenticateToken, async (req, res) => {
+  try {
+    const summary = await getReferralSummary(req.user.id, req.user.email?.split('@')[0]);
+    return res.json(summary);
+  } catch (error) {
+    console.error('Error fetching referral summary:', error);
+    return res.status(500).json({ error: 'Failed to fetch referral summary' });
+  }
+});
+
+router.post('/referral/claim', authenticateToken, async (req, res) => {
+  try {
+    const { referralCode } = req.body || {};
+    const cleanCode = normalizeReferralCode(referralCode);
+    if (!cleanCode) {
+      return res.status(400).json({ error: 'referralCode is required' });
+    }
+
+    const { data: match, error: lookupError } = await supabaseAdmin
+      .from('profiles')
+      .select('id')
+      .or(`referral_code.eq.${cleanCode},username.ilike.${cleanCode}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError && lookupError.code === '42703') {
+      // Fallback if referral_code column hasn't been migrated yet
+      const { data: fallbackMatch } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .ilike('username', cleanCode)
+        .limit(1)
+        .maybeSingle();
+      if (!fallbackMatch?.id) {
+        return res.status(404).json({ error: 'Referral code not found' });
+      }
+      const result = await claimReferral({
+        refereeId: req.user.id,
+        referrerId: fallbackMatch.id,
+        referralCode: cleanCode,
+      });
+      return res.status(201).json(result);
+    }
+
+    const resolvedReferrerId = match?.id;
+    if (!resolvedReferrerId) {
+      return res.status(404).json({ error: 'Referral code not found' });
+    }
+
+    const result = await claimReferral({
+      refereeId: req.user.id,
+      referrerId: resolvedReferrerId,
+      referralCode: cleanCode,
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    const isClientError = /Invalid|Self-referral|already claimed/i.test(error.message || '');
+    return res.status(isClientError ? 400 : 500).json({
+      error: error.message || 'Failed to claim referral',
+    });
+  }
+});
+
+router.post('/referral/complete', authenticateToken, async (req, res) => {
+  try {
+    const result = await completeReferralReward(req.user.id);
+    return res.json(result);
+  } catch (error) {
+    console.error('Error completing referral reward:', error);
+    return res.status(500).json({ error: 'Failed to complete referral reward' });
   }
 });
 

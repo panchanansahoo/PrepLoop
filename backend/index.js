@@ -7,7 +7,7 @@ import './config/env.js';
 // Comprehensive Improvements
 import { apiCacheMiddleware } from './middleware/apiCache.js';
 import { enhancedSecurity } from './middleware/securityEnhanced.js';
-import collaborationService from './services/collaborationService.js';
+import collaborationService from './services/collaborationService.ts';
 import realtimeInterviewService from './services/realtimeInterviewService.js';
 
 import { disableConsoleLogs } from './utils/productionLogger.js';
@@ -65,7 +65,7 @@ async function initializeServer() {
   try {
     console.log('📦 Initializing API Route Registry...');
     const { createApiRouter } = await import('./routes/index.js');
-    const { authenticateToken } = await import('./middleware/auth.js');
+    const { authenticateToken } = await import('./middleware/auth.ts');
     const { errorHandler } = await import('./middleware/errorHandler.js');
     const { healthCheck, readinessCheck, livenessCheck } = await import('./middleware/healthCheck.js');
     const interviewModule = await import('./routes/interview.js');
@@ -140,17 +140,35 @@ async function initializeServer() {
 
     // Advanced security middleware (mounted after body parsers so request bodies are inspected)
     app.use(enhancedSecurity());
+    const httpLogger = createLogger('http');
     app.use((req, res, next) => {
       const startedAt = Date.now();
       res.on('finish', () => {
+        const durationMs = Date.now() - startedAt;
+        const route = req.route?.path || req.path;
         performanceMonitor.recordRequest({
           id: req.requestId,
-          path: req.route?.path || req.path,
+          path: route,
           method: req.method,
-          duration: Date.now() - startedAt,
+          duration: durationMs,
           status: res.statusCode,
           error: res.statusCode >= 500,
         });
+        const logPayload = {
+          requestId: req.requestId || res.locals?.requestId || null,
+          userId: req.user?.id || null,
+          route,
+          method: req.method,
+          durationMs,
+          statusCode: res.statusCode,
+        };
+        if (res.statusCode >= 500) {
+          httpLogger.error('HTTP request failed', logPayload);
+        } else if (res.statusCode >= 400) {
+          httpLogger.warn('HTTP client error', logPayload);
+        } else {
+          httpLogger.info('HTTP request completed', logPayload);
+        }
       });
       next();
     });

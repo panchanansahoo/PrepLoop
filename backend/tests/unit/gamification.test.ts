@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GamificationService } from '../../services/gamificationService.js';
+import { GamificationService } from '../../services/gamificationService.ts';
 
 describe('GamificationService Daily Streaks & Badges', () => {
   it('retrieves user gamification state with fallback defaults', async () => {

@@ -1,7 +1,7 @@
 import express from 'express';
 import { createLogger } from '../utils/structuredLogger.js';
 import { analyticsLimiter } from '../middleware/apiRateLimiter.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.ts';
 
 const router = express.Router();
 const logger = createLogger('analytics');

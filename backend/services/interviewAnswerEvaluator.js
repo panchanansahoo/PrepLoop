@@ -65,15 +65,44 @@ function evaluateConcreteness(text) {
 
 function evaluateCodeQuality(codeText) {
     if (!codeText || !codeText.trim()) return 2;
-    const lines = codeText.split('\n').length;
+    const trimmed = codeText.trim();
+    const lines = trimmed.split('\n').filter((l) => l.trim().length > 0).length;
     let score = 2;
-    if (lines > 5) score += 1;
-    if (lines > 15) score += 1;
-    if (/function|def|class|const|let|var/.test(codeText)) score += 1;
-    if (/return/.test(codeText)) score += 1;
-    if (/\/\/|\/\*|#/.test(codeText)) score += 0.5;
-    if (/for|while|if|switch/.test(codeText)) score += 0.5;
-    return Math.min(Math.round(score), 5);
+
+    // Structural elements (function, class, arrow func, lambda)
+    if (/function\b|def\s+\w+|class\s+\w+|const\s+\w+\s*=\s*(?:\([^)]*\)|function)|\bfunc\b/i.test(trimmed)) {
+        score += 1;
+    }
+    if (/\breturn\b/.test(trimmed)) {
+        score += 0.5;
+    }
+
+    // Boundary conditions, guards and error handling
+    if (/\b(?:if\s*\([^)]*===?\s*(?:null|undefined|0|-1|""|\[\]|\{\})|if\s+not\s+\w+|try\s*\{|except\b|catch\s*\(|throw\s+new)\b/i.test(trimmed)) {
+        score += 1;
+    }
+
+    // Complexity annotations or thoughtful algorithm comments
+    if (/(?:time|space)\s*complexity|O\([1nlogk]+\)|\/\/\s*O\(|#\s*O\(/i.test(trimmed)) {
+        score += 1;
+    }
+
+    // Control flow, data structure methods, or recursion
+    if (/\b(?:for|while|forEach|map|filter|reduce|switch|recursion|recurse)\b/i.test(trimmed)) {
+        score += 0.5;
+    }
+
+    // Comments / documentation
+    if (/\/\/|\/\*|#|"""/.test(trimmed)) {
+        score += 0.5;
+    }
+
+    // Penalty for empty shells
+    if (/^\s*(?:pass|\/\/.*TODO)\s*$/im.test(trimmed) && lines <= 3) {
+        score -= 1;
+    }
+
+    return Math.max(1, Math.min(5, Math.round(score)));
 }
 
 export function detectStarBreakdown(text) {
@@ -236,7 +265,7 @@ function pickImprovements(answer, stage) {
     return improvements.slice(0, 3);
 }
 
-function generateFeedbackSummary(score, strengths, improvements, stage) {
+function generateFeedbackSummary(score, strengths, improvements, _stage) {
     const tone = score >= 80 ? 'Strong answer.' : score >= 60 ? 'Solid attempt with growth areas.' : 'Needs deeper development.';
     const strengthPart = strengths.length > 0 ? ` Well done on: ${strengths.join(', ')}.` : '';
     const improvementPart = improvements.length > 0 ? ` Focus on: ${improvements[0]}.` : '';
@@ -330,7 +359,7 @@ export async function evaluateAnswerWithSemanticRubric({
     sessionId = null,
     userId = null,
     ip = null,
-    options = {}
+    options: _options = {}
 }) {
     const baseEvaluation = evaluateFresherAnswer(userAnswer, stage, codeText);
 

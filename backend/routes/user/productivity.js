@@ -1,6 +1,6 @@
 import express from 'express';
-import { authenticateToken } from '../../middleware/auth.js';
-import { ProductivityService } from '../../services/productivityService.js';
+import { authenticateToken } from '../../middleware/auth.ts';
+import { ProductivityService } from '../../services/productivityService.ts';
 
 const router = express.Router();
 

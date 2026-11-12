@@ -39,11 +39,15 @@ export interface TypeRubricWeights {
 }
 
 export interface RollingScoresResult {
-  overall: number;
-  communication: number;
-  problem_solving: number;
-  technical_depth: number;
+  overall: number | null;
+  communication: number | null;
+  problem_solving: number | null;
+  technical_depth: number | null;
   performance_level: 'Excellent' | 'Good' | 'Fair' | 'Needs Work';
+  isUnscored?: boolean;
+  metricsMissing?: boolean;
+  scoringConfidence?: number;
+  fresherBonusApplied?: boolean;
 }
 
 export interface AdaptiveDifficultyResult {

@@ -1,6 +1,6 @@
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { createLogger } from '../utils/structuredLogger.js';
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.ts';
 
 const logger = createLogger('HealthCheck');
 

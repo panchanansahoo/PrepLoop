@@ -1,5 +1,6 @@
 import { InterviewStateMachineService } from './interviewStateMachine.js';
 import { sanitizeHeadline, sanitizeList } from '../utils/promptInjectionGuard.js';
+import { MOOD_PROFILES } from './interviewerMoodEngine.js';
 
 // ── Type-specific voice and style modifiers ─────────────────────────
 const TYPE_STYLE_RULES = {
@@ -65,6 +66,19 @@ export function resolveInterviewerPersona(companyFocus, personaPreset) {
   return getCompanyPersona(companyFocus);
 }
 
+// ── Unified Persona & Mood Engine Voice Resolver ────────────────────
+export function resolveInterviewerVoice({ companyFocus, personaPreset, mood } = {}) {
+  const personaDesc = resolveInterviewerPersona(companyFocus, personaPreset);
+  const moodKey = String(mood || '').toLowerCase().trim();
+  const moodProfile = MOOD_PROFILES[moodKey];
+
+  if (!moodProfile) {
+    return personaDesc;
+  }
+
+  return `${personaDesc} Current demeanor (${moodProfile.expression}): ${moodProfile.toneInstruction}`;
+}
+
 // ── Natural speech prefixes (30% injection rate) ────────────────────
 const _NATURAL_PREFIXES = [
   'Okay, ', 'Right, ', 'Interesting — ', 'Got it. ', 'Mm-hmm. ',
@@ -81,7 +95,34 @@ function _deterministicHash(str) {
   return Math.abs(hash);
 }
 
-function maybeAddNaturalPrefix(message) {
+export function maybeAddNaturalPrefix(message, options = {}) {
+  if (!message || typeof message !== 'string') return message;
+  const trimmed = message.trim();
+  if (trimmed.length < 20) return message;
+
+  // Skip if already starts with one of the natural prefixes
+  for (const prefix of _NATURAL_PREFIXES) {
+    if (trimmed.toLowerCase().startsWith(prefix.trim().toLowerCase())) {
+      return message;
+    }
+  }
+
+  // Skip if message already starts with a conversational acknowledgment
+  if (/^(?:yes|no|great|good|thank you|thanks|noted|understood|i see|well)[,.]/i.test(trimmed)) {
+    return message;
+  }
+
+  const hash = _deterministicHash(trimmed);
+  const rate = typeof options?.rate === 'number' ? options.rate : 0.30;
+  if ((hash % 100) < (rate * 100)) {
+    const prefixIndex = hash % _NATURAL_PREFIXES.length;
+    const prefix = _NATURAL_PREFIXES[prefixIndex];
+    const firstChar = trimmed.charAt(0);
+    const rest = trimmed.slice(1);
+    const formattedRest = /^[A-Z][a-z]/.test(trimmed) ? firstChar.toLowerCase() + rest : trimmed;
+    return `${prefix}${formattedRest}`;
+  }
+
   return message;
 }
 
@@ -233,11 +274,12 @@ export class InterviewPromptService {
       interviewContext.askedTopics || [],
     );
 
-    // ── Interviewer persona based on company focus or preset ──────────
-    const persona = resolveInterviewerPersona(
-      interviewContext.companyFocus || null,
-      interviewContext.interviewerPersona || interviewContext.personaPreset || null
-    );
+    // ── Interviewer persona & mood voice based on company focus or preset ──
+    const persona = resolveInterviewerVoice({
+      companyFocus: interviewContext.companyFocus || null,
+      personaPreset: interviewContext.interviewerPersona || interviewContext.personaPreset || null,
+      mood: interviewContext.mood || interviewContext.currentMood || null,
+    });
 
     return `You are a senior interviewer at a top product company. Generate a natural, realistic follow-up as if spoken by a human interviewer.
 
@@ -288,5 +330,3 @@ Generate a JSON response:
 }`;
   }
 }
-
-export { maybeAddNaturalPrefix };

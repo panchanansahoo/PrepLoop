@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useAuth } from "../context/AuthContext";
+import { useVoiceAI } from "./useVoiceAI";
 import useInterviewSession, { INTERVIEW_LIFECYCLE } from "./useInterviewSession";
 
 const memoryStorage = (() => {
@@ -374,5 +375,201 @@ describe("useInterviewSession", () => {
     expect(result.current.state.analysisResult.strengths.length).toBeGreaterThan(0);
     expect(result.current.state.analysisResult.improvements.length).toBeGreaterThan(0);
     expect(result.current.state.analysisResult.nextSteps.length).toBeGreaterThan(0);
+  });
+
+  // ── #12 Lifecycle & Silence UX Integration Tests ─────────────────────────
+  it("transitions lifecycle from IDLE to ACTIVE and ENDED cleanly", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    // Initial state in lobby is IDLE
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.IDLE);
+    expect(result.current.state.phase).toBe("lobby");
+
+    // Switching phase to interview marks lifecycle ACTIVE
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+    expect(result.current.state.phase).toBe("interview");
+
+    // Ending the interview sets lifecycle to ENDED
+    act(() => {
+      result.current.actions.endInterview();
+    });
+    expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ENDED);
+  });
+
+  it("resets silence timers and avoids premature turns when awaitingAnswer or loading", () => {
+    const { result } = renderHook(() => useInterviewSession());
+    act(() => {
+      result.current.actions.setPhase("interview");
+    });
+    // In interview phase, silence should not trigger an answer when loading
+    expect(result.current.state.loading).toBe(false);
+    expect(result.current.state.awaitingAnswer).toBe(false);
+  });
+
+  it("auto-reconnects with exponential backoff when entering RECONNECTING on network error", () => {
+    vi.useFakeTimers();
+    const origImpl = vi.mocked(useVoiceAI).getMockImplementation();
+    const resetErrorMock = vi.fn();
+    let currentErrorCode = "network";
+    let currentState = "error";
+    resetErrorMock.mockImplementation(() => {
+      currentErrorCode = null;
+      currentState = "idle";
+    });
+    vi.mocked(useVoiceAI).mockImplementation(() => ({
+      ...(origImpl ? origImpl() : {}),
+      state: currentState,
+      errorCode: currentErrorCode,
+      errorMessage: currentErrorCode ? "Network error" : null,
+      resetError: resetErrorMock,
+      start: vi.fn(),
+      stop: vi.fn(),
+      speak: vi.fn(),
+      interrupt: vi.fn(),
+      prefetch: vi.fn(),
+      cleanup: vi.fn(),
+      getAnalytics: vi.fn(() => ({})),
+      inputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      outputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      inputLevel: 0,
+      outputLevel: 0,
+    }));
+
+    try {
+      const { result, rerender } = renderHook(() => useInterviewSession());
+      act(() => {
+        result.current.actions.setPhase("interview");
+      });
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(resetErrorMock).toHaveBeenCalledTimes(1);
+      rerender();
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ACTIVE);
+    } finally {
+      if (origImpl) vi.mocked(useVoiceAI).mockImplementation(origImpl);
+      vi.useRealTimers();
+    }
+  });
+
+  it("transitions to ERROR after exhausting 3 exponential-backoff reconnect retries", () => {
+    vi.useFakeTimers();
+    const origImpl = vi.mocked(useVoiceAI).getMockImplementation();
+    const resetErrorMock = vi.fn();
+    vi.mocked(useVoiceAI).mockImplementation(() => ({
+      ...(origImpl ? origImpl() : {}),
+      state: "error",
+      errorCode: "network",
+      errorMessage: "Persistent network error",
+      resetError: resetErrorMock,
+      start: vi.fn(),
+      stop: vi.fn(),
+      speak: vi.fn(),
+      interrupt: vi.fn(),
+      prefetch: vi.fn(),
+      cleanup: vi.fn(),
+      getAnalytics: vi.fn(() => ({})),
+      inputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      outputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      inputLevel: 0,
+      outputLevel: 0,
+    }));
+
+    try {
+      const { result } = renderHook(() => useInterviewSession());
+      act(() => {
+        result.current.actions.setPhase("interview");
+      });
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+      // Retry 1 (1s), Retry 2 (2s), Retry 3 (4s)
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(1);
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(2);
+      act(() => { vi.advanceTimersByTime(4000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(3);
+
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ERROR);
+    } finally {
+      if (origImpl) vi.mocked(useVoiceAI).mockImplementation(origImpl);
+      vi.useRealTimers();
+    }
+  });
+
+  it("exhausts 3 retries even when resetError clears errorCode and network error recurs asynchronously", () => {
+    vi.useFakeTimers();
+    const origImpl = vi.mocked(useVoiceAI).getMockImplementation();
+    let currentErrorCode = "network";
+    let currentState = "error";
+    const resetErrorMock = vi.fn(() => {
+      currentErrorCode = null;
+      currentState = "idle";
+    });
+    vi.mocked(useVoiceAI).mockImplementation(() => ({
+      ...(origImpl ? origImpl() : {}),
+      state: currentState,
+      errorCode: currentErrorCode,
+      errorMessage: currentErrorCode ? "Network error" : null,
+      resetError: resetErrorMock,
+      start: vi.fn(),
+      stop: vi.fn(),
+      speak: vi.fn(),
+      interrupt: vi.fn(),
+      prefetch: vi.fn(),
+      cleanup: vi.fn(),
+      getAnalytics: vi.fn(() => ({})),
+      inputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      outputBars: [0, 0, 0, 0, 0, 0, 0, 0],
+      inputLevel: 0,
+      outputLevel: 0,
+    }));
+
+    try {
+      const { result, rerender } = renderHook(() => useInterviewSession());
+      act(() => {
+        result.current.actions.setPhase("interview");
+      });
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+      // Retry 1 at 1s: resetError clears errorCode, then async failure sets it back 100ms later
+      act(() => { vi.advanceTimersByTime(1000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(1);
+      rerender();
+      act(() => { vi.advanceTimersByTime(100); });
+      currentErrorCode = "network";
+      currentState = "error";
+      rerender();
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+      // Retry 2 at 2s
+      act(() => { vi.advanceTimersByTime(2000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(2);
+      rerender();
+      act(() => { vi.advanceTimersByTime(100); });
+      currentErrorCode = "network";
+      currentState = "error";
+      rerender();
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.RECONNECTING);
+
+      // Retry 3 at 4s
+      act(() => { vi.advanceTimersByTime(4000); });
+      expect(resetErrorMock).toHaveBeenCalledTimes(3);
+      rerender();
+      act(() => { vi.advanceTimersByTime(100); });
+      currentErrorCode = "network";
+      currentState = "error";
+      rerender();
+
+      expect(result.current.state.lifecycleState).toBe(INTERVIEW_LIFECYCLE.ERROR);
+      expect(result.current.state.sessionError?.actionType).toBe("reconnect");
+    } finally {
+      if (origImpl) vi.mocked(useVoiceAI).mockImplementation(origImpl);
+      vi.useRealTimers();
+    }
   });
 });

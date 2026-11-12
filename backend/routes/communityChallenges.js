@@ -1,8 +1,8 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, optionalAuth } from '../middleware/auth.js';
-import { LeaderboardService } from '../services/leaderboardService.js';
-import { WebhookDispatcher } from '../services/webhookDispatcher.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.ts';
+import { LeaderboardService } from '../services/leaderboardService.ts';
+import { WebhookDispatcher } from '../services/webhookDispatcher.ts';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { createLogger } from '../utils/structuredLogger.js';
 import { validateRequest } from '../middleware/validation.js';

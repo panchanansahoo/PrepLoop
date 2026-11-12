@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LeaderboardService } from '../../services/leaderboardService.js';
+import { LeaderboardService } from '../../services/leaderboardService.ts';
 
 describe('LeaderboardService Real-Time Ranking', () => {
   it('generates consistent ISO weekly keys', () => {

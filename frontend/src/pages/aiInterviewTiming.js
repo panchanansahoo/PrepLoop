@@ -66,19 +66,30 @@ const TYPE_REACTIONS = {
     },
 };
 
-export function getInterviewerReaction(score, interviewType = null) {
+export function getInterviewerReaction(score, interviewType = null, difficulty = null) {
     const normalizedType = String(interviewType || '').toLowerCase().replace('system_design', 'system-design');
     const typeReactions = TYPE_REACTIONS[normalizedType];
 
+    const normDiff = String(difficulty || '').toLowerCase().trim();
+    let highThreshold = 80;
+    let midThreshold = 60;
+    if (normDiff === 'easy') {
+        highThreshold = 65;
+        midThreshold = 48;
+    } else if (normDiff === 'hard' || normDiff === 'staff_architectural') {
+        highThreshold = 82;
+        midThreshold = 62;
+    }
+
     if (typeReactions) {
-        if (score >= 80) return typeReactions.high;
-        if (score >= 60) return typeReactions.mid;
+        if (score >= highThreshold) return typeReactions.high;
+        if (score >= midThreshold) return typeReactions.mid;
         return typeReactions.low;
     }
 
     // Default (generic) reactions — backward compatible
-    if (score >= 80) return { emoji: '👍', text: "That's a strong answer." };
-    if (score >= 60) return { emoji: '🤔', text: 'Let me follow up on that.' };
+    if (score >= highThreshold) return { emoji: '👍', text: "That's a strong answer." };
+    if (score >= midThreshold) return { emoji: '🤔', text: 'Let me follow up on that.' };
     return { emoji: '😐', text: "Let's explore that further." };
 }
 
@@ -329,6 +340,59 @@ export function decideNextTurnAction({
         };
     }
 
+    // Timed out: candidate ran over question time budget, advance with gentle redirect
+    if (answerType === 'timed_out') {
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: true,
+            noScore: true,
+            neutralReaction: true,
+        };
+    }
+
+    // Code only: candidate wrote code without verbal answer, prompt once to explain
+    if (answerType === 'code_only') {
+        if (topicFollowUpCount < 1) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: false,
+                noScore: false,
+                neutralReaction: false,
+                promptCue: 'Walk me through what this code does.',
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: false,
+            noScore: false,
+            neutralReaction: false,
+        };
+    }
+
+    // Repeated answer: avoid repetitive loops, redirect to another perspective
+    if (answerType === 'repeated') {
+        if (topicFollowUpCount < 1) {
+            return {
+                action: 'follow_up',
+                nextTopicFollowUpCount: topicFollowUpCount + 1,
+                needsRedirect: true,
+                noScore: false,
+                neutralReaction: true,
+                promptCue: 'You mentioned that earlier — can you share another angle or trade-off?',
+            };
+        }
+        return {
+            action: 'next_question',
+            nextTopicFollowUpCount: 0,
+            needsRedirect: true,
+            noScore: false,
+            neutralReaction: true,
+        };
+    }
+
     // Clarification: answer or repeat question, never scored, never counts as follow-up
     if (answerType === 'clarification') {
         return {
@@ -566,16 +630,24 @@ export function isFinishedTurn(text = '') {
 // ── Semantic Silence & Turn-Taking Threshold Engine ────────────────
 // Scales required silence duration based on interview stage and word count.
 // Uses adaptive silence (1.5s - 3.6s cap), the filler allowance, and the 2s resume window.
-export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0, text = '', candidatePacingOffset = 0 } = {}) {
+export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0, text = '', candidatePacingOffset = 0, isCodingActive = false } = {}) {
     const trimmed = String(text || '').trim();
 
     // Definitively finished turns trigger immediate snappy 1500ms submission
-    if (isFinishedTurn(trimmed)) {
+    if (isFinishedTurn(trimmed) && !isCodingActive) {
         return 1500;
     }
 
     const unfinishedBonus = isUnfinishedTurn(trimmed) ? 1000 : 0;
     const fillerBonus = isTrailingFiller(trimmed) ? 1200 : 0;
+
+    // Detect mid-list or trailing enumeration (e.g. "first...", "secondly...", "also,", trailing comma)
+    const isMidList = /(?:\b(?:firstly|first|secondly|second|third|also|additionally|plus)\b[^.!?]*$|,\s*$)/i.test(trimmed);
+    const listMomentumBonus = isMidList ? 500 : 0;
+
+    // Active coding/typing buffer: allows thought and typing without auto-submitting
+    const codingBonus = isCodingActive ? 1400 : 0;
+
     const baseOffset = Number.isFinite(candidatePacingOffset) ? candidatePacingOffset : 0;
     // Clamp individual pacing offset to [-300ms, +500ms]
     const clampedOffset = Math.max(-300, Math.min(500, baseOffset));
@@ -592,6 +664,8 @@ export function getSemanticSilenceThreshold({ stage = 'Technical', wordCount = 0
         threshold = wordCount < 10 ? 2200 : 1800;
     }
 
-    // Hard clamp between 1500ms min and 3600ms max so deliberate speakers + trailing fillers never hit >3.6s
-    return Math.min(3600, Math.max(1500, threshold + Math.max(fillerBonus, unfinishedBonus) + clampedOffset));
+    // Clamped up to 3600ms for voice-only, or 5000ms when candidate is actively coding
+    const maxThreshold = isCodingActive ? 5000 : 3600;
+    const totalBonus = Math.max(fillerBonus, unfinishedBonus, listMomentumBonus, codingBonus);
+    return Math.min(maxThreshold, Math.max(1500, threshold + totalBonus + clampedOffset));
 }

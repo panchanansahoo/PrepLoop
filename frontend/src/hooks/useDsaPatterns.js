@@ -5,17 +5,50 @@
  * problems to sub-patterns. Extracted from ProblemExplorer.jsx for separation
  * of data concerns from UI concerns.
  */
-import { useMemo } from 'react';
-import { PROBLEMS } from '../data/problemsDatabase';
-import { dsaPatternsAll as baseDsaPatterns } from '../data/dsaPatternsData';
+import { useEffect, useMemo, useState } from 'react';
 import {
     PATTERN_CATEGORIES,
     EXTRA_SUBPATTERN_MATCHERS,
     FIXED_PATTERN_PROBLEM_COUNTS,
 } from '../data/problemExplorerConfig';
 
+let cachedDsaSources = null;
+let pendingDsaSourcesPromise = null;
+
+async function loadDsaSources() {
+    if (cachedDsaSources) return cachedDsaSources;
+    if (!pendingDsaSourcesPromise) {
+        pendingDsaSourcesPromise = Promise.all([
+            import('../data/problemsDatabase'),
+            import('../data/dsaPatternsData'),
+        ]).then(([problemsMod, patternsMod]) => {
+            cachedDsaSources = {
+                PROBLEMS: problemsMod.PROBLEMS || [],
+                baseDsaPatterns: patternsMod.dsaPatternsAll || [],
+            };
+            return cachedDsaSources;
+        });
+    }
+    return pendingDsaSourcesPromise;
+}
+
 export function useDsaPatterns(solvedSet) {
+    const [sources, setSources] = useState(() => cachedDsaSources);
+
+    useEffect(() => {
+        if (sources) return;
+        let cancelled = false;
+        loadDsaSources().then((loaded) => {
+            if (!cancelled) setSources(loaded);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [sources]);
+
     const dsaPatterns = useMemo(() => {
+        if (!sources) return [];
+        const { PROBLEMS, baseDsaPatterns } = sources;
         const basePatternsById = new Map(baseDsaPatterns.map((pattern) => [pattern.id, pattern]));
 
         // ── Global registry: first-match-wins deduplication ──
@@ -108,7 +141,7 @@ export function useDsaPatterns(solvedSet) {
         }
 
         return results;
-    }, [solvedSet]);
+    }, [solvedSet, sources]);
 
     return dsaPatterns;
 }

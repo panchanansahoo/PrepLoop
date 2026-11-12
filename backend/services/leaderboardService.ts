@@ -1,4 +1,4 @@
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.ts';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { createLogger } from '../utils/structuredLogger.js';
 

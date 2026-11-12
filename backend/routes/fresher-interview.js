@@ -1,6 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
+import cacheManager from '../utils/cacheManager.js';
 
 const router = express.Router();
 
@@ -88,6 +89,9 @@ const OTHER_TECHNICAL_QUESTIONS = [
 export const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 export const COMPLETED_SESSION_TTL_MS = 15 * 60 * 1000; // 15 minutes
 export const MAX_SESSIONS = 500;
+const FRESHER_SESSION_TTL_SEC = 2 * 60 * 60;
+const FRESHER_COMPLETED_TTL_SEC = 15 * 60;
+const FRESHER_CACHE_PREFIX = 'fresher_session:';
 
 export const sessions = new Map();
 
@@ -155,7 +159,42 @@ export const storeSession = (sessionId, sessionData) => {
   sessions.set(sessionId, sessionData);
 };
 
-router.post('/start', authenticateToken, (req, res) => {
+async function persistSession(sessionId, sessionData) {
+  storeSession(sessionId, sessionData);
+  const ttlSec = sessionData.phase === 'complete' ? FRESHER_COMPLETED_TTL_SEC : FRESHER_SESSION_TTL_SEC;
+  try {
+    await cacheManager.set(`${FRESHER_CACHE_PREFIX}${sessionId}`, sessionData, ttlSec);
+  } catch {
+    // Non-fatal: L1 bounded memory cache remains active
+  }
+}
+
+async function loadSessionAsync(sessionId) {
+  const local = getActiveSession(sessionId);
+  if (local) return local;
+  if (!sessionId) return null;
+  try {
+    const remote = await cacheManager.get(`${FRESHER_CACHE_PREFIX}${sessionId}`);
+    if (remote && typeof remote === 'object') {
+      storeSession(sessionId, remote);
+      return getActiveSession(sessionId);
+    }
+  } catch {
+    // Fall back to null if Redis is unavailable
+  }
+  return null;
+}
+
+async function deleteSessionAsync(sessionId) {
+  sessions.delete(sessionId);
+  try {
+    await cacheManager.delete(`${FRESHER_CACHE_PREFIX}${sessionId}`);
+  } catch {
+    // Non-fatal
+  }
+}
+
+router.post('/start', authenticateToken, async (req, res) => {
   try {
     const { interviewerName, role, company, roundName, roundType } = req.body;
 
@@ -165,7 +204,7 @@ router.post('/start', authenticateToken, (req, res) => {
 
     const sessionId = `${req.user.id}-${Date.now()}`;
     
-    storeSession(sessionId, {
+    await persistSession(sessionId, {
       userId: req.user.id,
       interviewerName: interviewerName || "NAME",
       role: role || "role with company",
@@ -197,11 +236,11 @@ router.post('/start', authenticateToken, (req, res) => {
   }
 });
 
-router.post('/answer', authenticateToken, (req, res) => {
+router.post('/answer', authenticateToken, async (req, res) => {
   try {
     const { sessionId, answer } = req.body;
 
-    const session = getActiveSession(sessionId);
+    const session = await loadSessionAsync(sessionId);
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
@@ -226,6 +265,7 @@ router.post('/answer', authenticateToken, (req, res) => {
     if (session.phase === 'intro' && session.currentQuestionIndex < 5) {
       const nextQuestion = FIXED_INTRO_QUESTIONS[session.currentQuestionIndex];
       session.askedQuestions.push(nextQuestion);
+      await persistSession(sessionId, session);
       
       return res.json({
         nextQuestion,
@@ -241,6 +281,7 @@ router.post('/answer', authenticateToken, (req, res) => {
         session.phase = 'hr';
         const randomHR = HR_QUESTIONS[crypto.randomInt(HR_QUESTIONS.length)];
         session.askedQuestions.push(randomHR);
+        await persistSession(sessionId, session);
         
         return res.json({
           nextQuestion: randomHR,
@@ -254,6 +295,7 @@ router.post('/answer', authenticateToken, (req, res) => {
         const dsaQ = DSA_QUESTIONS[crypto.randomInt(DSA_QUESTIONS.length)];
         session.askedQuestions.push(dsaQ);
         session.techCount.dsa = 1;
+        await persistSession(sessionId, session);
         
         return res.json({
           nextQuestion: dsaQ,
@@ -272,6 +314,7 @@ router.post('/answer', authenticateToken, (req, res) => {
       if (availableHR.length > 0) {
         const randomHR = availableHR[crypto.randomInt(availableHR.length)];
         session.askedQuestions.push(randomHR);
+        await persistSession(sessionId, session);
         
         return res.json({
           nextQuestion: randomHR,
@@ -281,6 +324,8 @@ router.post('/answer', authenticateToken, (req, res) => {
       } else {
         session.phase = 'complete';
         session.completedAt = new Date().toISOString();
+        session.completedAtMs = Date.now();
+        await persistSession(sessionId, session);
         
         return res.json({
           complete: true,
@@ -301,6 +346,7 @@ router.post('/answer', authenticateToken, (req, res) => {
         const oopQ = availableOOP[crypto.randomInt(availableOOP.length)];
         session.askedQuestions.push(oopQ);
         session.techCount.oop++;
+        await persistSession(sessionId, session);
         
         return res.json({
           nextQuestion: oopQ,
@@ -316,6 +362,7 @@ router.post('/answer', authenticateToken, (req, res) => {
         const techQ = availableTech[crypto.randomInt(availableTech.length)];
         session.askedQuestions.push(techQ);
         session.techCount.other++;
+        await persistSession(sessionId, session);
         
         return res.json({
           nextQuestion: techQ,
@@ -329,6 +376,7 @@ router.post('/answer', authenticateToken, (req, res) => {
       session.phase = 'complete';
       session.completedAt = new Date().toISOString();
       session.completedAtMs = Date.now();
+      await persistSession(sessionId, session);
       
       return res.json({
         complete: true,
@@ -352,11 +400,11 @@ router.post('/answer', authenticateToken, (req, res) => {
   }
 });
 
-router.get('/session/:sessionId', authenticateToken, (req, res) => {
+router.get('/session/:sessionId', authenticateToken, async (req, res) => {
   try {
     const { sessionId } = req.params;
 
-    const session = getActiveSession(sessionId);
+    const session = await loadSessionAsync(sessionId);
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
@@ -380,17 +428,17 @@ router.get('/session/:sessionId', authenticateToken, (req, res) => {
   }
 });
 
-router.delete('/session/:sessionId', authenticateToken, (req, res) => {
+router.delete('/session/:sessionId', authenticateToken, async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const session = sessions.get(sessionId);
+    const session = await loadSessionAsync(sessionId);
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
     if (session.userId !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
-    sessions.delete(sessionId);
+    await deleteSessionAsync(sessionId);
     res.json({ success: true, message: 'Session deleted successfully' });
   } catch (error) {
     console.error('Error deleting session:', error);

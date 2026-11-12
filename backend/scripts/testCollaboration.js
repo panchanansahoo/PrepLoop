@@ -11,7 +11,7 @@
  * - Safe termination and garbage collection
  */
 
-import collaborationService from '../services/collaborationService.js';
+import collaborationService from '../services/collaborationService.ts';
 import { createLogger } from '../utils/structuredLogger.js';
 
 const logger = createLogger('test-collaboration');

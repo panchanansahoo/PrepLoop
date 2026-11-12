@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { apiCacheMiddleware } from '../middleware/apiCache.js';
 import { csrfProtection } from '../middleware/csrf.js';
-import { usageQuota } from '../middleware/usageQuota.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 
 function createResponse() {
   const headers = new Map();

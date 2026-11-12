@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { csrfProtection } from '../../middleware/csrf.js';
-import { usageQuota } from '../../middleware/usageQuota.js';
+import { usageQuota } from '../../middleware/usageQuota.ts';
 
 function createResponse() {
   const headers = new Map();

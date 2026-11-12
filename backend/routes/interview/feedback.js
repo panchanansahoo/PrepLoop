@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
-import { authenticateToken } from '../../middleware/auth.js';
+import { authenticateToken } from '../../middleware/auth.ts';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
 import { groq } from './helpers.js';
 import { feedbackStreamLimiter, aiEndpointsLimiter } from '../../middleware/apiRateLimiter.js';

@@ -19,7 +19,7 @@ import {
   requireEmployerOrAdmin,
   getAccessToken,
   isAdminEmail,
-} from '../../middleware/auth.js';
+} from '../../middleware/auth.ts';
 
 import { normalizeProfileUpdatePayload } from '../../utils/profilePayload.js';
 import {
@@ -494,28 +494,28 @@ describe('PrepLoop Dedicated Security Testing Suite (10 Critical Domains)', () =
   // 7. CODE EXECUTION SANDBOX SECURITY TESTS
   // ==========================================================================
   describe('7. DSA Code Execution Sandbox Security Tests', () => {
-    it('executes in sanitized environment where process.env secrets are not exposed', () => {
+    it('executes in sanitized environment where process.env secrets are not exposed', async () => {
       // Execute JavaScript code that attempts to inspect process.env secrets
       const probeCode = `
         const hasSecret = Boolean(process.env.GROQ_API_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.DATABASE_URL);
         console.log(JSON.stringify({ hasSecret }));
       `;
 
-      const result = executeCode(probeCode, 'javascript');
+      const result = await executeCode(probeCode, 'javascript');
       expect(result.success).toBe(true);
       expect(result.output).toContain('"hasSecret":false');
     });
 
-    it('rejects unsupported or arbitrary programming languages', () => {
-      const result = executeCode('echo "hack"', 'bash');
+    it('rejects unsupported or arbitrary programming languages', async () => {
+      const result = await executeCode('echo "hack"', 'bash');
       expect(result.success).toBe(false);
       expect(result.error).toMatch(/Language "bash" is not supported/i);
     });
 
-    it('enforces execution timeout on infinite loops', () => {
+    it('enforces execution timeout on infinite loops', async () => {
       const infiniteLoopCode = 'while(true) {}';
       const start = Date.now();
-      const result = executeCode(infiniteLoopCode, 'javascript');
+      const result = await executeCode(infiniteLoopCode, 'javascript');
       const duration = Date.now() - start;
 
       expect(result.success).toBe(false);

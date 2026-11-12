@@ -5,7 +5,7 @@ import { getSecurityStats } from '../middleware/securityEnhanced.js';
 import cacheManager from '../utils/cacheManager.js';
 import { breakers } from '../utils/circuitBreaker.js';
 import { createLogger } from '../utils/structuredLogger.js';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import performanceMonitor from '../utils/performanceMonitor.js';
 
 const router = express.Router();

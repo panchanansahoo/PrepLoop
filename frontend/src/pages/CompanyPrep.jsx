@@ -4,6 +4,7 @@ import { Search, Filter, Building2, ChevronDown, ChevronUp, CheckCircle, Circle,
 import { COMPANIES, STAGES, ROLES, DIFFICULTIES, DATA_LAST_UPDATED } from '../data/companyPrepMeta';
 import { useCompanyPrepProgress } from '../data/companyPrepProgress';
 import { Link } from 'react-router-dom';
+import CompanyIntelligencePanel from '../components/CompanyIntelligencePanel';
 
 export default function CompanyPrep() {
   const FILTER_LABELS = {
@@ -266,6 +267,14 @@ export default function CompanyPrep() {
           )}
         </div>
       )}
+
+      {/* Company Interview Intelligence (F2-5) */}
+      <CompanyIntelligencePanel
+        questions={questions}
+        selectedCompany={selectedCompanyTile || (selectedCompanies.length === 1 ? selectedCompanies[0] : '')}
+        selectedTrack={selectedRole || 'All'}
+        onSelectTrack={(track) => setSelectedRole(track === 'All' ? '' : track)}
+      />
 
       {/* View Tabs */}
       <div className="cp-view-tabs">

@@ -3,7 +3,13 @@
 // Data loading is lazy so backend startup does not depend on frontend-only files.
 
 import crypto from 'crypto';
-import { getRedisClient } from '../config/redis.js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { getRedisClient } from '../config/redis.ts';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export interface CompanyQuestion {
   id: string;
@@ -34,12 +40,12 @@ let companiesList: CompanyMeta[] | null = null;
  */
 async function resolveQuestionModule(): Promise<{ metaMod: any; qsMod: any } | null> {
   const candidatesMeta = [
-    '../../frontend/src/data/companyPrepMeta.js',
-    '../data/companyPrepMeta.js',
+    path.resolve(__dirname, '../../frontend/src/data/companyPrepMeta.js'),
+    path.resolve(__dirname, '../data/companyPrepMeta.js'),
   ];
   const candidatesQs = [
-    '../../frontend/src/data/companyQuestions.js',
-    '../data/companyQuestions.js',
+    path.resolve(__dirname, '../../frontend/src/data/companyQuestions.js'),
+    path.resolve(__dirname, '../data/companyQuestions.js'),
   ];
 
   let metaMod: any = null;
@@ -47,14 +53,18 @@ async function resolveQuestionModule(): Promise<{ metaMod: any; qsMod: any } | n
 
   for (const candidate of candidatesMeta) {
     try {
-      metaMod = await import(candidate);
-      break;
+      if (fs.existsSync(candidate)) {
+        metaMod = await import(/* @vite-ignore */ pathToFileURL(candidate).href);
+        break;
+      }
     } catch (_) {}
   }
   for (const candidate of candidatesQs) {
     try {
-      qsMod = await import(candidate);
-      break;
+      if (fs.existsSync(candidate)) {
+        qsMod = await import(/* @vite-ignore */ pathToFileURL(candidate).href);
+        break;
+      }
     } catch (_) {}
   }
 
@@ -221,4 +231,102 @@ export default {
 export const _getFilteredQuestions = getFilteredQuestions;
 export const _getQuestionCount = getQuestionCount;
 export const _getRandomQuestionSet = getRandomQuestionSet;
+
+// ─── F2-5: Company-Specific Interview Intelligence ───────────────────────────
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+const recentSightings = new Map<string, string>(); // questionId -> ISO date
+
+export type RoleTrack = 'SWE' | 'PM' | 'Data' | 'Design';
+
+function inferRoleTrack(q: CompanyQuestion): RoleTrack {
+  const hay = `${q.role || ''} ${q.category || ''} ${q.stage || ''} ${q.question || ''}`.toLowerCase();
+  if (/(product manager|product sense|\bpm\b|roadmap|metrics|go-to-market)/.test(hay)) return 'PM';
+  if (/(data scientist|data engineer|ml|machine learning|sql|analytics|statistics)/.test(hay)) return 'Data';
+  if (/(system design|architecture|ux|ui|product design|scalability|distributed)/.test(hay)) return 'Design';
+  return 'SWE';
+}
+
+export function isQuestionSeenRecently(q: CompanyQuestion, now = Date.now()): boolean {
+  const overrideTs = recentSightings.get(q.id);
+  const rawDate = overrideTs || q.lastReportedAt || q.reportedAt || q.lastSeenAt;
+  if (rawDate) {
+    const ms = new Date(rawDate).getTime();
+    if (!Number.isNaN(ms) && now - ms <= NINETY_DAYS_MS) return true;
+  }
+  return Boolean(q.seenRecently || (typeof q.recencyDays === 'number' && q.recencyDays <= 90));
+}
+
+export function markQuestionSeenRecently(questionId: string): { questionId: string; lastReportedAt: string } {
+  const lastReportedAt = new Date().toISOString();
+  recentSightings.set(String(questionId), lastReportedAt);
+  return { questionId: String(questionId), lastReportedAt };
+}
+
+export async function getCompanyIntelligence(company?: string, roleTrack?: RoleTrack | string) {
+  await loadQuestionData();
+  const companyId = company ? company.toLowerCase().replace(/\s+/g, '_') : '';
+
+  const companyQuestions = (questionCache || []).filter((q) => {
+    if (!companyId) return true;
+    const qCompany = (q.company || '').toLowerCase();
+    return qCompany.includes(companyId) || companyId.includes(qCompany);
+  });
+
+  const tracks: Record<RoleTrack, number> = { SWE: 0, PM: 0, Data: 0, Design: 0 };
+  const difficultyCounts = { easy: 0, medium: 0, hard: 0 };
+  let seenRecentlyCount = 0;
+
+  const enriched = companyQuestions.map((q) => {
+    const track = inferRoleTrack(q);
+    tracks[track] = (tracks[track] || 0) + 1;
+
+    const diff = String(q.difficulty || 'medium').toLowerCase();
+    if (diff === 'easy') difficultyCounts.easy += 1;
+    else if (diff === 'hard') difficultyCounts.hard += 1;
+    else difficultyCounts.medium += 1;
+
+    const seenRecently = isQuestionSeenRecently(q);
+    if (seenRecently) seenRecentlyCount += 1;
+
+    return {
+      ...q,
+      roleTrack: track,
+      seenRecently,
+    };
+  });
+
+  const filteredByTrack = roleTrack
+    ? enriched.filter((q) => q.roleTrack.toLowerCase() === String(roleTrack).toLowerCase())
+    : enriched;
+
+  const total = companyQuestions.length || 1;
+  return {
+    company: company || 'all',
+    totalQuestions: companyQuestions.length,
+    seenRecentlyCount,
+    roleTracks: (['SWE', 'PM', 'Data', 'Design'] as RoleTrack[]).map((track) => ({
+      track,
+      count: tracks[track],
+    })),
+    difficultyDistribution: {
+      easy: { count: difficultyCounts.easy, percent: Math.round((difficultyCounts.easy / total) * 100) },
+      medium: { count: difficultyCounts.medium, percent: Math.round((difficultyCounts.medium / total) * 100) },
+      hard: { count: difficultyCounts.hard, percent: Math.round((difficultyCounts.hard / total) * 100) },
+    },
+    questions: filteredByTrack.slice(0, 50),
+  };
+}
+
+export function buildDeterministicFollowUps(question: string, answer: string, company = 'this company'): string[] {
+  const shortTopic = String(question || 'your solution').slice(0, 80);
+  const mentionsScale = /(scale|latency|cache|redis|kafka|shard|throughput|million)/i.test(answer || '');
+  return [
+    `At ${company} scale, what bottleneck would appear first in "${shortTopic}" and how would you mitigate it?`,
+    mentionsScale
+      ? 'You mentioned scaling components — how would you handle a partial region outage or split-brain scenario?'
+      : 'What time and space complexity trade-offs did you make, and could you optimize the worst-case path?',
+    'How would you instrument metrics, alerts, and automated tests to verify this in production?',
+  ];
+}
+
 

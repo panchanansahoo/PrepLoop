@@ -44,7 +44,44 @@ export function splitTextForTTS(input, maxChunkLength = DEFAULT_TTS_MAX_CHUNK_LE
       continue;
     }
 
-    // Fallback for very long single sentence: split by words.
+    // Fallback for very long single sentence: try clause punctuation first (;, :, —, ,)
+    const clauses = sentence.match(/[^;:\u2014,]+[;:\u2014,]?/g) || [sentence];
+    if (clauses.length > 1) {
+      let clauseBuffer = '';
+      for (const clause of clauses) {
+        const candidateClause = `${clauseBuffer} ${clause}`.trim();
+        if (candidateClause.length <= limit) {
+          clauseBuffer = candidateClause;
+        } else {
+          if (clauseBuffer) {
+            chunks.push(clauseBuffer);
+          }
+          if (clause.length <= limit) {
+            clauseBuffer = clause.trim();
+          } else {
+            // Very long clause: split by words
+            const words = clause.trim().split(/\s+/);
+            let wordBuffer = '';
+            for (const word of words) {
+              const wordCandidate = `${wordBuffer} ${word}`.trim();
+              if (wordCandidate.length <= limit) {
+                wordBuffer = wordCandidate;
+              } else {
+                if (wordBuffer) chunks.push(wordBuffer);
+                wordBuffer = word;
+              }
+            }
+            clauseBuffer = wordBuffer;
+          }
+        }
+      }
+      if (clauseBuffer) {
+        buffer = clauseBuffer;
+      }
+      continue;
+    }
+
+    // Fallback for very long single sentence without punctuation: split by words.
     const words = sentence.trim().split(/\s+/);
     let wordBuffer = '';
 

@@ -419,7 +419,7 @@ export class InterviewStateMachineService {
     // ── Stage Progression Resolution ─────────────────────────────────────
     const baseNextStage = resolveNextStage(turns, totalQuestions);
     let nextStage = baseNextStage;
-    let transitionReason = null;
+    let transitionReason;
 
     // Check High-Score Early Challenge Acceleration (Feature 11)
     if (consecutiveHighScores >= 3 && previousStage !== 'challenge' && previousStage !== 'feedback') {
@@ -547,7 +547,7 @@ export class InterviewStateMachineService {
     scoreHistory = [],
     recentScores = [],
     stuckCount = 0,
-    interviewType = 'dsa',
+    interviewType: _interviewType = 'dsa',
   } = {}) {
     const DIFFICULTY_TIERS = ['easy', 'medium', 'hard', 'staff_architectural'];
     const normDiff = String(currentDifficulty || 'medium').toLowerCase();

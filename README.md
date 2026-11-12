@@ -41,7 +41,6 @@ This repository is organized as a monorepo containing everything needed to run P
 | --------- | ----------- |
 | 🌐 `frontend/` | React + Vite web application |
 | ⚙️ `backend/` | Node.js + Express API server |
-| 🤖 `discord-bot/`| Discord integration and moderation bot |
 | 📖 `docs/` | Architecture and API reference documentation |
 | 🛠 `scripts/` | Utility and smoke-test scripts |
 | 🏢 `Company_Interview/` | Company-specific question datasets |
@@ -164,14 +163,6 @@ Node 22 service for the backend**, and **Supabase for Auth/Postgres**. The deplo
 workflow validates frontend tests, the production build, the asset budget, and public-route
 Playwright smoke tests before deployment. Keep other provider manifests for reference only
 unless they are actively maintained and monitored.
-
-### Discord Bot Commands (`discord-bot/`)
-| Command | Action |
-| ------- | ------ |
-| `npm run discord:install` | Installs bot dependencies. |
-| `npm run discord:dev` | Starts bot in watch mode. |
-| `npm run discord:deploy` | Registers/Deploys slash commands. |
-| `npm run discord:doctor` | Environment and runtime diagnostics. |
 
 ---
 

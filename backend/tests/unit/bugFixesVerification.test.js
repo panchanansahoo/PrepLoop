@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'vitest';
 import { EventEmitter } from 'node:events';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 import { apiCacheMiddleware, invalidateCache } from '../../middleware/apiCache.js';
 import { sanitizeHTML } from '../../middleware/sanitization.js';
@@ -164,9 +169,9 @@ test('apiCache: precision matching prevents over-broad substring invalidation (B
   assert.deepEqual(resPic2.body, { avatar: 'https://example.com/avatar.png' });
 });
 
-test('executeCode: executes JavaScript securely and validates Java class names (B9 & B12)', () => {
-  // Test basic JavaScript execution via execFileSync
-  const jsResult = executeCode('console.log("Safe Sandbox Output");', 'javascript');
+test('executeCode: executes JavaScript securely and validates Java class names (B9 & B12)', async () => {
+  // Test basic JavaScript execution via async execFile
+  const jsResult = await executeCode('console.log("Safe Sandbox Output");', 'javascript');
   assert.equal(jsResult.success, true);
   assert.equal(jsResult.output, 'Safe Sandbox Output');
 
@@ -178,7 +183,7 @@ test('executeCode: executes JavaScript securely and validates Java class names (
         }
     }
   `;
-  const javaResult = executeCode(maliciousJava, 'java');
+  const javaResult = await executeCode(maliciousJava, 'java');
   // Either javac is not installed on test host (returns runtime not found)
   // or it compiles/runs Main safely without shell command execution
   if (!javaResult.success) {
@@ -927,74 +932,12 @@ test('contact: input sanitization, length boundaries, and email header injection
   assert.ok(validWithNewlines.sanitized.message.includes('\n'));
 });
 
-test('password reset: devResetLink gated to development AND localhost only (J2)', () => {
-  const buildForgotPasswordResponse = ({ nodeEnv, hostname, ip, resetLink, mailErrorMessage, emailSent }) => {
-    const isLocalIp = ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
-    const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
-    const isLocalDev = nodeEnv === 'development' && (isLocalHost || isLocalIp);
+test('password reset: forgot-password never returns resetLink or devResetLink in HTTP responses (J2)', () => {
+  const passwordRoutePath = path.join(__dirname, '../../routes/auth/password.js');
+  const routeSource = fs.readFileSync(passwordRoutePath, 'utf-8');
 
-    return {
-      message: 'If an account with that email exists, a password reset link has been sent.',
-      emailSent: Boolean(emailSent),
-      ...(isLocalDev && {
-        resetLink,
-        devResetLink: resetLink,
-        mailError: mailErrorMessage,
-      }),
-    };
-  };
-
-  const sampleTokenLink = 'https://supabase.co/auth/v1/verify?token=pkce_secret_token_123';
-
-  // 1. Production environment never exposes resetLink
-  const prodResponse = buildForgotPasswordResponse({
-    nodeEnv: 'production',
-    hostname: 'preploop.me',
-    ip: '10.0.0.1',
-    resetLink: sampleTokenLink,
-    emailSent: true,
-  });
-  assert.equal(prodResponse.resetLink, undefined);
-  assert.equal(prodResponse.devResetLink, undefined);
-  assert.equal(prodResponse.emailSent, true);
-
-  // 2. Staging / UAT environment with NODE_ENV=development on remote hostname never exposes resetLink
-  const stagingResponse = buildForgotPasswordResponse({
-    nodeEnv: 'development',
-    hostname: 'staging.preploop.me',
-    ip: '192.168.1.50',
-    resetLink: sampleTokenLink,
-    emailSent: false,
-    mailErrorMessage: 'SMTP timeout',
-  });
-  assert.equal(stagingResponse.resetLink, undefined);
-  assert.equal(stagingResponse.devResetLink, undefined);
-  assert.equal(stagingResponse.mailError, undefined);
-  assert.equal(stagingResponse.emailSent, false);
-
-  // 3. Localhost in development mode exposes devResetLink
-  const localDevResponse = buildForgotPasswordResponse({
-    nodeEnv: 'development',
-    hostname: 'localhost',
-    ip: '127.0.0.1',
-    resetLink: sampleTokenLink,
-    emailSent: false,
-    mailErrorMessage: 'Dev mode no SMTP',
-  });
-  assert.equal(localDevResponse.resetLink, sampleTokenLink);
-  assert.equal(localDevResponse.devResetLink, sampleTokenLink);
-  assert.equal(localDevResponse.mailError, 'Dev mode no SMTP');
-  assert.equal(localDevResponse.emailSent, false);
-
-  // 4. Local IP 127.0.0.1 also allows devResetLink in development
-  const localIpDevResponse = buildForgotPasswordResponse({
-    nodeEnv: 'development',
-    hostname: '127.0.0.1',
-    ip: '127.0.0.1',
-    resetLink: sampleTokenLink,
-    emailSent: false,
-  });
-  assert.equal(localIpDevResponse.devResetLink, sampleTokenLink);
+  assert.equal(routeSource.includes('devResetLink:'), false);
+  assert.equal(/\n\s*resetLink,\s*\n/.test(routeSource), false);
 });
 
 test('career roadmap: targetRole and targetCompany input clamping to 100 characters (K1)', () => {

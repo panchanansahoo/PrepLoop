@@ -1,6 +1,6 @@
 import express from 'express';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, optionalAuth } from '../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../middleware/auth.ts';
 import { all425Problems } from '../data/allProblems.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import cacheManager from '../utils/cacheManager.js';

@@ -4,6 +4,10 @@
  */
 import { WebSocketServer } from 'ws';
 import crypto from 'crypto';
+import { InterviewStateMachineService } from './interviewStateMachine.js';
+import { InterviewScoringService } from './interviewScoringService.ts';
+import { computeNextMood, getMoodProfile, MOODS } from './interviewerMoodEngine.js';
+import { evaluateFresherAnswer } from './interviewAnswerEvaluator.js';
 
 // Lazy-initialize Groq to avoid duplicate SDK instances across the process.
 // Uses a promise-based singleton so the first call initializes, subsequent calls reuse.
@@ -25,32 +29,63 @@ class RealtimeInterviewService {
   constructor() {
     this.wss = null;
     this.sessions = new Map(); // sessionId -> { ws, context, state }
+    this.disconnectedSessions = new Map(); // sessionId -> { context, state, disconnectedAt, timeoutTimer }
   }
 
   initialize(server) {
     this.wss = new WebSocketServer({ server, path: '/ws/interview' });
 
-    this.wss.on('connection', (ws, _req) => {
-      const sessionId = this.generateSessionId();
-      console.log(`[RealtimeInterview] New connection: ${sessionId}`);
+    this.wss.on('connection', (ws, req) => {
+      let requestedSessionId = null;
+      try {
+        if (req?.url) {
+          const parsedUrl = new URL(req.url, 'http://localhost');
+          requestedSessionId = parsedUrl.searchParams.get('sessionId');
+        }
+      } catch {
+        /* ignore url parse error */
+      }
 
-      // Initialize session
-      this.sessions.set(sessionId, {
-        ws,
-        context: {
-          conversation: [],
-          questionIndex: 0,
-          company: 'General',
-          role: 'Software Engineer',
-          stage: 'Technical',
-        },
-        state: 'idle',
-      });
+      let sessionId = requestedSessionId;
+      let resumed = false;
 
-      // Send welcome message
+      if (sessionId && this.disconnectedSessions.has(sessionId)) {
+        const saved = this.disconnectedSessions.get(sessionId);
+        if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
+        this.disconnectedSessions.delete(sessionId);
+
+        this.sessions.set(sessionId, {
+          ws,
+          context: saved.context,
+          state: saved.state || 'idle',
+        });
+        resumed = true;
+        console.log(`[RealtimeInterview] Resumed session: ${sessionId}`);
+      } else {
+        sessionId = sessionId || this.generateSessionId();
+        console.log(`[RealtimeInterview] New connection: ${sessionId}`);
+
+        // Initialize session
+        this.sessions.set(sessionId, {
+          ws,
+          context: {
+            conversation: [],
+            questionIndex: 0,
+            company: 'General',
+            role: 'Software Engineer',
+            stage: 'Technical',
+          },
+          state: 'idle',
+        });
+      }
+
+      const activeSession = this.sessions.get(sessionId);
+
+      // Send connected / resumed message
       ws.send(JSON.stringify({
-        type: 'connected',
+        type: resumed ? 'resumed' : 'connected',
         sessionId,
+        context: activeSession.context,
         timestamp: Date.now(),
       }));
 
@@ -68,10 +103,26 @@ class RealtimeInterviewService {
         }
       });
 
-      // Handle disconnect
+      // Handle disconnect with 60s grace period
       ws.on('close', () => {
         console.log(`[RealtimeInterview] Disconnected: ${sessionId}`);
-        this.sessions.delete(sessionId);
+        const currentSession = this.sessions.get(sessionId);
+        if (currentSession) {
+          const timeoutTimer = setTimeout(() => {
+            if (this.disconnectedSessions.has(sessionId)) {
+              console.log(`[RealtimeInterview] Session grace window expired, purging: ${sessionId}`);
+              this.disconnectedSessions.delete(sessionId);
+            }
+          }, 60_000);
+
+          this.disconnectedSessions.set(sessionId, {
+            context: currentSession.context,
+            state: currentSession.state,
+            disconnectedAt: Date.now(),
+            timeoutTimer,
+          });
+          this.sessions.delete(sessionId);
+        }
       });
 
       ws.on('error', (err) => {
@@ -105,17 +156,69 @@ class RealtimeInterviewService {
         ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
         break;
 
+      case 'resume':
+        await this.handleResume(sessionId, session, message);
+        break;
+
       default:
         console.warn(`[RealtimeInterview] Unknown message type: ${message.type}`);
     }
   }
 
+  handleResume(currentSessionId, session, message) {
+    const { targetSessionId, sessionId } = message;
+    const resumeId = targetSessionId || sessionId;
+    if (!resumeId) {
+      session.ws.send(JSON.stringify({ type: 'error', error: 'Missing sessionId for resume' }));
+      return;
+    }
+
+    if (this.disconnectedSessions.has(resumeId)) {
+      const saved = this.disconnectedSessions.get(resumeId);
+      if (saved.timeoutTimer) clearTimeout(saved.timeoutTimer);
+      this.disconnectedSessions.delete(resumeId);
+
+      this.sessions.delete(currentSessionId);
+      this.sessions.set(resumeId, {
+        ws: session.ws,
+        context: saved.context,
+        state: saved.state || 'idle',
+      });
+
+      session.ws.send(JSON.stringify({
+        type: 'resumed',
+        sessionId: resumeId,
+        context: saved.context,
+        state: saved.state,
+        timestamp: Date.now(),
+      }));
+    } else {
+      session.ws.send(JSON.stringify({
+        type: 'resume_failed',
+        reason: 'Session expired or not found',
+        sessionId: resumeId,
+      }));
+    }
+  }
+
   async handleStart(session, message) {
     const { ws, context } = session;
-    const { company, role, stage, experienceLevel } = message;
+    const { company, role, stage, experienceLevel, interviewType, difficulty, totalQuestions } = message;
 
     // Update context
-    Object.assign(context, { company, role, stage, experienceLevel });
+    Object.assign(context, {
+      company: company || 'General',
+      role: role || 'Software Engineer',
+      stage: stage || 'intake',
+      experienceLevel: experienceLevel || 'fresher',
+      interviewType: interviewType || 'dsa',
+      difficulty: difficulty || 'medium',
+      totalQuestions: Number(totalQuestions) || 10,
+      turns: 0,
+      topicFollowUpCount: 0,
+      scoreHistory: [],
+      moodState: MOODS.NEUTRAL,
+    });
 
     // Generate first question
     const question = await this.generateQuestion(context);
@@ -125,6 +228,9 @@ class RealtimeInterviewService {
       type: 'question',
       question,
       questionIndex: 1,
+      stage: context.stage,
+      difficulty: context.difficulty,
+      mood: context.moodState,
       timestamp: Date.now(),
     }));
 
@@ -139,6 +245,8 @@ class RealtimeInterviewService {
   async handleAnswer(session, message) {
     const { ws, context } = session;
     const { answer, code, language } = message;
+
+    context.turns = (context.turns || 0) + 1;
 
     // Add answer to conversation
     context.conversation.push({
@@ -155,19 +263,80 @@ class RealtimeInterviewService {
       timestamp: Date.now(),
     }));
 
+    // 1. Evaluate answer quality using evaluateFresherAnswer for comprehensive semantic scoring
+    const evalResult = evaluateFresherAnswer(answer, context.stage, code);
+
+    // 2. Track score in history
+    context.scoreHistory = context.scoreHistory || [];
+    context.scoreHistory.push({ score: evalResult.score, turn: context.turns });
+
+    // 3. Score trend analysis
+    const scoreTrend = InterviewScoringService.calculateTrendFromHistory(context.scoreHistory);
+
+    // 4. Adaptive difficulty progression
+    const adaptiveDiff = InterviewScoringService.deriveAdaptiveDifficulty(
+      context.difficulty,
+      evalResult.score / 10,
+      context.turns,
+      scoreTrend,
+      context.experienceLevel
+    );
+    if (adaptiveDiff.changed) {
+      context.difficulty = adaptiveDiff.newDifficulty;
+    }
+
+    // 5. Emotional intelligence / Interviewer Mood state transition
+    const wordCount = String(answer || '').trim().split(/\s+/).filter(Boolean).length;
+    const cumulativeScores = context.scoreHistory.map((entry) => entry.score);
+    let consecutiveLowScores = 0;
+    for (let i = cumulativeScores.length - 1; i >= 0; i -= 1) {
+      if (cumulativeScores[i] < 50) consecutiveLowScores += 1;
+      else break;
+    }
+    const { nextMood } = computeNextMood(context.moodState || MOODS.NEUTRAL, {
+      score: evalResult.score,
+      wordCount,
+      cumulativeScores,
+      consecutiveLowScores,
+    });
+    const moodProfile = getMoodProfile(nextMood);
+    context.moodState = nextMood;
+
+    // 6. Proportional state machine stage progression
+    const nextState = InterviewStateMachineService.advanceState({
+      turns: context.turns,
+      totalQuestions: context.totalQuestions,
+      stage: context.stage,
+      interviewType: context.interviewType,
+      difficulty: context.difficulty,
+    });
+    context.stage = nextState.stage;
+
     // Generate feedback and next question in parallel
     const [feedback, nextQuestion] = await Promise.all([
       this.generateFeedback(context, answer),
       this.generateNextQuestion(context),
     ]);
 
+    const finalScore = Number.isFinite(feedback?.score) ? Math.round((feedback.score * 0.6) + (evalResult.score * 0.4)) : evalResult.score;
+
     // Send feedback
     ws.send(JSON.stringify({
       type: 'feedback',
-      feedback: feedback.comment,
-      score: feedback.score,
-      strengths: feedback.strengths,
-      improvements: feedback.improvements,
+      feedback: feedback?.comment || evalResult.feedbackSummary,
+      score: finalScore,
+      rubric: evalResult.rubric,
+      strengths: evalResult.strengths,
+      improvements: evalResult.improvements,
+      stage: context.stage,
+      difficulty: context.difficulty,
+      mood: {
+        state: context.moodState,
+        expression: moodProfile.expression,
+        avatarOverlay: moodProfile.avatarOverlay,
+        ttsProsody: moodProfile.ttsProsody,
+      },
+      adaptiveDifficulty: adaptiveDiff,
       timestamp: Date.now(),
     }));
 
@@ -176,13 +345,16 @@ class RealtimeInterviewService {
       type: 'question',
       question: nextQuestion,
       questionIndex: context.questionIndex + 1,
+      stage: context.stage,
+      difficulty: context.difficulty,
+      mood: context.moodState,
       timestamp: Date.now(),
     }));
 
     context.conversation.push({
       role: 'feedback',
-      content: feedback.comment,
-      score: feedback.score,
+      content: feedback?.comment || evalResult.feedbackSummary,
+      score: feedback?.score ?? finalScore,
       timestamp: Date.now(),
     });
 
@@ -371,4 +543,5 @@ Provide feedback in JSON format:
   }
 }
 
+export { RealtimeInterviewService };
 export default new RealtimeInterviewService();

@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { DEFAULT_ADMIN_EMAILS } from '../middleware/auth.js';
+import { DEFAULT_ADMIN_EMAILS } from '../middleware/auth.ts';
 
 const isDryRun = process.argv.includes('--dry-run');
 const autoCreate = !process.argv.includes('--no-create');

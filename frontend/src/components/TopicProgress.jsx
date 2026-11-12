@@ -1,6 +1,6 @@
 import RoadmapView from '../features/dashboard/components/RoadmapView';
+import { dsaCatalogPatterns } from '../data/dsaRoadmapCatalog';
 import {
-    dsaCatalogPatterns,
     dsaRoadmapHierarchy,
     languageCatalogPatterns,
     languageRoadmapHierarchy,

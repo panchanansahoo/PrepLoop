@@ -6,6 +6,7 @@ import { buildApiUrl } from '../utils/safeApiUrl';
 import { buildAuthHeaders } from '../utils/authHeaders';
 import { authFetch } from '../utils/authFetch';
 import ReactMarkdown from 'react-markdown';
+import ResumeGapAnalyzerModal from '../components/ResumeGapAnalyzerModal';
 import './AIJobCopilot.css';
 
 const TARGET_ROLES = [
@@ -43,6 +44,7 @@ export default function AIJobCopilot() {
   const initialQuery = location.state?.initialQuery || '';
   
   const [targetRole, setTargetRole] = useState(initialJobDetails.title || initialJobDetails.role || '');
+  const [gapModalOpen, setGapModalOpen] = useState(false);
   const [jobDescription, setJobDescription] = useState(initialJobDetails.description || '');
   const [resumeFile, setResumeFile] = useState(null);
   const [dragOver, setDragOver] = useState(false);
@@ -166,9 +168,23 @@ export default function AIJobCopilot() {
             <span><TrendingUp size={16} /> 3x Interview Rate</span>
             <span><Target size={16} /> Beat ATS Systems</span>
             <span><Star size={16} /> STAR Method Prep</span>
+            <button
+              type="button"
+              onClick={() => setGapModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-3.5 py-1 text-xs font-semibold text-white hover:bg-indigo-500 transition"
+            >
+              <Sparkles size={14} /> Analyze My Resume Fit
+            </button>
           </div>
         </div>
       </section>
+      <ResumeGapAnalyzerModal
+        isOpen={gapModalOpen}
+        onClose={() => setGapModalOpen(false)}
+        initialJobTitle={targetRole}
+        initialCompany={initialJobDetails.company || ''}
+        initialJobDescription={initialJobDetails.description || ''}
+      />
 
       {/* AI Chat Section */}
       <section className="copilot-card" aria-label="Ask AI Copilot">

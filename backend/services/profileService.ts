@@ -3,7 +3,7 @@ import cacheManager from '../utils/cacheManager.js';
 import { buildAvatarPath, claimCustomUrl } from '../utils/profileUtils.js';
 import { normalizeProfileUpdatePayload } from '../utils/profilePayload.js';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
-import { isAdminEmail } from '../middleware/auth.js';
+import { isAdminEmail } from '../middleware/auth.ts';
 import type { PublicPortfolio, UserSettings } from '../types/services.js';
 
 export const PROFILE_COMPLETION_COIN_REWARD = 20;

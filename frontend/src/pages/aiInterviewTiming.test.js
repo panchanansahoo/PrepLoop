@@ -75,6 +75,22 @@ describe('aiInterviewTiming', () => {
             expect(getInterviewerReaction(59).emoji).toBe('😐');  // just below
         });
 
+        it('adjusts reaction thresholds based on question difficulty', () => {
+            // For easy questions normalized <= 70, score of 68 should qualify for high
+            const easyHigh = getInterviewerReaction(68, 'dsa', 'easy');
+            expect(easyHigh.emoji).toBe('🎯');
+
+            const easyMid = getInterviewerReaction(52, 'dsa', 'easy');
+            expect(easyMid.emoji).toBe('🤔');
+
+            // For hard questions, threshold is higher (82)
+            const hardBelowHigh = getInterviewerReaction(81, 'dsa', 'hard');
+            expect(hardBelowHigh.emoji).toBe('🤔');
+
+            const hardHigh = getInterviewerReaction(85, 'dsa', 'hard');
+            expect(hardHigh.emoji).toBe('🎯');
+        });
+
         // ── Type-specific reaction tests ──────────────────────────────
         it('returns DSA-specific reactions when type is provided', () => {
             const high = getInterviewerReaction(90, 'dsa');
@@ -244,9 +260,56 @@ describe('aiInterviewTiming', () => {
             expect(clamped).toBe(3600);
             expect(clamped).toBeLessThanOrEqual(3600);
         });
+
+        it('extends silence threshold when candidate speaks mid-list or trailing enumeration', () => {
+            const listThreshold = getSemanticSilenceThreshold({
+                stage: 'Technical',
+                wordCount: 20,
+                text: "First we partition the array, secondly we sort recursively,",
+            });
+            expect(listThreshold).toBeGreaterThanOrEqual(2500);
+        });
+
+        it('extends silence threshold up to 5000ms when candidate is actively coding', () => {
+            const codingThreshold = getSemanticSilenceThreshold({
+                stage: 'DSA / Coding',
+                wordCount: 5,
+                text: "function solve() {",
+                isCodingActive: true,
+            });
+            expect(codingThreshold).toBeGreaterThanOrEqual(3400);
+            expect(codingThreshold).toBeLessThanOrEqual(5000);
+        });
     });
 
     describe('Turn Routing Decision Engine (Follow-up vs Next Question)', () => {
+        it('handles timed_out turns by advancing with redirect and noScore', () => {
+            const decision = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'timed_out' });
+            expect(decision.action).toBe('next_question');
+            expect(decision.needsRedirect).toBe(true);
+            expect(decision.noScore).toBe(true);
+            expect(decision.neutralReaction).toBe(true);
+        });
+
+        it('handles code_only turns by asking candidate to walk through code', () => {
+            const first = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'code_only' });
+            expect(first.action).toBe('follow_up');
+            expect(first.promptCue).toContain('Walk me through');
+
+            const second = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'code_only' });
+            expect(second.action).toBe('next_question');
+        });
+
+        it('handles repeated answers with redirection to prevent grounding loops', () => {
+            const first = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'repeated' });
+            expect(first.action).toBe('follow_up');
+            expect(first.needsRedirect).toBe(true);
+            expect(first.neutralReaction).toBe(true);
+
+            const second = decideNextTurnAction({ topicFollowUpCount: 1, answerType: 'repeated' });
+            expect(second.action).toBe('next_question');
+            expect(second.needsRedirect).toBe(true);
+        });
         it('asks follow-up if topic follow-ups are under 2 and answer type is partial', () => {
             const decision0 = decideNextTurnAction({ topicFollowUpCount: 0, answerType: 'partial' });
             expect(decision0.action).toBe('follow_up');

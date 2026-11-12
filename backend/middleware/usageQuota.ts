@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { createLogger } from '../utils/structuredLogger.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { getRedisClient } from '../config/redis.js';
+import { getRedisClient } from '../config/redis.ts';
 
 const logger = createLogger('usage-quota');
 

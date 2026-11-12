@@ -86,6 +86,7 @@ const CompanyPrep = lazyWithRecovery(() => import('./pages/CompanyPrep'));
 const MultiRoundInterview = lazyWithRecovery(() => import('./pages/MultiRoundInterview'));
 const InterviewAnalytics = lazyWithRecovery(() => import('./pages/InterviewAnalytics'));
 const InterviewHistory = lazyWithRecovery(() => import('./pages/InterviewHistory'));
+const PlaybackPage = lazyWithRecovery(() => import('./pages/PlaybackPage'));
 const InterviewSuite = lazyWithRecovery(() => import('./pages/InterviewSuite'));
 const PeerInterviewRoom = lazyWithRecovery(() => import('./pages/PeerInterviewRoom'));
 const DebuggingInterview = lazyWithRecovery(() => import('./pages/DebuggingInterview'));
@@ -95,6 +96,7 @@ const DailyChallengesPage = lazyWithRecovery(() => import('./pages/DailyChalleng
 const AdminDashboard = lazyWithRecovery(() => import('./pages/AdminDashboard'));
 const AdminLibrary = lazyWithRecovery(() => import('./pages/AdminLibrary'));
 const JobUpdates = lazyWithRecovery(() => import('./pages/JobUpdates'));
+const JobTracker = lazyWithRecovery(() => import('./pages/JobTracker'));
 const AIJobCopilot = lazyWithRecovery(() => import('./pages/AIJobCopilot'));
 const HRLogin = lazyWithRecovery(() => import('./pages/HRLogin'));
 const HRDashboard = lazyWithRecovery(() => import('./pages/HRDashboard'));
@@ -343,6 +345,7 @@ function AppContent() {
                 <Route path="/interview-platform" element={<InterviewPlatform />} />
                 <Route path="/interview-analytics" element={<InterviewAnalytics />} />
                 <Route path="/interview-history" element={<InterviewHistory />} />
+                <Route path="/interview/playback/:sessionId" element={<PrivateRoute><PlaybackPage /></PrivateRoute>} />
                 <Route path="/improvement-plan" element={<ImprovementPlanPage />} />
 
                 <Route path="/playground" element={<CodingPlayground sidebarCollapsed={sidebarCollapsed} />} />
@@ -360,6 +363,7 @@ function AppContent() {
                 <Route path="/code-review-interview" element={<CodeReviewInterview />} />
                 <Route path="/daily-challenges" element={<DailyChallengesPage />} />
                 <Route path="/job-updates" element={<JobUpdates />} />
+                <Route path="/job-tracker" element={<PrivateRoute><JobTracker /></PrivateRoute>} />
 
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/payment" element={<PrivateRoute><Payment /></PrivateRoute>} />

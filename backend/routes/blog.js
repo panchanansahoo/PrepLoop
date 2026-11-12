@@ -2,7 +2,7 @@ import express from 'express';
 import { createRequire } from 'module';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import multer from 'multer';
-import { authenticateToken, requireAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin } from '../middleware/auth.ts';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
 
 const require = createRequire(import.meta.url);

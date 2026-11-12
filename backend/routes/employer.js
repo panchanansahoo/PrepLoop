@@ -1,9 +1,9 @@
 import express from 'express';
 import crypto from 'crypto';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken, requireEmployerOrAdmin } from '../middleware/auth.js';
+import { authenticateToken, requireEmployerOrAdmin } from '../middleware/auth.ts';
 import { createLogger } from '../utils/structuredLogger.js';
-import { WebhookDispatcher } from '../services/webhookDispatcher.js';
+import { WebhookDispatcher } from '../services/webhookDispatcher.ts';
 import { validateRequest } from '../middleware/validation.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { createApiKeySchema, createWebhookSchema, createQuestionBankSchema } from '../schemas/requestSchemas.js';

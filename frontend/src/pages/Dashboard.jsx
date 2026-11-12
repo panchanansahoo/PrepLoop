@@ -18,6 +18,7 @@ import WeeklyStats from '../components/WeeklyStats';
 import SkillMatchJobs from '../components/SkillMatchJobs';
 import TodoList from '../components/TodoList';
 import LearningStreakWidget from '../components/LearningStreakWidget';
+import SpacedRepetitionWidget from '../components/SpacedRepetitionWidget';
 // ── Daily Quotes ──
 const DAILY_QUOTES = [
     { text: "First, solve the problem. Then, write the code.", author: "John Johnson" },
@@ -315,6 +316,11 @@ export default function Dashboard() {
                         <Loader2 size={20} className="dash-spinner" />
                     </div>
                 )}
+
+                {/* ── Spaced Repetition Queue (F2-1) ── */}
+                <div style={{ marginBottom: '20px' }}>
+                    <SpacedRepetitionWidget />
+                </div>
 
                 {/* ── Dashboard Widgets ── */}
                 {renderRows()}

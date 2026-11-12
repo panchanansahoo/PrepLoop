@@ -197,8 +197,7 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [devResetLink, setDevResetLink] = useState(null);
-  const [emailSent, setEmailSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(true);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -212,19 +211,7 @@ export default function ForgotPassword() {
         { skipAuthRefresh: true, skipRetry: true }
       );
       const payload = res?.data || res;
-      const link = payload?.resetLink || payload?.devResetLink;
-      const isLocalhost = typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-      if (import.meta.env.DEV && isLocalhost && link) {
-        setDevResetLink(link);
-      } else {
-        setDevResetLink(null);
-      }
-      if (payload?.emailSent !== undefined) {
-        setEmailSent(Boolean(payload.emailSent));
-      } else {
-        setEmailSent(false);
-      }
+      setEmailSent(payload?.emailSent !== false);
       setSuccess(true);
     } catch (err) {
       if (!err.response) {
@@ -241,8 +228,7 @@ export default function ForgotPassword() {
 
   const handleTryAnotherEmail = () => {
     setSuccess(false);
-    setDevResetLink(null);
-    setEmailSent(false);
+    setEmailSent(true);
     setError('');
   };
 
@@ -279,50 +265,15 @@ export default function ForgotPassword() {
                 <CheckCircle size={20} style={{ flexShrink: 0, marginTop: 2 }} />
                 <div>
                   <strong style={{ color: '#bbf7d0', fontSize: '15px' }}>
-                    {emailSent ? 'Check your inbox!' : 'Password reset link ready!'}
+                    Check your inbox!
                   </strong><br />
                   <div style={{ marginTop: '6px' }}>
                     {emailSent
-                      ? `We've sent a password reset link to ${email}. The link expires in 1 hour.`
-                      : `We couldn't send the email automatically. Use the button below to set a new password for ${email}.`}
+                      ? `If an account exists for ${email}, we've sent a password reset link. The link expires in 1 hour.`
+                      : `Email delivery is unavailable in this environment. Check the backend server logs for the reset link for ${email}.`}
                   </div>
                 </div>
               </div>
-
-              {devResetLink && (
-                <div style={{
-                  marginTop: '16px',
-                  marginBottom: '20px',
-                  padding: '16px',
-                  borderRadius: '14px',
-                  background: 'rgba(168, 85, 247, 0.12)',
-                  border: '1px solid rgba(168, 85, 247, 0.3)',
-                  textAlign: 'center',
-                }}>
-                  <p style={{ color: '#f3e8ff', fontSize: '14px', marginBottom: '12px', fontWeight: 600 }}>
-                    Click below to set your new password:
-                  </p>
-                  <a
-                    href={devResetLink}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px',
-                      padding: '12px 24px',
-                      borderRadius: '10px',
-                      background: 'linear-gradient(135deg, #a855f7 0%, #c026d3 100%)',
-                      color: '#ffffff',
-                      textDecoration: 'none',
-                      fontWeight: 700,
-                      fontSize: '15px',
-                      boxShadow: '0 4px 14px rgba(168, 85, 247, 0.4)',
-                    }}
-                  >
-                    Set New Password Now <ArrowRight size={16} />
-                  </a>
-                </div>
-              )}
 
               <button
                 type="button"

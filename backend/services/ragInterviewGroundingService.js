@@ -1,4 +1,4 @@
-import { getFilteredQuestions } from './companyQuestionService.js';
+import { getFilteredQuestions } from './companyQuestionService.ts';
 import { sanitizeHeadline, sanitizeList, sanitizeDocumentForPrompt } from '../utils/promptInjectionGuard.js';
 
 const STAGE_TO_COMPANY_STAGE = {
@@ -200,7 +200,7 @@ export class InterviewGroundingService {
       interviewType === 'full_stack' ||
       interviewType === 'general';
 
-    let results = [];
+    let results;
     if (isMultiCategory) {
       const primaryLimit = Math.max(1, Math.ceil(safeLimit * 0.6));
       const secondaryLimit = Math.max(1, safeLimit - primaryLimit);

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import crypto from 'crypto';
 import { AppError } from '../../middleware/errorHandler.js';
-import { WebhookDispatcher } from '../../services/webhookDispatcher.js';
+import { WebhookDispatcher } from '../../services/webhookDispatcher.ts';
 import { InterviewAnalyticsService } from '../../services/interviewAnalyticsService.js';
 
 describe('API Contract & Schema Conformance', () => {

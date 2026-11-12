@@ -117,7 +117,14 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   wordCount = 30,
   cumulativeScores = [],
   consecutiveLowScores = 0,
+  topicSwitch = false,
+  isTopicSwitch = false,
 } = {}) {
+  // Topic switch resets mood to neutral baseline
+  if (topicSwitch || isTopicSwitch) {
+    return { nextMood: MOODS.NEUTRAL, reason: 'topic_switch_reset' };
+  }
+
   const validMood = Object.values(MOODS).includes(currentMood) ? currentMood : MOODS.NEUTRAL;
   const numScore = Number(score) || 0;
   const words = Number(wordCount) || 0;
@@ -150,6 +157,9 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
 
   // Solid response (72 - 84)
   if (numScore >= 72) {
+    if (validMood === MOODS.IMPATIENT) {
+      return { nextMood: MOODS.CURIOUS, reason: 'recovery_reignites_curiosity' };
+    }
     if (validMood === MOODS.IMPRESSED) {
       return { nextMood: MOODS.IMPRESSED, reason: 'maintaining_strong_impression' };
     }
@@ -159,7 +169,10 @@ export function computeNextMood(currentMood = MOODS.NEUTRAL, {
   // Moderate response (55 - 71)
   if (numScore >= 55) {
     if (validMood === MOODS.IMPATIENT) {
-      return { nextMood: MOODS.NEUTRAL, reason: 'recovery_to_acceptable_depth' };
+      return {
+        nextMood: numScore >= 70 ? MOODS.CURIOUS : MOODS.NEUTRAL,
+        reason: numScore >= 70 ? 'recovery_reignites_curiosity' : 'recovery_to_acceptable_depth',
+      };
     }
     if (validMood === MOODS.IMPRESSED) {
       return { nextMood: MOODS.CURIOUS, reason: 'impressed_interviewer_shifts_to_curious' };

@@ -20,10 +20,69 @@ async function loadOpenTelemetryTraceApi() {
 }
 
 export class InterviewTelemetryService {
-  constructor({ tracer = null, traceApiLoader = loadOpenTelemetryTraceApi } = {}) {
+  constructor({ tracer = null, traceApiLoader = loadOpenTelemetryTraceApi, supabase = null } = {}) {
     this.tracer = tracer;
     this.traceApiLoader = traceApiLoader;
     this._traceApiPromise = null;
+    this.supabase = supabase;
+    this._eventBuffer = new Map();
+  }
+
+  /**
+   * #11 Telemetry: Structured JSON event logger.
+   * When OTEL is unavailable, writes newline-delimited JSON to stderr so
+   * log aggregators (Cloud Logging, Datadog, etc.) can still ingest events.
+   * Buffers events per sessionId so they can be flushed to DB at session end.
+   *
+   * @param {string} event  - Dot-separated event name, e.g. 'interview.turn.scored'
+   * @param {object} data   - Arbitrary key-value payload (must be JSON-serializable)
+   */
+  logEvent(event, data = {}) {
+    const entry = {
+      timestamp: new Date().toISOString(),
+      event: String(event || 'interview.event'),
+      ...data,
+    };
+    // Write to stderr so it doesn't pollute stdout/response streams
+    process.stderr.write(JSON.stringify(entry) + '\n');
+
+    if (data && data.sessionId) {
+      const sid = String(data.sessionId);
+      if (!this._eventBuffer.has(sid)) {
+        this._eventBuffer.set(sid, []);
+      }
+      this._eventBuffer.get(sid).push({
+        session_id: sid,
+        event_name: entry.event,
+        payload: entry,
+        created_at: entry.timestamp,
+      });
+    }
+  }
+
+  /**
+   * Flushes buffered telemetry events for a given session to Supabase.
+   *
+   * @param {string} sessionId
+   * @param {object} [client] - Optional supabase client override
+   * @returns {Promise<Array>} Array of flushed events
+   */
+  async flushEvents(sessionId, client = null) {
+    if (!sessionId) return [];
+    const sid = String(sessionId);
+    const events = this._eventBuffer.get(sid) || [];
+    this._eventBuffer.delete(sid);
+    if (!events.length) return [];
+
+    const dbClient = client || this.supabase;
+    if (dbClient && typeof dbClient.from === 'function') {
+      try {
+        await dbClient.from('interview_telemetry_events').insert(events);
+      } catch (err) {
+        process.stderr.write(`[telemetry-flush-error] ${err?.message}\n`);
+      }
+    }
+    return events;
   }
 
   async _getTracer() {

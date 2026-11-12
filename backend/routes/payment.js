@@ -8,9 +8,10 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import '../config/env.js';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { createLogger } from '../utils/structuredLogger.js';
 import { invalidateCache } from '../middleware/apiCache.js';
+import { DEFAULT_FEATURE_GATES, getUserTier } from '../services/featureGateService.ts';
 
 const router = express.Router();
 const logger = createLogger('payment');
@@ -568,6 +569,23 @@ router.get('/history', authenticateToken, async (req, res) => {
     } catch (err) {
         logger.error('Payment history error', { error: err.message });
         res.status(500).json({ error: 'Failed to fetch payment history' });
+    }
+});
+
+// G3-1: Freemium Feature Gates matrix + current user tier
+router.get('/feature-gates', authenticateToken, async (req, res) => {
+    try {
+        const tier = await getUserTier(req.user.id);
+        const gates = Object.fromEntries(
+            Object.entries(DEFAULT_FEATURE_GATES).map(([key, tiers]) => [
+                key,
+                { current: tiers[tier], allTiers: tiers },
+            ])
+        );
+        return res.json({ tier, gates });
+    } catch (err) {
+        logger.error('Feature gates error', { error: err.message });
+        return res.status(500).json({ error: 'Failed to load feature gates' });
     }
 });
 

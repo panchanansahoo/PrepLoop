@@ -8,7 +8,7 @@ import { supabaseAdmin } from '../db/supabaseClient.js';
 import { isMissingColumnError, isInterviewSchemaCompatibilityError, _knownPayloadIndex, virtualInterviewSessions } from './interviewUtils.js';
 import { interviewTelemetryService } from './interviewTelemetryService.js';
 import { InterviewStateMachineService } from './interviewStateMachine.js';
-import InterviewScoringService from './interviewScoringService.js';
+import InterviewScoringService from './interviewScoringService.ts';
 import { getBenchmarkTier, generatePerQuestionBreakdown, computeTimingAnalysis } from '../utils/interviewBenchmarks.js';
 import { InterviewConversationService } from './interviewConversationService.js';
 import { InterviewPromptService } from './interviewPromptService.js';
@@ -1230,6 +1230,10 @@ export class InterviewSimulatorService {
             session.difficulty ||
             'medium';
           const adaptive = this._deriveAdaptiveDifficulty(currentDifficulty, scores.overall, interviewContext.turns || 1, scoreTrend);
+          // #7 Adaptive Difficulty: wire result back so next grounding call uses updated difficulty
+          if (adaptive?.newDifficulty && adaptive.newDifficulty !== currentDifficulty) {
+            interviewContext.currentDifficulty = adaptive.newDifficulty;
+          }
 
           const followUpRules = InterviewFollowUpRulesService.decideBranch({
             analysis,
@@ -1264,6 +1268,19 @@ export class InterviewSimulatorService {
         responseLatencyMs: Date.now() - startTime,
         groundingUsed: Boolean(groundingContext?.retrievedQuestions?.length),
         analysisScore: analysis.score,
+      });
+
+      // #11 Telemetry: emit structured JSON event for every scored turn
+      interviewTelemetryService.logEvent('interview.turn.scored', {
+        sessionId,
+        turnIndex: interviewContext.turns || 1,
+        score: currentScores?.overall ?? null,
+        difficulty: interviewContext.currentDifficulty,
+        adaptiveNewDifficulty: adaptiveUpdate?.newDifficulty || null,
+        adaptiveReason: adaptiveUpdate?.reason || null,
+        followupAction: adaptiveFollowUp?.nextAction || null,
+        latencyMs: Date.now() - startTime,
+        groundingHit: Boolean(groundingContext?.retrievedQuestions?.length),
       });
 
       // ── Stuck count tracking + progressive hints ───────────────────
@@ -1358,6 +1375,7 @@ export class InterviewSimulatorService {
         adaptive_update: adaptiveUpdate,
         adaptive_followup: adaptiveFollowUp,
         score_trend: adaptiveFollowUp?.scoreTrend || null,
+        adaptive_note: adaptiveUpdate?.reason || null,
         telemetry,
         progressive_hint: progressiveHint || null,
         score_cue: this._buildScoreCue(currentScores, interviewType),
@@ -1548,6 +1566,13 @@ export class InterviewSimulatorService {
         } catch (mirrorErr) {
           logger.warn('Failed to mirror completed interview to mock_interviews', { error: mirrorErr.message });
         }
+      }
+
+      // #11 Telemetry: flush buffered events to database at session completion
+      try {
+        await interviewTelemetryService.flushEvents(sessionId, supabaseAdmin);
+      } catch (flushErr) {
+        logger.warn('Failed to flush telemetry events', { error: flushErr.message });
       }
 
       logger.info('Interview completed', {

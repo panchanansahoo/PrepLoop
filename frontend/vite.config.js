@@ -36,6 +36,21 @@ export default defineConfig({
     sourcemap: process.env.NODE_ENV !== 'production',
     minify: 'esbuild',
     chunkSizeWarningLimit: 1600,
+    modulePreload: {
+      resolveDependencies: (_filename, deps, { hostType }) => {
+        if (hostType === 'html') {
+          return deps.filter((dep) =>
+            !dep.includes('vendor-three') &&
+            !dep.includes('vendor-react-three') &&
+            !dep.includes('vendor-reactflow') &&
+            !dep.includes('vendor-editor') &&
+            !dep.includes('vendor-monaco') &&
+            !dep.includes('vendor-prettier')
+          );
+        }
+        return deps;
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

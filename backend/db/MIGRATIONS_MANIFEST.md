@@ -80,6 +80,10 @@ This manifest documents all 50 SQL migrations in `backend/db/`, organized by dom
 | `migration_core_query_indexes.sql` | High-frequency composite query indexes | `submissions`, `user_progress`, `mock_interviews` |
 | `migration_core_query_indexes_v2.sql` | GIN indexes on problem companies/tags, submissions timestamp ordering, and profile subscription tiers | `problems`, `submissions`, `profiles` |
 | `migration_performance_indexes_v3.sql` | Composite query indexes for session checkpoints, career ops evaluations, quiz attempts, and peer rooms | `interview_session_checkpoints`, `career_ops_evaluations`, `peer_interview_rooms`, `quiz_attempts` |
+| `migration_performance_indexes_v4.sql` | Feed and employer talent pipeline indexes on completed_at, overall_score, submitted_at, and last_attempted_at | `mock_interviews`, `submissions`, `user_progress` |
+| `migration_spaced_repetition_and_job_tracker.sql` | SM-2 spaced repetition reviews and Kanban job application tracker | `user_problem_reviews`, `job_applications` |
+| `migration_phase2_phase3_features.sql` | Interview transcripts, streak push tokens, freemium feature gates, referrals, weekly contests | `interview_transcripts`, `user_push_tokens`, `feature_gates`, `referrals`, `weekly_contests`, `weekly_contest_submissions` |
+| `migration_schema_hardening_a4.sql` | Composite indexes and `set_updated_at()` triggers across major tables | `profiles`, `mock_interviews`, `job_applications`, `user_problem_reviews`, `user_streaks`, `portfolios`, `improvement_plans` |
 | `migration_rls_security_hardening.sql` | Row Level Security policies for peer rooms, challenges, API keys, webhooks | `peer_interview_rooms`, `challenge_submissions`, `api_keys`, `webhook_subscriptions`, `webhook_deliveries` |
 
 ---

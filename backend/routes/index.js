@@ -55,6 +55,8 @@ export async function createApiRouter({ authenticateToken, getInterviewAnalytics
     feedRoutes,
     gamificationRoutes,
     employerRoutes,
+    spacedRepetitionRoutes,
+    jobApplicationsRoutes,
   ] = await Promise.all([
     import('./auth.js').then((m) => m.default),
     import('./dsa.js').then((m) => m.default),
@@ -101,6 +103,8 @@ export async function createApiRouter({ authenticateToken, getInterviewAnalytics
     import('./feed.js').then((m) => m.default),
     import('./gamification.js').then((m) => m.default),
     import('./employer.js').then((m) => m.default),
+    import('./spaced-repetition.js').then((m) => m.default),
+    import('./job-applications.js').then((m) => m.default),
   ]);
 
   const interviewRoutes = interviewModule.default;
@@ -162,6 +166,8 @@ export async function createApiRouter({ authenticateToken, getInterviewAnalytics
   router.use('/feed', feedRoutes);
   router.use('/gamification', gamificationRoutes);
   router.use('/employer', employerRoutes);
+  router.use('/spaced-repetition', spacedRepetitionRoutes);
+  router.use('/job-applications', jobApplicationsRoutes);
 
   return router;
 }

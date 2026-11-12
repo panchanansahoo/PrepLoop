@@ -56,3 +56,30 @@ describe('InterviewGroundingServiceV2 Grounding & RAG Bridge', () => {
   });
 });
 
+// ── #4 RAG Grounding Quality: sanitizeList cap verification ───────────────────
+import { describe as desc4, it as it4, expect as expect4 } from 'vitest';
+import { sanitizeList } from '../../utils/promptInjectionGuard.js';
+
+desc4('interviewGroundingService normalizeResumeContext cap increases (#4)', () => {
+  it4('coreSkills cap raised to 20: accepts up to 20 items', () => {
+    const twentySkills = Array.from({ length: 25 }, (_, i) => `skill${i + 1}`);
+    const result = sanitizeList(twentySkills, 20, 50);
+    expect4(result.length).toBeLessThanOrEqual(20);
+    expect4(result.length).toBe(20); // 25 input → capped at 20
+  });
+
+  it4('projectHighlights cap raised to 12: accepts up to 12 items', () => {
+    const fifteenProjects = Array.from({ length: 15 }, (_, i) => `Project${i + 1} description`);
+    const result = sanitizeList(fifteenProjects, 12, 120);
+    expect4(result.length).toBeLessThanOrEqual(12);
+    expect4(result.length).toBe(12);
+  });
+
+  it4('likelyQuestionAreas cap raised to 12: accepts up to 12 items', () => {
+    const fourteenAreas = Array.from({ length: 14 }, (_, i) => `area${i + 1}`);
+    const result = sanitizeList(fourteenAreas, 12, 100);
+    expect4(result.length).toBeLessThanOrEqual(12);
+    expect4(result.length).toBe(12);
+  });
+});
+

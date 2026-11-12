@@ -1,0 +1,40 @@
+{
+  "name": "@preploop/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.schema.d.ts",
+      "default": "./dist/auth.schema.js"
+    },
+    "./interview": {
+      "types": "./dist/interview.schema.d.ts",
+      "default": "./dist/interview.schema.js"
+    },
+    "./submission": {
+      "types": "./dist/submission.schema.d.ts",
+      "default": "./dist/submission.schema.js"
+    },
+    "./jobs": {
+      "types": "./dist/jobs.schema.d.ts",
+      "default": "./dist/jobs.schema.js"
+    },
+    "./spaced-repetition": {
+      "types": "./dist/spacedRepetition.schema.d.ts",
+      "default": "./dist/spacedRepetition.schema.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

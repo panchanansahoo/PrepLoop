@@ -1,3 +1,5 @@
+import { maybeAddNaturalPrefix } from './interviewPromptService.js';
+
 // ── Type-specific fallback messages ──────────────────────────────────
 const FALLBACK_MESSAGES = {
   dsa: {
@@ -147,11 +149,17 @@ export class InterviewConversationService {
       };
     }
 
+    const baseFollowUp = {
+      ...this.buildFallbackFollowUp(interviewMode, interviewType),
+      ...parsed,
+    };
+
+    if (interviewMode === 'full_realtime' && typeof baseFollowUp.message === 'string') {
+      baseFollowUp.message = maybeAddNaturalPrefix(baseFollowUp.message);
+    }
+
     return {
-      followUp: {
-        ...this.buildFallbackFollowUp(interviewMode, interviewType),
-        ...parsed,
-      },
+      followUp: baseFollowUp,
       parseSuccess: true,
       parseFallbackTriggered: false,
     };

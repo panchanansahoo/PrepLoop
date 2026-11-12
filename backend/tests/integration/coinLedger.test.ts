@@ -5,7 +5,7 @@ import { applyCoinTransaction } from '../../utils/coinTransactions.js';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import coinRouter from '../../routes/coins.js';
 
-vi.mock('../../middleware/auth.js', () => ({
+vi.mock('../../middleware/auth.ts', () => ({
   authenticateToken: (req: any, _res: any, next: any) => {
     req.user = { id: 'usr_test_coin_123', email: 'testcoin@preploop.com', role: 'user' };
     next();

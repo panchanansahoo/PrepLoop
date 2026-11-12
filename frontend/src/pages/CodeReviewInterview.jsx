@@ -4,6 +4,7 @@ import Editor from '@monaco-editor/react';
 import { ArrowLeft, GitPullRequest, MessageSquare, Send, CheckCircle, AlertTriangle, ChevronRight, RotateCcw, Award, TrendingUp, Clock, Target, Star, ThumbsUp, ThumbsDown, Code2, Zap, Eye, Shield, Scale } from 'lucide-react';
 import {CODE_REVIEW_SCENARIOS} from '../data/interviewModesData';
 import InterviewRemediationPanel from '../components/InterviewRemediationPanel';
+import RealProjectCodeReviewPanel from '../components/RealProjectCodeReviewPanel';
 import './CodeReviewInterview.css';
 
 const REVIEW_CATEGORIES = [
@@ -174,6 +175,8 @@ export default function CodeReviewInterview() {
             <h1>Code Review Interview</h1>
             <p>Review pull requests like a senior engineer. Find bugs, suggest improvements, and provide actionable feedback.</p>
           </div>
+
+          <RealProjectCodeReviewPanel />
 
           <div className="crv-scenario-grid">
             {CODE_REVIEW_SCENARIOS.map((sc, idx) => (

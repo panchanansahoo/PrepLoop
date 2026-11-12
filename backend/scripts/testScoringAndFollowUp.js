@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { InterviewScoringService } from '../services/interviewScoringService.js';
-import { InterviewFollowUpRulesService } from '../services/interviewFollowUpRules.js';
+import { InterviewScoringService } from '../services/interviewScoringService.ts';
+import { InterviewFollowUpRulesService } from '../services/interviewFollowUpRules.ts';
 import { InterviewPromptService } from '../services/interviewPromptService.js';
 import aiService from '../services/aiService.js';
 

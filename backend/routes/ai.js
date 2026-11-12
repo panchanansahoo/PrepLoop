@@ -1,9 +1,9 @@
 import express from 'express';
 import { getGroqClient } from '../utils/groqClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
-import { usageQuota } from '../middleware/usageQuota.js';
+import { usageQuota } from '../middleware/usageQuota.ts';
 import { createQuotaMiddleware } from '../services/quotaGuard.js';
 
 const router = express.Router();

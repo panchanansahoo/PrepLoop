@@ -5,10 +5,10 @@ import _fs from 'fs';
 import _path from 'path';
 import _os from 'os';
 import _crypto from 'crypto';
-import { optionalAuth, _authenticateToken } from '../../middleware/auth.js';
+import { optionalAuth, _authenticateToken } from '../../middleware/auth.ts';
 import { _supabaseAdmin } from '../../db/supabaseClient.js';
 import { aiCallWithRetry } from '../../utils/aiClient.js';
-import { _getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from '../../services/companyQuestionService.js';
+import { _getRandomQuestionSet, _getFilteredQuestions, _getQuestionCount } from '../../services/companyQuestionService.ts';
 import { _buildInitialVoiceTelemetry, buildVoiceTelemetrySnapshot } from '../../utils/voiceTelemetry.js';
 import { buildAnswerFeedbackPrompt, normalizeInterviewFeedback } from '../../utils/interviewFeedback.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
@@ -510,7 +510,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
   if (useRealQuestions && questionBankIds && questionBankIds.length > 0) {
     const nextIdx = safeQuestionNumber - 1; // questionNumber is 1-indexed, and we want the next one
     if (nextIdx < questionBankIds.length) {
-      const { getQuestionById } = await import('../../services/companyQuestionService.js');
+      const { getQuestionById } = await import('../../services/companyQuestionService.ts');
       nextRealQuestion = await getQuestionById(questionBankIds[nextIdx]);
       if (nextRealQuestion) {
         realQuestionMeta = { id: nextRealQuestion.id, tags: nextRealQuestion.tags, difficulty: nextRealQuestion.difficulty, frequencyScore: nextRealQuestion.frequencyScore };
@@ -521,7 +521,7 @@ router.post('/follow-up', customInterviewLimiter, optionalAuth, async (req, res)
   // Get reference answer for current question if available
   let referenceAnswer = null;
   if (useRealQuestions && currentQuestionId) {
-    const { getQuestionById: getQ } = await import('../../services/companyQuestionService.js');
+    const { getQuestionById: getQ } = await import('../../services/companyQuestionService.ts');
     const currentQ = await getQ(currentQuestionId);
     if (currentQ?.answer) referenceAnswer = currentQ.answer;
   }

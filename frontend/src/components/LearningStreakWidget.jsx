@@ -1,4 +1,4 @@
-import {Flame, TrendingUp, Trophy} from 'lucide-react';
+import {AlertTriangle, Flame, TrendingUp, Trophy} from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function LearningStreakWidget({ data }) {
@@ -9,6 +9,10 @@ export default function LearningStreakWidget({ data }) {
     const streak = data?.streak ?? 0;
     const bestStreak = data?.bestStreak ?? 0;
     const weekProgress = data?.weekProgress ?? [false, false, false, false, false, false, false]; // M, T, W, T, F, S, S
+    const isStreakAtRisk = Boolean(
+        data?.streakAtRisk ??
+        (streak > 0 && data?.lastActiveAt && (Date.now() - new Date(data.lastActiveAt).getTime()) >= 20 * 60 * 60 * 1000)
+    );
 
     const c = {
         bg: isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(248,250,252,0.9))' : 'linear-gradient(135deg, rgba(18, 18, 24, 0.6), rgba(20, 20, 28, 0.4))',
@@ -47,7 +51,12 @@ export default function LearningStreakWidget({ data }) {
                         border: '1px solid rgba(249, 115, 22, 0.2)',
                         boxShadow: '0 4px 12px rgba(249, 115, 22, 0.1)'
                     }}>
-                        <Flame size={20} color="#f97316" style={{ filter: 'drop-shadow(0 2px 4px rgba(249, 115, 22, 0.3))' }} />
+                        <Flame
+                            size={20}
+                            color="#f97316"
+                            className={streak > 0 ? 'animate-pulse' : ''}
+                            style={{ filter: 'drop-shadow(0 2px 4px rgba(249, 115, 22, 0.3))' }}
+                        />
                     </div>
                     <div>
                         <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: c.title, letterSpacing: '-0.3px' }}>Learning Streak</h3>
@@ -104,6 +113,32 @@ export default function LearningStreakWidget({ data }) {
                     ))}
                 </div>
             </div>
+
+            {/* Streak at risk banner (after 20h inactivity) */}
+            {isStreakAtRisk && (
+                <div
+                    role="alert"
+                    style={{
+                        background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.16), rgba(239, 68, 68, 0.12))',
+                        border: '1px solid rgba(249, 115, 22, 0.45)',
+                        borderRadius: '16px',
+                        padding: '14px 18px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}
+                >
+                    <AlertTriangle size={20} color="#f97316" />
+                    <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: isLight ? '#c2410c' : '#fdba74' }}>
+                            Streak at risk!
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: isLight ? '#9a3412' : '#fed7aa', marginTop: '2px' }}>
+                            Practice 1 question today to keep your {streak}-day streak alive.
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Motivation Banner */}
             <div style={{

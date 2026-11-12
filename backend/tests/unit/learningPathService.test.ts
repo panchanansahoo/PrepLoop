@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { LearningPathService } from '../../services/learningPathService.js';
+import { LearningPathService } from '../../services/learningPathService.ts';
 
 describe('LearningPathService', () => {
   it('returns complete learning path catalog', () => {

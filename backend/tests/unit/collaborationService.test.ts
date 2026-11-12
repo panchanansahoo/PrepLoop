@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import collaborationService from '../../services/collaborationService.js';
+import collaborationService from '../../services/collaborationService.ts';
 
 describe('CollaborationService Peer Interview & WebRTC Signaling', () => {
   beforeEach(() => {

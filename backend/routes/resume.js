@@ -1,7 +1,10 @@
 import express from 'express';
 import Groq from 'groq-sdk';
 import { createRequire } from 'module';
-import { authenticateToken } from '../middleware/auth.js';
+import { ResumeGapAnalysisRequestSchema } from '@preploop/contracts/jobs';
+import { authenticateToken } from '../middleware/auth.ts';
+import { validateBody } from '../middleware/validateZod.js';
+import { analyzeResumeJobGap } from '../services/resumeGapAnalysisService.ts';
 import { supabaseAdmin } from '../db/supabaseClient.js';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import { requireValidFileSignature, uploadEndpointsLimiter } from '../middleware/uploadProtection.js';
@@ -1148,6 +1151,20 @@ router.post('/verify-rewrite', authenticateToken, (req, res) => {
   } catch (error) {
     console.error('Verify rewrite error:', error);
     res.status(500).json({ error: 'Failed to verify rewrite' });
+  }
+});
+
+/**
+ * POST /api/resume/gap-analysis
+ * Compares resume text against a job description and returns match score, missing skills, talking points, and practice questions.
+ */
+router.post('/gap-analysis', authenticateToken, validateBody(ResumeGapAnalysisRequestSchema), async (req, res) => {
+  try {
+    const result = await analyzeResumeJobGap(req.body);
+    return res.json(result);
+  } catch (error) {
+    console.error('Resume gap analysis error:', error);
+    return res.status(500).json({ error: 'Failed to analyze resume fit' });
   }
 });
 

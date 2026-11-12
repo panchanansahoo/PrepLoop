@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken } from '../../middleware/auth.js';
+import { authenticateToken } from '../../middleware/auth.ts';
 import { groq } from './helpers.js';
 
 const router = express.Router();

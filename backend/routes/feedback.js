@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { optionalAuth } from '../middleware/auth.js';
+import { optionalAuth } from '../middleware/auth.ts';
 import { applyCoinTransaction } from '../utils/coinTransactions.js';
 import { sanitizeString } from '../middleware/sanitization.js';
 

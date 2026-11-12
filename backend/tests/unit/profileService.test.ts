@@ -5,7 +5,7 @@ import {
   calculateProfileCompletionPercentage,
   isProfilesAccessBlocked,
   PROFILE_COMPLETION_COIN_REWARD,
-} from '../../services/profileService.js';
+} from '../../services/profileService.ts';
 
 describe('Profile Service & Response Formatter', () => {
   it('correctly calculates profile completion percentage', () => {

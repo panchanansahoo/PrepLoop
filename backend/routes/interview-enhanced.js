@@ -2,7 +2,7 @@ import express from 'express';
 import crypto from 'crypto';
 import Groq from 'groq-sdk';
 import { supabaseAdmin } from '../db/supabaseClient.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken } from '../middleware/auth.ts';
 import { aiCallWithRetry } from '../utils/aiClient.js';
 import _dsaLearningPath from '../data/dsaLearningPath.js';
 import { aptitudeLearningPath as _aptitudeLearningPath } from '../data/aptitudeLearningPath.js';

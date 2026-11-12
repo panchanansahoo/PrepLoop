@@ -12,7 +12,7 @@ if (!isEmailConfigured()) {
   console.warn(
     '[auth] Email delivery is not configured: set a real SMTP_PASS ' +
     '(Resend API key starting with "re_") or RESEND_API_KEY in the environment. ' +
-    'Password reset emails will not be delivered; in development the reset link is returned in the API response and shown on the Forgot Password page.'
+    'Password reset emails will not be delivered; in local development the reset link is logged to the server terminal only.'
   );
 }
 
@@ -136,14 +136,13 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
     const isLocalHost = req.hostname === 'localhost' || req.hostname === '127.0.0.1';
     const isLocalDev = process.env.NODE_ENV === 'development' && (isLocalHost || isLocalIp);
 
+    if (isLocalDev && !emailSent) {
+      console.info(`[auth] [DEV] Password reset link (email_hash=${emailHash}): ${resetLink}`);
+    }
+
+    // Security: Always return a uniform response with no recovery tokens or email-existence hints
     return res.json({
       message: 'If an account with that email exists, a password reset link has been sent.',
-      emailSent: Boolean(emailSent),
-      ...(isLocalDev && {
-        resetLink,
-        devResetLink: resetLink,
-        mailError: mailErrorMessage,
-      }),
     });
   } catch (error) {
     console.error('Forgot password error:', error);

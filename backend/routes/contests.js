@@ -1,5 +1,11 @@
 import express from 'express';
 import { createLogger } from '../utils/structuredLogger.js';
+import { authenticateToken } from '../middleware/auth.ts';
+import {
+  getActiveWeeklyContest,
+  getWeeklyContestLeaderboard,
+  submitWeeklyContest,
+} from '../services/weeklyContestService.ts';
 
 const router = express.Router();
 const logger = createLogger('contests');
@@ -71,6 +77,42 @@ router.get('/contests/codeforces', async (req, res, next) => {
       err: error.message,
     });
     next(error);
+  }
+});
+
+// ─── G3-3: PrepLoop Weekly Contest System with Leaderboard ───────────────────
+router.get('/contests/weekly', async (_req, res) => {
+  const contest = getActiveWeeklyContest();
+  const leaderboard = await getWeeklyContestLeaderboard(contest.id);
+  res.json({ contest, leaderboard });
+});
+
+router.get('/contests/weekly/:contestId/leaderboard', async (req, res) => {
+  const leaderboard = await getWeeklyContestLeaderboard(req.params.contestId);
+  res.json({ contestId: req.params.contestId, leaderboard });
+});
+
+router.post('/contests/weekly/:contestId/submit', authenticateToken, async (req, res) => {
+  try {
+    const { answers, timeTakenSeconds, username } = req.body || {};
+    if (!answers || typeof answers !== 'object') {
+      return res.status(400).json({ error: 'answers object is required' });
+    }
+    const result = await submitWeeklyContest({
+      contestId: req.params.contestId,
+      userId: req.user.id,
+      username: username || req.user.email?.split('@')[0] || 'Candidate',
+      answers,
+      timeTakenSeconds,
+    });
+    return res.status(201).json(result);
+  } catch (error) {
+    logger.error('Weekly contest submission failed', {
+      requestId: req.requestId,
+      userId: req.user?.id,
+      err: error.message,
+    });
+    return res.status(500).json({ error: 'Failed to submit weekly contest' });
   }
 });
 

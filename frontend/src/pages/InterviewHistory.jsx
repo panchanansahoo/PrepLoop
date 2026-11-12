@@ -1344,6 +1344,23 @@ export default function InterviewHistory() {
                                         {session.overall_score}%
                                     </div>
                                 )}
+                                <Link
+                                    to={`/interview/playback/${encodeURIComponent(session.id || session.session_id)}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                        padding: '6px 10px',
+                                        borderRadius: 8,
+                                        background: 'rgba(99,102,241,0.14)',
+                                        border: '1px solid rgba(99,102,241,0.35)',
+                                        color: '#a5b4fc',
+                                        fontSize: 11,
+                                        fontWeight: 600,
+                                        textDecoration: 'none',
+                                        flexShrink: 0,
+                                    }}
+                                >
+                                    Playback
+                                </Link>
                                 <ChevronRight size={16} style={{ color: 'var(--text-muted)' }} />
                             </div>
                         ))}

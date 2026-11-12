@@ -1,10 +1,10 @@
-import {
+import type {
   TypeRubricWeights,
   RollingScoresResult,
   AdaptiveDifficultyResult,
   ScoreHistoryEntry,
   ScoreTrendAnalysis,
-} from '../types/interview.js';
+} from '../types/interview.ts';
 
 export class InterviewScoringService {
   /**
@@ -45,7 +45,7 @@ export class InterviewScoringService {
    * Calculate rolling scores with optional fresher bonus.
    */
   static calculateRollingScores(
-    analysis: { metrics?: Record<string, any> } = {},
+    analysis: { metrics?: Record<string, any>; score?: number } = {},
     transcript: any[] = [],
     interviewType: string = 'dsa',
     experienceLevel: string | null = null
@@ -55,35 +55,76 @@ export class InterviewScoringService {
     const candidateTurns = (Array.isArray(transcript) ? transcript : []).filter((entry) => entry?.role === 'candidate').length;
     const engagementBonus = Math.min(5, Math.max(0, candidateTurns - 1));
 
-    const communication = Math.max(0, Math.min(100, Number(metrics.communication || 65)));
-    const problemSolving = Math.max(0, Math.min(100, Number(metrics.problemDecomposition || 65)));
-    const technicalDepth = Math.max(0, Math.min(100, Number(metrics.efficiency || 65)));
+    const commRaw = metrics.communication;
+    const probRaw = metrics.problemDecomposition;
+    const techRaw = metrics.efficiency;
 
-    // Fresher bonus: +3 base points for attempting structure, even if depth is shallow.
-    const fresherBonus = String(experienceLevel || '').toLowerCase() === 'fresher' ? 3 : 0;
+    const commValid = commRaw !== null && commRaw !== undefined && Number.isFinite(Number(commRaw));
+    const probValid = probRaw !== null && probRaw !== undefined && Number.isFinite(Number(probRaw));
+    const techValid = techRaw !== null && techRaw !== undefined && Number.isFinite(Number(techRaw));
 
-    const overall100 = Math.max(
-      0,
-      Math.min(
-        100,
-        Number(
-          (
-            communication * rubric.communication +
-            problemSolving * rubric.decomposition +
-            technicalDepth * rubric.technical +
-            engagementBonus +
-            fresherBonus
-          ).toFixed(1)
-        )
-      )
-    );
+    const validMetricCount = [commValid, probValid, techValid].filter(Boolean).length;
+    const scoringConfidence = Number((validMetricCount / 3).toFixed(2));
+    const hasAnyMetric = validMetricCount > 0;
+
+    const isUnscored = !hasAnyMetric && !analysis?.score;
+
+    const fallbackScore = Number.isFinite(Number(analysis?.score))
+      ? Math.max(0, Math.min(100, Number(analysis.score)))
+      : 65;
+
+    const communication = Number.isFinite(Number(commRaw))
+      ? Math.max(0, Math.min(100, Number(commRaw)))
+      : fallbackScore;
+    const problemSolving = Number.isFinite(Number(probRaw))
+      ? Math.max(0, Math.min(100, Number(probRaw)))
+      : fallbackScore;
+    const technicalDepth = Number.isFinite(Number(techRaw))
+      ? Math.max(0, Math.min(100, Number(techRaw)))
+      : fallbackScore;
+
+    // Fresher bonus: gate on scoringConfidence >= 0.67 (at least 2 valid metrics)
+    const isFresher = String(experienceLevel || '').toLowerCase() === 'fresher';
+    const fresherBonusApplied = isFresher && validMetricCount >= 2;
+    const fresherBonus = fresherBonusApplied ? 3 : 0;
+
+    const overall100 = isUnscored
+      ? null
+      : Math.max(
+          0,
+          Math.min(
+            100,
+            Number(
+              (
+                communication * rubric.communication +
+                problemSolving * rubric.decomposition +
+                technicalDepth * rubric.technical +
+                engagementBonus +
+                fresherBonus
+              ).toFixed(1)
+            )
+          )
+        );
 
     return {
-      overall: Number((overall100 / 10).toFixed(1)),
-      communication: Number((communication / 10).toFixed(1)),
-      problem_solving: Number((problemSolving / 10).toFixed(1)),
-      technical_depth: Number((technicalDepth / 10).toFixed(1)),
-      performance_level: overall100 >= 90 ? 'Excellent' : overall100 >= 75 ? 'Good' : overall100 >= 60 ? 'Fair' : 'Needs Work',
+      overall: overall100 === null ? null : Number((overall100 / 10).toFixed(1)),
+      communication: isUnscored ? null : Number((communication / 10).toFixed(1)),
+      problem_solving: isUnscored ? null : Number((problemSolving / 10).toFixed(1)),
+      technical_depth: isUnscored ? null : Number((technicalDepth / 10).toFixed(1)),
+      performance_level:
+        overall100 === null
+          ? 'Needs Work'
+          : overall100 >= 90
+          ? 'Excellent'
+          : overall100 >= 75
+          ? 'Good'
+          : overall100 >= 60
+          ? 'Fair'
+          : 'Needs Work',
+      isUnscored,
+      metricsMissing: !hasAnyMetric,
+      scoringConfidence,
+      fresherBonusApplied,
     };
   }
 
@@ -148,10 +189,14 @@ export class InterviewScoringService {
    */
   static buildScoreHistory(
     transcript: any[] = [],
-    interviewContext: { scoreHistory?: any[] } = {},
+    interviewContext: { scoreHistory?: any[]; totalQuestions?: number } = {},
     windowSize: number = 5
   ): ScoreHistoryEntry[] {
     const history: ScoreHistoryEntry[] = [];
+    const totalQ = Number(interviewContext?.totalQuestions || 0);
+    const effectiveWindowSize = (totalQ > 0 && windowSize === 5)
+      ? Math.max(3, Math.round(totalQ * 0.4))
+      : (windowSize || 5);
 
     // Extract scores from transcript entries that have analysis results
     const entries = Array.isArray(transcript) ? transcript : [];
@@ -185,7 +230,7 @@ export class InterviewScoringService {
 
     // Sort by turn ascending and return last N
     history.sort((a, b) => a.turn - b.turn);
-    return history.slice(-windowSize);
+    return history.slice(-effectiveWindowSize);
   }
 
   /**

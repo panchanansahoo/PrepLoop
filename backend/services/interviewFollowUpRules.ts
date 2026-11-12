@@ -1,11 +1,11 @@
-import {
+import type {
   CodeSignals,
   StarAnalysis,
   FollowUpDecision,
   FollowUpBranchInput,
   ScoreTrendAnalysis,
   PerformanceMomentum,
-} from '../types/interview.js';
+} from '../types/interview.ts';
 import { InterviewStateMachineService, areDifficultiesComparable } from './interviewStateMachine.js';
 
 // ── Canonical Qualitative Recovery Phrasing ───────────────────────────
@@ -293,7 +293,7 @@ export class InterviewFollowUpRulesService {
       : dsaDepthSignals;
 
     // ── Code signals ──────────────────────────────────────────────────
-    const codeBlock = candidateCode || (candidateResponse.match(/---\s*code\s*---\n?([\s\S]*)/i)?.[1] || '');
+    const codeBlock = candidateCode || (String(candidateResponse || '').match(/---\s*code\s*---\n?([\s\S]*)/i)?.[1] || '');
     const codeSignals = extractCodeSignals(codeBlock);
 
     if (interviewType !== 'behavioral' && interviewType !== 'hr') {

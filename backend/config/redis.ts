@@ -78,3 +78,10 @@ export const isRedisHealthy = async (): Promise<boolean> => {
   }
 };
 
+export default {
+  initializeRedis,
+  getRedisClient,
+  closeRedis,
+  isRedisHealthy,
+};
+

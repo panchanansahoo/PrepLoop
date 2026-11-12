@@ -1,12 +1,41 @@
+import winston from 'winston';
+
 /**
- * Structured Logger
+ * Structured Logger (Winston-backed)
  * 
  * Provides consistent, JSON-formatted logging with:
- * - Context binding (requestId, userId, operation)
- * - Log levels (debug, info, warn, error)
- * - Structured fields for log aggregation
+ * - Context binding (requestId, userId, operation, route, durationMs, statusCode)
+ * - Environment-based log levels (test: error, development: debug, production: info)
+ * - Structured fields for log aggregation (Loki / Datadog / ELK)
  * - Stack traces for errors
+ * - Automatic PII and secret scrubbing
  */
+
+export function getLogLevelForEnv(env = process.env.NODE_ENV) {
+  if (process.env.LOG_LEVEL) return process.env.LOG_LEVEL;
+  if (env === 'test') return 'error';
+  if (env === 'development') return 'debug';
+  return 'info';
+}
+
+export const winstonLogger = winston.createLogger({
+  level: getLogLevelForEnv(),
+  format: winston.format.printf((info) => {
+    const { level, message, timestamp, ...meta } = info;
+    return JSON.stringify({
+      timestamp: timestamp || new Date().toISOString(),
+      level: String(level).toUpperCase(),
+      message,
+      ...meta,
+    });
+  }),
+  transports: [
+    new winston.transports.Console({
+      stderrLevels: ['error', 'warn'],
+      silent: process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true',
+    }),
+  ],
+});
 
 class StructuredLogger {
   constructor(operationName = 'app') {
@@ -79,7 +108,7 @@ class StructuredLogger {
   }
 
   /**
-   * Log with context
+   * Log with context via Winston
    */
   log(level, message, context = {}) {
     if (process.env.NODE_ENV === 'test' && process.env.TEST_LOGS !== 'true') {
@@ -87,16 +116,17 @@ class StructuredLogger {
     }
 
     const entry = this.formatEntry(level, message, context);
-    
-    if (level === 'error' || level === 'warn') {
-      console.error(JSON.stringify(entry));
-    } else {
-      console.log(JSON.stringify(entry));
-    }
+    const { timestamp, level: _lvl, message: sanitizedMsg, ...meta } = entry;
+    winstonLogger.log({
+      level: level === 'warn' ? 'warn' : level === 'error' ? 'error' : level === 'debug' ? 'debug' : 'info',
+      message: sanitizedMsg,
+      timestamp,
+      ...meta,
+    });
   }
 
   debug(message, context = {}) {
-    if (process.env.DEBUG === 'true') {
+    if (process.env.DEBUG === 'true' || getLogLevelForEnv() === 'debug') {
       this.log('debug', message, context);
     }
   }

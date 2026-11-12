@@ -4,6 +4,7 @@ import feedbackRoutes from './feedback.js';
 import analyticsRoutes, { getInterviewAnalytics, getInterviewRecommendations } from './analytics.js';
 import transcribeRoutes from './transcribe.js';
 import customSetsRoutes from './customSets.js';
+import playbackRoutes from './playback.js';
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ router.use(feedbackRoutes);
 router.use(analyticsRoutes);
 router.use(transcribeRoutes);
 router.use(customSetsRoutes);
+router.use(playbackRoutes);
 
 export { getInterviewAnalytics, getInterviewRecommendations };
 export default router;

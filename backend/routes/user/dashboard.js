@@ -1,5 +1,5 @@
 import express from 'express';
-import { authenticateToken, optionalAuth } from '../../middleware/auth.js';
+import { authenticateToken, optionalAuth } from '../../middleware/auth.ts';
 import {
   getComprehensiveUserStats,
   fetchUserHistory,

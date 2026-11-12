@@ -1,5 +1,5 @@
 import express from 'express';
-import { optionalAuth, authenticateToken } from '../../middleware/auth.js';
+import { optionalAuth, authenticateToken } from '../../middleware/auth.ts';
 import { supabaseAdmin } from '../../db/supabaseClient.js';
 import { evaluateFresherAnswer } from '../../services/interviewAnswerEvaluator.js';
 import { callInterviewReport, callTurnScoring, ROUTER_MODELS } from '../../services/llmRouter.js';
@@ -573,7 +573,46 @@ async function maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId }) {
   };
 }
 
+// In-memory cache for evaluated interview reports (15-min TTL, max 200 sessions)
+const reportCache = new Map();
+const REPORT_CACHE_TTL_MS = 15 * 60 * 1000;
+
+function getCachedReport(key) {
+  if (!key) return null;
+  const entry = reportCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > REPORT_CACHE_TTL_MS) {
+    reportCache.delete(key);
+    return null;
+  }
+  return entry.report;
+}
+
+function setCachedReport(key, report) {
+  if (!key || !report) return;
+  if (reportCache.size > 200) {
+    const oldestKey = reportCache.keys().next().value;
+    reportCache.delete(oldestKey);
+  }
+  reportCache.set(key, { report, timestamp: Date.now() });
+}
+
+function computeReportCacheKey({ sessionId, conversation }) {
+  if (sessionId) return `session:${sessionId}`;
+  if (Array.isArray(conversation) && conversation.length > 0) {
+    const textSignature = conversation.map(c => `${c.role}:${c.content?.length || 0}`).join('|');
+    return `hash:${textSignature}`;
+  }
+  return null;
+}
+
 async function generateInterviewReport({ company, role, stage, conversation, sessionScores = [], speechHistory = [], sessionId = null }) {
+  const cacheKey = computeReportCacheKey({ sessionId, conversation });
+  const cachedReport = getCachedReport(cacheKey);
+  if (cachedReport) {
+    return cachedReport;
+  }
+
   const qaPairs = extractInterviewQaPairs(conversation);
   const cascadeInfo = await maybeRescoreEarlierTurnsWithFinalScorer({ qaPairs, sessionId });
   const fallbackReport = buildDeterministicInterviewReport({ company, role, stage, qaPairs, sessionScores, speechHistory });
@@ -581,10 +620,12 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
   fallbackReport.scorerTransitionTurn = cascadeInfo.transitionTurn || null;
 
   if (qaPairs.length === 0) {
-    return normalizeInterviewReport(
+    const report = normalizeInterviewReport(
       { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
       { company, role, stage, qaPairs, sessionScores, speechHistory }
     );
+    setCachedReport(cacheKey, report);
+    return report;
   }
 
   try {
@@ -599,14 +640,15 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
     });
 
     if (reportData?.isDeferred) {
-      return normalizeInterviewReport(
+      const report = normalizeInterviewReport(
         { ...fallbackReport, aiGenerated: false, analysisMode: 'deferred', jobId: reportData.jobId },
         { company, role, stage, qaPairs, sessionScores, speechHistory }
       );
+      return report;
     }
 
     if (reportData) {
-      return normalizeInterviewReport(
+      const report = normalizeInterviewReport(
         {
           ...fallbackReport,
           ...reportData,
@@ -617,22 +659,26 @@ async function generateInterviewReport({ company, role, stage, conversation, ses
         },
         { company, role, stage, qaPairs, sessionScores, speechHistory }
       );
+      setCachedReport(cacheKey, report);
+      return report;
     }
   } catch (error) {
     console.error('Interview report generation error:', error.message);
   }
 
-  return normalizeInterviewReport(
+  const report = normalizeInterviewReport(
     { ...fallbackReport, aiGenerated: false, analysisMode: 'heuristic' },
     { company, role, stage, qaPairs, sessionScores, speechHistory }
   );
+  setCachedReport(cacheKey, report);
+  return report;
 }
 
 router.post('/evaluate', optionalAuth, async (req, res) => {
-  const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
+  const { company, role, stage, conversation, sessionScores, speechHistory, sessionId } = req.body;
 
   try {
-    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory });
+    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory, sessionId });
     res.json(report);
   } catch (error) {
     console.error('Evaluation error:', error.message);
@@ -643,10 +689,10 @@ router.post('/evaluate', optionalAuth, async (req, res) => {
 
 // ─── Detailed per-question report ───
 router.post('/detailed-report', optionalAuth, async (req, res) => {
-  const { company, role, stage, conversation, sessionScores, speechHistory } = req.body;
+  const { company, role, stage, conversation, sessionScores, speechHistory, sessionId } = req.body;
 
   try {
-    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory });
+    const report = await generateInterviewReport({ company, role, stage, conversation, sessionScores, speechHistory, sessionId });
     res.json(report);
   } catch (error) {
     console.error('Detailed report error:', error.message);
@@ -764,4 +810,5 @@ router.get('/analytics', authenticateToken, async (req, res) => {
 
 
 
+export { reportCache, getCachedReport, setCachedReport, computeReportCacheKey };
 export default router;

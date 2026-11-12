@@ -28,7 +28,7 @@ import {
 
 // 4. Error Handler & Auth Info Disclosure
 import { errorHandler, AppError, ErrorCodes } from '../../middleware/errorHandler.js';
-import { authenticateToken } from '../../middleware/auth.js';
+import { authenticateToken } from '../../middleware/auth.ts';
 import {
   checkLoginLockout,
   recordFailedLogin,
@@ -252,17 +252,17 @@ describe('Milestone 2: Backend Security, Middleware & Core Utilities Suite', () 
   // 3. Persistent ExecuteCode Binary Cache with TTL
   // =========================================================================
   describe('3. ExecuteCode Persistent Binary Cache with TTL', () => {
-    it('validates input and rejects non-string or oversized code submissions in executeCode', () => {
-      const nonStringRes = executeCode(null, 'javascript');
+    it('validates input and rejects non-string or oversized code submissions in executeCode', async () => {
+      const nonStringRes = await executeCode(null, 'javascript');
       expect(nonStringRes.success).toBe(false);
       expect(nonStringRes.error).toContain('must be a string');
 
-      const numRes = executeCode(12345, 'javascript');
+      const numRes = await executeCode(12345, 'javascript');
       expect(numRes.success).toBe(false);
       expect(numRes.error).toContain('must be a string');
 
       const hugeCode = 'x'.repeat(100001);
-      const hugeRes = executeCode(hugeCode, 'python');
+      const hugeRes = await executeCode(hugeCode, 'python');
       expect(hugeRes.success).toBe(false);
       expect(hugeRes.error).toContain('too large');
     });
@@ -298,7 +298,7 @@ describe('Milestone 2: Backend Security, Middleware & Core Utilities Suite', () 
       expect(fs.existsSync(dummyBinaryPath)).toBe(true);
 
       // Cleanup mock file
-      try { fs.unlinkSync(dummyBinaryPath); } catch {}
+      try { fs.unlinkSync(dummyBinaryPath); } catch { }
       COMPILED_BINARY_CACHE.delete(key);
     });
 

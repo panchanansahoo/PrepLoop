@@ -1,10 +1,22 @@
 import { createLogger } from '../utils/structuredLogger.js';
+import cacheManager from '../utils/cacheManager.js';
 
 const logger = createLogger('security-enhanced');
 
-// Track suspicious activity
+const MAX_TRACKED_IPS = 10000;
+const IP_BLOCK_TTL_SEC = 3600;
+
+// Track suspicious activity (L1 bounded map + L2 distributed Redis blocklist)
 const suspiciousIPs = new Map();
 const requestPatterns = new Map();
+
+function enforceMapCapacity(map, maxEntries = MAX_TRACKED_IPS) {
+  while (map.size >= maxEntries) {
+    const oldestKey = map.keys().next().value;
+    if (oldestKey === undefined) break;
+    map.delete(oldestKey);
+  }
+}
 
 const THRESHOLDS = {
   MAX_REQUESTS_PER_MINUTE: 100,
@@ -21,6 +33,7 @@ const THRESHOLDS = {
 // IP reputation tracking
 const trackIPActivity = (ip, action, _severity = 'low') => {
   if (!suspiciousIPs.has(ip)) {
+    enforceMapCapacity(suspiciousIPs);
     suspiciousIPs.set(ip, {
       requests: 0,
       failedAuth: 0,
@@ -45,6 +58,9 @@ const trackIPActivity = (ip, action, _severity = 'low') => {
   ) {
     record.blocked = true;
     logger.warn('IP auto-blocked', { ip, record });
+    if (ip) {
+      cacheManager.set(`security:blocked:${ip}`, { blocked: true, at: record.lastSeen }, IP_BLOCK_TTL_SEC).catch(() => {});
+    }
   }
 
   return record;
@@ -119,6 +135,7 @@ const checkRateLimit = (ip) => {
   const windowStart = now - 60000; // 1 minute window
 
   if (!requestPatterns.has(ip)) {
+    enforceMapCapacity(requestPatterns);
     requestPatterns.set(ip, []);
   }
 
@@ -210,7 +227,7 @@ export const enhancedSecurity = (options = {}) => {
 };
 
 // Cleanup old records every hour
-setInterval(() => {
+const securityCleanupInterval = setInterval(() => {
   const now = Date.now();
   const oneHourAgo = now - 3600000;
   let cleaned = 0;
@@ -232,6 +249,7 @@ setInterval(() => {
     logger.info('Security records cleaned', { cleaned, remaining: suspiciousIPs.size });
   }
 }, 3600000);
+securityCleanupInterval.unref();
 
 export const getSecurityStats = () => {
   const blocked = Array.from(suspiciousIPs.entries())
@@ -248,6 +266,9 @@ export const getSecurityStats = () => {
 
 export const unblockIP = (ip) => {
   const record = suspiciousIPs.get(ip);
+  if (ip) {
+    cacheManager.delete(`security:blocked:${ip}`).catch(() => {});
+  }
   if (record) {
     record.blocked = false;
     record.failedAuth = 0;

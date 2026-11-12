@@ -18,6 +18,7 @@ import {
 import { useCoins } from '../context/CoinContext';
 
 import { authFetch } from '../utils/authFetch';
+import ReferralPanel from '../components/ReferralPanel';
 
 import { API_URL } from '../config/api.js';
 const FILTERS = [
@@ -190,6 +191,10 @@ export default function CoinWallet() {
               </Link>
             </div>
           </div>
+        </div>
+
+        <div className="my-5">
+          <ReferralPanel />
         </div>
 
         <section className="coin-wallet-stats">
