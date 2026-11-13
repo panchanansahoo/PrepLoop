@@ -92,6 +92,8 @@ jobs:
           SUPABASE_ANON_KEY: test-anon-key
           SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
           JWT_SECRET: test-jwt-secret-key-with-32-characters
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          CI: "true"
 
       - name: Backend startup & health smoke test
         timeout-minutes: 5
@@ -109,6 +111,9 @@ jobs:
       - name: Frontend unit & component tests
         timeout-minutes: 10
         run: npm run test:ci --prefix frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          CI: "true"
 
       - name: Mobile unit tests
         run: npm test --prefix mobile

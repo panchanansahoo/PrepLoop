@@ -116,14 +116,19 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Install root dependencies
+        run: npm ci
+
       - name: Install and build contracts
         run: |
-          cd packages/contracts && npm ci && npm run build
+          npm ci --prefix packages/contracts
+          npm run build --prefix packages/contracts
 
-      - name: Install all dependencies
-        run: |
-          cd backend && npm ci --ignore-scripts
-          cd ../frontend && npm ci
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
 
       - name: Verify backend syntax
         run: |
@@ -131,9 +136,10 @@ jobs:
           node --check index.js
 
       - name: Run frontend tests
-        run: |
-          cd frontend
-          npm test -- --run
+        run: npm run test:ci --prefix frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+          CI: "true"
 
   # --- Job 5: Docker Security (main branch only) ---
   docker-security:

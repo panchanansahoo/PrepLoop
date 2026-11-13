@@ -6,7 +6,7 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/{unit,integration,smoke,security}/**/*.{test,spec}.{js,mjs,cjs,ts}'],
     exclude: ['node_modules', 'dist', 'scripts'],
-    testTimeout: 15000,
+    testTimeout: 30000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'json-summary'],

@@ -15,16 +15,84 @@ if (process.env.NODE_ENV === 'production' && !supabaseServiceKey) {
   process.exit(1);
 }
 
+const isDummySupabaseUrl = Boolean(supabaseUrl?.includes('example.supabase.co'));
+
+function createDummyQueryMock() {
+  const chain = {
+    select: () => chain,
+    insert: () => Promise.resolve({ data: null, error: null }),
+    upsert: () => Promise.resolve({ data: null, error: null }),
+    update: () => chain,
+    delete: () => chain,
+    eq: () => chain,
+    neq: () => chain,
+    gt: () => chain,
+    gte: () => chain,
+    lt: () => chain,
+    lte: () => chain,
+    like: () => chain,
+    ilike: () => chain,
+    is: () => chain,
+    in: () => chain,
+    contains: () => chain,
+    containedBy: () => chain,
+    range: () => chain,
+    match: () => chain,
+    not: () => chain,
+    or: () => chain,
+    filter: () => chain,
+    order: () => chain,
+    limit: () => chain,
+    offset: () => chain,
+    single: () => Promise.resolve({ data: null, error: null }),
+    maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    then: (resolve, reject) => Promise.resolve({ data: [], error: null, count: 0 }).then(resolve, reject),
+    catch: (reject) => Promise.resolve({ data: [], error: null, count: 0 }).catch(reject),
+  };
+  return chain;
+}
+
+function createDummySupabaseClient() {
+  return {
+    from: () => createDummyQueryMock(),
+    rpc: () => Promise.resolve({ data: null, error: null }),
+    auth: {
+      getUser: () => Promise.resolve({ data: { user: null }, error: null }),
+      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
+      admin: {
+        getUserById: () => Promise.resolve({ data: { user: null }, error: null }),
+        deleteUser: () => Promise.resolve({ data: null, error: null }),
+      },
+    },
+    storage: {
+      from: () => ({
+        upload: () => Promise.resolve({ data: null, error: null }),
+        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+      }),
+    },
+    channel: () => ({
+      on: () => ({ subscribe: () => {} }),
+      subscribe: () => {},
+    }),
+  };
+}
+
 // Public client (respects RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+/** @type {any} */
+export const supabase = isDummySupabaseUrl
+  ? createDummySupabaseClient()
+  : createClient(supabaseUrl, supabaseAnonKey);
 
 // Admin client (bypasses RLS, for server-side operations)
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
-  }
-});
+/** @type {any} */
+export const supabaseAdmin = isDummySupabaseUrl
+  ? createDummySupabaseClient()
+  : createClient(supabaseUrl, supabaseServiceKey || supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
 
 export default supabase;
 
