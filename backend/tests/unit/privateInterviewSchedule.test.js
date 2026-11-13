@@ -90,6 +90,14 @@ describe('Private Interview Session & Schedule Time Conformance', () => {
     expect(status.canStartNow).toBe(true);
   });
 
+  it('correctly evaluates interview link expiration', () => {
+    const past = new Date(Date.now() - 60000).toISOString();
+    const future = new Date(Date.now() + 600000).toISOString();
+    expect(isInterviewLinkExpired(past)).toBe(true);
+    expect(isInterviewLinkExpired(future)).toBe(false);
+    expect(isInterviewLinkExpired(null)).toBe(false);
+  });
+
   it('preserves existing passcode and email allowlist security controls alongside schedule', () => {
     const limits = normalizeInterviewLimits({
       passcode: 'SecretPass123',

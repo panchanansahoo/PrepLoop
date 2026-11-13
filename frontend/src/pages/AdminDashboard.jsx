@@ -3122,7 +3122,6 @@ export default function AdminDashboard() {
                   <p style={{ fontSize: '11px', margin: '4px 0 0' }}>Candidates can join directly using the general candidate token <code>{activeSetForInvites.share_code}</code>.</p>
                 </div>
               )}
-            </div>
 
               {/* Email dispatch results summary banner */}
               {dispatchResults && (
