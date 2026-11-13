@@ -1,4 +1,35 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../db/supabaseClient.js', () => {
+  const dbError = new Error('Database offline in unit test');
+  const createQueryMock = () => {
+    const chain: any = {
+      select: () => chain,
+      insert: () => Promise.resolve({ data: null, error: dbError }),
+      upsert: () => Promise.resolve({ data: null, error: dbError }),
+      update: () => chain,
+      delete: () => chain,
+      eq: () => chain,
+      order: () => chain,
+      limit: () => Promise.resolve({ data: null, error: dbError }),
+      maybeSingle: () => Promise.resolve({ data: null, error: dbError }),
+      single: () => Promise.resolve({ data: null, error: dbError }),
+    };
+    return chain;
+  };
+
+  const mock = {
+    from: () => createQueryMock(),
+  };
+
+  return {
+    supabase: mock,
+    supabaseAdmin: mock,
+    _supabaseAdmin: mock,
+    default: mock,
+  };
+});
+
 import { createLogger, getLogLevelForEnv } from '../../utils/structuredLogger.js';
 import { getInterviewPlayback, saveTranscriptTurns } from '../../services/transcriptPlaybackService.ts';
 import { isStreakAtRisk, runStreakReminderJob } from '../../../workers/streakReminder.js';
