@@ -10,7 +10,6 @@
     "scripts": {
         "start": "node index.js",
         "build": "npm --prefix ../packages/contracts install && npm --prefix ../packages/contracts run build",
-        "postinstall": "npm --prefix ../packages/contracts install && npm --prefix ../packages/contracts run build",
         "dev": "node --watch-path=./routes --watch-path=./services --watch-path=./utils --watch-path=./middleware --watch-path=./config --watch-path=./index.js index.js",
         "setup": "node setup.js",
         "auth:reset-password": "node scripts/reset_password.js",

@@ -20,7 +20,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 
 # Install dependencies
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy backend source
 COPY backend/ ./
